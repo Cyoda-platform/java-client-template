@@ -1,40 +1,8 @@
-Certainly! The goal is to move all asynchronous and entity pre-processing logic out of the controller and into the workflow function `processPet` which runs asynchronously *before* persisting the entity. This will keep controllers slim and focused on request/response handling, while the workflow function handles entity state modification, enrichment, or other async tasks.
-
----
-
-### What to move to the workflow function `processPet`?
-
-- **Default values or state normalization:** e.g. setting default status if missing
-- **Any async enrichment or validation calls** (e.g. external API calls to enrich entity data)
-- **Any fetching or adding of additional entities of different models** (allowed)
-- **Any complex transformations or business logic on the entity before persistence**
-
----
-
-### What must stay outside?
-
-- The controller's responsibility to parse HTTP requests, validate inputs, call `entityService`, and return responses.
-- Calls to add/update/delete the *same* entityModel inside workflow (forbidden to avoid infinite recursion).
-- Controller still calls `entityService.addItem` or `updateItem` with the workflow function as a parameter.
-
----
-
-### Implementation approach
-
-- Change the entity parameter in workflow function to `ObjectNode` (JSON tree).
-- Move all logic that modifies the entity state into `processPet`, modifying the `ObjectNode` directly.
-- Move any async tasks (e.g. external API calls) inside `processPet`, using `CompletableFuture` to chain them.
-- Controller will just map incoming request to entity (POJO or `ObjectNode`), call `addItem` with workflow, and return response.
-
----
-
-### Updated complete Java code with all async/logic moved into `processPet`
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import jakarta.validation.Valid;
@@ -54,7 +22,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
 
@@ -141,75 +108,74 @@ public class CyodaEntityControllerPrototype {
         private List<Pet> pets;
     }
 
-    /**
-     * Workflow function that processes the Pet entity asynchronously before persistence.
-     * This function takes ObjectNode (entity JSON), modifies it directly, and returns a CompletableFuture.
-     * Async tasks (e.g. external API calls, enrichment) can be done here.
-     *
-     * @param entity ObjectNode representing the pet entity
-     * @return CompletableFuture<ObjectNode> with the processed entity
-     */
+    // Workflow function that processes the pet entity asynchronously before persistence.
+    // It modifies the entity directly and returns a CompletableFuture of the entity.
     private CompletableFuture<ObjectNode> processPet(ObjectNode entity) {
         logger.info("Workflow processPet started for entity: {}", entity);
 
         // Set default status if missing or empty
-        if (!entity.hasNonNull("status") || entity.get("status").asText().isEmpty()) {
+        if (!entity.hasNonNull("status") || entity.get("status").asText().trim().isEmpty()) {
             entity.put("status", "available");
             logger.info("Set default status=available");
         }
 
+        // Defensive: Ensure tags field is an array if present, else create empty array for consistent processing
+        if (!entity.has("tags") || !entity.get("tags").isArray()) {
+            entity.putArray("tags");
+        }
+
         // Example async enrichment: fetch external info from pet store API by pet name (if present)
         if (entity.hasNonNull("name")) {
-            String petName = entity.get("name").asText();
+            String petName = entity.get("name").asText().trim();
 
-            return CompletableFuture.supplyAsync(() -> {
-                try {
-                    String url = PETSTORE_API_BASE + "/pet/findByStatus?status=available";
-                    String response = restTemplate.getForObject(url, String.class);
-                    if (response != null) {
-                        JsonNode petsArray = objectMapper.readTree(response);
-                        if (petsArray.isArray()) {
-                            for (JsonNode petNode : petsArray) {
-                                if (petNode.has("name") && petNode.get("name").asText().equalsIgnoreCase(petName)) {
-                                    // Example: add tag "found-in-petstore" if pet with same name found externally
-                                    // Ensure tags array exists
-                                    if (!entity.has("tags") || !entity.get("tags").isArray()) {
-                                        entity.putArray("tags");
-                                    }
-                                    boolean tagExists = false;
-                                    for (JsonNode tagNode : entity.withArray("tags")) {
-                                        if ("found-in-petstore".equals(tagNode.asText())) {
-                                            tagExists = true;
-                                            break;
+            if (!petName.isEmpty()) {
+                // Run async enrichment in supplyAsync to avoid blocking
+                return CompletableFuture.supplyAsync(() -> {
+                    try {
+                        String url = PETSTORE_API_BASE + "/pet/findByStatus?status=available";
+                        String response = restTemplate.getForObject(url, String.class);
+                        if (response != null) {
+                            JsonNode petsArray = objectMapper.readTree(response);
+                            if (petsArray.isArray()) {
+                                for (JsonNode petNode : petsArray) {
+                                    if (petNode.has("name") && petName.equalsIgnoreCase(petNode.get("name").asText())) {
+                                        // Add tag "found-in-petstore" if not already present
+                                        ArrayNode tagsArray = (ArrayNode) entity.get("tags");
+                                        boolean tagExists = false;
+                                        for (JsonNode tagNode : tagsArray) {
+                                            if ("found-in-petstore".equals(tagNode.asText())) {
+                                                tagExists = true;
+                                                break;
+                                            }
                                         }
+                                        if (!tagExists) {
+                                            tagsArray.add("found-in-petstore");
+                                            logger.info("Added tag 'found-in-petstore' to entity");
+                                        }
+                                        break; // Found, stop search
                                     }
-                                    if (!tagExists) {
-                                        entity.withArray("tags").add("found-in-petstore");
-                                        logger.info("Added tag 'found-in-petstore' to entity");
-                                    }
-                                    break;
                                 }
                             }
                         }
+                    } catch (Exception e) {
+                        logger.warn("Failed to enrich pet entity asynchronously", e);
+                        // Do not block persistence on failure
                     }
-                } catch (Exception e) {
-                    logger.warn("Failed to enrich pet entity asynchronously", e);
-                    // ignore enrichment failure, do not block persistence
-                }
-                return entity;
-            });
+                    return entity;
+                });
+            }
         }
 
-        // No async enrichment needed, return completed future immediately
+        // No async enrichment needed or no name provided; return completed future immediately
         return CompletableFuture.completedFuture(entity);
     }
 
     @PostMapping(value = "/search", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public SearchResponse searchPets(@RequestBody @Valid SearchRequest request) throws Exception {
+    public SearchResponse searchPets(@RequestBody @Valid SearchRequest request) {
         logger.info("Received search request: type={}, status={}, tags={}",
                 request.getType(), request.getStatus(), request.getTags());
 
-        String statusQuery = request.getStatus() != null ? request.getStatus() : "available";
+        String statusQuery = (request.getStatus() != null && !request.getStatus().trim().isEmpty()) ? request.getStatus().trim() : "available";
         String url = PETSTORE_API_BASE + "/pet/findByStatus?status=" + statusQuery;
         try {
             String rawResponse = restTemplate.getForObject(url, String.class);
@@ -217,7 +183,13 @@ public class CyodaEntityControllerPrototype {
             List<Pet> filteredPets = new ArrayList<>();
             if (root.isArray()) {
                 for (JsonNode petNode : root) {
-                    UUID technicalId = petNode.has("id") ? UUID.nameUUIDFromBytes(petNode.get("id").asText().getBytes()) : null;
+                    UUID technicalId = null;
+                    if (petNode.has("id")) {
+                        try {
+                            // Create UUID deterministically from id string bytes
+                            technicalId = UUID.nameUUIDFromBytes(petNode.get("id").asText().getBytes());
+                        } catch (Exception ignored) {}
+                    }
                     String name = petNode.has("name") ? petNode.get("name").asText() : null;
                     String type = null;
                     if (petNode.has("category") && petNode.get("category").has("name")) {
@@ -231,7 +203,8 @@ public class CyodaEntityControllerPrototype {
                         }
                     }
                     Pet pet = new Pet(technicalId, name, type, status, tags);
-                    boolean matchesType = (request.getType() == null || request.getType().equalsIgnoreCase(type));
+
+                    boolean matchesType = (request.getType() == null || request.getType().trim().isEmpty() || request.getType().equalsIgnoreCase(type));
                     boolean matchesTags = true;
                     if (request.getTags() != null && !request.getTags().isEmpty()) {
                         matchesTags = request.getTags().stream().allMatch(tags::contains);
@@ -250,13 +223,13 @@ public class CyodaEntityControllerPrototype {
     }
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public AddPetResponse addPet(@RequestBody @Valid AddPetRequest request) throws Exception {
+    public AddPetResponse addPet(@RequestBody @Valid AddPetRequest request) {
         logger.info("Adding new pet: name={}, type={}, status={}", request.getName(), request.getType(), request.getStatus());
 
-        // Convert AddPetRequest to ObjectNode for workflow
+        // Convert AddPetRequest to ObjectNode for workflow processing
         ObjectNode petNode = objectMapper.valueToTree(request);
 
-        // Call addItem with workflow processPet to handle async processing & entity mutation
+        // Call addItem with workflow processPet to handle async processing and entity mutation
         CompletableFuture<UUID> idFuture = entityService.addItem(ENTITY_NAME, ENTITY_VERSION, petNode, this::processPet);
 
         UUID technicalId = idFuture.join();
@@ -265,7 +238,7 @@ public class CyodaEntityControllerPrototype {
     }
 
     @GetMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public Pet getPet(@PathVariable("id") @NotNull UUID id) throws Exception {
+    public Pet getPet(@PathVariable("id") @NotNull UUID id) {
         logger.info("Fetching pet details for technicalId={}", id);
         CompletableFuture<ObjectNode> itemFuture = entityService.getItem(ENTITY_NAME, ENTITY_VERSION, id);
         ObjectNode itemNode = itemFuture.join();
@@ -273,13 +246,18 @@ public class CyodaEntityControllerPrototype {
             logger.error("Pet technicalId={} not found", id);
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pet not found");
         }
-        Pet pet = objectMapper.treeToValue(itemNode, Pet.class);
-        pet.setTechnicalId(id); // ensure technicalId is set
-        return pet;
+        try {
+            Pet pet = objectMapper.treeToValue(itemNode, Pet.class);
+            pet.setTechnicalId(id); // ensure technicalId is set
+            return pet;
+        } catch (Exception e) {
+            logger.error("Failed to deserialize pet entity for id={}", id, e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to parse pet entity");
+        }
     }
 
     @PostMapping(value = "/{id}/update", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public MessageResponse updatePet(@PathVariable("id") @NotNull UUID id, @RequestBody @Valid UpdatePetRequest request) throws Exception {
+    public MessageResponse updatePet(@PathVariable("id") @NotNull UUID id, @RequestBody @Valid UpdatePetRequest request) {
         logger.info("Updating pet technicalId={}", id);
 
         CompletableFuture<ObjectNode> itemFuture = entityService.getItem(ENTITY_NAME, ENTITY_VERSION, id);
@@ -290,12 +268,22 @@ public class CyodaEntityControllerPrototype {
         }
 
         // Merge update request fields into existing entity ObjectNode
-        if (request.getName() != null) itemNode.put("name", request.getName());
-        if (request.getType() != null) itemNode.put("type", request.getType());
-        if (request.getStatus() != null) itemNode.put("status", request.getStatus());
+        if (request.getName() != null) {
+            itemNode.put("name", request.getName());
+        }
+        if (request.getType() != null) {
+            itemNode.put("type", request.getType());
+        }
+        if (request.getStatus() != null) {
+            itemNode.put("status", request.getStatus());
+        }
         if (request.getTags() != null) {
-            itemNode.putArray("tags").removeAll();
-            request.getTags().forEach(tag -> itemNode.withArray("tags").add(tag));
+            ArrayNode tagsArray = itemNode.putArray("tags");
+            for (String tag : request.getTags()) {
+                if (tag != null && !tag.trim().isEmpty()) {
+                    tagsArray.add(tag.trim());
+                }
+            }
         }
 
         // Call updateItem with workflow function to process entity before persistence
@@ -307,7 +295,7 @@ public class CyodaEntityControllerPrototype {
     }
 
     @PostMapping(value = "/{id}/delete", produces = MediaType.APPLICATION_JSON_VALUE)
-    public MessageResponse deletePet(@PathVariable("id") @NotNull UUID id) throws Exception {
+    public MessageResponse deletePet(@PathVariable("id") @NotNull UUID id) {
         logger.info("Deleting pet technicalId={}", id);
         CompletableFuture<UUID> deletedIdFuture = entityService.deleteItem(ENTITY_NAME, ENTITY_VERSION, id);
         UUID deletedId = deletedIdFuture.join();
@@ -319,20 +307,3 @@ public class CyodaEntityControllerPrototype {
         return new MessageResponse("Pet deleted successfully");
     }
 }
-```
-
----
-
-### Summary of main changes:
-
-- Changed workflow function signature: `processPet(ObjectNode entity) -> CompletableFuture<ObjectNode>`.
-- Moved default value setting and all async enrichment (external API call) into `processPet`.
-- Controllers now convert input POJO to `ObjectNode` and pass it to `addItem` or `updateItem` along with `processPet` workflow.
-- `updatePet` merges update fields into the existing entity `ObjectNode` and calls `updateItem` with the workflow.
-- No async or entity mutation logic remains in controllers except the minimal mapping and validation.
-
----
-
-This approach fully embraces your requirement of moving async and entity state modifications to the workflow function, keeping controllers clean and making workflow functions the single place for entity pre-persistence logic.
-
-Let me know if you want me to help with other entities or further improvements!
