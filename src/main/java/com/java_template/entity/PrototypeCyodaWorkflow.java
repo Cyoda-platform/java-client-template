@@ -1,48 +1,3 @@
-Certainly! Moving asynchronous or pre-persistence logic into the `process{entity_name}` workflow function is a great design to simplify controllers and centralize entity processing. According to your requirements:
-
-- The workflow function receives the entity as an `ObjectNode` (a Jackson JSON object).
-- It can modify the entity (e.g. add or update fields) directly on this `ObjectNode`.
-- It can asynchronously get/add entities of **different** models via `entityService`.
-- It **cannot** operate on the same entity model via add/update/delete — this would cause recursion.
-- The workflow function runs asynchronously before persistence.
-
----
-
-### What async logic can we move from your controller to the workflow?
-
-Looking at the original controller methods, the main async tasks are:
-
-1. **Query endpoint**:  
-   - Calls external Petstore API asynchronously.  
-   - Filters results and adds them to entityService asynchronously.
-
-2. **Add endpoint**:  
-   - Adds a new Pet entity.
-
-Currently, the external API call and filtering happen in the controller, then entities are added with the workflow function only modifying the entity trivially.
-
----
-
-### Proposed refactoring:
-
-- Move the external Petstore API call, filtering, and adding supplementary entities into the `processPet` workflow function invoked during the `query` endpoint's addItem calls.
-- The controller will pass a minimal entity (e.g., a query request object or empty entity) to `addItem` with the workflow `processPet`, and the workflow will do the full async Petstore call, filtering, and save supplementary entities accordingly.
-- For the Add endpoint, any entity enrichment or validation can be done inside `processPet`.
-- The controller returns after `addItem` completes.
-
----
-
-### Important:
-
-- Since the workflow function receives the entity as an `ObjectNode`, your Pet class needs to be replaced with `ObjectNode` or converted accordingly inside workflow.
-- Workflow function returns the (possibly modified) entity for persistence.
-- For external API calls or getting/adding other entities, the workflow can use injected services.
-
----
-
-# Complete updated Java code with these changes:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -63,7 +18,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
 
@@ -83,29 +37,18 @@ public class CyodaEntityControllerPrototype {
         this.entityService = entityService;
     }
 
-    /**
-     * Workflow function for "pet" entity.
-     * Runs asynchronously before the entity is persisted.
-     * Receives the entity as an ObjectNode.
-     * Can modify entity fields, call entityService to get/add different entities,
-     * perform async tasks like calling external APIs, enrich data, etc.
-     * Must NOT add/update/delete the same entityModel to avoid recursion.
-     */
+    // Workflow function for "pet" entity; async processing before persistence.
     private CompletableFuture<ObjectNode> processPet(ObjectNode entity) {
         logger.info("processPet workflow started for entity: {}", entity);
 
-        // Check if this is a query type entity (a signal from controller)
+        // Detect if this entity is a query request (flag "query": true)
         if (entity.has("query") && entity.get("query").asBoolean(false)) {
-            // This entity is a query request - perform Petstore API call, filter and add pets
-
-            // Extract filtering parameters from entity
             String queryType = entity.hasNonNull("type") ? entity.get("type").asText() : null;
             String queryStatus = entity.hasNonNull("status") ? entity.get("status").asText() : null;
             String queryName = entity.hasNonNull("name") ? entity.get("name").asText() : null;
 
             logger.info("processPet detected query request: type={}, status={}, name={}", queryType, queryStatus, queryName);
 
-            // Compose Petstore API URL
             String url = "https://petstore.swagger.io/v2/pet/findByStatus?status=";
             if (queryStatus != null) {
                 url += queryStatus;
@@ -113,7 +56,6 @@ public class CyodaEntityControllerPrototype {
                 url += "available,pending,sold";
             }
 
-            // Call external Petstore API asynchronously (simulate async with CompletableFuture.supplyAsync)
             return CompletableFuture.supplyAsync(() -> {
                 try {
                     logger.info("Calling external Petstore API: {}", url);
@@ -126,7 +68,6 @@ public class CyodaEntityControllerPrototype {
                             if (!(petNode instanceof ObjectNode)) continue;
                             ObjectNode petObj = (ObjectNode) petNode;
 
-                            // Apply filtering logic
                             if (queryType != null) {
                                 JsonNode categoryNode = petObj.path("category");
                                 String petType = categoryNode.path("name").asText(null);
@@ -140,7 +81,6 @@ public class CyodaEntityControllerPrototype {
                                     continue;
                                 }
                             }
-
                             filteredPets.add(petObj);
                         }
                     } else {
@@ -149,14 +89,11 @@ public class CyodaEntityControllerPrototype {
 
                     logger.info("Filtered pets count: {}", filteredPets.size());
 
-                    // Add each filtered pet as a separate entity of different entityModel "externalPet"
-                    // This is allowed as it's a different entityModel
+                    // Add filtered pets as new entities of entityModel "pet"
+                    // Cannot use workflow on these adds to avoid recursion
                     List<CompletableFuture<UUID>> addFutures = new ArrayList<>();
                     for (ObjectNode pet : filteredPets) {
-                        // Map pet fields to your internal "pet" entity structure if needed
                         ObjectNode newPetEntity = objectMapper.createObjectNode();
-
-                        // Extract & map fields
                         newPetEntity.put("name", pet.path("name").asText(""));
                         newPetEntity.put("type", pet.path("category").path("name").asText(""));
                         newPetEntity.put("status", pet.path("status").asText(""));
@@ -166,25 +103,18 @@ public class CyodaEntityControllerPrototype {
                         }
                         newPetEntity.set("photoUrls", photoUrls);
 
-                        // Add the pet entity asynchronously with workflow to processPet (to enrich if needed)
-                        // But this is *same* entityModel, so adding here would cause recursion - NOT allowed.
-                        // So we add as a different entityModel to avoid recursion
                         CompletableFuture<UUID> future = entityService.addItem(
-                                ENTITY_NAME,  // Using the same entityModel "pet" is forbidden here (recursion)
+                                ENTITY_NAME,
                                 ENTITY_VERSION,
                                 newPetEntity,
-                                null); // no workflow to avoid recursion, or you can define a different workflow for external pets
+                                null); // no workflow here to avoid recursion
                         addFutures.add(future);
                     }
 
-                    // Wait for all adds to complete
                     CompletableFuture.allOf(addFutures.toArray(new CompletableFuture[0])).join();
 
-                    // Modify the current entity to indicate processing done
                     entity.put("processedAt", System.currentTimeMillis());
                     entity.put("petsAddedCount", filteredPets.size());
-
-                    // Clear query flag so it won't repeat
                     entity.remove("query");
 
                     return entity;
@@ -196,35 +126,24 @@ public class CyodaEntityControllerPrototype {
             });
         }
 
-        // For normal pet entities (e.g. on add), enrich or validate entity here before persistence
-        // Example: add createdAt timestamp if missing
+        // For normal pet entities, enrich entity before persistence
         if (!entity.has("createdAt")) {
             entity.put("createdAt", System.currentTimeMillis());
         }
-
-        // You can add other async tasks here if needed, returning completed future immediately
         return CompletableFuture.completedFuture(entity);
     }
 
-
-    // Controller endpoints now simplified
-
-    /**
-     * Query pets endpoint.
-     * Passes a query entity with "query":true flag to trigger workflow to call external API & add pets.
-     */
+    // Endpoint: POST /query - submit query entity with workflow to fetch and add pets asynchronously
     @PostMapping("/query")
     public ResponseEntity<QueryResponse> queryPets(@RequestBody @Valid PetQueryRequest queryRequest) throws Exception {
         logger.info("Received pet query request: {}", queryRequest);
 
-        // Create entity as ObjectNode with query parameters and set query flag
         ObjectNode queryEntity = objectMapper.createObjectNode();
         queryEntity.put("query", true);
         if (queryRequest.getType() != null) queryEntity.put("type", queryRequest.getType());
         if (queryRequest.getStatus() != null) queryEntity.put("status", queryRequest.getStatus());
         if (queryRequest.getName() != null) queryEntity.put("name", queryRequest.getName());
 
-        // Add query entity to entityService with processPet workflow function
         CompletableFuture<UUID> idFuture = entityService.addItem(
                 ENTITY_NAME,
                 ENTITY_VERSION,
@@ -234,13 +153,10 @@ public class CyodaEntityControllerPrototype {
         UUID technicalId = idFuture.join();
         logger.info("Query entity persisted with technicalId: {}", technicalId);
 
-        // Return response indicating query was processed asynchronously
         return ResponseEntity.ok(new QueryResponse("Pet query processed, pets added asynchronously"));
     }
 
-    /**
-     * Get all pets.
-     */
+    // Endpoint: GET / - get all pets
     @GetMapping
     public ResponseEntity<List<ObjectNode>> getAllPets() throws Exception {
         logger.info("Fetching all pets from entityService");
@@ -256,15 +172,11 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.ok(pets);
     }
 
-    /**
-     * Add a new pet entity.
-     * Passes the pet entity as ObjectNode directly to workflow for enrichment.
-     */
+    // Endpoint: POST /add - add pet entity with workflow enrichment
     @PostMapping("/add")
     public ResponseEntity<AddPetResponse> addPet(@RequestBody @Valid PetAddRequest addRequest) throws Exception {
         logger.info("Adding new pet: {}", addRequest);
 
-        // Convert PetAddRequest to ObjectNode
         ObjectNode petEntity = objectMapper.createObjectNode();
         petEntity.put("name", addRequest.getName());
         petEntity.put("type", addRequest.getType());
@@ -286,9 +198,7 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.ok(new AddPetResponse(id, "Pet added successfully"));
     }
 
-    /**
-     * Fetch a pet by its technicalId converted to Long.
-     */
+    // Endpoint: GET /{id} - get pet by technicalId converted to Long
     @GetMapping("/{id}")
     public ResponseEntity<ObjectNode> getPetById(@PathVariable("id") @NotNull @Min(1) Long id) throws Exception {
         logger.info("Fetching pet by id {}", id);
@@ -307,14 +217,12 @@ public class CyodaEntityControllerPrototype {
         throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Pet not found");
     }
 
-    // Utility to convert UUID to Long
+    // Utility: Convert UUID to Long for id representation; handles negative values gracefully
     private Long uuidToLong(UUID uuid) {
         if (uuid == null) return null;
         long val = uuid.getMostSignificantBits() ^ uuid.getLeastSignificantBits();
         return val < 0 ? -val : val;
     }
-
-    // Request/response DTOs
 
     @Data
     @NoArgsConstructor
@@ -322,8 +230,10 @@ public class CyodaEntityControllerPrototype {
     public static class PetQueryRequest {
         @Size(max = 50)
         private String type;
+
         @Pattern(regexp = "available|pending|sold")
         private String status;
+
         @Size(min = 1, max = 100)
         private String name;
     }
@@ -335,12 +245,15 @@ public class CyodaEntityControllerPrototype {
         @NotBlank
         @Size(max = 100)
         private String name;
+
         @NotBlank
         @Size(max = 50)
         private String type;
+
         @NotBlank
         @Pattern(regexp = "available|pending|sold")
         private String status;
+
         @NotNull
         @Size(min = 1)
         private List<@NotBlank String> photoUrls;
@@ -361,28 +274,3 @@ public class CyodaEntityControllerPrototype {
         private String message;
     }
 }
-```
-
----
-
-### Summary of improvements:
-
-- **All async logic moved into `processPet` workflow function.**  
-  The controller just passes an entity to persist and waits for completion.
-
-- **Query endpoint passes a dedicated "query" entity with filter parameters.**  
-  The workflow detects this, calls external API, filters, and adds pets asynchronously.
-
-- **Add endpoint passes pet entity to workflow that enriches it (adds createdAt timestamp).**
-
-- **Entity passed to workflow is `ObjectNode`**, so workflow can modify JSON directly.
-
-- **Workflow can call entityService to add/get other entities of different models if needed.**
-
-- **No recursion risk**, as workflow does not add/update/delete same entityModel inside itself.
-
-- Controller code is simplified, focused only on request validation and response.
-
----
-
-Let me know if you want me to help implement further workflows for other entityModels or add advanced async features inside workflows!
