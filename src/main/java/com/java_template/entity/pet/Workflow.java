@@ -14,7 +14,7 @@ public class Workflow {
     private final EntityService entityService;
     private final ObjectMapper objectMapper;
 
-    // Main workflow orchestration method, no business logic here
+    // Orchestrates the workflow, no business logic here
     public CompletableFuture<ObjectNode> processPet(ObjectNode petEntity) {
         return processEnrichDescription(petEntity)
                 .thenCompose(this::processAddProcessingLog);
