@@ -1,0 +1,60 @@
+{
+    "description": "Workflow for processing Pet entity including adding timestamp, full description, and async logging",
+    "name": "purrfect_pets_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start processing pet by adding timestamp",
+            "end_state": "Timestamp_added",
+            "end_state_description": "Timestamp has been added to pet",
+            "name": "start_processing_pet",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAddTimestamp"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Add full description to pet",
+            "end_state": "Full_description_added",
+            "end_state_description": "Full description has been added to pet",
+            "name": "add_full_description",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAddFullDescription"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Timestamp_added",
+            "start_state_description": "Timestamp has been added to pet"
+        },
+        {
+            "automated": true,
+            "description": "Perform asynchronous logging",
+            "end_state": "Processing_completed",
+            "end_state_description": "Async logging completed, processing finished",
+            "name": "async_logging",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAsyncLogging"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Full_description_added",
+            "start_state_description": "Full description has been added to pet"
+        }
+    ]
+}
