@@ -1,11 +1,18 @@
-package com.java_template.entity;
+package com.java_template.entity.pet;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.java_template.common.service.EntityService;
+import com.java_template.controller.Controller;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
+
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -13,7 +20,7 @@ public class Workflow {
 
     private final EntityService entityService;
     private final ObjectMapper objectMapper;
-
+    private static final Logger logger = LoggerFactory.getLogger(Workflow.class);
     // Orchestrates the workflow, no business logic here
     public CompletableFuture<ObjectNode> processPet(ObjectNode petEntity) {
         return processEnrichDescription(petEntity)
