@@ -1,0 +1,42 @@
+{
+    "description": "Workflow for processing Pet entity including normalization and audit record creation",
+    "name": "pet_entity_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start processing Pet entity from initial state",
+            "end_state": "Status_normalized",
+            "end_state_description": "Pet status attribute normalized to lowercase",
+            "name": "start_processing_pet",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Normalize status attribute to lowercase",
+                        "name": "processNormalizeStatus"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Add audit record asynchronously",
+            "end_state": "Audit_record_added",
+            "end_state_description": "Audit record added asynchronously",
+            "name": "add_audit_record",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Add audit record asynchronously to PetAudit entity",
+                        "name": "processAddAuditRecord"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Status_normalized",
+            "start_state_description": "Pet status attribute normalized"
+        }
+    ]
+}
