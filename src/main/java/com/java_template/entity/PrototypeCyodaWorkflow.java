@@ -1,36 +1,3 @@
-Certainly! Moving async logic from the controller endpoints into the workflow function (i.e. `processPet`) is a good design approach. It makes controllers thinner, keeps business logic closer to the entity lifecycle, and leverages the async workflow function that is executed right before persistence.
-
----
-
-### What can be moved to `processPet`:
-
-- Any async enrichment or validation logic that runs before persistence.
-- Any fetching or adding of related or supplementary entities (but never modifying this same entity model).
-- Modifications directly on the entity data node (`ObjectNode`).
-- Fire-and-forget async calls related to the entity before it is saved.
-
----
-
-### What MUST stay outside `processPet`:
-
-- The initial request-to-entity mapping and validation.
-- Returning the final response, because workflow only returns the modified entity.
-- Calls to `entityService.addItem/updateItem/deleteItem` on the **same** entity model inside `processPet` (would cause infinite recursion).
-
----
-
-### How to implement:
-
-- Change the `processPet` to accept and return an `ObjectNode` (Jackson's mutable JSON tree).
-- Move all the async pre-persistence logic there.
-- Modify the controller to convert the incoming `Pet` POJO to `ObjectNode` and let the workflow function handle the rest.
-- After the workflow completes, the modified `ObjectNode` will be persisted.
-
----
-
-### Updated code example for your case:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -56,7 +23,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
 
@@ -84,32 +50,27 @@ public class CyodaEntityControllerPrototype {
      * but cannot add/update/delete the same entity model.
      */
     private CompletableFuture<ObjectNode> processPet(ObjectNode petNode) {
-        // Example async logic before persistence:
-        // 1) Add/update a timestamp
+        // Add/update a timestamp field
         petNode.put("lastModified", System.currentTimeMillis());
 
-        // 2) Add a computed field, e.g. fullDescription = name + category + status
+        // Add a computed field, e.g. fullDescription = name + category + status
         String name = petNode.path("name").asText("");
         String category = petNode.path("category").asText("");
         String status = petNode.path("status").asText("");
         petNode.put("fullDescription", name + " (" + category + ") - " + status);
 
-        // 3) Fire a fire-and-forget async task, e.g. logging or notifying external system
+        // Fire and forget async logging task
         CompletableFuture.runAsync(() -> {
             logger.info("Async pre-persistence notification for pet: {}", petNode.toString());
-            // you can also call some external services here
+            // Potentially notify external system here
         });
 
-        // 4) Optionally get supplementary entities (different entityModel)
-        // Example (commented out - implement as needed):
-        /*
-        return entityService.getItems("someOtherEntity", ENTITY_VERSION)
-            .thenApply(otherEntities -> {
-                // maybe enrich petNode with data from otherEntities
-                petNode.put("otherEntityCount", otherEntities.size());
-                return petNode;
-            });
-        */
+        // Example supplementary entity access (can be uncommented and adapted if needed)
+        // return entityService.getItems("someOtherEntity", ENTITY_VERSION)
+        //         .thenApply(otherEntities -> {
+        //             petNode.put("otherEntityCount", otherEntities.size());
+        //             return petNode;
+        //         });
 
         // Return completed future with modified entity node
         return CompletableFuture.completedFuture(petNode);
@@ -140,13 +101,13 @@ public class CyodaEntityControllerPrototype {
     @PostMapping("/search")
     public CompletableFuture<List<Pet>> searchPets(@RequestBody @Valid PetSearchRequest request) {
         List<String> conditions = new ArrayList<>();
-        if (request.getCategory() != null) {
+        if (request.getCategory() != null && !request.getCategory().isBlank()) {
             conditions.add(String.format("category=='%s'", escapeQuotes(request.getCategory())));
         }
-        if (request.getStatus() != null) {
+        if (request.getStatus() != null && !request.getStatus().isBlank()) {
             conditions.add(String.format("status=='%s'", escapeQuotes(request.getStatus())));
         }
-        if (request.getName() != null) {
+        if (request.getName() != null && !request.getName().isBlank()) {
             conditions.add(String.format("name like '*%s*'", escapeQuotes(request.getName())));
         }
         String condition = String.join(" and ", conditions);
@@ -158,7 +119,7 @@ public class CyodaEntityControllerPrototype {
             filteredItemsFuture = entityService.getItemsByCondition(ENTITY_NAME, ENTITY_VERSION, condition);
         }
 
-        // Convert JsonNode to Pet POJO in one place here
+        // Convert JsonNode to Pet POJO here
         return filteredItemsFuture.thenApply(arrayNode -> {
             List<Pet> result = new ArrayList<>();
             for (JsonNode node : arrayNode) {
@@ -192,7 +153,12 @@ public class CyodaEntityControllerPrototype {
     private Pet convertNodeToPet(JsonNode node) {
         Pet pet = new Pet();
         if (node.has("technicalId") && !node.get("technicalId").isNull()) {
-            pet.setId(UUID.fromString(node.get("technicalId").asText()));
+            try {
+                pet.setId(UUID.fromString(node.get("technicalId").asText()));
+            } catch (IllegalArgumentException e) {
+                logger.warn("Invalid UUID format for technicalId: {}", node.get("technicalId").asText());
+                pet.setId(null);
+            }
         }
         if (node.has("name")) {
             pet.setName(node.get("name").asText());
@@ -209,6 +175,8 @@ public class CyodaEntityControllerPrototype {
                 tags.add(tagNode.asText());
             }
             pet.setTags(tags);
+        } else {
+            pet.setTags(Collections.emptyList());
         }
         if (node.has("photoUrls") && node.get("photoUrls").isArray()) {
             List<String> photoUrls = new ArrayList<>();
@@ -216,11 +184,14 @@ public class CyodaEntityControllerPrototype {
                 photoUrls.add(urlNode.asText());
             }
             pet.setPhotoUrls(photoUrls);
+        } else {
+            pet.setPhotoUrls(Collections.emptyList());
         }
         return pet;
     }
 
     private String escapeQuotes(String input) {
+        if (input == null) return "";
         return input.replace("'", "\\'");
     }
 
@@ -273,21 +244,3 @@ public class CyodaEntityControllerPrototype {
         private String message;
     }
 }
-```
-
----
-
-### Summary of changes:
-
-- `processPet` now accepts `ObjectNode` (Jackson mutable JSON) and returns `CompletableFuture<ObjectNode>`.
-- Moved all async and entity modification logic inside `processPet`.
-- Controller converts POJO to `ObjectNode` before passing to `addItem`.
-- `processPet` can asynchronously add supplementary entities or perform side effects.
-- Controller stays thin and only handles request validation and response building.
-- Removed any async logic from controller methods except calls to `entityService`.
-
----
-
-This approach is robust, follows your constraints, and cleans up the controller nicely. You can now enrich and modify the entity in `processPet` workflow function, which is executed right before persistence.
-
-Let me know if you want me to implement any concrete async supplementary entity logic inside `processPet`!
