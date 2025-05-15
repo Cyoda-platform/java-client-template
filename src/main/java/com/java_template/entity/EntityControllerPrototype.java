@@ -1,26 +1,29 @@
-```java
 package com.java_template.entity;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Async;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.web.client.RestTemplate;
-
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import javax.annotation.PostConstruct;
-import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CompletableFuture;
 
 @Slf4j
+@Validated
 @RestController
 @RequestMapping("/pets")
 public class EntityControllerPrototype {
@@ -28,12 +31,10 @@ public class EntityControllerPrototype {
     private final Map<Long, Pet> petStore = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final RestTemplate restTemplate = new RestTemplate();
-
     private static final String PETSTORE_API_BASE = "https://petstore.swagger.io/v2";
 
     @PostConstruct
     public void initMockData() {
-        // Initialize with some mock pets
         petStore.put(1L, new Pet(1L, "Fluffy", "cat", "available",
                 Arrays.asList("cute", "small"), Arrays.asList("http://example.com/photo1.jpg")));
         petStore.put(2L, new Pet(2L, "Barky", "dog", "pending",
@@ -41,35 +42,23 @@ public class EntityControllerPrototype {
     }
 
     @PostMapping
-    public ResponseEntity<AddOrUpdateResponse> addOrUpdatePet(@RequestBody Pet pet) {
+    public ResponseEntity<AddOrUpdateResponse> addOrUpdatePet(@RequestBody @Valid Pet pet) {
         if (pet.getId() == null) {
             pet.setId(generatePetId());
         }
         petStore.put(pet.getId(), pet);
         log.info("Added/Updated pet with id {}", pet.getId());
-
-        // TODO: Fire-and-forget async sync with Petstore API or validation if needed
         CompletableFuture.runAsync(() -> {
-            try {
-                // Example: validate pet category by calling Petstore API categories (no direct endpoint exists - placeholder)
-                // TODO: Implement real validation if required
-                log.info("Async validation for pet id {} started", pet.getId());
-                Thread.sleep(500); // simulate delay
-                log.info("Async validation for pet id {} completed", pet.getId());
-            } catch (InterruptedException e) {
-                log.error("Async validation interrupted for pet id {}", pet.getId(), e);
-                Thread.currentThread().interrupt();
-            }
+            // TODO: async sync/validation with external API
+            log.info("Async job started for pet id {}", pet.getId());
         });
-
         return ResponseEntity.ok(new AddOrUpdateResponse(true, pet.getId(), "Pet added/updated successfully"));
     }
 
     @PostMapping("/search")
-    public ResponseEntity<List<Pet>> searchPets(@RequestBody PetSearchRequest request) {
-        log.info("Searching pets with filters: category='{}', status='{}', name='{}'",
+    public ResponseEntity<List<Pet>> searchPets(@RequestBody @Valid PetSearchRequest request) {
+        log.info("Searching pets: category='{}', status='{}', name='{}'",
                 request.getCategory(), request.getStatus(), request.getName());
-
         List<Pet> result = new ArrayList<>();
         for (Pet pet : petStore.values()) {
             if ((request.getCategory() == null || pet.getCategory().equalsIgnoreCase(request.getCategory()))
@@ -78,33 +67,29 @@ public class EntityControllerPrototype {
                 result.add(pet);
             }
         }
-        log.info("Found {} pets matching search criteria", result.size());
         return ResponseEntity.ok(result);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Pet> getPetById(@PathVariable Long id) {
+    public ResponseEntity<Pet> getPetById(@PathVariable @NotNull Long id) {
         log.info("Retrieving pet by id {}", id);
         Pet pet = petStore.get(id);
         if (pet == null) {
-            log.error("Pet with id {} not found", id);
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pet not found");
         }
         return ResponseEntity.ok(pet);
     }
 
     @PostMapping("/{id}/delete")
-    public ResponseEntity<SimpleResponse> deletePet(@PathVariable Long id) {
+    public ResponseEntity<SimpleResponse> deletePet(@PathVariable @NotNull Long id) {
         log.info("Deleting pet with id {}", id);
         Pet removed = petStore.remove(id);
         if (removed == null) {
-            log.error("Pet with id {} not found for deletion", id);
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pet not found");
         }
         return ResponseEntity.ok(new SimpleResponse(true, "Pet deleted successfully"));
     }
 
-    // Example of a method that fetches pet info from external Petstore API (not exposed as endpoint)
     private Optional<JsonNode> fetchPetFromExternalApi(Long petId) {
         try {
             String url = PETSTORE_API_BASE + "/pet/" + petId;
@@ -123,25 +108,30 @@ public class EntityControllerPrototype {
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<Map<String, Object>> handleResponseStatusException(ResponseStatusException ex) {
-        log.error("Handling ResponseStatusException: {}", ex.getReason());
         Map<String, Object> body = new HashMap<>();
         body.put("status", ex.getStatusCode().value());
         body.put("error", ex.getReason());
         return new ResponseEntity<>(body, ex.getStatusCode());
     }
 
-    // --- DTOs and Model classes ---
-
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     public static class Pet {
         private Long id;
+        @NotBlank
         private String name;
+        @NotBlank
         private String category;
-        private String status; // e.g. available, pending, sold
-        private List<String> tags;
-        private List<String> photoUrls;
+        @NotBlank
+        @Pattern(regexp = "available|pending|sold")
+        private String status;
+        @NotNull
+        @Size(min = 1)
+        private List<@NotBlank String> tags;
+        @NotNull
+        @Size(min = 1)
+        private List<@NotBlank String> photoUrls;
     }
 
     @Data
@@ -157,8 +147,11 @@ public class EntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class PetSearchRequest {
+        @Size(min = 1)
         private String category;
+        @Pattern(regexp = "available|pending|sold")
         private String status;
+        @Size(min = 1)
         private String name;
     }
 
@@ -170,4 +163,3 @@ public class EntityControllerPrototype {
         private String message;
     }
 }
-```
