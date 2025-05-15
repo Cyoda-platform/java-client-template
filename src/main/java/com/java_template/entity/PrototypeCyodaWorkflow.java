@@ -1,7 +1,24 @@
+Certainly! The goal is to move all asynchronous tasks and any pre-persistence logic from the controller endpoints into the `processPet` workflow function, which is invoked asynchronously before the entity is persisted.
+
+---
+
+### What we'll do:
+- Move the previous synchronous logic that modifies the entity (e.g., setting default description) into the `processPet` method, **operating on `ObjectNode` directly** (since the workflow function receives the entity as an `ObjectNode`).
+- Move the `triggerPetAddedWorkflow` async method call into the `processPet` workflow function (i.e., inside it we will trigger the async fire-and-forget logic).
+- Remove any async calls from the controller methods related to workflows.
+- Use `ObjectNode` for the workflow function parameter and its return value.
+- Use `entity.put(...)` and `entity.get(...)` for modifying and reading entity fields.
+- Keep the controller code lean, just passing validated data to `addItem` with the workflow function.
+- The workflow function can also call `entityService.getItem/addItem` for other entityModels if needed, but **cannot update/add/delete the current entityModel**.
+
+---
+
+### Updated complete code with all logic moved to `processPet` workflow function:
+
 ```java
 package com.java_template.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -14,7 +31,6 @@ import lombok.NoArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -47,44 +63,58 @@ public class CyodaEntityControllerPrototype {
         logger.info("CyodaEntityControllerPrototype initialized");
     }
 
+    /**
+     * POST add or update pet.
+     * Logic simplified: only add/update pet entity, all modifications and async workflows moved to processPet workflow function.
+     */
     @PostMapping
     public ResponseEntity<AddUpdatePetResponse> addOrUpdatePet(@RequestBody @Valid PetRequest petRequest) {
         logger.info("Received addOrUpdatePet request: {}", petRequest);
 
-        Pet pet;
+        // Convert PetRequest to ObjectNode for add/update
+        ObjectNode petNode = objectMapper.createObjectNode();
         if (petRequest.getId() != null) {
-            // Retrieve existing entity by technicalId to check if it exists
-            ObjectNode existingNode = entityService.getItem("pet", ENTITY_VERSION, petRequest.getId()).join();
-            if (existingNode != null && existingNode.has("technicalId")) {
-                // Update existing pet
-                pet = new Pet(petRequest.getId(), petRequest.getName(), petRequest.getCategory(),
-                        petRequest.getStatus(), petRequest.getAge(),
-                        petRequest.getBreed(), petRequest.getDescription());
-                entityService.updateItem("pet", ENTITY_VERSION, petRequest.getId(), pet).join();
-                logger.info("Updated pet with technicalId {}", petRequest.getId());
-            } else {
-                // Add new pet with given id, applying workflow function
-                pet = new Pet(petRequest.getId(), petRequest.getName(), petRequest.getCategory(),
-                        petRequest.getStatus(), petRequest.getAge(),
-                        petRequest.getBreed(), petRequest.getDescription());
-                UUID newId = entityService.addItem("pet", ENTITY_VERSION, pet, this::processPet).join();
-                pet.setId(newId.toString());
-                logger.info("Created new pet with technicalId {}", newId);
-            }
-        } else {
-            // Add new pet without id, id assigned by service, applying workflow function
-            pet = new Pet(null, petRequest.getName(), petRequest.getCategory(),
-                    petRequest.getStatus(), petRequest.getAge(),
-                    petRequest.getBreed(), petRequest.getDescription());
-            UUID newId = entityService.addItem("pet", ENTITY_VERSION, pet, this::processPet).join();
-            pet.setId(newId.toString());
-            logger.info("Created new pet with technicalId {}", newId);
+            petNode.put("technicalId", petRequest.getId());
+        }
+        petNode.put("name", petRequest.getName());
+        petNode.put("category", petRequest.getCategory());
+        petNode.put("status", petRequest.getStatus());
+        petNode.put("age", petRequest.getAge());
+        petNode.put("breed", petRequest.getBreed());
+        if (petRequest.getDescription() != null) {
+            petNode.put("description", petRequest.getDescription());
         }
 
-        triggerPetAddedWorkflow(pet);
+        CompletableFuture<UUID> idFuture;
+        if (petRequest.getId() != null) {
+            // Check if pet exists
+            ObjectNode existingPet = entityService.getItem("pet", ENTITY_VERSION, petRequest.getId()).join();
+            if (existingPet != null && existingPet.has("technicalId")) {
+                // Update existing pet without workflow function (workflow only on addItem)
+                entityService.updateItem("pet", ENTITY_VERSION, petRequest.getId(), petNode).join();
+                logger.info("Updated pet with technicalId {}", petRequest.getId());
+                idFuture = CompletableFuture.completedFuture(UUID.fromString(petRequest.getId()));
+            } else {
+                // Add new pet with workflow function
+                idFuture = entityService.addItem("pet", ENTITY_VERSION, petNode, this::processPet);
+            }
+        } else {
+            // Add new pet with workflow function
+            idFuture = entityService.addItem("pet", ENTITY_VERSION, petNode, this::processPet);
+        }
+
+        UUID newId = idFuture.join();
+        petNode.put("technicalId", newId.toString());
+
+        Pet pet = convertObjectNodeToPet(petNode);
         return ResponseEntity.ok(new AddUpdatePetResponse(true, pet));
     }
 
+    /**
+     * POST search pets.
+     * Search logic remains in controller because it queries external APIs or entityService.
+     * No workflow changes needed here.
+     */
     @PostMapping("/search")
     public ResponseEntity<SearchPetsResponse> searchPets(@RequestBody @Valid SearchPetsRequest searchRequest) {
         logger.info("Received searchPets request: {}", searchRequest);
@@ -93,7 +123,6 @@ public class CyodaEntityControllerPrototype {
 
         if (StringUtils.hasText(searchRequest.getStatus())) {
             // Call external API
-            // Note: Keeping original external API call logic as per instructions
             try {
                 String url = "https://petstore.swagger.io/v2/pet/findByStatus?status=" + searchRequest.getStatus();
                 String jsonResponse = new org.springframework.web.client.RestTemplate().getForObject(url, String.class);
@@ -122,6 +151,10 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.ok(new SearchPetsResponse(results));
     }
 
+    /**
+     * GET pet by id.
+     * No workflow changes needed here.
+     */
     @GetMapping("/{id}")
     public ResponseEntity<Pet> getPetById(@PathVariable @NotBlank String id) {
         logger.info("Received getPetById request for technicalId {}", id);
@@ -134,34 +167,41 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.ok(pet);
     }
 
-    @Async
-    void triggerPetAddedWorkflow(Pet pet) {
-        CompletableFuture.runAsync(() -> {
-            logger.info("Workflow triggered for pet technicalId={} at {}", pet.getId(), Instant.now());
-            try { Thread.sleep(1000); } catch (InterruptedException ignored) {}
-            logger.info("Workflow completed for pet technicalId={}", pet.getId());
-        });
-    }
-
     /**
-     * Workflow function to be applied to the pet entity before persistence.
-     * Here you can modify the pet entity, add or get other entities with different entityModel.
-     * This function must not modify 'pet' entity in a way that causes recursion (no add/update/delete of same entityModel).
+     * Workflow function applied before persisting pet entity.
+     * Modify entity state here and run async workflows (fire and forget).
+     * 
+     * @param entity ObjectNode representing the entity
+     * @return modified ObjectNode to be persisted
      */
-    private Pet processPet(Pet pet) {
-        logger.info("Processing pet in workflow function before persistence: {}", pet);
+    private ObjectNode processPet(ObjectNode entity) {
+        logger.info("Processing pet entity in workflow before persistence: {}", entity);
 
-        // Example: You can modify pet state here, e.g., set default description if empty
-        if (pet.getDescription() == null || pet.getDescription().isBlank()) {
-            pet.setDescription("No description provided.");
+        // Set default description if missing or blank
+        if (!entity.hasNonNull("description") || entity.get("description").asText().isBlank()) {
+            entity.put("description", "No description provided.");
         }
 
-        // Example: You can also interact with other entities (not 'pet'), e.g., logging or statistics (not implemented here)
+        // Fire and forget async workflow task: log pet added event
+        CompletableFuture.runAsync(() -> {
+            String technicalId = entity.has("technicalId") ? entity.get("technicalId").asText() : "<unknown>";
+            logger.info("Workflow triggered for pet technicalId={} at {}", technicalId, Instant.now());
+            try {
+                Thread.sleep(1000); // simulate async task delay
+            } catch (InterruptedException ignored) {
+            }
+            logger.info("Workflow completed for pet technicalId={}", technicalId);
+        });
 
-        // Return the (possibly modified) pet entity back
-        return pet;
+        // Additional logic can be placed here:
+        // - Get/add other entities of different entityModel via entityService
+        // - Modify fields of this entity (entity.put(...)) as needed
+        // - No add/update/delete of current entityModel allowed here (to avoid recursion)
+
+        return entity;
     }
 
+    // Utility method to convert ObjectNode to Pet POJO
     private Pet convertObjectNodeToPet(ObjectNode node) {
         String technicalId = node.has("technicalId") ? node.get("technicalId").asText() : null;
         String name = node.has("name") ? node.get("name").asText() : "";
@@ -173,7 +213,7 @@ public class CyodaEntityControllerPrototype {
         return new Pet(technicalId, name, category, status, age, breed, description);
     }
 
-    private Pet mapJsonNodeToPet(com.fasterxml.jackson.databind.JsonNode node) {
+    private Pet mapJsonNodeToPet(JsonNode node) {
         String id = node.has("id") ? node.get("id").asText() : UUID.randomUUID().toString();
         String name = node.has("name") ? node.get("name").asText() : "";
         String category = node.has("category") && node.get("category").has("name")
@@ -189,6 +229,8 @@ public class CyodaEntityControllerPrototype {
         if (req.getStatus() != null && !req.getStatus().equalsIgnoreCase(pet.getStatus())) return false;
         return true;
     }
+
+    // DTO classes
 
     @Data
     @NoArgsConstructor
@@ -229,10 +271,7 @@ public class CyodaEntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class Pet {
-        @JsonIgnore
-        private String technicalId; // to hold technicalId internally, mapped from id externally
-
-        private String id; // alias to technicalId for external usage
+        private String id; // technicalId
 
         private String name;
         private String category;
@@ -242,7 +281,6 @@ public class CyodaEntityControllerPrototype {
         private String description;
 
         public Pet(String id, String name, String category, String status, Integer age, String breed, String description) {
-            this.technicalId = id;
             this.id = id;
             this.name = name;
             this.category = category;
@@ -250,15 +288,6 @@ public class CyodaEntityControllerPrototype {
             this.age = age;
             this.breed = breed;
             this.description = description;
-        }
-
-        public String getId() {
-            return technicalId;
-        }
-
-        public void setId(String id) {
-            this.technicalId = id;
-            this.id = id;
         }
     }
 
@@ -278,14 +307,19 @@ public class CyodaEntityControllerPrototype {
     }
 }
 ```
+
 ---
 
-### Explanation of changes:
-- Added the workflow function parameter to the `entityService.addItem(...)` calls where new pets are added.
-- Implemented `private Pet processPet(Pet pet)` method as the workflow function with the required signature and logic to be applied before persistence.
-- The workflow function currently sets a default description if none is provided, demonstrating how you can modify the entity.
-- The method reference `this::processPet` is passed as the workflow argument to the `addItem` method.
-- Existing update calls to `entityService.updateItem` remain unchanged because only `addItem` requires the workflow function now.
-- Kept all existing logic intact and consistent with your original code style.
+### Summary of main changes:
+- `addOrUpdatePet` creates an `ObjectNode` from `PetRequest` and calls `addItem` with `processPet` workflow function.
+- `processPet(ObjectNode entity)` modifies the entity (adds default description if missing) and runs async fire-and-forget logic (previously in a separate method).
+- Removed `triggerPetAddedWorkflow` method since its logic is now inside `processPet`.
+- `processPet` returns the modified `ObjectNode` which is persisted by `entityService`.
+- The controller methods are now very slim and only handle validation and delegation.
+- Workflow function is the **single place** for all entity pre-persistence logic and async workflows.
 
-Let me know if you want me to help with testing or further enhancements!
+This approach is more robust and maintainable, aligns with your requirement to move async tasks and pre-persistence logic into the workflow function, and keeps controllers clean.
+
+---
+
+If you want, I can also help with writing unit tests to validate this new structure!
