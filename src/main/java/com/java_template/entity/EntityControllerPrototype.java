@@ -1,8 +1,13 @@
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -11,7 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Async;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -20,12 +25,11 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
+@Validated
 @RestController
 @RequestMapping("/pets")
 public class EntityControllerPrototype {
@@ -34,12 +38,9 @@ public class EntityControllerPrototype {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final HttpClient httpClient = HttpClient.newHttpClient();
 
-    // In-memory store for added pets, favorites etc.
     private final Map<Long, Pet> petStore = new ConcurrentHashMap<>();
     private final Map<Long, Set<Long>> userFavorites = new ConcurrentHashMap<>();
-    private long petIdSequence = 1000L; // simple id generator
-
-    // ========== Models ==========
+    private long petIdSequence = 1000L;
 
     @Data
     @NoArgsConstructor
@@ -48,27 +49,39 @@ public class EntityControllerPrototype {
         private Long id;
         private String name;
         private String category;
-        private String status; // e.g. available, pending, sold
+        private String status;
         private List<String> photoUrls;
     }
 
     @Data
     static class SearchRequest {
+        @Pattern(regexp = "available|pending|sold")
         private String status;
+        @Size(max = 30)
         private String category;
+        @Size(max = 50)
         private String nameContains;
     }
 
     @Data
     static class AddPetRequest {
+        @NotBlank
+        @Size(max = 100)
         private String name;
+        @NotBlank
+        @Size(max = 30)
         private String category;
+        @Pattern(regexp = "available|pending|sold")
         private String status;
-        private List<String> photoUrls;
+        @NotNull
+        @Size(min = 1)
+        private List<@NotBlank String> photoUrls;
     }
 
     @Data
     static class FavoriteRequest {
+        @NotNull
+        @Positive
         private Long userId;
     }
 
@@ -78,158 +91,91 @@ public class EntityControllerPrototype {
         private String message;
     }
 
-    // ========== Endpoints ==========
-
-    /**
-     * Search Pets - POST /pets/search
-     * Calls external petstore API, filters results according to criteria, returns filtered list.
-     */
+    // POST /pets/search
     @PostMapping("/search")
-    public ResponseEntity<Map<String, List<Pet>>> searchPets(@RequestBody SearchRequest searchRequest) {
+    public ResponseEntity<Map<String, List<Pet>>> searchPets(@RequestBody @Valid SearchRequest searchRequest) {
         logger.info("Received search request: {}", searchRequest);
-
         try {
-            // Call external Swagger Petstore API to fetch all pets with status
-            // Swagger Petstore example endpoint: https://petstore.swagger.io/v2/pet/findByStatus?status=available
-            String statusParam = (searchRequest.getStatus() != null) ? searchRequest.getStatus() : "available";
-
+            String statusParam = Optional.ofNullable(searchRequest.getStatus()).orElse("available");
             URI uri = URI.create("https://petstore.swagger.io/v2/pet/findByStatus?status=" + statusParam);
-
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(uri)
-                    .GET()
-                    .build();
-
+            HttpRequest request = HttpRequest.newBuilder().uri(uri).GET().build();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
             if (response.statusCode() != 200) {
-                logger.error("Failed to fetch pets from external API, status code: {}", response.statusCode());
+                logger.error("External API error: {}", response.statusCode());
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "External API error");
             }
-
             JsonNode rootNode = objectMapper.readTree(response.body());
             List<Pet> filteredPets = new ArrayList<>();
-
             if (rootNode.isArray()) {
                 for (JsonNode petNode : rootNode) {
                     Pet pet = parsePetFromJson(petNode);
-
-                    // Filter by category if specified
-                    if (searchRequest.getCategory() != null && !searchRequest.getCategory().isEmpty()) {
-                        if (!searchRequest.getCategory().equalsIgnoreCase(pet.getCategory())) {
-                            continue;
-                        }
-                    }
-
-                    // Filter by nameContains if specified
-                    if (searchRequest.getNameContains() != null && !searchRequest.getNameContains().isEmpty()) {
-                        if (pet.getName() == null || !pet.getName().toLowerCase().contains(searchRequest.getNameContains().toLowerCase())) {
-                            continue;
-                        }
-                    }
-
+                    if (searchRequest.getCategory() != null && !searchRequest.getCategory().equalsIgnoreCase(pet.getCategory())) continue;
+                    if (searchRequest.getNameContains() != null &&
+                        (pet.getName() == null || !pet.getName().toLowerCase().contains(searchRequest.getNameContains().toLowerCase())))
+                        continue;
                     filteredPets.add(pet);
                 }
             }
-
-            Map<String, List<Pet>> result = new HashMap<>();
-            result.put("pets", filteredPets);
-
-            logger.info("Returning {} pets after filtering", filteredPets.size());
+            Map<String, List<Pet>> result = Collections.singletonMap("pets", filteredPets);
+            logger.info("Returning {} pets", filteredPets.size());
             return ResponseEntity.ok(result);
-
         } catch (IOException | InterruptedException e) {
-            logger.error("Error while searching pets", e);
+            logger.error("Error searching pets", e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error processing request");
         }
     }
 
-    /**
-     * Add New Pet - POST /pets
-     * Adds pet to in-memory store.
-     */
+    // POST /pets
     @PostMapping
-    public ResponseEntity<Map<String, Object>> addPet(@RequestBody AddPetRequest addPetRequest) {
+    public ResponseEntity<Map<String, Object>> addPet(@RequestBody @Valid AddPetRequest addPetRequest) {
         logger.info("Adding new pet: {}", addPetRequest);
-
-        // Basic validation
-        if (addPetRequest.getName() == null || addPetRequest.getName().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pet name is required");
-        }
-
         Pet newPet = new Pet();
-        synchronized (this) {
-            newPet.setId(++petIdSequence);
-        }
+        synchronized (this) { newPet.setId(++petIdSequence); }
         newPet.setName(addPetRequest.getName());
         newPet.setCategory(addPetRequest.getCategory());
-        newPet.setStatus(addPetRequest.getStatus() != null ? addPetRequest.getStatus() : "available");
-        newPet.setPhotoUrls(addPetRequest.getPhotoUrls() != null ? addPetRequest.getPhotoUrls() : Collections.emptyList());
-
+        newPet.setStatus(Optional.ofNullable(addPetRequest.getStatus()).orElse("available"));
+        newPet.setPhotoUrls(addPetRequest.getPhotoUrls());
         petStore.put(newPet.getId(), newPet);
-
         logger.info("Pet added with ID {}", newPet.getId());
-
         Map<String, Object> resp = new HashMap<>();
         resp.put("id", newPet.getId());
         resp.put("message", "Pet added successfully");
         return ResponseEntity.status(HttpStatus.CREATED).body(resp);
     }
 
-    /**
-     * Get Pet Details - GET /pets/{id}
-     */
+    // GET /pets/{id}
     @GetMapping("/{id}")
-    public ResponseEntity<Pet> getPetById(@PathVariable Long id) {
-        logger.info("Fetching pet details for ID {}", id);
-
+    public ResponseEntity<Pet> getPetById(@PathVariable @Positive Long id) {
+        logger.info("Fetching pet ID {}", id);
         Pet pet = petStore.get(id);
         if (pet == null) {
-            logger.error("Pet not found with ID {}", id);
+            logger.error("Pet not found {}", id);
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pet not found");
         }
         return ResponseEntity.ok(pet);
     }
 
-    /**
-     * Mark Pet as Favorite - POST /pets/{id}/favorite
-     */
+    // POST /pets/{id}/favorite
     @PostMapping("/{id}/favorite")
-    public ResponseEntity<MessageResponse> markFavorite(@PathVariable Long id, @RequestBody FavoriteRequest favoriteRequest) {
-        logger.info("Marking pet ID {} as favorite for user ID {}", id, favoriteRequest.getUserId());
-
+    public ResponseEntity<MessageResponse> markFavorite(
+            @PathVariable @Positive Long id,
+            @RequestBody @Valid FavoriteRequest favoriteRequest) {
+        logger.info("Marking favorite pet {} for user {}", id, favoriteRequest.getUserId());
         if (!petStore.containsKey(id)) {
-            logger.error("Pet not found for favorite marking with ID {}", id);
+            logger.error("Pet not found {}", id);
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pet not found");
         }
-        if (favoriteRequest.getUserId() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "UserId is required");
-        }
-
         userFavorites.computeIfAbsent(favoriteRequest.getUserId(), k -> ConcurrentHashMap.newKeySet()).add(id);
-
-        logger.info("Pet ID {} marked as favorite for user ID {}", id, favoriteRequest.getUserId());
-
         return ResponseEntity.ok(new MessageResponse("Pet marked as favorite"));
     }
-
-    // ========== Helpers ==========
 
     private Pet parsePetFromJson(JsonNode petNode) {
         Pet pet = new Pet();
         pet.setId(petNode.path("id").asLong());
         pet.setName(petNode.path("name").asText(null));
-
-        // Category is nested: petNode.category.name
         JsonNode categoryNode = petNode.path("category");
-        if (categoryNode.isObject()) {
-            pet.setCategory(categoryNode.path("name").asText(null));
-        } else {
-            pet.setCategory(null);
-        }
-
+        pet.setCategory(categoryNode.isObject() ? categoryNode.path("name").asText(null) : null);
         pet.setStatus(petNode.path("status").asText(null));
-
         List<String> photos = new ArrayList<>();
         JsonNode photosNode = petNode.path("photoUrls");
         if (photosNode.isArray()) {
@@ -238,27 +184,20 @@ public class EntityControllerPrototype {
             }
         }
         pet.setPhotoUrls(photos);
-
         return pet;
     }
-
-    // ========== Exception Handling ==========
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<Map<String, String>> handleResponseStatusException(ResponseStatusException ex) {
         logger.error("Handling ResponseStatusException: {}", ex.getReason());
-        Map<String, String> error = new HashMap<>();
-        error.put("error", ex.getReason());
+        Map<String, String> error = Collections.singletonMap("error", ex.getReason());
         return ResponseEntity.status(ex.getStatusCode()).body(error);
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, String>> handleGenericException(Exception ex) {
         logger.error("Handling generic exception", ex);
-        Map<String, String> error = new HashMap<>();
-        error.put("error", "Internal server error");
+        Map<String, String> error = Collections.singletonMap("error", "Internal server error");
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
     }
-
 }
-```
