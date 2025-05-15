@@ -10,32 +10,36 @@ import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.apache.aries.blueprint.annotation.Bean;
+import org.apache.aries.blueprint.annotation.Component;
+import org.apache.aries.blueprint.annotation.Inject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
-import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import javax.annotation.PostConstruct;
-import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 import static com.java_template.common.config.Config.*;
 
-@RestController
-@RequestMapping("/cyoda-pets")
-@Validated
+@Component
+@Bean(id = "cyodaEntityControllerPrototype", initMethod = "init")
 public class CyodaEntityControllerPrototype {
 
     private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
 
-    private final EntityService entityService;
+    private EntityService entityService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public CyodaEntityControllerPrototype() {
+        // no-arg constructor for blueprint
+    }
+
+    @Inject
+    public void setEntityService(EntityService entityService) {
         this.entityService = entityService;
     }
 
@@ -44,8 +48,10 @@ public class CyodaEntityControllerPrototype {
         logger.info("CyodaEntityControllerPrototype initialized");
     }
 
-    @PostMapping
-    public ResponseEntity<AddUpdatePetResponse> addOrUpdatePet(@RequestBody @Valid PetRequest petRequest) {
+    // Blueprint does not provide automatic mapping of HTTP requests.
+    // You need to expose these methods and map externally or via another layer.
+
+    public ResponseEntity<AddUpdatePetResponse> addOrUpdatePet(@Valid PetRequest petRequest) {
         logger.info("Received addOrUpdatePet request: {}", petRequest);
 
         ObjectNode petNode = objectMapper.createObjectNode();
@@ -82,8 +88,7 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.ok(new AddUpdatePetResponse(true, pet));
     }
 
-    @PostMapping("/search")
-    public ResponseEntity<SearchPetsResponse> searchPets(@RequestBody @Valid SearchPetsRequest searchRequest) {
+    public ResponseEntity<SearchPetsResponse> searchPets(@Valid SearchPetsRequest searchRequest) {
         logger.info("Received searchPets request: {}", searchRequest);
 
         List<Pet> results = new ArrayList<>();
@@ -117,8 +122,7 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.ok(new SearchPetsResponse(results));
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<Pet> getPetById(@PathVariable @NotBlank String id) {
+    public ResponseEntity<Pet> getPetById(@NotBlank String id) {
         logger.info("Received getPetById request for technicalId {}", id);
         ObjectNode node = entityService.getItem("pet", ENTITY_VERSION, id).join();
         if (node == null || !node.hasNonNull("technicalId")) {
