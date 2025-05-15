@@ -1,39 +1,42 @@
-package com.java_template.entity;
-
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.time.Instant;
-import java.util.concurrent.CompletableFuture;
-
-public class EntityWorkflow {
-
-    private static final Logger logger = LoggerFactory.getLogger(EntityWorkflow.class);
-
-    public CompletableFuture<ObjectNode> processPet(ObjectNode entity) {
-        // Workflow orchestration only
-        return processValidateDescription(entity)
-                .thenCompose(this::processTriggerWorkflow);
+{
+  "name": "purrfect_pets_workflow",
+  "description": "Workflow for processing pet entities in Purrfect Pets API",
+  "transitions": [
+    {
+      "name": "validate_description",
+      "description": "Validate and set default description if missing",
+      "start_state": "None",
+      "start_state_description": "Initial state",
+      "end_state": "Description_validated",
+      "end_state_description": "Pet description has been validated",
+      "automated": true,
+      "processes": {
+        "schedule_transition_processors": [],
+        "externalized_processors": [
+          {
+            "name": "processValidateDescription",
+            "description": ""
+          }
+        ]
+      }
+    },
+    {
+      "name": "trigger_workflow",
+      "description": "Trigger asynchronous pet workflow",
+      "start_state": "Description_validated",
+      "start_state_description": "Pet description has been validated",
+      "end_state": "Workflow_triggered",
+      "end_state_description": "Pet workflow has been triggered",
+      "automated": true,
+      "processes": {
+        "schedule_transition_processors": [],
+        "externalized_processors": [
+          {
+            "name": "processTriggerWorkflow",
+            "description": ""
+          }
+        ]
+      }
     }
-
-    private CompletableFuture<ObjectNode> processValidateDescription(ObjectNode entity) {
-        if (!entity.hasNonNull("description") || entity.get("description").asText().isBlank()) {
-            entity.put("description", "No description provided.");
-        }
-        return CompletableFuture.completedFuture(entity);
-    }
-
-    private CompletableFuture<ObjectNode> processTriggerWorkflow(ObjectNode entity) {
-        CompletableFuture.runAsync(() -> {
-            String technicalId = entity.hasNonNull("technicalId") ? entity.get("technicalId").asText() : "<unknown>";
-            logger.info("Workflow triggered for pet technicalId={} at {}", technicalId, Instant.now());
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException ignored) {
-            }
-            logger.info("Workflow completed for pet technicalId={}", technicalId);
-        });
-        return CompletableFuture.completedFuture(entity);
-    }
+  ]
 }
