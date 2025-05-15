@@ -1,4 +1,4 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -34,16 +34,16 @@ import static com.java_template.common.config.Config.*;
 @Validated
 @RestController
 @RequestMapping("/cyoda-pets")
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final RestTemplate restTemplate = new RestTemplate();
     private final Map<String, JobStatus> importJobs = Collections.synchronizedMap(new HashMap<>());
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService) {
         this.entityService = entityService;
     }
 
@@ -223,6 +223,11 @@ public class CyodaEntityControllerPrototype {
         petNode.put("status", node.hasNonNull("status") ? node.get("status").asText() : "unknown");
         petNode.put("description", "");
         return petNode;
+    }
+
+    private CompletableFuture<ObjectNode> processPet(ObjectNode petNode) {
+        // Example asynchronous processing, e.g., validation or enrichment
+        return CompletableFuture.supplyAsync(() -> petNode);
     }
 
     @Data
