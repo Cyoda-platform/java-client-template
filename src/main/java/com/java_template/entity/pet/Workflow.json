@@ -1,0 +1,42 @@
+{
+    "description": "Workflow to process a pet entity by enriching description and adding a processing log",
+    "name": "pet_processing_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start processing the pet entity",
+            "end_state": "Description_enriched",
+            "end_state_description": "Pet description enriched if needed",
+            "name": "start_processing",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Enrich description if missing or empty",
+                        "name": "processEnrichDescription"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Add a processing log entry for the pet entity",
+            "end_state": "Processing_log_added",
+            "end_state_description": "Processing log entity added",
+            "name": "add_processing_log",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Add supplementary processing log entity",
+                        "name": "processAddProcessingLog"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Description_enriched",
+            "start_state_description": "Pet description enriched if needed"
+        }
+    ]
+}
