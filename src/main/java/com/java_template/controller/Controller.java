@@ -6,16 +6,15 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
+import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.parameters.RequestBody;
+import org.eclipse.microprofile.openapi.annotations.tags.Tag;
+import org.jboss.resteasy.annotations.jaxrs.PathParam;
+import jakarta.inject.Inject;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 
 import java.io.IOException;
 import java.net.URI;
@@ -25,87 +24,87 @@ import java.net.http.HttpResponse;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
 
-@RestController
-@RequestMapping("/cyoda-pets")
-@Validated
+@Path("/cyoda-pets")
+@Tag(name = "Cyoda Pets", description = "Operations related to pets")
+@Produces(MediaType.APPLICATION_JSON)
+@Consumes(MediaType.APPLICATION_JSON)
 public class CyodaEntityControllerPrototype {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final HttpClient httpClient = HttpClient.newHttpClient();
-    private final EntityService entityService;
+
+    @Inject
+    EntityService entityService;
 
     private static final String ENTITY_NAME = "Pet";
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
-        this.entityService = entityService;
+    public static class Pet {
+        public UUID technicalId;
+        public String name;
+        public String category;
+        public String status;
+        public List<String> photoUrls;
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    static class Pet {
-        private UUID technicalId;
-        private String name;
-        private String category;
-        private String status;
-        private List<String> photoUrls;
-    }
-
-    @Data
-    static class SearchRequest {
+    public static class SearchRequest {
         @Pattern(regexp = "available|pending|sold")
-        private String status;
+        public String status;
+
         @Size(max = 30)
-        private String category;
+        public String category;
+
         @Size(max = 50)
-        private String nameContains;
+        public String nameContains;
     }
 
-    @Data
-    static class AddPetRequest {
+    public static class AddPetRequest {
         @NotBlank
         @Size(max = 100)
-        private String name;
+        public String name;
+
         @NotBlank
         @Size(max = 30)
-        private String category;
+        public String category;
+
         @Pattern(regexp = "available|pending|sold")
-        private String status;
+        public String status;
+
         @NotNull
         @Size(min = 1)
-        private List<@NotBlank String> photoUrls;
+        public List<@NotBlank String> photoUrls;
     }
 
-    @Data
-    static class FavoriteRequest {
+    public static class FavoriteRequest {
         @NotNull
         @Positive
-        private Long userId;
+        public Long userId;
     }
 
-    @Data
-    @AllArgsConstructor
-    static class MessageResponse {
-        private String message;
+    public static class MessageResponse {
+        public String message;
+
+        public MessageResponse() {}
+
+        public MessageResponse(String message) {
+            this.message = message;
+        }
     }
 
     private final Map<Long, Set<UUID>> userFavorites = new HashMap<>();
 
-    @PostMapping("/search")
-    public ResponseEntity<Map<String, List<Pet>>> searchPets(@RequestBody @Valid SearchRequest searchRequest) throws IOException, InterruptedException {
-        logger.info("Received search request: {}", searchRequest);
-        String statusParam = Optional.ofNullable(searchRequest.getStatus()).orElse("available");
+    @POST
+    @Path("/search")
+    @Operation(summary = "Search pets by status, category, and name")
+    public Response searchPets(@RequestBody @Valid SearchRequest searchRequest) throws IOException, InterruptedException {
+        String statusParam = Optional.ofNullable(searchRequest.status).orElse("available");
         URI uri = URI.create("https://petstore.swagger.io/v2/pet/findByStatus?status=" + statusParam);
         HttpRequest request = HttpRequest.newBuilder().uri(uri).GET().build();
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         if (response.statusCode() != 200) {
-            logger.error("External API error: {}", response.statusCode());
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "External API error");
+            throw new WebApplicationException("External API error", Response.Status.BAD_GATEWAY);
         }
 
         JsonNode rootNode = objectMapper.readTree(response.body());
@@ -113,26 +112,26 @@ public class CyodaEntityControllerPrototype {
         if (rootNode.isArray()) {
             for (JsonNode petNode : rootNode) {
                 Pet pet = parsePetFromJson(petNode);
-                if (searchRequest.getCategory() != null && !searchRequest.getCategory().equalsIgnoreCase(pet.getCategory()))
+                if (searchRequest.category != null && !searchRequest.category.equalsIgnoreCase(pet.category))
                     continue;
-                if (searchRequest.getNameContains() != null &&
-                        (pet.getName() == null || !pet.getName().toLowerCase(Locale.ROOT).contains(searchRequest.getNameContains().toLowerCase(Locale.ROOT))))
+                if (searchRequest.nameContains != null &&
+                        (pet.name == null || !pet.name.toLowerCase(Locale.ROOT).contains(searchRequest.nameContains.toLowerCase(Locale.ROOT))))
                     continue;
                 filteredPets.add(pet);
             }
         }
         Map<String, List<Pet>> result = Collections.singletonMap("pets", filteredPets);
-        logger.info("Returning {} pets", filteredPets.size());
-        return ResponseEntity.ok(result);
+        return Response.ok(result).build();
     }
 
-    @PostMapping
-    public ResponseEntity<Map<String, Object>> addPet(@RequestBody @Valid AddPetRequest addPetRequest) throws ExecutionException, InterruptedException {
+    @POST
+    @Operation(summary = "Add a new pet")
+    public Response addPet(@RequestBody @Valid AddPetRequest addPetRequest) throws ExecutionException, InterruptedException {
         ObjectNode petEntity = objectMapper.createObjectNode();
-        petEntity.put("name", addPetRequest.getName());
-        petEntity.put("category", addPetRequest.getCategory());
-        petEntity.put("status", Optional.ofNullable(addPetRequest.getStatus()).orElse("available"));
-        petEntity.putArray("photoUrls").addAll(objectMapper.valueToTree(addPetRequest.getPhotoUrls()));
+        petEntity.put("name", addPetRequest.name);
+        petEntity.put("category", addPetRequest.category);
+        petEntity.put("status", Optional.ofNullable(addPetRequest.status).orElse("available"));
+        petEntity.putArray("photoUrls").addAll(objectMapper.valueToTree(addPetRequest.photoUrls));
 
         CompletableFuture<UUID> idFuture = entityService.addItem(
                 ENTITY_NAME,
@@ -147,14 +146,13 @@ public class CyodaEntityControllerPrototype {
         resp.put("technicalId", technicalId);
         resp.put("message", "Pet added successfully");
 
-        logger.info("Pet added with technicalId {}", technicalId);
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(resp);
+        return Response.status(Response.Status.CREATED).entity(resp).build();
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<Pet> getPetById(@PathVariable UUID id) throws ExecutionException, InterruptedException {
-        logger.info("Fetching pet technicalId {}", id);
+    @GET
+    @Path("/{id}")
+    @Operation(summary = "Get pet by ID")
+    public Response getPetById(@PathParam UUID id) throws ExecutionException, InterruptedException {
         CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
                 ENTITY_NAME,
                 ENTITY_VERSION,
@@ -162,26 +160,24 @@ public class CyodaEntityControllerPrototype {
         );
         ObjectNode itemNode = itemFuture.get();
         if (itemNode == null || itemNode.isEmpty()) {
-            logger.error("Pet not found {}", id);
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pet not found");
+            throw new WebApplicationException("Pet not found", Response.Status.NOT_FOUND);
         }
 
         Pet pet = objectMapper.convertValue(itemNode, Pet.class);
         if (itemNode.has("technicalId")) {
             try {
-                pet.setTechnicalId(UUID.fromString(itemNode.get("technicalId").asText()));
+                pet.technicalId = UUID.fromString(itemNode.get("technicalId").asText());
             } catch (IllegalArgumentException ignored) {
-                pet.setTechnicalId(null);
+                pet.technicalId = null;
             }
         }
-        return ResponseEntity.ok(pet);
+        return Response.ok(pet).build();
     }
 
-    @PostMapping("/{id}/favorite")
-    public ResponseEntity<MessageResponse> markFavorite(
-            @PathVariable UUID id,
-            @RequestBody @Valid FavoriteRequest favoriteRequest) throws ExecutionException, InterruptedException {
-
+    @POST
+    @Path("/{id}/favorite")
+    @Operation(summary = "Mark pet as favorite for a user")
+    public Response markFavorite(@PathParam UUID id, @RequestBody @Valid FavoriteRequest favoriteRequest) throws ExecutionException, InterruptedException {
         CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
                 ENTITY_NAME,
                 ENTITY_VERSION,
@@ -189,29 +185,25 @@ public class CyodaEntityControllerPrototype {
         );
         ObjectNode itemNode = itemFuture.get();
         if (itemNode == null || itemNode.isEmpty()) {
-            logger.error("Pet not found {}", id);
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pet not found");
+            throw new WebApplicationException("Pet not found", Response.Status.NOT_FOUND);
         }
 
-        // Mark favorite in local cache (synchronous and local)
-        userFavorites.computeIfAbsent(favoriteRequest.getUserId(), k -> new HashSet<>()).add(id);
+        userFavorites.computeIfAbsent(favoriteRequest.userId, k -> new HashSet<>()).add(id);
 
-        logger.info("Marked pet {} as favorite for user {}", id, favoriteRequest.getUserId());
-
-        return ResponseEntity.ok(new MessageResponse("Pet marked as favorite"));
+        return Response.ok(new MessageResponse("Pet marked as favorite")).build();
     }
 
     private Pet parsePetFromJson(JsonNode petNode) {
         Pet pet = new Pet();
         if (petNode.has("id")) {
-            pet.setTechnicalId(UUID.nameUUIDFromBytes(Long.toString(petNode.get("id").asLong()).getBytes()));
+            pet.technicalId = UUID.nameUUIDFromBytes(Long.toString(petNode.get("id").asLong()).getBytes());
         }
-        pet.setName(petNode.path("name").asText(null));
+        pet.name = petNode.path("name").asText(null);
         JsonNode categoryNode = petNode.path("category");
         if (categoryNode.isObject()) {
-            pet.setCategory(categoryNode.path("name").asText(null));
+            pet.category = categoryNode.path("name").asText(null);
         }
-        pet.setStatus(petNode.path("status").asText(null));
+        pet.status = petNode.path("status").asText(null);
         List<String> photos = new ArrayList<>();
         JsonNode photosNode = petNode.path("photoUrls");
         if (photosNode.isArray()) {
@@ -219,7 +211,7 @@ public class CyodaEntityControllerPrototype {
                 photos.add(photoUrlNode.asText());
             }
         }
-        pet.setPhotoUrls(photos);
+        pet.photoUrls = photos;
         return pet;
     }
 }
