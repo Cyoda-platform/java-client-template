@@ -1,39 +1,3 @@
-Certainly! To follow your requirements and best practices, we should move all asynchronous or post-processing logic from the controller endpoints into the workflow function `processPet`. This function is invoked asynchronously before persisting the entity, so it's the perfect place for:
-
-- Normalizing or modifying entity data (e.g., lowercase status)
-- Performing any asynchronous tasks (e.g., adding/getting supplementary entities)
-- Any other business logic that prepares or enriches the entity before saving
-
----
-
-### What will be moved:
-
-- Normalization of the pet's `status` field (already in the workflow)
-- Any async calls previously done in the controller (none currently, but if you had e.g. calls to external services or additional entityService calls on other entityModels, those would be here)
-- Removing any direct logic on the entity from the controller besides simple mapping and validation
-
----
-
-### What must stay in controller:
-
-- Mapping from request DTOs to entity models (e.g. `AddPetRequest` to Pet)
-- Calling `entityService.addItem` with the workflow function
-- Returning responses and error handling
-
----
-
-### Implementation notes:
-
-- The entity passed to `processPet` is of type `ObjectNode` (JSON tree), not your POJO `Pet` class
-- You must modify the `ObjectNode` directly inside the workflow function
-- You can still call `entityService` methods on other entityModels inside `processPet` asynchronously, but not on the current entity model (to avoid recursion)
-- The workflow function returns the modified entity after processing (asynchronously)
-
----
-
-### Updated code:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -80,10 +44,6 @@ public class CyodaEntityControllerPrototype {
     public CyodaEntityControllerPrototype(EntityService entityService) {
         this.entityService = entityService;
     }
-
-    //
-    // DTOs and models
-    //
 
     @Data
     @NoArgsConstructor
@@ -136,15 +96,7 @@ public class CyodaEntityControllerPrototype {
 
     private final Map<Long, Set<UUID>> userFavorites = new HashMap<>();
 
-    //
     // Workflow function for Pet entity
-    //
-    // IMPORTANT:
-    // - entity is an ObjectNode representing the Pet JSON entity
-    // - modify entity directly (e.g. entity.put(...))
-    // - you can make async calls with entityService on *other* entityModel(s)
-    // - do NOT call addItem/updateItem/deleteItem on the same entityModel here
-    //
     private Function<ObjectNode, CompletableFuture<ObjectNode>> processPet = (ObjectNode entity) -> {
         // Normalize status to lowercase if present
         if (entity.has("status") && !entity.get("status").isNull()) {
@@ -152,11 +104,13 @@ public class CyodaEntityControllerPrototype {
             entity.put("status", status.toLowerCase(Locale.ROOT));
         }
 
-        // Example: Add a supplementary entity asynchronously (demonstration)
-        // You can add any async tasks here, e.g. logging, audit, etc.
-        // For example, add an audit entity to a different model 'PetAudit'
+        // Add audit record asynchronously to different entityModel 'PetAudit'
         ObjectNode auditEntity = entity.objectNode();
-        auditEntity.put("petId", entity.path("technicalId").asText(null));
+        if (entity.has("technicalId") && !entity.get("technicalId").isNull()) {
+            auditEntity.put("petId", entity.get("technicalId").asText());
+        } else {
+            auditEntity.put("petId", "unknown");
+        }
         auditEntity.put("action", "CREATE_OR_UPDATE");
         auditEntity.put("timestamp", System.currentTimeMillis());
 
@@ -164,15 +118,11 @@ public class CyodaEntityControllerPrototype {
                 "PetAudit",
                 ENTITY_VERSION,
                 auditEntity,
-                (e) -> CompletableFuture.completedFuture(e)); // no further processing for audit entity
+                (e) -> CompletableFuture.completedFuture(e)
+        );
 
-        // Return a future that completes when audit entity is saved, returning the original entity
         return auditFuture.thenApply(uuid -> entity);
     };
-
-    //
-    // REST endpoints
-    //
 
     @PostMapping("/search")
     public ResponseEntity<Map<String, List<Pet>>> searchPets(@RequestBody @Valid SearchRequest searchRequest) throws IOException, InterruptedException {
@@ -206,14 +156,12 @@ public class CyodaEntityControllerPrototype {
 
     @PostMapping
     public ResponseEntity<Map<String, Object>> addPet(@RequestBody @Valid AddPetRequest addPetRequest) throws ExecutionException, InterruptedException {
-        // Map AddPetRequest to ObjectNode entity directly (avoids POJO->JSON->ObjectNode conversion)
         ObjectNode petEntity = objectMapper.createObjectNode();
         petEntity.put("name", addPetRequest.getName());
         petEntity.put("category", addPetRequest.getCategory());
         petEntity.put("status", Optional.ofNullable(addPetRequest.getStatus()).orElse("available"));
         petEntity.putArray("photoUrls").addAll(objectMapper.valueToTree(addPetRequest.getPhotoUrls()));
 
-        // Call addItem with workflow function processPet
         CompletableFuture<UUID> idFuture = entityService.addItem(
                 ENTITY_NAME,
                 ENTITY_VERSION,
@@ -263,7 +211,6 @@ public class CyodaEntityControllerPrototype {
             @PathVariable UUID id,
             @RequestBody @Valid FavoriteRequest favoriteRequest) throws ExecutionException, InterruptedException {
 
-        // Validate pet existence asynchronously
         CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
                 ENTITY_NAME,
                 ENTITY_VERSION,
@@ -275,7 +222,7 @@ public class CyodaEntityControllerPrototype {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pet not found");
         }
 
-        // Mark favorite in local cache - this is sync and local, so leave here
+        // Mark favorite in local cache (synchronous and local)
         userFavorites.computeIfAbsent(favoriteRequest.getUserId(), k -> new HashSet<>()).add(id);
 
         logger.info("Marked pet {} as favorite for user {}", id, favoriteRequest.getUserId());
@@ -283,9 +230,6 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.ok(new MessageResponse("Pet marked as favorite"));
     }
 
-    //
-    // Utility method to parse Pet from external JSON source
-    //
     private Pet parsePetFromJson(JsonNode petNode) {
         Pet pet = new Pet();
         if (petNode.has("id")) {
@@ -308,25 +252,3 @@ public class CyodaEntityControllerPrototype {
         return pet;
     }
 }
-```
-
----
-
-### Summary of changes:
-
-- **Workflow function `processPet` is now:**
-  - A `Function<ObjectNode, CompletableFuture<ObjectNode>>`
-  - Normalizes the `status` field to lowercase before persistence
-  - Performs a sample async task: adding a `PetAudit` supplementary entity asynchronously before returning the entity
-- **Controller's `addPet` endpoint:**
-  - Converts the DTO directly to an `ObjectNode` (to avoid conversions)
-  - Passes the workflow function to `entityService.addItem`
-  - Waits for completion and returns the response
-- **Other async logic (such as calling external APIs or entityService.getItem) remains in controller**, because they are part of request handling, not entity persistence
-- **The favorite marking logic remains in controller**, as it is a local cache update and synchronous
-
----
-
-This structure ensures all async processing related to entity preparation and enrichment happens inside the workflow function, making controllers cleaner and more robust.
-
-If you want, I can help you create more complex workflow logic or move additional logic to workflows for other entityModels.
