@@ -1,0 +1,60 @@
+{
+    "description": "Workflow for handling pet entities including queries and normal pet processing",
+    "name": "PurrfectPetsWorkflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start processing the pet entity",
+            "end_state": "Processing",
+            "end_state_description": "Entity is being processed",
+            "name": "start_processing",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processPet"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state before processing"
+        },
+        {
+            "automated": true,
+            "description": "Process pet query when entity has query flag",
+            "end_state": "QueryProcessed",
+            "end_state_description": "Pet query has been processed",
+            "name": "process_query",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processQuery"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Processing",
+            "start_state_description": "Entity is being processed"
+        },
+        {
+            "automated": true,
+            "description": "Process normal pet entity without query",
+            "end_state": "NormalPetProcessed",
+            "end_state_description": "Normal pet entity processing completed",
+            "name": "process_normal_pet",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processNormalPet"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Processing",
+            "start_state_description": "Entity is being processed"
+        }
+    ]
+}
