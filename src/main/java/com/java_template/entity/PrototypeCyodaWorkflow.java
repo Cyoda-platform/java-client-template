@@ -1,8 +1,19 @@
+Certainly! Moving all asynchronous and pre-persistence logic into the workflow function (`processPet`) will clean up the controller and centralize entity processing. Since the workflow function receives and returns the entity asynchronously and can modify it (as an `ObjectNode`), we will:
+
+- Convert `Pet` POJO entities to `ObjectNode` in the controller before passing to `entityService.addItems`.
+- Move all async tasks such as logging, triggering workflows, or enriching entity data into the `processPet` function.
+- Use `entityService` inside `processPet` to get/add secondary entities if needed.
+- Modify the entity directly as `ObjectNode` inside `processPet`.
+- Remove async/future code from the controller.
+
+Below is the updated complete code with this approach:
+
 ```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.java_template.common.service.EntityService;
 import jakarta.validation.Valid;
@@ -45,15 +56,39 @@ public class CyodaEntityControllerPrototype {
     }
 
     /**
-     * Workflow function to process 'pet' entity before persistence.
-     * Can modify the pet state or add/get other entities (except 'pet' to avoid recursion).
-     * Here, as an example, we just log and return the same pet.
+     * Workflow function to process 'pet' entity asynchronously before persistence.
+     * Receives the entity as ObjectNode, can modify it directly, fetch/add supplementary entities,
+     * trigger async tasks, etc.
      */
-    private Pet processPet(Pet pet) {
-        logger.info("Processing pet entity before persistence: {}", pet);
-        // Example: you can modify pet here if needed
-        // e.g., pet.setStatus("processed");
-        return pet;
+    private CompletableFuture<ObjectNode> processPet(ObjectNode petEntity) {
+        return CompletableFuture.supplyAsync(() -> {
+            logger.info("Workflow processing pet entity before persistence: {}", petEntity);
+
+            // Example: Modify entity state - add a timestamp or mark as processed
+            petEntity.put("processedTimestamp", System.currentTimeMillis());
+
+            // Example async/logical operation: log pet info
+            logger.info("Pet name: {}, status: {}", petEntity.path("name").asText("N/A"), petEntity.path("status").asText("N/A"));
+
+            // Example: Trigger other async workflows or add/get supplementary entities (different entityModel)
+            // For demo, we do not add/update/delete 'pet' entity here to avoid recursion.
+
+            // Example: add supplementary entity of different model (e.g. "petLog")
+            ObjectNode petLog = objectMapper.createObjectNode();
+            petLog.put("petId", petEntity.path("id").asLong(-1));
+            petLog.put("event", "Pet processed");
+            petLog.put("timestamp", System.currentTimeMillis());
+
+            // Add supplementary entity asynchronously (entityModel != "pet")
+            entityService.addItem("petLog", ENTITY_VERSION, petLog, Function.identity())
+                    .exceptionally(ex -> {
+                        logger.error("Failed to add petLog entity", ex);
+                        return null;
+                    });
+
+            // Return the modified pet entity to be persisted
+            return petEntity;
+        });
     }
 
     @PostMapping(path = "/fetch", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
@@ -68,51 +103,46 @@ public class CyodaEntityControllerPrototype {
         }
         int limit = (request.getLimit() != null) ? request.getLimit() : rootNode.size();
 
-        List<Pet> petsToAdd = new ArrayList<>();
+        List<ObjectNode> petsToAdd = new ArrayList<>();
         for (int i = 0; i < Math.min(limit, rootNode.size()); i++) {
             JsonNode petNode = rootNode.get(i);
-            Pet pet = jsonNodeToPet(petNode);
-            if (pet != null) {
-                petsToAdd.add(pet);
+            ObjectNode petObjNode = petNodeToObjectNode(petNode);
+            if (petObjNode != null) {
+                petsToAdd.add(petObjNode);
             }
         }
 
-        // Using entityService.addItems with workflow function to add pets
-        // The workflow function must be a Function<Pet, Pet>
-        Function<Pet, Pet> workflow = this::processPet;
-
+        // Pass workflow function processPet as the workflow parameter
         CompletableFuture<List<UUID>> idsFuture = entityService.addItems(
                 "pet",
                 ENTITY_VERSION,
                 petsToAdd,
-                workflow
+                this::processPet
         );
         List<UUID> addedIds = idsFuture.get();
 
-        CompletableFuture.runAsync(() -> logger.info("Triggering workflows for fetched pets (mocked)"));
         logger.info("Fetched and stored {} pets", addedIds.size());
         return new FetchResponse(addedIds.size(), "Pets fetched and stored successfully");
     }
 
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-    public List<Pet> getPets(
+    public List<ObjectNode> getPets(
             @RequestParam(required = false) @Size(min = 1) String type,
             @RequestParam(required = false) @Size(min = 1) String status,
             @RequestParam(required = false) @Min(1) Integer limit) throws Exception {
         logger.info("Received get pets request with filters: type={}, status={}, limit={}", type, status, limit);
 
         ArrayNode allItems = entityService.getItems("pet", ENTITY_VERSION).get();
-        List<Pet> pets = new ArrayList<>();
+        List<ObjectNode> pets = new ArrayList<>();
         for (JsonNode node : allItems) {
-            Pet pet = objectMapper.treeToValue(node, Pet.class);
-            if (pet != null) {
-                pets.add(pet);
+            if (node.isObject()) {
+                pets.add((ObjectNode) node);
             }
         }
 
-        List<Pet> filtered = pets.stream()
-                .filter(pet -> (type == null || type.equalsIgnoreCase(pet.getType())) &&
-                        (status == null || status.equalsIgnoreCase(pet.getStatus())))
+        List<ObjectNode> filtered = pets.stream()
+                .filter(pet -> (type == null || type.equalsIgnoreCase(pet.path("type").asText(null))) &&
+                        (status == null || status.equalsIgnoreCase(pet.path("status").asText(null))))
                 .collect(Collectors.toList());
 
         if (limit != null && filtered.size() > limit) {
@@ -123,27 +153,20 @@ public class CyodaEntityControllerPrototype {
     }
 
     @PostMapping(path = "/recommendation", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public List<Pet> getRecommendations(@RequestBody @Valid RecommendationRequest request) throws Exception {
+    public List<ObjectNode> getRecommendations(@RequestBody @Valid RecommendationRequest request) throws Exception {
         logger.info("Received recommendation request: {}", request);
 
-        String condition = null;
-        if (request.getPreferredType() != null && !request.getPreferredType().isBlank()) {
-            // Assuming condition is a string understood by getItemsByCondition; if not, skip condition
-            // Since no format specified, skipping condition and filtering after fetch
-        }
-
         ArrayNode allItems = entityService.getItems("pet", ENTITY_VERSION).get();
-        List<Pet> candidates = new ArrayList<>();
+        List<ObjectNode> candidates = new ArrayList<>();
         for (JsonNode node : allItems) {
-            Pet pet = objectMapper.treeToValue(node, Pet.class);
-            if (pet != null) {
-                candidates.add(pet);
+            if (node.isObject()) {
+                candidates.add((ObjectNode) node);
             }
         }
 
         if (request.getPreferredType() != null && !request.getPreferredType().isBlank()) {
             candidates = candidates.stream()
-                    .filter(pet -> request.getPreferredType().equalsIgnoreCase(pet.getType()))
+                    .filter(pet -> request.getPreferredType().equalsIgnoreCase(pet.path("type").asText(null)))
                     .collect(Collectors.toList());
         }
 
@@ -156,24 +179,17 @@ public class CyodaEntityControllerPrototype {
         return candidates;
     }
 
-    private Pet jsonNodeToPet(JsonNode node) {
-        try {
-            Long id = node.path("id").asLong();
-            String name = node.path("name").asText(null);
-            String type = node.path("category").path("name").asText(null);
-            String status = node.path("status").asText(null);
-            List<String> photoUrls = new ArrayList<>();
-            JsonNode photosNode = node.path("photoUrls");
-            if (photosNode.isArray()) {
-                for (JsonNode urlNode : photosNode) {
-                    photoUrls.add(urlNode.asText());
-                }
-            }
-            return new Pet(id, name, type, status, photoUrls);
-        } catch (Exception e) {
-            logger.error("Failed to parse pet JSON node: {}", node, e);
-            return null;
+    private ObjectNode petNodeToObjectNode(JsonNode node) {
+        if (!node.isObject()) return null;
+        ObjectNode petObjNode = (ObjectNode) node.deepCopy();
+
+        // Optionally normalize or add fields as needed here before persistence
+        // For example, ensure id is present and type/status exists
+        if (!petObjNode.has("type") && petObjNode.has("category") && petObjNode.get("category").has("name")) {
+            petObjNode.put("type", petObjNode.get("category").get("name").asText());
         }
+
+        return petObjNode;
     }
 
     @Data
@@ -205,23 +221,20 @@ public class CyodaEntityControllerPrototype {
         @Min(1)
         private Integer maxResults;
     }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class Pet {
-        private Long id;
-        private String name;
-        private String type;
-        private String status;
-        private List<String> photoUrls;
-    }
 }
 ```
+
 ---
 
-### Explanation
-- Added a private method `processPet(Pet pet)` as the workflow function following the naming convention `process{entity_name}`.
-- This method currently just logs and returns the entity as is but can be extended to manipulate the entity before persistence.
-- Updated the call to `entityService.addItems` in `fetchPets()` method to pass this workflow function as the last argument.
-- The workflow function is a `Function<Pet, Pet>` which matches the expected signature.
+### Key changes:
+- The `processPet` method is now a `CompletableFuture<ObjectNode>` workflow function that:
+  - Modifies the entity directly before persistence (`petEntity.put(...)`).
+  - Runs asynchronously.
+  - Performs logging and any async side effects (adding supplementary entities of different entity models).
+- The controller now works with `ObjectNode` entities instead of POJO `Pet` when calling `entityService.addItems`.
+- Removed all async/future and fire-and-forget logic from controller endpoints — it is now handled in the workflow.
+- `petNodeToObjectNode` converts raw JSON from external API to an `ObjectNode` with some normalization.
+- The workflow function uses `entityService.addItem` for supplementary entities but never modifies the current entity model (`pet`).
+- This pattern frees controllers from persistence preparation and async side effects, making them cleaner and more robust.
+
+Let me know if you want me to help with other entities or further refactoring!
