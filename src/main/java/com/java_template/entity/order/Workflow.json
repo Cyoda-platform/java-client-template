@@ -1,0 +1,96 @@
+{
+    "description": "Workflow to process orders from creation to execution or rejection",
+    "name": "order_processing_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Set createdAt timestamp if missing",
+            "end_state": "CreatedAt_set",
+            "end_state_description": "createdAt timestamp has been set",
+            "name": "set_created_at",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSetCreatedAt"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Validate and normalize side field",
+            "end_state": "Side_validated",
+            "end_state_description": "Side field validated and normalized or order rejected",
+            "name": "validate_side",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processValidateSide"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "CreatedAt_set",
+            "start_state_description": "createdAt timestamp has been set"
+        },
+        {
+            "automated": true,
+            "description": "Set default status if missing",
+            "end_state": "Status_set",
+            "end_state_description": "Status field set to pending if missing",
+            "name": "set_default_status",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSetDefaultStatus"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Side_validated",
+            "start_state_description": "Side field validated and normalized or order rejected"
+        },
+        {
+            "automated": true,
+            "description": "Validate amount and set rejection or review status",
+            "end_state": "Amount_validated",
+            "end_state_description": "Amount validated and status updated as needed",
+            "name": "validate_amount",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processValidateAmount"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Status_set",
+            "start_state_description": "Status field set to pending if missing"
+        },
+        {
+            "automated": true,
+            "description": "Execute the order asynchronously if status is pending or review",
+            "end_state": "Order_executed",
+            "end_state_description": "Order executed or status unchanged if not pending/review",
+            "name": "execute_order",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processExecution"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Amount_validated",
+            "start_state_description": "Amount validated and status updated as needed"
+        }
+    ]
+}
