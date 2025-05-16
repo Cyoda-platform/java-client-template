@@ -1,4 +1,4 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -18,7 +18,6 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
 
@@ -26,17 +25,17 @@ import static com.java_template.common.config.Config.*;
 @Validated
 @RestController
 @RequestMapping("/api/cyoda-entity")
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
     private static final String ENTITY_NAME = "order";
 
     private final EntityService entityService;
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final ObjectMapper objectMapper;
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService) {
         this.entityService = entityService;
         this.objectMapper = entityService.getObjectMapper();
     }
@@ -46,7 +45,7 @@ public class CyodaEntityControllerPrototype {
 
     @PostConstruct
     public void init() {
-        logger.info("CyodaEntityControllerPrototype initialized");
+        logger.info("Controller initialized");
     }
 
     @Data
