@@ -1,49 +1,3 @@
-Certainly!  
-The goal is to move all asynchronous logic and complex entity state modifications from the controller endpoints into the workflow function `processOrder`, which is invoked asynchronously before persistence. This will clean up the controller and centralize the business logic related to entity processing.
-
----
-
-### Approach & key points:
-
-- The workflow function `processOrder` takes an `ObjectNode` representing the entity data, modifies it directly, and can asynchronously invoke other entityService methods for *different* entityModels.
-
-- We **cannot** do `addItem/updateItem/deleteItem` on the same entityModel inside the workflow function (to avoid infinite recursion).
-
-- Any asynchronous "fire and forget" post-persistence tasks currently done with `CompletableFuture.runAsync(...)` should be moved into this workflow function as part of the pre-persist asynchronous processing.
-
-- The controller endpoints become simple: validate request, convert to ObjectNode, call `entityService.addItem` with workflow, and return the result.
-
----
-
-### What to move into `processOrder`:
-
-- **Order "rejected" status handling** (currently done in controller)
-
-- **Order "pending" status setting**
-
-- **Order "executed" status update and updating executedAmountsByPair**
-
-- The current `executeOrderWorkflow` async method (which updates status to "executed" after some delay) should be moved into `processOrder`.
-
----
-
-### Implementation details:
-
-- Since `processOrder` gets the entity as an `ObjectNode`, we will work directly with it:
-
-  - e.g. `entity.put("status", "pending");`
-
-- To do asynchronous delays / logic, just chain CompletableFutures inside `processOrder`.
-
-- To update other entities, call `entityService.addItem` or `entityService.getItem` for *different* entityModels if needed.
-
-- To update the `executedAmountsByPair`, since it is a local map, and `processOrder` happens before persistence, we can update it inside the workflow function.
-
----
-
-### Updated complete code:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -52,6 +6,7 @@ import com.java_template.common.service.EntityService;
 import jakarta.annotation.PostConstruct;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -86,7 +41,7 @@ public class CyodaEntityControllerPrototype {
         this.objectMapper = entityService.getObjectMapper();
     }
 
-    // To track executed amounts by pair (thread-safe with synchronization)
+    // Thread-safe map to track executed amounts by pair
     private final Map<String, Double> executedAmountsByPair = Collections.synchronizedMap(new HashMap<>());
 
     @PostConstruct
@@ -165,12 +120,7 @@ public class CyodaEntityControllerPrototype {
         }
     }
 
-    /**
-     * Workflow function applied asynchronously before persisting the entity.
-     * The entity is an ObjectNode, modify it directly.
-     * You can get/add entities of different entityModels via entityService.
-     * You cannot add/update/delete entity of the same entityModel here.
-     */
+    // Workflow function to process the Order entity asynchronously before persistence
     private final Function<ObjectNode, CompletableFuture<ObjectNode>> processOrder = entity -> {
         logger.info("processOrder workflow started for entity: {}", entity);
 
@@ -179,11 +129,10 @@ public class CyodaEntityControllerPrototype {
             entity.put("createdAt", Instant.now().toString());
         }
 
-        // Validate & normalize side field
+        // Validate and normalize side field
         if (entity.has("side")) {
             String sideStr = entity.get("side").asText().toLowerCase(Locale.ROOT);
             if (!sideStr.equals("buy") && !sideStr.equals("sell")) {
-                // invalid side, reject order by setting status immediately
                 entity.put("status", "rejected");
                 entity.put("rejectionReason", "Invalid side value");
                 logger.warn("Order rejected due to invalid side: {}", sideStr);
@@ -202,26 +151,33 @@ public class CyodaEntityControllerPrototype {
             entity.put("status", "pending");
         }
 
-        // Check amount and decide immediate rejection or pending
+        // Validate amount
         double amount = entity.has("amount") ? entity.get("amount").asDouble() : 0.0;
 
+        if (amount < 0) {
+            entity.put("status", "rejected");
+            entity.put("rejectionReason", "Negative amount not allowed");
+            logger.warn("Order rejected due to negative amount: {}", amount);
+            return CompletableFuture.completedFuture(entity);
+        }
+
+        // Immediately reject orders with amount >= 10,000
         if (amount >= 10_000) {
-            // Immediately reject large orders
             entity.put("status", "rejected");
             entity.put("rejectionReason", "Amount exceeds limit");
             logger.info("Order rejected due to amount >= 10,000: {}", amount);
             return CompletableFuture.completedFuture(entity);
         }
 
-        // For amounts between 5,000 and 10,000, mark as "review"
+        // For amounts between 5,000 and 10,000 mark as review
         if (amount >= 5_000 && amount < 10_000) {
             entity.put("status", "review");
             logger.info("Order marked for review due to amount: {}", amount);
         }
 
-        // Simulate async execution workflow for orders with status "pending" or "review"
-        if (entity.get("status").asText().equals("pending") || entity.get("status").asText().equals("review")) {
-            // Return a CompletableFuture that completes after simulating execution delay and updating status
+        // For pending or review status, simulate async execution workflow
+        String status = entity.get("status").asText();
+        if ("pending".equals(status) || "review".equals(status)) {
             return CompletableFuture.supplyAsync(() -> {
                 try {
                     logger.info("Simulating async execution workflow, sleeping 100ms");
@@ -231,7 +187,7 @@ public class CyodaEntityControllerPrototype {
                     logger.error("Interrupted during execution simulation", e);
                 }
 
-                // Update status to "executed"
+                // Update status to executed
                 entity.put("status", "executed");
 
                 // Update executedAmountsByPair map
@@ -245,12 +201,11 @@ public class CyodaEntityControllerPrototype {
 
                 logger.info("Order status updated to executed and executedAmountsByPair updated");
 
-                // Return the modified entity to be persisted
                 return entity;
             });
         }
 
-        // For all other cases, just return the entity immediately
+        // For all other cases, return entity immediately
         return CompletableFuture.completedFuture(entity);
     };
 
@@ -265,8 +220,7 @@ public class CyodaEntityControllerPrototype {
         entityNode.put("amount", request.getAmount());
         entityNode.put("pair", request.getPair());
 
-        // createdAt will be set in workflow function if missing
-
+        // Add item with workflow function
         CompletableFuture<UUID> idFuture = entityService.addItem(
                 ENTITY_NAME,
                 ENTITY_VERSION,
@@ -276,6 +230,7 @@ public class CyodaEntityControllerPrototype {
 
         UUID techId = idFuture.join();
 
+        // Determine status and message for response
         String status = entityNode.has("status") ? entityNode.get("status").asText() : "unknown";
         String message;
         switch (status) {
@@ -343,41 +298,3 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.status(ex.getStatusCode()).body(error);
     }
 }
-```
-
----
-
-### Summary of what changed:
-
-- The controller `createOrder` simply converts the request to `ObjectNode` and calls `entityService.addItem` with `processOrder` workflow.
-
-- The `processOrder` workflow function:
-
-  - Sets/validates `createdAt`, `side`, and `status`.
-
-  - Immediately rejects orders with invalid side or amount >= 10,000.
-
-  - Marks orders with amount between 5,000 and 10,000 as "review".
-
-  - For "pending" or "review" orders, simulates async execution by sleeping 100ms, then marks status to "executed" and updates the executedAmountsByPair map.
-
-- Removed all async `CompletableFuture.runAsync` or manual post-persist workflows from the controller.
-
-- The map `executedAmountsByPair` updates happen inside the workflow function, ensuring state is consistent and logic is centralized.
-
----
-
-### Benefits:
-
-- Controller is slim, only responsible for validation and calling service.
-
-- All business logic, validation, async workflows, state updates happen inside `processOrder` function.
-
-- The workflow function runs asynchronously before persistence, integrating validation, processing, and side-effects in one place.
-
-- No infinite recursion risk because we do not update the same entityModel inside the workflow, only modify the entity state directly.
-
----
-
-If you want, I can also help to move other logic or entities into workflow functions similarly.  
-Let me know if you want me to include additional comments or tests!
