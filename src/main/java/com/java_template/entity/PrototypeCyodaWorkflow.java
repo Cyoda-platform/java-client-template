@@ -1,14 +1,3 @@
-Certainly! Moving all asynchronous and pre-persistence logic into the workflow function (`processPet`) will clean up the controller and centralize entity processing. Since the workflow function receives and returns the entity asynchronously and can modify it (as an `ObjectNode`), we will:
-
-- Convert `Pet` POJO entities to `ObjectNode` in the controller before passing to `entityService.addItems`.
-- Move all async tasks such as logging, triggering workflows, or enriching entity data into the `processPet` function.
-- Use `entityService` inside `processPet` to get/add secondary entities if needed.
-- Modify the entity directly as `ObjectNode` inside `processPet`.
-- Remove async/future code from the controller.
-
-Below is the updated complete code with this approach:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -59,35 +48,45 @@ public class CyodaEntityControllerPrototype {
      * Workflow function to process 'pet' entity asynchronously before persistence.
      * Receives the entity as ObjectNode, can modify it directly, fetch/add supplementary entities,
      * trigger async tasks, etc.
+     * Must not add/update/delete entity of model "pet" to avoid infinite recursion.
      */
     private CompletableFuture<ObjectNode> processPet(ObjectNode petEntity) {
         return CompletableFuture.supplyAsync(() -> {
-            logger.info("Workflow processing pet entity before persistence: {}", petEntity);
+            try {
+                logger.info("Workflow processing pet entity before persistence: {}", petEntity);
 
-            // Example: Modify entity state - add a timestamp or mark as processed
-            petEntity.put("processedTimestamp", System.currentTimeMillis());
+                // Add a processed timestamp (example modification)
+                petEntity.put("processedTimestamp", System.currentTimeMillis());
 
-            // Example async/logical operation: log pet info
-            logger.info("Pet name: {}, status: {}", petEntity.path("name").asText("N/A"), petEntity.path("status").asText("N/A"));
+                // Normalize or enrich data if needed
+                // For example, ensure status field is lower case string
+                if (petEntity.has("status") && !petEntity.get("status").isNull()) {
+                    petEntity.put("status", petEntity.get("status").asText().toLowerCase(Locale.ROOT));
+                }
 
-            // Example: Trigger other async workflows or add/get supplementary entities (different entityModel)
-            // For demo, we do not add/update/delete 'pet' entity here to avoid recursion.
+                // Log pet info
+                logger.info("Pet name: {}, status: {}", petEntity.path("name").asText("N/A"), petEntity.path("status").asText("N/A"));
 
-            // Example: add supplementary entity of different model (e.g. "petLog")
-            ObjectNode petLog = objectMapper.createObjectNode();
-            petLog.put("petId", petEntity.path("id").asLong(-1));
-            petLog.put("event", "Pet processed");
-            petLog.put("timestamp", System.currentTimeMillis());
+                // Example: Add supplementary entity of a different model "petLog"
+                ObjectNode petLog = objectMapper.createObjectNode();
+                petLog.put("petId", petEntity.path("id").asLong(-1));
+                petLog.put("event", "Pet processed");
+                petLog.put("timestamp", System.currentTimeMillis());
 
-            // Add supplementary entity asynchronously (entityModel != "pet")
-            entityService.addItem("petLog", ENTITY_VERSION, petLog, Function.identity())
-                    .exceptionally(ex -> {
-                        logger.error("Failed to add petLog entity", ex);
-                        return null;
-                    });
+                // Add supplementary entity asynchronously, ignoring failure but logging it
+                entityService.addItem("petLog", ENTITY_VERSION, petLog, Function.identity())
+                        .exceptionally(ex -> {
+                            logger.error("Failed to add petLog entity", ex);
+                            return null;
+                        });
 
-            // Return the modified pet entity to be persisted
-            return petEntity;
+                // Return the modified pet entity to be persisted
+                return petEntity;
+            } catch (Exception e) {
+                logger.error("Exception in processPet workflow", e);
+                // Return entity unchanged on error, so persistence proceeds
+                return petEntity;
+            }
         });
     }
 
@@ -179,15 +178,21 @@ public class CyodaEntityControllerPrototype {
         return candidates;
     }
 
+    /**
+     * Converts a JsonNode representing a pet from external API to an ObjectNode for storage.
+     * Performs normalization of fields such as 'type' extracted from 'category.name'.
+     */
     private ObjectNode petNodeToObjectNode(JsonNode node) {
         if (!node.isObject()) return null;
         ObjectNode petObjNode = (ObjectNode) node.deepCopy();
 
-        // Optionally normalize or add fields as needed here before persistence
-        // For example, ensure id is present and type/status exists
-        if (!petObjNode.has("type") && petObjNode.has("category") && petObjNode.get("category").has("name")) {
+        // Normalize 'type' from category.name if not present
+        if (!petObjNode.hasNonNull("type") && petObjNode.has("category") && petObjNode.get("category").hasNonNull("name")) {
             petObjNode.put("type", petObjNode.get("category").get("name").asText());
         }
+
+        // Remove 'category' field to avoid redundant data if desired
+        petObjNode.remove("category");
 
         return petObjNode;
     }
@@ -222,19 +227,3 @@ public class CyodaEntityControllerPrototype {
         private Integer maxResults;
     }
 }
-```
-
----
-
-### Key changes:
-- The `processPet` method is now a `CompletableFuture<ObjectNode>` workflow function that:
-  - Modifies the entity directly before persistence (`petEntity.put(...)`).
-  - Runs asynchronously.
-  - Performs logging and any async side effects (adding supplementary entities of different entity models).
-- The controller now works with `ObjectNode` entities instead of POJO `Pet` when calling `entityService.addItems`.
-- Removed all async/future and fire-and-forget logic from controller endpoints — it is now handled in the workflow.
-- `petNodeToObjectNode` converts raw JSON from external API to an `ObjectNode` with some normalization.
-- The workflow function uses `entityService.addItem` for supplementary entities but never modifies the current entity model (`pet`).
-- This pattern frees controllers from persistence preparation and async side effects, making them cleaner and more robust.
-
-Let me know if you want me to help with other entities or further refactoring!
