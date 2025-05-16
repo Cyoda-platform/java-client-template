@@ -1,0 +1,78 @@
+{
+    "description": "Workflow to process pet entities through multiple processing steps",
+    "name": "pet_processing_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Normalize the status field to lowercase",
+            "end_state": "Status_normalized",
+            "end_state_description": "The status field has been normalized",
+            "name": "normalize_status",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processNormalizeStatus"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Add a processed timestamp to the pet entity",
+            "end_state": "Timestamp_added",
+            "end_state_description": "Processed timestamp has been added",
+            "name": "add_processed_timestamp",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAddProcessedTimestamp"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Status_normalized",
+            "start_state_description": "The status field has been normalized"
+        },
+        {
+            "automated": true,
+            "description": "Log the pet's name and status",
+            "end_state": "Pet_info_logged",
+            "end_state_description": "Pet information has been logged",
+            "name": "log_pet_info",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processLogPetInfo"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Timestamp_added",
+            "start_state_description": "Processed timestamp has been added"
+        },
+        {
+            "automated": true,
+            "description": "Add a petLog supplementary entity asynchronously",
+            "end_state": "Pet_log_added",
+            "end_state_description": "Pet log entity has been added",
+            "name": "add_pet_log",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAddPetLog"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Pet_info_logged",
+            "start_state_description": "Pet information has been logged"
+        }
+    ]
+}
