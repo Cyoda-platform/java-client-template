@@ -1,0 +1,60 @@
+{
+    "description": "Workflow for processing pet entities in Purrfect Pets API",
+    "name": "purrfect_pets_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Normalize the status field to lowercase",
+            "end_state": "Status_normalized",
+            "end_state_description": "Status field normalized",
+            "name": "normalize_status",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processNormalizeStatus"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Add processing timestamp to the entity",
+            "end_state": "Timestamp_added",
+            "end_state_description": "Timestamp added to entity",
+            "name": "add_timestamp",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAddTimestamp"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Status_normalized",
+            "start_state_description": "Status field normalized"
+        },
+        {
+            "automated": true,
+            "description": "Enrich pet entity with category details and create pet event",
+            "end_state": "Category_enriched",
+            "end_state_description": "Category details enriched and pet event created",
+            "name": "enrich_category",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processEnrichCategory"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Timestamp_added",
+            "start_state_description": "Timestamp added to entity"
+        }
+    ]
+}
