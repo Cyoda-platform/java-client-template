@@ -1,4 +1,4 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -10,8 +10,6 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -30,7 +28,7 @@ import static com.java_template.common.config.Config.ENTITY_VERSION;
 @Validated
 @RestController
 @RequestMapping("/cyoda-pets")
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
     private static final String ENTITY_NAME = "pet";
 
@@ -38,15 +36,13 @@ public class CyodaEntityControllerPrototype {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final RestTemplate restTemplate = new RestTemplate();
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
-
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService) {
         this.entityService = entityService;
     }
 
     @PostConstruct
     public void init() {
-        logger.info("CyodaEntityControllerPrototype initialized");
+        log.info("Controller initialized");
     }
 
     @Data
@@ -74,7 +70,7 @@ public class CyodaEntityControllerPrototype {
         if (sourceUrl == null || sourceUrl.isBlank()) {
             sourceUrl = "https://petstore.swagger.io/v2/pet/findByStatus?status=available,pending,sold";
         }
-        logger.info("Starting pet data sync from source: {}", sourceUrl);
+        log.info("Starting pet data sync from source: {}", sourceUrl);
 
         String rawJson = restTemplate.getForObject(sourceUrl, String.class);
         if (rawJson == null || rawJson.isBlank()) {
@@ -92,28 +88,25 @@ public class CyodaEntityControllerPrototype {
             petsToAdd.add(petObjectNode);
         }
 
-        // Add pets without workflow function
         CompletableFuture<List<UUID>> idsFuture = entityService.addItems(ENTITY_NAME, ENTITY_VERSION, petsToAdd);
         List<UUID> createdIds = idsFuture.get();
 
-        logger.info("Synchronized {} pets from external API", createdIds.size());
+        log.info("Synchronized {} pets from external API", createdIds.size());
         return ResponseEntity.ok(new SyncResponse("success", "Pets data synchronized", createdIds.size()));
     }
 
     @PostMapping
     public ResponseEntity<ObjectNode> createPet(@RequestBody @Valid ObjectNode petEntity) throws ExecutionException, InterruptedException {
-        // Add a new pet without workflow function
         CompletableFuture<UUID> idFuture = entityService.addItem(ENTITY_NAME, ENTITY_VERSION, petEntity);
         UUID technicalId = idFuture.get();
 
         petEntity.put("technicalId", technicalId.toString());
-        logger.info("Created new pet with technicalId {}", technicalId);
+        log.info("Created new pet with technicalId {}", technicalId);
         return ResponseEntity.status(HttpStatus.CREATED).body(petEntity);
     }
 
     @PostMapping("/{petId}")
     public ResponseEntity<ObjectNode> updatePet(@PathVariable UUID petId, @RequestBody @Valid ObjectNode petEntityUpdate) throws Exception {
-        // Verify pet existence before update
         CompletableFuture<ObjectNode> existingFuture = entityService.getItem(ENTITY_NAME, ENTITY_VERSION, petId);
         ObjectNode existingNode = existingFuture.get();
         if (existingNode == null || existingNode.isEmpty(null)) {
@@ -122,12 +115,11 @@ public class CyodaEntityControllerPrototype {
 
         petEntityUpdate.put("technicalId", petId.toString());
 
-        // Update pet entity - no workflow function on update assumed (can be added similarly if needed)
         CompletableFuture<UUID> updatedIdFuture = entityService.updateItem(ENTITY_NAME, ENTITY_VERSION, petId, petEntityUpdate);
         UUID updatedId = updatedIdFuture.get();
 
         petEntityUpdate.put("technicalId", updatedId.toString());
-        logger.info("Updated pet with technicalId {}", updatedId);
+        log.info("Updated pet with technicalId {}", updatedId);
         return ResponseEntity.ok(petEntityUpdate);
     }
 
@@ -149,10 +141,9 @@ public class CyodaEntityControllerPrototype {
         if (status == null && category == null) {
             CompletableFuture<ArrayNode> itemsFuture = entityService.getItems(ENTITY_NAME, ENTITY_VERSION);
             ArrayNode arrayNode = itemsFuture.get();
-            logger.info("Search pets without filters found {} results", arrayNode.size());
+            log.info("Search pets without filters found {} results", arrayNode.size());
             return ResponseEntity.ok(arrayNode);
         } else {
-            // Build condition JSON for filtering
             ObjectNode condition = objectMapper.createObjectNode();
             if (status != null) {
                 condition.put("status", status);
@@ -163,12 +154,11 @@ public class CyodaEntityControllerPrototype {
 
             CompletableFuture<ArrayNode> filteredItemsFuture = entityService.getItemsByCondition(ENTITY_NAME, ENTITY_VERSION, condition);
             ArrayNode filteredArray = filteredItemsFuture.get();
-            logger.info("Search pets with status='{}', category='{}' found {} results", status, category, filteredArray.size());
+            log.info("Search pets with status='{}', category='{}' found {} results", status, category, filteredArray.size());
             return ResponseEntity.ok(filteredArray);
         }
     }
 
-    // Helper method to parse external JSON pet node into ObjectNode for persistence
     private ObjectNode parsePetToObjectNode(JsonNode petNode) {
         ObjectNode pet = objectMapper.createObjectNode();
 
@@ -183,7 +173,6 @@ public class CyodaEntityControllerPrototype {
 
         pet.put("status", petNode.path("status").asText(null));
 
-        // Convert tags array of objects with name field to array of strings
         ArrayNode tagsArray = objectMapper.createArrayNode();
         JsonNode tagsNode = petNode.path("tags");
         if (tagsNode.isArray()) {
@@ -195,7 +184,6 @@ public class CyodaEntityControllerPrototype {
         }
         pet.set("tags", tagsArray);
 
-        // photoUrls as array of strings
         ArrayNode photoUrlsArray = objectMapper.createArrayNode();
         JsonNode photosNode = petNode.path("photoUrls");
         if (photosNode.isArray()) {
