@@ -1,3 +1,33 @@
+Certainly! Moving asynchronous and preparatory logic into the workflow function (`process{entity_name}`) is the right approach. It helps keep controllers clean and shifts business logic into a dedicated place executed just before persistence.
+
+---
+
+### What to move into `processMessage` workflow function?
+
+- Setting timestamps or other derived fields on the entity.
+- Any async or fire-and-forget tasks related to the entity.
+- Fetching or adding supplementary data entities (of *different* entity models).
+- Modifying the entity state directly (via its `ObjectNode`).
+
+---
+
+### What *not* to do in the workflow?
+
+- Do **not** add/update/delete entities of the same entity model (`"message"` here), to avoid infinite recursion.
+- Only modify the given entity (`ObjectNode`) directly via `.put()`, `.remove()`, etc.
+
+---
+
+### Updated example with workflow function doing:
+
+- Set `timestamp` inside workflow instead of controller.
+- Any async side tasks can be triggered here.
+- Controller only handles validation and calls `addItem`.
+
+---
+
+### Complete updated code with workflow function handling async logic and entity modification:
+
 ```java
 package com.java_template.entity;
 
@@ -7,9 +37,9 @@ import com.java_template.common.service.EntityService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,12 +72,23 @@ public class CyodaEntityControllerPrototype {
     }
 
     /**
-     * Workflow function applied to Message entity before persistence.
-     * It receives the Message entity and returns it (possibly modified) asynchronously.
+     * Workflow function applied to "message" entity before persistence.
+     * Modifies the entity ObjectNode directly.
+     * Can perform async tasks, add/get other entityModels, etc.
      */
-    private CompletableFuture<Message> processMessage(Message entity) {
-        // Example workflow logic can be added here.
-        // For now, just return the entity as is.
+    private CompletableFuture<ObjectNode> processMessage(ObjectNode entity) {
+        // 1) Set the timestamp just before persisting
+        entity.put("timestamp", Instant.now().toString());
+
+        // 2) Example async fire-and-forget task:
+        //    Log or send notifications asynchronously here if needed.
+        //    For example, just simulate async logging:
+        CompletableFuture.runAsync(() -> logger.info("Async processing for message: {}", entity.toString()));
+
+        // 3) You can get/add other entities (different entityModel), e.g.:
+        // entityService.getItems("someOtherEntityModel", ENTITY_VERSION).thenAccept(...);
+
+        // Return the (possibly modified) entity wrapped in a CompletableFuture
         return CompletableFuture.completedFuture(entity);
     }
 
@@ -55,19 +96,24 @@ public class CyodaEntityControllerPrototype {
     public Message createMessage(@RequestBody @Valid CreateMessageRequest request) throws ExecutionException, InterruptedException {
         logger.info("Received create message request: {}", request.getText());
 
-        Message message = new Message();
-        message.setText(request.getText());
-        message.setTimestamp(Instant.now().toString());
+        // Build entity as ObjectNode via EntityService or ObjectMapper
+        ObjectNode entity = entityService.getObjectMapper().createObjectNode();
+        entity.put("text", request.getText());
 
-        // Pass the workflow function processMessage to addItem
+        // Pass workflow function to addItem
         UUID technicalId = entityService.addItem(
                 "message",
                 ENTITY_VERSION,
-                message,
+                entity,
                 this::processMessage
         ).get();
 
+        // Prepare response DTO
+        Message message = new Message();
         message.setId(technicalId.toString());
+        message.setText(request.getText());
+        // timestamp comes from workflow, so fetch it if needed:
+        message.setTimestamp(entity.get("timestamp").asText());
 
         logger.info("Message stored with technicalId: {}", technicalId);
         return message;
@@ -117,9 +163,6 @@ public class CyodaEntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class Message {
-        @com.fasterxml.jackson.annotation.JsonIgnore
-        private String technicalId; // internal use, not exposed
-
         private String id;
         private String text;
         private String timestamp;
@@ -133,16 +176,14 @@ public class CyodaEntityControllerPrototype {
     }
 }
 ```
+
 ---
 
-### Explanation of changes:
-- Added a new private method `processMessage(Message entity)` as the workflow function for the `"message"` entity.
-- `processMessage` returns a `CompletableFuture<Message>` and currently just returns the entity unmodified asynchronously.
-- Updated the `createMessage` method to pass this workflow function as the fourth argument to `entityService.addItem`.
-- Signature of `addItem` call now matches:
-  ```java
-  entityService.addItem(entityModel, entityVersion, entity, workflowFunction)
-  ```
-- `this::processMessage` is a method reference passed as the workflow function.
+### Summary of improvements:
+- **Moved `timestamp` setting from controller to `processMessage` workflow function.**
+- **Placed any async side effects inside workflow with `CompletableFuture.runAsync`.**
+- Controller only validates input, constructs entity node, and calls `entityService.addItem` with workflow.
+- The workflow function modifies the entity node directly (required approach).
+- You can extend the workflow function with other async calls or fetching/adding other entity models as needed.
 
-This follows your instructions about the workflow function naming (`process{entity_name}`) and usage.
+This approach makes your controller leaner and ensures all async and entity modification logic happens right before persistence, as required.
