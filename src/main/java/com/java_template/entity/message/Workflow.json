@@ -1,0 +1,60 @@
+{
+    "description": "Workflow for processing message entity including timestamping and logging",
+    "name": "message_processing_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start processing message entity from initial None state",
+            "end_state": "TimestampSet",
+            "end_state_description": "Timestamp has been set on the message entity",
+            "name": "start_processing",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Sets timestamp if not present",
+                        "name": "processSetTimestamp"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Perform asynchronous logging after timestamp set",
+            "end_state": "Logged",
+            "end_state_description": "Message entity has been asynchronously logged",
+            "name": "async_logging",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Logs message entity asynchronously",
+                        "name": "processAsyncLogging"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "TimestampSet",
+            "start_state_description": "Timestamp has been set on the message entity"
+        },
+        {
+            "automated": true,
+            "description": "Perform any additional business logic",
+            "end_state": "Processed",
+            "end_state_description": "Message entity processing completed",
+            "name": "additional_logic",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Additional business logic placeholder",
+                        "name": "processAdditionalLogic"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Logged",
+            "start_state_description": "Message entity has been asynchronously logged"
+        }
+    ]
+}
