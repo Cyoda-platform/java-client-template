@@ -1,4 +1,4 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -32,9 +32,9 @@ import static com.java_template.common.config.Config.*;
 @RestController
 @RequestMapping("/cyoda-pets")
 @Validated
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
     private final RestTemplate restTemplate = new RestTemplate();
@@ -42,7 +42,7 @@ public class CyodaEntityControllerPrototype {
     private static final String EXTERNAL_API_BASE = "https://petstore.swagger.io/v2";
     private static final String ENTITY_NAME = "pet";
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService) {
         this.entityService = entityService;
     }
 
