@@ -1,20 +1,3 @@
-Certainly! The workflow function `processpet` is the ideal place to move any asynchronous or pre-persistence logic, such as enrichment, validation, additional data fetching, or triggering async side effects (fire-and-forget tasks). This decouples such logic from your REST controller, making controllers thinner and the overall codebase more maintainable and robust.
-
----
-
-### Refactoring plan:
-1. **Move all async or side-effect logic from controller methods into `processpet`**.
-2. Since `processpet` receives and returns an `ObjectNode` (entity JSON), we'll convert the entity model `Pet` to/from `ObjectNode` inside the workflow function.
-3. Any modification to the entity state (add/modify fields) is done directly on the `ObjectNode` inside the workflow function.
-4. We can implement async fire-and-forget tasks inside `processpet` using `CompletableFuture.runAsync(...)` or similar.
-5. The controller just prepares the entity data, calls `entityService.addItem(...)` with the workflow, and returns the result.
-6. The controller no longer triggers async tasks or enrichments manually.
-
----
-
-### Updated complete Java code with moved logic into workflow function `processpet`
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -43,7 +26,6 @@ import java.net.URI;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
 
@@ -113,45 +95,46 @@ public class CyodaEntityControllerPrototype {
         private List<Pet> pets = new ArrayList<>();
     }
 
-    /**
-     * Workflow function to process Pet entity asynchronously before persistence.
-     * This function can modify the entity state or interact with other entities/models (except "pet").
-     * Here we move all async and enrichment logic from controller here.
-     */
+    // Workflow function to process Pet entity asynchronously before persistence.
+    // Modifies entity state, enriches data, triggers async side effects legally.
     private CompletableFuture<ObjectNode> processpet(ObjectNode entity) {
         return CompletableFuture.supplyAsync(() -> {
             logger.info("Processing pet entity in workflow before persistence");
 
-            // Example: add default category if missing
-            if (!entity.hasNonNull("category") || entity.get("category").asText().isEmpty()) {
-                entity.put("category", "default-category");
-                logger.info("Default category set");
+            // Defensive: ensure required fields exist with reasonable defaults or validation
+            if (!entity.hasNonNull("name") || entity.get("name").asText().trim().isEmpty()) {
+                throw new IllegalArgumentException("Pet name is required");
             }
-
-            // Example: enrich tags list if missing
+            if (!entity.hasNonNull("status") || entity.get("status").asText().trim().isEmpty()) {
+                entity.put("status", "available"); // default status
+            }
+            if (!entity.hasNonNull("category") || entity.get("category").asText().trim().isEmpty()) {
+                entity.put("category", "default-category");
+            }
+            if (!entity.has("photoUrls") || !entity.get("photoUrls").isArray()) {
+                entity.putArray("photoUrls");
+            }
             if (!entity.has("tags") || !entity.get("tags").isArray()) {
                 entity.putArray("tags");
             }
 
-            // Fire-and-forget async example: log pet addition (simulate async side effect)
+            // Async fire-and-forget logging side effect
             CompletableFuture.runAsync(() -> {
                 try {
                     String name = entity.path("name").asText("unknown");
                     logger.info("Async logging: new pet to be added: {}", name);
-                    // Could call external async service here
+                    // Could extend to call external async logging or metrics here
                 } catch (Exception e) {
                     logger.error("Async logging failed", e);
                 }
             });
 
-            // Example: fetch and add supplementary data from another entityModel
-            // (Can only call add/get/update/delete on other entityModels here)
+            // Enrich entity with supplementary data from another model "category"
             try {
                 String category = entity.get("category").asText();
-                CompletableFuture<ArrayNode> catsFuture = entityService.getItems("category", 1, "name='" + category + "'");
+                CompletableFuture<ArrayNode> catsFuture = entityService.getItemsByCondition("category", 1, "name='" + escapeForCondition(category) + "'");
                 ArrayNode cats = catsFuture.get();
                 if (cats != null && cats.size() > 0) {
-                    // Add supplementary category details to pet entity
                     JsonNode cat = cats.get(0);
                     ((ObjectNode) entity).set("categoryDetails", cat);
                     logger.info("Added category details to pet entity");
@@ -160,10 +143,16 @@ public class CyodaEntityControllerPrototype {
                 logger.warn("Failed to enrich category details", e);
             }
 
-            // Additional async tasks or modifications can be done here...
+            // Potential place for other async tasks or enrichments
+            // Must not add/update/delete "pet" entities here to avoid recursion
 
             return entity;
         });
+    }
+
+    private String escapeForCondition(String input) {
+        if (input == null) return "";
+        return input.replace("'", "''");
     }
 
     @PostMapping(value = "/search", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
@@ -173,12 +162,13 @@ public class CyodaEntityControllerPrototype {
 
         String statusParam = (request.getStatus() == null || request.getStatus().isEmpty()) ? "available" : request.getStatus();
 
+        List<Pet> result = new ArrayList<>();
+
         // Fetch from external API first (as original)
         try {
             URI uri = new URI(EXTERNAL_API_BASE + "/pet/findByStatus?status=" + statusParam);
             String raw = restTemplate.getForObject(uri, String.class);
             JsonNode root = objectMapper.readTree(raw);
-            List<Pet> filtered = new ArrayList<>();
             if (root.isArray()) {
                 for (JsonNode node : root) {
                     String petCategory = node.path("category").path("name").asText("");
@@ -193,27 +183,30 @@ public class CyodaEntityControllerPrototype {
                         List<String> photos = new ArrayList<>();
                         if (node.has("photoUrls")) node.get("photoUrls").forEach(u -> photos.add(u.asText()));
                         p.setPhotoUrls(photos);
-                        filtered.add(p);
+                        result.add(p);
                     }
                 }
             }
+        } catch (Exception ex) {
+            logger.error("Failed to fetch pets from external API", ex);
+            // Do not fail entire search on external API failure, continue with entityService data
+        }
 
-            // Also fetch from entityService with filter condition
-            StringBuilder cond = new StringBuilder();
-            if (request.getStatus() != null && !request.getStatus().isEmpty()) {
-                cond.append("status='").append(request.getStatus()).append("'");
-            }
-            if (request.getCategory() != null && !request.getCategory().isEmpty()) {
-                if (cond.length() > 0) cond.append(" AND ");
-                cond.append("category='").append(request.getCategory()).append("'");
-            }
-            if (request.getName() != null && !request.getName().isEmpty()) {
-                if (cond.length() > 0) cond.append(" AND ");
-                cond.append("name LIKE '%").append(request.getName()).append("%'");
-            }
+        // Compose condition string safely
+        StringBuilder cond = new StringBuilder();
+        if (request.getStatus() != null && !request.getStatus().isEmpty()) {
+            cond.append("status='").append(escapeForCondition(request.getStatus())).append("'");
+        }
+        if (request.getCategory() != null && !request.getCategory().isEmpty()) {
+            if (cond.length() > 0) cond.append(" AND ");
+            cond.append("category='").append(escapeForCondition(request.getCategory())).append("'");
+        }
+        if (request.getName() != null && !request.getName().isEmpty()) {
+            if (cond.length() > 0) cond.append(" AND ");
+            cond.append("name LIKE '%").append(escapeForCondition(request.getName())).append("%'");
+        }
 
-            List<Pet> result = new ArrayList<>(filtered);
-
+        try {
             if (cond.length() > 0) {
                 CompletableFuture<ArrayNode> filteredItemsFuture = entityService.getItemsByCondition(
                         ENTITY_NAME, ENTITY_VERSION, cond.toString());
@@ -230,15 +223,15 @@ public class CyodaEntityControllerPrototype {
                     result.add(p);
                 }
             }
-
-            SearchResponse resp = new SearchResponse();
-            resp.setPets(result);
-            logger.info("Returning {} pets", result.size());
-            return resp;
-        } catch (Exception ex) {
-            logger.error("Search failed", ex);
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch pets from external source");
+        } catch (Exception e) {
+            logger.error("Failed to fetch pets from entityService", e);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch pets from storage");
         }
+
+        SearchResponse resp = new SearchResponse();
+        resp.setPets(result);
+        logger.info("Returning {} pets", result.size());
+        return resp;
     }
 
     @GetMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -284,14 +277,14 @@ public class CyodaEntityControllerPrototype {
 
     @PostMapping(value = "/add", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public AddPetResponse addPet(@RequestBody @Valid AddPetRequest request) throws ExecutionException, InterruptedException {
-        // Convert AddPetRequest to ObjectNode for workflow
+        // Convert AddPetRequest to ObjectNode for workflow processing
         ObjectNode petNode = objectMapper.valueToTree(request);
 
         // Use the new addItem method with workflow function processpet
         CompletableFuture<UUID> idFuture = entityService.addItem(ENTITY_NAME, ENTITY_VERSION, petNode, this::processpet);
         UUID technicalId = idFuture.get();
 
-        // Controller no longer triggers async tasks - moved to workflow!
+        // Controller no longer triggers async tasks - moved to workflow function
 
         return new AddPetResponse("Pet added successfully", technicalId);
     }
@@ -317,17 +310,3 @@ public class CyodaEntityControllerPrototype {
         return err;
     }
 }
-```
-
----
-
-### Summary of changes:
-- The `processpet` method now accepts and returns an `ObjectNode` (the JSON representation of the entity).
-- All asynchronous side effects (e.g., logging, supplementary data enrichment) are moved inside `processpet`.
-- The controller's `addPet` method only converts the request into `ObjectNode` and calls `addItem` with the workflow function.
-- Controller no longer performs or triggers async logic related to entity processing.
-- This design centralizes pre-persistence logic inside the workflow function, improving code maintainability and robustness.
-
----
-
-If you want, I can help you move other parts of logic from other endpoints into similar workflow functions or implement more sophisticated enrichment patterns inside `processpet`. Just let me know!
