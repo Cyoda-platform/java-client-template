@@ -1,0 +1,78 @@
+{
+    "description": "Workflow for processing pet entity through validation, default setting, enrichment, and logging",
+    "name": "pet_entity_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Validate pet entity mandatory fields",
+            "end_state": "Pet_validated",
+            "end_state_description": "Pet entity validated successfully",
+            "name": "validate_pet",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processValidate"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Set default values for optional pet entity fields",
+            "end_state": "Defaults_set",
+            "end_state_description": "Default values set on pet entity",
+            "name": "set_defaults",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processDefaults"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Pet_validated",
+            "start_state_description": "Pet entity validated successfully"
+        },
+        {
+            "automated": true,
+            "description": "Enrich pet entity with category details",
+            "end_state": "Category_enriched",
+            "end_state_description": "Pet entity enriched with category details",
+            "name": "enrich_category",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processEnrichCategory"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Defaults_set",
+            "start_state_description": "Default values set on pet entity"
+        },
+        {
+            "automated": true,
+            "description": "Perform asynchronous logging side effect",
+            "end_state": "Async_logged",
+            "end_state_description": "Asynchronous logging completed",
+            "name": "async_logging",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAsyncLogging"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Category_enriched",
+            "start_state_description": "Pet entity enriched with category details"
+        }
+    ]
+}
