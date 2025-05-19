@@ -1,3 +1,19 @@
+Certainly! The workflow function `processpet` is the ideal place to move any asynchronous or pre-persistence logic, such as enrichment, validation, additional data fetching, or triggering async side effects (fire-and-forget tasks). This decouples such logic from your REST controller, making controllers thinner and the overall codebase more maintainable and robust.
+
+---
+
+### Refactoring plan:
+1. **Move all async or side-effect logic from controller methods into `processpet`**.
+2. Since `processpet` receives and returns an `ObjectNode` (entity JSON), we'll convert the entity model `Pet` to/from `ObjectNode` inside the workflow function.
+3. Any modification to the entity state (add/modify fields) is done directly on the `ObjectNode` inside the workflow function.
+4. We can implement async fire-and-forget tasks inside `processpet` using `CompletableFuture.runAsync(...)` or similar.
+5. The controller just prepares the entity data, calls `entityService.addItem(...)` with the workflow, and returns the result.
+6. The controller no longer triggers async tasks or enrichments manually.
+
+---
+
+### Updated complete Java code with moved logic into workflow function `processpet`
+
 ```java
 package com.java_template.entity;
 
@@ -100,15 +116,53 @@ public class CyodaEntityControllerPrototype {
     /**
      * Workflow function to process Pet entity asynchronously before persistence.
      * This function can modify the entity state or interact with other entities/models (except "pet").
-     * Here, as an example, it simply logs and returns the entity unchanged.
+     * Here we move all async and enrichment logic from controller here.
      */
-    private CompletableFuture<Pet> processpet(Pet pet) {
+    private CompletableFuture<ObjectNode> processpet(ObjectNode entity) {
         return CompletableFuture.supplyAsync(() -> {
-            logger.info("Processing pet entity in workflow before persistence: name={}, category={}, status={}",
-                    pet.getName(), pet.getCategory(), pet.getStatus());
-            // Example: you could modify pet here, e.g., set defaults, enrich data, validate cross-entity constraints, etc.
-            // IMPORTANT: Do NOT add/update/delete "pet" entities inside this function to avoid infinite recursion.
-            return pet;
+            logger.info("Processing pet entity in workflow before persistence");
+
+            // Example: add default category if missing
+            if (!entity.hasNonNull("category") || entity.get("category").asText().isEmpty()) {
+                entity.put("category", "default-category");
+                logger.info("Default category set");
+            }
+
+            // Example: enrich tags list if missing
+            if (!entity.has("tags") || !entity.get("tags").isArray()) {
+                entity.putArray("tags");
+            }
+
+            // Fire-and-forget async example: log pet addition (simulate async side effect)
+            CompletableFuture.runAsync(() -> {
+                try {
+                    String name = entity.path("name").asText("unknown");
+                    logger.info("Async logging: new pet to be added: {}", name);
+                    // Could call external async service here
+                } catch (Exception e) {
+                    logger.error("Async logging failed", e);
+                }
+            });
+
+            // Example: fetch and add supplementary data from another entityModel
+            // (Can only call add/get/update/delete on other entityModels here)
+            try {
+                String category = entity.get("category").asText();
+                CompletableFuture<ArrayNode> catsFuture = entityService.getItems("category", 1, "name='" + category + "'");
+                ArrayNode cats = catsFuture.get();
+                if (cats != null && cats.size() > 0) {
+                    // Add supplementary category details to pet entity
+                    JsonNode cat = cats.get(0);
+                    ((ObjectNode) entity).set("categoryDetails", cat);
+                    logger.info("Added category details to pet entity");
+                }
+            } catch (Exception e) {
+                logger.warn("Failed to enrich category details", e);
+            }
+
+            // Additional async tasks or modifications can be done here...
+
+            return entity;
         });
     }
 
@@ -230,21 +284,14 @@ public class CyodaEntityControllerPrototype {
 
     @PostMapping(value = "/add", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public AddPetResponse addPet(@RequestBody @Valid AddPetRequest request) throws ExecutionException, InterruptedException {
-        Pet pet = new Pet();
-        pet.setName(request.getName());
-        pet.setCategory(request.getCategory());
-        pet.setStatus(request.getStatus());
-        pet.setPhotoUrls(Optional.ofNullable(request.getPhotoUrls()).orElse(Collections.emptyList()));
-        pet.setTags(Optional.ofNullable(request.getTags()).orElse(Collections.emptyList()));
+        // Convert AddPetRequest to ObjectNode for workflow
+        ObjectNode petNode = objectMapper.valueToTree(request);
 
         // Use the new addItem method with workflow function processpet
-        CompletableFuture<UUID> idFuture = entityService.addItem(ENTITY_NAME, ENTITY_VERSION, pet, this::processpet);
+        CompletableFuture<UUID> idFuture = entityService.addItem(ENTITY_NAME, ENTITY_VERSION, petNode, this::processpet);
         UUID technicalId = idFuture.get();
 
-        CompletableFuture.runAsync(() -> {
-            logger.info("Async processing for pet technicalId={}", technicalId);
-            // TODO: trigger additional async workflow if needed
-        });
+        // Controller no longer triggers async tasks - moved to workflow!
 
         return new AddPetResponse("Pet added successfully", technicalId);
     }
@@ -271,12 +318,16 @@ public class CyodaEntityControllerPrototype {
     }
 }
 ```
+
 ---
 
-### Explanation of changes:
-- Added a new private method `processpet(Pet pet)` which returns a `CompletableFuture<Pet>` and performs asynchronous processing of the `Pet` entity before persistence.
-- Updated the `addPet` method to call the new `entityService.addItem` method with the workflow function `this::processpet` as the last parameter.
-- The workflow function `processpet` can modify the entity or interact with other entity models but must not add/update/delete the same entity model (`pet`) to avoid infinite recursion.
-- The rest of the controller remains unchanged.
+### Summary of changes:
+- The `processpet` method now accepts and returns an `ObjectNode` (the JSON representation of the entity).
+- All asynchronous side effects (e.g., logging, supplementary data enrichment) are moved inside `processpet`.
+- The controller's `addPet` method only converts the request into `ObjectNode` and calls `addItem` with the workflow function.
+- Controller no longer performs or triggers async logic related to entity processing.
+- This design centralizes pre-persistence logic inside the workflow function, improving code maintainability and robustness.
 
-Let me know if you want me to help with any additional logic inside the workflow function or further adjustments.
+---
+
+If you want, I can help you move other parts of logic from other endpoints into similar workflow functions or implement more sophisticated enrichment patterns inside `processpet`. Just let me know!
