@@ -1,31 +1,3 @@
-Certainly! The idea is to move asynchronous and preparatory logic into the workflow functions `processsubscriber` and `processcatFact`. These functions receive the entity as an `ObjectNode` (Jackson JSON node), and you can modify it directly, trigger asynchronous side effects, or create related secondary entities—but cannot modify the same entity type (to avoid recursion).
-
-### What to move?
-
-- For **subscriber**:
-  - Set `subscribedAt` if missing.
-  - Checking for existing subscriber is still done in controller for the sake of deciding whether to create or return existing.
-  - No async tasks currently to move.
-
-- For **catFact**:
-  - Set timestamp if missing.
-  - The async task of sending emails to subscribers should move here.
-  - The workflow can fetch subscribers and "fire-and-forget" send emails.
-
----
-
-### Key notes:
-
-- The workflow receives and returns an `Object`, but is actually an `ObjectNode`.
-- You can inject `EntityService` into the workflow to do `getItems` or add other entities, except the same entity.
-- All async logic (like sending emails) should move to workflow.
-- Modify the entity by adding fields or changing fields directly on the `ObjectNode`.
-
----
-
-Here is the updated code reflecting the above approach:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -44,7 +16,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
@@ -52,7 +23,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.net.URI;
 import java.time.Instant;
-import java.util.*;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
@@ -77,38 +49,28 @@ public class CyodaEntityControllerPrototype {
         this.entityService = entityService;
     }
 
-    /**
-     * Workflow function applied before persisting subscriber entity.
-     * Sets subscribedAt if missing.
-     */
+    // Workflow function for subscriber entity. Sets subscribedAt if missing.
     private final Function<ObjectNode, CompletableFuture<ObjectNode>> processsubscriber = entityNode -> {
-        // Set subscribedAt if missing
         if (!entityNode.hasNonNull("subscribedAt")) {
             entityNode.put("subscribedAt", Instant.now().toString());
         }
-        // No async side effects here
         return CompletableFuture.completedFuture(entityNode);
     };
 
-    /**
-     * Workflow function applied before persisting catFact entity.
-     * Sets timestamp if missing.
-     * Sends emails asynchronously to all subscribers.
-     */
+    // Workflow function for catFact entity. Sets timestamp if missing and sends emails asynchronously.
     private final Function<ObjectNode, CompletableFuture<ObjectNode>> processcatFact = entityNode -> {
         if (!entityNode.hasNonNull("timestamp")) {
             entityNode.put("timestamp", Instant.now().toString());
         }
-
         // Fire-and-forget email sending to all subscribers
         entityService.getItems(ENTITY_NAME_SUBSCRIBER, ENTITY_VERSION)
                 .thenAccept(subscribersArray -> {
                     for (JsonNode subscriberNode : subscribersArray) {
                         String email = subscriberNode.path("email").asText(null);
-                        if (email != null) {
+                        if (email != null && !email.isBlank()) {
                             // Simulate async email send - just log for now
                             logger.info("[Workflow] Sending cat fact email to {}", email);
-                            // TODO: Replace with real email sending logic
+                            // TODO: Integrate real email sending here, consider using async email service for scalability
                         }
                     }
                 })
@@ -116,21 +78,19 @@ public class CyodaEntityControllerPrototype {
                     logger.error("[Workflow] Failed to send cat fact emails", ex);
                     return null;
                 });
-
         return CompletableFuture.completedFuture(entityNode);
     };
 
-
+    // Endpoint to subscribe a user by email
     @PostMapping(value = "/subscribers", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public CompletableFuture<ObjectNode> subscribe(@RequestBody @Valid SubscribeRequest request) {
         String email = request.getEmail().toLowerCase().trim();
 
-        // Retrieve all subscribers and check if email exists
+        // Retrieve all subscribers and check if email exists to avoid duplicates
         return entityService.getItems(ENTITY_NAME_SUBSCRIBER, ENTITY_VERSION).thenCompose(arrayNode -> {
             for (JsonNode node : arrayNode) {
                 String nodeEmail = node.path("email").asText(null);
                 if (nodeEmail != null && nodeEmail.equals(email)) {
-                    // Return existing subscriber node directly
                     logger.info("Subscribe attempt for existing email: {}", email);
                     return CompletableFuture.completedFuture((ObjectNode) node);
                 }
@@ -138,7 +98,7 @@ public class CyodaEntityControllerPrototype {
             // Not found - create new subscriber ObjectNode
             ObjectNode newSubscriber = objectMapper.createObjectNode();
             newSubscriber.put("email", email);
-            // Persist new subscriber with workflow
+            // Add new subscriber with workflow which sets subscribedAt
             return entityService.addItem(ENTITY_NAME_SUBSCRIBER, ENTITY_VERSION, newSubscriber, processsubscriber)
                     .thenApply(technicalId -> {
                         newSubscriber.put("technicalId", technicalId.toString());
@@ -148,6 +108,7 @@ public class CyodaEntityControllerPrototype {
         });
     }
 
+    // Endpoint to unsubscribe a user by email
     @PostMapping(value = "/subscribers/unsubscribe", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public CompletableFuture<Map<String, String>> unsubscribe(@RequestBody @Valid UnsubscribeRequest request) {
         String email = request.getEmail().toLowerCase().trim();
@@ -158,7 +119,15 @@ public class CyodaEntityControllerPrototype {
             for (JsonNode node : arrayNode) {
                 String nodeEmail = node.path("email").asText(null);
                 if (nodeEmail != null && nodeEmail.equals(email)) {
-                    technicalIdToDelete = UUID.fromString(node.path("technicalId").asText());
+                    String technicalIdStr = node.path("technicalId").asText(null);
+                    if (technicalIdStr != null) {
+                        try {
+                            technicalIdToDelete = UUID.fromString(technicalIdStr);
+                        } catch (IllegalArgumentException e) {
+                            logger.warn("Invalid technicalId format for subscriber {}: {}", email, technicalIdStr);
+                            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Corrupted subscriber technicalId");
+                        }
+                    }
                     break;
                 }
             }
@@ -175,6 +144,7 @@ public class CyodaEntityControllerPrototype {
         });
     }
 
+    // Endpoint to fetch weekly cat fact and send to all subscribers via workflow
     @PostMapping(value = "/catfact/send", produces = MediaType.APPLICATION_JSON_VALUE)
     public CompletableFuture<ObjectNode> sendWeeklyCatFact() {
         logger.info("Starting weekly cat fact fetch and send");
@@ -187,32 +157,30 @@ public class CyodaEntityControllerPrototype {
                 }
                 JsonNode root = objectMapper.readTree(response.getBody());
                 String factText = root.path("fact").asText(null);
-                if (factText == null || factText.isEmpty()) {
-                    logger.error("Cat fact missing in API response");
+                if (factText == null || factText.isBlank()) {
+                    logger.error("Cat fact missing or empty in API response");
                     throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Cat fact missing");
                 }
-                // Create catFact ObjectNode
                 ObjectNode catFactNode = objectMapper.createObjectNode();
                 catFactNode.put("fact", factText);
-                // Persist with workflow, which sends emails
                 return catFactNode;
-
             } catch (Exception e) {
                 logger.error("Exception during cat fact fetch", e);
                 throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Failed to fetch cat fact");
             }
-        }).thenCompose(catFactNode -> entityService.addItem(ENTITY_NAME_CATFACT, ENTITY_VERSION, catFactNode, processcatFact)
-                .thenApply(technicalId -> {
-                    catFactNode.put("technicalId", technicalId.toString());
-                    logger.info("Cat fact persisted with technicalId {}", technicalId);
-                    return catFactNode;
-                })
+        }).thenCompose(catFactNode ->
+                entityService.addItem(ENTITY_NAME_CATFACT, ENTITY_VERSION, catFactNode, processcatFact)
+                        .thenApply(technicalId -> {
+                            catFactNode.put("technicalId", technicalId.toString());
+                            logger.info("Cat fact persisted with technicalId {}", technicalId);
+                            return catFactNode;
+                        })
         );
     }
 
+    // Endpoint to get reporting summary with total subscribers, opens, unsubscribes (opens and unsubscribes zero because no external tracking)
     @GetMapping(value = "/reporting/summary", produces = MediaType.APPLICATION_JSON_VALUE)
     public CompletableFuture<ReportingSummary> getReportingSummary() {
-        // Since email opens and unsubscribes are not stored externally, keep them zero
         return entityService.getItems(ENTITY_NAME_SUBSCRIBER, ENTITY_VERSION)
                 .thenApply(subscribersArray -> {
                     int totalSubscribers = subscribersArray.size();
@@ -223,6 +191,7 @@ public class CyodaEntityControllerPrototype {
                 });
     }
 
+    // Global exception handler for ResponseStatusException to return JSON error
     @ExceptionHandler(ResponseStatusException.class)
     @ResponseStatus
     public Map<String, String> handleResponseStatusException(ResponseStatusException ex) {
@@ -230,24 +199,17 @@ public class CyodaEntityControllerPrototype {
         return Map.of("error", ex.getReason());
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class Subscriber {
-        private String email;
-        private Instant subscribedAt;
-        private UUID technicalId;
-    }
+    // Data classes and request DTOs
 
     @Data
-    static class SubscribeRequest {
+    public static class SubscribeRequest {
         @NotBlank
         @Email
         private String email;
     }
 
     @Data
-    static class UnsubscribeRequest {
+    public static class UnsubscribeRequest {
         @NotBlank
         @Email
         private String email;
@@ -256,34 +218,9 @@ public class CyodaEntityControllerPrototype {
     @Data
     @AllArgsConstructor
     @NoArgsConstructor
-    public static class CatFact {
-        private String id; // kept for compatibility but not used
-        private String fact;
-        private Instant timestamp;
-        private UUID technicalId;
-    }
-
-    @Data
-    @AllArgsConstructor
-    static class ReportingSummary {
+    public static class ReportingSummary {
         private int totalSubscribers;
         private int totalEmailOpens;
         private int totalUnsubscribes;
     }
 }
-```
-
----
-
-### Summary of changes:
-
-- `processsubscriber` workflow function sets `subscribedAt` timestamp if missing.
-- `processcatFact` workflow function sets `timestamp` if missing and asynchronously fetches subscribers and sends "emails" (currently logs).
-- Controllers no longer send emails or set timestamps directly.
-- Controller `subscribe` endpoint only checks for existence and either returns existing or creates a new subscriber with workflow.
-- `sendWeeklyCatFact` endpoint fetches the cat fact and then persists it using the workflow that sends emails asynchronously.
-- All async side effects moved out of controllers and into workflow functions, making controllers slim and focusing on request/response logic.
-- Workflow functions accept and return `CompletableFuture<ObjectNode>` for async handling.
-- Workflow functions modify the entity (`ObjectNode`) directly, so changes are persisted.
-
-This approach complies fully with the new requirement and best practice: **workflow functions handle all async and state-preparation logic.** Controllers delegate all such responsibilities to workflows.
