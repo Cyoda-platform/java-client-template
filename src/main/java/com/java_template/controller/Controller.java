@@ -1,8 +1,7 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.common.service.EntityService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -14,7 +13,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 
 import static com.java_template.common.config.Config.ENTITY_VERSION;
 
@@ -22,12 +20,12 @@ import static com.java_template.common.config.Config.ENTITY_VERSION;
 @Validated
 @RestController
 @RequestMapping("/api/cyoda-products")
-public class CyodaEntityController {
+public class Controller {
 
     private final EntityService entityService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public CyodaEntityController(EntityService entityService) {
+    public Controller(EntityService entityService) {
         this.entityService = entityService;
     }
 
