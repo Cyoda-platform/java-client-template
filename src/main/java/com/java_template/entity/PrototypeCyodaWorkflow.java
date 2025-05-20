@@ -1,17 +1,3 @@
-Certainly! Moving all asynchronous logic and external API calls into the workflow functions (`process{entity_name}`) is indeed the right approach. This keeps controllers clean and delegates all entity-specific processing and enrichment to the workflow functions, which are executed asynchronously right before persisting the entity.
-
-Below is the updated Java code that:
-
-- Moves all async fetching, external API calls, and entity additions into the `processPetSummary` and `processPetDetails` workflow functions.
-- The controller methods only accept requests and call `entityService.addItem` or `addItems` with the workflow functions.
-- The workflow functions fetch external data, enrich or modify the entity JSON (`ObjectNode`), and add secondary entities if needed.
-- Uses `ObjectNode` for entity data in workflow functions, per your instructions.
-- Avoids any `entityService` changes on the current entityModel inside the workflow function to prevent recursion.
-- Uses async calls properly inside workflow functions (returns `CompletableFuture<ObjectNode>`).
-
----
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -38,7 +24,6 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
 
@@ -58,14 +43,10 @@ public class CyodaEntityControllerPrototype {
         this.entityService = entityService;
     }
 
-    /**
-     * Controller endpoint simplified: just calls addItems with workflow function.
-     */
     @PostMapping(value = "/fetch", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<FetchPetsResponse> fetchPets(@RequestBody @Valid FetchPetsRequest request) {
         logger.info("Received fetch request with type={} status={}", request.getType(), request.getStatus());
 
-        // Create an ObjectNode with filters to pass as entity data to workflow function
         ObjectNode filterNode = objectMapper.createObjectNode();
         if (request.getStatus() != null) {
             filterNode.put("status", request.getStatus());
@@ -76,7 +57,6 @@ public class CyodaEntityControllerPrototype {
             filterNode.put("type", request.getType());
         }
 
-        // Add a single entity that triggers workflow to fetch and add multiple PetSummary entities internally
         try {
             entityService.addItem("PetSummaryFetchRequest", ENTITY_VERSION, filterNode, this::processPetSummaryFetchRequest).get();
         } catch (Exception e) {
@@ -87,10 +67,6 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.ok(new FetchPetsResponse("Pets data fetch started", 0));
     }
 
-    /**
-     * Controller endpoint to get all pets.
-     * No change here.
-     */
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<List<PetSummaryWithId>> getPets() throws ExecutionException, InterruptedException {
         CompletableFuture<ArrayNode> itemsFuture = entityService.getItems("PetSummary", ENTITY_VERSION);
@@ -104,10 +80,6 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.ok(pets);
     }
 
-    /**
-     * Controller endpoint to fetch pet details.
-     * Simplified: just calls addItem with workflow function.
-     */
     @PostMapping(value = "/details", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<FetchPetDetailsResponse> fetchPetDetails(@RequestBody @Valid FetchPetDetailsRequest request) {
         logger.info("Received fetch details request for petId={}", request.getPetId());
@@ -116,8 +88,7 @@ public class CyodaEntityControllerPrototype {
         petIdNode.put("petId", request.getPetId());
 
         try {
-            CompletableFuture<UUID> uuidFuture = entityService.addItem("PetDetailsFetchRequest", ENTITY_VERSION, petIdNode, this::processPetDetailsFetchRequest);
-            UUID technicalId = uuidFuture.get();
+            entityService.addItem("PetDetailsFetchRequest", ENTITY_VERSION, petIdNode, this::processPetDetailsFetchRequest).get();
             return ResponseEntity.ok(new FetchPetDetailsResponse("Pet details fetch started", request.getPetId()));
         } catch (Exception e) {
             logger.error("Error starting pet details fetch workflow", e);
@@ -125,10 +96,6 @@ public class CyodaEntityControllerPrototype {
         }
     }
 
-    /**
-     * Controller endpoint to get pet details by technicalId.
-     * No change here.
-     */
     @GetMapping(value = "/details/{technicalId}", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<PetDetailsWithId> getPetDetails(@PathVariable UUID technicalId) throws ExecutionException, InterruptedException {
         CompletableFuture<ObjectNode> itemFuture = entityService.getItem("PetDetails", ENTITY_VERSION, technicalId);
@@ -146,17 +113,8 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.status(ex.getStatusCode()).body(new ErrorResponse(ex.getReason()));
     }
 
-    // =======================
-    // Workflow functions
-    // =======================
-
-    /**
-     * Workflow function for PetSummaryFetchRequest entityModel.
-     * This function asynchronously fetches pets from external API and adds them as PetSummary entities.
-     * Returns the same entity (filter request) unmodified.
-     */
+    // Workflow function for PetSummaryFetchRequest entityModel
     private CompletableFuture<ObjectNode> processPetSummaryFetchRequest(ObjectNode entity) {
-        // Extract filters
         String statusFilter = entity.has("status") ? entity.get("status").asText() : "available,pending,sold";
         String typeFilter = entity.has("type") ? entity.get("type").asText() : null;
 
@@ -169,10 +127,9 @@ public class CyodaEntityControllerPrototype {
 
                 if (rootNode == null || !rootNode.isArray()) {
                     logger.warn("No pets returned from external API.");
-                    return entity; // Return unmodified
+                    return entity;
                 }
 
-                // Filter pets by type if present
                 List<ObjectNode> petsToAdd = new ArrayList<>();
                 for (JsonNode petNode : rootNode) {
                     String petType = petNode.path("category").path("name").asText(null);
@@ -183,7 +140,6 @@ public class CyodaEntityControllerPrototype {
                         petEntity.put("status", petNode.path("status").asText(null));
                         petEntity.put("type", petType);
 
-                        // photoUrls array
                         if (petNode.has("photoUrls") && petNode.get("photoUrls").isArray()) {
                             petEntity.set("photoUrls", petNode.get("photoUrls"));
                         }
@@ -192,7 +148,6 @@ public class CyodaEntityControllerPrototype {
                 }
 
                 if (!petsToAdd.isEmpty()) {
-                    // Add all filtered pets as "PetSummary" entities asynchronously
                     logger.info("Adding {} PetSummary entities", petsToAdd.size());
                     entityService.addItems("PetSummary", ENTITY_VERSION, petsToAdd, this::processPetSummary).get();
                 } else {
@@ -201,31 +156,21 @@ public class CyodaEntityControllerPrototype {
             } catch (Exception e) {
                 logger.error("Error in processPetSummaryFetchRequest workflow", e);
             }
-            return entity; // Return original unchanged filter entity
-        });
-    }
-
-    /**
-     * Workflow function for PetSummary entityModel.
-     * Can enrich or modify pet summary before persistence.
-     */
-    private CompletableFuture<ObjectNode> processPetSummary(ObjectNode entity) {
-        return CompletableFuture.supplyAsync(() -> {
-            // Ensure status is set
-            if (!entity.hasNonNull("status")) {
-                entity.put("status", "available");
-            }
-            // Additional enrichment or logic can be added here
-
             return entity;
         });
     }
 
-    /**
-     * Workflow function for PetDetailsFetchRequest entityModel.
-     * This function asynchronously fetches pet details from external API and adds it as PetDetails entity.
-     * Returns the same request entity unmodified.
-     */
+    // Workflow function for PetSummary entityModel
+    private CompletableFuture<ObjectNode> processPetSummary(ObjectNode entity) {
+        return CompletableFuture.supplyAsync(() -> {
+            if (!entity.hasNonNull("status")) {
+                entity.put("status", "available");
+            }
+            return entity;
+        });
+    }
+
+    // Workflow function for PetDetailsFetchRequest entityModel
     private CompletableFuture<ObjectNode> processPetDetailsFetchRequest(ObjectNode entity) {
         if (!entity.has("petId")) {
             logger.warn("processPetDetailsFetchRequest called without petId");
@@ -260,34 +205,24 @@ public class CyodaEntityControllerPrototype {
                     petDetailsEntity.set("tags", petNode.get("tags"));
                 }
 
-                // Add pet details entity (different entityModel)
                 entityService.addItem("PetDetails", ENTITY_VERSION, petDetailsEntity, this::processPetDetails).get();
 
             } catch (Exception e) {
                 logger.error("Error in processPetDetailsFetchRequest workflow", e);
             }
-            return entity; // Return original fetch request entity unmodified
+            return entity;
         });
     }
 
-    /**
-     * Workflow function for PetDetails entityModel.
-     * Can enrich or modify pet details before persistence.
-     */
+    // Workflow function for PetDetails entityModel
     private CompletableFuture<ObjectNode> processPetDetails(ObjectNode entity) {
         return CompletableFuture.supplyAsync(() -> {
             if (!entity.hasNonNull("status")) {
                 entity.put("status", "available");
             }
-            // Additional enrichment or logic can be added here
             return entity;
         });
     }
-
-
-    // =======================
-    // DTO classes (unchanged from previous)
-    // =======================
 
     @Data
     public static class FetchPetsRequest {
@@ -389,18 +324,3 @@ public class CyodaEntityControllerPrototype {
         private String error;
     }
 }
-```
-
----
-
-### Summary of changes
-- **Controller endpoints are now very thin.**  
-  They just package input into minimal entity JSON and call `entityService.addItem` or `addItems` with corresponding workflow function.
-- **All asynchronous external API calls moved into workflow functions:**  
-  - `processPetSummaryFetchRequest`: fetches pet list from external API, filters, and adds multiple `PetSummary` entities.  
-  - `processPetDetailsFetchRequest`: fetches pet details and adds `PetDetails` entity.
-- **Workflow functions operate on `ObjectNode` entity data and return `CompletableFuture<ObjectNode>`.**  
-- **Workflow functions may add/get other entityModels but never add/update/delete entities of the current entityModel to avoid recursion.**  
-- This approach keeps business logic and async operations encapsulated in the workflow functions, freeing controller code from complexity and ensuring robust async processing.
-
-If you want, I can also help you test or further refactor this.
