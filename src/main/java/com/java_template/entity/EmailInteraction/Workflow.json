@@ -1,0 +1,60 @@
+{
+    "description": "Workflow for processing email interaction events including validation, week calculation, and updating interaction summary",
+    "name": "email_interaction_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Validate event type and normalize email",
+            "end_state": "Event_and_email_validated",
+            "end_state_description": "Event type validated and email normalized",
+            "name": "validate_event_and_email",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processValidateEventAndEmail"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Calculate current ISO week",
+            "end_state": "Current_week_calculated",
+            "end_state_description": "Current ISO week calculated and stored",
+            "name": "get_current_week",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processGetCurrentWeek"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Event_and_email_validated",
+            "start_state_description": "Event type validated and email normalized"
+        },
+        {
+            "automated": true,
+            "description": "Update interaction summary counts for the current week",
+            "end_state": "Interaction_summary_updated",
+            "end_state_description": "Interaction summary updated with new counts",
+            "name": "update_interaction_summary",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processUpdateInteractionSummary"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Current_week_calculated",
+            "start_state_description": "Current ISO week calculated and stored"
+        }
+    ]
+}
