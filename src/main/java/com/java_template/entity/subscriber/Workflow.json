@@ -1,0 +1,78 @@
+{
+    "description": "Workflow for managing subscriber lifecycle and weekly cat fact delivery",
+    "name": "weekly_cat_fact_subscription_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Set subscription timestamp if missing",
+            "end_state": "Subscribed",
+            "end_state_description": "User has subscribed",
+            "name": "subscribe_user",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Set subscribedAt timestamp if missing",
+                        "name": "processSubscribe"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Check unsubscribe request and set unsubscribed timestamp",
+            "end_state": "Unsubscribed_Check_Completed",
+            "end_state_description": "Unsubscribe checked and timestamp set if requested",
+            "name": "unsubscribe_check",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Check unsubscribe flag and set unsubscribedAt timestamp",
+                        "name": "processUnsubscribeCheck"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Subscribed",
+            "start_state_description": "User has subscribed"
+        },
+        {
+            "automated": true,
+            "description": "Send the weekly cat fact to subscribers",
+            "end_state": "CatFact_Sent",
+            "end_state_description": "Weekly cat fact sent to subscriber",
+            "name": "send_cat_fact",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Set last sent cat fact and timestamp",
+                        "name": "processSendCatFact"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Unsubscribed_Check_Completed",
+            "start_state_description": "Unsubscribe checked and timestamp set if requested"
+        },
+        {
+            "automated": true,
+            "description": "Track email opens by incrementing open count",
+            "end_state": "EmailOpen_Tracked",
+            "end_state_description": "Email open count incremented",
+            "name": "track_email_open",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Increment email open count",
+                        "name": "processTrackEmailOpen"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "CatFact_Sent",
+            "start_state_description": "Weekly cat fact sent to subscriber"
+        }
+    ]
+}
