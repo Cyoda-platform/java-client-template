@@ -1,0 +1,42 @@
+{
+    "description": "Workflow managing cat fact timestamping and sending emails to subscribers",
+    "name": "cat_fact_delivery_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Set timestamp if missing",
+            "end_state": "Timestamp_Set",
+            "end_state_description": "Timestamp has been set on cat fact entity",
+            "name": "set_timestamp",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSetTimestamp"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Send emails to all subscribers asynchronously",
+            "end_state": "Emails_Sent",
+            "end_state_description": "Emails have been sent to subscribers",
+            "name": "send_emails",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSendEmails"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Timestamp_Set",
+            "start_state_description": "Timestamp has been set on cat fact entity"
+        }
+    ]
+}
