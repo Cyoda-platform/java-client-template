@@ -1,0 +1,78 @@
+{
+    "description": "Workflow for retrieving, validating, and storing weekly cat facts.",
+    "name": "cat_fact_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Fetch cat fact from external API",
+            "end_state": "Cat_fact_fetched",
+            "end_state_description": "Cat fact response fetched",
+            "name": "fetch_cat_fact",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processFetchCatFact"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Validate cat fact from API response",
+            "end_state": "Cat_fact_validated",
+            "end_state_description": "Cat fact validated and extracted",
+            "name": "validate_cat_fact",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processValidateFact"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Cat_fact_fetched",
+            "start_state_description": "Cat fact response fetched"
+        },
+        {
+            "automated": true,
+            "description": "Set metadata for the cat fact",
+            "end_state": "Metadata_set",
+            "end_state_description": "Retrieved timestamp set",
+            "name": "set_fact_metadata",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSetFactAndMetadata"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Cat_fact_validated",
+            "start_state_description": "Cat fact validated and extracted"
+        },
+        {
+            "automated": true,
+            "description": "Set ID for the cat fact based on current week",
+            "end_state": "Cat_fact_processed",
+            "end_state_description": "Cat fact entity ready for persistence",
+            "name": "set_fact_id",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSetId"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Metadata_set",
+            "start_state_description": "Retrieved timestamp set"
+        }
+    ]
+}
