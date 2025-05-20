@@ -1,58 +1,3 @@
-Certainly! Moving async tasks and complex logic from your controller into workflow functions (`process{entity_name}`) is a great design improvement. It keeps controllers thin, moves business logic closer to the data lifecycle, and leverages the new workflow mechanism intended exactly for this.
-
----
-
-### What to move into workflow functions?
-
-- Any async processing triggered on entity save.
-- Any logic that modifies entity state before saving.
-- Calls to add/get other entities (but **not** the same entityModel).
-- Fire-and-forget external calls or data fetching related to this entity's lifecycle.
-
----
-
-### What to keep in controller?
-
-- Request validation.
-- Triggering entityService.addItem/addItems with the workflow function.
-- Returning API responses.
-
----
-
-### Your current example controller logic summary:
-
-- It triggers scraping and analysis asynchronously in controller method.
-- It saves results (list of `ProductItem`) via entityService.addItems with workflow.
-- The workflow function is currently a no-op.
-
----
-
-### Our goal:
-
-- Move the async scraping + analysis + saving logic completely into the workflow function.
-- Controller simply calls `entityService.addItem/addItems` with the raw input entity and the workflow.
-- Workflow function performs async scrape, analysis, saves supplementary entities.
-- Workflow modifies the entity state before persistence.
-
----
-
----
-
-# Updated code with full logic moved into workflow function
-
-**Key changes:**
-
-- The workflow function `processcyodaproduct` (assuming the entityModel name is `"cyodaproduct"` or similar) accepts an `ObjectNode` (generic JSON entity).
-- It performs async scraping, analysis, prepares summary report.
-- Saves supplementary `productitem` entities via `entityService.addItems` inside workflow.
-- Modifies the original entity state (e.g. puts status, timestamps) before returning.
-- Controller only calls `entityService.addItem` with raw entity + workflow.
-
----
-
-### Full Java code example for controller with new workflow
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -65,14 +10,9 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.constraints.NotBlank;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
@@ -110,10 +50,13 @@ public class CyodaEntityController {
      */
     private final Function<ObjectNode, CompletableFuture<ObjectNode>> processcyodaproduct = entity -> {
         log.info("Workflow processcyodaproduct started for entity: {}", entity);
-
-        // We return a CompletableFuture that completes when all async work is done.
         return CompletableFuture.supplyAsync(() -> {
             try {
+                // Validate minimal required fields if any (e.g. username)
+                if (!entity.hasNonNull("username") || entity.get("username").asText().isBlank()) {
+                    throw new IllegalArgumentException("Missing required field: username");
+                }
+
                 // 1) Perform scraping and analysis - example mock call
                 List<ObjectNode> productItems = scrapeAndParseProducts();
 
@@ -121,13 +64,12 @@ public class CyodaEntityController {
                 ObjectNode summaryReport = createSummaryReport(productItems);
 
                 // 3) Save productItems as separate entities (different entityModel)
-                // IMPORTANT: Cannot add productitems inside workflow for cyodaproduct entity by calling addItem directly,
-                // but entityService.addItems is allowed to add different entityModel entities.
+                // Use workflow function for productitem entities as well.
                 entityService.addItems(
                         "productitem",
                         ENTITY_VERSION,
                         productItems,
-                        this::processproductitem // you can reuse or define workflow for productitem if needed
+                        this::processproductitem // workflow for productitem entities
                 ).join();
 
                 // 4) Update current entity state (e.g. status, summary, timestamps)
@@ -135,44 +77,48 @@ public class CyodaEntityController {
                 entity.set("summaryReport", summaryReport);
                 entity.put("updatedAt", Instant.now().toString());
 
-                log.info("Workflow processcyodaproduct completed successfully");
-
                 return entity;
 
             } catch (Exception ex) {
                 log.error("Error in workflow processcyodaproduct", ex);
+                // Mark entity as failed with error details but do not throw, so entity is persisted with error state
                 entity.put("status", "failed");
-                entity.put("errorMessage", ex.getMessage());
+                entity.put("errorMessage", ex.getMessage() != null ? ex.getMessage() : "Unknown error");
                 entity.put("updatedAt", Instant.now().toString());
-                return entity; // return entity with error state
+                return entity;
             }
         });
     };
 
     /**
-     * Example workflow function for productitem entity.
-     * Currently no-op, but can manipulate productitem entity state before save.
+     * Workflow function for "productitem" entityModel.
+     * Currently no-op, but you can add validation or modify productitem state here.
+     * Must return CompletableFuture of modified entity.
      */
     private final Function<ObjectNode, CompletableFuture<ObjectNode>> processproductitem = productItem -> {
-        // e.g. you could modify productItem fields here
+        // Example validation: ensure price and inventory are present and valid
+        if (!productItem.hasNonNull("price") || productItem.get("price").asDouble(-1.0) < 0) {
+            productItem.put("price", 0.0);
+        }
+        if (!productItem.hasNonNull("inventory") || productItem.get("inventory").asInt(-1) < 0) {
+            productItem.put("inventory", 0);
+        }
         return CompletableFuture.completedFuture(productItem);
     };
 
     /**
-     * Controller endpoint now just calls entityService.addItem with workflow,
-     * no longer performs async scraping or logic here.
+     * Controller endpoint - now minimal.
+     * Creates a raw cyodaproduct entity with username and status "processing".
+     * Calls entityService.addItem with workflow function to perform async scraping and processing.
      */
     @PostMapping("/scrape")
     public CompletableFuture<ResponseEntity<String>> scrapeProducts(@RequestBody ScrapeRequest request) {
-
-        // Prepare raw entity node representing a cyodaproduct entity (could be request fields or empty)
+        // Create initial entity node with minimal info
         ObjectNode entityNode = objectMapper.createObjectNode();
         entityNode.put("username", request.username);
         entityNode.put("requestedAt", Instant.now().toString());
         entityNode.put("status", "processing");
 
-        // Call entityService.addItem with entity node and workflow function.
-        // The workflow will perform scraping, analysis, saving supplementary entities, and update entity state.
         return entityService.addItem(
                 "cyodaproduct",
                 ENTITY_VERSION,
@@ -181,11 +127,10 @@ public class CyodaEntityController {
         ).thenApply(id -> ResponseEntity.ok("Scraping started with job id: " + id));
     }
 
-    // --- Helper methods for scraping and analysis ---
-
     /**
-     * Mock method to scrape and parse products.
-     * Replace with real scraping logic (e.g. HTTP + HTML parsing).
+     * Helper method to scrape and parse products.
+     * Replace with real scraping and parsing logic.
+     * Returns list of productitem entities as ObjectNode.
      */
     private List<ObjectNode> scrapeAndParseProducts() {
         log.info("Scraping and parsing products (mock implementation)");
@@ -246,8 +191,8 @@ public class CyodaEntityController {
 
         report.put("totalProducts", totalProducts);
         report.put("averagePrice", round(avgPrice));
-        report.set("highestPricedItem", highest);
-        report.set("lowestPricedItem", lowest);
+        report.set("highestPricedItem", highest != null ? highest.deepCopy() : null);
+        report.set("lowestPricedItem", lowest != null ? lowest.deepCopy() : null);
         report.put("totalInventoryValue", round(totalValue));
         report.put("generatedAt", Instant.now().toString());
 
@@ -258,19 +203,3 @@ public class CyodaEntityController {
         return Math.round(val * 100.0) / 100.0;
     }
 }
-```
-
----
-
-# Summary
-
-- The controller method `scrapeProducts()` is now very simple — it just creates a minimal raw entity JSON node and calls `entityService.addItem` with the workflow function `processcyodaproduct`.
-- The heavy async scraping, analysis, summary creation, and saving other entities (`productitem`) happens inside the workflow function `processcyodaproduct`.
-- The workflow function modifies the original entity state with status and summary report before it is persisted.
-- The workflow function uses asynchronous CompletableFuture chaining as required.
-- The workflow function does not call add/update/delete on the same entityModel (`cyodaproduct`) to avoid recursion — it only adds `productitem` entities.
-- This approach cleanly separates concerns, makes controller code thin, and leverages the new workflow feature fully.
-
----
-
-If you want me to adapt this code to your exact entity model names or entityService APIs, just let me know!
