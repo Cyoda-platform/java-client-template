@@ -1,9 +1,8 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.java_template.common.service.EntityService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
@@ -22,11 +21,9 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.net.URI;
-import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
 
@@ -34,9 +31,9 @@ import static com.java_template.common.config.Config.*;
 @Validated
 @RestController
 @RequestMapping("/api/cyoda")
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -45,7 +42,7 @@ public class CyodaEntityControllerPrototype {
     private static final String ENTITY_NAME_SUBSCRIBER = "subscriber";
     private static final String ENTITY_NAME_CATFACT = "catFact";
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService) {
         this.entityService = entityService;
     }
 
