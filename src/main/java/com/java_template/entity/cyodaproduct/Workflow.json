@@ -1,0 +1,78 @@
+{
+    "description": "Workflow for processing cyodaproduct entity including scraping, summary creation, saving products, and updating entity state",
+    "name": "cyodaproduct_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start processing the cyodaproduct entity",
+            "end_state": "Scraped_and_analyzed",
+            "end_state_description": "Products scraped and analyzed",
+            "name": "start_processing",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processScrapeAndAnalysis"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Create summary report from scraped products",
+            "end_state": "Summary_created",
+            "end_state_description": "Summary report created",
+            "name": "create_summary",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processCreateSummary"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Scraped_and_analyzed",
+            "start_state_description": "Products scraped and analyzed"
+        },
+        {
+            "automated": true,
+            "description": "Save scraped product items as separate entities",
+            "end_state": "Product_items_saved",
+            "end_state_description": "Product items saved",
+            "name": "save_product_items",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSaveProductItems"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Summary_created",
+            "start_state_description": "Summary report created"
+        },
+        {
+            "automated": true,
+            "description": "Update the cyodaproduct entity state to completed",
+            "end_state": "Processing_completed",
+            "end_state_description": "Processing completed",
+            "name": "update_entity_state",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processUpdateEntityState"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Product_items_saved",
+            "start_state_description": "Product items saved"
+        }
+    ]
+}
