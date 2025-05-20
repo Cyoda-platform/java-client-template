@@ -1,0 +1,60 @@
+{
+    "description": "Workflow for processing subscriber entity including email normalization, timestamping, and unsubscribed cleanup",
+    "name": "subscriber_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Normalize and validate subscriber email",
+            "end_state": "Email_normalized",
+            "end_state_description": "Subscriber email normalized and validated",
+            "name": "normalize_email",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processNormalizeEmail"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Set subscribedAt timestamp",
+            "end_state": "SubscribedAt_set",
+            "end_state_description": "SubscribedAt timestamp set",
+            "name": "set_subscribed_at",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSetSubscribedAt"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Email_normalized",
+            "start_state_description": "Subscriber email normalized and validated"
+        },
+        {
+            "automated": true,
+            "description": "Delete unsubscribed subscriber if exists",
+            "end_state": "Subscriber_processed",
+            "end_state_description": "Subscriber processed with unsubscribed cleanup",
+            "name": "delete_unsubscribed_if_exists",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processDeleteUnsubscribedIfExists"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "SubscribedAt_set",
+            "start_state_description": "SubscribedAt timestamp set"
+        }
+    ]
+}
