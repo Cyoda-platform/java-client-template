@@ -1,8 +1,9 @@
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -10,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
@@ -21,6 +23,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
+@Validated
 @RestController
 @RequestMapping("/entity/purrfect-pets")
 public class EntityControllerPrototype {
@@ -30,12 +33,10 @@ public class EntityControllerPrototype {
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // In-memory "database" mocks
     private final Map<Long, Pet> pets = new ConcurrentHashMap<>();
     private final Map<Long, Order> orders = new ConcurrentHashMap<>();
-
-    private long petIdCounter = 1000;   // For mock new Pet ID generation
-    private long orderIdCounter = 5000; // For mock new Order ID generation
+    private long petIdCounter = 1000;
+    private long orderIdCounter = 5000;
 
     @PostConstruct
     public void init() {
@@ -61,10 +62,16 @@ public class EntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class PetBrowseRequest {
+        @Size(min = 1)
         private String type;
+        @Size(min = 1)
         private String status;
+        @Size(min = 1)
         private String search;
+        @Min(1)
         private Integer page = 1;
+        @Min(1)
+        @Max(100)
         private Integer pageSize = 20;
     }
 
@@ -81,25 +88,37 @@ public class EntityControllerPrototype {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class PetUpdateRequest {
-        private Long id;
+    public static class PetAddRequest {
+        @NotBlank
         private String name;
+        @NotBlank
         private String type;
+        @NotBlank
         private String status;
+        @NotNull
+        @Size(min = 1)
         private String[] photoUrls;
         private String[] tags;
+        @Size(max = 500)
         private String description;
     }
 
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class PetAddRequest {
+    public static class PetUpdateRequest {
+        @NotNull
+        @Positive
+        private Long id;
+        @Size(min = 1)
         private String name;
+        @Size(min = 1)
         private String type;
+        @Size(min = 1)
         private String status;
         private String[] photoUrls;
         private String[] tags;
+        @Size(max = 500)
         private String description;
     }
 
@@ -107,6 +126,8 @@ public class EntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class PetDeleteRequest {
+        @NotNull
+        @Positive
         private Long id;
     }
 
@@ -114,10 +135,17 @@ public class EntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class OrderPlaceRequest {
+        @NotNull
+        @Positive
         private Long petId;
+        @NotNull
+        @Min(1)
         private Integer quantity;
-        private String shipDate; // ISO 8601
+        @NotBlank
+        private String shipDate;
+        @NotBlank
         private String status;
+        @NotNull
         private Boolean complete;
     }
 
@@ -138,126 +166,67 @@ public class EntityControllerPrototype {
     @AllArgsConstructor
     public static class SuccessMessage {
         private String message;
-        private Long id; // optional, for add endpoints
+        private Long id;
     }
 
     // --- Endpoints ---
 
-    /**
-     * POST /pets/browse
-     * Retrieves filtered, paged list of pets by querying external Petstore API.
-     * Business logic and external data retrieval done in POST as per requirements.
-     */
     @PostMapping("/pets/browse")
-    public ResponseEntity<PetBrowseResponse> browsePets(@RequestBody PetBrowseRequest request) {
-        log.info("Browsing pets with filters: type={}, status={}, search={}, page={}, pageSize={}",
-                request.getType(), request.getStatus(), request.getSearch(), request.getPage(), request.getPageSize());
-
+    public ResponseEntity<PetBrowseResponse> browsePets(@RequestBody @Valid PetBrowseRequest request) {
+        log.info("Browsing pets with filters: {}", request);
         try {
-            // Build URL with query params (only type and status supported directly in Petstore API)
             StringBuilder url = new StringBuilder(PETSTORE_BASE_URL + "/pet/findByStatus?status=available");
-            if (request.getStatus() != null && !request.getStatus().isEmpty()) {
+            if (request.getStatus() != null) {
                 url = new StringBuilder(PETSTORE_BASE_URL + "/pet/findByStatus?status=" + request.getStatus());
             }
-
-            // Petstore API only supports filtering by status in findByStatus endpoint.
-            // For other filters (type, search), we will filter manually after retrieval.
-
             String jsonResponse = restTemplate.getForObject(url.toString(), String.class);
             JsonNode rootNode = objectMapper.readTree(jsonResponse);
-
-            // Filter pets by type and search keyword if provided
-            var filteredPetsList = new java.util.ArrayList<Pet>();
-
+            var filtered = new java.util.ArrayList<Pet>();
             for (JsonNode node : rootNode) {
                 String petType = node.path("category").path("name").asText(null);
                 String petName = node.path("name").asText("");
-                if (request.getType() != null && !request.getType().isEmpty()) {
-                    if (petType == null || !petType.equalsIgnoreCase(request.getType())) {
-                        continue;
-                    }
-                }
-                if (request.getSearch() != null && !request.getSearch().isEmpty()) {
-                    if (!petName.toLowerCase().contains(request.getSearch().toLowerCase())) {
-                        continue;
-                    }
-                }
-
-                Pet pet = new Pet();
-                pet.setId(node.path("id").asLong());
-                pet.setName(petName);
-                pet.setStatus(node.path("status").asText(null));
-                pet.setType(petType);
-                pet.setPhotoUrls(objectMapper.convertValue(node.path("photoUrls"), String[].class));
-                var tagsNode = node.path("tags");
-                if (tagsNode.isArray()) {
-                    String[] tags = new String[tagsNode.size()];
-                    for (int i = 0; i < tagsNode.size(); i++) {
-                        tags[i] = tagsNode.get(i).path("name").asText("");
-                    }
-                    pet.setTags(tags);
-                }
-                filteredPetsList.add(pet);
+                if (request.getType() != null && !request.getType().equalsIgnoreCase(petType)) continue;
+                if (request.getSearch() != null && !petName.toLowerCase().contains(request.getSearch().toLowerCase()))
+                    continue;
+                Pet pet = new Pet(
+                    node.path("id").asLong(),
+                    petName,
+                    petType,
+                    node.path("status").asText(null),
+                    objectMapper.convertValue(node.path("photoUrls"), String[].class),
+                    parseTags(node.path("tags")),
+                    null
+                );
+                filtered.add(pet);
             }
-
-            // Pagination
-            int page = request.getPage() != null && request.getPage() > 0 ? request.getPage() : 1;
-            int pageSize = request.getPageSize() != null && request.getPageSize() > 0 ? request.getPageSize() : 20;
-            int fromIndex = (page - 1) * pageSize;
-            int toIndex = Math.min(fromIndex + pageSize, filteredPetsList.size());
-
-            Pet[] pagedPets = new Pet[0];
-            if (fromIndex < filteredPetsList.size()) {
-                pagedPets = filteredPetsList.subList(fromIndex, toIndex).toArray(new Pet[0]);
-            }
-
-            PetBrowseResponse response = new PetBrowseResponse(pagedPets, page, pageSize, filteredPetsList.size());
-
-            return ResponseEntity.ok(response);
-
+            int from = (request.getPage() - 1) * request.getPageSize();
+            int to = Math.min(from + request.getPageSize(), filtered.size());
+            Pet[] paged = from < filtered.size() ? filtered.subList(from, to).toArray(new Pet[0]) : new Pet[0];
+            return ResponseEntity.ok(new PetBrowseResponse(paged, request.getPage(), request.getPageSize(), filtered.size()));
         } catch (Exception e) {
             log.error("Error browsing pets", e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to browse pets");
         }
     }
 
-    /**
-     * GET /pets/{petId}
-     * Retrieve pet details by ID from external Petstore API.
-     */
     @GetMapping("/pets/{petId}")
-    public ResponseEntity<Pet> getPetById(@PathVariable Long petId) {
+    public ResponseEntity<Pet> getPetById(@PathVariable @NotNull @Positive Long petId) {
         log.info("Getting pet details for ID {}", petId);
         try {
-            String url = PETSTORE_BASE_URL + "/pet/" + petId;
-            String jsonResponse = restTemplate.getForObject(url, String.class);
-            JsonNode node = objectMapper.readTree(jsonResponse);
-
-            if (node.has("id") && node.get("id").asLong() == 0) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pet not found");
-            }
-
-            Pet pet = new Pet();
-            pet.setId(node.path("id").asLong());
-            pet.setName(node.path("name").asText(null));
-            pet.setStatus(node.path("status").asText(null));
-            pet.setType(node.path("category").path("name").asText(null));
-            pet.setPhotoUrls(objectMapper.convertValue(node.path("photoUrls"), String[].class));
-
-            var tagsNode = node.path("tags");
-            if (tagsNode.isArray()) {
-                String[] tags = new String[tagsNode.size()];
-                for (int i = 0; i < tagsNode.size(); i++) {
-                    tags[i] = tagsNode.get(i).path("name").asText("");
-                }
-                pet.setTags(tags);
-            }
-
-            pet.setDescription(null); // Petstore API does not provide description field
-
+            String json = restTemplate.getForObject(PETSTORE_BASE_URL + "/pet/" + petId, String.class);
+            JsonNode node = objectMapper.readTree(json);
+            if (!node.has("id")) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pet not found");
+            Pet pet = new Pet(
+                node.path("id").asLong(),
+                node.path("name").asText(null),
+                node.path("category").path("name").asText(null),
+                node.path("status").asText(null),
+                objectMapper.convertValue(node.path("photoUrls"), String[].class),
+                parseTags(node.path("tags")),
+                null
+            );
             return ResponseEntity.ok(pet);
         } catch (ResponseStatusException rse) {
-            log.warn("Pet not found: id={}", petId);
             throw rse;
         } catch (Exception e) {
             log.error("Error retrieving pet details", e);
@@ -265,31 +234,15 @@ public class EntityControllerPrototype {
         }
     }
 
-    /**
-     * POST /pets/add
-     * Add a new pet to the local mock DB (mirroring the Petstore API add).
-     * TODO: Replace with real persistence or external API call for production.
-     */
     @PostMapping("/pets/add")
-    public ResponseEntity<SuccessMessage> addPet(@RequestBody PetAddRequest request) {
-        log.info("Adding new pet: name={}, type={}, status={}", request.getName(), request.getType(), request.getStatus());
+    public ResponseEntity<SuccessMessage> addPet(@RequestBody @Valid PetAddRequest request) {
+        log.info("Adding new pet: {}", request);
         try {
             long newId = ++petIdCounter;
-            Pet pet = new Pet(newId,
-                    request.getName(),
-                    request.getType(),
-                    request.getStatus(),
-                    request.getPhotoUrls(),
-                    request.getTags(),
-                    request.getDescription());
+            Pet pet = new Pet(newId, request.getName(), request.getType(), request.getStatus(),
+                    request.getPhotoUrls(), request.getTags(), request.getDescription());
             pets.put(newId, pet);
-
-            // TODO: Fire and forget async sync to Petstore API or other DB if needed.
-            CompletableFuture.runAsync(() -> {
-                log.info("Async placeholder: syncing added pet with external systems (petId={})", newId);
-                // TODO: Implement real synchronization
-            });
-
+            CompletableFuture.runAsync(() -> log.info("Async sync for petId={}", newId));
             return ResponseEntity.ok(new SuccessMessage("Pet added successfully", newId));
         } catch (Exception e) {
             log.error("Error adding pet", e);
@@ -297,35 +250,20 @@ public class EntityControllerPrototype {
         }
     }
 
-    /**
-     * POST /pets/update
-     * Update existing pet info in local mock DB.
-     * TODO: Replace with real persistence or external API call for production.
-     */
     @PostMapping("/pets/update")
-    public ResponseEntity<SuccessMessage> updatePet(@RequestBody PetUpdateRequest request) {
-        log.info("Updating pet: id={}", request.getId());
+    public ResponseEntity<SuccessMessage> updatePet(@RequestBody @Valid PetUpdateRequest request) {
+        log.info("Updating pet: {}", request.getId());
         try {
-            Pet existingPet = pets.get(request.getId());
-            if (existingPet == null) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pet not found");
-            }
-            // Update fields if present
-            if (request.getName() != null) existingPet.setName(request.getName());
-            if (request.getType() != null) existingPet.setType(request.getType());
-            if (request.getStatus() != null) existingPet.setStatus(request.getStatus());
-            if (request.getPhotoUrls() != null) existingPet.setPhotoUrls(request.getPhotoUrls());
-            if (request.getTags() != null) existingPet.setTags(request.getTags());
-            if (request.getDescription() != null) existingPet.setDescription(request.getDescription());
-
-            pets.put(existingPet.getId(), existingPet);
-
-            // TODO: Fire and forget async sync to Petstore API or other DB if needed.
-            CompletableFuture.runAsync(() -> {
-                log.info("Async placeholder: syncing updated pet with external systems (petId={})", existingPet.getId());
-                // TODO: Implement real synchronization
-            });
-
+            Pet existing = pets.get(request.getId());
+            if (existing == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pet not found");
+            if (request.getName() != null) existing.setName(request.getName());
+            if (request.getType() != null) existing.setType(request.getType());
+            if (request.getStatus() != null) existing.setStatus(request.getStatus());
+            if (request.getPhotoUrls() != null) existing.setPhotoUrls(request.getPhotoUrls());
+            if (request.getTags() != null) existing.setTags(request.getTags());
+            if (request.getDescription() != null) existing.setDescription(request.getDescription());
+            pets.put(existing.getId(), existing);
+            CompletableFuture.runAsync(() -> log.info("Async sync for petId={}", existing.getId()));
             return ResponseEntity.ok(new SuccessMessage("Pet updated successfully", null));
         } catch (ResponseStatusException rse) {
             throw rse;
@@ -335,26 +273,13 @@ public class EntityControllerPrototype {
         }
     }
 
-    /**
-     * POST /pets/delete
-     * Delete a pet from the local mock DB.
-     * TODO: Replace with real persistence or external API call for production.
-     */
     @PostMapping("/pets/delete")
-    public ResponseEntity<SuccessMessage> deletePet(@RequestBody PetDeleteRequest request) {
+    public ResponseEntity<SuccessMessage> deletePet(@RequestBody @Valid PetDeleteRequest request) {
         log.info("Deleting pet with id={}", request.getId());
         try {
             Pet removed = pets.remove(request.getId());
-            if (removed == null) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pet not found");
-            }
-
-            // TODO: Fire and forget async sync to Petstore API or other DB if needed.
-            CompletableFuture.runAsync(() -> {
-                log.info("Async placeholder: syncing deleted pet removal with external systems (petId={})", request.getId());
-                // TODO: Implement real synchronization
-            });
-
+            if (removed == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pet not found");
+            CompletableFuture.runAsync(() -> log.info("Async removal sync for petId={}", request.getId()));
             return ResponseEntity.ok(new SuccessMessage("Pet deleted successfully", null));
         } catch (ResponseStatusException rse) {
             throw rse;
@@ -364,42 +289,22 @@ public class EntityControllerPrototype {
         }
     }
 
-    /**
-     * POST /orders/place
-     * Place an order for a pet.
-     * Order is stored locally in mock DB.
-     * TODO: Replace with real persistence or external API call for production.
-     */
     @PostMapping("/orders/place")
-    public ResponseEntity<SuccessMessage> placeOrder(@RequestBody OrderPlaceRequest request) {
-        log.info("Placing order for petId={}, quantity={}", request.getPetId(), request.getQuantity());
+    public ResponseEntity<SuccessMessage> placeOrder(@RequestBody @Valid OrderPlaceRequest request) {
+        log.info("Placing order for petId={}", request.getPetId());
         try {
-            // Validate pet exists locally or via external API
             if (!pets.containsKey(request.getPetId())) {
-                // Try external API check
                 try {
                     restTemplate.getForObject(PETSTORE_BASE_URL + "/pet/" + request.getPetId(), String.class);
                 } catch (Exception e) {
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pet not found for ordering");
                 }
             }
-
             long newOrderId = ++orderIdCounter;
-            Order order = new Order(newOrderId,
-                    request.getPetId(),
-                    request.getQuantity(),
-                    request.getShipDate(),
-                    request.getStatus(),
-                    request.getComplete());
-
+            Order order = new Order(newOrderId, request.getPetId(), request.getQuantity(),
+                    request.getShipDate(), request.getStatus(), request.getComplete());
             orders.put(newOrderId, order);
-
-            // TODO: Fire and forget async order processing, notifications, etc.
-            CompletableFuture.runAsync(() -> {
-                log.info("Async placeholder: processing order (orderId={})", newOrderId);
-                // TODO: Implement real order processing
-            });
-
+            CompletableFuture.runAsync(() -> log.info("Async order processing for orderId={}", newOrderId));
             return ResponseEntity.ok(new SuccessMessage("Order placed successfully", newOrderId));
         } catch (ResponseStatusException rse) {
             throw rse;
@@ -409,12 +314,8 @@ public class EntityControllerPrototype {
         }
     }
 
-    /**
-     * GET /orders/{orderId}
-     * Retrieve order details by ID from local mock DB.
-     */
     @GetMapping("/orders/{orderId}")
-    public ResponseEntity<Order> getOrderById(@PathVariable Long orderId) {
+    public ResponseEntity<Order> getOrderById(@PathVariable @NotNull @Positive Long orderId) {
         log.info("Getting order details for orderId={}", orderId);
         Order order = orders.get(orderId);
         if (order == null) {
@@ -423,7 +324,14 @@ public class EntityControllerPrototype {
         return ResponseEntity.ok(order);
     }
 
-    // --- Minimal error handling ---
+    private static String[] parseTags(JsonNode tagsNode) {
+        if (!tagsNode.isArray()) return new String[0];
+        String[] tags = new String[tagsNode.size()];
+        for (int i = 0; i < tagsNode.size(); i++) {
+            tags[i] = tagsNode.get(i).path("name").asText("");
+        }
+        return tags;
+    }
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<Map<String, String>> handleResponseStatusException(ResponseStatusException ex) {
@@ -439,4 +347,3 @@ public class EntityControllerPrototype {
                 .body(Map.of("error", "Internal server error"));
     }
 }
-```
