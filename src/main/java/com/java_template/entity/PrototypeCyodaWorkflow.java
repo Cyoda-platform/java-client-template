@@ -1,3 +1,16 @@
+Certainly! Moving all asynchronous logic and external API calls into the workflow functions (`process{entity_name}`) is indeed the right approach. This keeps controllers clean and delegates all entity-specific processing and enrichment to the workflow functions, which are executed asynchronously right before persisting the entity.
+
+Below is the updated Java code that:
+
+- Moves all async fetching, external API calls, and entity additions into the `processPetSummary` and `processPetDetails` workflow functions.
+- The controller methods only accept requests and call `entityService.addItem` or `addItems` with the workflow functions.
+- The workflow functions fetch external data, enrich or modify the entity JSON (`ObjectNode`), and add secondary entities if needed.
+- Uses `ObjectNode` for entity data in workflow functions, per your instructions.
+- Avoids any `entityService` changes on the current entityModel inside the workflow function to prevent recursion.
+- Uses async calls properly inside workflow functions (returns `CompletableFuture<ObjectNode>`).
+
+---
+
 ```java
 package com.java_template.entity;
 
@@ -19,6 +32,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.*;
@@ -38,41 +52,45 @@ public class CyodaEntityControllerPrototype {
 
     private final EntityService entityService;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final RestTemplate restTemplate = new RestTemplate();
 
     public CyodaEntityControllerPrototype(EntityService entityService) {
         this.entityService = entityService;
     }
 
+    /**
+     * Controller endpoint simplified: just calls addItems with workflow function.
+     */
     @PostMapping(value = "/fetch", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<FetchPetsResponse> fetchPets(@RequestBody @Valid FetchPetsRequest request) {
         logger.info("Received fetch request with type={} status={}", request.getType(), request.getStatus());
-        CompletableFuture.runAsync(() -> {
-            try {
-                String url = "https://petstore.swagger.io/v2/pet/findByStatus?status=" +
-                        (request.getStatus() != null ? request.getStatus() : "available,pending,sold");
-                String response = new org.springframework.web.client.RestTemplate().getForObject(url, String.class);
-                JsonNode rootNode = objectMapper.readTree(response);
-                List<PetSummary> filteredPets = new ArrayList<>();
-                if (rootNode.isArray()) {
-                    for (JsonNode petNode : rootNode) {
-                        PetSummary pet = parsePetSummary(petNode);
-                        if (request.getType() == null || request.getType().equalsIgnoreCase(pet.getType())) {
-                            filteredPets.add(pet);
-                        }
-                    }
-                }
-                // Convert pets to list of Object to pass to entityService
-                List<PetSummary> petsToAdd = filteredPets;
-                // Add pets to external EntityService with workflow function
-                entityService.addItems("PetSummary", ENTITY_VERSION, petsToAdd, this::processPetSummary).get();
-                logger.info("Processed {} pets", filteredPets.size());
-            } catch (Exception e) {
-                logger.error("Error fetching pets", e);
-            }
-        });
+
+        // Create an ObjectNode with filters to pass as entity data to workflow function
+        ObjectNode filterNode = objectMapper.createObjectNode();
+        if (request.getStatus() != null) {
+            filterNode.put("status", request.getStatus());
+        } else {
+            filterNode.put("status", "available,pending,sold");
+        }
+        if (request.getType() != null) {
+            filterNode.put("type", request.getType());
+        }
+
+        // Add a single entity that triggers workflow to fetch and add multiple PetSummary entities internally
+        try {
+            entityService.addItem("PetSummaryFetchRequest", ENTITY_VERSION, filterNode, this::processPetSummaryFetchRequest).get();
+        } catch (Exception e) {
+            logger.error("Error starting pet fetch workflow", e);
+            return ResponseEntity.status(500).body(new FetchPetsResponse("Failed to start fetch workflow", 0));
+        }
+
         return ResponseEntity.ok(new FetchPetsResponse("Pets data fetch started", 0));
     }
 
+    /**
+     * Controller endpoint to get all pets.
+     * No change here.
+     */
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<List<PetSummaryWithId>> getPets() throws ExecutionException, InterruptedException {
         CompletableFuture<ArrayNode> itemsFuture = entityService.getItems("PetSummary", ENTITY_VERSION);
@@ -86,18 +104,31 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.ok(pets);
     }
 
+    /**
+     * Controller endpoint to fetch pet details.
+     * Simplified: just calls addItem with workflow function.
+     */
     @PostMapping(value = "/details", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<FetchPetDetailsResponse> fetchPetDetails(@RequestBody @Valid FetchPetDetailsRequest request) throws Exception {
-        logger.info("Fetching details for petId={}", request.getPetId());
-        String url = "https://petstore.swagger.io/v2/pet/" + request.getPetId();
-        String response = new org.springframework.web.client.RestTemplate().getForObject(url, String.class);
-        JsonNode petNode = objectMapper.readTree(response);
-        PetDetails details = parsePetDetails(petNode);
-        // Add pet details with workflow function
-        UUID technicalId = entityService.addItem("PetDetails", ENTITY_VERSION, details, this::processPetDetails).get();
-        return ResponseEntity.ok(new FetchPetDetailsResponse("Pet details fetched and stored", request.getPetId()));
+    public ResponseEntity<FetchPetDetailsResponse> fetchPetDetails(@RequestBody @Valid FetchPetDetailsRequest request) {
+        logger.info("Received fetch details request for petId={}", request.getPetId());
+
+        ObjectNode petIdNode = objectMapper.createObjectNode();
+        petIdNode.put("petId", request.getPetId());
+
+        try {
+            CompletableFuture<UUID> uuidFuture = entityService.addItem("PetDetailsFetchRequest", ENTITY_VERSION, petIdNode, this::processPetDetailsFetchRequest);
+            UUID technicalId = uuidFuture.get();
+            return ResponseEntity.ok(new FetchPetDetailsResponse("Pet details fetch started", request.getPetId()));
+        } catch (Exception e) {
+            logger.error("Error starting pet details fetch workflow", e);
+            return ResponseEntity.status(500).body(new FetchPetDetailsResponse("Failed to start pet details fetch", request.getPetId()));
+        }
     }
 
+    /**
+     * Controller endpoint to get pet details by technicalId.
+     * No change here.
+     */
     @GetMapping(value = "/details/{technicalId}", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<PetDetailsWithId> getPetDetails(@PathVariable UUID technicalId) throws ExecutionException, InterruptedException {
         CompletableFuture<ObjectNode> itemFuture = entityService.getItem("PetDetails", ENTITY_VERSION, technicalId);
@@ -115,57 +146,148 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.status(ex.getStatusCode()).body(new ErrorResponse(ex.getReason()));
     }
 
-    // Workflow function for PetSummary entity
-    private PetSummary processPetSummary(PetSummary petSummary) {
-        // Example: You can modify petSummary before persistence if needed
-        // For example, set default status if null
-        if (petSummary.getStatus() == null) {
-            petSummary.setStatus("available");
-        }
-        // You can add/get entities of other entityModels here if needed
-        return petSummary;
+    // =======================
+    // Workflow functions
+    // =======================
+
+    /**
+     * Workflow function for PetSummaryFetchRequest entityModel.
+     * This function asynchronously fetches pets from external API and adds them as PetSummary entities.
+     * Returns the same entity (filter request) unmodified.
+     */
+    private CompletableFuture<ObjectNode> processPetSummaryFetchRequest(ObjectNode entity) {
+        // Extract filters
+        String statusFilter = entity.has("status") ? entity.get("status").asText() : "available,pending,sold";
+        String typeFilter = entity.has("type") ? entity.get("type").asText() : null;
+
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                String url = "https://petstore.swagger.io/v2/pet/findByStatus?status=" + statusFilter;
+                logger.info("Fetching pets from external API: {}", url);
+                String response = restTemplate.getForObject(url, String.class);
+                JsonNode rootNode = objectMapper.readTree(response);
+
+                if (rootNode == null || !rootNode.isArray()) {
+                    logger.warn("No pets returned from external API.");
+                    return entity; // Return unmodified
+                }
+
+                // Filter pets by type if present
+                List<ObjectNode> petsToAdd = new ArrayList<>();
+                for (JsonNode petNode : rootNode) {
+                    String petType = petNode.path("category").path("name").asText(null);
+                    if (typeFilter == null || typeFilter.equalsIgnoreCase(petType)) {
+                        ObjectNode petEntity = objectMapper.createObjectNode();
+                        petEntity.put("id", petNode.path("id").asInt());
+                        petEntity.put("name", petNode.path("name").asText(null));
+                        petEntity.put("status", petNode.path("status").asText(null));
+                        petEntity.put("type", petType);
+
+                        // photoUrls array
+                        if (petNode.has("photoUrls") && petNode.get("photoUrls").isArray()) {
+                            petEntity.set("photoUrls", petNode.get("photoUrls"));
+                        }
+                        petsToAdd.add(petEntity);
+                    }
+                }
+
+                if (!petsToAdd.isEmpty()) {
+                    // Add all filtered pets as "PetSummary" entities asynchronously
+                    logger.info("Adding {} PetSummary entities", petsToAdd.size());
+                    entityService.addItems("PetSummary", ENTITY_VERSION, petsToAdd, this::processPetSummary).get();
+                } else {
+                    logger.info("No PetSummary entities to add after filtering");
+                }
+            } catch (Exception e) {
+                logger.error("Error in processPetSummaryFetchRequest workflow", e);
+            }
+            return entity; // Return original unchanged filter entity
+        });
     }
 
-    // Workflow function for PetDetails entity
-    private PetDetails processPetDetails(PetDetails petDetails) {
-        // Example: You can modify petDetails before persistence if needed
-        if (petDetails.getStatus() == null) {
-            petDetails.setStatus("available");
-        }
-        return petDetails;
+    /**
+     * Workflow function for PetSummary entityModel.
+     * Can enrich or modify pet summary before persistence.
+     */
+    private CompletableFuture<ObjectNode> processPetSummary(ObjectNode entity) {
+        return CompletableFuture.supplyAsync(() -> {
+            // Ensure status is set
+            if (!entity.hasNonNull("status")) {
+                entity.put("status", "available");
+            }
+            // Additional enrichment or logic can be added here
+
+            return entity;
+        });
     }
 
-    private PetSummary parsePetSummary(JsonNode node) {
-        PetSummary pet = new PetSummary();
-        pet.setId(node.path("id").asInt());
-        pet.setName(node.path("name").asText(null));
-        pet.setStatus(node.path("status").asText(null));
-        pet.setType(node.path("category").path("name").asText(null));
-        if (node.has("photoUrls") && node.get("photoUrls").isArray()) {
-            pet.setPhotoUrls(objectMapper.convertValue(node.get("photoUrls"), List.class));
+    /**
+     * Workflow function for PetDetailsFetchRequest entityModel.
+     * This function asynchronously fetches pet details from external API and adds it as PetDetails entity.
+     * Returns the same request entity unmodified.
+     */
+    private CompletableFuture<ObjectNode> processPetDetailsFetchRequest(ObjectNode entity) {
+        if (!entity.has("petId")) {
+            logger.warn("processPetDetailsFetchRequest called without petId");
+            return CompletableFuture.completedFuture(entity);
         }
-        return pet;
+        int petId = entity.get("petId").asInt();
+
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                String url = "https://petstore.swagger.io/v2/pet/" + petId;
+                logger.info("Fetching pet details from external API: {}", url);
+                String response = restTemplate.getForObject(url, String.class);
+                if (response == null) {
+                    logger.warn("No response from pet details API for petId={}", petId);
+                    return entity;
+                }
+                JsonNode petNode = objectMapper.readTree(response);
+
+                ObjectNode petDetailsEntity = objectMapper.createObjectNode();
+                petDetailsEntity.put("id", petNode.path("id").asInt());
+                petDetailsEntity.put("name", petNode.path("name").asText(null));
+                petDetailsEntity.put("status", petNode.path("status").asText(null));
+                petDetailsEntity.put("type", petNode.path("category").path("name").asText(null));
+
+                if (petNode.has("category")) {
+                    petDetailsEntity.set("category", petNode.get("category"));
+                }
+                if (petNode.has("photoUrls")) {
+                    petDetailsEntity.set("photoUrls", petNode.get("photoUrls"));
+                }
+                if (petNode.has("tags")) {
+                    petDetailsEntity.set("tags", petNode.get("tags"));
+                }
+
+                // Add pet details entity (different entityModel)
+                entityService.addItem("PetDetails", ENTITY_VERSION, petDetailsEntity, this::processPetDetails).get();
+
+            } catch (Exception e) {
+                logger.error("Error in processPetDetailsFetchRequest workflow", e);
+            }
+            return entity; // Return original fetch request entity unmodified
+        });
     }
 
-    private PetDetails parsePetDetails(JsonNode node) {
-        PetDetails details = new PetDetails();
-        details.setId(node.path("id").asInt());
-        details.setName(node.path("name").asText(null));
-        details.setStatus(node.path("status").asText(null));
-        details.setType(node.path("category").path("name").asText(null));
-        if (node.has("category")) {
-            JsonNode c = node.get("category");
-            details.setCategory(new Category(c.path("id").asInt(), c.path("name").asText(null)));
-        }
-        if (node.has("photoUrls")) {
-            details.setPhotoUrls(objectMapper.convertValue(node.get("photoUrls"), List.class));
-        }
-        if (node.has("tags")) {
-            details.setTags(objectMapper.convertValue(node.get("tags"),
-                    objectMapper.getTypeFactory().constructCollectionType(List.class, Tag.class)));
-        }
-        return details;
+    /**
+     * Workflow function for PetDetails entityModel.
+     * Can enrich or modify pet details before persistence.
+     */
+    private CompletableFuture<ObjectNode> processPetDetails(ObjectNode entity) {
+        return CompletableFuture.supplyAsync(() -> {
+            if (!entity.hasNonNull("status")) {
+                entity.put("status", "available");
+            }
+            // Additional enrichment or logic can be added here
+            return entity;
+        });
     }
+
+
+    // =======================
+    // DTO classes (unchanged from previous)
+    // =======================
 
     @Data
     public static class FetchPetsRequest {
@@ -268,14 +390,17 @@ public class CyodaEntityControllerPrototype {
     }
 }
 ```
+
 ---
 
-### Explanation of changes:
-- **Added workflow functions:**
-  - `processPetSummary(PetSummary petSummary)` for the entityModel `"PetSummary"`.
-  - `processPetDetails(PetDetails petDetails)` for the entityModel `"PetDetails"`.
-- **Updated calls to `entityService.addItem` and `entityService.addItems`** to pass the workflow function as the last argument.
-- The workflow functions receive the entity data, optionally modify it, and return it. They can also perform other entity operations on different entityModels if needed (but not on their own entityModel to avoid infinite recursion).
-- In this example, the workflow functions ensure the `status` field is not null by setting a default `"available"` if missing.
+### Summary of changes
+- **Controller endpoints are now very thin.**  
+  They just package input into minimal entity JSON and call `entityService.addItem` or `addItems` with corresponding workflow function.
+- **All asynchronous external API calls moved into workflow functions:**  
+  - `processPetSummaryFetchRequest`: fetches pet list from external API, filters, and adds multiple `PetSummary` entities.  
+  - `processPetDetailsFetchRequest`: fetches pet details and adds `PetDetails` entity.
+- **Workflow functions operate on `ObjectNode` entity data and return `CompletableFuture<ObjectNode>`.**  
+- **Workflow functions may add/get other entityModels but never add/update/delete entities of the current entityModel to avoid recursion.**  
+- This approach keeps business logic and async operations encapsulated in the workflow functions, freeing controller code from complexity and ensuring robust async processing.
 
-This respects the new method signature requirement and applies the workflow functions correctly.
+If you want, I can also help you test or further refactor this.
