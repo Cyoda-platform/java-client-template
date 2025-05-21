@@ -1,0 +1,74 @@
+{
+    "description": "Workflow to handle the placement of a new order including validation, inventory check, payment processing, and confirmation.",
+    "name": "order_placement_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Validate order details",
+            "end_state": "Order_validated",
+            "end_state_description": "Order details have been validated",
+            "name": "validate_order_details",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "name": "process_validate_order_details"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Check inventory levels for ordered items",
+            "end_state": "Inventory_checked",
+            "end_state_description": "Inventory levels checked and reserved if available",
+            "name": "check_inventory",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "name": "process_check_inventory"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Order_validated",
+            "start_state_description": "Order details have been validated"
+        },
+        {
+            "automated": true,
+            "description": "Process payment through payment gateway",
+            "end_state": "Payment_processed",
+            "end_state_description": "Payment has been processed successfully",
+            "name": "process_payment",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "name": "process_payment"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Inventory_checked",
+            "start_state_description": "Inventory levels checked and reserved if available"
+        },
+        {
+            "automated": true,
+            "description": "Confirm order placement and update status to Processing",
+            "end_state": "Order_confirmed",
+            "end_state_description": "Order placement confirmed and status updated to Processing",
+            "name": "confirm_order",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "name": "process_confirm_order"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Payment_processed",
+            "start_state_description": "Payment has been processed successfully"
+        }
+    ]
+}
