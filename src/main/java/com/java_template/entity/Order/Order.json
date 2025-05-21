@@ -1,0 +1,37 @@
+{
+    "billingAddress": {
+        "city": "Anytown",
+        "state": "CA",
+        "street": "456 Elm St",
+        "zipCode": "90210"
+    },
+    "customerId": "CUST789",
+    "items": [
+        {
+            "price": 25.0,
+            "productId": "PROD001",
+            "quantity": 2
+        },
+        {
+            "price": 100.75,
+            "productId": "PROD002",
+            "quantity": 1
+        }
+    ],
+    "orderDate": "2023-10-01T14:30:00Z",
+    "orderId": "123456",
+    "paymentMethod": {
+        "cardNumber": "**** **** **** 1234",
+        "expirationDate": "2025-12",
+        "provider": "Visa",
+        "type": "Credit Card"
+    },
+    "shippingAddress": {
+        "city": "Anytown",
+        "state": "CA",
+        "street": "123 Main St",
+        "zipCode": "90210"
+    },
+    "status": "Pending",
+    "totalAmount": 150.75
+}
