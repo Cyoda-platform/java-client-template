@@ -6,6 +6,7 @@
         "zipCode": "90210"
     },
     "customerId": "CUST789",
+    "customerName": "John Doe",
     "items": [
         {
             "price": 25.0,
