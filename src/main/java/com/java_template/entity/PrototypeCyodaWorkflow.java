@@ -1,44 +1,3 @@
-Certainly! Moving logic from controllers into the workflow functions (`process{EntityName}`) is the right approach to keep controllers thin and make the business logic reusable, testable, and well encapsulated.
-
----
-
-### What to move to workflow functions?
-
-- Any asynchronous processing or "fire and forget" tasks related to the entity.
-- Entity state modifications before persistence.
-- Fetching or adding supplementary entities with different `entityModel`s.
-- Any complex transformation or validation logic related to the entity data.
-
----
-
-### What **NOT** to do in workflow functions?
-
-- Calling entityService methods on **the same entityModel** (will cause recursion).
-- Callbacks or HTTP responses - workflow functions just modify the entity or perform async logic.
-
----
-
-### How this applies to your current code?
-
-1. **Scraping and analyzing product inventory**:  
-   This is an async task currently triggered in controller `/products/analyze`. You want to integrate this into a workflow function so that when a product entity is added/updated, this analysis can be triggered asynchronously inside `processProduct`.
-
-2. **Modifying entity state**:  
-   If you want to enrich or modify the entity fields before persistence, do it inside `processProduct`.
-
-3. **Additional entities**:  
-   If needed, fetch or add entities of different models inside workflow function.
-
-4. **Controllers**:  
-   Will only call add/update/delete with workflow function, no async tasks inside.
-
----
-
-### Revised code with workflow function doing async logic
-
-Below is your updated controller and the `processProduct` workflow function that moves the async analyze job inside it.
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -72,11 +31,11 @@ public class CyodaEntityControllerPrototype {
 
     private final EntityService entityService;
 
-    // Store latest summary and jobs for reporting
+    // Use volatile to ensure visibility across threads for latest summary and job status
     private volatile SummaryReport latestSummary;
     private volatile JobStatus latestJobStatus;
 
-    private final Map<String, String> sessionTokens = new HashMap<>();
+    private final Map<String, String> sessionTokens = Collections.synchronizedMap(new HashMap<>());
 
     private static final String ENTITY_NAME = "product";
 
@@ -95,13 +54,6 @@ public class CyodaEntityControllerPrototype {
         private String status;
         private String sessionToken;
         private String message;
-    }
-
-    @Data @NoArgsConstructor @AllArgsConstructor
-    static class AnalyzeResponse {
-        private String status;
-        private String message;
-        private Instant timestamp;
     }
 
     @Data @NoArgsConstructor @AllArgsConstructor
@@ -155,7 +107,7 @@ public class CyodaEntityControllerPrototype {
     public ResponseEntity<SummaryReport> getSummaryReport() {
         if (latestSummary == null) {
             logger.warn("No summary available");
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No summary report available. Trigger analysis first.");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No summary report available. Add products first.");
         }
         logger.info("Returning latest summary report");
         return ResponseEntity.ok(latestSummary);
@@ -176,8 +128,15 @@ public class CyodaEntityControllerPrototype {
                     List<ProductWithId> products = new ArrayList<>();
                     for (JsonNode node : arrayNode) {
                         Product product = parseProductFromNode(node);
-                        UUID technicalId = UUID.fromString(node.get("technicalId").asText());
-                        products.add(new ProductWithId(technicalId, product));
+                        UUID technicalId = null;
+                        try {
+                            technicalId = UUID.fromString(node.get("technicalId").asText());
+                        } catch (Exception e) {
+                            logger.warn("Invalid technicalId format in stored entity: {}", node.get("technicalId"));
+                        }
+                        if (technicalId != null) {
+                            products.add(new ProductWithId(technicalId, product));
+                        }
                     }
                     return products;
                 });
@@ -220,7 +179,7 @@ public class CyodaEntityControllerPrototype {
 
     @PutMapping("/products/{id}")
     public CompletableFuture<UUID> updateProduct(@PathVariable("id") UUID id, @RequestBody @Valid Product product) {
-        // No workflow on update to avoid recursion, or add similar workflow if needed carefully
+        // Update without workflow function to avoid recursion and complexity; could add workflow if needed carefully
         return entityService.updateItem(ENTITY_NAME, ENTITY_VERSION, id, product);
     }
 
@@ -231,28 +190,25 @@ public class CyodaEntityControllerPrototype {
 
     /**
      * Workflow function to process a Product entity asynchronously before persistence.
-     * Moves async scrape and analysis logic here to keep controller clean.
+     * It modifies entity state directly and triggers async jobs like scraping and analysis.
      * 
-     * @param entity the entity data as ObjectNode
-     * @return CompletableFuture with the modified entity ObjectNode
+     * @param entity the entity data as ObjectNode (JSON tree)
+     * @return CompletableFuture with the modified entity ObjectNode to persist
      */
     private CompletableFuture<ObjectNode> processProduct(ObjectNode entity) {
         logger.info("Workflow processProduct triggered for entity: {}", entity);
 
-        // Example: You can modify entity fields before persistence
-        // Add a processed timestamp
+        // Add processed timestamp to entity
         entity.put("processedAt", Instant.now().toString());
 
         // Fire and forget async job to scrape inventory and update summary
         CompletableFuture.runAsync(() -> {
             try {
                 logger.info("Starting async scraping and analysis job from workflow");
-                // Simulate scrape inventory page with dummy products or call real logic
                 List<Product> products = scrapeInventoryPage();
 
                 SummaryReport summary = analyzeProductsData(products);
 
-                // Update volatile latest summary and job status
                 latestSummary = summary;
                 latestJobStatus = new JobStatus("completed", Instant.now());
 
@@ -263,16 +219,16 @@ public class CyodaEntityControllerPrototype {
             }
         });
 
-        // Return the entity - modifications to entity (like adding processedAt) will be persisted
         return CompletableFuture.completedFuture(entity);
     }
 
     private List<Product> scrapeInventoryPage() {
-        // Simulate fetching or scraping product inventory data
+        // Simulated fetching or scraping product inventory data
         List<Product> products = new ArrayList<>();
         products.add(new Product("Sauce Labs Backpack","carry all the things",29.99,10));
         products.add(new Product("Sauce Labs Bike Light","red light for bike",9.99,15));
-        // Add more simulated or real data fetch here
+        products.add(new Product("Sauce Labs Bolt T-Shirt","t-shirt with bolt logo",15.99,20));
+        // Could extend to real HTTP scraping or DB fetching if needed
         return products;
     }
 
@@ -291,7 +247,13 @@ public class CyodaEntityControllerPrototype {
             }
         }
         double avg = total > 0 ? sumPrice / total : 0;
-        return new SummaryReport(total, Math.round(avg*100)/100.0, highest, lowest, Math.round(totalInvValue*100)/100.0);
+        return new SummaryReport(
+                total,
+                Math.round(avg * 100) / 100.0,
+                highest,
+                lowest,
+                Math.round(totalInvValue * 100) / 100.0
+        );
     }
 
     private Product parseProductFromNode(JsonNode node) {
@@ -310,43 +272,21 @@ public class CyodaEntityControllerPrototype {
         private Product product;
     }
 
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<Map<String, Object>> handleResponseStatusException(ResponseStatusException ex) {
+        logger.error("Exception: {}", ex.getReason());
+        Map<String, Object> body = new HashMap<>();
+        body.put("status", ex.getStatusCode().value());
+        body.put("error", ex.getReason());
+        return new ResponseEntity<>(body, ex.getStatusCode());
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Map<String, Object>> handleGenericException(Exception ex) {
+        logger.error("Unhandled exception: ", ex);
+        Map<String, Object> body = new HashMap<>();
+        body.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
+        body.put("error", "Internal server error");
+        return new ResponseEntity<>(body, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
 }
-```
-
----
-
-### Summary of the changes:
-
-- **Moved async scraping and analysis job to `processProduct` workflow function**:
-  - This function receives the raw entity as `ObjectNode`.
-  - It modifies the entity (adds `"processedAt"` timestamp).
-  - It asynchronously performs scraping and analysis (fire and forget).
-  - Updates volatile in-memory `latestSummary` and `latestJobStatus` for reporting endpoints.
-
-- **Controller methods `addProduct` and `addProductsBatch`**:
-  - Call `entityService.addItem(..., workflow=processProduct)` passing the workflow function.
-  - No async scraping or heavy logic inside controller.
-
-- **Removed `/products/analyze` endpoint**:
-  - The analyze job is now triggered automatically when product entity is added via workflow.
-
-- **Summary and job status endpoints remain to read latest results**.
-
----
-
-### Why is this better?
-
-- Controllers are thin and focused on HTTP request/response.
-- All entity-related async processing lives in the workflow function.
-- Workflow function can modify entity state just before persistence.
-- Async "fire and forget" tasks are perfectly supported inside workflow function.
-- No recursion risk because workflow cannot modify same entityModel via entityService.
-- Easier to test and maintain.
-
----
-
-If you want, you can similarly create workflow functions for other entities following the same pattern.
-
----
-
-If you want me to provide the full updated code with removed `/analyze` endpoint and adjusted summary/job status endpoints, just let me know!
