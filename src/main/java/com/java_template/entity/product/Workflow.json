@@ -1,0 +1,60 @@
+{
+    "description": "Workflow for processing product data by authenticating, scraping, and analyzing",
+    "name": "product_data_processing_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Authenticate the entity",
+            "end_state": "Authenticated",
+            "end_state_description": "Entity has been authenticated",
+            "name": "authenticate",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAuthenticate"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Scrape the inventory data",
+            "end_state": "Scraped",
+            "end_state_description": "Inventory data scraped",
+            "name": "scrape",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processScrape"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Authenticated",
+            "start_state_description": "Entity has been authenticated"
+        },
+        {
+            "automated": true,
+            "description": "Analyze scraped product data",
+            "end_state": "Analyzed",
+            "end_state_description": "Product data analyzed and summary updated",
+            "name": "analyze",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAnalyze"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Scraped",
+            "start_state_description": "Inventory data scraped"
+        }
+    ]
+}
