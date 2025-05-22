@@ -1,67 +1,3 @@
-Certainly! To comply with the new requirement, we should refactor the controller so that all asynchronous or pre-persistence logic currently inside the controller endpoint is moved into the workflow function `process{entity_name}`.
-
-This means:
-
-- The controller’s responsibility shrinks to just handling HTTP requests/responses and invoking `entityService.addItem` with the validated entity and the proper workflow function.
-- The workflow function (e.g. `processbooking`) will:
-  - Perform any async calls (e.g. fetch external data, enrich the entity).
-  - Transform or augment the entity (which is an `ObjectNode`).
-  - Possibly add supplementary entities of other models via `entityService`.
-  - Return the modified entity asynchronously.
-- The controller does NOT perform these tasks directly anymore.
-
----
-
-### What we will do:
-
-- Change the entity parameter type from `Booking` to `ObjectNode` in the workflow.
-- Move all the fetch, filtering, reporting logic into the workflow function.
-- The controller will accept a filter entity (ObjectNode), pass it to `entityService.addItem` with the workflow function.
-- The workflow function will:
-  - Fetch bookings list and details from the external API.
-  - Perform filtering based on the filter params inside the entity.
-  - Build the report data inside the entity.
-  - Return the modified entity (with report data) for persistence.
-- The endpoint will return the final report from the persisted entity.
-
----
-
-### Important:
-
-For the `processbooking` workflow function, the entity is an `ObjectNode`.
-
-Because the entity model in the original code was `"booking"`, but the filtering/reporting logic is not tied to adding a booking, but rather generating a report, we need to clarify the entity model.
-
-Since your example was with the `"booking"` entity model, I assume you want to add bookings with workflow functions.
-
-But the current controller's main endpoint is `filterAndReport` — it is about filtering bookings and generating reports, not adding bookings.
-
-**So we likely need to create a new entity model, e.g. `"bookingFilterReport"` or `"bookingReport"` to handle this workflow.**
-
----
-
-### Here's the plan for code:
-
-- Add a new endpoint `/api/cyoda/bookings/filter-report` which will call `entityService.addItem` with:
-  - `entityModel = "bookingReport"` (new entity model).
-  - `entityVersion = ENTITY_VERSION`.
-  - `entity` = the filter request as `ObjectNode`.
-  - `workflow` = `processbookingReport`.
-- Implement `processbookingReport(ObjectNode entity)` which:
-  - Extracts filter parameters from `entity`.
-  - Fetch bookings from external API.
-  - Filter bookings.
-  - Calculate report.
-  - Put the report data back into `entity`.
-  - Return `CompletableFuture<ObjectNode>`.
-- Controller returns the report from the persisted entity.
-- This moves all logic out of the controller to the workflow.
-
----
-
-### Implementing this fully:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -83,7 +19,6 @@ import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 
 import static com.java_template.common.config.Config.*;
@@ -96,7 +31,9 @@ public class CyodaEntityControllerPrototype {
 
     private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
 
+    // Entity model constants
     private static final String ENTITY_NAME_REPORT = "bookingReport";
+    private static final String ENTITY_NAME_BOOKING = "booking";
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -107,41 +44,43 @@ public class CyodaEntityControllerPrototype {
     }
 
     /**
-     * New POST endpoint that triggers entityService.addItem with workflow function.
-     * The entity is the filter parameters as JSON.
-     * The workflow does all the async and report generation work.
+     * POST endpoint to create a bookingReport entity.
+     * Accepts filter parameters as JSON ObjectNode.
+     * Passes entity and workflow function to entityService.addItem.
+     * Returns persisted entity enriched with report data.
      */
     @PostMapping("/filter-report")
     public CompletableFuture<ResponseEntity<JsonNode>> filterAndReport(@RequestBody ObjectNode filterRequest) {
         logger.info("Received filter-report request: {}", filterRequest);
-        // Add item with workflow processbookingReport
         return entityService.addItem(
                 ENTITY_NAME_REPORT,
                 ENTITY_VERSION,
                 filterRequest,
                 this::processbookingReport
         ).thenApply(id -> {
-            // After persistence, ideally we fetch entity back to return report
-            // But since entityService.addItem returns UUID only,
-            // we return the filterRequest enriched by the workflow function, which contains report data.
-            // So just return the enriched filterRequest
+            // entityService.addItem returns UUID of persisted entity
+            // The workflow function modifies the same ObjectNode with report data
+            // Return the enriched entity as response
             return ResponseEntity.ok(filterRequest);
+        }).exceptionally(ex -> {
+            logger.error("Error in filterAndReport: ", ex);
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, "Failed to generate report");
         });
     }
 
     /**
      * Workflow function for bookingReport entity.
-     * This function:
-     * - Fetches bookings from external API
-     * - Applies filtering criteria from entity (filterRequest)
-     * - Calculates report
-     * - Puts report data into entity
-     * - Returns modified entity asynchronously
+     * Applies async logic before persistence:
+     * - Fetch bookings list and details
+     * - Filter bookings based on filterRequest entity data
+     * - Calculate report metrics
+     * - Insert report data into entity JSON
+     * Returns CompletableFuture of modified entity.
      */
     public CompletableFuture<ObjectNode> processbookingReport(ObjectNode entity) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                // Extract filter parameters from entity
+                // Extract filter parameters safely from entity
                 String dateFrom = getTextOrNull(entity, "dateFrom");
                 String dateTo = getTextOrNull(entity, "dateTo");
                 Double minTotalPrice = getDoubleOrNull(entity, "minTotalPrice");
@@ -159,7 +98,7 @@ public class CyodaEntityControllerPrototype {
                     else if (node.has("id")) bookingIds.add(node.get("id").asInt());
                 }
 
-                // Fetch booking details
+                // Fetch booking details for each booking id
                 List<ObjectNode> allBookings = new ArrayList<>();
                 for (Integer id : bookingIds) {
                     try {
@@ -174,17 +113,18 @@ public class CyodaEntityControllerPrototype {
                     }
                 }
 
-                // Filter bookings
+                // Filter bookings based on criteria
                 List<ObjectNode> filtered = allBookings.stream()
                         .filter(b -> filterBooking(b, dateFrom, dateTo, minTotalPrice, maxTotalPrice, depositPaid))
                         .collect(Collectors.toList());
 
-                // Calculate report
+                // Calculate report data
                 ObjectNode report = calculateReport(filtered, dateFrom, dateTo);
 
-                // Put report fields into entity
+                // Insert report data into entity under "report" field
                 entity.set("report", report);
 
+                // Return modified entity
                 return entity;
             } catch (Exception e) {
                 logger.error("Error in processbookingReport workflow: ", e);
@@ -192,6 +132,32 @@ public class CyodaEntityControllerPrototype {
             }
         });
     }
+
+    /**
+     * Example workflow function for booking entity.
+     * This function can be used when adding bookings.
+     * Demonstrates modifying entity asynchronously before persistence.
+     * Currently returns entity unchanged.
+     */
+    public CompletableFuture<ObjectNode> processbooking(ObjectNode entity) {
+        // In a real scenario, you could enrich or validate the booking entity here asynchronously.
+        return CompletableFuture.completedFuture(entity);
+    }
+
+    /**
+     * Example method showing how to add Booking entity with workflow function.
+     * Accepts validated booking entity as ObjectNode, returns future UUID.
+     */
+    public CompletableFuture<UUID> addBookingEntity(ObjectNode bookingEntity) {
+        return entityService.addItem(
+                ENTITY_NAME_BOOKING,
+                ENTITY_VERSION,
+                bookingEntity,
+                this::processbooking
+        );
+    }
+
+    // --- Helper methods ---
 
     private boolean filterBooking(ObjectNode booking, String dateFrom, String dateTo,
                                   Double minTotalPrice, Double maxTotalPrice, Boolean depositPaid) {
@@ -234,13 +200,18 @@ public class CyodaEntityControllerPrototype {
 
         LocalDate from = parseDateOrNull(dateFrom);
         LocalDate to = parseDateOrNull(dateTo);
-        int withinRange = (int) filtered.stream().filter(b -> {
-            ObjectNode bookingdates = b.with("bookingdates");
-            LocalDate ci = parseDateOrNull(bookingdates.path("checkin").asText(null));
-            LocalDate co = parseDateOrNull(bookingdates.path("checkout").asText(null));
-            if (ci == null || co == null) return false;
-            return !(co.isBefore(from) || ci.isAfter(to));
-        }).count();
+        int withinRange = 0;
+        if(from != null && to != null) {
+            withinRange = (int) filtered.stream().filter(b -> {
+                ObjectNode bookingdates = b.with("bookingdates");
+                LocalDate ci = parseDateOrNull(bookingdates.path("checkin").asText(null));
+                LocalDate co = parseDateOrNull(bookingdates.path("checkout").asText(null));
+                if (ci == null || co == null) return false;
+                return !(co.isBefore(from) || ci.isAfter(to));
+            }).count();
+        } else {
+            withinRange = totalBookings;
+        }
 
         report.put("totalBookings", totalBookings);
         report.put("totalRevenue", round(totalRevenue, 2));
@@ -292,23 +263,3 @@ public class CyodaEntityControllerPrototype {
     }
 
 }
-```
-
----
-
-### Summary of refactoring:
-
-- The POST `/filter-report` endpoint now simply calls `entityService.addItem` with:
-  - Entity model `"bookingReport"`.
-  - The filter JSON as the entity.
-  - The `processbookingReport` workflow function.
-- All async fetching, filtering, and report calculation is done inside `processbookingReport`.
-- The reporting data is put inside the same entity under `"report"` field.
-- The controller returns this enriched entity as the response.
-- This makes the controller lean and business logic fully inside the workflow function as required.
-- `processbookingReport` is asynchronous and returns a CompletableFuture.
-- The entity is an `ObjectNode`, modified directly inside the workflow function.
-
----
-
-If you want me to do this for the `"booking"` entity model or others, or to handle adding bookings with workflows, let me know!
