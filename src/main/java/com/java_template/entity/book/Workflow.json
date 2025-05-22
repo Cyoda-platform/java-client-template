@@ -1,0 +1,78 @@
+{
+    "description": "Workflow for processing book entity including trimming title, validating page count, adding processed timestamp, and sending async audit log",
+    "name": "book_processing_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Trim the book title if present",
+            "end_state": "Title_trimmed",
+            "end_state_description": "Book title has been trimmed",
+            "name": "trim_title",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processTrimTitle"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state before processing"
+        },
+        {
+            "automated": true,
+            "description": "Validate and normalize page count",
+            "end_state": "PageCount_validated",
+            "end_state_description": "Page count validated and normalized",
+            "name": "validate_page_count",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processPageCount"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Title_trimmed",
+            "start_state_description": "Book title has been trimmed"
+        },
+        {
+            "automated": true,
+            "description": "Add processedAt timestamp",
+            "end_state": "ProcessedAt_added",
+            "end_state_description": "ProcessedAt timestamp added",
+            "name": "add_processed_timestamp",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAddProcessedAt"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "PageCount_validated",
+            "start_state_description": "Page count validated and normalized"
+        },
+        {
+            "automated": true,
+            "description": "Send asynchronous audit log",
+            "end_state": "AuditLog_sent",
+            "end_state_description": "Async audit log sent",
+            "name": "send_async_audit_log",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAsyncAuditLog"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "ProcessedAt_added",
+            "start_state_description": "ProcessedAt timestamp added"
+        }
+    ]
+}
