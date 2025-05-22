@@ -1,0 +1,42 @@
+{
+    "description": "Workflow for processing subscriber entities",
+    "name": "subscriber_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start processing subscriber entity",
+            "end_state": "Email_normalized",
+            "end_state_description": "Subscriber email normalized",
+            "name": "start_subscriber_processing",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processNormalizeEmail"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Update subscriber cache after normalization",
+            "end_state": "Cache_updated",
+            "end_state_description": "Subscriber cache updated",
+            "name": "update_subscriber_cache",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processUpdateSubscriberCache"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Email_normalized",
+            "start_state_description": "Subscriber email normalized"
+        }
+    ]
+}
