@@ -1,0 +1,78 @@
+{
+    "description": "Workflow for automated data extraction, KPI analysis, and report generation for product performance.",
+    "name": "product_performance_analysis_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start processing the report summary workflow",
+            "end_state": "Inventory_fetched",
+            "end_state_description": "Inventory data fetched from Pet Store API",
+            "name": "start_report_summary_processing",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processFetchInventory"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state before processing report summary"
+        },
+        {
+            "automated": true,
+            "description": "Fetch mock sales data for analysis",
+            "end_state": "Sales_data_fetched",
+            "end_state_description": "Sales data fetched and stored",
+            "name": "fetch_sales_data",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processFetchSalesData"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Inventory_fetched",
+            "start_state_description": "Inventory data fetched from Pet Store API"
+        },
+        {
+            "automated": true,
+            "description": "Analyze KPIs from fetched inventory and sales data",
+            "end_state": "Kpis_analyzed",
+            "end_state_description": "KPIs analyzed and summary prepared",
+            "name": "analyze_kpis",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAnalyzeKpis"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Sales_data_fetched",
+            "start_state_description": "Sales data fetched and stored"
+        },
+        {
+            "automated": true,
+            "description": "Modify the entity with KPI analysis results",
+            "end_state": "Report_summary_completed",
+            "end_state_description": "Entity modified with report summary data",
+            "name": "modify_entity_with_summary",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processModifyEntity"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Kpis_analyzed",
+            "start_state_description": "KPIs analyzed and summary prepared"
+        }
+    ]
+}
