@@ -1,0 +1,60 @@
+{
+    "description": "Workflow for generating booking reports including fetching, filtering bookings and calculating report metrics",
+    "name": "booking_report_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start booking report generation workflow",
+            "end_state": "FetchedAndFiltered",
+            "end_state_description": "Bookings fetched and filtered",
+            "name": "start_booking_report",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processFetchAndFilter"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Calculate report metrics from filtered bookings",
+            "end_state": "ReportCalculated",
+            "end_state_description": "Report metrics calculated",
+            "name": "calculate_report_metrics",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processCalculateReport"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "FetchedAndFiltered",
+            "start_state_description": "Bookings fetched and filtered"
+        },
+        {
+            "automated": true,
+            "description": "Finalize booking report by adding report data to entity",
+            "end_state": "Completed",
+            "end_state_description": "Booking report workflow completed",
+            "name": "finalize_booking_report",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processbookingReport"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "ReportCalculated",
+            "start_state_description": "Report metrics calculated"
+        }
+    ]
+}
