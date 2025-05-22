@@ -1,21 +1,8 @@
-Certainly! To move all async logic into the workflow function `processInventoryReport` as required, we will:
-
-- Move the async report generation task out of the controller method and into the workflow function.
-- The workflow function will asynchronously call external APIs, process data, and enrich/modify the entity ObjectNode before persistence.
-- The controller methods become simpler, just calling `entityService.addItem` with the workflow function.
-- Any async "fire and forget" or data enrichment logic must go inside the workflow function.
-- Since the workflow function receives the entity as an `ObjectNode` (not a typed POJO), we will rewrite the workflow function accordingly.
-- We cannot modify the current entity via `entityService` in the workflow, but we can call other entity models if needed.
-
----
-
-Here's the **full updated code** with these changes applied:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import jakarta.validation.Valid;
@@ -48,35 +35,118 @@ public class CyodaEntityControllerPrototype {
 
     private final EntityService entityService;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final RestTemplate restTemplate = new RestTemplate();
 
     public CyodaEntityControllerPrototype(EntityService entityService) {
         this.entityService = entityService;
     }
 
-    /**
-     * Controller endpoint simplified: just add entity with workflow processing.
-     */
+    // Add single entity with workflow processing
     @PostMapping("/entity")
     public CompletableFuture<UUID> addEntity(@RequestBody @Valid InventoryItem data) {
-        // Convert InventoryItem POJO to ObjectNode
         ObjectNode entityNode = objectMapper.valueToTree(data);
         return entityService.addItem(ENTITY_NAME, ENTITY_VERSION, entityNode, this::processInventoryReport);
     }
 
-    /**
-     * Workflow function to process InventoryReport entity asynchronously before persistence.
-     * It will:
-     * - Call external API with filters from entity
-     * - Parse and aggregate results
-     * - Enrich entity JSON with report data
-     * - Return modified entity ObjectNode for persistence
-     */
+    // Add multiple entities - individually applying workflow function
+    @PostMapping("/entities")
+    public CompletableFuture<List<UUID>> addEntities(@RequestBody @Valid List<InventoryItem> data) {
+        List<CompletableFuture<UUID>> futures = new ArrayList<>();
+        for (InventoryItem item : data) {
+            ObjectNode entityNode = objectMapper.valueToTree(item);
+            futures.add(entityService.addItem(ENTITY_NAME, ENTITY_VERSION, entityNode, this::processInventoryReport));
+        }
+        return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                .thenApply(v -> {
+                    List<UUID> ids = new ArrayList<>();
+                    for (CompletableFuture<UUID> f : futures) {
+                        ids.add(f.join());
+                    }
+                    return ids;
+                });
+    }
+
+    // Retrieve entity by ID
+    @GetMapping("/entity/{id}")
+    public CompletableFuture<InventoryItem> getEntity(@PathVariable UUID id) {
+        return entityService.getItem(ENTITY_NAME, ENTITY_VERSION, id)
+                .thenApply(objectNode -> {
+                    try {
+                        InventoryItem item = objectMapper.treeToValue(objectNode, InventoryItem.class);
+                        if (objectNode.has("technicalId")) {
+                            item.setId(objectNode.get("technicalId").asText());
+                        }
+                        return item;
+                    } catch (Exception e) {
+                        logger.error("Failed to parse entity: {}", e.getMessage());
+                        throw new ResponseStatusException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, "Failed to parse entity");
+                    }
+                });
+    }
+
+    // Retrieve all entities
+    @GetMapping("/entities")
+    public CompletableFuture<List<InventoryItem>> getEntities() {
+        return entityService.getItems(ENTITY_NAME, ENTITY_VERSION)
+                .thenApply(arrayNode -> {
+                    List<InventoryItem> items = new ArrayList<>();
+                    for (JsonNode node : arrayNode) {
+                        try {
+                            InventoryItem item = objectMapper.treeToValue(node, InventoryItem.class);
+                            if (node.has("technicalId")) {
+                                item.setId(node.get("technicalId").asText());
+                            }
+                            items.add(item);
+                        } catch (Exception e) {
+                            logger.error("Failed to parse entity: {}", e.getMessage());
+                        }
+                    }
+                    return items;
+                });
+    }
+
+    // Retrieve entities by condition
+    @GetMapping("/entities/filter")
+    public CompletableFuture<List<InventoryItem>> getEntitiesByCondition(@RequestParam String condition) {
+        return entityService.getItemsByCondition(ENTITY_NAME, ENTITY_VERSION, condition)
+                .thenApply(arrayNode -> {
+                    List<InventoryItem> items = new ArrayList<>();
+                    for (JsonNode node : arrayNode) {
+                        try {
+                            InventoryItem item = objectMapper.treeToValue(node, InventoryItem.class);
+                            if (node.has("technicalId")) {
+                                item.setId(node.get("technicalId").asText());
+                            }
+                            items.add(item);
+                        } catch (Exception e) {
+                            logger.error("Failed to parse entity: {}", e.getMessage());
+                        }
+                    }
+                    return items;
+                });
+    }
+
+    // Update entity by ID
+    @PutMapping("/entity/{id}")
+    public CompletableFuture<UUID> updateEntity(@PathVariable UUID id, @RequestBody @Valid InventoryItem data) {
+        ObjectNode entityNode = objectMapper.valueToTree(data);
+        // Updating entity without workflow function (assuming updateItem does not support workflow)
+        return entityService.updateItem(ENTITY_NAME, ENTITY_VERSION, id, entityNode);
+    }
+
+    // Delete entity by ID
+    @DeleteMapping("/entity/{id}")
+    public CompletableFuture<UUID> deleteEntity(@PathVariable UUID id) {
+        return entityService.deleteItem(ENTITY_NAME, ENTITY_VERSION, id);
+    }
+
+    // Workflow function to asynchronously process and enrich entity before persistence
     private CompletableFuture<ObjectNode> processInventoryReport(ObjectNode entity) {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 logger.info("Workflow processInventoryReport started");
 
-                // Extract filters from entity (expecting filters as JSON object or string)
+                // Extract filters map from entity (if present)
                 Map<String, String> filters = new HashMap<>();
                 JsonNode filtersNode = entity.get("filters");
                 if (filtersNode != null && filtersNode.isObject()) {
@@ -86,11 +156,10 @@ public class CyodaEntityControllerPrototype {
                     });
                 }
 
-                // Call external API to get inventory items based on filters
+                // Build external API URL with filters
                 String externalUrl = buildExternalApiUrl(filters);
                 logger.info("Calling external API URL: {}", externalUrl);
 
-                RestTemplate restTemplate = new RestTemplate();
                 String rawResponse = restTemplate.getForObject(new URI(externalUrl), String.class);
                 if (rawResponse == null) {
                     throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_GATEWAY, "External API returned null");
@@ -107,19 +176,15 @@ public class CyodaEntityControllerPrototype {
                     if (item != null) items.add(item);
                 }
 
-                // Calculate report stats
                 InventoryReport report = calculateReport(items);
-                // Add raw items to report JSON node
                 report.setItems(items);
 
-                // Convert report POJO to ObjectNode
                 ObjectNode reportNode = objectMapper.valueToTree(report);
 
-                // Merge / replace fields in the original entity node
-                // Remove 'filters' from entity if you want to keep the report clean
+                // Remove 'filters' field from entity to keep it clean
                 entity.remove("filters");
 
-                // Add all report fields into entity node
+                // Merge report fields into entity ObjectNode
                 reportNode.fieldNames().forEachRemaining(field -> {
                     entity.set(field, reportNode.get(field));
                 });
@@ -130,7 +195,6 @@ public class CyodaEntityControllerPrototype {
 
             } catch (Exception e) {
                 logger.error("Error in workflow processInventoryReport: {}", e.getMessage(), e);
-                // In case of error, rethrow as RuntimeException to fail the workflow
                 throw new RuntimeException("Workflow processing failed", e);
             }
         });
@@ -165,7 +229,11 @@ public class CyodaEntityControllerPrototype {
         double totalValue = items.stream().mapToDouble(i -> i.getPrice() * i.getQuantity()).sum();
         double averagePrice = totalItems > 0 ? totalValue / totalItems : 0.0;
         Map<String, Object> additionalStats = new HashMap<>();
-        additionalStats.put("uniqueCategories", items.stream().map(InventoryItem::getCategory).filter(Objects::nonNull).distinct().count());
+        additionalStats.put("uniqueCategories", items.stream()
+                .map(InventoryItem::getCategory)
+                .filter(Objects::nonNull)
+                .distinct()
+                .count());
         InventoryReport report = new InventoryReport();
         report.setTotalItems(totalItems);
         report.setAveragePrice(round(averagePrice, 2));
@@ -175,12 +243,10 @@ public class CyodaEntityControllerPrototype {
     }
 
     private static double round(double value, int places) {
-        if (places < 0) throw new IllegalArgumentException();
+        if (places < 0) throw new IllegalArgumentException("Decimal places must be non-negative");
         long factor = (long) Math.pow(10, places);
         return (double) Math.round(value * factor) / factor;
     }
-
-    // --- Other endpoints can be similarly simplified or omitted for brevity ---
 
     @Data
     public static class InventoryReport {
@@ -217,23 +283,3 @@ public class CyodaEntityControllerPrototype {
                 @NotBlank(message = "filter value must not be blank") String> filters;
     }
 }
-```
-
----
-
-### Summary of changes:
-
-- **Moved all async logic (external API call, data parsing, report calculations) into `processInventoryReport` workflow function.**
-- This function receives the entity as an `ObjectNode` and modifies it directly (adding/removing fields).
-- The controller method `addEntity` is greatly simplified — it just converts the POJO to `ObjectNode` and calls `entityService.addItem` with the workflow function.
-- Removed all async report generation from controller endpoints.
-- The workflow function fully replaces async and enrichment tasks before persistence.
-- The entity stored in the database after `addItem` will have all computed report fields.
-- The workflow function returns a `CompletableFuture<ObjectNode>` as required, asynchronously applying all logic.
-- The existing validation annotations and POJOs remain unchanged.
-
----
-
-This approach fully complies with the requirement to "free" controllers from async logic and embed it in the workflow function that is executed right before persistence.
-
-If you want, I can also help simplify or refactor other endpoints similarly or update batch add logic. Just ask!
