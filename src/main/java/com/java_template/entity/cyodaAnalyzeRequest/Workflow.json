@@ -1,0 +1,57 @@
+{
+    "description": "Workflow to process analyze request: download CSV, analyze data, send email report",
+    "name": "cyodaAnalyzeRequest_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "end_state": "DownloadedCsv",
+            "end_state_description": "CSV has been downloaded",
+            "name": "start_analysis",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processDownloadCsv"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "end_state": "AnalyzedCsv",
+            "end_state_description": "CSV data has been analyzed",
+            "name": "analyze_csv",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAnalyzeCsv"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "DownloadedCsv",
+            "start_state_description": "CSV has been downloaded"
+        },
+        {
+            "automated": true,
+            "end_state": "ReportSent",
+            "end_state_description": "Email report has been sent and workflow completed",
+            "name": "send_email_report",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSendEmail"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "AnalyzedCsv",
+            "start_state_description": "CSV data has been analyzed"
+        }
+    ]
+}
