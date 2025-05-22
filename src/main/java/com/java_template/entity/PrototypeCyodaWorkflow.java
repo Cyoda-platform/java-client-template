@@ -1,3 +1,13 @@
+Certainly! To follow the recommended approach and move all asynchronous and "fire-and-forget" logic out of the controller and into the workflow function `processcomment`, we need to:
+
+- Refactor the controller to only prepare the entity and call `entityService.addItem` with the workflow.
+- Move all async processing like fetching comments, analysis, sending email, and report updates into the `processcomment` workflow function.
+- Since the workflow function receives an `ObjectNode` (Jackson JSON node), all entity manipulations must be done on that node.
+- The workflow function can add supplementary entities of different entityModels if needed.
+- The workflow function can be asynchronous and return a CompletableFuture.
+
+Below is the updated complete Java code that follows these guidelines:
+
 ```java
 package com.java_template.entity;
 
@@ -16,7 +26,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
@@ -26,8 +35,6 @@ import javax.annotation.PostConstruct;
 import java.net.URI;
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
 import static com.java_template.common.config.Config.*;
 
@@ -41,7 +48,6 @@ public class CyodaEntityControllerPrototype {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final RestTemplate restTemplate = new RestTemplate();
-    private final ConcurrentMap<Integer, AnalysisReport> analysisReports = new ConcurrentHashMap<>();
 
     private final EntityService entityService;
     private static final String ENTITY_NAME = "comment";
@@ -55,114 +61,179 @@ public class CyodaEntityControllerPrototype {
         logger.info("CyodaEntityControllerPrototype initialized");
     }
 
+    /**
+     * Submit an analysis request.
+     * The controller just creates an initial entity with status "processing" and sends it for async processing in workflow.
+     */
     @PostMapping("/analyze")
     public ResponseEntity<AnalyzeResponse> analyzeComments(@RequestBody @Valid AnalyzeRequest request) {
         logger.info("Received analyze request for postId={} and email={}", request.getPostId(), request.getEmail());
-        CompletableFuture.runAsync(() -> processAnalysis(request.getPostId(), request.getEmail()));
-        AnalyzeResponse response = new AnalyzeResponse(
-            "processing",
-            "Analysis started for postId " + request.getPostId() + ", report will be sent to " + request.getEmail()
-        );
-        return ResponseEntity.accepted().body(response);
-    }
 
-    @GetMapping("/report/{postId}")
-    public ResponseEntity<AnalysisReport> getReport(@PathVariable @Min(1) Integer postId) {
-        logger.info("Fetching report for postId={}", postId);
-        AnalysisReport report = analysisReports.get(postId);
-        if (report == null) {
-            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND,
-                "No report found for postId " + postId);
-        }
-        return ResponseEntity.ok(report);
-    }
-
-    @Async
-    void processAnalysis(int postId, String email) {
-        logger.info("Starting analysis for postId={}", postId);
         try {
-            URI uri = new URI("https://jsonplaceholder.typicode.com/comments?postId=" + postId);
-            String jsonResponse = restTemplate.getForObject(uri, String.class);
-            if (jsonResponse == null) {
-                updateReportWithError(postId, email, "Failed to fetch comments: empty response");
-                return;
-            }
-            JsonNode commentsNode = objectMapper.readTree(jsonResponse);
-            int total = commentsNode.size();
-            int pos = 0, neg = 0, neu = 0;
-            for (JsonNode comment : commentsNode) {
-                String body = comment.path("body").asText("");
-                int s = mockSentiment(body);
-                if (s > 0) pos++;
-                else if (s < 0) neg++;
-                else neu++;
-            }
-            AnalysisSummary summary = new AnalysisSummary(total, pos, neg, neu);
-            AnalysisReport report = new AnalysisReport(postId, "completed", summary, email, Instant.now().toString());
-            analysisReports.put(postId, report);
-            sendReportEmail(email, postId, summary);
+            // Prepare initial entity as ObjectNode with minimal info and status=processing
+            ObjectNode entityNode = objectMapper.createObjectNode();
+            entityNode.put("postId", request.getPostId());
+            entityNode.put("analysisStatus", "processing");
+            entityNode.put("reportSentTo", request.getEmail());
+            entityNode.put("lastUpdated", Instant.now().toString());
 
-            // Store analysis report into external entity service
-            // Convert AnalysisReport to ObjectNode excluding technicalId
-            ObjectNode analysisReportNode = objectMapper.valueToTree(report);
-
-            // Add workflow function processcomment as required by new entityService.addItem signature
+            // Add entity asynchronously with workflow function processcomment
             CompletableFuture<java.util.UUID> idFuture = entityService.addItem(
                 ENTITY_NAME,
                 ENTITY_VERSION,
-                report,
+                entityNode,
                 this::processcomment // workflow function applied asynchronously before persistence
             );
 
-            // Optionally handle idFuture if needed (e.g., log result)
-            idFuture.whenComplete((id, ex) -> {
-                if (ex != null) {
-                    logger.error("Failed to add analysis report entity for postId={} due to {}", postId, ex.getMessage(), ex);
-                } else {
-                    logger.info("Successfully added analysis report entity with id={} for postId={}", id, postId);
-                }
-            });
-
+            // We do not wait for completion here, just return accepted
+            AnalyzeResponse response = new AnalyzeResponse(
+                "processing",
+                "Analysis started for postId " + request.getPostId() + ", report will be sent to " + request.getEmail()
+            );
+            return ResponseEntity.accepted().body(response);
         } catch (Exception ex) {
-            updateReportWithError(postId, email, "Error during analysis: " + ex.getMessage());
+            logger.error("Failed to submit analysis request", ex);
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR,
+                "Failed to start analysis");
         }
     }
 
     /**
-     * Workflow function for 'comment' entity.
-     * This function takes the entity data, modifies or processes it asynchronously before persistence,
-     * and returns it back.
-     *
-     * IMPORTANT:
-     * - You cannot add/update/delete entity of the same entityModel "comment" inside this method
-     *   to avoid infinite recursion.
-     *
-     * @param entity the entity data object to process before persistence
-     * @return processed entity data object (same type)
+     * Fetch the analysis report by postId.
+     * This remains synchronous and just retrieves the entity state.
      */
-    private Object processcomment(Object entity) {
-        // Cast to AnalysisReport since that's the entity type we're adding
-        if (entity instanceof AnalysisReport) {
-            AnalysisReport report = (AnalysisReport) entity;
-            // Example: update lastUpdated timestamp before saving
-            report.setLastUpdated(Instant.now().toString());
+    @GetMapping("/report/{postId}")
+    public ResponseEntity<AnalysisReport> getReport(@PathVariable @Min(1) Integer postId) {
+        logger.info("Fetching report for postId={}", postId);
+        try {
+            // Retrieve the entity by querying the entityService (assuming it exposes a method to get by postId)
+            // Since the original code used in-memory map, here we simulate fetching from entityService or DB
 
-            // You can add additional processing or enrich the report here
-            // For example, log or modify some fields
+            // For demonstration, let's assume entityService provides a method to get item by some filter
+            // (This is pseudocode, replace with your actual entity retrieval):
+            // ObjectNode entity = entityService.getItemByField(ENTITY_NAME, "postId", postId);
+            // If entity == null -> throw 404
 
-            logger.debug("processcomment workflow applied on AnalysisReport with postId={}", report.getPostId());
+            // For demo, just throw 404 (since no actual entityService querying method provided)
+            // You should implement actual fetch logic here.
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND,
+                "Report not found for postId " + postId);
 
-            return report;
+        } catch (ResponseStatusException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            logger.error("Failed to fetch report for postId {}", postId, ex);
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR,
+                "Failed to fetch report");
         }
-        // If entity is not AnalysisReport, just return it unchanged
-        return entity;
     }
 
-    private void updateReportWithError(int postId, String email, String msg) {
-        analysisReports.put(postId, new AnalysisReport(postId, "failed", null, email, Instant.now().toString()));
-        logger.error("Report failed for postId={} error={}", postId, msg);
+    /**
+     * The workflow function applied before persistence for entityModel "comment".
+     * This function performs the entire asynchronous analysis workflow:
+     * - Fetch comments from external API
+     * - Perform sentiment analysis
+     * - Update entity state with analysis results
+     * - Send report email
+     * - Optionally add supplementary entities (e.g. raw comments) with different entityModel
+     *
+     * @param entity ObjectNode representing the entity state before persistence
+     * @return CompletableFuture<ObjectNode> updated entity state to persist
+     */
+    private CompletableFuture<ObjectNode> processcomment(Object entity) {
+        if (!(entity instanceof ObjectNode)) {
+            logger.warn("processcomment called with non-ObjectNode entity, returning as is");
+            return CompletableFuture.completedFuture(entity);
+        }
+        ObjectNode entityNode = (ObjectNode) entity;
+
+        Integer postId = null;
+        String email = null;
+        try {
+            postId = entityNode.has("postId") && !entityNode.get("postId").isNull() ? entityNode.get("postId").asInt() : null;
+            email = entityNode.has("reportSentTo") && !entityNode.get("reportSentTo").isNull() ? entityNode.get("reportSentTo").asText() : null;
+        } catch (Exception ex) {
+            logger.error("Failed to extract postId or email from entityNode", ex);
+        }
+
+        if (postId == null || email == null) {
+            logger.error("processcomment: postId or reportSentTo missing in entity, cannot proceed");
+            entityNode.put("analysisStatus", "failed");
+            entityNode.put("errorMessage", "Missing postId or reportSentTo");
+            entityNode.put("lastUpdated", Instant.now().toString());
+            return CompletableFuture.completedFuture(entityNode);
+        }
+
+        logger.info("processcomment started async processing for postId={}, email={}", postId, email);
+
+        // Run async processing chain
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                // Fetch comments from external API
+                URI uri = new URI("https://jsonplaceholder.typicode.com/comments?postId=" + postId);
+                String jsonResponse = restTemplate.getForObject(uri, String.class);
+                if (jsonResponse == null) {
+                    throw new IllegalStateException("Empty response from comments API");
+                }
+                JsonNode commentsNode = objectMapper.readTree(jsonResponse);
+                int total = commentsNode.size();
+                int pos = 0, neg = 0, neu = 0;
+
+                // Optional: Add raw comments as supplementary entities under a different entityModel "rawComment"
+                for (JsonNode comment : commentsNode) {
+                    String body = comment.path("body").asText("");
+                    int s = mockSentiment(body);
+                    if (s > 0) pos++;
+                    else if (s < 0) neg++;
+                    else neu++;
+
+                    // Add raw comment entity asynchronously
+                    ObjectNode rawCommentNode = objectMapper.createObjectNode();
+                    rawCommentNode.put("postId", postId);
+                    rawCommentNode.put("commentId", comment.path("id").asInt(-1));
+                    rawCommentNode.put("name", comment.path("name").asText(""));
+                    rawCommentNode.put("email", comment.path("email").asText(""));
+                    rawCommentNode.put("body", body);
+                    rawCommentNode.put("ingestedAt", Instant.now().toString());
+
+                    // Add supplementary entity of different entityModel "rawComment"
+                    entityService.addItem("rawComment", ENTITY_VERSION, rawCommentNode, e -> CompletableFuture.completedFuture(e));
+                    // Note: We use a no-op workflow function here just to comply with signature
+                }
+
+                // Build summary
+                ObjectNode summaryNode = objectMapper.createObjectNode();
+                summaryNode.put("totalComments", total);
+                summaryNode.put("positiveComments", pos);
+                summaryNode.put("negativeComments", neg);
+                summaryNode.put("neutralComments", neu);
+
+                // Update main entityNode with analysis results
+                entityNode.put("analysisStatus", "completed");
+                entityNode.set("summary", summaryNode);
+                entityNode.put("lastUpdated", Instant.now().toString());
+
+                // Send report email (fire and forget)
+                sendReportEmailAsync(email, postId, summaryNode);
+
+                logger.info("processcomment completed analysis for postId={}", postId);
+
+                return entityNode;
+            } catch (Exception ex) {
+                logger.error("processcomment failed for postId={}: {}", postId, ex.getMessage(), ex);
+                entityNode.put("analysisStatus", "failed");
+                entityNode.put("errorMessage", ex.getMessage());
+                entityNode.put("lastUpdated", Instant.now().toString());
+                return entityNode;
+            }
+        });
     }
 
+    /**
+     * Mock sentiment analysis method.
+     * @param text input text
+     * @return sentiment score: positive (1), negative (-1), neutral (0)
+     */
     private int mockSentiment(String text) {
         // TODO replace with real sentiment analysis
         if (text.length() % 3 == 0) return 1;
@@ -170,10 +241,20 @@ public class CyodaEntityControllerPrototype {
         return 0;
     }
 
-    private void sendReportEmail(String email, int postId, AnalysisSummary summary) {
-        // TODO replace with real email logic
-        logger.info("Sending email to {} for postId={} summary={}", email, postId, summary);
+    /**
+     * Send report email asynchronously (fire and forget).
+     * @param email recipient email
+     * @param postId post id
+     * @param summary summary node
+     */
+    private void sendReportEmailAsync(String email, int postId, ObjectNode summary) {
+        CompletableFuture.runAsync(() -> {
+            // TODO replace with real email logic
+            logger.info("Sending email to {} for postId={} summary={}", email, postId, summary);
+        });
     }
+
+    // === DTOs ===
 
     @Data
     @NoArgsConstructor
@@ -230,3 +311,23 @@ public class CyodaEntityControllerPrototype {
     }
 }
 ```
+
+---
+
+### Explanation of changes:
+
+- The controller's `/analyze` endpoint now **only** creates a minimal entity with `postId`, `reportSentTo`, `analysisStatus=processing` and calls `entityService.addItem` with `processcomment` workflow function.
+- The workflow function `processcomment` is a fully asynchronous method returning `CompletableFuture<ObjectNode>`.
+- Inside `processcomment`, all business logic is performed:
+  - Fetch comments from external API.
+  - Run sentiment analysis.
+  - Add supplementary entities (`rawComment`) for each raw comment.
+  - Update the main entity's status, summary, timestamps.
+  - Send the report email asynchronously.
+- The workflow function modifies the entity node fields directly as required.
+- The controller's `/report/{postId}` endpoint is left as a stub because your entityService API for fetching entities is not specified; you should implement retrieval accordingly.
+- All asynchronous logic is moved inside the workflow function, making the controller lightweight and robust.
+- The workflow function respects the rules: it does **not** add/update/delete the same entityModel "comment" inside itself (only adds "rawComment" entities).
+- The `sendReportEmailAsync` method uses `CompletableFuture.runAsync` to simulate fire-and-forget email sending inside the workflow.
+
+This design fully embraces the new entityService workflow function pattern and improves maintainability and separation of concerns.
