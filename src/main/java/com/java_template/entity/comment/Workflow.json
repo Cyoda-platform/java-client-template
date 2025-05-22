@@ -1,0 +1,74 @@
+{
+    "description": "Workflow for ingesting, analyzing comments, and sending report",
+    "name": "comments_analysis_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start analysis process",
+            "end_state": "Comments_fetched",
+            "end_state_description": "Comments have been fetched from API",
+            "name": "start_analysis",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "name": "processFetchComments"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state before analysis"
+        },
+        {
+            "automated": true,
+            "description": "Analyze fetched comments",
+            "end_state": "Comments_analyzed",
+            "end_state_description": "Comments have been analyzed and summary created",
+            "name": "analyze_comments",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "name": "processAnalyzeComments"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Comments_fetched",
+            "start_state_description": "Comments have been fetched from API"
+        },
+        {
+            "automated": true,
+            "description": "Update entity with analysis results",
+            "end_state": "Entity_updated",
+            "end_state_description": "Entity state updated with analysis summary",
+            "name": "update_entity_state",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "name": "processUpdateEntity"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Comments_analyzed",
+            "start_state_description": "Comments have been analyzed and summary created"
+        },
+        {
+            "automated": true,
+            "description": "Send report email to user",
+            "end_state": "Report_sent",
+            "end_state_description": "Report email sent to user",
+            "name": "send_report_email",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "name": "processSendEmail"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Entity_updated",
+            "start_state_description": "Entity state updated with analysis summary"
+        }
+    ]
+}
