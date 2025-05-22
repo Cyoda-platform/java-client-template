@@ -1,41 +1,3 @@
-Certainly! Moving asynchronous logic and any entity state modifications from the controller into the workflow function (`processUser`) is indeed the right architectural approach. It keeps controllers thin, focused on routing and validation, while business logic and side effects (including async calls, enrichment, supplementary data retrieval, etc.) are handled in the workflow function just before persistence.
-
----
-
-### What should be moved?
-
-In your current example, the async call to the external API to fetch user data is in the controller, but since this fetch is required before persisting, it cannot be moved to the workflow function as the workflow expects the entity (validated data) as input.
-
-**However**, any asynchronous enrichment, validation, or supplementary data loading that can be done once the entity data is available can be moved to the workflow function.
-
-Moreover:
-
-- If in future you have async calls like sending notifications, updating other entities (except the same entityModel), or enriching the entity with derived data, those belong in the workflow function.
-- The workflow function can mutate the entity (ObjectNode) directly before persistence.
-
----
-
-### Your current code: what can be moved?
-
-- The external API call to fetch the user data by userId must remain in the controller because it provides the initial entity data.
-- Mapping from JSON to the entity object (`UserDetails`) can be simplified by accepting `ObjectNode` directly in the workflow.
-- The asynchronous storage via `entityService.addItem` is already async; the workflow function will be called inside that async operation.
-- Any additional enrichments, such as adding timestamps, generating extra fields, or fetching supplementary data from other entityModels, should be moved into the workflow function.
-
----
-
-### Revised example:
-
-- Controller receives the userId.
-- Controller fetches the external API user data and passes it as `ObjectNode` entity to `addItem`.
-- Workflow function `processUser` asynchronously enriches or modifies this entity before persistence.
-- Controller returns the result.
-
----
-
-### Full revised example code with workflow function doing async enrichment and direct mutation of ObjectNode entity:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -58,6 +20,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
 
@@ -113,24 +76,27 @@ public class CyodaEntityControllerPrototype {
     private CompletableFuture<ObjectNode> processUser(ObjectNode entity) {
         logger.info("Processing user entity in workflow before persistence: id={}", entity.path("id").asText("N/A"));
 
-        // Here you can mutate entity directly:
-        // For example, add a timestamp field:
+        // Mutate entity directly: add a timestamp field
         entity.put("retrievedAt", Instant.now().toString());
 
-        // Example of asynchronous supplementary data fetch and add:
-        // Suppose we want to fetch user's roles from another service and add as supplementary entity:
-        // (This is a dummy example - replace with real async fetch if needed)
-        CompletableFuture<Void> fetchSupplementaryData = CompletableFuture.runAsync(() -> {
-            logger.info("Simulating async fetch of supplementary data for user id={}", entity.path("id").asInt());
-            // Simulate adding a supplementary entity of different model "userRole"
-            ObjectNode userRole = objectMapper.createObjectNode();
-            userRole.put("userId", entity.path("id").asInt());
-            userRole.put("role", "basic-user");
-            entityService.addItem("userRole", ENTITY_VERSION, userRole, Function.identity());
+        // Example asynchronous supplementary data addition
+        CompletableFuture<Void> supplementaryDataFuture = CompletableFuture.runAsync(() -> {
+            try {
+                logger.info("Simulating async fetch of supplementary data for user id={}", entity.path("id").asInt());
+                // Example: add a supplementary entity of different model "userRole"
+                ObjectNode userRole = objectMapper.createObjectNode();
+                userRole.put("userId", entity.path("id").asInt());
+                userRole.put("role", "basic-user");
+                // Use identity workflow to avoid infinite recursion for supplementary entity
+                entityService.addItem("userRole", ENTITY_VERSION, userRole, Function.identity());
+            } catch (Exception ex) {
+                logger.error("Error adding supplementary userRole entity", ex);
+                // Failure here should not stop main persistence, just log error
+            }
         });
 
-        // Return CompletableFuture completed when all async operations complete
-        return fetchSupplementaryData.thenApply(v -> entity);
+        // Return the entity after supplementary data addition completes
+        return supplementaryDataFuture.thenApply(v -> entity);
     }
 
     /**
@@ -193,28 +159,3 @@ public class CyodaEntityControllerPrototype {
         private String message;
     }
 }
-```
-
----
-
-### Summary of changes and best practices:
-
-- The controller only:
-  - Validates input
-  - Calls external API to fetch initial entity data asynchronously
-  - Calls `entityService.addItem` passing the raw `ObjectNode` entity and the workflow function.
-  - Returns the API response asynchronously.
-
-- The workflow function `processUser`:
-  - Receives the entity as `ObjectNode`
-  - Mutates it directly (e.g., adds a timestamp)
-  - Performs any asynchronous enrichment or supplementary entity additions, but **never modifies or calls add/update/delete on the current entityModel** to avoid recursion.
-  - Returns the mutated entity wrapped in `CompletableFuture`.
-
-- The workflow function allows async tasks, so fire-and-forget or chained calls are possible.
-
-- This pattern keeps your controller minimal and your business logic in workflow functions, exactly as required.
-
----
-
-If you want, I can help you refactor your existing async tasks into workflow functions for other entities or add unit tests for this pattern.
