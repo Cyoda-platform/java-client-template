@@ -1,4 +1,3 @@
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -46,14 +45,13 @@ public class CyodaEntityControllerPrototype {
         this.entityService = entityService;
     }
 
-    // We keep this cache here because workflow functions cannot return a file or binary.
-    // We assign reportPDF to the persisted entity in workflow (by technicalId key).
-    private final Map<UUID, byte[]> reportPdfs = new HashMap<>();
+    // Cache for storing PDF reports keyed by technicalId after persistence.
+    // Use concurrent map to prevent concurrency issues.
+    private final Map<UUID, byte[]> reportPdfs = Collections.synchronizedMap(new HashMap<>());
 
     /**
-     * Endpoint only triggers creation of ReportSummary entity with minimal data (reportDate).
-     * All heavy lifting, external calls, PDF generation, and secondary entities are done inside
-     * the workflow function processReportSummary().
+     * Trigger endpoint only creates minimal entity with reportDate.
+     * Heavy async processing moved into workflow function.
      */
     @PostMapping("/data-extraction")
     public ResponseEntity<TriggerResponse> triggerDataExtraction(@RequestBody(required = false) @Valid TriggerRequest request) {
@@ -64,51 +62,76 @@ public class CyodaEntityControllerPrototype {
                 ? request.getTriggerDate()
                 : Instant.now().toString();
 
-        // Create minimal ReportSummary entity with just reportDate.
         ReportSummary initialSummary = new ReportSummary();
         initialSummary.setReportDate(triggerDate);
 
-        // Add item with workflow function to do all async tasks and enrich entity before persistence
+        // Add entity with workflow function that does async processing and enriches entity before persistence
         CompletableFuture<UUID> futureId = entityService.addItem(
                 "ReportSummary",
                 ENTITY_VERSION,
                 initialSummary,
-                this::processReportSummary // workflow function that will do async tasks and enrich entity
+                this::processReportSummary
         );
 
-        // We do not wait here, just return accepted
+        // After entity is persisted we can store the PDF in cache keyed by technicalId
+        futureId.thenAccept(technicalId -> {
+            // Defensive null check
+            if (technicalId == null) {
+                logger.warn("Received null technicalId after persisting ReportSummary entity");
+                return;
+            }
+            // Generate PDF again for caching since workflow can't store technicalId
+            try {
+                // Retrieve the persisted entity to generate PDF
+                // This is a workaround since we can't pass technicalId to workflow
+                CompletableFuture<ArrayNode> itemsFuture = entityService.getItems("ReportSummary", ENTITY_VERSION);
+                ArrayNode items = itemsFuture.join();
+                if (items != null && !items.isEmpty()) {
+                    for (JsonNode node : items) {
+                        if (node.has("technicalId") && technicalId.toString().equals(node.get("technicalId").asText())) {
+                            ReportSummary rs = objectMapper.convertValue(node, ReportSummary.class);
+                            byte[] pdf = generateMockPdfReport(rs);
+                            reportPdfs.put(technicalId, pdf);
+                            logger.info("Cached PDF report for technicalId {}", technicalId);
+                            break;
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                logger.error("Failed to generate/cache PDF after persistence for technicalId " + technicalId, e);
+            }
+        });
+
         return ResponseEntity.accepted()
                 .body(new TriggerResponse("started", "Data extraction and report generation initiated."));
     }
 
     /**
-     * Workflow function with prefix 'process' + entity name 'ReportSummary'.
-     * This function is called asynchronously before persisting the entity.
-     * It receives the entity as ObjectNode, can modify it directly (e.g. put fields),
-     * can get/add entities of different models, but cannot modify the same entityModel (to avoid recursion).
+     * Workflow function called before persistence.
+     * Receives entity as ObjectNode, modifies it in-place, can add/get different entityModels but cannot modify same entityModel.
+     * All async tasks moved here.
      */
     private CompletableFuture<ObjectNode> processReportSummary(ObjectNode entity) {
-        logger.info("Workflow processReportSummary started for entity reportDate={}", entity.get("reportDate").asText());
+        logger.info("Workflow processReportSummary started for reportDate={}", entity.get("reportDate").asText());
 
         return CompletableFuture.supplyAsync(() -> {
             try {
-                // Step 1: Fetch inventory data from external API
+                // Fetch external inventory data
                 String url = "https://petstore.swagger.io/v2/store/inventory";
                 String rawJson = restTemplate.getForObject(url, String.class);
                 JsonNode inventoryNode = objectMapper.readTree(rawJson);
 
-                // Step 2: Get mock sales data
+                // Get mock sales data
                 JsonNode salesData = getMockSalesData();
 
-                // Step 3: Analyze KPIs
+                // Analyze KPIs
                 ReportSummary summary = analyzeKpis(inventoryNode, salesData, entity.get("reportDate").asText());
 
-                // Step 4: Modify the entity ObjectNode directly with all summary fields
+                // Modify entity ObjectNode fields directly
                 entity.put("salesVolume", summary.getSalesVolume());
                 entity.put("revenue", summary.getRevenue());
                 entity.put("inventoryTurnover", summary.getInventoryTurnover());
 
-                // Convert underperforming products list to ArrayNode and set in entity
                 ArrayNode underperformingArray = objectMapper.createArrayNode();
                 for (UnderperformingProduct p : summary.getUnderperformingProducts()) {
                     ObjectNode productNode = objectMapper.createObjectNode();
@@ -118,24 +141,16 @@ public class CyodaEntityControllerPrototype {
                 }
                 entity.set("underperformingProducts", underperformingArray);
 
-                // Step 5: Since we can't update or add the same entityModel inside workflow (to avoid recursion),
-                // we can add secondary/supplementary entities if needed here (not required in current logic).
+                // Additional entities could be added here if needed, e.g.
+                // entityService.addItem("OtherEntityModel", ENTITY_VERSION, someOtherData, someOtherWorkflow);
 
-                // Step 6: Generate mock PDF report bytes
-                byte[] pdfReport = generateMockPdfReport(summary);
-
-                // Step 7: Store the PDF in a local cache keyed by technicalId (which is still unknown here!)
-                // The technicalId is assigned AFTER persistence, so we cannot get it now.
-                // Instead, we will store PDF after persistence in a separate listener or on-demand.
-                // For demo, store PDF keyed by reportDate (as a workaround)
-                synchronized (reportPdfs) {
-                    reportPdfs.put(UUID.nameUUIDFromBytes(entity.get("reportDate").asText().getBytes()), pdfReport);
-                }
-
-                logger.info("Workflow processReportSummary completed successfully for reportDate={}", entity.get("reportDate").asText());
+                // We cannot add/update/delete entity of same model here (would cause recursion)
             } catch (IOException e) {
-                logger.error("Error in workflow processReportSummary: {}", e.getMessage(), e);
+                logger.error("Error in processReportSummary workflow function", e);
+                // Consider adding error info to entity for transparency
+                entity.put("workflowError", "Failed to process report summary: " + e.getMessage());
             }
+            logger.info("Workflow processReportSummary completed for reportDate={}", entity.get("reportDate").asText());
             return entity;
         });
     }
@@ -145,7 +160,7 @@ public class CyodaEntityControllerPrototype {
         CompletableFuture<ArrayNode> itemsFuture = entityService.getItems("ReportSummary", ENTITY_VERSION);
         ArrayNode items = itemsFuture.join();
 
-        if (items.isEmpty()) {
+        if (items == null || items.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No report summary available");
         }
 
@@ -171,16 +186,24 @@ public class CyodaEntityControllerPrototype {
         CompletableFuture<ArrayNode> itemsFuture = entityService.getItems("ReportSummary", ENTITY_VERSION);
         ArrayNode items = itemsFuture.join();
 
-        if (items.isEmpty()) {
+        if (items == null || items.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No report PDF available");
         }
 
-        // Find latest reportDate and technicalId
         String latestDate = null;
         UUID latestId = null;
         for (JsonNode node : items) {
             String reportDate = node.get("reportDate").asText();
-            UUID technicalId = UUID.fromString(node.get("technicalId").asText());
+            if (!node.has("technicalId")) {
+                continue;
+            }
+            UUID technicalId;
+            try {
+                technicalId = UUID.fromString(node.get("technicalId").asText());
+            } catch (IllegalArgumentException e) {
+                logger.warn("Invalid technicalId UUID format: {}", node.get("technicalId").asText());
+                continue;
+            }
             if (latestDate == null || reportDate.compareTo(latestDate) > 0) {
                 latestDate = reportDate;
                 latestId = technicalId;
@@ -191,12 +214,23 @@ public class CyodaEntityControllerPrototype {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No report PDF available");
         }
 
-        // Try get PDF from cache by technicalId
         byte[] pdf = reportPdfs.get(latestId);
 
-        // If not found by technicalId, fallback to reportDate key
-        if (pdf == null && latestDate != null) {
-            pdf = reportPdfs.get(UUID.nameUUIDFromBytes(latestDate.getBytes()));
+        if (pdf == null) {
+            // PDF not cached yet, try regenerating from entity data as fallback
+            try {
+                for (JsonNode node : items) {
+                    if (node.has("technicalId") && latestId.toString().equals(node.get("technicalId").asText())) {
+                        ReportSummary rs = objectMapper.convertValue(node, ReportSummary.class);
+                        pdf = generateMockPdfReport(rs);
+                        reportPdfs.put(latestId, pdf);
+                        logger.info("Generated and cached PDF report on-demand for technicalId {}", latestId);
+                        break;
+                    }
+                }
+            } catch (Exception e) {
+                logger.error("Failed to generate PDF report on-demand for technicalId " + latestId, e);
+            }
         }
 
         if (pdf == null) {
@@ -231,6 +265,8 @@ public class CyodaEntityControllerPrototype {
                 underperforming.add(new UnderperformingProduct(p.get("productId").asText(), "Low sales volume"));
             }
         });
+
+        // Example static metrics - in real scenario compute from inventoryNode and salesData
         return new ReportSummary(
                 triggerDate,
                 155,
@@ -241,13 +277,17 @@ public class CyodaEntityControllerPrototype {
     }
 
     private byte[] generateMockPdfReport(ReportSummary summary) {
-        String mockContent = "Weekly Report PDF\n" +
-                "Date: " + summary.getReportDate() + "\n" +
-                "Sales Volume: " + summary.getSalesVolume() + "\n" +
-                "Revenue: " + summary.getRevenue() + "\n" +
-                "Inventory Turnover: " + summary.getInventoryTurnover() + "\n" +
-                "Underperforming Products: " + summary.getUnderperformingProducts().size();
-        return mockContent.getBytes();
+        StringBuilder sb = new StringBuilder();
+        sb.append("Weekly Report PDF\n");
+        sb.append("Date: ").append(summary.getReportDate()).append("\n");
+        sb.append("Sales Volume: ").append(summary.getSalesVolume()).append("\n");
+        sb.append("Revenue: ").append(summary.getRevenue()).append("\n");
+        sb.append("Inventory Turnover: ").append(summary.getInventoryTurnover()).append("\n");
+        sb.append("Underperforming Products: ").append(summary.getUnderperformingProducts().size()).append("\n");
+        for (UnderperformingProduct p : summary.getUnderperformingProducts()) {
+            sb.append(" - ProductId: ").append(p.getProductId()).append(", Reason: ").append(p.getReason()).append("\n");
+        }
+        return sb.toString().getBytes();
     }
 
     @Data
@@ -294,26 +334,3 @@ public class CyodaEntityControllerPrototype {
         return new ResponseEntity<>(error, ex.getStatusCode());
     }
 }
-```
-
----
-
-### What was done:
-
-- **Moved all async tasks and heavy logic from controller endpoint into the `processReportSummary` workflow function**:
-  - Fetching external inventory data
-  - Getting mock sales data
-  - KPI analysis
-  - Modifying the entity ObjectNode directly with all calculated fields (including nested arrays)
-  - Generating mock PDF bytes and saving it in local cache
-- The controller method `triggerDataExtraction` now only creates a minimal entity (with just `reportDate`) and calls `entityService.addItem` with the workflow function.
-- Removed all async code from controller, making it clean and focused on HTTP handling.
-- Workflow function returns the modified entity which will be persisted.
-- Added comments explaining constraints and design choices regarding PDF cache keyed by `reportDate` due to lack of technicalId before persistence.
-- Read endpoints (`getLatestReportSummary`, `downloadLatestReportPdf`) remain unchanged, except fallback for PDF cache key.
-
-This approach fully complies with your requirements:
-- All async and side-effect logic moved to workflow function.
-- Workflow function modifies the entity state directly.
-- No add/update/delete on the same entityModel inside workflow.
-- Controller is free from business logic, only manages requests and responses.
