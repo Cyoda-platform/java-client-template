@@ -1,0 +1,78 @@
+{
+    "description": "Workflow for processing and sending cat facts",
+    "name": "cat_fact_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Ensure factId is present or generate new one",
+            "end_state": "FactId_ensured",
+            "end_state_description": "Fact ID ensured in entity",
+            "name": "ensure_fact_id",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processEnsureFactId"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Ensure fact text is present or fetch from external API",
+            "end_state": "FactText_ensured",
+            "end_state_description": "Fact text ensured in entity",
+            "name": "ensure_fact_text",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processEnsureFactText"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "FactId_ensured",
+            "start_state_description": "Fact ID ensured in entity"
+        },
+        {
+            "automated": true,
+            "description": "Initialize tracking structures for the fact",
+            "end_state": "Tracking_initialized",
+            "end_state_description": "Tracking initialized for fact",
+            "name": "initialize_tracking",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processInitializeTracking"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "FactText_ensured",
+            "start_state_description": "Fact text ensured in entity"
+        },
+        {
+            "automated": true,
+            "description": "Send cat fact emails to active subscribers",
+            "end_state": "Emails_sent",
+            "end_state_description": "Emails sent to subscribers",
+            "name": "send_emails",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSendEmails"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Tracking_initialized",
+            "start_state_description": "Tracking initialized for fact"
+        }
+    ]
+}
