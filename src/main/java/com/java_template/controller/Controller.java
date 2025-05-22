@@ -1,4 +1,4 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -12,16 +12,12 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import javax.annotation.PostConstruct;
-import java.net.URI;
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 
@@ -31,28 +27,25 @@ import static com.java_template.common.config.Config.*;
 @RequestMapping("/cyoda-comments")
 @Validated
 @Slf4j
-public class CyodaEntityControllerPrototype {
-
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+public class Controller {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final RestTemplate restTemplate = new RestTemplate();
 
     private final EntityService entityService;
     private static final String ENTITY_NAME = "comment";
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService) {
         this.entityService = entityService;
     }
 
     @PostConstruct
     public void init() {
-        logger.info("CyodaEntityControllerPrototype initialized");
+        log.info("Controller initialized");
     }
 
     @PostMapping("/analyze")
     public ResponseEntity<AnalyzeResponse> analyzeComments(@RequestBody @Valid AnalyzeRequest request) {
-        logger.info("Received analyze request for postId={} and email={}", request.getPostId(), request.getEmail());
+        log.info("Received analyze request for postId={} and email={}", request.getPostId(), request.getEmail());
 
         try {
             ObjectNode entityNode = objectMapper.createObjectNode();
@@ -73,7 +66,7 @@ public class CyodaEntityControllerPrototype {
             );
             return ResponseEntity.accepted().body(response);
         } catch (Exception ex) {
-            logger.error("Failed to submit analysis request", ex);
+            log.error("Failed to submit analysis request", ex);
             throw new ResponseStatusException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR,
                 "Failed to start analysis");
         }
@@ -81,11 +74,8 @@ public class CyodaEntityControllerPrototype {
 
     @GetMapping("/report/{postId}")
     public ResponseEntity<AnalysisReport> getReport(@PathVariable @Min(1) Integer postId) {
-        logger.info("Fetching report for postId={}", postId);
+        log.info("Fetching report for postId={}", postId);
         try {
-            ObjectNode filter = objectMapper.createObjectNode();
-            filter.put("postId", postId);
-
             CompletableFuture<ObjectNode> entityFuture = entityService.getItemByField(ENTITY_NAME, "postId", postId);
             ObjectNode entityNode = entityFuture.get();
 
@@ -100,7 +90,7 @@ public class CyodaEntityControllerPrototype {
         } catch (ResponseStatusException ex) {
             throw ex;
         } catch (Exception ex) {
-            logger.error("Failed to fetch report for postId {}", postId, ex);
+            log.error("Failed to fetch report for postId {}", postId, ex);
             throw new ResponseStatusException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR,
                 "Failed to fetch report");
         }
@@ -124,25 +114,9 @@ public class CyodaEntityControllerPrototype {
             }
             return new AnalysisReport(postId, status, summary, reportSentTo, lastUpdated);
         } catch (Exception ex) {
-            logger.error("Failed to convert entityNode to AnalysisReport", ex);
+            log.error("Failed to convert entityNode to AnalysisReport", ex);
             return null;
         }
-    }
-
-    private int mockSentiment(String text) {
-        if (text.length() % 3 == 0) return 1;
-        if (text.length() % 3 == 1) return -1;
-        return 0;
-    }
-
-    private void sendReportEmailAsync(String email, int postId, ObjectNode summary) {
-        CompletableFuture.runAsync(() -> {
-            try {
-                logger.info("Sending email to {} for postId={} summary= {}", email, postId, summary);
-            } catch (Exception ex) {
-                logger.error("Failed to send report email to {} for postId={}", email, postId, ex);
-            }
-        });
     }
 
     @Data
@@ -187,7 +161,7 @@ public class CyodaEntityControllerPrototype {
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<ErrorResponse> handleError(ResponseStatusException ex) {
-        logger.error("Error: {}", ex.getReason());
+        log.error("Error: {}", ex.getReason());
         return ResponseEntity.status(ex.getStatusCode())
             .body(new ErrorResponse(ex.getStatusCode().value(), ex.getReason()));
     }
