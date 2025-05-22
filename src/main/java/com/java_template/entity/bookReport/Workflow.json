@@ -1,0 +1,96 @@
+{
+    "description": "Workflow for generating and emailing book report based on external API data",
+    "name": "book_report_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Add generated timestamp to report entity",
+            "end_state": "GeneratedAt_added",
+            "end_state_description": "Timestamp added to report entity",
+            "name": "add_generated_at",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAddGeneratedAt"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state before processing report"
+        },
+        {
+            "automated": true,
+            "description": "Fetch book data from external API",
+            "end_state": "Books_fetched",
+            "end_state_description": "Books fetched and attached to report entity",
+            "name": "fetch_books",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processFetchBooks"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "GeneratedAt_added",
+            "start_state_description": "Timestamp added to report entity"
+        },
+        {
+            "automated": true,
+            "description": "Analyze book data and compute metrics",
+            "end_state": "Books_analyzed",
+            "end_state_description": "Book metrics computed and set in report entity",
+            "name": "analyze_books",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAnalyzeBooks"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Books_fetched",
+            "start_state_description": "Books fetched and attached to report entity"
+        },
+        {
+            "automated": true,
+            "description": "Set additional report fields if needed",
+            "end_state": "Report_fields_set",
+            "end_state_description": "Additional report fields set",
+            "name": "set_report_fields",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSetReportFields"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Books_analyzed",
+            "start_state_description": "Book metrics computed and set in report entity"
+        },
+        {
+            "automated": true,
+            "description": "Send the generated report via email asynchronously",
+            "end_state": "Report_email_sent",
+            "end_state_description": "Report email sent asynchronously",
+            "name": "send_report_email",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSendEmail"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Report_fields_set",
+            "start_state_description": "Additional report fields set"
+        }
+    ]
+}
