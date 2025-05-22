@@ -1,0 +1,60 @@
+{
+    "description": "Workflow for retrieving and processing user data from external API",
+    "name": "user_data_retrieval_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Validate presence and format of userId in entity",
+            "end_state": "UserId_validated",
+            "end_state_description": "UserId has been validated",
+            "name": "validate_user_id",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processValidateUserId"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Fetch user data from external ReqRes API",
+            "end_state": "UserData_fetched",
+            "end_state_description": "User data has been fetched from API",
+            "name": "fetch_user_data",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processFetchUserData"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "UserId_validated",
+            "start_state_description": "UserId has been validated"
+        },
+        {
+            "automated": true,
+            "description": "Post-fetch business logic processing",
+            "end_state": "Processing_completed",
+            "end_state_description": "Post fetch processing completed",
+            "name": "post_fetch_processing",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processPostFetch"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "UserData_fetched",
+            "start_state_description": "User data has been fetched from API"
+        }
+    ]
+}
