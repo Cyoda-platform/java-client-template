@@ -1,0 +1,60 @@
+{
+    "description": "Workflow for processing inventory report generation and enrichment",
+    "name": "inventory_report_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Extract filters from entity",
+            "end_state": "Filters_extracted",
+            "end_state_description": "Filters have been extracted from entity",
+            "name": "extract_filters",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processExtractFilters"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Call external API to fetch inventory data",
+            "end_state": "External_api_called",
+            "end_state_description": "External API has been called and data retrieved",
+            "name": "call_external_api",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processCallExternalApi"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Filters_extracted",
+            "start_state_description": "Filters have been extracted from entity"
+        },
+        {
+            "automated": true,
+            "description": "Calculate inventory report metrics and enrich entity",
+            "end_state": "Report_calculated",
+            "end_state_description": "Inventory report metrics calculated and entity enriched",
+            "name": "calculate_report",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processCalculateReport"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "External_api_called",
+            "start_state_description": "External API has been called and data retrieved"
+        }
+    ]
+}
