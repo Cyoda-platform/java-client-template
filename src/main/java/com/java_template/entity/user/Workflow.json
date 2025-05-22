@@ -1,0 +1,42 @@
+{
+    "description": "Workflow to process user data retrieval and augmentation",
+    "name": "user_data_retrieval_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Add retrieval timestamp to user entity",
+            "end_state": "Timestamp_added",
+            "end_state_description": "Timestamp has been added to the user entity",
+            "name": "add_timestamp",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAddTimestamp"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Add supplementary userRole entity asynchronously",
+            "end_state": "Supplementary_user_role_added",
+            "end_state_description": "Supplementary userRole entity added asynchronously",
+            "name": "add_supplementary_user_role",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAddSupplementaryUserRole"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Timestamp_added",
+            "start_state_description": "Timestamp has been added to the user entity"
+        }
+    ]
+}
