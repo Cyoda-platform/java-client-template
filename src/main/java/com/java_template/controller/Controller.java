@@ -1,8 +1,7 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import jakarta.validation.Valid;
@@ -19,25 +18,25 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.net.URI;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 import static com.java_template.common.config.Config.*;
 
 @RestController
 @RequestMapping("/api/cyoda-inventory")
 @Validated
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
     private static final String ENTITY_NAME = "inventoryReport";
 
     private final EntityService entityService;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final RestTemplate restTemplate = new RestTemplate();
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService) {
         this.entityService = entityService;
     }
 
@@ -51,19 +50,11 @@ public class CyodaEntityControllerPrototype {
     // Add multiple entities - individually without workflow function
     @PostMapping("/entities")
     public CompletableFuture<List<UUID>> addEntities(@RequestBody @Valid List<InventoryItem> data) {
-        List<CompletableFuture<UUID>> futures = new ArrayList<>();
-        for (InventoryItem item : data) {
-            ObjectNode entityNode = objectMapper.valueToTree(item);
-            futures.add(entityService.addItem(ENTITY_NAME, ENTITY_VERSION, entityNode));
-        }
+        List<CompletableFuture<UUID>> futures = data.stream()
+                .map(item -> entityService.addItem(ENTITY_NAME, ENTITY_VERSION, objectMapper.valueToTree(item)))
+                .collect(Collectors.toList());
         return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-                .thenApply(v -> {
-                    List<UUID> ids = new ArrayList<>();
-                    for (CompletableFuture<UUID> f : futures) {
-                        ids.add(f.join());
-                    }
-                    return ids;
-                });
+                .thenApply(v -> futures.stream().map(CompletableFuture::join).collect(Collectors.toList()));
     }
 
     // Retrieve entity by ID
@@ -221,4 +212,4 @@ public class CyodaEntityControllerPrototype {
         private Map<@NotBlank(message = "filter key must not be blank") String,
                 @NotBlank(message = "filter value must not be blank") String> filters;
     }
-}}
+}
