@@ -1,7 +1,5 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import jakarta.validation.Valid;
@@ -15,30 +13,22 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 
 import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping("/cyoda-users")
 @Validated
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
     private final EntityService entityService;
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final String ENTITY_NAME = "user";
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService) {
         this.entityService = entityService;
     }
 
@@ -48,7 +38,7 @@ public class CyodaEntityControllerPrototype {
         int userId = request.getUserId();
         logger.info("Received request to fetch user with ID {}", userId);
 
-        ObjectNode initialEntity = objectMapper.createObjectNode();
+        ObjectNode initialEntity = new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode();
         initialEntity.put("userId", userId);
 
         try {
