@@ -1,17 +1,3 @@
-Certainly! The key is to minimize controller logic by moving all asynchronous processing, filtering, sorting, and any additional data enrichment into the workflow function `processFlight`. The controller will then just accept the request, build a minimal "shell" entity (or even the raw request data wrapped as an ObjectNode), and call `entityService.addItem` passing the workflow function. The workflow function will do all heavy lifting asynchronously right before persistence.
-
-Below is the updated complete Java code reflecting these changes:
-
-- The controller’s search endpoint **only** constructs the initial entity (an ObjectNode wrapping the request and some metadata like a searchId).
-- The workflow `processFlight` will fetch flights, apply filters, sorting, enrich the entity with results and metadata.
-- The workflow will also cache the result (fire-and-forget).
-- Persistence of the enriched entity happens automatically after workflow completes.
-- The controller’s GET endpoint remains as is for fetching cached search results.
-- The workflow receives an `ObjectNode` entity and modifies it directly.
-
----
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -29,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CompletableFuture;
 
 import static com.java_template.common.config.Config.*;
@@ -43,7 +30,9 @@ public class CyodaEntityControllerPrototype {
 
     private final EntityService entityService;
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final Map<String, SearchResultResponse> searchResultsCache = Collections.synchronizedMap(new LinkedHashMap<>());
+
+    // Concurrent cache for thread safety and quick retrieval of search results
+    private final Map<String, SearchResultResponse> searchResultsCache = new ConcurrentHashMap<>();
     private static final String ENTITY_NAME = "flight";
 
     public CyodaEntityControllerPrototype(EntityService entityService) {
@@ -58,21 +47,21 @@ public class CyodaEntityControllerPrototype {
 
         String searchId = UUID.randomUUID().toString();
 
-        // Build initial entity as ObjectNode with search request + metadata
+        // Create initial entity as mutable ObjectNode to hold request and metadata
         ObjectNode entity = objectMapper.createObjectNode();
         entity.put("searchId", searchId);
         entity.set("request", objectMapper.valueToTree(request));
         entity.put("status", "processing");
 
-        // Add item with workflow function which will do all async processing
+        // Call entityService.addItem with workflow function processFlight to do async processing before persistence
         CompletableFuture<UUID> idFuture = entityService.addItem(
                 ENTITY_NAME,
                 ENTITY_VERSION,
                 entity,
-                this::processFlight // workflow function will enrich entity asynchronously before saving
+                this::processFlight
         );
 
-        // Return accepted with empty results + searchId
+        // Return accepted response immediately with empty results and the searchId for polling
         SearchResultResponse emptyResponse = new SearchResultResponse(Collections.emptyList(), 0, searchId);
         return ResponseEntity.accepted().body(emptyResponse);
     }
@@ -88,21 +77,17 @@ public class CyodaEntityControllerPrototype {
     }
 
     /**
-     * Workflow function: processes the flight search entity asynchronously before persistence.
-     * This includes:
-     * - Extracting search request from the entity
-     * - Fetching mock flights
-     * - Applying filters and sorting
-     * - Enriching entity with flights array, total count, final status
-     * - Caching the result for quick retrieval
+     * Workflow function executed asynchronously before persistence.
+     * Processes the entity by performing flight search, filtering, sorting,
+     * enriching the entity with results, and caching the results.
      * 
-     * @param entity the entity as ObjectNode (mutable)
-     * @return processed entity (same instance)
+     * @param entity mutable ObjectNode representing the entity to process
+     * @return the mutated entity to be persisted
      */
     private ObjectNode processFlight(ObjectNode entity) {
         String searchId = entity.path("searchId").asText(null);
-        if (searchId == null) {
-            logger.error("processFlight: No searchId found in entity");
+        if (searchId == null || searchId.isEmpty()) {
+            logger.error("processFlight: Missing or empty searchId in entity");
             entity.put("status", "error");
             return entity;
         }
@@ -110,13 +95,13 @@ public class CyodaEntityControllerPrototype {
         try {
             JsonNode requestNode = entity.path("request");
             if (requestNode.isMissingNode() || !requestNode.isObject()) {
-                logger.error("processFlight: Invalid or missing request data");
+                logger.error("processFlight: Missing or invalid request node");
                 entity.put("status", "error");
                 return entity;
             }
 
             SearchRequest request = objectMapper.treeToValue(requestNode, SearchRequest.class);
-            logger.info("processFlight: start processing searchId {}", searchId);
+            logger.info("processFlight: Processing searchId {}", searchId);
 
             // Fetch flights (simulate delay)
             List<FlightInfo> flights = mockFetchFlights(request);
@@ -125,7 +110,7 @@ public class CyodaEntityControllerPrototype {
             flights = applyFilters(flights, request);
             flights = applySorting(flights, request.getSortBy(), request.getSortOrder());
 
-            // Add results to entity
+            // Convert flights list to ArrayNode and set into entity
             ArrayNode flightsArray = objectMapper.createArrayNode();
             for (FlightInfo f : flights) {
                 flightsArray.add(objectMapper.valueToTree(f));
@@ -135,25 +120,28 @@ public class CyodaEntityControllerPrototype {
             entity.put("totalResults", flights.size());
             entity.put("status", "completed");
 
-            // Cache the SearchResultResponse for GET endpoint
+            // Update cache for retrieval in GET endpoint
             searchResultsCache.put(searchId, new SearchResultResponse(flights, flights.size(), searchId));
 
-            logger.info("processFlight: completed processing {} flights for searchId {}", flights.size(), searchId);
+            logger.info("processFlight: Completed processing {} flights for searchId {}", flights.size(), searchId);
         } catch (Exception e) {
-            logger.error("processFlight: error processing searchId {}: {}", searchId, e.getMessage(), e);
+            logger.error("processFlight: Exception processing searchId {}: {}", searchId, e.getMessage(), e);
             entity.put("status", "error");
-            // Put empty flights array to be safe
             entity.set("flights", objectMapper.createArrayNode());
             entity.put("totalResults", 0);
-
             searchResultsCache.put(searchId, new SearchResultResponse(Collections.emptyList(), 0, searchId));
         }
         return entity;
     }
 
-    // Simulate fetching flights (mock)
+    /**
+     * Simulates fetching flights with a delay.
+     * @param request the search request parameters
+     * @return list of flights (mock data)
+     * @throws InterruptedException if interrupted during sleep
+     */
     private List<FlightInfo> mockFetchFlights(SearchRequest request) throws InterruptedException {
-        Thread.sleep(500); // simulate delay
+        Thread.sleep(500); // simulate network or processing delay
         List<FlightInfo> flights = new ArrayList<>();
         flights.add(new FlightInfo("FL-001","Delta Air Lines","DL123",
                 request.getDepartureAirport(),request.getArrivalAirport(),
@@ -167,12 +155,18 @@ public class CyodaEntityControllerPrototype {
         return flights;
     }
 
+    /**
+     * Applies filtering on flights according to request criteria.
+     * @param flights the initial list of flights
+     * @param req the search request
+     * @return filtered list of flights
+     */
     private List<FlightInfo> applyFilters(List<FlightInfo> flights, SearchRequest req) {
         List<FlightInfo> filtered = new ArrayList<>(flights);
         if (req.getAirlines() != null && !req.getAirlines().isEmpty()) {
             Set<String> allowed = new HashSet<>();
-            req.getAirlines().forEach(a -> allowed.add(a.toLowerCase()));
-            filtered.removeIf(f -> !allowed.contains(f.getAirline().toLowerCase()));
+            req.getAirlines().forEach(a -> allowed.add(a.toLowerCase(Locale.ROOT)));
+            filtered.removeIf(f -> !allowed.contains(f.getAirline().toLowerCase(Locale.ROOT)));
         }
         if (req.getMaxPrice() != null) {
             filtered.removeIf(f -> f.getPrice() > req.getMaxPrice());
@@ -188,6 +182,13 @@ public class CyodaEntityControllerPrototype {
         return filtered;
     }
 
+    /**
+     * Applies sorting on flights according to request criteria.
+     * @param flights list of flights to sort
+     * @param sortBy field to sort by ("price", "departureTime", "arrivalTime")
+     * @param sortOrder order direction ("asc" or "desc")
+     * @return sorted list of flights
+     */
     private List<FlightInfo> applySorting(List<FlightInfo> flights, String sortBy, String sortOrder) {
         if (sortBy == null || sortBy.isEmpty()) return flights;
         Comparator<FlightInfo> cmp = null;
@@ -210,7 +211,7 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.status(e.getStatusCode()).body(error);
     }
 
-    // DTOs
+    // DTO classes with validations and standard getters/setters
 
     public static class SearchRequest {
         @NotBlank
@@ -248,8 +249,6 @@ public class CyodaEntityControllerPrototype {
         @Pattern(regexp="^(asc|desc)$")
         private String sortOrder;
 
-        // Getters and setters omitted for brevity
-
         public String getDepartureAirport() { return departureAirport; }
         public void setDepartureAirport(String departureAirport) { this.departureAirport = departureAirport; }
         public String getArrivalAirport() { return arrivalAirport; }
@@ -285,7 +284,6 @@ public class CyodaEntityControllerPrototype {
             this.searchId = searchId;
         }
 
-        // Getters and setters
         public List<FlightInfo> getFlights() { return flights; }
         public void setFlights(List<FlightInfo> flights) { this.flights = flights; }
         public int getTotalResults() { return totalResults; }
@@ -322,7 +320,6 @@ public class CyodaEntityControllerPrototype {
             this.currency = currency;
         }
 
-        // Getters and setters omitted for brevity
         public String getFlightId() { return flightId; }
         public void setFlightId(String flightId) { this.flightId = flightId; }
         public String getAirline() { return airline; }
@@ -343,24 +340,3 @@ public class CyodaEntityControllerPrototype {
         public void setCurrency(String currency) { this.currency = currency; }
     }
 }
-```
-
----
-
-### Summary of changes:
-
-- **Controller POST /search**: only creates a minimal entity (ObjectNode with request data + searchId + status) and calls `addItem` with `processFlight` workflow.
-- **Workflow `processFlight`**: asynchronously invoked by entityService on the entity before persistence. This function:
-  - Extracts the request,
-  - Performs the entire search logic (fetch, filter, sort),
-  - Modifies the entity by adding flights array, total results, and status,
-  - Caches the result for GET retrieval.
-- The controller GET endpoint just returns cached results.
-- All async processing moved out of controller and into the workflow function, which is the correct, robust approach per requirements.
-- The entity passed to workflow is mutable `ObjectNode` and is modified in-place.
-- The workflow cannot call add/update/delete on the same entity model but can add other entities if needed (not used here).
-- Logging and error handling moved mostly into workflow.
-
-With this architecture, the controller is slim and all complex logic is handled in the workflow function, which runs asynchronously and atomically with the persistence action.
-
-If you want, I can also provide test cases or further refinements.
