@@ -1,4 +1,4 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -34,9 +34,9 @@ import static com.java_template.common.config.Config.*;
 @RestController
 @RequestMapping("/api/cyoda-entity")
 @Validated
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
     private static final String OPEN_LIBRARY_SEARCH_API = "https://openlibrary.org/search.json";
     private static final String ENTITY_NAME = "bookDetails";
 
@@ -44,7 +44,7 @@ public class CyodaEntityControllerPrototype {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final EntityService entityService;
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService) {
         this.entityService = entityService;
     }
 
