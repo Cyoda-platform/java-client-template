@@ -1,4 +1,4 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -21,9 +21,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import javax.annotation.PostConstruct;
-import java.net.URI;
 import java.time.LocalDate;
-import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
@@ -32,9 +30,9 @@ import static com.java_template.common.config.Config.*;
 @RestController
 @Validated
 @RequestMapping("/api/cyoda-entity")
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
     private static final String EXTERNAL_API_URL = "https://fakerestapi.azurewebsites.net/api/v1/Activities";
     private static final String ENTITY_NAME = "activity";
 
@@ -43,13 +41,13 @@ public class CyodaEntityControllerPrototype {
 
     private final EntityService entityService;
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService) {
         this.entityService = entityService;
     }
 
     @PostConstruct
     public void init() {
-        logger.info("CyodaEntityControllerPrototype initialized");
+        logger.info("Controller initialized");
     }
 
     @PostMapping(value = "/activities/ingest", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
