@@ -1,32 +1,35 @@
+Certainly! The key is to minimize controller logic by moving all asynchronous processing, filtering, sorting, and any additional data enrichment into the workflow function `processFlight`. The controller will then just accept the request, build a minimal "shell" entity (or even the raw request data wrapped as an ObjectNode), and call `entityService.addItem` passing the workflow function. The workflow function will do all heavy lifting asynchronously right before persistence.
+
+Below is the updated complete Java code reflecting these changes:
+
+- The controller’s search endpoint **only** constructs the initial entity (an ObjectNode wrapping the request and some metadata like a searchId).
+- The workflow `processFlight` will fetch flights, apply filters, sorting, enrich the entity with results and metadata.
+- The workflow will also cache the result (fire-and-forget).
+- Persistence of the enriched entity happens automatically after workflow completes.
+- The controller’s GET endpoint remains as is for fetching cached search results.
+- The workflow receives an `ObjectNode` entity and modifies it directly.
+
+---
+
 ```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.*;
 import com.java_template.common.service.EntityService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.util.StringUtils;
+import org.springframework.http.*;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
 
@@ -40,7 +43,7 @@ public class CyodaEntityControllerPrototype {
 
     private final EntityService entityService;
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final Map<String, SearchResultResponse> searchResultsCache = new ConcurrentHashMap<>();
+    private final Map<String, SearchResultResponse> searchResultsCache = Collections.synchronizedMap(new LinkedHashMap<>());
     private static final String ENTITY_NAME = "flight";
 
     public CyodaEntityControllerPrototype(EntityService entityService) {
@@ -54,11 +57,22 @@ public class CyodaEntityControllerPrototype {
                 request.getDepartureDate(), request.getPassengers());
 
         String searchId = UUID.randomUUID().toString();
-        CompletableFuture.runAsync(() -> processFlightSearch(request, searchId))
-                .exceptionally(ex -> {
-                    logger.error("Error processing flight search for {}: {}", searchId, ex.getMessage());
-                    return null;
-                });
+
+        // Build initial entity as ObjectNode with search request + metadata
+        ObjectNode entity = objectMapper.createObjectNode();
+        entity.put("searchId", searchId);
+        entity.set("request", objectMapper.valueToTree(request));
+        entity.put("status", "processing");
+
+        // Add item with workflow function which will do all async processing
+        CompletableFuture<UUID> idFuture = entityService.addItem(
+                ENTITY_NAME,
+                ENTITY_VERSION,
+                entity,
+                this::processFlight // workflow function will enrich entity asynchronously before saving
+        );
+
+        // Return accepted with empty results + searchId
         SearchResultResponse emptyResponse = new SearchResultResponse(Collections.emptyList(), 0, searchId);
         return ResponseEntity.accepted().body(emptyResponse);
     }
@@ -73,56 +87,73 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.ok(result);
     }
 
-    @Async
-    void processFlightSearch(SearchRequest request, String searchId) {
-        logger.info("Processing flight search for {}", searchId);
+    /**
+     * Workflow function: processes the flight search entity asynchronously before persistence.
+     * This includes:
+     * - Extracting search request from the entity
+     * - Fetching mock flights
+     * - Applying filters and sorting
+     * - Enriching entity with flights array, total count, final status
+     * - Caching the result for quick retrieval
+     * 
+     * @param entity the entity as ObjectNode (mutable)
+     * @return processed entity (same instance)
+     */
+    private ObjectNode processFlight(ObjectNode entity) {
+        String searchId = entity.path("searchId").asText(null);
+        if (searchId == null) {
+            logger.error("processFlight: No searchId found in entity");
+            entity.put("status", "error");
+            return entity;
+        }
+
         try {
+            JsonNode requestNode = entity.path("request");
+            if (requestNode.isMissingNode() || !requestNode.isObject()) {
+                logger.error("processFlight: Invalid or missing request data");
+                entity.put("status", "error");
+                return entity;
+            }
+
+            SearchRequest request = objectMapper.treeToValue(requestNode, SearchRequest.class);
+            logger.info("processFlight: start processing searchId {}", searchId);
+
+            // Fetch flights (simulate delay)
             List<FlightInfo> flights = mockFetchFlights(request);
+
+            // Apply filters and sorting
             flights = applyFilters(flights, request);
             flights = applySorting(flights, request.getSortBy(), request.getSortOrder());
 
-            SearchResultResponse response = new SearchResultResponse(flights, flights.size(), searchId);
+            // Add results to entity
+            ArrayNode flightsArray = objectMapper.createArrayNode();
+            for (FlightInfo f : flights) {
+                flightsArray.add(objectMapper.valueToTree(f));
+            }
 
-            // Persist the SearchResultResponse entity asynchronously with workflow function
-            entityService.addItem(
-                    ENTITY_NAME,
-                    ENTITY_VERSION,
-                    response,
-                    this::processFlight
-            ).whenComplete((uuid, throwable) -> {
-                if (throwable != null) {
-                    logger.error("Failed to persist flight search result for {}: {}", searchId, throwable.getMessage());
-                } else {
-                    logger.info("Successfully persisted flight search result for {} with UUID: {}", searchId, uuid);
-                }
-            });
+            entity.set("flights", flightsArray);
+            entity.put("totalResults", flights.size());
+            entity.put("status", "completed");
 
-            // Cache the result regardless of persistence success for immediate availability
-            searchResultsCache.put(searchId, response);
+            // Cache the SearchResultResponse for GET endpoint
+            searchResultsCache.put(searchId, new SearchResultResponse(flights, flights.size(), searchId));
 
-            logger.info("Finished processing {} flights for {}", flights.size(), searchId);
+            logger.info("processFlight: completed processing {} flights for searchId {}", flights.size(), searchId);
         } catch (Exception e) {
-            logger.error("Failed to process flight search for {}: {}", searchId, e.getMessage());
+            logger.error("processFlight: error processing searchId {}: {}", searchId, e.getMessage(), e);
+            entity.put("status", "error");
+            // Put empty flights array to be safe
+            entity.set("flights", objectMapper.createArrayNode());
+            entity.put("totalResults", 0);
+
             searchResultsCache.put(searchId, new SearchResultResponse(Collections.emptyList(), 0, searchId));
         }
-    }
-
-    /**
-     * Workflow function to process the flight search entity before persistence.
-     * Modify entity state here if needed.
-     * @param entity the entity to process (SearchResultResponse)
-     * @return processed entity, possibly modified
-     */
-    private SearchResultResponse processFlight(SearchResultResponse entity) {
-        // Example: Add a timestamp or modify entity before saving
-        // Currently, just returning the entity as is.
-        logger.debug("Applying workflow processFlight to entity with searchId: {}", entity.getSearchId());
-        // No modifications, return entity directly
         return entity;
     }
 
+    // Simulate fetching flights (mock)
     private List<FlightInfo> mockFetchFlights(SearchRequest request) throws InterruptedException {
-        Thread.sleep(500);
+        Thread.sleep(500); // simulate delay
         List<FlightInfo> flights = new ArrayList<>();
         flights.add(new FlightInfo("FL-001","Delta Air Lines","DL123",
                 request.getDepartureAirport(),request.getArrivalAirport(),
@@ -158,7 +189,7 @@ public class CyodaEntityControllerPrototype {
     }
 
     private List<FlightInfo> applySorting(List<FlightInfo> flights, String sortBy, String sortOrder) {
-        if (!StringUtils.hasText(sortBy)) return flights;
+        if (sortBy == null || sortBy.isEmpty()) return flights;
         Comparator<FlightInfo> cmp = null;
         switch (sortBy) {
             case "price": cmp = Comparator.comparingDouble(FlightInfo::getPrice); break;
@@ -179,9 +210,8 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.status(e.getStatusCode()).body(error);
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
+    // DTOs
+
     public static class SearchRequest {
         @NotBlank
         @Pattern(regexp="^[A-Z]{3}$")
@@ -217,20 +247,53 @@ public class CyodaEntityControllerPrototype {
 
         @Pattern(regexp="^(asc|desc)$")
         private String sortOrder;
+
+        // Getters and setters omitted for brevity
+
+        public String getDepartureAirport() { return departureAirport; }
+        public void setDepartureAirport(String departureAirport) { this.departureAirport = departureAirport; }
+        public String getArrivalAirport() { return arrivalAirport; }
+        public void setArrivalAirport(String arrivalAirport) { this.arrivalAirport = arrivalAirport; }
+        public String getDepartureDate() { return departureDate; }
+        public void setDepartureDate(String departureDate) { this.departureDate = departureDate; }
+        public String getReturnDate() { return returnDate; }
+        public void setReturnDate(String returnDate) { this.returnDate = returnDate; }
+        public int getPassengers() { return passengers; }
+        public void setPassengers(int passengers) { this.passengers = passengers; }
+        public List<String> getAirlines() { return airlines; }
+        public void setAirlines(List<String> airlines) { this.airlines = airlines; }
+        public Double getMaxPrice() { return maxPrice; }
+        public void setMaxPrice(Double maxPrice) { this.maxPrice = maxPrice; }
+        public String getDepartureTimeFrom() { return departureTimeFrom; }
+        public void setDepartureTimeFrom(String departureTimeFrom) { this.departureTimeFrom = departureTimeFrom; }
+        public String getDepartureTimeTo() { return departureTimeTo; }
+        public void setDepartureTimeTo(String departureTimeTo) { this.departureTimeTo = departureTimeTo; }
+        public String getSortBy() { return sortBy; }
+        public void setSortBy(String sortBy) { this.sortBy = sortBy; }
+        public String getSortOrder() { return sortOrder; }
+        public void setSortOrder(String sortOrder) { this.sortOrder = sortOrder; }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class SearchResultResponse {
         private List<FlightInfo> flights;
         private int totalResults;
         private String searchId;
+
+        public SearchResultResponse(List<FlightInfo> flights, int totalResults, String searchId) {
+            this.flights = flights;
+            this.totalResults = totalResults;
+            this.searchId = searchId;
+        }
+
+        // Getters and setters
+        public List<FlightInfo> getFlights() { return flights; }
+        public void setFlights(List<FlightInfo> flights) { this.flights = flights; }
+        public int getTotalResults() { return totalResults; }
+        public void setTotalResults(int totalResults) { this.totalResults = totalResults; }
+        public String getSearchId() { return searchId; }
+        public void setSearchId(String searchId) { this.searchId = searchId; }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class FlightInfo {
         private String flightId;
         private String airline;
@@ -241,16 +304,63 @@ public class CyodaEntityControllerPrototype {
         private String arrivalTime;
         private double price;
         private String currency;
+
+        public FlightInfo() {}
+
+        public FlightInfo(String flightId, String airline, String flightNumber,
+                          String departureAirport, String arrivalAirport,
+                          String departureTime, String arrivalTime,
+                          double price, String currency) {
+            this.flightId = flightId;
+            this.airline = airline;
+            this.flightNumber = flightNumber;
+            this.departureAirport = departureAirport;
+            this.arrivalAirport = arrivalAirport;
+            this.departureTime = departureTime;
+            this.arrivalTime = arrivalTime;
+            this.price = price;
+            this.currency = currency;
+        }
+
+        // Getters and setters omitted for brevity
+        public String getFlightId() { return flightId; }
+        public void setFlightId(String flightId) { this.flightId = flightId; }
+        public String getAirline() { return airline; }
+        public void setAirline(String airline) { this.airline = airline; }
+        public String getFlightNumber() { return flightNumber; }
+        public void setFlightNumber(String flightNumber) { this.flightNumber = flightNumber; }
+        public String getDepartureAirport() { return departureAirport; }
+        public void setDepartureAirport(String departureAirport) { this.departureAirport = departureAirport; }
+        public String getArrivalAirport() { return arrivalAirport; }
+        public void setArrivalAirport(String arrivalAirport) { this.arrivalAirport = arrivalAirport; }
+        public String getDepartureTime() { return departureTime; }
+        public void setDepartureTime(String departureTime) { this.departureTime = departureTime; }
+        public String getArrivalTime() { return arrivalTime; }
+        public void setArrivalTime(String arrivalTime) { this.arrivalTime = arrivalTime; }
+        public double getPrice() { return price; }
+        public void setPrice(double price) { this.price = price; }
+        public String getCurrency() { return currency; }
+        public void setCurrency(String currency) { this.currency = currency; }
     }
 }
 ```
-**Explanation:**
 
-- Added the workflow function `processFlight` with the required prefix "process" + entity name "Flight" (in lowercase, the convention is to use `processFlight`).
-- Updated the call to `entityService.addItem` inside `processFlightSearch` to pass the workflow function as the last argument.
-- The workflow function takes the entity as input and returns the processed entity. Here it just returns the entity as-is but can be modified to change state or add related entities.
-- The entity model and version constants are used as before.
-- Added logging inside the workflow function for debug purposes.
-- Kept all existing code intact and only added the necessary changes for the workflow function and updated `addItem` usage.
+---
 
-This should satisfy the new `entityService.addItem` API requirement.
+### Summary of changes:
+
+- **Controller POST /search**: only creates a minimal entity (ObjectNode with request data + searchId + status) and calls `addItem` with `processFlight` workflow.
+- **Workflow `processFlight`**: asynchronously invoked by entityService on the entity before persistence. This function:
+  - Extracts the request,
+  - Performs the entire search logic (fetch, filter, sort),
+  - Modifies the entity by adding flights array, total results, and status,
+  - Caches the result for GET retrieval.
+- The controller GET endpoint just returns cached results.
+- All async processing moved out of controller and into the workflow function, which is the correct, robust approach per requirements.
+- The entity passed to workflow is mutable `ObjectNode` and is modified in-place.
+- The workflow cannot call add/update/delete on the same entity model but can add other entities if needed (not used here).
+- Logging and error handling moved mostly into workflow.
+
+With this architecture, the controller is slim and all complex logic is handled in the workflow function, which runs asynchronously and atomically with the persistence action.
+
+If you want, I can also provide test cases or further refinements.
