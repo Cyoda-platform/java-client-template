@@ -1,86 +1,35 @@
-You are absolutely right: moving asynchronous or supplementary processing logic into the workflow function (`process{entity_name}`) is the best approach. This keeps controllers lean and focused on request/response handling, while the workflow function encapsulates entity-specific logic executed asynchronously right before persistence.
+package com.java_template.entity;
 
----
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.java_template.common.service.EntityService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.server.ResponseStatusException;
 
-### What can be moved to the workflow function?
+import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
-- **State enrichment or modification** of the entity before saving (e.g., adding derived fields).
-- **Calls to other entityModels** via `entityService` to add/get supplementary data.
-- **Async tasks related to this entity**, such as logging, metrics, or updating related entities (except modifying the current entityModel's entities).
-- Any **fire-and-forget or asynchronous enrichment** related to the entity.
-
----
-
-### What cannot be moved to workflow function?
-
-- Modifying or adding entities of the same entityModel (would cause recursion).
-- Blocking or synchronous waiting (workflow function should be async).
-
----
-
-### Proposed refactoring
-
-- Refactor the `/books/search` endpoint to only:
-  - Validate request.
-  - Call external API.
-  - Filter results.
-  - Call `entityService.addItems` passing the raw entities and the workflow function.
-  - Return response.
-
-- Move the following logic inside the workflow function:
-  - Enrich entity with additional fields (e.g., genre if it can be derived here).
-  - Fire off async tasks related to this entity (e.g., logging, secondary entity additions).
-  - Any user history or counts related to this entity **must be in a different entityModel** and can be added here.
-
----
-
-### Implementation notes
-
-- The entity passed to workflow is an `ObjectNode` (Jackson JSON node), so all modifications are via `entity.put(...)`.
-- We can call `entityService.addItem` or `getItems` on **different** entityModels safely.
-- Prefer returning `CompletableFuture.completedFuture(entity)` at end unless you have real async work.
-
----
-
-### Updated code snippet for `processBookDetails` workflow function:
-
-```java
-private CompletableFuture<ObjectNode> processBookDetails(ObjectNode entity) {
-    // Example: add enriched genre if missing (could be fetched from another source)
-    if (!entity.hasNonNull("genre") || entity.get("genre").asText().isEmpty()) {
-        entity.put("genre", "Unknown");
-    }
-
-    // Example: Add a secondary entity - e.g., "bookMetadata" entityModel with extra info
-    ObjectNode metadata = objectMapper.createObjectNode();
-    metadata.put("bookId", entity.get("bookId").asText());
-    metadata.put("title", entity.get("title").asText());
-    metadata.put("timestamp", Instant.now().toString());
-
-    // Fire and forget add of metadata entity (different entityModel)
-    entityService.addItem("bookMetadata", ENTITY_VERSION, metadata, e -> CompletableFuture.completedFuture(e));
-
-    // Example: If userId is present in entity, add user search history entity (different entityModel)
-    if (entity.hasNonNull("userId")) {
-        ObjectNode userSearch = objectMapper.createObjectNode();
-        userSearch.put("userId", entity.get("userId").asText());
-        userSearch.put("bookId", entity.get("bookId").asText());
-        userSearch.put("searchedAt", Instant.now().toString());
-        entityService.addItem("userSearchHistory", ENTITY_VERSION, userSearch, e -> CompletableFuture.completedFuture(e));
-    }
-
-    // You can also do async calls to external APIs here if needed.
-
-    return CompletableFuture.completedFuture(entity);
-}
-```
-
----
-
-### Full code example with workflow function refactored and controller simplified:
-
-```java
-// ... imports remain unchanged
+import static com.java_template.common.config.Config.*;
 
 @RestController
 @RequestMapping("/api/cyoda-entity")
@@ -130,10 +79,8 @@ public class CyodaEntityControllerPrototype {
             }
             int publicationYear = bookNode.path("first_publish_year").asInt(0);
 
-            // Filtering logic moved here for convenience
-            if (request.getGenre() != null) {
-                // genre is not directly from API, so skip filtering by genre here
-            }
+            // Skip genre filtering here because genre is not reliably present in OpenLibrary API response
+            // Filter author and publicationYear only
             if (request.getAuthor() != null && (author == null || !author.toLowerCase().contains(request.getAuthor().toLowerCase())))
                 continue;
             if (request.getPublicationYear() != null && publicationYear != request.getPublicationYear())
@@ -141,23 +88,20 @@ public class CyodaEntityControllerPrototype {
 
             String key = bookNode.path("key").asText(null);
             String bookId = key != null ? key.replace("/works/", "") :
-                    UUID.nameUUIDFromBytes((title + author).getBytes(StandardCharsets.UTF_8)).toString();
+                    UUID.nameUUIDFromBytes((title + (author != null ? author : "")).getBytes(StandardCharsets.UTF_8)).toString();
 
-            // Create ObjectNode entity to pass to workflow
             ObjectNode entity = objectMapper.createObjectNode();
             entity.put("bookId", bookId);
             entity.put("title", title);
             if (author != null) entity.put("author", author);
             entity.put("publicationYear", publicationYear);
             entity.put("genre", request.getGenre() != null ? request.getGenre() : "Unknown");
-            // Pass userId if present
             if (request.getUserId() != null && !request.getUserId().isBlank()) {
                 entity.put("userId", request.getUserId());
             }
 
             toAddEntities.add(entity);
 
-            // For response, convert ObjectNode to BookDetails POJO
             filteredBooks.add(new BookDetails(bookId, title, author, null, entity.get("genre").asText(), publicationYear));
         }
 
@@ -168,18 +112,177 @@ public class CyodaEntityControllerPrototype {
                     toAddEntities,
                     this::processBookDetails
             );
-            idsFuture.get(); // wait for persistence completion
+            idsFuture.get(); // wait for persistence completion, handle exceptions outside
         }
 
         return ResponseEntity.ok(new SearchResponse(filteredBooks));
     }
 
-    /**
-     * Workflow function applied asynchronously before persistence.
-     * Modifies entity state, adds supplementary entities, and triggers async tasks.
-     */
+    @GetMapping("/books/results")
+    public ResponseEntity<SearchResponse> getSearchResults(
+            @RequestParam(required = false) @Size(max = 50) String genre,
+            @RequestParam(required = false) @Positive Integer publicationYear,
+            @RequestParam(required = false) @Size(max = 100) String author
+    ) throws ExecutionException, InterruptedException {
+        logger.info("Fetching stored results with filters - genre: {}, year: {}, author: {}", genre, publicationYear, author);
+
+        CompletableFuture<ArrayNode> itemsFuture = entityService.getItems(
+                ENTITY_NAME,
+                ENTITY_VERSION
+        );
+        ArrayNode items = itemsFuture.get();
+
+        List<BookDetails> filtered = new ArrayList<>();
+        for (JsonNode node : items) {
+            BookDetails book = objectMapper.treeToValue(node, BookDetails.class);
+            if (genre != null && (book.getGenre() == null || !book.getGenre().equalsIgnoreCase(genre)))
+                continue;
+            if (author != null && (book.getAuthor() == null || !book.getAuthor().toLowerCase().contains(author.toLowerCase())))
+                continue;
+            if (publicationYear != null && book.getPublicationYear() != publicationYear)
+                continue;
+            filtered.add(book);
+        }
+        return ResponseEntity.ok(new SearchResponse(filtered));
+    }
+
+    @GetMapping("/reports/weekly")
+    public ResponseEntity<WeeklyReportResponse> getWeeklyReport() throws ExecutionException, InterruptedException {
+        logger.info("Generating weekly report");
+
+        // Generate report from stored data in supplementary entities
+        // Fetch most searched books from userSearchHistory counting occurrences
+        CompletableFuture<ArrayNode> userSearchesFuture = entityService.getItems("userSearchHistory", ENTITY_VERSION);
+        ArrayNode userSearches = userSearchesFuture.get();
+
+        Map<String, Integer> searchCountMap = new HashMap<>();
+        Map<String, String> bookTitlesMap = new HashMap<>();
+
+        // To get titles, fetch bookDetails entities
+        CompletableFuture<ArrayNode> bookDetailsFuture = entityService.getItems(ENTITY_NAME, ENTITY_VERSION);
+        ArrayNode bookDetails = bookDetailsFuture.get();
+
+        for (JsonNode bookNode : bookDetails) {
+            String bookId = bookNode.path("bookId").asText(null);
+            String title = bookNode.path("title").asText(null);
+            if (bookId != null && title != null) {
+                bookTitlesMap.put(bookId, title);
+            }
+        }
+
+        for (JsonNode searchNode : userSearches) {
+            String bookId = searchNode.path("bookId").asText(null);
+            if (bookId != null) {
+                searchCountMap.put(bookId, searchCountMap.getOrDefault(bookId, 0) + 1);
+            }
+        }
+
+        List<MostSearchedBook> mostSearchedList = new ArrayList<>();
+        for (Map.Entry<String, Integer> entry : searchCountMap.entrySet()) {
+            String bookId = entry.getKey();
+            int count = entry.getValue();
+            String title = bookTitlesMap.getOrDefault(bookId, "Unknown");
+            mostSearchedList.add(new MostSearchedBook(bookId, title, count));
+        }
+
+        // Sort descending by count
+        mostSearchedList.sort((a, b) -> Integer.compare(b.getSearchCount(), a.getSearchCount()));
+
+        // Limit to top 10
+        if (mostSearchedList.size() > 10) {
+            mostSearchedList = mostSearchedList.subList(0, 10);
+        }
+
+        // Aggregate top genres and authors from bookDetails weighted by search counts
+        Map<String, Integer> genreCount = new HashMap<>();
+        Map<String, Integer> authorCount = new HashMap<>();
+
+        for (MostSearchedBook msb : mostSearchedList) {
+            for (JsonNode bookNode : bookDetails) {
+                String bookId = bookNode.path("bookId").asText(null);
+                if (bookId != null && bookId.equals(msb.getBookId())) {
+                    String genre = bookNode.path("genre").asText(null);
+                    String author = bookNode.path("author").asText(null);
+                    if (genre != null) genreCount.put(genre, genreCount.getOrDefault(genre, 0) + msb.getSearchCount());
+                    if (author != null) authorCount.put(author, authorCount.getOrDefault(author, 0) + msb.getSearchCount());
+                    break;
+                }
+            }
+        }
+
+        List<String> topGenres = getTopKeys(genreCount, 5);
+        List<String> topAuthors = getTopKeys(authorCount, 5);
+
+        UserPreferencesSummary preferencesSummary = new UserPreferencesSummary(topGenres, topAuthors);
+
+        return ResponseEntity.ok(new WeeklyReportResponse(mostSearchedList, preferencesSummary));
+    }
+
+    @PostMapping("/recommendations")
+    public ResponseEntity<RecommendationsResponse> getRecommendations(@RequestBody @Valid RecommendationRequest request) throws ExecutionException, InterruptedException {
+        logger.info("Generating recommendations for userId={}", request.getUserId());
+
+        // Fetch user search history
+        CompletableFuture<ArrayNode> userSearchesFuture = entityService.getItems("userSearchHistory", ENTITY_VERSION);
+        ArrayNode userSearches = userSearchesFuture.get();
+
+        Set<String> searchedBookIds = new HashSet<>();
+        for (JsonNode searchNode : userSearches) {
+            String userId = searchNode.path("userId").asText(null);
+            if (userId != null && userId.equals(request.getUserId())) {
+                String bookId = searchNode.path("bookId").asText(null);
+                if (bookId != null) searchedBookIds.add(bookId);
+            }
+        }
+
+        // Fetch all bookDetails
+        CompletableFuture<ArrayNode> bookDetailsFuture = entityService.getItems(ENTITY_NAME, ENTITY_VERSION);
+        ArrayNode bookDetails = bookDetailsFuture.get();
+
+        List<BookDetails> recommendations = new ArrayList<>();
+        // Recommend books not searched by user yet, limit 10
+        for (JsonNode bookNode : bookDetails) {
+            String bookId = bookNode.path("bookId").asText(null);
+            if (bookId == null) continue;
+            if (!searchedBookIds.contains(bookId)) {
+                BookDetails book = objectMapper.treeToValue(bookNode, BookDetails.class);
+                recommendations.add(book);
+                if (recommendations.size() >= 10) break;
+            }
+        }
+
+        return ResponseEntity.ok(new RecommendationsResponse(recommendations));
+    }
+
+    @PostMapping("/ingestion/trigger")
+    public ResponseEntity<IngestionTriggerResponse> triggerDataIngestion() {
+        String jobId = UUID.randomUUID().toString();
+        Instant requestedAt = Instant.now();
+        logger.info("Ingestion job {} started at {}", jobId, requestedAt);
+        CompletableFuture.runAsync(() -> {
+            try {
+                logger.info("Ingestion job {} mock running", jobId);
+                Thread.sleep(2000);
+                logger.info("Ingestion job {} completed", jobId);
+            } catch (Exception e) {
+                logger.error("Ingestion job {} failed", jobId, e);
+            }
+        });
+        return ResponseEntity.ok(new IngestionTriggerResponse("started"));
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<Map<String, String>> handleResponseStatusException(ResponseStatusException ex) {
+        logger.error("Handled exception: status={}, message={}", ex.getStatusCode(), ex.getReason());
+        Map<String, String> error = new HashMap<>();
+        error.put("error", ex.getReason());
+        return ResponseEntity.status(ex.getStatusCode()).body(error);
+    }
+
+    // Workflow function applied asynchronously before persistence.
+    // Modifies entity state and triggers async side effects.
     private CompletableFuture<ObjectNode> processBookDetails(ObjectNode entity) {
-        // Example: Enrich genre if missing or empty
+        // Ensure genre is present
         if (!entity.hasNonNull("genre") || entity.get("genre").asText().isEmpty()) {
             entity.put("genre", "Unknown");
         }
@@ -200,31 +303,84 @@ public class CyodaEntityControllerPrototype {
             entityService.addItem("userSearchHistory", ENTITY_VERSION, userSearch, e -> CompletableFuture.completedFuture(e));
         }
 
-        // More async enrichments or secondary entity additions can be done here
-
         return CompletableFuture.completedFuture(entity);
     }
 
-    // Other endpoints simplified, no business logic moved here for brevity...
+    private static List<String> getTopKeys(Map<String, Integer> map, int limit) {
+        List<Map.Entry<String, Integer>> entries = new ArrayList<>(map.entrySet());
+        entries.sort((a, b) -> Integer.compare(b.getValue(), a.getValue()));
+        List<String> topKeys = new ArrayList<>();
+        for (int i = 0; i < entries.size() && i < limit; i++) {
+            topKeys.add(entries.get(i).getKey());
+        }
+        return topKeys;
+    }
 
-    // POJOs and DTOs remain unchanged...
+    @Data
+    public static class SearchRequest {
+        @NotBlank
+        private String query;
+        private String genre;
+        private Integer publicationYear;
+        private String author;
+        private String userId;
+    }
+
+    @Data
+    public static class RecommendationRequest {
+        @NotBlank
+        private String userId;
+    }
+
+    @Data
+    @AllArgsConstructor
+    public static class SearchResponse {
+        private List<BookDetails> results;
+    }
+
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class BookDetails {
+        private String bookId;
+        private String title;
+        private String author;
+        private String coverImage;
+        private String genre;
+        private int publicationYear;
+    }
+
+    @Data
+    @AllArgsConstructor
+    public static class RecommendationsResponse {
+        private List<BookDetails> recommendations;
+    }
+
+    @Data
+    @AllArgsConstructor
+    public static class WeeklyReportResponse {
+        private List<MostSearchedBook> mostSearchedBooks;
+        private UserPreferencesSummary userPreferencesSummary;
+    }
+
+    @Data
+    @AllArgsConstructor
+    public static class MostSearchedBook {
+        private String bookId;
+        private String title;
+        private int searchCount;
+    }
+
+    @Data
+    @AllArgsConstructor
+    public static class UserPreferencesSummary {
+        private List<String> topGenres;
+        private List<String> topAuthors;
+    }
+
+    @Data
+    @AllArgsConstructor
+    public static class IngestionTriggerResponse {
+        private String status;
+    }
 }
-```
-
----
-
-### Benefits:
-
-- Controller is simplified and only manages input/output.
-- The workflow function is the single place where entity state is enriched and async side effects happen.
-- Workflow function handles async calls safely without recursion.
-- Easier to test and maintain.
-
----
-
-If you want, I can provide the full refactored class with all endpoints moved similarly or help design workflow functions for other entityModels.
-
----
-
-**Summary:**  
-Yes, you should move all the asynchronous and entity enrichment logic into the `process{entity_name}` workflow function. This is the right and required approach to keep your controller stateless and robust. The workflow function accepts the entity as an `ObjectNode`, allows modification, and supports async logic, including calling other entityModels. This is a natural and clean place to encapsulate all business logic related to entity preparation and supplementary data handling before persistence.
