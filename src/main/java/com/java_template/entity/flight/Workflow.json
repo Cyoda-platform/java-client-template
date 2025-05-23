@@ -1,0 +1,80 @@
+{
+    "description": "Workflow for processing flight search requests using Airport Gap API",
+    "name": "flight_search_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start flight search processing",
+            "end_state": "Validated_searchId",
+            "end_state_description": "Search ID validated",
+            "name": "start_search",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "name": "processValidateSearchId"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state before processing"
+        },
+        {
+            "automated": true,
+            "description": "Validate flight search request node",
+            "end_state": "Fetched_flights",
+            "end_state_description": "Flight data fetched",
+            "name": "validate_request_node",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "name": "processValidateRequestNode"
+                    },
+                    {
+                        "name": "processFetchFlights"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Validated_searchId",
+            "start_state_description": "Search ID validated"
+        },
+        {
+            "automated": true,
+            "description": "Apply filters and sorting on flights",
+            "end_state": "Set_results",
+            "end_state_description": "Results set in entity",
+            "name": "apply_filters_sorting",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "name": "processApplyFilters"
+                    },
+                    {
+                        "name": "processApplySorting"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Fetched_flights",
+            "start_state_description": "Flight data fetched"
+        },
+        {
+            "automated": true,
+            "description": "Finalize and cache search results",
+            "end_state": "Completed",
+            "end_state_description": "Search processing completed",
+            "name": "finalize_results",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "name": "processSetResults"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Set_results",
+            "start_state_description": "Results set in entity"
+        }
+    ]
+}
