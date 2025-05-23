@@ -1,0 +1,60 @@
+{
+    "description": "Workflow handling book entity processing including genre validation, metadata creation, and user search history recording",
+    "name": "book_search_and_recommendation_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Ensure the book entity has a genre set, defaulting to 'Unknown' if missing",
+            "end_state": "Genre_Ensured",
+            "end_state_description": "Book genre ensured",
+            "name": "ensure_genre",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processEnsureGenre"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state before processing book details"
+        },
+        {
+            "automated": true,
+            "description": "Add supplementary book metadata entity",
+            "end_state": "Book_Metadata_Added",
+            "end_state_description": "Book metadata entity has been created",
+            "name": "add_book_metadata",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAddBookMetadata"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Genre_Ensured",
+            "start_state_description": "Book genre ensured"
+        },
+        {
+            "automated": true,
+            "description": "Add user search history if userId present in book entity",
+            "end_state": "User_Search_History_Added",
+            "end_state_description": "User search history entity has been created when applicable",
+            "name": "add_user_search_history",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAddUserSearchHistory"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Book_Metadata_Added",
+            "start_state_description": "Book metadata entity has been created"
+        }
+    ]
+}
