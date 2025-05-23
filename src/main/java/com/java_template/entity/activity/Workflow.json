@@ -1,0 +1,78 @@
+{
+    "description": "Workflow for ingesting, analyzing, summarizing, and finalizing user activity tracking data",
+    "name": "activity_tracking_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start ingestion by fetching external activity data",
+            "end_state": "Data_fetched",
+            "end_state_description": "External activity data fetched",
+            "name": "start_ingestion",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processFetchData"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Analyze fetched activity data",
+            "end_state": "Data_analyzed",
+            "end_state_description": "Activity data analyzed",
+            "name": "analyze_data",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAnalyzeData"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Data_fetched",
+            "start_state_description": "External activity data fetched"
+        },
+        {
+            "automated": true,
+            "description": "Build summary from analyzed data",
+            "end_state": "Summary_built",
+            "end_state_description": "Summary of activity patterns built",
+            "name": "build_summary",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processBuildSummary"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Data_analyzed",
+            "start_state_description": "Activity data analyzed"
+        },
+        {
+            "automated": true,
+            "description": "Finalize the report for storage",
+            "end_state": "Report_finalized",
+            "end_state_description": "Report finalized and ready",
+            "name": "finalize_report",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processFinalize"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Summary_built",
+            "start_state_description": "Summary of activity patterns built"
+        }
+    ]
+}
