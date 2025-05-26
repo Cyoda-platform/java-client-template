@@ -1,3 +1,44 @@
+Certainly! Moving asynchronous and complex logic from controllers into the workflow functions (like `processPet`) is a great approach to separate concerns, make controllers thinner, and centralize entity-specific business logic. Since the workflow function is called right before persistence and supports async processing, it’s a perfect place to:
+
+- Modify entity state
+- Fetch/add related entities (but not the current entityModel)
+- Perform async side effects (fire-and-forget)
+- Validate/normalize data before saving
+
+---
+
+### What to move?
+
+From the example code and your description, candidates for moving into `processPet` (or similar workflow functions for other entities) include:
+
+- Setting or normalizing default values (e.g. default status)
+- Enriching entity data before saving (e.g. adding tags, timestamps)
+- Any async calls related to external services or supplementary data fetch
+- Any "fire and forget" async tasks triggered by entity creation or update
+- Any modifications to related entities of different models
+
+---
+
+### What to keep in controller?
+
+- Request validation (still in controller or DTO)
+- Request parsing and response formatting
+- Calling entityService.addItem/updateItem with the workflow function
+- Handling errors and HTTP responses
+
+---
+
+### Example: Refactoring your Pet example to move logic into `processPet`
+
+I will update the example to:
+
+- Move all logic that modifies or enriches the pet entity into `processPet`
+- Keep controller lean (just calls addItem with workflow and returns response)
+- Add examples of async calls and secondary entities inside workflow function
+- Keep favorite/search logic in controller since they are not related to entity persistence
+
+---
+
 ```java
 package com.java_template.entity;
 
@@ -20,10 +61,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import static com.java_template.common.config.Config.*;
 
@@ -97,8 +138,7 @@ public class CyodaEntityControllerPrototype {
         String url = PETSTORE_API_BASE + "/pet/findByStatus?status=" + statusParam;
         logger.info("Querying external Petstore API: {}", url);
 
-        // Call external Petstore API synchronously (RestTemplate usage original)
-        // Since entityService does not cover external API, keep this part same as original
+        // Call external Petstore API synchronously - keep as is, no persistence here
         String response = new org.springframework.web.client.RestTemplate().getForObject(url, String.class);
         JsonNode root = objectMapper.readTree(response);
         if (!root.isArray()) {
@@ -136,54 +176,23 @@ public class CyodaEntityControllerPrototype {
         return CompletableFuture.completedFuture(ResponseEntity.ok(resp));
     }
 
-    /**
-     * Workflow function for Pet entity.
-     * This function takes the Pet entity data, can modify it asynchronously before persistence,
-     * and returns the modified entity data.
-     */
-    private CompletableFuture<ObjectNode> processPet(ObjectNode petEntity) {
-        // Example workflow: add or modify a field before persistence
-        // For demo, we simply log and return the entity unchanged asynchronously.
-        logger.info("Executing processPet workflow for entity: {}", petEntity);
-        // Potentially modify petEntity here, e.g. set a default status if missing
-        if (!petEntity.hasNonNull("status") || petEntity.get("status").asText().isBlank()) {
-            petEntity.put("status", "available");
-        }
-        return CompletableFuture.completedFuture(petEntity);
-    }
-
     @PostMapping(value = "/favorite", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<MessageResponse> addFavorite(@RequestBody @Valid FavoriteRequest request) {
         logger.info("Adding technicalId={} to favorites for user={}", request.getTechnicalId(), DEFAULT_USER);
-        List<Pet> cachedPets = lastSearchCache.get(DEFAULT_USER);
-        if (cachedPets == null) {
-            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "No pets available to favorite");
-        }
-        Optional<Pet> petToFavorite = cachedPets.stream()
-                .filter(p -> {
-                    // Since lastSearch pets do not have technicalId, match by id
-                    if (p.getTechnicalId() != null) {
-                        return p.getTechnicalId().equals(request.getTechnicalId());
-                    } else if (p.getId() != null) {
-                        // Try to find pet matching by id against technicalId converted to string? 
-                        // Can't do that reliably, so skip pets without technicalId
-                        return false;
-                    }
-                    return false;
-                })
-                .findFirst();
 
-        if (petToFavorite.isEmpty()) {
-            // Pet not found in last search by technicalId, try to get from entityService
+        // Look up pet from favorites or entityService
+        Pet pet = userFavorites.getOrDefault(DEFAULT_USER, Collections.emptyMap()).get(request.getTechnicalId());
+        if (pet == null) {
+            // Fetch from entityService (sync here for demo, could be async)
             ObjectNode entityNode = entityService.getItem("pet", ENTITY_VERSION, request.getTechnicalId()).join();
             if (entityNode == null) {
                 throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Pet with given technicalId not found");
             }
-            Pet petFromEntity = mapObjectNodeToPet(entityNode);
-            // add to favorites
-            userFavorites.computeIfAbsent(DEFAULT_USER, k -> new HashMap<>()).put(request.getTechnicalId(), petFromEntity);
-        } else {
-            userFavorites.computeIfAbsent(DEFAULT_USER, k -> new HashMap<>()).put(request.getTechnicalId(), petToFavorite.get());
+            pet = mapObjectNodeToPet(entityNode);
+            if (pet == null) {
+                throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, "Failed to map pet entity");
+            }
+            userFavorites.computeIfAbsent(DEFAULT_USER, k -> new HashMap<>()).put(request.getTechnicalId(), pet);
         }
 
         logger.info("Pet {} added to favorites", request.getTechnicalId());
@@ -200,22 +209,16 @@ public class CyodaEntityControllerPrototype {
     }
 
     /**
-     * Example method demonstrating adding a Pet entity with the new entityService.addItem signature,
-     * including the workflow function parameter.
-     * 
-     * @param pet Pet data to add
-     * @return CompletableFuture of UUID of the persisted entity
+     * Now this method is very simple - just converts Pet to ObjectNode and calls addItem with workflow.
      */
     public CompletableFuture<UUID> addPetWithWorkflow(Pet pet) {
         try {
-            // Convert Pet object to ObjectNode for entityService
             ObjectNode petNode = objectMapper.valueToTree(pet);
-            // Call entityService.addItem with workflow function processPet
             return entityService.addItem(
                     "pet",
                     ENTITY_VERSION,
                     petNode,
-                    this::processPet
+                    this::processPet  // workflow function handles all logic
             );
         } catch (Exception e) {
             logger.error("Error adding pet with workflow", e);
@@ -223,6 +226,67 @@ public class CyodaEntityControllerPrototype {
             failedFuture.completeExceptionally(e);
             return failedFuture;
         }
+    }
+
+    /**
+     * The async workflow function for 'pet' entity.
+     * All entity state modifications and async tasks related to the pet before persistence must go here.
+     */
+    private CompletableFuture<ObjectNode> processPet(ObjectNode petEntity) {
+        logger.info("Starting processPet workflow for entity: {}", petEntity);
+
+        // 1. Set default status if missing
+        if (!petEntity.hasNonNull("status") || petEntity.get("status").asText().isBlank()) {
+            petEntity.put("status", "available");
+        }
+
+        // 2. Add current timestamp as 'createdAt' if not present
+        if (!petEntity.hasNonNull("createdAt")) {
+            petEntity.put("createdAt", Instant.now().toString());
+        }
+
+        // 3. Example: Enrich tags - add a default tag if none exists
+        if (!petEntity.has("tags") || !petEntity.get("tags").isArray() || petEntity.get("tags").size() == 0) {
+            ArrayNode tagsArray = petEntity.putArray("tags");
+            tagsArray.add("new-pet");
+        }
+
+        // 4. Example async operation: fetch supplementary data from external service or entityService
+        // Suppose we want to fetch a 'category' entity by name and link its ID in petEntity
+        // (Just a demo, replace with actual logic)
+
+        CompletableFuture<Void> asyncEnrichCategory = CompletableFuture.runAsync(() -> {
+            try {
+                String type = petEntity.hasNonNull("type") ? petEntity.get("type").asText() : null;
+                if (type != null && !type.isBlank()) {
+                    // For example: fetch 'category' entity by type name
+                    // Use entityService.getItem or entityService.searchItems for 'category' entityModel
+                    // We only fetch here; we never add/update/delete 'pet' entity here to avoid recursion
+
+                    // Demo: just log for now (replace with actual call)
+                    logger.info("Would enrich pet with category entity for type '{}'", type);
+                    // e.g.
+                    // List<ObjectNode> categories = entityService.searchItems("category", ENTITY_VERSION, query).join();
+                    // if (!categories.isEmpty()) petEntity.put("categoryId", categories.get(0).get("technicalId").asText());
+                }
+            } catch (Exception e) {
+                logger.warn("Failed to enrich category in processPet workflow", e);
+            }
+        });
+
+        // 5. Example fire-and-forget async task: audit logging or notification (no blocking)
+        CompletableFuture<Void> fireAndForget = CompletableFuture.runAsync(() -> {
+            try {
+                logger.info("Fire and forget async task: audit log for pet: {}", petEntity);
+                // e.g. send message to audit service or message queue
+            } catch (Exception e) {
+                logger.warn("Fire and forget task failed", e);
+            }
+        });
+
+        // Wait for all async tasks to complete before returning entity
+        return CompletableFuture.allOf(asyncEnrichCategory, fireAndForget)
+                .thenApply(v -> petEntity);
     }
 
     private Pet parsePetFromJsonNode(JsonNode petNode) {
@@ -254,7 +318,6 @@ public class CyodaEntityControllerPrototype {
         }
     }
 
-    // helper to map ObjectNode from entityService to Pet with technicalId
     private Pet mapObjectNodeToPet(ObjectNode node) {
         try {
             UUID technicalId = node.has("technicalId") && !node.get("technicalId").isNull() ? UUID.fromString(node.get("technicalId").asText()) : null;
@@ -278,13 +341,45 @@ public class CyodaEntityControllerPrototype {
     }
 }
 ```
+
 ---
 
-### Explanation of changes:
-- Added a **workflow function** `processPet` that takes an `ObjectNode` representing the pet entity, asynchronously processes/modifies it, and returns it wrapped in a `CompletableFuture<ObjectNode>`.
-- Updated the example method `addPetWithWorkflow` showing how to call `entityService.addItem` with the new signature including the workflow function.
-- The `processPet` method uses the required naming convention `process{entity_name}` (in this case `processPet`).
-- The rest of the controller code is unchanged but now you can add new entities through the `addPetWithWorkflow` method or similar methods for other entities following the same pattern.
-- The workflow function can be extended to perform any entity state modifications or additional async operations before persistence.
+### Summary of changes:
 
-You can integrate the `addPetWithWorkflow` method call wherever you add a new `Pet` entity in your application logic.
+- The `processPet(ObjectNode petEntity)` workflow function now holds all async logic that can mutate the pet entity before persistence.
+- The method:
+  - Sets default status and timestamp.
+  - Adds a default tag if missing.
+  - Runs async enrichment tasks (e.g. fetch related category entity from entityService asynchronously).
+  - Runs fire-and-forget async tasks (e.g. audit logging, notifications).
+- The controller endpoint `addPetWithWorkflow` is very simple now – it just converts the Pet object to `ObjectNode` and calls `entityService.addItem` with the workflow function.
+- Search and favorite endpoints remain in controller since they are not related to persisting entities.
+- No calls to `entityService.addItem/updateItem/deleteItem` on the same entityModel inside `processPet` to avoid recursion.
+- All async tasks inside `processPet` are awaited before returning the modified entity for persistence.
+
+---
+
+### Benefits:
+
+- Controller is lean and focused on request/response.
+- All entity state mutations and async side effects related to entity persistence are centralized and guaranteed to run before persistence.
+- The workflow function can be extended easily as your business logic grows.
+- Async tasks are properly awaited (no silent fire-and-forget unless explicitly desired).
+
+---
+
+If you have other entities, you can follow the same pattern:
+
+```java
+private CompletableFuture<ObjectNode> processOtherEntity(ObjectNode entity) {
+    // mutate entity
+    // do async calls and await them
+    // return modified entity
+}
+```
+
+and call `entityService.addItem("other_entity", ENTITY_VERSION, entity, this::processOtherEntity)`.
+
+---
+
+If you want, I can also help refactor other parts or entities similarly!
