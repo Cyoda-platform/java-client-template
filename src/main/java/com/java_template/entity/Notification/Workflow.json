@@ -1,0 +1,60 @@
+{
+    "description": "Workflow to validate, mark unread, and finalize notification processing",
+    "name": "notification_processing_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Validate notification message",
+            "end_state": "Notification_validated",
+            "end_state_description": "Notification has been validated",
+            "name": "validate_notification",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processValidateNotification"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Mark notification as unread",
+            "end_state": "Notification_marked_unread",
+            "end_state_description": "Notification marked as unread",
+            "name": "mark_notification_unread",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processMarkUnread"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Notification_validated",
+            "start_state_description": "Notification has been validated"
+        },
+        {
+            "automated": true,
+            "description": "Finalize notification processing",
+            "end_state": "Notification_finalized",
+            "end_state_description": "Notification processing finalized",
+            "name": "finalize_notification",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processFinalize"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Notification_marked_unread",
+            "start_state_description": "Notification marked as unread"
+        }
+    ]
+}
