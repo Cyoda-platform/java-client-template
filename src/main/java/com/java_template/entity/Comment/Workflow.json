@@ -1,13 +1,13 @@
 {
-    "description": "Workflow to process comments by adding timestamp if missing",
+    "description": "Workflow to process comments by adding timestamp",
     "name": "comment_processing_workflow",
     "transitions": [
         {
             "automated": true,
-            "description": "Add timestamp to comment if not present",
+            "description": "Add timestamp to comment if missing",
             "end_state": "Timestamp_added",
-            "end_state_description": "Timestamp has been added to comment",
-            "name": "add_timestamp_to_comment",
+            "end_state_description": "Comment timestamp added",
+            "name": "add_timestamp",
             "processes": {
                 "externalized_processors": [
                     {
