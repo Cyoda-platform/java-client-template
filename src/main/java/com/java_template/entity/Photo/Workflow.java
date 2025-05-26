@@ -11,12 +11,10 @@ public class Workflow {
     private static final String NOTIFICATION_ENTITY = "Notification";
     private static final int ENTITY_VERSION = 1;
 
-    // assume entityService and photoViewCounts are class members injected/set elsewhere
     private EntityService entityService;
     private java.util.concurrent.ConcurrentMap<String, Integer> photoViewCounts;
 
     public CompletableFuture<ObjectNode> processPhoto(ObjectNode photo) {
-        // orchestrate workflow steps without business logic here
         return processUpdateTitle(photo)
                 .thenCompose(this::processCreateNotification)
                 .thenCompose(this::processInitViewCount);
@@ -54,7 +52,6 @@ public class Workflow {
     }
 
     private CompletableFuture<ObjectNode> processNotification(ObjectNode notification) {
-        // placeholder for notification processing logic
         return CompletableFuture.completedFuture(notification);
     }
 }
