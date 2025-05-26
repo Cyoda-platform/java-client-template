@@ -29,14 +29,11 @@ public class EntityControllerPrototype {
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // In-memory "DB" mocks
+    // In-memory storage mocks
     private final Map<String, Photo> photos = new ConcurrentHashMap<>();
     private final Map<String, List<Comment>> photoComments = new ConcurrentHashMap<>();
     private final Map<String, Integer> photoViewCounts = new ConcurrentHashMap<>();
     private final List<Notification> notifications = Collections.synchronizedList(new ArrayList<>());
-
-    // Scheduled ingestion job info (mock)
-    private Instant lastIngestionTime;
 
     private static final String EXTERNAL_API_URL = "https://fakerestapi.azurewebsites.net/api/v1/CoverPhotos";
 
@@ -48,9 +45,9 @@ public class EntityControllerPrototype {
     static class Photo {
         private String id;
         private String title;
-        private String description; // Not in Fakerest, placeholder
+        private String description; // placeholder
         private String thumbnailUrl;
-        private String imageUrl; // Using thumbnailUrl as imageUrl for prototype
+        private String imageUrl; // reuse thumbnailUrl for prototype
     }
 
     @Data
@@ -87,7 +84,7 @@ public class EntityControllerPrototype {
 
     @Data
     static class ReportRequest {
-        private String month; // Format: "YYYY-MM"
+        private String month; // YYYY-MM
     }
 
     @Data
@@ -103,16 +100,14 @@ public class EntityControllerPrototype {
      */
     @PostMapping("/photos/ingest")
     public IngestResponse ingestPhotos() {
-        logger.info("Starting ingestion of cover photos from external API: {}", EXTERNAL_API_URL);
-
+        logger.info("Starting ingestion from external API: {}", EXTERNAL_API_URL);
         try {
-            var responseEntity = restTemplate.getForEntity(URI.create(EXTERNAL_API_URL), String.class);
-            if (!responseEntity.getStatusCode().is2xxSuccessful()) {
-                logger.error("Failed to fetch cover photos. Status code: {}", responseEntity.getStatusCode());
+            var response = restTemplate.getForEntity(URI.create(EXTERNAL_API_URL), String.class);
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                logger.error("Failed fetching cover photos. Status: {}", response.getStatusCode());
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch external cover photos");
             }
-
-            String body = responseEntity.getBody();
+            String body = response.getBody();
             if (body == null || body.isBlank()) {
                 logger.error("Empty response from external API");
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Empty response from external API");
@@ -120,13 +115,12 @@ public class EntityControllerPrototype {
 
             JsonNode rootNode = objectMapper.readTree(body);
             if (!rootNode.isArray()) {
-                logger.error("Unexpected JSON format from external API: expected array");
+                logger.error("Unexpected JSON format: expected array");
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Unexpected JSON format from external API");
             }
 
             int ingestedCount = 0;
             for (JsonNode node : rootNode) {
-                // Extract fields - Fakerest API CoverPhotos have: id, name, cover (url)
                 String id = node.path("id").asText();
                 String title = node.path("name").asText();
                 String thumbnailUrl = node.path("cover").asText();
@@ -136,29 +130,23 @@ public class EntityControllerPrototype {
                     continue;
                 }
 
-                // For prototype: description and imageUrl placeholders
-                String description = "Description for photo " + title;
-                String imageUrl = thumbnailUrl; // No separate image URL, reuse thumbnail
+                String description = "Description for photo " + title; // placeholder
+                String imageUrl = thumbnailUrl; // reuse for prototype
 
                 Photo photo = new Photo(id, title, description, thumbnailUrl, imageUrl);
                 photos.put(id, photo);
-
-                // Initialize view count and comments map if missing
                 photoViewCounts.putIfAbsent(id, 0);
                 photoComments.putIfAbsent(id, Collections.synchronizedList(new ArrayList<>()));
 
                 ingestedCount++;
             }
 
-            lastIngestionTime = Instant.now();
-
-            // Add notification for users (simplified, one notification per ingestion)
             notifications.add(new Notification(UUID.randomUUID().toString(),
                     "New cover photos have been added to the gallery.",
                     Instant.now(),
                     false));
 
-            logger.info("Successfully ingested {} cover photos", ingestedCount);
+            logger.info("Ingested {} photos successfully", ingestedCount);
             return new IngestResponse("success", ingestedCount);
 
         } catch (Exception e) {
@@ -169,12 +157,12 @@ public class EntityControllerPrototype {
 
     /**
      * GET /api/photos
-     * Return paginated list of photos for gallery.
+     * Return paginated photos.
      */
     @GetMapping("/photos")
     public Map<String, Object> getPhotos(@RequestParam(defaultValue = "1") int page,
                                          @RequestParam(defaultValue = "20") int size) {
-        logger.info("Fetching gallery photos page={} size={}", page, size);
+        logger.info("Fetching photos page={} size={}", page, size);
 
         if (page < 1 || size < 1) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Page and size must be positive integers");
@@ -188,11 +176,11 @@ public class EntityControllerPrototype {
 
         List<Map<String, String>> pagePhotos = new ArrayList<>();
         for (Photo p : photoList.subList(fromIndex, toIndex)) {
-            Map<String, String> m = new HashMap<>();
-            m.put("id", p.getId());
-            m.put("title", p.getTitle());
-            m.put("thumbnailUrl", p.getThumbnailUrl());
-            pagePhotos.add(m);
+            Map<String, String> entry = new HashMap<>();
+            entry.put("id", p.getId());
+            entry.put("title", p.getTitle());
+            entry.put("thumbnailUrl", p.getThumbnailUrl());
+            pagePhotos.add(entry);
         }
 
         return Map.of(
@@ -205,11 +193,11 @@ public class EntityControllerPrototype {
 
     /**
      * GET /api/photos/{photoId}
-     * Returns photo details, comments, and view count.
+     * Returns photo details + comments + view count.
      */
     @GetMapping("/photos/{photoId}")
     public Map<String, Object> getPhotoDetails(@PathVariable String photoId) {
-        logger.info("Fetching details for photo id={}", photoId);
+        logger.info("Fetching details for photoId={}", photoId);
 
         Photo photo = photos.get(photoId);
         if (photo == null) {
@@ -231,15 +219,15 @@ public class EntityControllerPrototype {
 
     /**
      * POST /api/photos/{photoId}/comments
-     * Add a comment for a photo.
+     * Add a comment.
      */
     @PostMapping(value = "/photos/{photoId}/comments", consumes = MediaType.APPLICATION_JSON_VALUE)
     public Map<String, String> postComment(@PathVariable String photoId,
-                                           @RequestBody CommentRequest commentRequest) {
-        logger.info("Adding comment to photoId={} by user={}", photoId, commentRequest.getUser());
+                                           @RequestBody CommentRequest request) {
+        logger.info("Adding comment to photoId={} by user={}", photoId, request.getUser());
 
-        if (commentRequest.getUser() == null || commentRequest.getUser().isBlank() ||
-            commentRequest.getComment() == null || commentRequest.getComment().isBlank()) {
+        if (request.getUser() == null || request.getUser().isBlank() ||
+            request.getComment() == null || request.getComment().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User and comment must be provided");
         }
 
@@ -248,11 +236,7 @@ public class EntityControllerPrototype {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Photo not found");
         }
 
-        Comment comment = new Comment(UUID.randomUUID().toString(),
-                commentRequest.getUser(),
-                commentRequest.getComment(),
-                Instant.now());
-
+        Comment comment = new Comment(UUID.randomUUID().toString(), request.getUser(), request.getComment(), Instant.now());
         photoComments.computeIfAbsent(photoId, k -> Collections.synchronizedList(new ArrayList<>())).add(comment);
 
         logger.info("Comment added with id={}", comment.getId());
@@ -264,7 +248,7 @@ public class EntityControllerPrototype {
 
     /**
      * POST /api/photos/{photoId}/view
-     * Increment view count of photo.
+     * Increment view count.
      */
     @PostMapping("/photos/{photoId}/view")
     public Map<String, Object> incrementViewCount(@PathVariable String photoId) {
@@ -286,9 +270,7 @@ public class EntityControllerPrototype {
 
     /**
      * POST /api/reports/monthly-views
-     * Generates monthly report of most viewed photos.
-     * 
-     * NOTE: This is a prototype – report generation is mocked.
+     * Generate monthly report (mocked).
      */
     @PostMapping(value = "/reports/monthly-views", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ReportResponse generateMonthlyReport(@RequestBody ReportRequest request) {
@@ -298,9 +280,8 @@ public class EntityControllerPrototype {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Month must be in YYYY-MM format");
         }
 
-        // TODO: Implement real report generation logic and storage
-        // For prototype, return a dummy report URL
-        String dummyReportUrl = "https://example.com/reports/monthly-view-report-" + request.getMonth() + ".pdf";
+        // TODO: Replace with real report generation logic
+        String dummyReportUrl = "https://example.com/reports/view-report-" + request.getMonth() + ".pdf";
 
         logger.info("Monthly report generated at {}", dummyReportUrl);
         return new ReportResponse(dummyReportUrl);
@@ -308,39 +289,34 @@ public class EntityControllerPrototype {
 
     /**
      * GET /api/notifications
-     * Returns notifications for the user.
+     * Return notifications.
      */
     @GetMapping("/notifications")
     public Map<String, Object> getNotifications() {
         logger.info("Fetching notifications");
-
         return Map.of("notifications", new ArrayList<>(notifications));
     }
 
-    // --- Basic Exception Handler ---
+    // --- Exception Handlers ---
 
     @ExceptionHandler(ResponseStatusException.class)
     @ResponseStatus
-    public Map<String, String> handleResponseStatusException(ResponseStatusException ex) {
+    public Map<String, String> handleResponseStatus(ResponseStatusException ex) {
         logger.error("Handled exception: {} - {}", ex.getStatusCode(), ex.getReason());
-        return Map.of(
-                "error", ex.getReason()
-        );
+        return Map.of("error", ex.getReason());
     }
 
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    public Map<String, String> handleGenericException(Exception ex) {
+    public Map<String, String> handleGeneric(Exception ex) {
         logger.error("Unhandled exception: {}", ex.getMessage(), ex);
-        return Map.of(
-                "error", "Internal server error"
-        );
+        return Map.of("error", "Internal server error");
     }
 
-    // --- Async example for fire-and-forget ingestion (if triggered externally) ---
+    // --- Async ingestion example (fire-and-forget) ---
     @Async
-    public CompletableFuture<Void> asyncIngestPhotos() {
-        // TODO: Implement asynchronous ingestion if needed
+    public CompletableFuture<Void> asyncIngest() {
+        // TODO: Implement async ingestion if needed
         return CompletableFuture.runAsync(() -> {
             try {
                 ingestPhotos();
@@ -351,11 +327,10 @@ public class EntityControllerPrototype {
     }
 
     @PostConstruct
-    public void initialize() {
+    public void init() {
         logger.info("EntityControllerPrototype initialized");
-        // Optionally trigger ingestion on startup
-        // TODO: Uncomment to enable ingestion on startup
-        // asyncIngestPhotos();
+        // Optionally start ingestion on startup:
+        // asyncIngest();
     }
 }
 ```
