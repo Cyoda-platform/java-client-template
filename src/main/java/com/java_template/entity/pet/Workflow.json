@@ -1,0 +1,96 @@
+{
+    "description": "Workflow for processing pet entity in Purrfect Pets API",
+    "name": "purrfect_pets_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Set default status if missing or blank",
+            "end_state": "Default_status_set",
+            "end_state_description": "Pet status has been set to default if it was missing or blank",
+            "name": "set_default_status",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSetDefaultStatus"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Set createdAt timestamp if missing",
+            "end_state": "Created_at_set",
+            "end_state_description": "Pet creation timestamp has been set if missing",
+            "name": "set_created_at",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSetCreatedAt"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Default_status_set",
+            "start_state_description": "Pet status has been set to default if needed"
+        },
+        {
+            "automated": true,
+            "description": "Set default tags if missing or empty",
+            "end_state": "Default_tags_set",
+            "end_state_description": "Pet tags have been set to default if missing or empty",
+            "name": "set_default_tags",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSetDefaultTags"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Created_at_set",
+            "start_state_description": "Pet creation timestamp has been set"
+        },
+        {
+            "automated": true,
+            "description": "Enrich pet entity with category info asynchronously",
+            "end_state": "Category_enriched",
+            "end_state_description": "Pet entity enriched with category information",
+            "name": "enrich_category",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processEnrichCategory"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Default_tags_set",
+            "start_state_description": "Pet tags have been set to default if needed"
+        },
+        {
+            "automated": true,
+            "description": "Perform fire-and-forget asynchronous tasks such as audit logging",
+            "end_state": "Processing_completed",
+            "end_state_description": "Fire-and-forget tasks dispatched, processing completed",
+            "name": "fire_and_forget_tasks",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processFireAndForget"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Category_enriched",
+            "start_state_description": "Pet entity enriched with category information"
+        }
+    ]
+}
