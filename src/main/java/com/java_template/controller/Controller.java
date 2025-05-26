@@ -1,9 +1,10 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.*;
 import com.java_template.common.service.EntityService;
+import jakarta.annotation.PostConstruct;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -19,9 +20,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
-import javax.annotation.PostConstruct;
 import java.net.URI;
-import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
@@ -31,9 +30,9 @@ import static com.java_template.common.config.Config.*;
 @RestController
 @RequestMapping("/api/photos")
 @RequiredArgsConstructor
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
     private final RestTemplate restTemplate = new RestTemplate();
@@ -177,7 +176,7 @@ public class CyodaEntityControllerPrototype {
                     }
                     int viewCount = photoViewCounts.getOrDefault(technicalId, 0);
                     String condition = String.format("{\"photoTechnicalId\":\"%s\"}", technicalId);
-                    return entityService.getItemsByCondition("Comment", ENTITY_VERSION, condition)
+                    return entityService.getItemsByCondition(COMMENT_ENTITY, ENTITY_VERSION, condition)
                             .thenApply(commentsArray -> {
                                 List<ObjectNode> comments = new ArrayList<>();
                                 commentsArray.forEach(c -> {
@@ -262,6 +261,6 @@ public class CyodaEntityControllerPrototype {
 
     @PostConstruct
     public void init() {
-        logger.info("CyodaEntityControllerPrototype initialized");
+        logger.info("Controller initialized");
     }
-} 
+}
