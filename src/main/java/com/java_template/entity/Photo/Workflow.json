@@ -1,12 +1,12 @@
 {
-    "description": "Workflow to process cover photos including title update, notification creation, and view count initialization",
+    "description": "Workflow to process cover photos by updating title, creating notification, and initializing view count",
     "name": "cover_photo_processing_workflow",
     "transitions": [
         {
             "automated": true,
-            "description": "Update photo title by appending [Processed] if not present",
+            "description": "Append [Processed] to photo title if missing",
             "end_state": "Title_updated",
-            "end_state_description": "Photo title has been updated",
+            "end_state_description": "Photo title updated",
             "name": "update_photo_title",
             "processes": {
                 "externalized_processors": [
@@ -22,9 +22,9 @@
         },
         {
             "automated": true,
-            "description": "Create notification about the new cover photo added",
+            "description": "Create notification of new cover photo",
             "end_state": "Notification_created",
-            "end_state_description": "Notification entity created for new cover photo",
+            "end_state_description": "Notification created for cover photo",
             "name": "create_notification",
             "processes": {
                 "externalized_processors": [
@@ -36,13 +36,13 @@
                 "schedule_transition_processors": []
             },
             "start_state": "Title_updated",
-            "start_state_description": "Photo title has been updated"
+            "start_state_description": "Photo title updated"
         },
         {
             "automated": true,
-            "description": "Initialize the view count for the new cover photo",
+            "description": "Initialize view count for the cover photo",
             "end_state": "View_count_initialized",
-            "end_state_description": "View count initialized for the cover photo",
+            "end_state_description": "View count initialized",
             "name": "initialize_view_count",
             "processes": {
                 "externalized_processors": [
@@ -54,7 +54,7 @@
                 "schedule_transition_processors": []
             },
             "start_state": "Notification_created",
-            "start_state_description": "Notification entity created for new cover photo"
+            "start_state_description": "Notification created for cover photo"
         }
     ]
 }
