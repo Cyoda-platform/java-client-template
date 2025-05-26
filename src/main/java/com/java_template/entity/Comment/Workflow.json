@@ -1,0 +1,60 @@
+{
+    "description": "Workflow for processing cover photos including title update, notification creation, and view count initialization",
+    "name": "CoverPhotoGalleryWorkflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Update photo title to append [Processed] if not present",
+            "end_state": "TitleUpdated",
+            "end_state_description": "Photo title updated",
+            "name": "process_update_title",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Append [Processed] to title if missing",
+                        "name": "processUpdateTitle"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Create notification for new cover photo added",
+            "end_state": "NotificationCreated",
+            "end_state_description": "Notification entity created",
+            "name": "process_create_notification",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Add notification entity asynchronously",
+                        "name": "processCreateNotification"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "TitleUpdated",
+            "start_state_description": "Photo title updated"
+        },
+        {
+            "automated": true,
+            "description": "Initialize view count for photo technicalId if absent",
+            "end_state": "ViewCountInitialized",
+            "end_state_description": "Photo view count initialized",
+            "name": "process_init_view_count",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Initialize photo view count map entry",
+                        "name": "processInitViewCount"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "NotificationCreated",
+            "start_state_description": "Notification entity created"
+        }
+    ]
+}
