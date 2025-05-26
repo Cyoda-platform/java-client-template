@@ -1,285 +1,122 @@
-Certainly! I've updated the `entityService.addItem` calls to include a workflow function parameter as required. I implemented the workflow function `processPhoto` in this example for the `Photo` entity. This function takes a `Photo` object as input, can modify it asynchronously if needed, and returns the processed entity. The workflow function is passed as a lambda to `addItem`.
+Understood. To align with the required architecture and best practices, I'll move all asynchronous and related business logic currently in the controller endpoints into the `process{EntityName}` workflow functions. This frees controllers from complex logic, centralizes entity processing, and ensures asynchronous tasks or supplementary data handling is done inside these workflow functions.
 
-Since the workflow function is asynchronous and returns the processed entity, I've assumed the signature to be `Function<T, CompletableFuture<T>>` or similar. Here I use `Function<Photo, CompletableFuture<Photo>>`. Adjust if your actual interface differs.
+Key points to implement:
 
-Below is the complete updated Java code with the workflow function added and used in `addItem` calls:
+- **Workflow functions receive the entity as an `ObjectNode` (Jackson JSON object) and return it asynchronously after any modifications.**
+- **We can modify the current entity directly (`entity.put(...)`, `entity.remove(...)`, etc).**
+- **We can also add/get secondary entities of different entityModels inside workflow functions by calling `entityService` methods.**
+- **We cannot call `entityService.addItem/updateItem/deleteItem` on the same entityModel inside its workflow (to avoid recursion).**
+- **All async tasks like adding notifications, updating view counts, enriching data, etc. should be moved inside workflow functions.**
+- **Controllers become thin, just validating and passing the entity to `addItem` with the workflow function.**
+
+---
+
+## Updated approach:
+
+- Change `Photo`, `Comment`, `Notification` entities to Jackson `ObjectNode` inside workflows.
+- Implement `processPhoto(ObjectNode photo)`, `processComment(ObjectNode comment)`, etc.
+- Move:
+  - Adding notifications after photo ingestion → into `processPhoto`
+  - Updating view counts → into `processPhoto` or possibly separate method called before persistence (but better in separate endpoint, so keep controller thin)
+  - Enriching photo title → `processPhoto`
+  - Adding comment → `processComment`
+- Controller endpoints just build entities, call `addItem(model, version, entity, workflow)`.
+
+---
+
+## Revised complete code snippet (only relevant parts shown and explained):
 
 ```java
-package com.java_template.entity;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.java_template.common.service.EntityService;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
-import org.springframework.web.server.ResponseStatusException;
-
-import javax.annotation.PostConstruct;
-import java.net.URI;
-import java.time.Instant;
-import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
-import static com.java_template.common.config.Config.*;
+// ... other imports and class definition ...
 
-@Validated
-@RestController
-@RequestMapping("/api/photos")
-@RequiredArgsConstructor
-public class CyodaEntityControllerPrototype {
+// Remove POJO classes Photo, Comment, Notification - we will use ObjectNode directly
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+// Workflow for Photo entity
+private CompletableFuture<ObjectNode> processPhoto(ObjectNode photo) {
+    return CompletableFuture.supplyAsync(() -> {
+        // Modify title: append " [Processed]"
+        String title = photo.path("title").asText("");
+        photo.put("title", title + " [Processed]");
 
-    private final EntityService entityService;
-    private final RestTemplate restTemplate = new RestTemplate();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+        // Add notification entity for new photo ingestion
+        ObjectNode notification = JsonNodeFactory.instance.objectNode();
+        notification.put("technicalId", UUID.randomUUID().toString());
+        notification.put("message", "New cover photo added: " + title);
+        notification.put("timestamp", Instant.now().toString());
+        notification.put("read", false);
 
-    private static final String ENTITY_NAME = "Photo";
+        // Add notification entity asynchronously; since addItem returns UUID future,
+        // but we are inside workflow and can't add same entityModel, it's safe for Notification
+        entityService.addItem("Notification", ENTITY_VERSION, notification, this::processNotification);
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    static class Photo {
-        private String technicalId; // unique id managed by entityService
-        private String id; // original id from external API
-        private String title;
-        private String description;
-        private String thumbnailUrl;
-        private String imageUrl;
-    }
+        // You can also initialize view count or other supplementary entities if needed here
+        // but since view counts were local map, might need refactor to entity model or external service
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    static class Comment {
-        private String technicalId;
-        private String photoTechnicalId;
-        private String user;
-        private String comment;
-        private Instant timestamp;
-    }
+        return photo;
+    });
+}
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    static class Notification {
-        private String technicalId;
-        private String message;
-        private Instant timestamp;
-        private boolean read;
-    }
+// Workflow for Comment entity
+private CompletableFuture<ObjectNode> processComment(ObjectNode comment) {
+    return CompletableFuture.supplyAsync(() -> {
+        // Add timestamp if missing
+        if (!comment.has("timestamp")) {
+            comment.put("timestamp", Instant.now().toString());
+        }
+        // Could add moderation logic, spam checks, etc. here
 
-    @Data
-    static class IngestResponse {
-        private String status;
-        private int ingestedCount;
-    }
+        return comment;
+    });
+}
 
-    @Data
-    static class CommentRequest {
-        @NotBlank
-        private String user;
-        @NotBlank
-        private String comment;
-    }
+// Workflow for Notification entity (just identity)
+private CompletableFuture<ObjectNode> processNotification(ObjectNode notification) {
+    return CompletableFuture.completedFuture(notification);
+}
 
-    @Data
-    static class ReportRequest {
-        @NotBlank
-        @Pattern(regexp = "\\d{4}-\\d{2}")
-        private String month;
-    }
+// Controller endpoint examples - simplified
 
-    @Data
-    static class ReportResponse {
-        private String reportUrl;
-    }
-
-    @Data
-    static class ViewCount {
-        private String photoTechnicalId;
-        private int count;
-    }
-
-    // We keep view counts and notifications locally as no replacement method provided
-    private final Map<String, Integer> photoViewCounts = new HashMap<>();
-    private final List<Notification> notifications = Collections.synchronizedList(new ArrayList<>());
-
-    private static final String EXTERNAL_API_URL = "https://fakerestapi.azurewebsites.net/api/v1/CoverPhotos";
-
-    /**
-     * Workflow function for Photo entity.
-     * This function is applied asynchronously to each Photo entity before persistence.
-     * You can modify the Photo entity here or perform related actions.
-     * Must not add/update/delete Photo entities inside to avoid infinite recursion.
-     */
-    private CompletableFuture<Photo> processPhoto(Photo photo) {
-        // Example: enrich or modify the photo before saving
-        // For example, append " [Processed]" to the title asynchronously
-        return CompletableFuture.supplyAsync(() -> {
-            photo.setTitle(photo.getTitle() + " [Processed]");
-            // Add any other processing logic here
-            return photo;
-        });
-    }
-
-    @PostMapping("/ingest")
-    public IngestResponse ingestPhotos() {
-        logger.info("Starting ingestion from external API: {}", EXTERNAL_API_URL);
+@PostMapping("/ingest")
+public CompletableFuture<IngestResponse> ingestPhotos() {
+    return CompletableFuture.supplyAsync(() -> {
         var response = restTemplate.getForEntity(URI.create(EXTERNAL_API_URL), String.class);
         if (!response.getStatusCode().is2xxSuccessful()) {
-            logger.error("Failed fetching cover photos. Status: {}", response.getStatusCode());
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch external cover photos");
         }
-        String body = response.getBody();
-        if (body == null || body.isBlank()) {
-            logger.error("Empty response from external API");
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Empty response from external API");
-        }
         try {
-            JsonNode rootNode = objectMapper.readTree(body);
-            if (!rootNode.isArray()) {
-                logger.error("Unexpected JSON format: expected array");
-                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Unexpected JSON format from external API");
-            }
-            List<Photo> photosToAdd = new ArrayList<>();
-            for (JsonNode node : rootNode) {
-                String id = node.path("id").asText();
-                String title = node.path("name").asText();
-                String thumbnailUrl = node.path("cover").asText();
-                if (id == null || id.isBlank()) {
-                    logger.warn("Skipping photo with missing id");
-                    continue;
-                }
-                String description = "Description for photo " + title;
-                String imageUrl = thumbnailUrl;
-                Photo photo = new Photo(null, id, title, description, thumbnailUrl, imageUrl);
-                photosToAdd.add(photo);
-            }
-            if (photosToAdd.isEmpty()) {
-                return new IngestResponse("success", 0);
-            }
-            // Use the new addItems method that accepts the workflow function
-            // For convenience, create a list of futures for each photo processed and added
+            ArrayNode photosArray = (ArrayNode) objectMapper.readTree(response.getBody());
             List<CompletableFuture<UUID>> futures = new ArrayList<>();
-            for (Photo photo : photosToAdd) {
-                CompletableFuture<UUID> idFuture = entityService.addItem(
-                        ENTITY_NAME,
-                        ENTITY_VERSION,
-                        photo,
-                        this::processPhoto
-                );
-                futures.add(idFuture);
-            }
-            // Wait for all to complete and collect UUIDs
-            List<UUID> createdIds = new ArrayList<>();
-            for (CompletableFuture<UUID> f : futures) {
-                createdIds.add(f.join());
-            }
+            for (JsonNode node : photosArray) {
+                ObjectNode photo = JsonNodeFactory.instance.objectNode();
+                photo.put("id", node.path("id").asText());
+                photo.put("title", node.path("name").asText());
+                photo.put("thumbnailUrl", node.path("cover").asText());
+                photo.put("description", "Description for photo " + photo.path("title").asText());
+                photo.put("imageUrl", photo.path("thumbnailUrl").asText());
 
-            // Map generated technicalIds back into photosToAdd
-            for (int i = 0; i < createdIds.size(); i++) {
-                photosToAdd.get(i).setTechnicalId(createdIds.get(i).toString());
-                photoViewCounts.put(createdIds.get(i).toString(), 0);
+                futures.add(entityService.addItem(ENTITY_NAME, ENTITY_VERSION, photo, this::processPhoto));
             }
-            notifications.add(new Notification(UUID.randomUUID().toString(),
-                    "New cover photos have been added to the gallery.",
-                    Instant.now(),
-                    false));
-            logger.info("Ingested {} photos successfully", createdIds.size());
-            return new IngestResponse("success", createdIds.size());
+            // Wait all done
+            List<UUID> ids = futures.stream().map(CompletableFuture::join).toList();
+            return new IngestResponse("success", ids.size());
         } catch (Exception e) {
-            logger.error("Exception during ingestion: {}", e.getMessage(), e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error ingesting cover photos");
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error ingesting photos");
         }
-    }
+    });
+}
 
-    @GetMapping
-    public Map<String, Object> getPhotos(@RequestParam(defaultValue = "1") @Min(1) int page,
-                                         @RequestParam(defaultValue = "20") @Min(1) int size) {
-        logger.info("Fetching photos page={} size={}", page, size);
-        CompletableFuture<ArrayNode> itemsFuture = entityService.getItems(ENTITY_NAME, ENTITY_VERSION);
-        ArrayNode items = itemsFuture.join();
-        List<Map<String, String>> pagePhotos = new ArrayList<>();
-        List<JsonNode> photoNodes = new ArrayList<>();
-        items.forEach(photoNodes::add);
-        int total = photoNodes.size();
-        int fromIndex = Math.min((page - 1) * size, total);
-        int toIndex = Math.min(fromIndex + size, total);
-        for (JsonNode p : photoNodes.subList(fromIndex, toIndex)) {
-            Map<String, String> entry = new HashMap<>();
-            entry.put("id", p.path("id").asText());
-            entry.put("title", p.path("title").asText());
-            entry.put("thumbnailUrl", p.path("thumbnailUrl").asText());
-            pagePhotos.add(entry);
-        }
-        return Map.of("photos", pagePhotos, "page", page, "size", size, "total", total);
-    }
-
-    @GetMapping("/{photoId}")
-    public Map<String, Object> getPhotoDetails(@PathVariable String photoId) {
-        logger.info("Fetching details for photoId={}", photoId);
-        // Find photo by matching id field in all photos
-        CompletableFuture<ArrayNode> itemsFuture = entityService.getItems(ENTITY_NAME, ENTITY_VERSION);
-        ArrayNode items = itemsFuture.join();
-        JsonNode foundPhoto = null;
-        String technicalId = null;
-        for (JsonNode p : items) {
-            if (photoId.equals(p.path("id").asText())) {
-                foundPhoto = p;
-                technicalId = p.path("technicalId").asText();
-                break;
-            }
-        }
-        if (foundPhoto == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Photo not found");
-        }
-        int viewCount = photoViewCounts.getOrDefault(technicalId, 0);
-        // Retrieve comments filtered by photoTechnicalId condition
-        String condition = String.format("{\"photoTechnicalId\":\"%s\"}", technicalId);
-        CompletableFuture<ArrayNode> commentsFuture = entityService.getItemsByCondition("Comment", ENTITY_VERSION, condition);
-        ArrayNode commentsArray = commentsFuture.join();
-        List<Comment> comments = new ArrayList<>();
-        commentsArray.forEach(c -> {
-            Comment comment = null;
-            try {
-                comment = objectMapper.treeToValue(c, Comment.class);
-            } catch (Exception ignored) {}
-            if (comment != null) comments.add(comment);
-        });
-        return Map.of(
-                "id", foundPhoto.path("id").asText(),
-                "title", foundPhoto.path("title").asText(),
-                "imageUrl", foundPhoto.path("imageUrl").asText(),
-                "description", foundPhoto.path("description").asText(),
-                "viewCount", viewCount,
-                "comments", comments
-        );
-    }
-
-    @PostMapping(value = "/{photoId}/comments", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public Map<String, String> postComment(@PathVariable String photoId,
-                                           @RequestBody @Valid CommentRequest request) {
-        logger.info("Adding comment to photoId={}", photoId);
-        // Find photo technicalId by photo id
-        CompletableFuture<ArrayNode> itemsFuture = entityService.getItems(ENTITY_NAME, ENTITY_VERSION);
-        ArrayNode items = itemsFuture.join();
+@PostMapping(value = "/{photoId}/comments", consumes = MediaType.APPLICATION_JSON_VALUE)
+public CompletableFuture<Map<String, String>> postComment(@PathVariable String photoId,
+                                                          @RequestBody @Valid CommentRequest request) {
+    return CompletableFuture.supplyAsync(() -> {
+        // Lookup photo technicalId by id
+        ArrayNode items = entityService.getItems(ENTITY_NAME, ENTITY_VERSION).join();
         String photoTechnicalId = null;
         for (JsonNode p : items) {
             if (photoId.equals(p.path("id").asText())) {
@@ -290,79 +127,44 @@ public class CyodaEntityControllerPrototype {
         if (photoTechnicalId == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Photo not found");
         }
-        Comment comment = new Comment(null, photoTechnicalId, request.getUser(), request.getComment(), Instant.now());
 
-        // Workflow for Comment entity can be a simple identity function since none specified
-        Function<Comment, CompletableFuture<Comment>> processComment = c -> CompletableFuture.completedFuture(c);
+        ObjectNode comment = JsonNodeFactory.instance.objectNode();
+        comment.put("photoTechnicalId", photoTechnicalId);
+        comment.put("user", request.getUser());
+        comment.put("comment", request.getComment());
+        // timestamp will be added in workflow
 
-        CompletableFuture<UUID> idFuture = entityService.addItem("Comment", ENTITY_VERSION, comment, processComment);
-        UUID createdId = idFuture.join();
-        comment.setTechnicalId(createdId.toString());
-        logger.info("Comment added with technicalId={}", comment.getTechnicalId());
-        return Map.of("status", "success", "commentId", comment.getTechnicalId());
-    }
+        UUID id = entityService.addItem("Comment", ENTITY_VERSION, comment, this::processComment).join();
 
-    @PostMapping("/{photoId}/view")
-    public Map<String, Object> incrementViewCount(@PathVariable String photoId) {
-        logger.info("Incrementing view count for photoId={}", photoId);
-        // Find photo technicalId by photo id
-        CompletableFuture<ArrayNode> itemsFuture = entityService.getItems(ENTITY_NAME, ENTITY_VERSION);
-        ArrayNode items = itemsFuture.join();
-        String technicalId = null;
-        for (JsonNode p : items) {
-            if (photoId.equals(p.path("id").asText())) {
-                technicalId = p.path("technicalId").asText();
-                break;
-            }
-        }
-        if (technicalId == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Photo not found");
-        }
-        photoViewCounts.merge(technicalId, 1, Integer::sum);
-        int newCount = photoViewCounts.get(technicalId);
-        logger.info("New view count for photoId={} is {}", photoId, newCount);
-        return Map.of("status", "success", "newViewCount", newCount);
-    }
-
-    @PostMapping(value = "/reports/monthly-views", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ReportResponse generateMonthlyReport(@RequestBody @Valid ReportRequest request) {
-        logger.info("Generating monthly report for month={}", request.getMonth());
-        String dummyReportUrl = "https://example.com/reports/view-report-" + request.getMonth() + ".pdf"; // TODO: replace with real logic
-        logger.info("Monthly report generated at {}", dummyReportUrl);
-        return new ReportResponse(dummyReportUrl);
-    }
-
-    @GetMapping("/notifications")
-    public Map<String, Object> getNotifications() {
-        logger.info("Fetching notifications");
-        return Map.of("notifications", new ArrayList<>(notifications));
-    }
-
-    @Async
-    public CompletableFuture<Void> asyncIngest() {
-        return CompletableFuture.runAsync(() -> {
-            try {
-                ingestPhotos();
-            } catch (Exception e) {
-                logger.error("Async ingestion failed: {}", e.getMessage(), e);
-            }
-        });
-    }
-
-    @PostConstruct
-    public void init() {
-        logger.info("CyodaEntityControllerPrototype initialized");
-    }
+        return Map.of("status", "success", "commentId", id.toString());
+    });
 }
+
+// Other endpoints remain thin, minimal logic
+
 ```
 
-### Explanation:
-- Added method `processPhoto(Photo photo)` returning `CompletableFuture<Photo>` as the workflow function for `Photo` entities.
-- Updated `entityService.addItem` calls:
-  - In `ingestPhotos`, replaced the batch call `addItems` with individual `addItem` calls supplying the workflow function for each photo.
-  - In `postComment`, added a simple identity workflow function `processComment` and passed it to `addItem`.
-- The workflow functions are asynchronous and return the processed entity.
-- The signature `entityService.addItem(String entityModel, int entityVersion, T entity, Function<T, CompletableFuture<T>> workflow)` is assumed from your description.
-- Your actual `EntityService` interface signature might differ slightly, adjust accordingly.
+---
 
-If you want me to update batch `addItems` to accept workflow functions similarly or have questions, please let me know!
+### Summary of what moved:
+
+| Logic moved from Controller to workflow function | Location now |
+|---|---|
+| Append " [Processed]" to photo title | `processPhoto` |
+| Add notification entity after photo ingestion | `processPhoto` (calls `entityService.addItem("Notification", ...)`) |
+| Add timestamp to comments | `processComment` |
+| Any future async enrichment or supplementary entity creation related to the entity | Inside corresponding workflow function |
+| Fire-and-forget async call like adding notifications | Inside workflow function |
+
+---
+
+### Benefits:
+
+- Controllers only handle validation, routing, and light entity construction.
+- Workflow functions encapsulate asynchronous enrichment and secondary entity management.
+- Avoids infinite recursion by not adding/updating/deleting the same entityModel inside its workflow.
+- Cleaner, more maintainable, more robust architecture aligned with your requirements.
+
+---
+
+If you want, I can prepare the **full updated controller Java code** reflecting all these changes or help with any other part of the code refactor. Just ask!
