@@ -1,38 +1,3 @@
-Certainly! Moving asynchronous tasks and entity-related logic into the workflow function `processbook` will make your controller leaner, improve separation of concerns, and increase robustness. The controller will just handle HTTP requests and responses, while all entity processing, enrichment, and async side effects occur inside the workflow function asynchronously before persistence.
-
----
-
-### What tasks can be moved into `processbook`?
-
-1. **Entity state validation/correction** (e.g. `publicationYear` normalization) - already done.
-2. **Enrichment** with additional related entities or supplementary data.
-3. **Fire and forget async tasks** (e.g. logging, analytics, indexing).
-4. **Fetching and adding supplementary entities** (of different entity models).
-5. **Any processing that prepares the entity before saving**.
-
----
-
-### What *cannot* be done inside workflow function?
-
-- Adding/updating/deleting the *same* entity model (would cause infinite recursion).
-- Return type must be the transformed entity (ObjectNode), possibly asynchronously.
-
----
-
-### Approach:
-
-- Change workflow function signature to accept `ObjectNode` (entity data as JSON tree), not `Book` POJO, to allow free mutation.
-- Move the following async or processing logic inside the workflow:
-  - Correction of `publicationYear`.
-  - Supplementing entity with related data if needed.
-  - Fire and forget tasks (e.g. logging).
-- Controller simply calls `entityService.addItems` with entity list and workflow.
-
----
-
-### Updated code snippet with workflow function `processbook` and controller refactor
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -46,6 +11,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -57,6 +23,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
@@ -72,6 +40,12 @@ public class CyodaEntityControllerPrototype {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final String ENTITY_NAME = "book";
+
+    // Store job statuses for reports
+    private final Map<String, JobStatus> entityJobs = new ConcurrentHashMap<>();
+
+    // Store user search histories for recommendations
+    private final Map<String, List<String>> userSearchHistory = new ConcurrentHashMap<>();
 
     public CyodaEntityControllerPrototype(EntityService entityService) {
         this.entityService = entityService;
@@ -90,7 +64,7 @@ public class CyodaEntityControllerPrototype {
                 if (pubYear < 0) entity.put("publicationYear", 0);
             }
 
-            // Example: Enrich entity with a computed field (e.g. "isClassic": true if publicationYear < 1970)
+            // Add computed field "isClassic": true if publicationYear < 1970
             if (entity.has("publicationYear")) {
                 int pubYear = entity.get("publicationYear").asInt(0);
                 entity.put("isClassic", pubYear > 0 && pubYear < 1970);
@@ -99,24 +73,21 @@ public class CyodaEntityControllerPrototype {
             // Fire & forget async logging (non-blocking)
             CompletableFuture.runAsync(() -> {
                 logger.info("Persisting book entity with title: {}", entity.path("title").asText("[unknown]"));
-                // Potentially send analytics or indexing events here
+                // Additional analytics or indexing can be triggered here
             });
 
-            // Example: get/add supplementary entities of different entityModel (e.g., "authorProfile")
-            // Note: Must not add/update/delete entity of "book" here to avoid recursion.
+            // Add supplementary authorProfile entities asynchronously
             try {
                 if (entity.has("authors") && entity.get("authors").isArray()) {
                     ArrayNode authors = (ArrayNode) entity.get("authors");
                     for (JsonNode authorNode : authors) {
                         String authorName = authorNode.asText();
-                        // For demonstration, add authorProfile entity if not exists (pseudo-code)
-                        // Since addItem/updateItem/deleteItem of same entityModel forbidden, 
-                        // but different entityModels allowed:
+                        if (authorName == null || authorName.isEmpty()) continue;
                         ObjectNode authorProfile = objectMapper.createObjectNode();
                         authorProfile.put("name", authorName);
                         authorProfile.put("type", "authorProfile");
-                        // add asynchronously supplementary authorProfile entity, ignoring result
-                        entityService.addItem("authorProfile", ENTITY_VERSION, authorProfile, (Function<ObjectNode, CompletableFuture<ObjectNode>>) this::processauthorProfile);
+                        // Add supplementary entity of different entityModel with its own workflow
+                        entityService.addItem("authorProfile", ENTITY_VERSION, authorProfile, this::processauthorProfile);
                     }
                 }
             } catch (Exception e) {
@@ -128,12 +99,11 @@ public class CyodaEntityControllerPrototype {
     }
 
     /**
-     * Example workflow for a different entityModel "authorProfile".
-     * Can be used as workflow when adding authorProfile entities.
+     * Workflow function for authorProfile entity.
+     * Adds createdAt timestamp and can enrich entity further.
      */
     private CompletableFuture<ObjectNode> processauthorProfile(ObjectNode entity) {
         return CompletableFuture.supplyAsync(() -> {
-            // For example, add timestamp, validate fields, enrich etc.
             entity.put("createdAt", Instant.now().toString());
             return entity;
         });
@@ -210,15 +180,30 @@ public class CyodaEntityControllerPrototype {
         }
 
         if (!entitiesToAdd.isEmpty()) {
-            // Pass workflow function that processes each entity asynchronously before persistence
             CompletableFuture<List<UUID>> idsFuture = entityService.addItems(
                     ENTITY_NAME,
                     ENTITY_VERSION,
                     entitiesToAdd,
-                    this::processbook // workflow function for "book"
+                    this::processbook
             );
-            idsFuture.get(); // wait for completion
+            idsFuture.get();
         }
+
+        // Save user search history for recommendations asynchronously
+        CompletableFuture.runAsync(() -> {
+            String userId = "anonymous"; // In real app get user from security context or request
+            List<String> history = userSearchHistory.computeIfAbsent(userId, k -> Collections.synchronizedList(new ArrayList<>()));
+            for (Book b : results) {
+                if (b.getOpenLibraryId() != null) {
+                    synchronized (history) {
+                        if (!history.contains(b.getOpenLibraryId())) {
+                            history.add(b.getOpenLibraryId());
+                            if (history.size() > 100) history.remove(0); // keep history limited
+                        }
+                    }
+                }
+            }
+        });
 
         return ResponseEntity.ok(new SearchResponse(numFound, results));
     }
@@ -231,9 +216,112 @@ public class CyodaEntityControllerPrototype {
         return list;
     }
 
-    // (Other endpoints remain unchanged and minimal, no async logic here.)
+    @GetMapping("/{technicalId}")
+    public ResponseEntity<Book> getBookDetails(@PathVariable @NotBlank String technicalId) throws ExecutionException, InterruptedException {
+        logger.info("Get book details for technicalId: {}", technicalId);
+        UUID uuid;
+        try {
+            uuid = UUID.fromString(technicalId);
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid UUID format");
+        }
+        CompletableFuture<ObjectNode> itemFuture = entityService.getItem(ENTITY_NAME, ENTITY_VERSION, uuid);
+        ObjectNode obj = itemFuture.get();
+        if (obj == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Book not found");
+        Book book = objectMapper.convertValue(obj, Book.class);
+        return ResponseEntity.ok(book);
+    }
 
-    // DTOs and other classes remain the same as before...
+    @GetMapping("/filters")
+    public ResponseEntity<FiltersResponse> getFilters() throws ExecutionException, InterruptedException {
+        logger.info("Get available filters");
+        CompletableFuture<ArrayNode> itemsFuture = entityService.getItems(ENTITY_NAME, ENTITY_VERSION);
+        ArrayNode items = itemsFuture.get();
+        Set<String> genres = new HashSet<>();
+        Set<String> authors = new HashSet<>();
+        Set<Integer> years = new HashSet<>();
+        for (JsonNode node : items) {
+            Book b = objectMapper.convertValue(node, Book.class);
+            if (b.getGenres() != null) genres.addAll(b.getGenres());
+            if (b.getAuthors() != null) authors.addAll(b.getAuthors());
+            if (b.getPublicationYear() != 0) years.add(b.getPublicationYear());
+        }
+        List<Integer> sortedYears = new ArrayList<>(years);
+        Collections.sort(sortedYears);
+        return ResponseEntity.ok(new FiltersResponse(new ArrayList<>(genres), new ArrayList<>(authors), sortedYears));
+    }
+
+    @PostMapping("/reports/weekly")
+    public ResponseEntity<JobStatusResponse> generateWeeklyReport(@RequestBody @Valid ReportRequest request) {
+        logger.info("Trigger weekly report generation for week starting {}", request.getWeekStartDate());
+        String jobId = UUID.randomUUID().toString();
+        Instant now = Instant.now();
+        entityJobs.put(jobId, new JobStatus("processing", now));
+
+        // Move async report generation logic inside processbook as a fire-and-forget alternative is not applicable here because this is a report trigger endpoint.
+        // So we keep async here but ensure robust error handling.
+        CompletableFuture.runAsync(() -> {
+            try {
+                Thread.sleep(3000); // Simulate report generation
+                entityJobs.put(jobId, new JobStatus("completed", Instant.now()));
+                logger.info("Completed weekly report job {}", jobId);
+            } catch (InterruptedException e) {
+                logger.error("Weekly report job interrupted", e);
+                entityJobs.put(jobId, new JobStatus("failed", Instant.now()));
+                Thread.currentThread().interrupt();
+            }
+        });
+
+        return ResponseEntity.ok(new JobStatusResponse(jobId, "processing", now));
+    }
+
+    @GetMapping("/reports/weekly/{reportId}")
+    public ResponseEntity<WeeklyReport> getWeeklyReport(@PathVariable @NotBlank String reportId) {
+        logger.info("Get weekly report with id {}", reportId);
+        JobStatus status = entityJobs.get(reportId);
+        if (status == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Report job not found");
+        if (!"completed".equals(status.getStatus())) return ResponseEntity.status(HttpStatus.ACCEPTED).body(null);
+
+        // Return dummy report for demonstration
+        WeeklyReport report = new WeeklyReport(
+                List.of(new BookSearchCount("Sample Book", 42)),
+                new UserPreferences(List.of("Fantasy","Science Fiction"), List.of("Rowling","Asimov"))
+        );
+        return ResponseEntity.ok(report);
+    }
+
+    @PostMapping("/recommendations")
+    public ResponseEntity<RecommendationsResponse> getRecommendations(@RequestBody @Valid RecommendationRequest request) throws ExecutionException, InterruptedException {
+        logger.info("Get recommendations for user {}", request.getUserId());
+        List<String> history = userSearchHistory.getOrDefault(request.getUserId(), Collections.emptyList());
+        if (history.isEmpty()) return ResponseEntity.ok(new RecommendationsResponse(Collections.emptyList()));
+        CompletableFuture<ArrayNode> itemsFuture = entityService.getItems(ENTITY_NAME, ENTITY_VERSION);
+        ArrayNode allItems = itemsFuture.get();
+        Map<String, Book> bookMap = new HashMap<>();
+        for (JsonNode node : allItems) {
+            Book b = objectMapper.convertValue(node, Book.class);
+            String technicalId = node.path("technicalId").asText(null);
+            if (technicalId != null) bookMap.put(technicalId, b);
+        }
+
+        Set<Book> recs = new LinkedHashSet<>();
+        for (String id : history) {
+            Book b = bookMap.get(id);
+            if (b != null && b.getGenres() != null) {
+                for (Book c : bookMap.values()) {
+                    if (!c.getOpenLibraryId().equals(b.getOpenLibraryId()) && c.getGenres() != null &&
+                            c.getGenres().stream().anyMatch(g -> b.getGenres().contains(g))) {
+                        recs.add(c);
+                        if (recs.size() >= request.getLimit()) break;
+                    }
+                }
+            }
+            if (recs.size() >= request.getLimit()) break;
+        }
+        List<Book> list = new ArrayList<>(recs);
+        if (list.size() > request.getLimit()) list = list.subList(0, request.getLimit());
+        return ResponseEntity.ok(new RecommendationsResponse(list));
+    }
 
     @Data @NoArgsConstructor @AllArgsConstructor
     public static class SearchRequest {
@@ -266,28 +354,58 @@ public class CyodaEntityControllerPrototype {
         private int publicationYear;
         private String openLibraryId;
     }
+
+    @Data @NoArgsConstructor @AllArgsConstructor
+    public static class FiltersResponse {
+        private List<String> genres;
+        private List<String> authors;
+        private List<Integer> publicationYears;
+    }
+
+    @Data @NoArgsConstructor @AllArgsConstructor
+    public static class ReportRequest {
+        @NotBlank @Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}$") private String weekStartDate;
+    }
+
+    @Data @NoArgsConstructor @AllArgsConstructor
+    public static class JobStatus {
+        private String status;
+        private Instant timestamp;
+    }
+
+    @Data @NoArgsConstructor @AllArgsConstructor
+    public static class JobStatusResponse {
+        private String reportId;
+        private String status;
+        private Instant generatedAt;
+    }
+
+    @Data @NoArgsConstructor @AllArgsConstructor
+    public static class WeeklyReport {
+        private List<BookSearchCount> mostSearchedBooks;
+        private UserPreferences userPreferences;
+    }
+
+    @Data @NoArgsConstructor @AllArgsConstructor
+    public static class BookSearchCount {
+        private String title;
+        private int searchCount;
+    }
+
+    @Data @NoArgsConstructor @AllArgsConstructor
+    public static class UserPreferences {
+        private List<String> topGenres;
+        private List<String> topAuthors;
+    }
+
+    @Data @NoArgsConstructor @AllArgsConstructor
+    public static class RecommendationRequest {
+        @NotBlank private String userId;
+        @Min(1) private int limit;
+    }
+
+    @Data @NoArgsConstructor @AllArgsConstructor
+    public static class RecommendationsResponse {
+        private List<Book> recommendations;
+    }
 }
-```
-
----
-
-### Summary of changes:
-
-- **All async logic moved inside `processbook` workflow function**:
-  - Publication year normalization.
-  - Adding computed property `isClassic`.
-  - Fire-and-forget logging inside completable future.
-  - Adding supplementary entities `authorProfile` with their own workflow.
-- Controller `/search` endpoint now only:
-  - Fetches data from external API.
-  - Converts to `ObjectNode` entities.
-  - Calls `entityService.addItems` with `this::processbook` workflow function.
-  - Returns DTO response.
-- Workflow function receives and mutates raw `ObjectNode` entity.
-- Workflow can create and add supplementary entities safely (different entity models).
-- No mutation of the same entity model outside the workflow to avoid recursion.
-- This approach makes the controller simpler, more robust, and moves all persistence-related entity processing logic into the workflow function that runs asynchronously before persistence.
-
----
-
-If you want, I can help refactor other endpoints similarly or provide the full updated code.
