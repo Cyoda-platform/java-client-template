@@ -1,8 +1,9 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.*;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
@@ -25,16 +26,15 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
 
 @RestController
 @RequestMapping("/cyoda/books")
 @Validated
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -47,7 +47,7 @@ public class CyodaEntityControllerPrototype {
     // Store user search histories for recommendations
     private final Map<String, List<String>> userSearchHistory = new ConcurrentHashMap<>();
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService) {
         this.entityService = entityService;
     }
 
