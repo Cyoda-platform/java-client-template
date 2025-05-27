@@ -1,4 +1,3 @@
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -12,9 +11,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.server.ResponseStatusException;
 
 import javax.annotation.PostConstruct;
 import java.net.URI;
@@ -25,7 +25,11 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
+
 @Slf4j
+@Validated
 @RestController
 @RequestMapping("/api")
 public class EntityControllerPrototype {
@@ -35,181 +39,87 @@ public class EntityControllerPrototype {
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // In-memory mock DB for books, key = openLibraryId
     private final Map<String, Book> bookDb = new ConcurrentHashMap<>();
-
-    // Mock in-memory user search history: userId -> List of openLibraryIds searched
     private final Map<String, List<String>> userSearchHistory = new ConcurrentHashMap<>();
-
-    // Mock job store for weekly report generation
     private final Map<String, JobStatus> entityJobs = new ConcurrentHashMap<>();
 
-    /**
-     * POST /api/books/search
-     * Search books via Open Library API with filters.
-     */
     @PostMapping("/books/search")
-    public ResponseEntity<SearchResponse> searchBooks(@RequestBody SearchRequest request) {
-        logger.info("Search request received: query='{}', filters={}, page={}, pageSize={}",
-                request.getQuery(), request.getFilters(), request.getPage(), request.getPageSize());
-
+    public ResponseEntity<SearchResponse> searchBooks(@RequestBody @Valid SearchRequest request) {
+        logger.info("Search request received: query='{}', page={}, pageSize={}", request.getQuery(), request.getPage(), request.getPageSize());
         try {
-            // Build Open Library Search API URL
             StringBuilder url = new StringBuilder("https://openlibrary.org/search.json?");
-            if (request.getQuery() != null && !request.getQuery().isEmpty()) {
-                url.append("q=").append(URLEncoder.encode(request.getQuery(), StandardCharsets.UTF_8));
-            } else {
-                url.append("q=*"); // fallback to all
-            }
-
-            // Open Library supports filtering by author, subject (genre), and publish_year
-            // Apply filters as AND conditions by appending &author=...&subject=...&publish_year=...
+            url.append("q=").append(URLEncoder.encode(request.getQuery(), StandardCharsets.UTF_8));
             if (request.getFilters() != null) {
-                if (request.getFilters().getAuthor() != null && !request.getFilters().getAuthor().isEmpty()) {
-                    for (String author : request.getFilters().getAuthor()) {
-                        url.append("&author=").append(URLEncoder.encode(author, StandardCharsets.UTF_8));
-                    }
-                }
-                if (request.getFilters().getGenre() != null && !request.getFilters().getGenre().isEmpty()) {
-                    for (String genre : request.getFilters().getGenre()) {
-                        url.append("&subject=").append(URLEncoder.encode(genre, StandardCharsets.UTF_8));
-                    }
-                }
-                if (request.getFilters().getPublicationYear() != null) {
-                    Integer from = request.getFilters().getPublicationYear().getFrom();
-                    Integer to = request.getFilters().getPublicationYear().getTo();
-                    if (from != null) {
-                        url.append("&publish_year>").append(from);
-                    }
-                    if (to != null) {
-                        url.append("&publish_year<").append(to);
-                    }
-                }
+                Filters f = request.getFilters();
+                if (f.getAuthor() != null) for (String author : f.getAuthor()) url.append("&author=").append(URLEncoder.encode(author, StandardCharsets.UTF_8));
+                if (f.getGenre() != null) for (String genre : f.getGenre()) url.append("&subject=").append(URLEncoder.encode(genre, StandardCharsets.UTF_8));
+                if (f.getPublicationYearFrom() != null) url.append("&publish_year>").append(f.getPublicationYearFrom());
+                if (f.getPublicationYearTo() != null) url.append("&publish_year<").append(f.getPublicationYearTo());
             }
-
-            // Pagination
-            int page = request.getPage() != null && request.getPage() > 0 ? request.getPage() : 1;
-            int limit = request.getPageSize() != null && request.getPageSize() > 0 ? request.getPageSize() : 20;
-            url.append("&page=").append(page);
-            url.append("&limit=").append(limit);
-
+            url.append("&page=").append(request.getPage()).append("&limit=").append(request.getPageSize());
             logger.info("Calling Open Library API: {}", url);
             String responseStr = restTemplate.getForObject(new URI(url.toString()), String.class);
             JsonNode root = objectMapper.readTree(responseStr);
-
             int numFound = root.path("numFound").asInt(0);
             JsonNode docs = root.path("docs");
-
             List<Book> results = new ArrayList<>();
             for (JsonNode doc : docs) {
                 String title = doc.path("title").asText(null);
+                if (title == null) continue;
                 List<String> authors = new ArrayList<>();
-                if (doc.has("author_name")) {
-                    for (JsonNode authNode : doc.path("author_name")) {
-                        authors.add(authNode.asText());
-                    }
-                }
+                if (doc.has("author_name")) for (JsonNode n : doc.path("author_name")) authors.add(n.asText());
                 List<String> subjects = new ArrayList<>();
-                if (doc.has("subject")) {
-                    for (JsonNode subjNode : doc.path("subject")) {
-                        subjects.add(subjNode.asText());
-                    }
-                }
-                int publishYear = doc.has("first_publish_year") ? doc.path("first_publish_year").asInt(0) : 0;
-
+                if (doc.has("subject")) for (JsonNode n : doc.path("subject")) subjects.add(n.asText());
+                int year = doc.has("first_publish_year") ? doc.path("first_publish_year").asInt(0) : 0;
                 String coverId = doc.has("cover_i") ? doc.path("cover_i").asText("") : "";
-                String coverImageUrl = coverId.isEmpty()
-                        ? null
-                        : "https://covers.openlibrary.org/b/id/" + coverId + "-M.jpg";
-
-                String key = doc.path("key").asText(null); // e.g. "/works/OL12345W"
-                String openLibraryId = key != null ? key.replace("/works/", "") : null;
-
-                if (title != null && openLibraryId != null) {
-                    Book book = new Book(title, authors, coverImageUrl, subjects, publishYear, openLibraryId);
+                String coverImageUrl = coverId.isEmpty() ? null : "https://covers.openlibrary.org/b/id/" + coverId + "-M.jpg";
+                String key = doc.path("key").asText(null);
+                String id = key != null ? key.replace("/works/", "") : null;
+                if (id != null) {
+                    Book book = new Book(title, authors, coverImageUrl, subjects, year, id);
                     results.add(book);
-
-                    // Update local DB asynchronously - TODO: replace with proper persistence
-                    bookDb.put(openLibraryId, book);
+                    bookDb.put(id, book); // TODO: replace with persistence
                 }
             }
-
-            SearchResponse searchResponse = new SearchResponse(numFound, results);
-
-            return ResponseEntity.ok(searchResponse);
+            return ResponseEntity.ok(new SearchResponse(numFound, results));
         } catch (Exception e) {
             logger.error("Error during book search", e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to search books");
         }
     }
 
-    /**
-     * GET /api/books/{openLibraryId}
-     * Retrieve stored book details.
-     */
     @GetMapping("/books/{openLibraryId}")
-    public ResponseEntity<Book> getBookDetails(@PathVariable String openLibraryId) {
+    public ResponseEntity<Book> getBookDetails(@PathVariable @NotBlank String openLibraryId) {
         logger.info("Get book details for id: {}", openLibraryId);
         Book book = bookDb.get(openLibraryId);
-        if (book == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Book not found");
-        }
+        if (book == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Book not found");
         return ResponseEntity.ok(book);
     }
 
-    /**
-     * GET /api/filters
-     * Return available genres, authors, and publication years.
-     * For prototype, return mock data from current DB.
-     */
     @GetMapping("/filters")
     public ResponseEntity<FiltersResponse> getFilters() {
         logger.info("Get available filters");
-
-        Set<String> genres = new HashSet<>();
-        Set<String> authors = new HashSet<>();
+        Set<String> genres = new HashSet<>(), authors = new HashSet<>();
         Set<Integer> years = new HashSet<>();
-
-        for (Book book : bookDb.values()) {
-            if (book.getGenres() != null) genres.addAll(book.getGenres());
-            if (book.getAuthors() != null) authors.addAll(book.getAuthors());
-            if (book.getPublicationYear() != 0) years.add(book.getPublicationYear());
+        for (Book b : bookDb.values()) {
+            if (b.getGenres() != null) genres.addAll(b.getGenres());
+            if (b.getAuthors() != null) authors.addAll(b.getAuthors());
+            if (b.getPublicationYear() != 0) years.add(b.getPublicationYear());
         }
-
         List<Integer> sortedYears = new ArrayList<>(years);
         Collections.sort(sortedYears);
-
-        FiltersResponse response = new FiltersResponse(
-                new ArrayList<>(genres),
-                new ArrayList<>(authors),
-                sortedYears
-        );
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(new FiltersResponse(new ArrayList<>(genres), new ArrayList<>(authors), sortedYears));
     }
 
-    /**
-     * POST /api/reports/weekly
-     * Trigger weekly report generation (mocked).
-     */
     @PostMapping("/reports/weekly")
-    public ResponseEntity<JobStatus> generateWeeklyReport(@RequestBody ReportRequest request) {
+    public ResponseEntity<JobStatusResponse> generateWeeklyReport(@RequestBody @Valid ReportRequest request) {
         logger.info("Trigger weekly report generation for week starting {}", request.getWeekStartDate());
-
         String jobId = UUID.randomUUID().toString();
-        Instant requestedAt = Instant.now();
-
-        JobStatus jobStatus = new JobStatus("processing", requestedAt);
-        entityJobs.put(jobId, jobStatus);
-
-        // Fire-and-forget async processing
+        Instant now = Instant.now();
+        entityJobs.put(jobId, new JobStatus("processing", now));
         CompletableFuture.runAsync(() -> {
             try {
-                logger.info("Started processing weekly report job {}", jobId);
-                Thread.sleep(3000); // simulate long running task
-
-                // TODO: Implement actual aggregation logic here.
-
+                Thread.sleep(3000);
                 entityJobs.put(jobId, new JobStatus("completed", Instant.now()));
                 logger.info("Completed weekly report job {}", jobId);
             } catch (InterruptedException e) {
@@ -217,121 +127,74 @@ public class EntityControllerPrototype {
                 entityJobs.put(jobId, new JobStatus("failed", Instant.now()));
             }
         });
-
-        return ResponseEntity.ok(new JobStatusResponse(jobId, jobStatus.getStatus(), jobStatus.getTimestamp()));
+        return ResponseEntity.ok(new JobStatusResponse(jobId, "processing", now));
     }
 
-    /**
-     * GET /api/reports/weekly/{reportId}
-     * Retrieve weekly report (mocked).
-     */
     @GetMapping("/reports/weekly/{reportId}")
-    public ResponseEntity<WeeklyReport> getWeeklyReport(@PathVariable String reportId) {
+    public ResponseEntity<WeeklyReport> getWeeklyReport(@PathVariable @NotBlank String reportId) {
         logger.info("Get weekly report with id {}", reportId);
-        JobStatus jobStatus = entityJobs.get(reportId);
-        if (jobStatus == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Report job not found");
-        }
-        if (!"completed".equals(jobStatus.getStatus())) {
-            return ResponseEntity.status(HttpStatus.ACCEPTED).body(null);
-        }
-
-        // TODO: Replace with real report data
+        JobStatus status = entityJobs.get(reportId);
+        if (status == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Report job not found");
+        if (!"completed".equals(status.getStatus())) return ResponseEntity.status(HttpStatus.ACCEPTED).body(null);
         WeeklyReport report = new WeeklyReport(
-                List.of(new BookSearchCount("Sample Book", 42)),
-                new UserPreferences(List.of("Fantasy", "Science Fiction"), List.of("J. K. Rowling", "Isaac Asimov"))
+            List.of(new BookSearchCount("Sample Book", 42)),
+            new UserPreferences(List.of("Fantasy","Science Fiction"), List.of("Rowling","Asimov"))
         );
-
         return ResponseEntity.ok(report);
     }
 
-    /**
-     * POST /api/recommendations
-     * Provide personalized recommendations based on user search history.
-     */
     @PostMapping("/recommendations")
-    public ResponseEntity<RecommendationsResponse> getRecommendations(@RequestBody RecommendationRequest request) {
+    public ResponseEntity<RecommendationsResponse> getRecommendations(@RequestBody @Valid RecommendationRequest request) {
         logger.info("Get recommendations for user {}", request.getUserId());
-
-        List<String> searchedBookIds = userSearchHistory.getOrDefault(request.getUserId(), Collections.emptyList());
-
-        // TODO: Replace with real recommendation logic
-        Set<Book> recommended = new HashSet<>();
-        for (String bookId : searchedBookIds) {
-            Book b = bookDb.get(bookId);
-            if (b != null) {
-                // Add books with same genre as recommendations
-                if (b.getGenres() != null) {
-                    for (Book candidate : bookDb.values()) {
-                        if (!candidate.getOpenLibraryId().equals(bookId) &&
-                                candidate.getGenres() != null &&
-                                candidate.getGenres().stream().anyMatch(g -> b.getGenres().contains(g))) {
-                            recommended.add(candidate);
-                            if (recommended.size() >= request.getLimit()) break;
-                        }
+        List<String> history = userSearchHistory.getOrDefault(request.getUserId(), Collections.emptyList());
+        Set<Book> recs = new HashSet<>();
+        for (String id : history) {
+            Book b = bookDb.get(id);
+            if (b != null && b.getGenres() != null) {
+                for (Book c : bookDb.values()) {
+                    if (!c.getOpenLibraryId().equals(id) && c.getGenres().stream().anyMatch(g -> b.getGenres().contains(g))) {
+                        recs.add(c);
+                        if (recs.size() >= request.getLimit()) break;
                     }
                 }
             }
-            if (recommended.size() >= request.getLimit()) break;
+            if (recs.size() >= request.getLimit()) break;
         }
-
-        List<Book> recList = new ArrayList<>(recommended);
-        if (recList.size() > request.getLimit()) {
-            recList = recList.subList(0, request.getLimit());
-        }
-
-        return ResponseEntity.ok(new RecommendationsResponse(recList));
+        List<Book> list = new ArrayList<>(recs);
+        if (list.size() > request.getLimit()) list = list.subList(0, request.getLimit());
+        return ResponseEntity.ok(new RecommendationsResponse(list));
     }
-
-    // --- Exception Handling ---
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<Map<String, String>> handleResponseStatusException(ResponseStatusException e) {
-        logger.error("API error: {}", e.getReason());
-        Map<String, String> error = Map.of(
-                "error", e.getReason(),
-                "status", String.valueOf(e.getStatusCode().value())
-        );
-        return new ResponseEntity<>(error, e.getStatusCode());
+        Map<String, String> err = Map.of("error", e.getReason(), "status", String.valueOf(e.getStatusCode().value()));
+        return new ResponseEntity<>(err, e.getStatusCode());
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, String>> handleGenericException(Exception e) {
-        logger.error("Unexpected error", e);
-        Map<String, String> error = Map.of(
-                "error", "Internal Server Error",
-                "status", "500"
-        );
-        return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
+        Map<String, String> err = Map.of("error", "Internal Server Error", "status", "500");
+        return new ResponseEntity<>(err, HttpStatus.INTERNAL_SERVER_ERROR);
     }
-
-    // --- Data Classes ---
 
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     public static class SearchRequest {
-        private String query;
-        private Filters filters;
-        private Integer page;
-        private Integer pageSize;
+        @NotBlank private String query;
+        @Valid private Filters filters;
+        @NotNull @Min(1) private Integer page;
+        @NotNull @Min(1) private Integer pageSize;
     }
 
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     public static class Filters {
-        private List<String> genre;
-        private PubYearRange publicationYear;
-        private List<String> author;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class PubYearRange {
-        private Integer from;
-        private Integer to;
+        @Size(min = 1) private List<@NotBlank String> genre;
+        @Min(0) private Integer publicationYearFrom;
+        @Min(0) private Integer publicationYearTo;
+        @Size(min = 1) private List<@NotBlank String> author;
     }
 
     @Data
@@ -367,7 +230,7 @@ public class EntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class ReportRequest {
-        private String weekStartDate;
+        @NotBlank @Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}$") private String weekStartDate;
     }
 
     @Data
@@ -415,8 +278,8 @@ public class EntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class RecommendationRequest {
-        private String userId;
-        private int limit;
+        @NotBlank private String userId;
+        @Min(1) private int limit;
     }
 
     @Data
@@ -426,4 +289,3 @@ public class EntityControllerPrototype {
         private List<Book> recommendations;
     }
 }
-```
