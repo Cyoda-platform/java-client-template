@@ -1,0 +1,74 @@
+{
+    "description": "Workflow managing book entity lifecycle and processing",
+    "name": "book_entity_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "end_state": "PublicationYearNormalized",
+            "end_state_description": "Publication year normalized",
+            "name": "normalize_publication_year",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Normalize publicationYear to ensure non-negative",
+                        "name": "processNormalizePublicationYear"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "end_state": "IsClassicAdded",
+            "end_state_description": "Computed isClassic flag added",
+            "name": "add_is_classic_flag",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Add computed isClassic field based on publicationYear",
+                        "name": "processAddIsClassic"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "PublicationYearNormalized",
+            "start_state_description": "Publication year normalized"
+        },
+        {
+            "automated": true,
+            "end_state": "AsyncLoggingDone",
+            "end_state_description": "Asynchronous logging triggered",
+            "name": "async_logging",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Fire and forget async logging for analytics",
+                        "name": "processAsyncLogging"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "IsClassicAdded",
+            "start_state_description": "Computed isClassic flag added"
+        },
+        {
+            "automated": true,
+            "end_state": "AuthorProfilesAdded",
+            "end_state_description": "Supplementary authorProfile entities added",
+            "name": "add_author_profiles",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Add supplementary authorProfile entities asynchronously",
+                        "name": "processAddAuthorProfiles"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "AsyncLoggingDone",
+            "start_state_description": "Asynchronous logging triggered"
+        }
+    ]
+}
