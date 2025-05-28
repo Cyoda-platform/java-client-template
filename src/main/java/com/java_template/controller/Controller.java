@@ -1,4 +1,4 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -29,9 +29,9 @@ import static com.java_template.common.config.Config.*;
 @RestController
 @RequestMapping("/cyoda-entity")
 @Validated
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -41,7 +41,7 @@ public class CyodaEntityControllerPrototype {
     private static final String ENTITY_NAME_USER_BATCH = "UserBatch";
     private static final String ENTITY_NAME_MONTHLY_REPORT = "MonthlyReport";
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService) {
         this.entityService = entityService;
     }
 
@@ -200,7 +200,7 @@ public class CyodaEntityControllerPrototype {
 
         CompletableFuture.runAsync(() -> {
             try {
-                logger.info("User entity processed for persistence: id={}, userName=", userEntity.path("id").asText(""), userEntity.path("userName").asText(""));
+                logger.info("User entity processed for persistence: id={}, userName={}", userEntity.path("id").asText(""), userEntity.path("userName").asText(""));
             } catch (Exception e) {
                 logger.warn("Exception in async side effect of processUser: ", e);
             }
