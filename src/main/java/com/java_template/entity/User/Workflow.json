@@ -1,0 +1,96 @@
+{
+    "description": "Workflow for batch processing of user data from ingestion to publishing",
+    "name": "user_batch_processing_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Ingest user data from external source",
+            "end_state": "User_data_ingested",
+            "end_state_description": "User data has been ingested",
+            "name": "ingest_user_data",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processIngestion"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Transform ingested user data",
+            "end_state": "User_data_transformed",
+            "end_state_description": "User data has been transformed",
+            "name": "transform_user_data",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processTransformation"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "User_data_ingested",
+            "start_state_description": "User data has been ingested"
+        },
+        {
+            "automated": true,
+            "description": "Store transformed user data",
+            "end_state": "User_data_stored",
+            "end_state_description": "User data has been stored",
+            "name": "store_user_data",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processStorage"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "User_data_transformed",
+            "start_state_description": "User data has been transformed"
+        },
+        {
+            "automated": true,
+            "description": "Generate monthly report for stored user data",
+            "end_state": "Monthly_report_generated",
+            "end_state_description": "Monthly report has been generated",
+            "name": "generate_monthly_report",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processReporting"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "User_data_stored",
+            "start_state_description": "User data has been stored"
+        },
+        {
+            "automated": true,
+            "description": "Publish the generated monthly report",
+            "end_state": "Monthly_report_published",
+            "end_state_description": "Monthly report has been published",
+            "name": "publish_monthly_report",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processPublishing"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Monthly_report_generated",
+            "start_state_description": "Monthly report has been generated"
+        }
+    ]
+}
