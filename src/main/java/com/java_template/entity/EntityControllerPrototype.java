@@ -1,8 +1,13 @@
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -11,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -25,6 +31,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
+@Validated
 @RestController
 @RequestMapping("/recipes")
 public class EntityControllerPrototype {
@@ -33,13 +40,8 @@ public class EntityControllerPrototype {
     private final Map<String, WorkflowState> workflowStates = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // Sample states for state machine
     enum WorkflowState {
-        DRAFT,
-        SUBMITTED,
-        APPROVED,
-        PUBLISHED,
-        REJECTED
+        DRAFT, SUBMITTED, APPROVED, PUBLISHED, REJECTED
     }
 
     @PostConstruct
@@ -63,18 +65,32 @@ public class EntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     static class CreateUpdateRecipeRequest {
+        @NotBlank
+        @Size(max = 100)
         private String name;
-        private List<String> ingredients;
+
+        @NotBlank
+        private String ingredients; // CSV format
+
+        @NotBlank
+        @Size(max = 1000)
         private String instructions;
+
+        @NotNull
+        @Min(1)
         private Integer servings;
-        private String state; // optional in create, required in update
+
+        @Pattern(regexp = "DRAFT|SUBMITTED|APPROVED|PUBLISHED|REJECTED")
+        private String state;
     }
 
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     static class EventRequest {
-        private String eventType; // e.g. submit, approve, reject
+        @NotBlank
+        @Pattern(regexp = "(?i)submit|approve|publish|reject")
+        private String eventType;
     }
 
     @Data
@@ -93,168 +109,92 @@ public class EntityControllerPrototype {
         private String message;
     }
 
-    /**
-     * POST /recipes
-     * Create a new pumpkin wings recipe.
-     * Business logic or external calls can be added here.
-     */
-    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE,
-                 produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<ApiResponse> createRecipe(@RequestBody CreateUpdateRecipeRequest request) {
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse> createRecipe(@RequestBody @Valid CreateUpdateRecipeRequest request) {
         log.info("Received create recipe request: {}", request);
-
-        // Basic validation
-        if (request.getName() == null || request.getName().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Recipe name is required");
-        }
-        if (request.getIngredients() == null || request.getIngredients().isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ingredients are required");
-        }
-
         String newId = UUID.randomUUID().toString();
-        WorkflowState initialState = WorkflowState.DRAFT;
-        Recipe newRecipe = new Recipe(
-                newId,
-                request.getName(),
-                request.getIngredients(),
-                request.getInstructions(),
-                request.getServings(),
-                initialState
-        );
-
+        List<String> list = Arrays.asList(request.getIngredients().split(","));
+        Recipe newRecipe = new Recipe(newId, request.getName(), list, request.getInstructions(), request.getServings(), WorkflowState.DRAFT);
         recipeStore.put(newId, newRecipe);
-        workflowStates.put(newId, initialState);
-
+        workflowStates.put(newId, WorkflowState.DRAFT);
         log.info("Recipe created with ID {}", newId);
         return ResponseEntity.created(URI.create("/recipes/" + newId))
                 .body(new ApiResponse(newId, "created", "Recipe created successfully"));
     }
 
-    /**
-     * POST /recipes/{recipeId}
-     * Update an existing recipe or trigger workflow state change.
-     */
-    @PostMapping(value = "/{recipeId}",
-            consumes = MediaType.APPLICATION_JSON_VALUE,
-            produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<ApiResponse> updateRecipe(
-            @PathVariable String recipeId,
-            @RequestBody CreateUpdateRecipeRequest request) {
+    @PostMapping(value = "/{recipeId}", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse> updateRecipe(@PathVariable String recipeId, @RequestBody @Valid CreateUpdateRecipeRequest request) {
         log.info("Received update recipe request for ID {}: {}", recipeId, request);
-
         Recipe existing = recipeStore.get(recipeId);
-        if (existing == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Recipe not found");
-        }
-
-        // Update fields if provided
-        if (request.getName() != null) existing.setName(request.getName());
-        if (request.getIngredients() != null) existing.setIngredients(request.getIngredients());
-        if (request.getInstructions() != null) existing.setInstructions(request.getInstructions());
-        if (request.getServings() != null) existing.setServings(request.getServings());
-
-        // Handle state update if provided and valid
+        if (existing == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Recipe not found");
+        existing.setName(request.getName());
+        existing.setIngredients(Arrays.asList(request.getIngredients().split(",")));
+        existing.setInstructions(request.getInstructions());
+        existing.setServings(request.getServings());
         if (request.getState() != null) {
-            try {
-                WorkflowState newState = WorkflowState.valueOf(request.getState().toUpperCase(Locale.ROOT));
-                existing.setState(newState);
-                workflowStates.put(recipeId, newState);
-            } catch (IllegalArgumentException e) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid state value");
-            }
+            WorkflowState newState;
+            try { newState = WorkflowState.valueOf(request.getState()); }
+            catch (IllegalArgumentException e) { throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid state"); }
+            existing.setState(newState);
+            workflowStates.put(recipeId, newState);
         }
-
         recipeStore.put(recipeId, existing);
-
         log.info("Recipe with ID {} updated", recipeId);
         return ResponseEntity.ok(new ApiResponse(recipeId, "updated", "Recipe updated successfully"));
     }
 
-    /**
-     * POST /recipes/{recipeId}/events
-     * Trigger an event on the recipe entity to change workflow state.
-     */
-    @PostMapping(value = "/{recipeId}/events",
-            consumes = MediaType.APPLICATION_JSON_VALUE,
-            produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<EventResponse> triggerEvent(
-            @PathVariable String recipeId,
-            @RequestBody EventRequest eventRequest) {
+    @PostMapping(value = "/{recipeId}/events", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<EventResponse> triggerEvent(@PathVariable String recipeId, @RequestBody @Valid EventRequest eventRequest) {
         log.info("Triggering event '{}' on recipe {}", eventRequest.getEventType(), recipeId);
-
         Recipe recipe = recipeStore.get(recipeId);
-        if (recipe == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Recipe not found");
-        }
-
+        if (recipe == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Recipe not found");
         WorkflowState currentState = workflowStates.getOrDefault(recipeId, WorkflowState.DRAFT);
         WorkflowState newState = currentState;
-
-        String event = eventRequest.getEventType().toLowerCase(Locale.ROOT);
-        switch (event) {
+        switch (eventRequest.getEventType().toLowerCase()) {
             case "submit":
                 if (currentState == WorkflowState.DRAFT) newState = WorkflowState.SUBMITTED;
-                else throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Submit event invalid in current state");
+                else throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Submit invalid");
                 break;
             case "approve":
                 if (currentState == WorkflowState.SUBMITTED) newState = WorkflowState.APPROVED;
-                else throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Approve event invalid in current state");
+                else throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Approve invalid");
                 break;
             case "publish":
                 if (currentState == WorkflowState.APPROVED) newState = WorkflowState.PUBLISHED;
-                else throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Publish event invalid in current state");
+                else throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Publish invalid");
                 break;
             case "reject":
                 if (currentState == WorkflowState.SUBMITTED) newState = WorkflowState.REJECTED;
-                else throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Reject event invalid in current state");
+                else throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Reject invalid");
                 break;
             default:
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown event type");
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown event");
         }
-
         recipe.setState(newState);
         workflowStates.put(recipeId, newState);
         recipeStore.put(recipeId, recipe);
-
-        log.info("Recipe {} state changed from {} to {}", recipeId, currentState, newState);
-
-        // TODO: Fire-and-forget async processing if needed
-        CompletableFuture.runAsync(() -> {
-            logger.info("Async workflow processing for recipe {}", recipeId);
-            // Placeholder for actual async workflow logic
-        });
-
-        return ResponseEntity.ok(new EventResponse(recipeId, newState.name(), "Event processed successfully"));
+        CompletableFuture.runAsync(() -> log.info("Async workflow for recipe {}", recipeId));
+        return ResponseEntity.ok(new EventResponse(recipeId, newState.name(), "Event processed"));
     }
 
-    /**
-     * GET /recipes/{recipeId}
-     * Get details of a specific recipe.
-     */
-    @GetMapping(value = "/{recipeId}",
-            produces = MediaType.APPLICATION_JSON_VALUE)
+    @GetMapping(value = "/{recipeId}", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Recipe> getRecipe(@PathVariable String recipeId) {
-        log.info("Fetching recipe details for ID {}", recipeId);
-
+        log.info("Fetching recipe {}", recipeId);
         Recipe recipe = recipeStore.get(recipeId);
-        if (recipe == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Recipe not found");
-        }
+        if (recipe == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Recipe not found");
         return ResponseEntity.ok(recipe);
     }
 
-    /**
-     * GET /recipes
-     * List recipes with optional filter by state.
-     */
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<List<RecipeSummary>> listRecipes(@RequestParam(name = "state", required = false) String state) {
-        log.info("Listing recipes with state filter: {}", state);
-
+    public ResponseEntity<List<RecipeSummary>> listRecipes(
+        @RequestParam(name = "state", required = false)
+        @Pattern(regexp = "DRAFT|SUBMITTED|APPROVED|PUBLISHED|REJECTED")
+        String state) {
+        log.info("Listing recipes filter state: {}", state);
         List<RecipeSummary> result = new ArrayList<>();
-        for (Recipe recipe : recipeStore.values()) {
-            if (state == null || recipe.getState().name().equalsIgnoreCase(state)) {
-                result.add(new RecipeSummary(recipe.getRecipeId(), recipe.getName(), recipe.getState().name()));
+        for (Recipe r : recipeStore.values()) {
+            if (state == null || r.getState().name().equals(state)) {
+                result.add(new RecipeSummary(r.getRecipeId(), r.getName(), r.getState().name()));
             }
         }
         return ResponseEntity.ok(result);
@@ -268,41 +208,30 @@ public class EntityControllerPrototype {
         private String state;
     }
 
-    /**
-     * Example external API call: (Mock)
-     * Fetch some external data, parse JSON with ObjectMapper.readTree(...)
-     * TODO: Replace with actual external API URL and logic.
-     */
     @PostMapping(value = "/external-data", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<JsonNode> fetchExternalData() {
         log.info("Fetching external data (mock)");
-
         try {
             HttpClient client = HttpClient.newHttpClient();
-            HttpRequest request = HttpRequest.newBuilder()
-                    // TODO: Replace with real external API URL
-                    .uri(URI.create("https://jsonplaceholder.typicode.com/todos/1"))
-                    .GET()
-                    .build();
-
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            JsonNode jsonNode = objectMapper.readTree(response.body());
-
-            return ResponseEntity.ok(jsonNode);
+            HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create("https://jsonplaceholder.typicode.com/todos/1"))
+                .GET()
+                .build();
+            HttpResponse<String> resp = client.send(req, HttpResponse.BodyHandlers.ofString());
+            JsonNode node = objectMapper.readTree(resp.body());
+            return ResponseEntity.ok(node);
         } catch (Exception e) {
             log.error("Error fetching external data", e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to fetch external data");
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed external data");
         }
     }
 
-    // Minimal global exception handler for ResponseStatusException
     @ExceptionHandler(ResponseStatusException.class)
-    public ResponseEntity<Map<String, Object>> handleResponseStatusException(ResponseStatusException ex) {
-        Map<String, Object> error = new HashMap<>();
-        error.put("status", ex.getStatusCode().value());
-        error.put("error", ex.getReason());
-        log.error("ResponseStatusException: {}", ex.getReason());
-        return new ResponseEntity<>(error, ex.getStatusCode());
+    public ResponseEntity<Map<String, Object>> handleEx(ResponseStatusException ex) {
+        Map<String, Object> err = new HashMap<>();
+        err.put("status", ex.getStatusCode().value());
+        err.put("error", ex.getReason());
+        log.error("Error: {}", ex.getReason());
+        return new ResponseEntity<>(err, ex.getStatusCode());
     }
 }
-```
