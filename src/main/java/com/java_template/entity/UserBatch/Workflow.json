@@ -1,0 +1,78 @@
+{
+    "description": "Workflow for batch processing user data from ingestion to publishing report",
+    "name": "user_batch_processing_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start batch processing from initial state",
+            "end_state": "Users_fetched",
+            "end_state_description": "Users have been fetched from external API",
+            "name": "start_batch_processing",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processFetchUsers"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Store fetched users",
+            "end_state": "Users_stored",
+            "end_state_description": "Users have been stored",
+            "name": "store_users",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processStoreUsers"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Users_fetched",
+            "start_state_description": "Users have been fetched from external API"
+        },
+        {
+            "automated": true,
+            "description": "Generate monthly report",
+            "end_state": "Report_generated",
+            "end_state_description": "Monthly report has been generated",
+            "name": "generate_report",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processGenerateMonthlyReport"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Users_stored",
+            "start_state_description": "Users have been stored"
+        },
+        {
+            "automated": true,
+            "description": "Send monthly report email to admin",
+            "end_state": "Report_email_sent",
+            "end_state_description": "Monthly report email has been sent",
+            "name": "send_report_email",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSendReportEmail"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Report_generated",
+            "start_state_description": "Monthly report has been generated"
+        }
+    ]
+}
