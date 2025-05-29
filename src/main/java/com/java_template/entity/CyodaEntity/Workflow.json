@@ -1,0 +1,60 @@
+{
+    "description": "Workflow for pet search and enrichment",
+    "name": "pet_search_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Normalize availability field by trimming and uppercasing",
+            "end_state": "Availability_normalized",
+            "end_state_description": "Availability field normalized",
+            "name": "normalize_availability",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processNormalizeAvailability"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Add or update the processedAt timestamp",
+            "end_state": "Timestamp_enriched",
+            "end_state_description": "processedAt timestamp added or updated",
+            "name": "enrich_timestamp",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processEnrichTimestamp"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Availability_normalized",
+            "start_state_description": "Availability normalized"
+        },
+        {
+            "automated": true,
+            "description": "Fetch external pets and add supplementary entities asynchronously",
+            "end_state": "External_pets_fetched_and_processed",
+            "end_state_description": "External pets fetched and supplementary entities processed",
+            "name": "fetch_external_pets",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processFetchExternalPets"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Timestamp_enriched",
+            "start_state_description": "Timestamp enriched"
+        }
+    ]
+}
