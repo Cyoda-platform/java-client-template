@@ -1,20 +1,8 @@
-Certainly! Moving asynchronous tasks and related logic into the workflow function (`processPet`) is the right approach for separation of concerns, making controllers thinner and logic reusable and centralized.
-
-Below is the updated complete Java code where:
-
-- All asynchronous or fire-and-forget tasks (like logging, triggering workflows, setting default values) are moved inside `processPet`.
-- The input entity for workflow is now handled as `ObjectNode` (JSON tree) to allow flexible modification.
-- Controller methods simply invoke `entityService` methods with the workflow function and return results.
-- Any status update workflow actions are moved inside the workflow function.
-- Controllers no longer contain async workflow triggers or state-changing logic beyond basic request validation and calling service.
-
----
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import jakarta.validation.Valid;
@@ -35,7 +23,6 @@ import javax.annotation.PostConstruct;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.java_template.common.config.Config.*;
@@ -112,32 +99,34 @@ public class CyodaEntityControllerPrototype {
     private CompletableFuture<ObjectNode> processPet(ObjectNode pet) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                // Log basic info
+                // Extract fields safely
                 String name = pet.hasNonNull("name") ? pet.get("name").asText() : "unknown";
                 String type = pet.hasNonNull("type") ? pet.get("type").asText() : "unknown";
                 String status = pet.hasNonNull("status") ? pet.get("status").asText() : "unknown";
+
                 logger.info("Workflow processPet invoked for pet name='{}', type='{}', status='{}'", name, type, status);
 
-                // Ensure description is set
-                if (!pet.hasNonNull("description") || pet.get("description").asText().isEmpty()) {
+                // Ensure description is set to a default if missing or empty
+                if (!pet.hasNonNull("description") || pet.get("description").asText().trim().isEmpty()) {
                     pet.put("description", "No description provided");
                 }
 
-                // Example: if status changed or is "new", we could trigger some async side-effect here
-                // Here you can perform get/add of other entities (different entityModel), e.g. logging, events, stats, etc.
-                // For demo, let's just log and simulate async side action:
-
-                // Simulate async side effect (e.g. sending notification)
+                // Example: If needed, perform async side-effect like sending notification/email/logging, etc.
                 CompletableFuture.runAsync(() -> {
-                    logger.info("Async side-effect: Notifying about pet '{}', status '{}'", name, status);
-                    // Any async fire-and-forget logic here
+                    try {
+                        logger.info("Async side-effect: notifying about pet '{}', status '{}'", name, status);
+                        // Insert async side-effect code here (e.g. publishing events, updating other entities of different model)
+                    } catch (Exception e) {
+                        logger.error("Error in async side-effect in processPet workflow", e);
+                    }
                 });
 
-                // Return modified entity
+                // Additional workflow logic can be added here, e.g. enrich pet data from other entities
+
                 return pet;
             } catch (Exception e) {
                 logger.error("Error in processPet workflow function", e);
-                // In case of error, return pet as-is to avoid blocking persistence
+                // Return entity as-is to avoid blocking persistence
                 return pet;
             }
         });
@@ -157,20 +146,22 @@ public class CyodaEntityControllerPrototype {
         }
 
         List<ObjectNode> petsToStore = new ArrayList<>();
-        if (petstoreResponse.isArray()) {
+        if (petstoreResponse != null && petstoreResponse.isArray()) {
             for (JsonNode petNode : petstoreResponse) {
                 String petType = petNode.path("category").path("name").asText(null);
                 if (request.getType() != null && !request.getType().isEmpty() &&
                         (petType == null || !petType.equalsIgnoreCase(request.getType()))) {
                     continue;
                 }
-                // Build pet ObjectNode
                 ObjectNode pet = objectMapper.createObjectNode();
                 pet.put("name", petNode.path("name").asText("Unnamed"));
                 pet.put("type", petType != null ? petType : "unknown");
                 pet.put("status", request.getStatus());
-                pet.put("age", (Integer) null); // age unknown
-                pet.put("description", petNode.path("description").asText(null));
+                // Age is unknown from petstore, omit or set null
+                // pet.putNull("age");
+                if (petNode.hasNonNull("description")) {
+                    pet.put("description", petNode.get("description").asText());
+                }
                 petsToStore.add(pet);
             }
         }
@@ -235,11 +226,18 @@ public class CyodaEntityControllerPrototype {
     ) throws ExecutionException, InterruptedException {
         logger.info("Fetching pets list with filters status={} type={}", status, type);
 
-        CompletableFuture<List<ObjectNode>> itemsFuture = entityService.getItems(ENTITY_NAME, ENTITY_VERSION);
-        List<ObjectNode> pets = itemsFuture.get();
+        CompletableFuture<ArrayNode> itemsFuture = entityService.getItems(ENTITY_NAME, ENTITY_VERSION);
+        ArrayNode itemsNode = itemsFuture.get();
 
-        if (pets == null || pets.isEmpty()) {
+        if (itemsNode == null || itemsNode.isEmpty()) {
             return Collections.emptyList();
+        }
+
+        List<ObjectNode> pets = new ArrayList<>();
+        for (JsonNode node : itemsNode) {
+            if (node.isObject()) {
+                pets.add((ObjectNode) node);
+            }
         }
 
         List<ObjectNode> filtered = pets.stream()
@@ -289,29 +287,3 @@ public class CyodaEntityControllerPrototype {
         return errorMap;
     }
 }
-```
-
----
-
-### What changed / moved into `processPet` workflow function?
-
-- The logic to ensure `description` is set moved inside workflow.
-- The async fire-and-forget logging/notification example moved inside workflow (with `CompletableFuture.runAsync`).
-- Status update side effects (e.g. any future async logic) should be placed inside `processPet`.
-- Controller no longer triggers async workflows explicitly.
-- Entity is handled as `ObjectNode` in workflow function to allow flexible modification (`put`, `remove`, etc.).
-- Controllers call `addItem`/`updateItem` passing the workflow function `this::processPet`.
-
----
-
-### Benefits:
-
-- Controllers are clean and only handle request/response.
-- All entity state mutations and async side effects happen in a single, centralized workflow function.
-- It is easier to maintain and extend entity processing logic.
-- Avoids duplication of async code across endpoints.
-- Avoids infinite recursion because workflow function cannot add/update/delete current entity model, only different ones.
-
----
-
-If you want me to enhance the workflow function with additional business logic or integrate with other entities, just ask!
