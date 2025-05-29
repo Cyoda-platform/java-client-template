@@ -1,6 +1,5 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -8,16 +7,11 @@ import com.java_template.common.service.EntityService;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.PositiveOrZero;
-import jakarta.validation.constraints.Size;
-import java.net.URI;
-import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
@@ -27,18 +21,15 @@ import static com.java_template.common.config.Config.*;
 @Validated
 @RestController
 @RequestMapping("/api/cyoda-entities")
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
 
-    private static final String EXTERNAL_PET_API_FIND_BY_STATUS =
-            "https://petstore.swagger.io/v2/pet/findByStatus?status={status}";
-
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService) {
         this.entityService = entityService;
     }
 
