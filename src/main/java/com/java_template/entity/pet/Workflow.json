@@ -1,0 +1,60 @@
+{
+    "description": "Workflow for validating, enriching, and applying side effects to pet entities",
+    "name": "pet_processing_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Validate pet entity fields and set defaults if missing",
+            "end_state": "Pet_validated",
+            "end_state_description": "Pet entity has been validated",
+            "name": "validate_pet",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processValidate"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Enrich pet entity with default description if missing",
+            "end_state": "Pet_enriched",
+            "end_state_description": "Pet entity has been enriched with description",
+            "name": "enrich_pet",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processEnrich"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Pet_validated",
+            "start_state_description": "Pet entity has been validated"
+        },
+        {
+            "automated": true,
+            "description": "Perform asynchronous side effects such as notifications",
+            "end_state": "Pet_processed",
+            "end_state_description": "Pet entity has completed side effects and processing",
+            "name": "apply_side_effects",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSideEffect"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Pet_enriched",
+            "start_state_description": "Pet entity has been enriched with description"
+        }
+    ]
+}
