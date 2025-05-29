@@ -1,14 +1,57 @@
-Certainly! Below is the updated complete Java code for `CyodaEntityControllerPrototype.java` where:
+Got it! To follow the best practice and your requirements, we should move all asynchronous logic (including scheduling the alarm notification and managing side effects) into the workflow function `processalarm_job`. This will:
 
-- A workflow function `processAlarm_job` is added and implemented.
-- The `entityService.addItem` call is updated to take the workflow function as an additional argument.
-- The workflow function asynchronously processes the entity before persistence. Here, it simply returns the entity unchanged, but you can modify it as needed.
+- Keep controllers thin and focused on HTTP request/response.
+- Move all async and entity side-effect logic into the workflow function.
+- Use `ObjectNode` for entity mutation inside the workflow function.
+- Avoid any add/update/delete calls on the current entity inside the workflow (to prevent recursion).
+- Use `entityService` to get/add supplementary data entities of different models if needed.
+
+---
+
+### What we should move to `processalarm_job`?
+
+- Scheduling the alarm notification (`scheduler.schedule(...)`).
+- Managing the lifecycle and removing from `alarmJobMap` when alarm finishes.
+- Triggering the alarm notification asynchronously.
+- Possibly setting fields such as `technicalId` or `scheduledFuture` inside the workflow if needed.
+
+---
+
+### What stays in controller?
+
+- Parsing request.
+- Validating inputs.
+- Calling `entityService.addItem` with workflow.
+- Returning responses.
+
+---
+
+### Implementation details:
+
+- The workflow function signature is:
+  ```java
+  CompletableFuture<ObjectNode> processalarm_job(ObjectNode entity)
+  ```
+  where `entity` is the JSON representation of `AlarmJob` (since entityService works with `ObjectNode`).
+
+- Inside `processalarm_job`:
+  - Extract fields from `entity`.
+  - Schedule the alarm notification task (using `ScheduledExecutorService`).
+  - Save whatever supplementary entities if needed.
+  - Modify `entity` in-place (like adding/removing fields).
+  - Return `CompletableFuture.completedFuture(entity)` or async chain.
+
+- The controller will no longer schedule or manage alarm lifecycle except calling `entityService.addItem`.
+
+---
+
+### Updated full Java code with these changes:
 
 ```java
 package com.java_template.entity;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import jakarta.validation.Valid;
@@ -22,7 +65,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -33,7 +75,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.*;
-import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
 
@@ -46,12 +87,15 @@ public class CyodaEntityControllerPrototype {
     private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+
     private final Map<String, AlarmJob> alarmJobMap = new ConcurrentHashMap<>();
+
     private static final Map<String, Integer> BOIL_LEVEL_TO_DURATION_SECONDS = Map.of(
             "soft", 300,
             "medium", 420,
             "hard", 600
     );
+
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
     private final EntityService entityService;
@@ -121,14 +165,65 @@ public class CyodaEntityControllerPrototype {
      * Workflow function as required by entityService.addItem.
      * Must be named with prefix 'process' + entity name.
      * This function asynchronously processes the AlarmJob entity before persistence.
-     * @param alarmJob the entity to process
-     * @return processed entity (can be modified)
+     * We move all async tasks here: scheduling, notification, lifecycle management.
+     *
+     * @param entity The AlarmJob as ObjectNode (JSON).
+     * @return CompletableFuture with possibly mutated entity to persist.
      */
-    public CompletableFuture<AlarmJob> processalarm_job(AlarmJob alarmJob) {
-        // Example workflow: You can modify alarmJob here if needed.
-        logger.debug("Processing alarm_job entity before persistence: {}", alarmJob);
-        // For now, just return the entity unchanged asynchronously.
-        return CompletableFuture.completedFuture(alarmJob);
+    public CompletableFuture<ObjectNode> processalarm_job(ObjectNode entity) {
+        logger.debug("Workflow processalarm_job invoked with entity: {}", entity);
+
+        // Extract boilingLevel, startTime, expectedEndTime from JSON
+        String boilingLevel = entity.path("boilingLevel").asText(null);
+        String startTimeStr = entity.path("startTime").asText(null);
+        String expectedEndTimeStr = entity.path("expectedEndTime").asText(null);
+
+        if (boilingLevel == null || startTimeStr == null || expectedEndTimeStr == null) {
+            // Missing required fields, we can fail or just proceed with no scheduling
+            logger.error("Missing required fields in alarm_job entity for workflow");
+            return CompletableFuture.completedFuture(entity);
+        }
+
+        Instant startTime = Instant.parse(startTimeStr);
+        Instant expectedEndTime = Instant.parse(expectedEndTimeStr);
+        long delaySeconds = Instant.now().until(expectedEndTime, ChronoUnit.SECONDS);
+        if (delaySeconds < 0) delaySeconds = 0;
+
+        // Unique key for current alarm (only one running)
+        final String currentKey = "current";
+
+        // Remove any existing scheduledFuture for current alarm if any (not strictly needed)
+        AlarmJob oldJob = alarmJobMap.get(currentKey);
+        if (oldJob != null && oldJob.getScheduledFuture() != null) {
+            oldJob.getScheduledFuture().cancel(false);
+        }
+
+        // We need to schedule alarm notification task
+        ScheduledFuture<?> future = scheduler.schedule(() -> {
+            logger.info("Alarm notification triggered for boilingLevel '{}'", boilingLevel);
+            triggerAlarmNotification(boilingLevel);
+            alarmJobMap.remove(currentKey);
+            logger.info("Alarm job cleared from map for boilingLevel '{}'", boilingLevel);
+        }, delaySeconds, TimeUnit.SECONDS);
+
+        // Store in alarmJobMap for status etc
+        AlarmJob newJob = new AlarmJob(
+                boilingLevel,
+                startTime,
+                expectedEndTime,
+                future,
+                null  // technicalId will be set after persistence by controller
+        );
+        alarmJobMap.put(currentKey, newJob);
+
+        // We cannot set technicalId here because it is generated on persistence
+        // But we can store scheduledFuture in memory map for the running alarm
+
+        // No modification to entity needed here except maybe adding some status or timestamps if you want
+        // entity.put("someField", "someValue");
+
+        // Return entity unchanged asynchronously
+        return CompletableFuture.completedFuture(entity);
     }
 
     @PostMapping(value = "/start", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
@@ -146,26 +241,28 @@ public class CyodaEntityControllerPrototype {
         int durationSeconds = BOIL_LEVEL_TO_DURATION_SECONDS.get(level);
         Instant now = Instant.now();
         Instant expectedEnd = now.plus(durationSeconds, ChronoUnit.SECONDS);
-        AlarmJob job = new AlarmJob(level, now, expectedEnd, null, null);
 
-        // Persist the AlarmJob via entityService, passing the workflow function
+        // Create AlarmJob entity node (ObjectNode)
+        ObjectNode alarmJobNode = objectMapper.createObjectNode();
+        alarmJobNode.put("boilingLevel", level);
+        alarmJobNode.put("startTime", now.toString());
+        alarmJobNode.put("expectedEndTime", expectedEnd.toString());
+
+        // Persist AlarmJob with workflow function
         CompletableFuture<UUID> idFuture = entityService.addItem(
                 ENTITY_NAME,
                 ENTITY_VERSION,
-                job,
+                alarmJobNode,
                 this::processalarm_job
         );
+
         UUID technicalId = idFuture.get();
-        job.setTechnicalId(technicalId);
 
-        ScheduledFuture<?> future = scheduler.schedule(() -> {
-            triggerAlarmNotification(level);
-            alarmJobMap.remove("current");
-            logger.info("Alarm notification triggered and job cleared for boilingLevel={}", level);
-        }, durationSeconds, TimeUnit.SECONDS);
-
-        job.setScheduledFuture(future);
-        alarmJobMap.put("current", job);
+        // Store technicalId in map for stop/status usage (not persisted in workflow)
+        AlarmJob job = alarmJobMap.get("current");
+        if (job != null) {
+            job.setTechnicalId(technicalId);
+        }
 
         logger.info("Alarm started for boilingLevel={} for {} seconds with technicalId={}", level, durationSeconds, technicalId);
         return new StartAlarmResponse("started", level, durationSeconds, now, expectedEnd);
@@ -179,13 +276,13 @@ public class CyodaEntityControllerPrototype {
             logger.warn("No running alarm to stop");
             return new StopAlarmResponse("stopped");
         }
-        UUID technicalId = job.getTechnicalId();
+
         if (job.getScheduledFuture() != null) {
             boolean cancelled = job.getScheduledFuture().cancel(false);
             logger.info("Alarm stopped. Cancelled scheduled task: {}", cancelled);
         }
 
-        // Delete from entityService
+        UUID technicalId = job.getTechnicalId();
         if (technicalId != null) {
             CompletableFuture<UUID> deletedFuture = entityService.deleteItem(
                     ENTITY_NAME,
@@ -203,19 +300,20 @@ public class CyodaEntityControllerPrototype {
         AlarmJob job = alarmJobMap.get("current");
         if (job == null) {
             // Attempt to retrieve any running alarm from entityService
-            CompletableFuture<ArrayNode> itemsFuture = entityService.getItems(ENTITY_NAME, ENTITY_VERSION);
-            ArrayNode items = itemsFuture.get();
+            CompletableFuture<com.fasterxml.jackson.databind.node.ArrayNode> itemsFuture = entityService.getItems(ENTITY_NAME, ENTITY_VERSION);
+            com.fasterxml.jackson.databind.node.ArrayNode items = itemsFuture.get();
             if (items.isEmpty()) {
                 logger.info("No running alarm found, returning stopped status");
                 return new AlarmStatusResponse("stopped", null, 0, null);
             }
             // Take first item as current alarm
-            ObjectNode obj = (ObjectNode) items.get(0);
-            // Map ObjectNode to AlarmJob
+            JsonNode obj = items.get(0);
             AlarmJob retrievedJob = objectMapper.treeToValue(obj, AlarmJob.class);
-            retrievedJob.setTechnicalId(UUID.fromString(obj.get("technicalId").asText()));
+            if (obj.has("technicalId")) {
+                retrievedJob.setTechnicalId(UUID.fromString(obj.get("technicalId").asText()));
+            }
+            alarmJobMap.put("current", retrievedJob);
             job = retrievedJob;
-            alarmJobMap.put("current", job);
         }
         Instant now = Instant.now();
         long remaining = ChronoUnit.SECONDS.between(now, job.getExpectedEndTime());
@@ -224,12 +322,17 @@ public class CyodaEntityControllerPrototype {
         return new AlarmStatusResponse("running", job.getBoilingLevel(), remaining, job.getExpectedEndTime());
     }
 
-    @Async
+    /**
+     * Fire and forget notification method invoked inside workflow async task.
+     * It can be sync or async. Here simple sync implementation with log and sleep.
+     *
+     * @param boilingLevel the boiling level of alarm
+     */
     void triggerAlarmNotification(String boilingLevel) {
         logger.info("Alarm triggered for boilingLevel '{}'. Sending notification...", boilingLevel);
         // TODO: Implement real notification (e.g., push notification, sound, external API call)
         try {
-            Thread.sleep(500);
+            Thread.sleep(500); // simulate notification delay
         } catch (InterruptedException e) {
             logger.error("Alarm notification interrupted", e);
             Thread.currentThread().interrupt();
@@ -251,28 +354,26 @@ public class CyodaEntityControllerPrototype {
 
 ---
 
-### Explanation of changes:
+### Summary of changes:
 
-- Added a new public method `processalarm_job` (note lowercase `alarm_job` to match entity name exactly after `process` prefix):
-  - It takes an `AlarmJob` as input.
-  - Returns a `CompletableFuture<AlarmJob>`.
-  - Currently it just returns the entity unchanged asynchronously.
-  - You can modify this function to mutate the entity or call other entityService methods (except on the same entity model).
-  
-- Modified the call to `entityService.addItem` inside `startAlarm` to pass the workflow function:
-  ```java
-  CompletableFuture<UUID> idFuture = entityService.addItem(
-          ENTITY_NAME,
-          ENTITY_VERSION,
-          job,
-          this::processalarm_job
-  );
-  ```
-
-This meets the requirement that the workflow function has name starting with `process` followed by the entity name, takes the entity as input, returns the entity asynchronously, and is passed as the last argument to `addItem`.
-
-If you want the workflow function name to match casing exactly with `ENTITY_NAME` (which is `"alarm_job"`), it should be `processalarm_job` as above.
+- The controller no longer schedules or manages lifecycle of alarms.
+- Controller just creates the raw entity JSON (`ObjectNode`) and calls `entityService.addItem` with `this::processalarm_job`.
+- `processalarm_job`:
+  - Parses entity JSON fields.
+  - Schedules the alarm notification task.
+  - Stores alarm data in memory map to track running alarm.
+  - Triggers notification async task.
+  - Returns entity unchanged (or mutated if needed).
+- `triggerAlarmNotification` is called **only inside** the workflow function.
+- Stop and status endpoints remain mostly unchanged but use in-memory map to track current alarm.
 
 ---
 
-If you want me to adjust for any naming conventions or do further enhancements, just ask!
+This fully complies with your requirement:
+
+- All async logic moved to workflow function.
+- Workflow function modifies entity JSON only.
+- No add/update/delete of same entity inside workflow (only side effect is scheduling and notification).
+- Controllers are clean and focused on HTTP layer.
+
+Let me know if you want me to adjust or explain anything!
