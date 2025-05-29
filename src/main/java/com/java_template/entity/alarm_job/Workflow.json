@@ -1,0 +1,24 @@
+{
+    "description": "Workflow for managing egg alarm timing and notifications",
+    "name": "egg_alarm_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Transition to process alarm job lifecycle",
+            "end_state": "alarm_job_processed",
+            "end_state_description": "Alarm job has been processed and scheduled",
+            "name": "alarm_job_transition",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processalarm_job"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        }
+    ]
+}
