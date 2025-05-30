@@ -1,0 +1,60 @@
+{
+    "description": "Workflow to process trade execution entities from initial ingestion to validation",
+    "name": "trade_execution_processing_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start processing trade execution entity",
+            "end_state": "Parsed",
+            "end_state_description": "Trade execution entity parsed from raw FpML XML",
+            "name": "start_processing",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Parse raw FpML XML and extract trade positions",
+                        "name": "processParseFpml"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Enrich parsed positions or entity data",
+            "end_state": "Enriched",
+            "end_state_description": "Entity enriched with additional data",
+            "name": "enrich_positions",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Enrich positions or entity data",
+                        "name": "processEnrichPositions"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Parsed",
+            "start_state_description": "Trade execution entity parsed"
+        },
+        {
+            "automated": true,
+            "description": "Validate the fully processed trade execution entity",
+            "end_state": "Validated",
+            "end_state_description": "Trade execution entity validated successfully",
+            "name": "validate_entity",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Validate entity state and parsed positions",
+                        "name": "processValidateEntity"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Enriched",
+            "start_state_description": "Entity enriched with additional data"
+        }
+    ]
+}
