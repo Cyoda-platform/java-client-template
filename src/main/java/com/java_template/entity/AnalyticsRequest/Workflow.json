@@ -1,0 +1,57 @@
+{
+    "description": "Workflow to process analytics request on trade positions",
+    "name": "analytics_processing_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start analytics processing",
+            "end_state": "positions_filtered",
+            "end_state_description": "Trade positions filtered based on criteria",
+            "name": "start_analytics_processing",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "name": "processFilterPositions"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Calculate requested analytics metrics",
+            "end_state": "metrics_calculated",
+            "end_state_description": "Analytics metrics calculated",
+            "name": "calculate_metrics",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "name": "processCalculateMetrics"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "positions_filtered",
+            "start_state_description": "Trade positions filtered based on criteria"
+        },
+        {
+            "automated": true,
+            "description": "Cache analytics results and update entity",
+            "end_state": "results_cached",
+            "end_state_description": "Analytics results cached and entity updated",
+            "name": "cache_results",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "name": "processCacheResults"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "metrics_calculated",
+            "start_state_description": "Analytics metrics calculated"
+        }
+    ]
+}
