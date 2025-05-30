@@ -1,14 +1,18 @@
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.*;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.scheduling.annotation.Async;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -18,6 +22,7 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
+@Validated
 @RestController
 @RequestMapping("/api")
 public class EntityControllerPrototype {
@@ -26,7 +31,6 @@ public class EntityControllerPrototype {
 
     private final Map<String, TradeExecutionEntity> tradeExecutionStore = new ConcurrentHashMap<>();
     private final Map<String, AnalyticsResult> lastAnalyticsResult = new ConcurrentHashMap<>();
-
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @PostConstruct
@@ -34,114 +38,82 @@ public class EntityControllerPrototype {
         logger.info("EntityControllerPrototype initialized");
     }
 
-    // === POST /trade-executions ===
     @PostMapping(value = "/trade-executions", consumes = MediaType.APPLICATION_XML_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public TradeExecutionSaveResponse saveTradeExecution(@RequestBody String fpmlXml) {
+    public TradeExecutionSaveResponse saveTradeExecution(@RequestBody @NotBlank(message = "FpML XML must not be blank") String fpmlXml) {
         logger.info("Received trade execution XML message");
         // TODO: Add real FpML schema validation and parsing logic
-        if (fpmlXml == null || fpmlXml.trim().isEmpty()) {
-            logger.error("Empty FpML XML received");
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "FpML XML content is empty");
-        }
-
-        // Mock parsing: generate random tradeExecutionId and a single position
         String tradeExecutionId = UUID.randomUUID().toString();
-
-        // TODO: Replace with real FpML XML parsing to extract positions
         TradePosition position = new TradePosition(
                 UUID.randomUUID().toString(),
                 "InterestRateSwap",
                 10000000L,
                 "CounterpartyA"
         );
-
         TradeExecutionEntity entity = new TradeExecutionEntity(tradeExecutionId, fpmlXml, Collections.singletonList(position));
         tradeExecutionStore.put(tradeExecutionId, entity);
-
         logger.info("Saved trade execution with id {}", tradeExecutionId);
-
         return new TradeExecutionSaveResponse(tradeExecutionId, "Trade execution saved successfully.");
     }
 
-    // === GET /trade-executions/{id} ===
     @GetMapping(value = "/trade-executions/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public TradeExecutionEntity getTradeExecution(@PathVariable("id") String id) {
+    public TradeExecutionEntity getTradeExecution(@PathVariable("id") @NotBlank(message = "ID must not be blank") String id) {
         logger.info("Fetching trade execution with id {}", id);
         TradeExecutionEntity entity = tradeExecutionStore.get(id);
         if (entity == null) {
             logger.error("Trade execution not found: {}", id);
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Trade execution not found");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Trade execution not found");
         }
         return entity;
     }
 
-    // === POST /analytics/positions ===
     @PostMapping(value = "/analytics/positions", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public AnalyticsResult runAnalytics(@RequestBody AnalyticsRequest analyticsRequest) {
-        logger.info("Running analytics with filters: {} and metrics: {}", analyticsRequest.getFilter(), analyticsRequest.getMetrics());
-
-        // TODO: Replace with real query/filtering logic on stored positions
+    public AnalyticsResult runAnalytics(@RequestBody @Valid AnalyticsRequest analyticsRequest) {
+        logger.info("Running analytics with filters: counterparty={} instrumentType={} metrics={}",
+                analyticsRequest.getFilterCounterparty(), analyticsRequest.getFilterInstrumentType(), analyticsRequest.getMetrics());
         List<TradePosition> filteredPositions = new ArrayList<>();
         for (TradeExecutionEntity entity : tradeExecutionStore.values()) {
             for (TradePosition pos : entity.getParsedPositions()) {
                 boolean matches = true;
-                if (analyticsRequest.getFilter() != null) {
-                    Filter filter = analyticsRequest.getFilter();
-                    if (filter.getCounterparty() != null && !filter.getCounterparty().equals(pos.getCounterparty())) {
-                        matches = false;
-                    }
-                    if (filter.getInstrumentType() != null && !filter.getInstrumentType().equals(pos.getInstrument())) {
-                        matches = false;
-                    }
+                if (analyticsRequest.getFilterCounterparty() != null && !analyticsRequest.getFilterCounterparty().equals(pos.getCounterparty())) {
+                    matches = false;
+                }
+                if (analyticsRequest.getFilterInstrumentType() != null && !analyticsRequest.getFilterInstrumentType().equals(pos.getInstrument())) {
+                    matches = false;
                 }
                 if (matches) filteredPositions.add(pos);
             }
         }
-
         AnalyticsResult result = new AnalyticsResult();
-        if (analyticsRequest.getMetrics() != null) {
-            for (String metric : analyticsRequest.getMetrics()) {
-                switch (metric) {
-                    case "aggregateNotional":
-                        long sum = filteredPositions.stream().mapToLong(TradePosition::getNotional).sum();
-                        result.setAggregateNotional(sum);
-                        break;
-                    case "positionCount":
-                        result.setPositionCount(filteredPositions.size());
-                        break;
-                    default:
-                        logger.warn("Unknown metric requested: {}", metric);
-                }
+        for (String metric : analyticsRequest.getMetrics()) {
+            switch (metric) {
+                case "aggregateNotional":
+                    long sum = filteredPositions.stream().mapToLong(TradePosition::getNotional).sum();
+                    result.setAggregateNotional(sum);
+                    break;
+                case "positionCount":
+                    result.setPositionCount(filteredPositions.size());
+                    break;
+                default:
+                    logger.warn("Unknown metric requested: {}", metric);
             }
         }
-
-        // Cache last results with a fixed key (only one cached analytics in this prototype)
         lastAnalyticsResult.put("last", result);
-
-        // TODO: Fire-and-forget analytics background processing if needed
-        CompletableFuture.runAsync(() -> {
-            // Placeholder for async processing if required
-            logger.info("Async analytics processing completed");
-        });
-
+        CompletableFuture.runAsync(() -> logger.info("Async analytics processing completed")); // TODO: Replace with real async logic
         return result;
     }
 
-    // === GET /analytics/positions ===
     @GetMapping(value = "/analytics/positions", produces = MediaType.APPLICATION_JSON_VALUE)
     public AnalyticsResult getLastAnalytics() {
         logger.info("Retrieving last analytics result");
         AnalyticsResult result = lastAnalyticsResult.get("last");
         if (result == null) {
             logger.warn("No analytics results cached yet");
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No analytics results available");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "No analytics results available");
         }
         return result;
     }
 
-    // === Basic error handling ===
     @ExceptionHandler(ResponseStatusException.class)
-    @ResponseStatus
     public Map<String, Object> handleResponseStatusException(ResponseStatusException ex) {
         logger.error("Handling error: {} - {}", ex.getStatusCode(), ex.getReason());
         Map<String, Object> error = new HashMap<>();
@@ -151,9 +123,6 @@ public class EntityControllerPrototype {
         error.put("timestamp", Instant.now().toString());
         return error;
     }
-
-
-    // ==== DTOs and Entities ====
 
     @Data
     @AllArgsConstructor
@@ -185,15 +154,12 @@ public class EntityControllerPrototype {
     @Data
     @NoArgsConstructor
     static class AnalyticsRequest {
-        private Filter filter;
-        private List<String> metrics;
-    }
-
-    @Data
-    @NoArgsConstructor
-    static class Filter {
-        private String counterparty;
-        private String instrumentType;
+        @Size(min = 1, message = "Filter counterparty must not be empty")
+        private String filterCounterparty;
+        @Size(min = 1, message = "Filter instrument type must not be empty")
+        private String filterInstrumentType;
+        @NotEmpty(message = "Metrics list must not be empty")
+        private List<@NotBlank(message = "Metric must not be blank") String> metrics;
     }
 
     @Data
@@ -203,4 +169,3 @@ public class EntityControllerPrototype {
         private Integer positionCount;
     }
 }
-```
