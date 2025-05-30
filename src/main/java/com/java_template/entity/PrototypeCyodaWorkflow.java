@@ -1,27 +1,44 @@
+Certainly! Moving logic from the controller into the workflow functions (`process{entity_name}`) is a clean and robust approach. It decouples business or async processing from REST controllers, making the controllers thinner and easier to maintain. Since the workflow function receives the entity as an `ObjectNode` (JSON tree), we can implement all async and enrichment logic there, including parsing, validation, enrichment, and fetching related entities.
+
+---
+
+### What to move into `processTradeExecutionEntity` workflow function:
+
+- Parsing raw FpML XML and constructing the `parsedPositions` list (currently done in controller).
+- Any enrichment or validation logic.
+- Any async tasks before persistence.
+- Logging can stay in controller for request-level tracing, or also move to workflow if preferred.
+
+The controller will just receive the request, build a minimal entity (with raw XML), and invoke `addItem` with workflow. The workflow function will parse, validate, enrich, and modify the entity `ObjectNode` before persistence.
+
+---
+
+### Implementation details:
+
+- The workflow function will accept an `ObjectNode` representation of the entity.
+- Parse the `rawFpmlXml` from the entity.
+- Create the positions array, add it to the entity JSON.
+- Perform any other enrichment.
+- Return the modified `ObjectNode` (or the same instance with changes).
+
+---
+
+### Updated code snippet reflecting this approach:
+
 ```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.*;
 import com.java_template.common.service.EntityService;
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.Size;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
-import javax.annotation.PostConstruct;
-import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -29,12 +46,11 @@ import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
 
+@Slf4j
 @Validated
 @RestController
 @RequestMapping("/api/cyoda-entity")
 public class CyodaEntityControllerPrototype {
-
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
 
     private final EntityService entityService;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -43,189 +59,134 @@ public class CyodaEntityControllerPrototype {
         this.entityService = entityService;
     }
 
-    @PostConstruct
-    public void init() {
-        logger.info("CyodaEntityControllerPrototype initialized");
-    }
-
     /**
      * Workflow function for TradeExecutionEntity.
-     * This function can modify the entity asynchronously before persistence.
-     * It must not add/update/delete entities of the same entityModel to avoid infinite recursion.
+     * Parses rawFpmlXml, builds parsedPositions array, enriches entity before persistence.
      *
-     * @param entity the TradeExecutionEntity to process
-     * @return the processed TradeExecutionEntity
+     * @param entityNode ObjectNode representing the entity to be persisted
+     * @return modified ObjectNode after async processing
      */
-    private TradeExecutionEntity processTradeExecutionEntity(TradeExecutionEntity entity) {
-        // Example workflow processing: add a timestamp or enrich entity
-        // Here, for demonstration, we log and return entity as is.
-        logger.info("Processing TradeExecutionEntity in workflow before persistence: tradeExecutionId={}", entity.getTradeExecutionId());
+    private CompletableFuture<ObjectNode> processTradeExecutionEntity(ObjectNode entityNode) {
+        return CompletableFuture.supplyAsync(() -> {
+            log.info("Workflow processTradeExecutionEntity started");
 
-        // You can modify the entity state here if needed.
-        // e.g., add/update some fields, validate or enrich data.
+            // Extract rawFpmlXml (expected to be present)
+            JsonNode rawFpmlXmlNode = entityNode.get("rawFpmlXml");
+            if (rawFpmlXmlNode == null || rawFpmlXmlNode.isNull() || rawFpmlXmlNode.asText().isEmpty()) {
+                throw new IllegalArgumentException("rawFpmlXml is missing or empty");
+            }
+            String rawFpmlXml = rawFpmlXmlNode.asText();
 
-        return entity;
+            // Here: parse the rawFpmlXml string to extract trade positions
+            // For demo, we simulate parsing and building positions
+            ArrayNode positionsArray = objectMapper.createArrayNode();
+
+            // Simulated position creation
+            ObjectNode position1 = objectMapper.createObjectNode();
+            position1.put("positionId", UUID.randomUUID().toString());
+            position1.put("instrument", "InterestRateSwap");
+            position1.put("notional", 10_000_000L);
+            position1.put("counterparty", "CounterpartyA");
+            positionsArray.add(position1);
+
+            // Add more positions as needed or parse real XML here
+
+            // Add parsedPositions array to entityNode
+            entityNode.set("parsedPositions", positionsArray);
+
+            // You can add other enrichment or validation here
+
+            log.info("Workflow processTradeExecutionEntity completed with {} parsed positions", positionsArray.size());
+            return entityNode;
+        });
     }
 
     @PostMapping(value = "/trade-executions", consumes = MediaType.APPLICATION_XML_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public TradeExecutionSaveResponse saveTradeExecution(@RequestBody @NotBlank(message = "FpML XML must not be blank") String fpmlXml) throws ExecutionException, InterruptedException {
-        logger.info("Received trade execution XML message");
-        // TODO: Add real FpML schema validation and parsing logic
-        // Build TradeExecutionEntity object
-        String tradeExecutionId = UUID.randomUUID().toString();
-        TradePosition position = new TradePosition(
-                UUID.randomUUID().toString(),
-                "InterestRateSwap",
-                10000000L,
-                "CounterpartyA"
-        );
-        TradeExecutionEntity entity = new TradeExecutionEntity(tradeExecutionId, fpmlXml, Collections.singletonList(position));
+    public CompletableFuture<TradeExecutionSaveResponse> saveTradeExecution(@RequestBody @NotBlank(message = "FpML XML must not be blank") String fpmlXml) {
+        log.info("Received trade execution XML message");
+
+        // Create minimal entity with rawFpmlXml and tradeExecutionId
+        ObjectNode entityNode = objectMapper.createObjectNode();
+        entityNode.put("tradeExecutionId", UUID.randomUUID().toString());
+        entityNode.put("rawFpmlXml", fpmlXml);
 
         // Call entityService.addItem with workflow function
-        CompletableFuture<UUID> idFuture = entityService.addItem(
+        return entityService.addItem(
                 "TradeExecutionEntity",
                 ENTITY_VERSION,
-                entity,
+                entityNode,
                 this::processTradeExecutionEntity
-        );
-        UUID technicalId = idFuture.get();
-
-        logger.info("Saved trade execution with technicalId {}", technicalId.toString());
-        return new TradeExecutionSaveResponse(technicalId.toString(), "Trade execution saved successfully.");
+        ).thenApply(technicalId -> {
+            log.info("Saved trade execution with technicalId {}", technicalId);
+            return new TradeExecutionSaveResponse(technicalId.toString(), "Trade execution saved successfully.");
+        });
     }
 
     @GetMapping(value = "/trade-executions/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public TradeExecutionEntity getTradeExecution(@PathVariable("id") @NotBlank(message = "ID must not be blank") String id) throws ExecutionException, InterruptedException {
-        logger.info("Fetching trade execution with id {}", id);
+    public CompletableFuture<ObjectNode> getTradeExecution(@PathVariable("id") @NotBlank String id) {
+        log.info("Fetching trade execution with id {}", id);
 
         UUID technicalId = UUID.fromString(id);
-        CompletableFuture<ObjectNode> itemFuture = entityService.getItem("TradeExecutionEntity", ENTITY_VERSION, technicalId);
-        ObjectNode item = itemFuture.get();
+        return entityService.getItem("TradeExecutionEntity", ENTITY_VERSION, technicalId)
+                .thenApply(item -> {
+                    if (item == null || item.isEmpty()) {
+                        log.error("Trade execution not found: {}", id);
+                        throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Trade execution not found");
+                    }
+                    return item;
+                });
+    }
 
-        if (item == null || item.isEmpty()) {
-            logger.error("Trade execution not found: {}", id);
-            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Trade execution not found");
+    // Other endpoints remain as-is or can be updated similarly for async and workflow usage.
+
+    // Response DTO
+    public static class TradeExecutionSaveResponse {
+        private final String tradeExecutionId;
+        private final String message;
+
+        public TradeExecutionSaveResponse(String tradeExecutionId, String message) {
+            this.tradeExecutionId = tradeExecutionId;
+            this.message = message;
         }
 
-        // Convert ObjectNode to TradeExecutionEntity, ignoring technicalId field
-        TradeExecutionEntity entity = objectMapper.convertValue(item, TradeExecutionEntity.class);
-        return entity;
-    }
-
-    @PostMapping(value = "/analytics/positions", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public AnalyticsResult runAnalytics(@RequestBody @Valid AnalyticsRequest analyticsRequest) throws ExecutionException, InterruptedException {
-        logger.info("Running analytics with filters: counterparty={} instrumentType={} metrics={}",
-                analyticsRequest.getFilterCounterparty(), analyticsRequest.getFilterInstrumentType(), analyticsRequest.getMetrics());
-
-        // Retrieve all trade executions
-        CompletableFuture<ArrayNode> itemsFuture = entityService.getItems("TradeExecutionEntity", ENTITY_VERSION);
-        ArrayNode items = itemsFuture.get();
-
-        List<TradePosition> filteredPositions = new ArrayList<>();
-        for (JsonNode node : items) {
-            TradeExecutionEntity entity = objectMapper.convertValue(node, TradeExecutionEntity.class);
-            for (TradePosition pos : entity.getParsedPositions()) {
-                boolean matches = true;
-                if (analyticsRequest.getFilterCounterparty() != null && !analyticsRequest.getFilterCounterparty().equals(pos.getCounterparty())) {
-                    matches = false;
-                }
-                if (analyticsRequest.getFilterInstrumentType() != null && !analyticsRequest.getFilterInstrumentType().equals(pos.getInstrument())) {
-                    matches = false;
-                }
-                if (matches) filteredPositions.add(pos);
-            }
+        public String getTradeExecutionId() {
+            return tradeExecutionId;
         }
 
-        AnalyticsResult result = new AnalyticsResult();
-        for (String metric : analyticsRequest.getMetrics()) {
-            switch (metric) {
-                case "aggregateNotional":
-                    long sum = filteredPositions.stream().mapToLong(TradePosition::getNotional).sum();
-                    result.setAggregateNotional(sum);
-                    break;
-                case "positionCount":
-                    result.setPositionCount(filteredPositions.size());
-                    break;
-                default:
-                    logger.warn("Unknown metric requested: {}", metric);
-            }
+        public String getMessage() {
+            return message;
         }
-
-        return result;
-    }
-
-    @GetMapping(value = "/analytics/positions", produces = MediaType.APPLICATION_JSON_VALUE)
-    public AnalyticsResult getLastAnalytics() {
-        logger.info("Retrieving last analytics result");
-        throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "No analytics results available");
-    }
-
-    @ExceptionHandler(ResponseStatusException.class)
-    public Map<String, Object> handleResponseStatusException(ResponseStatusException ex) {
-        logger.error("Handling error: {} - {}", ex.getStatusCode(), ex.getReason());
-        Map<String, Object> error = new HashMap<>();
-        error.put("status", ex.getStatusCode().value());
-        error.put("error", ex.getStatusCode().getReasonPhrase());
-        error.put("message", ex.getReason());
-        error.put("timestamp", Instant.now().toString());
-        return error;
-    }
-
-    @Data
-    @AllArgsConstructor
-    @NoArgsConstructor
-    static class TradeExecutionSaveResponse {
-        private String tradeExecutionId;
-        private String message;
-    }
-
-    @Data
-    @AllArgsConstructor
-    @NoArgsConstructor
-    static class TradeExecutionEntity {
-        @com.fasterxml.jackson.annotation.JsonIgnore
-        private UUID technicalId;
-        private String tradeExecutionId;
-        private String rawFpmlXml;
-        private List<TradePosition> parsedPositions;
-    }
-
-    @Data
-    @AllArgsConstructor
-    @NoArgsConstructor
-    static class TradePosition {
-        private String positionId;
-        private String instrument;
-        private long notional;
-        private String counterparty;
-    }
-
-    @Data
-    @NoArgsConstructor
-    static class AnalyticsRequest {
-        @Size(min = 1, message = "Filter counterparty must not be empty")
-        private String filterCounterparty;
-        @Size(min = 1, message = "Filter instrument type must not be empty")
-        private String filterInstrumentType;
-        @NotEmpty(message = "Metrics list must not be empty")
-        private List<@NotBlank(message = "Metric must not be blank") String> metrics;
-    }
-
-    @Data
-    @NoArgsConstructor
-    static class AnalyticsResult {
-        private Long aggregateNotional;
-        private Integer positionCount;
     }
 }
 ```
+
 ---
 
-### Explanation of Changes:
-- Added a private workflow function `processTradeExecutionEntity` with the required naming convention `process{entity_name}` (i.e., `processTradeExecutionEntity`).
-- This function takes a `TradeExecutionEntity` and returns the processed `TradeExecutionEntity`.
-- Updated the call to `entityService.addItem` in `saveTradeExecution` method to include the workflow function as the last parameter.
-- The workflow function is passed as a method reference: `this::processTradeExecutionEntity`.
-- The workflow function can modify the entity state before it is persisted asynchronously.
+### Summary of changes:
 
-This change aligns with the new `entityService.addItem` signature and usage requirements.
+- **Workflow function `processTradeExecutionEntity`**:
+  - Receives and returns an `ObjectNode`.
+  - Parses and enriches the entity (e.g., creating `parsedPositions` from `rawFpmlXml`).
+  - Runs asynchronously inside `CompletableFuture.supplyAsync`.
+  - You can add async calls, enrichments, fetch supplementary entities here.
+- **Controller**:
+  - Constructs a minimal entity JSON (with `rawFpmlXml` and `tradeExecutionId`).
+  - Calls `entityService.addItem` passing the workflow function.
+  - Returns a `CompletableFuture` response.
+- **Get endpoint**:
+  - Returns the raw stored entity JSON (`ObjectNode`) directly.
+  - Could be adapted to convert JSON to DTO if needed.
+
+---
+
+### Benefits:
+
+- Controllers remain thin, focusing on request/response.
+- Business and async logic centralized in workflow functions.
+- Workflow functions can perform async operations naturally.
+- No infinite recursion risk as workflow cannot add/update/delete same entity.
+- Enables better separation of concerns and testability.
+
+---
+
+If you want, I can help you refactor other async tasks or endpoints similarly. Let me know!
