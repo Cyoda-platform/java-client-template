@@ -1,21 +1,3 @@
-Certainly! Moving asynchronous and preprocessing logic into the workflow function is a clean design that ensures controllers stay lean and focus solely on request/response handling. The workflow function will run asynchronously before the entity is persisted and can modify the entity state, fetch or add related entities (different models), etc.
-
----
-
-### What we will do:
-
-- Change the workflow function signature to accept and return a `CompletableFuture<ObjectNode>` (since the entity is an `ObjectNode`).
-- Move the current `processOrder` logic (setting workflow status) and the async workflow task (fetching product data, updating workflow status) into this function.
-- Remove any async workflow trigger from controllers.
-- Ensure the workflow function modifies the entity `ObjectNode` directly.
-- Use `entityService.getItem/addItem/updateItem/deleteItem` only on different entity models, never on the same entity model (to avoid recursion).
-- In the controller, just pass this workflow function to `addItem`.
-
----
-
-### Updated full Java code example based on your requirements:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -67,52 +49,50 @@ public class CyodaEntityControllerPrototype {
         logger.info("CyodaEntityControllerPrototype initialized");
     }
 
-    /**
-     * Workflow function that processes the order entity asynchronously before it is persisted.
-     * It modifies the entity state directly (ObjectNode), can call entityService on other entity models,
-     * and performs asynchronous tasks, including fetching product data and updating workflow status.
-     */
-    private final Function<ObjectNode, CompletableFuture<ObjectNode>> processOrder = entity -> {
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                logger.info("Workflow started for order: {}", entity);
+    // Workflow function to be passed to addItem (and manually used for update)
+    private final Function<ObjectNode, CompletableFuture<ObjectNode>> processOrder = entity -> CompletableFuture.supplyAsync(() -> {
+        try {
+            logger.info("Workflow started for order: {}", entity);
 
-                // 1) Set workflowStatus = "processing"
-                entity.put("workflowStatus", "processing");
+            // Set workflowStatus to processing before starting async tasks
+            entity.put("workflowStatus", "processing");
 
-                // 2) Asynchronously fetch product data for all items, accumulate info if needed
-                if (entity.has("items") && entity.get("items").isArray()) {
-                    ArrayNode items = (ArrayNode) entity.get("items");
-                    for (JsonNode itemNode : items) {
-                        if (itemNode.has("productId")) {
-                            String productId = itemNode.get("productId").asText();
-                            try {
-                                JsonNode productData = fetchProductData(productId);
-                                // Optionally, you can store product data under the item, or somewhere else:
-                                ((ObjectNode) itemNode).set("productData", productData);
-                            } catch (Exception e) {
-                                logger.warn("Failed to fetch product data for productId={} due to: {}", productId, e.toString());
-                            }
+            // Validate items array presence and type before proceeding
+            if (entity.has("items") && entity.get("items").isArray()) {
+                ArrayNode items = (ArrayNode) entity.get("items");
+                for (JsonNode itemNode : items) {
+                    if (itemNode.has("productId") && itemNode.isObject()) {
+                        String productId = itemNode.get("productId").asText();
+                        try {
+                            JsonNode productData = fetchProductData(productId);
+                            ((ObjectNode) itemNode).set("productData", productData);
+                        } catch (Exception e) {
+                            logger.warn("Failed to fetch product data for productId={} due to: {}", productId, e.toString());
+                            ((ObjectNode) itemNode).put("productDataError", "Failed to fetch product data");
                         }
                     }
                 }
-
-                // 3) Simulate async delay (if needed)
-                Thread.sleep(500);
-
-                // 4) Update workflowStatus to "completed"
-                entity.put("workflowStatus", "completed");
-
-                logger.info("Workflow completed for order: {}", entity);
-                return entity;
-            } catch (Exception ex) {
-                logger.error("Workflow failed for order: {}", entity, ex);
-                entity.put("workflowStatus", "failed");
-                return entity;
+            } else {
+                // If no items or invalid format, log and proceed
+                logger.warn("Order entity 'items' field missing or not an array: {}", entity);
             }
-        });
-    };
 
+            // Simulate async delay if needed (avoid blocking if possible, here minimal)
+            Thread.sleep(200);
+
+            // Finally set workflowStatus to completed
+            entity.put("workflowStatus", "completed");
+
+            logger.info("Workflow completed for order: {}", entity);
+            return entity;
+        } catch (Exception ex) {
+            logger.error("Workflow failed for order: {}", entity, ex);
+            entity.put("workflowStatus", "failed");
+            return entity;
+        }
+    });
+
+    // Helper method to fetch product data from external API
     private JsonNode fetchProductData(String productId) throws Exception {
         String url = "https://fakestoreapi.com/products/" + productId;
         HttpRequest request = HttpRequest.newBuilder()
@@ -132,16 +112,16 @@ public class CyodaEntityControllerPrototype {
     public CreateOrUpdateOrderResponse createOrder(@Valid @RequestBody CreateOrderRequest request) throws Exception {
         logger.info("Received create order request for customerId={}", request.getCustomerId());
 
-        // Build initial Order as ObjectNode
+        // Build initial Order ObjectNode
         ObjectNode orderNode = objectMapper.createObjectNode();
         orderNode.putNull("technicalId"); // will be assigned by backend
         orderNode.put("customerId", request.getCustomerId());
         orderNode.set("items", objectMapper.valueToTree(request.getItems()));
         orderNode.put("orderDate", request.getOrderDate());
         orderNode.put("status", "CREATED");
-        // workflowStatus will be set in workflow function
+        // workflowStatus will be set by workflow function
 
-        // Pass the workflow function to addItem, as required now
+        // Add entity with workflow function applied before persistence
         CompletableFuture<UUID> idFuture = entityService.addItem(
                 "order",
                 ENTITY_VERSION,
@@ -150,7 +130,7 @@ public class CyodaEntityControllerPrototype {
         );
         UUID technicalId = idFuture.get();
 
-        // Return response with assigned ID and initial status
+        // Return response with assigned ID and initial status/workflowStatus
         return new CreateOrUpdateOrderResponse(technicalId.toString(), "CREATED", "processing");
     }
 
@@ -161,6 +141,7 @@ public class CyodaEntityControllerPrototype {
 
         UUID id = UUID.fromString(orderId);
 
+        // Fetch existing order as ObjectNode
         CompletableFuture<ObjectNode> itemFuture = entityService.getItem("order", ENTITY_VERSION, id);
         ObjectNode existingOrder = itemFuture.get();
 
@@ -168,21 +149,20 @@ public class CyodaEntityControllerPrototype {
             throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Order not found");
         }
 
-        // Update fields if present in request
+        // Update fields if present in the request
         if (request.getItems() != null && !request.getItems().isEmpty()) {
             existingOrder.set("items", objectMapper.valueToTree(request.getItems()));
         }
         if (request.getStatus() != null && !request.getStatus().isBlank()) {
             existingOrder.put("status", request.getStatus());
         }
-        // workflowStatus will be set by the workflow function
+        // workflowStatus will be set inside workflow function
 
-        // Update item with workflow function applied before persistence
-        // NOTE: entityService.updateItem does NOT have workflow param (assumed from original)
-        // So we implement the workflow manually here before update:
+        // Manually apply workflow function before update because updateItem does not support workflow param
         CompletableFuture<ObjectNode> processedOrderFuture = processOrder.apply(existingOrder);
         ObjectNode processedOrder = processedOrderFuture.get();
 
+        // Update entity in storage
         CompletableFuture<UUID> updateFuture = entityService.updateItem(
                 "order",
                 ENTITY_VERSION,
@@ -191,7 +171,8 @@ public class CyodaEntityControllerPrototype {
         );
         updateFuture.get();
 
-        return new CreateOrUpdateOrderResponse(orderId, processedOrder.get("status").asText(), 
+        return new CreateOrUpdateOrderResponse(orderId,
+                processedOrder.has("status") ? processedOrder.get("status").asText() : "UNKNOWN",
                 processedOrder.has("workflowStatus") ? processedOrder.get("workflowStatus").asText() : "processing");
     }
 
@@ -224,14 +205,13 @@ public class CyodaEntityControllerPrototype {
         );
         ArrayNode itemsNode = itemsFuture.get();
 
-        // Filter and transform orders to summary
         ArrayNode result = objectMapper.createArrayNode();
         for (JsonNode node : itemsNode) {
-            if (customerId.equals(node.get("customerId").asText())) {
+            if (node.has("customerId") && customerId.equals(node.get("customerId").asText()) && node.isObject()) {
                 ObjectNode summary = objectMapper.createObjectNode();
-                summary.put("orderId", node.get("technicalId").asText());
-                summary.put("orderDate", node.get("orderDate").asText());
-                summary.put("status", node.get("status").asText());
+                if (node.has("technicalId")) summary.put("orderId", node.get("technicalId").asText());
+                if (node.has("orderDate")) summary.put("orderDate", node.get("orderDate").asText());
+                if (node.has("status")) summary.put("status", node.get("status").asText());
                 result.add(summary);
             }
         }
@@ -265,8 +245,8 @@ public class CyodaEntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class UpdateOrderRequest {
-        private List<@Valid OrderItem> items; // optional
-        private String status; // optional
+        private List<@Valid OrderItem> items; // optional, may be null
+        private String status; // optional, may be null
     }
 
     @Data
@@ -289,35 +269,3 @@ public class CyodaEntityControllerPrototype {
         private Integer quantity;
     }
 }
-```
-
----
-
-### Summary of changes:
-
-- **workflow function `processOrder`** (type `Function<ObjectNode, CompletableFuture<ObjectNode>>`):
-  - Sets `"workflowStatus"` to `"processing"`.
-  - Fetches product data for each item asynchronously (but waits synchronously here for simplicity).
-  - Inserts product data inside each item node under `"productData"`.
-  - Sets `"workflowStatus"` to `"completed"` or `"failed"` if errors occur.
-  - This runs before persistence, so entity state is persisted with these updates.
-- **Controller methods**:
-  - `createOrder` passes the workflow function directly to `entityService.addItem`.
-  - `updateOrder` manually applies the workflow function before calling `entityService.updateItem` (since updateItem doesn't support workflow).
-  - Removed any explicit async workflow triggers from controllers.
-- **No async fire-and-forget tasks remain in the controller.**
-- **Entity is always an `ObjectNode` inside workflow function**, modified directly.
-
----
-
-### Benefits:
-
-- Controllers are now lean, only responsible for request validation and calling service methods.
-- Workflow logic is encapsulated in the `processOrder` function.
-- Workflow runs asynchronously before persistence and can safely modify the entity state.
-- Future changes to workflow logic do not require touching controller code.
-- Supports adding/getting other entities (not used here, but permitted).
-
----
-
-If you want me to help with updating the update workflow to support async workflow param or more complex multi-entity workflows, just ask!
