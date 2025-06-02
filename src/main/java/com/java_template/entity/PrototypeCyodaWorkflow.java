@@ -1,37 +1,3 @@
-Certainly! Per your requirements, the main idea is to move **all asynchronous and processing logic** from the controller into the workflow function `process{entity_name}`, which is invoked **right before persisting the entity data**.
-
----
-
-### What we will do:
-
-- The controller endpoint methods will become thin:  
-  - They will validate and prepare the initial entity data.  
-  - They will call `entityService.addItem(...)` passing the workflow function.  
-  - They will just return the `technicalId` or the requested entity.
-
-- The **workflow function** will:  
-  - Receive the entity as an `ObjectNode`.  
-  - Perform all async logic (e.g., calling external APIs, processing the result).  
-  - Update the entity state **directly** by modifying the `ObjectNode` (e.g. `entity.put(...)`, `entity.set(...)`).  
-  - Use `entityService` methods **only on other entities** (different `entityModel`) if needed, never on the current one (to avoid recursion).  
-  - Return the modified entity to be persisted.
-
-- The `entityService.addItem` implementation will persist the final entity returned by the workflow function.
-
----
-
-### Changes summary:
-
-- Move `processReport` logic inside `processReportRequest(ObjectNode entity)` workflow function.  
-- Use `ObjectNode` API to modify the entity state inside the workflow.  
-- Make external API calls and update the entity **inside the workflow** asynchronously.  
-- The controller method just calls `addItem` with workflow and returns the report ID immediately.
-
----
-
-### Full updated Java code:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -369,28 +335,3 @@ public class CyodaEntityControllerPrototype {
         IN_PROGRESS, COMPLETED, FAILED
     }
 }
-```
-
----
-
-### Explanation:
-
-- The new `processReportRequest(ObjectNode entity)` function contains **all** the logic that previously was in the controller or in `processReport()`.
-- It asynchronously calls the external API, parses the response, calculates metrics, and modifies the entity directly by calling `entity.put(...)` and `entity.set(...)`.
-- On failure, it updates the entity status to `FAILED` and sets the `errorMessage`.
-- The controller's `generateReport` method only creates the initial entity data and calls `entityService.addItem(...)` with the workflow reference.
-- The controller returns the report ID immediately and does not manage any async logic or fire-and-forget tasks anymore.
-- The `getReport` endpoint remains a simple retrieval, unchanged.
-
----
-
-This approach:
-
-- Makes the controller **clean and focused on request handling** only.
-- Moves all async processing and state modification logic inside the **workflow function**, ensuring robust handling.
-- Avoids recursion by never trying to update the same entity inside the workflow function, only modifying the passed `ObjectNode`.
-- Uses `CompletableFuture` properly to keep everything asynchronous and non-blocking where possible.
-
----
-
-If you want, I can help you with further enhancements or testing instructions!
