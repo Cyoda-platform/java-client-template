@@ -1,0 +1,78 @@
+{
+    "description": "Workflow for the Egg Alarm app to manage alarm lifecycle",
+    "name": "EggAlarmWorkflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Initialize the alarm with status set",
+            "end_state": "Alarm_Set",
+            "end_state_description": "The alarm has been set",
+            "name": "initialize_alarm",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processInitialize"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Wait until the alarm time is reached",
+            "end_state": "Alarm_Waiting_Complete",
+            "end_state_description": "Waiting period for alarm time completed",
+            "name": "wait_for_alarm_time",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processWaitForAlarm"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Alarm_Set",
+            "start_state_description": "The alarm has been set"
+        },
+        {
+            "automated": true,
+            "description": "Change status to ringing and simulate ringing duration",
+            "end_state": "Alarm_Ringing",
+            "end_state_description": "Alarm is ringing",
+            "name": "trigger_alarm_ringing",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processTriggerRinging"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Alarm_Waiting_Complete",
+            "start_state_description": "Waiting period for alarm time completed"
+        },
+        {
+            "automated": true,
+            "description": "Mark the alarm as completed",
+            "end_state": "Alarm_Completed",
+            "end_state_description": "Alarm has completed",
+            "name": "complete_alarm",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processComplete"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Alarm_Ringing",
+            "start_state_description": "Alarm is ringing"
+        }
+    ]
+}
