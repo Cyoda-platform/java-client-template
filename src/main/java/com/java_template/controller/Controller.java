@@ -1,4 +1,4 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
@@ -29,9 +29,9 @@ import static com.java_template.common.config.Config.*;
 @Validated
 @RestController
 @RequestMapping("/api/cyoda-alarms")
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
     private static final String ENTITY_NAME = "alarm";
@@ -43,7 +43,7 @@ public class CyodaEntityControllerPrototype {
     // Using a fixed thread pool for lifecycle async tasks to prevent resource exhaustion
     private final ExecutorService lifecycleExecutor = Executors.newFixedThreadPool(4);
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService) {
         this.entityService = entityService;
     }
 
