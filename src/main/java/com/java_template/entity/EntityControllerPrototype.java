@@ -1,8 +1,11 @@
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -12,6 +15,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.util.StringUtils;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
@@ -25,216 +29,127 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 @RequestMapping("/api/reports")
+@Validated
 @Slf4j
 public class EntityControllerPrototype {
 
     private final Map<String, Report> reports = new ConcurrentHashMap<>();
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
-
-    private static final String EXTERNAL_API_BASE = "https://cgiannaros.github.io/Test/1.0.0/developers/searchInventory"; // TODO: Replace with actual external API endpoint URL
+    private static final String EXTERNAL_API_BASE = "https://cgiannaros.github.io/Test/1.0.0/developers/searchInventory"; // TODO: replace with actual
 
     @PostConstruct
     public void init() {
-        log.info("EntityControllerPrototype initialized");
+        logger.info("EntityControllerPrototype initialized");
     }
 
-    /**
-     * POST /api/reports/generate
-     * Trigger report generation by fetching inventory data with optional filters,
-     * calculate metrics, store the report and return reportId and status.
-     */
     @PostMapping(value = "/generate", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<GenerateReportResponse> generateReport(@RequestBody GenerateReportRequest request) {
-        log.info("Received report generation request with filters: {}", request.getFilters());
-
+    public ResponseEntity<GenerateReportResponse> generateReport(
+        @Valid @RequestBody GenerateReportRequest request) {
+        logger.info("Received report generation request with filters: {}", request);
         String reportId = UUID.randomUUID().toString();
         Instant requestedAt = Instant.now();
-
-        // Initialize report with status IN_PROGRESS
         reports.put(reportId, new Report(reportId, requestedAt, ReportStatus.IN_PROGRESS, null, null));
-        log.info("Report {} status set to IN_PROGRESS", reportId);
-
-        // Fire-and-forget processing asynchronously
-        CompletableFuture.runAsync(() -> processReport(reportId, request));
-
+        CompletableFuture.runAsync(() -> processReport(reportId, request)); // async fire-and-forget
         return ResponseEntity.ok(new GenerateReportResponse(reportId, ReportStatus.IN_PROGRESS.name(), null));
     }
 
-    /**
-     * GET /api/reports/{reportId}
-     * Retrieve the generated report results by report ID.
-     */
     @GetMapping(value = "/{reportId}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Report> getReport(@PathVariable String reportId) {
-        log.info("Retrieving report with id {}", reportId);
+    public ResponseEntity<Report> getReport(@PathVariable @NotBlank String reportId) {
+        logger.info("Retrieving report with id {}", reportId);
         Report report = reports.get(reportId);
         if (report == null) {
-            log.error("Report with id {} not found", reportId);
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found");
         }
         return ResponseEntity.ok(report);
     }
 
-    /**
-     * Core processing: fetch external inventory data, calculate metrics, update report.
-     */
     private void processReport(String reportId, GenerateReportRequest request) {
         try {
-            log.info("Processing report generation for reportId {}", reportId);
-
-            // 1. Build external API URL with query params from filters
-            URI externalUri = buildExternalUri(request.getFilters());
-            log.info("Calling external API: {}", externalUri);
-
-            // 2. Call external API
-            String externalResponse = restTemplate.getForObject(externalUri, String.class);
-            if (!StringUtils.hasText(externalResponse)) {
-                throw new IllegalStateException("Empty response from external API");
-            }
-
-            // 3. Parse JSON response
-            JsonNode rootNode = objectMapper.readTree(externalResponse);
-            // Assuming the response contains an array of inventory items at root or a known path
-            JsonNode itemsNode = rootNode.isArray() ? rootNode : rootNode.path("items");
-            if (itemsNode == null || !itemsNode.isArray()) {
-                throw new IllegalStateException("Unexpected external API response format: 'items' array missing");
-            }
-
+            logger.info("Processing report {}", reportId);
+            URI uri = buildExternalUri(request);
+            logger.info("Calling external API: {}", uri);
+            String resp = restTemplate.getForObject(uri, String.class);
+            if (!StringUtils.hasText(resp)) throw new IllegalStateException("Empty external response");
+            JsonNode root = objectMapper.readTree(resp);
+            JsonNode itemsNode = root.isArray() ? root : root.path("items");
+            if (!itemsNode.isArray()) throw new IllegalStateException("Missing 'items' array");
             List<InventoryItem> items = new ArrayList<>();
-            for (JsonNode itemNode : itemsNode) {
-                InventoryItem item = parseInventoryItem(itemNode);
-                if (item != null) {
-                    items.add(item);
-                }
+            for (JsonNode n : itemsNode) {
+                InventoryItem item = parseInventoryItem(n);
+                if (item != null) items.add(item);
             }
-
-            log.info("Fetched {} inventory items from external API", items.size());
-
-            // 4. Calculate metrics
             ReportMetrics metrics = calculateMetrics(items);
-
-            // 5. Update report with metrics and data, mark as COMPLETED
-            Report report = new Report(reportId, Instant.now(), ReportStatus.COMPLETED, metrics, items);
-            reports.put(reportId, report);
-
-            log.info("Report {} processing COMPLETED", reportId);
-
+            reports.put(reportId, new Report(reportId, Instant.now(), ReportStatus.COMPLETED, metrics, items));
+            logger.info("Report {} COMPLETED", reportId);
         } catch (Exception e) {
-            log.error("Error processing report {}: {}", reportId, e.getMessage(), e);
-            // Update report with FAILED status and error message
+            logger.error("Error in report {}: {}", reportId, e.getMessage(), e);
             reports.put(reportId, new Report(reportId, Instant.now(), ReportStatus.FAILED, null, null, e.getMessage()));
         }
     }
 
-    private URI buildExternalUri(Filters filters) {
-        // TODO: Replace with real external API query params as per SwaggerHub spec.
-
-        // For prototype, assume external API accepts query params: category, minPrice, maxPrice, dateFrom, dateTo
+    private URI buildExternalUri(GenerateReportRequest f) {
         StringBuilder sb = new StringBuilder(EXTERNAL_API_BASE);
         List<String> params = new ArrayList<>();
-
-        if (filters != null) {
-            if (filters.getCategory() != null && !filters.getCategory().isBlank()) {
-                params.add("category=" + filters.getCategory());
-            }
-            if (filters.getMinPrice() != null) {
-                params.add("minPrice=" + filters.getMinPrice());
-            }
-            if (filters.getMaxPrice() != null) {
-                params.add("maxPrice=" + filters.getMaxPrice());
-            }
-            if (filters.getDateFrom() != null && !filters.getDateFrom().isBlank()) {
-                params.add("dateFrom=" + filters.getDateFrom());
-            }
-            if (filters.getDateTo() != null && !filters.getDateTo().isBlank()) {
-                params.add("dateTo=" + filters.getDateTo());
-            }
-        }
-
-        if (!params.isEmpty()) {
-            sb.append("?").append(String.join("&", params));
-        }
-
+        if (StringUtils.hasText(f.getCategory())) params.add("category=" + f.getCategory());
+        if (f.getMinPrice() != null) params.add("minPrice=" + f.getMinPrice());
+        if (f.getMaxPrice() != null) params.add("maxPrice=" + f.getMaxPrice());
+        if (StringUtils.hasText(f.getDateFrom())) params.add("dateFrom=" + f.getDateFrom());
+        if (StringUtils.hasText(f.getDateTo())) params.add("dateTo=" + f.getDateTo());
+        if (!params.isEmpty()) sb.append("?").append(String.join("&", params));
         return URI.create(sb.toString());
     }
 
-    private InventoryItem parseInventoryItem(JsonNode node) {
+    private InventoryItem parseInventoryItem(JsonNode n) {
         try {
-            String itemId = node.path("itemId").asText(null);
-            String name = node.path("name").asText(null);
-            String category = node.path("category").asText(null);
-            Double price = node.path("price").isNumber() ? node.path("price").asDouble() : null;
-            Integer quantity = node.path("quantity").isInt() ? node.path("quantity").asInt() : null;
-
-            // Validate required fields
-            if (itemId == null || name == null || price == null || quantity == null) {
-                log.warn("Skipping inventory item with missing required fields: {}", node);
+            String id = n.path("itemId").asText(null);
+            String name = n.path("name").asText(null);
+            String cat = n.path("category").asText(null);
+            Double price = n.path("price").isNumber() ? n.path("price").asDouble() : null;
+            Integer qty = n.path("quantity").isInt() ? n.path("quantity").asInt() : null;
+            if (id == null || name == null || price == null || qty == null) {
+                logger.warn("Skipping item with missing fields: {}", n);
                 return null;
             }
-
-            return new InventoryItem(itemId, name, category, price, quantity);
+            return new InventoryItem(id, name, cat, price, qty);
         } catch (Exception e) {
-            log.warn("Failed to parse inventory item: {}", e.getMessage());
+            logger.warn("Failed to parse item: {}", e.getMessage());
             return null;
         }
     }
 
     private ReportMetrics calculateMetrics(List<InventoryItem> items) {
         int totalItems = items.size();
-        double totalValue = 0d;
-        double sumPrices = 0d;
-        double minPrice = Double.MAX_VALUE;
-        double maxPrice = Double.MIN_VALUE;
-
-        for (InventoryItem item : items) {
-            double price = item.getPrice();
-            int quantity = item.getQuantity();
-
-            sumPrices += price;
-            totalValue += price * quantity;
-
-            if (price < minPrice) minPrice = price;
-            if (price > maxPrice) maxPrice = price;
+        double sumPrice = 0, totalValue = 0, min = Double.MAX_VALUE, max = Double.MIN_VALUE;
+        for (InventoryItem i : items) {
+            double p = i.getPrice(); int q = i.getQuantity();
+            sumPrice += p; totalValue += p * q;
+            if (p < min) min = p; if (p > max) max = p;
         }
-
-        double averagePrice = totalItems > 0 ? sumPrices / totalItems : 0d;
-        if (minPrice == Double.MAX_VALUE) minPrice = 0d;
-        if (maxPrice == Double.MIN_VALUE) maxPrice = 0d;
-
-        return new ReportMetrics(totalItems, averagePrice, totalValue, minPrice, maxPrice);
+        double avg = totalItems > 0 ? sumPrice / totalItems : 0;
+        if (min == Double.MAX_VALUE) min = 0; if (max == Double.MIN_VALUE) max = 0;
+        return new ReportMetrics(totalItems, avg, totalValue, min, max);
     }
 
     @ExceptionHandler(ResponseStatusException.class)
-    public ResponseEntity<Map<String, String>> handleResponseStatusException(ResponseStatusException ex) {
-        log.error("ResponseStatusException: {}", ex.getReason());
-        Map<String, String> error = new HashMap<>();
-        error.put("error", ex.getReason());
-        return ResponseEntity.status(ex.getStatusCode()).body(error);
+    public ResponseEntity<Map<String, String>> handleResponseStatus(ResponseStatusException ex) {
+        Map<String, String> err = Collections.singletonMap("error", ex.getReason());
+        return ResponseEntity.status(ex.getStatusCode()).body(err);
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, String>> handleGeneralException(Exception ex) {
-        log.error("Unhandled exception: {}", ex.getMessage(), ex);
-        Map<String, String> error = new HashMap<>();
-        error.put("error", "Internal server error");
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+    public ResponseEntity<Map<String, String>> handleException(Exception ex) {
+        Map<String, String> err = Collections.singletonMap("error", "Internal server error");
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(err);
     }
-
-    // --- DTOs and Enums ---
 
     @Data
     public static class GenerateReportRequest {
-        private Filters filters;
-    }
-
-    @Data
-    public static class Filters {
         private String category;
-        private Double minPrice;
-        private Double maxPrice;
-        private String dateFrom; // ISO8601 string
-        private String dateTo;   // ISO8601 string
+        @DecimalMin(value = "0.0", inclusive = true) private Double minPrice;
+        @DecimalMin(value = "0.0", inclusive = true) private Double maxPrice;
+        @Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}T.*Z$", message = "dateFrom must be ISO8601") private String dateFrom;
+        @Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}T.*Z$", message = "dateTo must be ISO8601") private String dateTo;
     }
 
     @Data
@@ -242,7 +157,7 @@ public class EntityControllerPrototype {
     public static class GenerateReportResponse {
         private String reportId;
         private String status;
-        private String message; // optional
+        private String message;
     }
 
     @Data
@@ -255,14 +170,6 @@ public class EntityControllerPrototype {
         private ReportMetrics metrics;
         private List<InventoryItem> data;
         private String errorMessage;
-
-        public Report(String reportId, Instant generatedAt, ReportStatus status, ReportMetrics metrics, List<InventoryItem> data) {
-            this.reportId = reportId;
-            this.generatedAt = generatedAt;
-            this.status = status;
-            this.metrics = metrics;
-            this.data = data;
-        }
     }
 
     @Data
@@ -286,9 +193,6 @@ public class EntityControllerPrototype {
     }
 
     public enum ReportStatus {
-        IN_PROGRESS,
-        COMPLETED,
-        FAILED
+        IN_PROGRESS, COMPLETED, FAILED
     }
 }
-```
