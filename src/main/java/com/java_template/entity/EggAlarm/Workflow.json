@@ -1,0 +1,108 @@
+{
+    "description": "Workflow for processing egg alarm entity from creation to ready state",
+    "name": "egg_alarm_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Validate and normalize egg type",
+            "end_state": "EggTypeValidated",
+            "end_state_description": "Egg type validated and normalized",
+            "name": "validate_egg_type",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "name": "processValidateEggType"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Set duration based on egg type",
+            "end_state": "DurationSet",
+            "end_state_description": "Duration minutes set according to egg type",
+            "name": "set_duration",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "name": "processSetDuration"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "EggTypeValidated",
+            "start_state_description": "Egg type validated and normalized"
+        },
+        {
+            "automated": true,
+            "description": "Set creation timestamp if missing",
+            "end_state": "CreatedAtSet",
+            "end_state_description": "Created at timestamp set",
+            "name": "set_created_at",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "name": "processSetCreatedAt"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "DurationSet",
+            "start_state_description": "Duration minutes set according to egg type"
+        },
+        {
+            "automated": true,
+            "description": "Calculate ring time from createdAt and duration",
+            "end_state": "RingAtSet",
+            "end_state_description": "Ring at timestamp set",
+            "name": "set_ring_at",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "name": "processSetRingAt"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "CreatedAtSet",
+            "start_state_description": "Created at timestamp set"
+        },
+        {
+            "automated": true,
+            "description": "Set alarm status to SCHEDULED if missing or invalid",
+            "end_state": "StatusSet",
+            "end_state_description": "Alarm status set",
+            "name": "set_status",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "name": "processSetStatus"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "RingAtSet",
+            "start_state_description": "Ring at timestamp set"
+        },
+        {
+            "automated": true,
+            "description": "Generate alarm ID if missing",
+            "end_state": "AlarmIdSet",
+            "end_state_description": "Alarm ID set",
+            "name": "set_alarm_id",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "name": "processSetAlarmId"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "StatusSet",
+            "start_state_description": "Alarm status set"
+        }
+    ]
+}
