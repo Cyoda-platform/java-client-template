@@ -1,0 +1,78 @@
+{
+    "description": "Workflow to process orders through several asynchronous steps updating workflow status",
+    "name": "order_processing_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Set workflow status to processing",
+            "end_state": "Processing_started",
+            "end_state_description": "Workflow status set to processing",
+            "name": "start_processing",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSetProcessingStatus"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Fetch product data for each item in the order",
+            "end_state": "Product_data_fetched",
+            "end_state_description": "Product data fetched and attached to order items",
+            "name": "fetch_product_data",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processFetchProductData"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Processing_started",
+            "start_state_description": "Workflow status set to processing"
+        },
+        {
+            "automated": true,
+            "description": "Simulate delay in processing",
+            "end_state": "Delay_simulated",
+            "end_state_description": "Processing delay simulated",
+            "name": "simulate_processing_delay",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSimulateDelay"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Product_data_fetched",
+            "start_state_description": "Product data fetched and attached to order items"
+        },
+        {
+            "automated": true,
+            "description": "Set workflow status to completed",
+            "end_state": "Processing_completed",
+            "end_state_description": "Workflow status set to completed",
+            "name": "complete_processing",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSetCompletedStatus"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Delay_simulated",
+            "start_state_description": "Processing delay simulated"
+        }
+    ]
+}
