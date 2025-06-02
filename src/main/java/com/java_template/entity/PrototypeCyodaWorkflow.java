@@ -1,7 +1,39 @@
+Certainly! Per your requirements, the main idea is to move **all asynchronous and processing logic** from the controller into the workflow function `process{entity_name}`, which is invoked **right before persisting the entity data**.
+
+---
+
+### What we will do:
+
+- The controller endpoint methods will become thin:  
+  - They will validate and prepare the initial entity data.  
+  - They will call `entityService.addItem(...)` passing the workflow function.  
+  - They will just return the `technicalId` or the requested entity.
+
+- The **workflow function** will:  
+  - Receive the entity as an `ObjectNode`.  
+  - Perform all async logic (e.g., calling external APIs, processing the result).  
+  - Update the entity state **directly** by modifying the `ObjectNode` (e.g. `entity.put(...)`, `entity.set(...)`).  
+  - Use `entityService` methods **only on other entities** (different `entityModel`) if needed, never on the current one (to avoid recursion).  
+  - Return the modified entity to be persisted.
+
+- The `entityService.addItem` implementation will persist the final entity returned by the workflow function.
+
+---
+
+### Changes summary:
+
+- Move `processReport` logic inside `processReportRequest(ObjectNode entity)` workflow function.  
+- Use `ObjectNode` API to modify the entity state inside the workflow.  
+- Make external API calls and update the entity **inside the workflow** asynchronously.  
+- The controller method just calls `addItem` with workflow and returns the report ID immediately.
+
+---
+
+### Full updated Java code:
+
 ```java
 package com.java_template.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -16,7 +48,6 @@ import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
@@ -28,9 +59,10 @@ import org.springframework.web.server.ResponseStatusException;
 import javax.annotation.PostConstruct;
 import java.net.URI;
 import java.time.Instant;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
 
@@ -56,11 +88,82 @@ public class CyodaEntityControllerPrototype {
         logger.info("CyodaEntityControllerPrototype initialized");
     }
 
-    // New workflow function as required by updated entityService.addItem
-    private CompletableFuture<ReportIngestData> processReportRequest(ReportIngestData entityData) {
-        // This function can modify entityData before persistence asynchronously
-        // For now, just return the entityData unchanged asynchronously
-        return CompletableFuture.completedFuture(entityData);
+    /**
+     * Workflow function: processReportRequest
+     * This is called asynchronously by entityService.addItem right before persisting.
+     * It receives the entity as ObjectNode, modifies it directly and returns it.
+     */
+    private CompletableFuture<ObjectNode> processReportRequest(ObjectNode entity) {
+        logger.info("Workflow processReportRequest started for entity");
+
+        // Run asynchronously
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                // Extract filters from entity
+                String category = getStringOrNull(entity, "category");
+                Double minPrice = getDoubleOrNull(entity, "minPrice");
+                Double maxPrice = getDoubleOrNull(entity, "maxPrice");
+                String dateFrom = getStringOrNull(entity, "dateFrom");
+                String dateTo = getStringOrNull(entity, "dateTo");
+
+                URI uri = buildExternalUri(category, minPrice, maxPrice, dateFrom, dateTo);
+                logger.info("Workflow calling external API: {}", uri);
+
+                String resp = restTemplate.getForObject(uri, String.class);
+                if (!StringUtils.hasText(resp)) {
+                    throw new IllegalStateException("Empty external response");
+                }
+
+                JsonNode root = objectMapper.readTree(resp);
+                JsonNode itemsNode = root.isArray() ? root : root.path("items");
+
+                if (!itemsNode.isArray()) {
+                    throw new IllegalStateException("Missing or invalid 'items' array");
+                }
+
+                List<InventoryItem> items = new ArrayList<>();
+                for (JsonNode n : itemsNode) {
+                    InventoryItem item = parseInventoryItem(n);
+                    if (item != null) items.add(item);
+                }
+
+                ReportMetrics metrics = calculateMetrics(items);
+
+                // Update entity fields directly
+                entity.put("generatedAt", Instant.now().toString());
+                entity.put("status", ReportStatus.COMPLETED.name());
+
+                // Set metrics as nested object
+                ObjectNode metricsNode = objectMapper.createObjectNode();
+                metricsNode.put("totalItems", metrics.getTotalItems());
+                metricsNode.put("averagePrice", metrics.getAveragePrice());
+                metricsNode.put("totalValue", metrics.getTotalValue());
+                metricsNode.put("minPrice", metrics.getMinPrice());
+                metricsNode.put("maxPrice", metrics.getMaxPrice());
+                entity.set("metrics", metricsNode);
+
+                // Set data array of inventory items
+                entity.set("data", objectMapper.valueToTree(items));
+
+                // Clear any previous error message
+                entity.remove("errorMessage");
+
+                logger.info("Workflow processReportRequest completed successfully");
+
+            } catch (Exception e) {
+                logger.error("Workflow processReportRequest failed: {}", e.getMessage(), e);
+
+                entity.put("generatedAt", Instant.now().toString());
+                entity.put("status", ReportStatus.FAILED.name());
+                entity.put("errorMessage", e.getMessage());
+
+                // Remove metrics and data in case of failure
+                entity.remove("metrics");
+                entity.remove("data");
+            }
+
+            return entity;
+        });
     }
 
     @PostMapping(value = "/generate", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
@@ -69,14 +172,15 @@ public class CyodaEntityControllerPrototype {
 
         logger.info("Received report generation request with filters: {}", request);
 
-        // Compose data object for entityService
-        ReportIngestData ingestData = new ReportIngestData();
-        ingestData.setCategory(request.getCategory());
-        ingestData.setMinPrice(request.getMinPrice());
-        ingestData.setMaxPrice(request.getMaxPrice());
-        ingestData.setDateFrom(request.getDateFrom());
-        ingestData.setDateTo(request.getDateTo());
-        ingestData.setRequestedAt(Instant.now());
+        // Compose initial entity data as ObjectNode
+        ObjectNode ingestData = objectMapper.createObjectNode();
+        if (request.getCategory() != null) ingestData.put("category", request.getCategory());
+        if (request.getMinPrice() != null) ingestData.put("minPrice", request.getMinPrice());
+        if (request.getMaxPrice() != null) ingestData.put("maxPrice", request.getMaxPrice());
+        if (request.getDateFrom() != null) ingestData.put("dateFrom", request.getDateFrom());
+        if (request.getDateTo() != null) ingestData.put("dateTo", request.getDateTo());
+        ingestData.put("requestedAt", Instant.now().toString());
+        ingestData.put("status", ReportStatus.IN_PROGRESS.name());
 
         // Pass workflow function processReportRequest to addItem
         CompletableFuture<UUID> idFuture = entityService.addItem(
@@ -85,11 +189,6 @@ public class CyodaEntityControllerPrototype {
                 ingestData,
                 this::processReportRequest
         );
-
-        // Fire and forget processing asynchronously
-        idFuture.thenAcceptAsync(reportIdTechnicalId -> {
-            processReport(reportIdTechnicalId, request);
-        });
 
         // Return technicalId as reportId string
         return ResponseEntity.ok(new GenerateReportResponse(idFuture.join().toString(), ReportStatus.IN_PROGRESS.name(), null));
@@ -102,75 +201,42 @@ public class CyodaEntityControllerPrototype {
         try {
             technicalId = UUID.fromString(reportId);
         } catch (IllegalArgumentException ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid reportId format");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid reportId format");
         }
 
         return entityService.getItem("ReportRequest", ENTITY_VERSION, technicalId)
                 .thenApply(itemNode -> {
                     if (itemNode == null || itemNode.isNull()) {
-                        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found");
+                        throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Report not found");
                     }
-                    Report report = mapObjectNodeToReport(itemNode);
+                    Report report = mapObjectNodeToReport((ObjectNode) itemNode);
                     return ResponseEntity.ok(report);
                 });
     }
 
-    private void processReport(UUID reportTechnicalId, GenerateReportRequest request) {
-        try {
-            logger.info("Processing report technicalId {}", reportTechnicalId);
-            URI uri = buildExternalUri(request);
-            logger.info("Calling external API: {}", uri);
-            String resp = restTemplate.getForObject(uri, String.class);
-            if (!StringUtils.hasText(resp))
-                throw new IllegalStateException("Empty external response");
-            JsonNode root = objectMapper.readTree(resp);
-            JsonNode itemsNode = root.isArray() ? root : root.path("items");
-            if (!itemsNode.isArray())
-                throw new IllegalStateException("Missing 'items' array");
-            List<InventoryItem> items = new ArrayList<>();
-            for (JsonNode n : itemsNode) {
-                InventoryItem item = parseInventoryItem(n);
-                if (item != null) items.add(item);
-            }
-            ReportMetrics metrics = calculateMetrics(items);
-
-            // Compose updated data to update entityService record
-            Report updatedReport = new Report(
-                    reportTechnicalId.toString(),
-                    Instant.now(),
-                    ReportStatus.COMPLETED,
-                    metrics,
-                    items,
-                    null
-            );
-
-            entityService.updateItem("ReportRequest", ENTITY_VERSION, reportTechnicalId, updatedReport).join();
-
-            logger.info("Report {} COMPLETED", reportTechnicalId);
-
-        } catch (Exception e) {
-            logger.error("Error in report {}: {}", reportTechnicalId, e.getMessage(), e);
-
-            Report failedReport = new Report(
-                    reportTechnicalId.toString(),
-                    Instant.now(),
-                    ReportStatus.FAILED,
-                    null,
-                    null,
-                    e.getMessage()
-            );
-            entityService.updateItem("ReportRequest", ENTITY_VERSION, reportTechnicalId, failedReport).join();
-        }
+    // Helper to get a String value or null from ObjectNode
+    private static String getStringOrNull(ObjectNode node, String field) {
+        JsonNode n = node.get(field);
+        return (n != null && !n.isNull()) ? n.asText() : null;
     }
 
-    private URI buildExternalUri(GenerateReportRequest f) {
+    // Helper to get Double or null from ObjectNode
+    private static Double getDoubleOrNull(ObjectNode node, String field) {
+        JsonNode n = node.get(field);
+        if (n != null && n.isNumber()) {
+            return n.asDouble();
+        }
+        return null;
+    }
+
+    private URI buildExternalUri(String category, Double minPrice, Double maxPrice, String dateFrom, String dateTo) {
         StringBuilder sb = new StringBuilder(EXTERNAL_API_BASE);
         List<String> params = new ArrayList<>();
-        if (StringUtils.hasText(f.getCategory())) params.add("category=" + f.getCategory());
-        if (f.getMinPrice() != null) params.add("minPrice=" + f.getMinPrice());
-        if (f.getMaxPrice() != null) params.add("maxPrice=" + f.getMaxPrice());
-        if (StringUtils.hasText(f.getDateFrom())) params.add("dateFrom=" + f.getDateFrom());
-        if (StringUtils.hasText(f.getDateTo())) params.add("dateTo=" + f.getDateTo());
+        if (StringUtils.hasText(category)) params.add("category=" + category);
+        if (minPrice != null) params.add("minPrice=" + minPrice);
+        if (maxPrice != null) params.add("maxPrice=" + maxPrice);
+        if (StringUtils.hasText(dateFrom)) params.add("dateFrom=" + dateFrom);
+        if (StringUtils.hasText(dateTo)) params.add("dateTo=" + dateTo);
         if (!params.isEmpty()) sb.append("?").append(String.join("&", params));
         return URI.create(sb.toString());
     }
@@ -212,7 +278,7 @@ public class CyodaEntityControllerPrototype {
 
     private Report mapObjectNodeToReport(ObjectNode node) {
         Report r = new Report();
-        r.setReportId(node.path("technicalId").asText());
+        r.setReportId(node.path("technicalId").asText(null));
         r.setGeneratedAt(node.hasNonNull("generatedAt") ? Instant.parse(node.get("generatedAt").asText()) : null);
         r.setStatus(node.hasNonNull("status") ? ReportStatus.valueOf(node.get("status").asText()) : null);
         if (node.hasNonNull("metrics")) {
@@ -299,30 +365,32 @@ public class CyodaEntityControllerPrototype {
         private int quantity;
     }
 
-    @Data
-    public static class ReportIngestData {
-        private String category;
-        private Double minPrice;
-        private Double maxPrice;
-        private String dateFrom;
-        private String dateTo;
-        private Instant requestedAt;
-        @JsonIgnore
-        private String technicalId;
-    }
-
     public enum ReportStatus {
         IN_PROGRESS, COMPLETED, FAILED
     }
 }
 ```
+
 ---
 
-### Explanation of changes:
-- Added a new private method `processReportRequest` matching the required workflow function naming convention **processReportRequest** (prefix `process` + entity name `ReportRequest`).
-- This method takes the entity data (`ReportIngestData`) as input, returns a `CompletableFuture<ReportIngestData>`.
-- It currently returns the same entity data unchanged asynchronously (`CompletableFuture.completedFuture(entityData)`).
-- Updated the call to `entityService.addItem` in `generateReport` method to pass the workflow function as an additional last parameter `this::processReportRequest`.
-- No other changes to existing logic; the rest of the code remains intact.
+### Explanation:
 
-This satisfies the requirement to update the code to provide the new workflow function parameter to `entityService.addItem` while implementing the workflow function itself.
+- The new `processReportRequest(ObjectNode entity)` function contains **all** the logic that previously was in the controller or in `processReport()`.
+- It asynchronously calls the external API, parses the response, calculates metrics, and modifies the entity directly by calling `entity.put(...)` and `entity.set(...)`.
+- On failure, it updates the entity status to `FAILED` and sets the `errorMessage`.
+- The controller's `generateReport` method only creates the initial entity data and calls `entityService.addItem(...)` with the workflow reference.
+- The controller returns the report ID immediately and does not manage any async logic or fire-and-forget tasks anymore.
+- The `getReport` endpoint remains a simple retrieval, unchanged.
+
+---
+
+This approach:
+
+- Makes the controller **clean and focused on request handling** only.
+- Moves all async processing and state modification logic inside the **workflow function**, ensuring robust handling.
+- Avoids recursion by never trying to update the same entity inside the workflow function, only modifying the passed `ObjectNode`.
+- Uses `CompletableFuture` properly to keep everything asynchronous and non-blocking where possible.
+
+---
+
+If you want, I can help you with further enhancements or testing instructions!
