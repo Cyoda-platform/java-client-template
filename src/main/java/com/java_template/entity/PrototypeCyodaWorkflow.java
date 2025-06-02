@@ -1,63 +1,3 @@
-Understood! We want to move all asynchronous and business logic from the controller endpoints into the workflow function `processEggAlarm`, which is invoked asynchronously right before entity persistence. This means:
-
-- The controller will only prepare the initial entity and pass it to `entityService.addItem` with the workflow.
-
-- The workflow function (`processEggAlarm`) will:
-  - Modify entity state as needed.
-  - Run async logic like starting the alarm countdown and updating alarm status.
-  - Use `entityService` methods **only** on other entityModels if needed (cannot update this entity itself).
-
-- Since the workflow receives an `ObjectNode` (Jackson JSON tree), we must implement it accordingly.
-
-### What to move?
-
-- The countdown timer and status updates in `triggerAlarmAfterDelay` (currently fire-and-forget in controller).
-
-- Any state changes like setting `status` to RINGING, then later COMPLETED.
-
-- Keep `entityService.addItem` call simple in controller.
-
----
-
-### Implementation plan
-
-- Change the workflow function signature to accept `ObjectNode` (as per your note).
-
-- Move the countdown and status update logic inside `processEggAlarm`.
-
-- Since workflow function can be async, we can use `CompletableFuture` and schedule delayed tasks inside it.
-
-- The workflow function **cannot** update the same entity (to avoid recursion). So to update the alarm entity's status, we must modify the `ObjectNode` directly in the workflow function before returning it. But status transitions over time are async and happen **after** persistence, so for those we need to update the entity using `entityService.updateItem` on the same entity model. The rules forbid updating the same entity inside the workflow function, but async update calls after workflow completes and entity is persisted are allowed.
-
-- So for the async updates after initial persistence, we can spawn async tasks inside the workflow function (which runs before persistence), and those async tasks can call `entityService.updateItem` on the same entity.
-
-- The workflow function is the right place to start the countdown timer and trigger updates.
-
----
-
-### Updated code for the workflow function:
-
-- Accept `ObjectNode` entity.
-
-- Extract needed fields (`technicalId`, `durationMinutes`, `status`).
-
-- Start async countdown timer (fire and forget), which updates the entity status over time.
-
-- Return the modified entity (with initial status SCHEDULED).
-
----
-
-### Controller changes:
-
-- Remove the fire-and-forget call to `triggerAlarmAfterDelay`.
-
-- Keep controller minimal.
-
----
-
-### Full updated code below:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -138,106 +78,71 @@ public class CyodaEntityControllerPrototype {
 
     /**
      * Workflow function applied asynchronously before entity persistence.
-     * Receives the entity as ObjectNode, can modify it directly.
-     * Starts asynchronous countdown and status updates after persistence.
+     * Modifies the entity state before it is saved.
+     * Sets createdAt, ringAt, and initial status.
+     * Does not start async tasks requiring technicalId (not available yet).
      */
     private CompletableFuture<ObjectNode> processEggAlarm(ObjectNode entity) {
         logger.debug("Workflow processEggAlarm started for entity: {}", entity);
 
-        // Set status to SCHEDULED if not set
-        if (!entity.has("status")) {
+        // Validate and normalize eggType
+        if (!entity.hasNonNull("eggType") || entity.get("eggType").asText().isBlank()) {
+            throw new RuntimeException("eggType must be provided and non-empty");
+        }
+        String eggType = entity.get("eggType").asText().toLowerCase(Locale.ROOT);
+        if (!EGG_TYPE_DURATION.containsKey(eggType)) {
+            throw new RuntimeException("Invalid eggType: " + eggType + ". Allowed: soft, medium, hard");
+        }
+        entity.put("eggType", eggType);
+
+        // Set durationMinutes based on eggType
+        int durationMinutes = EGG_TYPE_DURATION.get(eggType);
+        entity.put("durationMinutes", durationMinutes);
+
+        // Set createdAt if missing
+        if (!entity.hasNonNull("createdAt") || entity.get("createdAt").isNull()) {
+            entity.put("createdAt", Instant.now().toString());
+        }
+
+        // Set ringAt if missing
+        if (!entity.hasNonNull("ringAt") || entity.get("ringAt").isNull()) {
+            Instant createdAt = Instant.parse(entity.get("createdAt").asText());
+            Instant ringAt = createdAt.plusSeconds(durationMinutes * 60L);
+            entity.put("ringAt", ringAt.toString());
+        }
+
+        // Set status to SCHEDULED if missing or invalid
+        if (!entity.hasNonNull("status")) {
             entity.put("status", AlarmStatus.SCHEDULED.name());
+        } else {
+            String statusStr = entity.get("status").asText();
+            try {
+                AlarmStatus.valueOf(statusStr);
+            } catch (IllegalArgumentException e) {
+                entity.put("status", AlarmStatus.SCHEDULED.name());
+            }
         }
 
-        // Extract technicalId will be null here - entity does not have ID assigned yet.
-        // We must wait for persistence to complete before getting technicalId.
-        // So we schedule countdown after persistence using thenAccept on returned CompletableFuture.
-
-        // We can't get technicalId here because entity is not persisted yet.
-        // So we must schedule countdown outside this method or after addItem completes.
-        // But per your instructions, all async tasks should be in workflow function.
-        // Hence, workaround: entityService.addItem returns CompletableFuture<UUID> - so after persistence completes,
-        // we can schedule async countdown.
-
-        // But current workflow contract only allows us to return CompletableFuture<ObjectNode>.
-        // We cannot hook into addItem completion from here because this is executed *during* addItem.
-
-        // Therefore, solution:
-        // - Return entity as is from workflow function.
-        // - After addItem completes in controller, call a new method to start countdown async using the returned technicalId.
-
-        // But you said "This is required" and "It is the right approach" to move all async tasks into workflow.
-        // So we must find a way to start countdown from workflow:
-        // Since we can't update the current entity (to avoid recursion), but can update other entityModels,
-        // and workflow runs before persistence, we don't have technicalId yet.
-
-        // Therefore, the best we can do is:
-        // - Modify entity (set createdAt, ringAt, status)
-        // - Return entity
-        // - In controller, after addItem completes, start countdown async task separately.
-
-        // But you want to avoid that, so maybe the entityService implementation calls workflow before persistence,
-        // but returns a CompletableFuture<UUID> only after persistence is done.
-        // So maybe we can chain tasks after workflow returns?
-
-        // Given constraints, I will:
-        // - Modify entity to set 'createdAt' and 'ringAt' if not already set
-        // - Set status to SCHEDULED
-        // - Start countdown async task using a delayed executor after persistence using a utility method
-        //   that we call from the workflow (fire and forget, no updates on current entity)
-
-        // Extract durationMinutes
-        int durationMinutes = entity.has("durationMinutes") ? entity.get("durationMinutes").asInt() : 0;
-
-        // Set createdAt and ringAt if missing
-        Instant now = Instant.now();
-        if (!entity.has("createdAt") || entity.get("createdAt").isNull()) {
-            entity.put("createdAt", now.toString());
-        }
-        if (!entity.has("ringAt") || entity.get("ringAt").isNull()) {
-            entity.put("ringAt", now.plusSeconds(durationMinutes * 60L).toString());
+        // alarmId generation if missing
+        if (!entity.hasNonNull("alarmId") || entity.get("alarmId").asText().isBlank()) {
+            entity.put("alarmId", UUID.randomUUID().toString());
         }
 
-        // Schedule async countdown AFTER persistence completes
-        // We can run a fire-and-forget delayed task without calling entityService.addItem/updateItem on current entity
-        // but calling updateItem is allowed on the same entity after persistence (not inside this workflow function)
-        // So we will schedule a new thread that waits duration, then updates status via entityService.updateItem.
+        // technicalId is not set here, assigned after persistence
 
-        // But we can't get technicalId here (no ID assigned yet), so we can't do this inside workflow function.
-
-        // So the only way is:
-        // - Return entity here
-        // - In controller, after addItem completes and UUID is returned, start countdown async task
-
-        // But your instruction says "this is required" to move async tasks to workflow.
-        // So unless entityService provides some hook after persistence, this is impossible.
-
-        // Therefore, I will provide a helper function in the workflow that returns the entity immediately,
-        // and also schedule the countdown logic in a separate thread after a short delay (assuming ID generated synchronously).
-
-        // This is a stub to comply with rules, but actual countdown must be started outside.
-
+        // Return modified entity
         return CompletableFuture.completedFuture(entity);
     }
 
     @PostMapping
     public ResponseEntity<EggAlarm> createAlarm(@RequestBody @Valid AlarmRequest request) {
         logger.info("Received new alarm request for eggType={}", request.getEggType());
-        String eggType = request.getEggType().toLowerCase();
-        Integer duration = EGG_TYPE_DURATION.get(eggType);
-        if (duration == null) {
-            logger.error("Invalid eggType '{}'", eggType);
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid eggType. Allowed: soft, medium, hard");
-        }
-        String alarmId = UUID.randomUUID().toString();
-        Instant createdAt = Instant.now();
-        Instant ringAt = createdAt.plusSeconds(duration * 60L);
-        EggAlarm alarm = new EggAlarm(null, alarmId, eggType, duration, AlarmStatus.SCHEDULED, createdAt, ringAt);
 
-        // Convert alarm to ObjectNode for entityService
-        ObjectNode alarmNode = objectMapper.valueToTree(alarm);
+        // Prepare initial entity as ObjectNode for entityService
+        ObjectNode alarmNode = objectMapper.createObjectNode();
+        alarmNode.put("eggType", request.getEggType().toLowerCase(Locale.ROOT));
 
-        // Pass the workflow function processEggAlarm as the workflow parameter
+        // Pass workflow function to addItem
         CompletableFuture<UUID> idFuture = entityService.addItem(
                 "EggAlarm",
                 ENTITY_VERSION,
@@ -246,47 +151,63 @@ public class CyodaEntityControllerPrototype {
         );
 
         UUID technicalId = idFuture.join();
+        if (technicalId == null) {
+            logger.error("Failed to persist alarm entity");
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to create alarm");
+        }
 
-        // Now start the countdown and status updates async task AFTER persistence (here in controller)
-        startCountdownAsync(technicalId, duration);
+        // Fetch persisted entity to return full data including computed fields
+        CompletableFuture<ObjectNode> persistedFuture = entityService.getItem("EggAlarm", ENTITY_VERSION, technicalId);
+        ObjectNode persistedNode = persistedFuture.join();
+        if (persistedNode == null) {
+            logger.error("Alarm entity not found after persistence, technicalId={}", technicalId);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to retrieve created alarm");
+        }
 
-        // Set technicalId in alarm to return to client
+        EggAlarm alarm = objectMapper.convertValue(persistedNode, EggAlarm.class);
         alarm.setTechnicalId(technicalId);
 
-        logger.info("Alarm scheduled: technicalId={}, alarmId={}, eggType={}, duration={}min", technicalId, alarmId, eggType, duration);
+        logger.info("Alarm scheduled: technicalId={}, alarmId={}, eggType={}, duration={}min",
+                technicalId, alarm.getAlarmId(), alarm.getEggType(), alarm.getDurationMinutes());
+
+        // Start async countdown and status update tasks after persistence
+        startCountdownAsync(technicalId, alarm.getDurationMinutes());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(alarm);
     }
 
+    /**
+     * Starts async countdown for alarm status updates: SCHEDULED -> RINGING -> COMPLETED
+     * Runs fire-and-forget in a separate thread.
+     */
     private void startCountdownAsync(UUID technicalId, int durationMinutes) {
         CompletableFuture.runAsync(() -> {
             try {
                 logger.info("Alarm [{}] countdown started for {} minutes", technicalId, durationMinutes);
                 Thread.sleep(durationMinutes * 60L * 1000L);
 
-                // Update to RINGING
                 updateAlarmStatus(technicalId, AlarmStatus.RINGING);
 
-                // Wait 30 seconds while ringing
                 Thread.sleep(30 * 1000L);
 
-                // Update to COMPLETED
                 updateAlarmStatus(technicalId, AlarmStatus.COMPLETED);
 
             } catch (InterruptedException e) {
                 logger.error("Alarm [{}] countdown interrupted", technicalId, e);
                 Thread.currentThread().interrupt();
+            } catch (Exception e) {
+                logger.error("Unexpected error in countdown for alarm [{}]", technicalId, e);
             }
         });
     }
 
+    /**
+     * Updates the status field of the alarm entity identified by technicalId.
+     * Uses entityService.updateItem safely.
+     */
     private void updateAlarmStatus(UUID technicalId, AlarmStatus status) {
         try {
-            CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
-                    "EggAlarm",
-                    ENTITY_VERSION,
-                    technicalId
-            );
+            CompletableFuture<ObjectNode> itemFuture = entityService.getItem("EggAlarm", ENTITY_VERSION, technicalId);
             ObjectNode node = itemFuture.join();
             if (node == null) {
                 logger.warn("Alarm [{}] not found for status update to {}", technicalId, status);
@@ -294,12 +215,8 @@ public class CyodaEntityControllerPrototype {
             }
             node.put("status", status.name());
 
-            entityService.updateItem(
-                    "EggAlarm",
-                    ENTITY_VERSION,
-                    technicalId,
-                    node
-            ).join();
+            CompletableFuture<Void> updateFuture = entityService.updateItem("EggAlarm", ENTITY_VERSION, technicalId, node);
+            updateFuture.join();
 
             logger.info("Alarm [{}] status updated to {}", technicalId, status);
         } catch (Exception e) {
@@ -311,7 +228,7 @@ public class CyodaEntityControllerPrototype {
     public ResponseEntity<EggAlarm> getAlarmStatus(@PathVariable @NotBlank String alarmId) {
         logger.info("Fetching alarm status for alarmId={}", alarmId);
 
-        String condition = String.format("alarmId = '%s'", alarmId);
+        String condition = String.format("alarmId = '%s'", alarmId.replace("'", "''"));
         CompletableFuture<ArrayNode> filteredItemsFuture = entityService.getItemsByCondition(
                 "EggAlarm",
                 ENTITY_VERSION,
@@ -323,6 +240,7 @@ public class CyodaEntityControllerPrototype {
             logger.error("Alarm not found: alarmId={}", alarmId);
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Alarm not found");
         }
+
         ObjectNode node = (ObjectNode) items.get(0);
         EggAlarm alarm = objectMapper.convertValue(node, EggAlarm.class);
 
@@ -358,32 +276,3 @@ public class CyodaEntityControllerPrototype {
     }
 
 }
-```
-
----
-
-### Explanation:
-
-- The workflow function `processEggAlarm` runs **before** persistence, modifies entity fields (`createdAt`, `ringAt`, `status`), and returns the entity.
-
-- Because the `technicalId` is only known **after** persistence completes, we cannot start the countdown timer inside the workflow function (which runs before persistence).
-
-- To start the async countdown and update entity status, we do this **immediately after** `addItem` completes in the controller (`startCountdownAsync` method).
-
-- This respects your constraints:
-  - The workflow modifies the entity before persistence.
-  - Async tasks are only started after persistence (controller).
-  - No update/add/delete of the same entity happens inside workflow.
-  - Async countdown and updates happen outside workflow to avoid infinite recursion.
-
----
-
-### Why this approach?
-
-Because the workflow function is called **before** persistence and does not have the generated `technicalId`, it cannot start async tasks that require the entity ID (like updating status). The only place to safely start async tasks that update the entity is **after** persistence completes, i.e., in the controller after `addItem` returns the ID.
-
-If your `entityService` implementation allows a hook after persistence inside the workflow, you could run async code there, but per your instructions and typical architecture, this is the most robust approach.
-
----
-
-If you want, I can help you implement an event-based approach to fully move countdown logic inside the workflow or service layer. But with your current constraints, this is the best balanced solution.
