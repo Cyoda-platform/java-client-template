@@ -1,0 +1,60 @@
+{
+    "description": "Workflow for cyodaEntity to validate API URL, fetch external data, and update fetched fields",
+    "name": "cyodaEntity_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Validate the presence and format of apiUrl in the entity",
+            "end_state": "ApiUrl_validated",
+            "end_state_description": "API URL has been validated",
+            "name": "validate_api_url",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processValidateApiUrl"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Fetch external data from the validated API URL",
+            "end_state": "External_data_fetched",
+            "end_state_description": "External data has been fetched",
+            "name": "fetch_external_data",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processFetchExternalData"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "ApiUrl_validated",
+            "start_state_description": "API URL has been validated"
+        },
+        {
+            "automated": true,
+            "description": "Update fetchedData and fetchedAt fields in the entity",
+            "end_state": "Fetched_fields_updated",
+            "end_state_description": "Fetched data and timestamp updated in entity",
+            "name": "update_fetched_fields",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processUpdateFetchedFields"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "External_data_fetched",
+            "start_state_description": "External data has been fetched"
+        }
+    ]
+}
