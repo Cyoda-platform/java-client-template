@@ -1,0 +1,60 @@
+{
+    "description": "Workflow for processing CatFact entity including timestamp set, subscriber fetch, and email sending",
+    "name": "catfact_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Set timestamp on cat fact if missing",
+            "end_state": "Timestamp_set",
+            "end_state_description": "Timestamp has been set on cat fact",
+            "name": "set_timestamp",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSetTimestamp"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Fetch subscribers for sending cat fact",
+            "end_state": "Subscribers_fetched",
+            "end_state_description": "Subscribers have been fetched and attached to cat fact",
+            "name": "fetch_subscribers",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processFetchSubscribers"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Timestamp_set",
+            "start_state_description": "Timestamp has been set on cat fact"
+        },
+        {
+            "automated": true,
+            "description": "Send cat fact emails to subscribers and increment counter",
+            "end_state": "Emails_sent",
+            "end_state_description": "Emails sent to subscribers and counter incremented",
+            "name": "send_emails",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSendEmails"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Subscribers_fetched",
+            "start_state_description": "Subscribers have been fetched and attached to cat fact"
+        }
+    ]
+}
