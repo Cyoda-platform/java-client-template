@@ -1,17 +1,21 @@
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.*;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
-import javax.annotation.PostConstruct;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -21,21 +25,16 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
+@Validated
 @RestController
 @RequestMapping("/entities")
 public class EntityControllerPrototype {
 
     private static final Logger logger = LoggerFactory.getLogger(EntityControllerPrototype.class);
-
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final HttpClient httpClient = HttpClient.newHttpClient();
-
-    // In-memory store (mock persistence)
     private final Map<UUID, Entity> entityStore = new ConcurrentHashMap<>();
 
-    // ========================
-    // === Entity Model Class ==
-    // ========================
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
@@ -47,63 +46,40 @@ public class EntityControllerPrototype {
     }
 
     @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class ApiUrlRequest {
-        private JsonNode api_url;
+        @NotBlank
+        @Pattern(regexp = "https?://.*", message = "Invalid URL format")
+        private String api_url;
     }
 
-    // ========================
-    // === Create Entity =======
-    // ========================
     @PostMapping
-    public Entity createEntity(@RequestBody ApiUrlRequest request) {
+    public Entity createEntity(@RequestBody @Valid ApiUrlRequest request) {
         logger.info("Create entity request received.");
-        if (request == null || request.getApi_url() == null || request.getApi_url().isNull()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "api_url is required");
-        }
-
         UUID id = UUID.randomUUID();
-        Entity entity = new Entity(id, request.getApi_url(), null, null);
+        JsonNode apiUrlNode = objectMapper.valueToTree(request.getApi_url());
+        Entity entity = new Entity(id, apiUrlNode, null, null);
         entityStore.put(id, entity);
-        logger.info("Entity {} created with api_url: {}", id, entity.getApiUrl());
-
-        // Fire-and-forget fetch data asynchronously
-        fetchDataAndUpdateEntityAsync(id, entity.getApiUrl());
-
+        logger.info("Entity {} created with api_url: {}", id, apiUrlNode);
+        fetchDataAndUpdateEntityAsync(id, apiUrlNode);
         return entity;
     }
 
-    // ========================
-    // === Update Entity =======
-    // ========================
     @PostMapping("/{id}")
-    public Entity updateEntity(@PathVariable UUID id, @RequestBody ApiUrlRequest request) {
+    public Entity updateEntity(@PathVariable UUID id, @RequestBody @Valid ApiUrlRequest request) {
         logger.info("Update entity {} request received.", id);
         Entity entity = entityStore.get(id);
         if (entity == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Entity not found");
         }
-        if (request == null || request.getApi_url() == null || request.getApi_url().isNull()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "api_url is required");
-        }
-
-        entity.setApiUrl(request.getApi_url());
-        // Reset fetched data & timestamp on update, will be updated asynchronously
+        JsonNode apiUrlNode = objectMapper.valueToTree(request.getApi_url());
+        entity.setApiUrl(apiUrlNode);
         entity.setFetchedData(null);
         entity.setFetchedAt(null);
-
-        logger.info("Entity {} api_url updated to: {}", id, entity.getApiUrl());
-
-        // Fire-and-forget fetch data asynchronously
-        fetchDataAndUpdateEntityAsync(id, entity.getApiUrl());
-
+        logger.info("Entity {} api_url updated to: {}", id, apiUrlNode);
+        fetchDataAndUpdateEntityAsync(id, apiUrlNode);
         return entity;
     }
 
-    // ========================
-    // === Manual Fetch ========
-    // ========================
     @PostMapping("/{id}/fetch")
     public Entity manualFetch(@PathVariable UUID id) {
         logger.info("Manual fetch requested for entity {}", id);
@@ -114,8 +90,6 @@ public class EntityControllerPrototype {
         if (entity.getApiUrl() == null || entity.getApiUrl().isNull()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Entity has no valid api_url");
         }
-
-        // Synchronously fetch data before returning
         try {
             JsonNode fetchedData = fetchFromExternalApi(entity.getApiUrl());
             entity.setFetchedData(fetchedData);
@@ -125,22 +99,15 @@ public class EntityControllerPrototype {
             logger.error("Manual fetch failed for entity {}: {}", id, e.getMessage());
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch external data");
         }
-
         return entity;
     }
 
-    // ========================
-    // === Get All Entities ====
-    // ========================
     @GetMapping
     public Collection<Entity> getAllEntities() {
         logger.info("Get all entities request received.");
         return entityStore.values();
     }
 
-    // ========================
-    // === Delete Single =======
-    // ========================
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteEntity(@PathVariable UUID id) {
@@ -151,9 +118,6 @@ public class EntityControllerPrototype {
         logger.info("Entity {} deleted.", id);
     }
 
-    // ========================
-    // === Delete All ==========
-    // ========================
     @DeleteMapping
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteAllEntities() {
@@ -162,13 +126,8 @@ public class EntityControllerPrototype {
         logger.info("All entities deleted.");
     }
 
-    // ========================
-    // === Async fetch helper ==
-    // ========================
-
     @Async
     public void fetchDataAndUpdateEntityAsync(UUID id, JsonNode apiUrlNode) {
-        // TODO: Fire-and-forget async fetch, no retries, no backpressure (prototype)
         CompletableFuture.runAsync(() -> {
             try {
                 logger.info("Async fetch started for entity {}", id);
@@ -187,36 +146,25 @@ public class EntityControllerPrototype {
         });
     }
 
-    // ========================
-    // === External API fetch ==
-    // ========================
     private JsonNode fetchFromExternalApi(JsonNode apiUrlNode) throws Exception {
         if (!apiUrlNode.isTextual()) {
             throw new IllegalArgumentException("api_url must be a JSON string");
         }
         String apiUrl = apiUrlNode.asText();
         logger.info("Fetching external data from URL: {}", apiUrl);
-
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(apiUrl))
                 .GET()
                 .build();
-
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
         int statusCode = response.statusCode();
         if (statusCode < 200 || statusCode >= 300) {
             logger.error("External API responded with status {}", statusCode);
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "External API error: " + statusCode);
         }
-
-        String body = response.body();
-        return objectMapper.readTree(body);
+        return objectMapper.readTree(response.body());
     }
 
-    // ========================
-    // === Exception Handlers ==
-    // ========================
     @ExceptionHandler(ResponseStatusException.class)
     @ResponseStatus
     public Map<String, Object> handleResponseStatusException(ResponseStatusException ex) {
@@ -237,4 +185,3 @@ public class EntityControllerPrototype {
         return error;
     }
 }
-```
