@@ -1,0 +1,60 @@
+{
+    "description": "Workflow for managing the lifecycle of egg alarm entities",
+    "name": "egg_alarm_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Initialize alarm entity and set createdAt timestamp",
+            "end_state": "Initialized",
+            "end_state_description": "Alarm entity initialized with createdAt",
+            "name": "initialize_alarm",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processInitialize"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Calculate and set the trigger time for the alarm",
+            "end_state": "TriggerTimeSet",
+            "end_state_description": "Alarm trigger time calculated and set",
+            "name": "set_trigger_time",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSetTriggerAt"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Initialized",
+            "start_state_description": "Alarm entity initialized with createdAt"
+        },
+        {
+            "automated": true,
+            "description": "Complete the alarm setup process",
+            "end_state": "Completed",
+            "end_state_description": "Alarm setup process completed",
+            "name": "complete_alarm_setup",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processComplete"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "TriggerTimeSet",
+            "start_state_description": "Alarm trigger time calculated and set"
+        }
+    ]
+}
