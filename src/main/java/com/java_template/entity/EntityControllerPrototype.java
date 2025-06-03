@@ -1,4 +1,3 @@
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -13,19 +12,21 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 
-import javax.validation.constraints.NotNull;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
+@Validated
 @RestController
 @RequestMapping("/entities")
 public class EntityControllerPrototype {
@@ -36,32 +37,28 @@ public class EntityControllerPrototype {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final RestTemplate restTemplate = new RestTemplate();
 
-    // --- Entity model ---
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     static class Entity {
         private UUID id;
-        private JsonNode api_url;    // stored as JsonNode (expected to be a JSON string node)
+        private JsonNode api_url;
         private JsonNode fetched_data;
         private Instant fetched_at;
     }
 
-    // --- Request DTOs ---
     @Data
     static class ApiUrlRequest {
-        @NotNull
+        @NotBlank(message = "api_url must not be blank")
         private String api_url;
     }
 
-    // --- Exception Handler for invalid URL or bad requests ---
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<String> handleResponseStatusException(ResponseStatusException ex) {
         logger.error("Error processing request: {}", ex.getReason());
         return ResponseEntity.status(ex.getStatusCode()).body(ex.getReason());
     }
 
-    // --- Validate URL string ---
     private void validateUrl(String url) {
         if (!StringUtils.hasText(url)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "api_url must not be empty");
@@ -73,7 +70,6 @@ public class EntityControllerPrototype {
         }
     }
 
-    // --- Fetch external JSON from URL ---
     private JsonNode fetchExternalJson(String url) {
         try {
             String response = restTemplate.getForObject(url, String.class);
@@ -87,9 +83,8 @@ public class EntityControllerPrototype {
         }
     }
 
-    // --- Create Entity and fetch data immediately ---
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Entity> createEntity(@RequestBody ApiUrlRequest request) {
+    public ResponseEntity<Entity> createEntity(@RequestBody @Valid ApiUrlRequest request) {
         logger.info("Received request to create entity with api_url: {}", request.getApi_url());
         validateUrl(request.getApi_url());
 
@@ -99,20 +94,17 @@ public class EntityControllerPrototype {
         entity.setId(id);
         entity.setApi_url(apiUrlNode);
 
-        // Fetch data synchronously for prototype
         JsonNode fetchedData = fetchExternalJson(request.getApi_url());
         entity.setFetched_data(fetchedData);
         entity.setFetched_at(Instant.now());
 
         entityStore.put(id, entity);
-
         logger.info("Created entity {} and fetched data from external API", id);
         return ResponseEntity.status(HttpStatus.CREATED).body(entity);
     }
 
-    // --- Update Entity's api_url and fetch data immediately ---
     @PostMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Entity> updateEntity(@PathVariable UUID id, @RequestBody ApiUrlRequest request) {
+    public ResponseEntity<Entity> updateEntity(@PathVariable UUID id, @RequestBody @Valid ApiUrlRequest request) {
         logger.info("Received request to update entity {} with new api_url: {}", id, request.getApi_url());
         validateUrl(request.getApi_url());
 
@@ -124,7 +116,6 @@ public class EntityControllerPrototype {
         JsonNode apiUrlNode = objectMapper.convertValue(request.getApi_url(), JsonNode.class);
         entity.setApi_url(apiUrlNode);
 
-        // Fetch updated data synchronously for prototype
         JsonNode fetchedData = fetchExternalJson(request.getApi_url());
         entity.setFetched_data(fetchedData);
         entity.setFetched_at(Instant.now());
@@ -133,7 +124,6 @@ public class EntityControllerPrototype {
         return ResponseEntity.ok(entity);
     }
 
-    // --- Trigger manual fetching of data from stored api_url ---
     @PostMapping(value = "/{id}/fetch", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Entity> fetchDataManually(@PathVariable UUID id) {
         logger.info("Received request to manually fetch data for entity {}", id);
@@ -151,7 +141,6 @@ public class EntityControllerPrototype {
         String url = apiUrlNode.asText();
         validateUrl(url);
 
-        // Fetch data synchronously for prototype
         JsonNode fetchedData = fetchExternalJson(url);
         entity.setFetched_data(fetchedData);
         entity.setFetched_at(Instant.now());
@@ -160,14 +149,12 @@ public class EntityControllerPrototype {
         return ResponseEntity.ok(entity);
     }
 
-    // --- Get all entities ---
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<List<Entity>> getAllEntities() {
         logger.info("Received request to get all entities");
         return ResponseEntity.ok(new ArrayList<>(entityStore.values()));
     }
 
-    // --- Delete single entity ---
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteEntity(@PathVariable UUID id) {
         logger.info("Received request to delete entity {}", id);
@@ -179,7 +166,6 @@ public class EntityControllerPrototype {
         return ResponseEntity.noContent().build();
     }
 
-    // --- Delete all entities ---
     @DeleteMapping
     public ResponseEntity<Void> deleteAllEntities() {
         logger.info("Received request to delete all entities");
@@ -188,4 +174,3 @@ public class EntityControllerPrototype {
         return ResponseEntity.noContent().build();
     }
 }
-```
