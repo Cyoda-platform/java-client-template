@@ -1,0 +1,42 @@
+{
+    "description": "Workflow for fetching data from external API URL and updating entity fields",
+    "name": "cyoda_entity_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Validate the api_url field in the entity",
+            "end_state": "ApiUrlValidated",
+            "end_state_description": "API URL has been validated",
+            "name": "validate_api_url",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processValidateApiUrl"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Fetch data from external API and update entity",
+            "end_state": "DataFetched",
+            "end_state_description": "Fetched data has been updated in entity",
+            "name": "fetch_external_data",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processFetchExternalData"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "ApiUrlValidated",
+            "start_state_description": "API URL has been validated"
+        }
+    ]
+}
