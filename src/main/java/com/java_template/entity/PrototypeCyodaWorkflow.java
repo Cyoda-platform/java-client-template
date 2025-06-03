@@ -1,3 +1,9 @@
+Certainly! Moving all the asynchronous and entity state manipulation logic into the workflow function `processCyoda_entity` is the correct approach. This will clean up the controller, isolate side-effects and async tasks, and comply with the requirement that the workflow function is applied right before persistence and can modify the entity state directly.
+
+---
+
+Here is the updated Java code with all async logic moved into the workflow function:
+
 ```java
 package com.java_template.entity;
 
@@ -84,32 +90,54 @@ public class CyodaEntityControllerPrototype {
         }
     }
 
-    private JsonNode fetchExternalJson(String url) {
-        try {
-            String response = restTemplate.getForObject(url, String.class);
-            if (response == null) {
-                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Empty response from external API");
-            }
-            return objectMapper.readTree(response);
-        } catch (Exception e) {
-            logger.error("Failed to fetch or parse external API URL {}: {}", url, e.getMessage());
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch or parse external API");
-        }
-    }
-
     /**
      * Workflow function to process the entity asynchronously before persistence.
      * This function can modify the entity state or interact with other entities,
      * but must not add/update/delete entities of the same ENTITY_NAME to avoid recursion.
      *
-     * @param entity the entity to process
-     * @return the processed entity
+     * @param entityNode the entity to process as ObjectNode
+     * @return a CompletableFuture that completes with the processed entityNode
      */
-    private Entity processCyoda_entity(Entity entity) {
-        // Example: here we could modify the entity, log, or trigger other async operations
-        // For demonstration, we'll just return the entity as-is.
-        // You can add your custom entity processing logic here.
-        return entity;
+    private CompletableFuture<ObjectNode> processCyoda_entity(ObjectNode entityNode) {
+        // Extract api_url string from entity
+        JsonNode apiUrlNode = entityNode.get("api_url");
+        if (apiUrlNode == null || !apiUrlNode.isTextual()) {
+            // No valid api_url, just complete with current state
+            return CompletableFuture.completedFuture(entityNode);
+        }
+
+        String url = apiUrlNode.asText();
+        // Validate URL - if invalid, do not modify entity (optionally log or set error field)
+        try {
+            new URL(url);
+        } catch (MalformedURLException e) {
+            logger.warn("Invalid api_url in workflow: {}", url);
+            // Could add an error field or remove fetched_data if desired
+            return CompletableFuture.completedFuture(entityNode);
+        }
+
+        // Fetch external JSON asynchronously (simulate async by CompletableFuture.supplyAsync)
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                String response = restTemplate.getForObject(url, String.class);
+                if (response == null) {
+                    logger.warn("Empty response from external API in workflow for url: {}", url);
+                    // Clear fetched_data and fetched_at
+                    entityNode.remove("fetched_data");
+                    entityNode.remove("fetched_at");
+                    return entityNode;
+                }
+                JsonNode fetchedData = objectMapper.readTree(response);
+                entityNode.set("fetched_data", fetchedData);
+                entityNode.put("fetched_at", Instant.now().toString());
+            } catch (Exception ex) {
+                logger.error("Failed to fetch or parse external API URL {} in workflow: {}", url, ex.getMessage());
+                // On failure, clear fetched_data and fetched_at
+                entityNode.remove("fetched_data");
+                entityNode.remove("fetched_at");
+            }
+            return entityNode;
+        });
     }
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
@@ -117,24 +145,21 @@ public class CyodaEntityControllerPrototype {
         logger.info("Received request to create entity with api_url: {}", request.getApi_url());
         validateUrl(request.getApi_url());
 
-        Entity entity = new Entity();
-        entity.setApi_url(objectMapper.convertValue(request.getApi_url(), JsonNode.class));
+        ObjectNode entityNode = objectMapper.createObjectNode();
+        entityNode.put("api_url", request.getApi_url());
 
-        JsonNode fetchedData = fetchExternalJson(request.getApi_url());
-        entity.setFetched_data(fetchedData);
-        entity.setFetched_at(Instant.now());
-
-        // Pass the workflow function processCyoda_entity as the workflow argument
+        // Add item with workflow function to fetch and enrich data before persistence
         CompletableFuture<UUID> idFuture = entityService.addItem(
                 ENTITY_NAME,
                 ENTITY_VERSION,
-                entity,
+                entityNode,
                 this::processCyoda_entity
         );
         UUID technicalId = idFuture.get();
+        Entity entity = objectMapper.convertValue(entityNode, Entity.class);
         entity.setTechnicalId(technicalId);
 
-        logger.info("Created entity {} and fetched data from external API", technicalId);
+        logger.info("Created entity {} with workflow enrichment", technicalId);
         return ResponseEntity.status(HttpStatus.CREATED).body(entity);
     }
 
@@ -149,19 +174,23 @@ public class CyodaEntityControllerPrototype {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Entity not found");
         }
 
-        Entity entity = objectMapper.convertValue(existingNode, Entity.class);
-        entity.setTechnicalId(id);
+        // Update api_url field
+        existingNode.put("api_url", request.getApi_url());
 
-        entity.setApi_url(objectMapper.convertValue(request.getApi_url(), JsonNode.class));
-        JsonNode fetchedData = fetchExternalJson(request.getApi_url());
-        entity.setFetched_data(fetchedData);
-        entity.setFetched_at(Instant.now());
-
-        CompletableFuture<UUID> updatedItemId = entityService.updateItem(ENTITY_NAME, ENTITY_VERSION, id, entity);
+        // Update item with workflow function to fetch and enrich data asynchronously before persistence
+        CompletableFuture<UUID> updatedItemId = entityService.updateItem(
+                ENTITY_NAME,
+                ENTITY_VERSION,
+                id,
+                existingNode,
+                this::processCyoda_entity
+        );
         UUID updatedId = updatedItemId.get();
+
+        Entity entity = objectMapper.convertValue(existingNode, Entity.class);
         entity.setTechnicalId(updatedId);
 
-        logger.info("Updated entity {} and refreshed fetched data", updatedId);
+        logger.info("Updated entity {} with workflow enrichment", updatedId);
         return ResponseEntity.ok(entity);
     }
 
@@ -175,23 +204,18 @@ public class CyodaEntityControllerPrototype {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Entity not found");
         }
 
+        // Apply workflow function to fetch and enrich data asynchronously before persistence
+        CompletableFuture<UUID> updatedIdFuture = entityService.updateItem(
+                ENTITY_NAME,
+                ENTITY_VERSION,
+                id,
+                existingNode,
+                this::processCyoda_entity
+        );
+
+        UUID updatedId = updatedIdFuture.get();
+
         Entity entity = objectMapper.convertValue(existingNode, Entity.class);
-        entity.setTechnicalId(id);
-
-        JsonNode apiUrlNode = entity.getApi_url();
-        if (apiUrlNode == null || !apiUrlNode.isTextual()) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Invalid stored api_url");
-        }
-
-        String url = apiUrlNode.asText();
-        validateUrl(url);
-
-        JsonNode fetchedData = fetchExternalJson(url);
-        entity.setFetched_data(fetchedData);
-        entity.setFetched_at(Instant.now());
-
-        CompletableFuture<UUID> updatedItemId = entityService.updateItem(ENTITY_NAME, ENTITY_VERSION, id, entity);
-        UUID updatedId = updatedItemId.get();
         entity.setTechnicalId(updatedId);
 
         logger.info("Manually fetched and updated data for entity {}", updatedId);
@@ -232,17 +256,35 @@ public class CyodaEntityControllerPrototype {
         logger.info("Received request to delete all entities");
         CompletableFuture<ArrayNode> deletedItemsInfo = entityService.deleteItems(ENTITY_NAME, ENTITY_VERSION);
         ArrayNode resultArray = deletedItemsInfo.get();
-        // Optionally verify the deletion result if needed
         logger.info("Deleted all entities, result: {}", resultArray.toString());
         return ResponseEntity.noContent().build();
     }
 }
 ```
 
-### Explanation of changes:
-- Added a private method `processCyoda_entity(Entity entity)` which implements the workflow function required by the new `entityService.addItem` signature.
-- Updated the `createEntity` method to call `entityService.addItem` with the new 4-argument method, passing the workflow function as the last argument using a method reference `this::processCyoda_entity`.
-- The workflow function currently returns the entity as-is but can be modified to include any asynchronous processing logic needed before persistence.
-- The method name `processCyoda_entity` follows the required prefix `process` plus the entity name `cyoda_entity` (matching the `ENTITY_NAME` constant).
+---
 
-No other code changes were needed since this is the only place `addItem` is called.
+### Explanation of the changes:
+
+- **Workflow function `processCyoda_entity`:**
+  - Now fully responsible for asynchronously fetching external data (`fetched_data`) from the `api_url` and updating the entity state (`fetched_data`, `fetched_at`).
+  - The entity received is an `ObjectNode` that can be modified directly.
+  - Uses `CompletableFuture.supplyAsync` to perform the HTTP fetch asynchronously.
+  - Validates `api_url` again inside the workflow, and cleans `fetched_data` and `fetched_at` if fetch fails.
+  - No calls to `entityService.addItem/updateItem/deleteItem` on the same entity model to avoid infinite recursion.
+  
+- **Controller methods (`createEntity`, `updateEntity`, `fetchDataManually`):**
+  - Removed all fetching logic.
+  - Call `entityService.addItem` or `updateItem` with the workflow function `processCyoda_entity` as the last parameter.
+  - Pass the entity as an `ObjectNode` (for `addItem`) or the existing entity node (for `updateItem`).
+  - Await the persistence result and return the resulting entity.
+  
+- **Benefits:**
+  - Controller code is simplified, focused on validation and entity state retrieval.
+  - All async data enrichment is centralized in the workflow function.
+  - Allows future expansion of workflows without touching controller code.
+  - Ensures all async and state mutation logic runs atomically before persistence.
+
+---
+
+If you want me to also refactor the `Entity` class or add any additional workflow functions for other async tasks, please let me know!
