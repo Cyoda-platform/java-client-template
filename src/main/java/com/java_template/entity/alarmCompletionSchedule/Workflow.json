@@ -1,0 +1,60 @@
+{
+    "description": "Workflow for managing egg alarm lifecycle",
+    "name": "egg_alarm_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start the alarm and initialize properties",
+            "end_state": "Alarm_running",
+            "end_state_description": "Alarm is running",
+            "name": "start_alarm",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAlarm"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Schedule the completion of the alarm",
+            "end_state": "Completion_scheduled",
+            "end_state_description": "Alarm completion scheduled",
+            "name": "schedule_completion",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAlarmCompletionSchedule"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Alarm_running",
+            "start_state_description": "Alarm is running"
+        },
+        {
+            "automated": true,
+            "description": "Complete the alarm and update status",
+            "end_state": "Alarm_completed",
+            "end_state_description": "Alarm is completed",
+            "name": "complete_alarm",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processCompleteAlarms"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Completion_scheduled",
+            "start_state_description": "Alarm completion scheduled"
+        }
+    ]
+}
