@@ -1,5 +1,6 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import jakarta.annotation.PostConstruct;
@@ -22,7 +23,6 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 import static com.java_template.common.config.Config.*;
 
@@ -30,9 +30,10 @@ import static com.java_template.common.config.Config.*;
 @Validated
 @RestController
 @RequestMapping("/api/cyoda-alarms")
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
     private static final String ENTITY_NAME = "Alarm";
 
     private volatile UUID activeAlarmTechnicalId = null;
@@ -41,15 +42,16 @@ public class CyodaEntityControllerPrototype {
     private static final int MEDIUM_TIME_SECONDS = 420;
     private static final int HARD_TIME_SECONDS = 600;
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @PostConstruct
     public void init() {
-        logger.info("Cyoda Alarm EntityControllerPrototype initialized");
+        logger.info("Cyoda Alarm Controller initialized");
     }
 
     @PostMapping
@@ -62,7 +64,6 @@ public class CyodaEntityControllerPrototype {
             default -> throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid eggType");
         };
 
-        // Cancel active alarm if exists - must be done outside workflow due to recursion rules
         if (activeAlarmTechnicalId != null) {
             return entityService.getItem(ENTITY_NAME, ENTITY_VERSION, activeAlarmTechnicalId)
                 .thenCompose(existingObj -> {
@@ -91,7 +92,6 @@ public class CyodaEntityControllerPrototype {
     private CompletableFuture<ResponseEntity<AlarmResponse>> createAndSetNewAlarm(AlarmRequest request, int timeSeconds) {
         Alarm alarm = new Alarm(null, request.getEggType(), timeSeconds, "SET", Instant.now());
 
-        // Removed workflow argument
         return entityService.addItem(
                 ENTITY_NAME,
                 ENTITY_VERSION,
@@ -159,10 +159,6 @@ public class CyodaEntityControllerPrototype {
                 });
     }
 
-    /**
-     * Background scheduled task that triggers alarms whose triggerAt time has passed and status is SET.
-     * Runs every 30 seconds.
-     */
     @Scheduled(fixedDelay = 30000)
     public void triggerDueAlarms() {
         logger.debug("Running scheduled alarm trigger task");
