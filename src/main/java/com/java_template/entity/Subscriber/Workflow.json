@@ -1,0 +1,42 @@
+{
+    "description": "Workflow for processing subscriber entity state changes",
+    "name": "subscriber_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Initialize subscription process",
+            "end_state": "SubscribedAtSet",
+            "end_state_description": "Subscribed date/time set",
+            "name": "start_subscription",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSetSubscribedAt"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Perform additional enrichment on subscriber data",
+            "end_state": "SubscriptionEnriched",
+            "end_state_description": "Subscription enriched with additional data",
+            "name": "enrich_subscription",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAdditionalEnrichment"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "SubscribedAtSet",
+            "start_state_description": "Subscribed date/time set"
+        }
+    ]
+}
