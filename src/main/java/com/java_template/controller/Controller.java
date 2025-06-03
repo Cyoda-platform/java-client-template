@@ -1,9 +1,8 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.java_template.common.service.EntityService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -33,11 +32,12 @@ import static com.java_template.common.config.Config.*;
 @Validated
 @RestController
 @RequestMapping("/api/cyoda-alarm")
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     private static final String ENTITY_NAME = "alarm";
     private static final String COMPLETION_SCHEDULE_ENTITY_NAME = "alarmCompletionSchedule";
@@ -55,13 +55,14 @@ public class CyodaEntityControllerPrototype {
     // Prevent concurrent starts: simple in-memory guard to avoid race condition during check
     private final AtomicBoolean alarmStartInProgress = new AtomicBoolean(false);
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @PostConstruct
     public void init() {
-        logger.info("CyodaEntityControllerPrototype initialized");
+        logger.info("Controller initialized");
     }
 
     @PostMapping("/start")
@@ -75,7 +76,7 @@ public class CyodaEntityControllerPrototype {
         }
 
         // Use an ObjectNode for alarm entity with only eggType initially
-        ObjectNode alarmNode = JsonNodeFactory.instance.objectNode();
+        ObjectNode alarmNode = objectMapper.createObjectNode();
         alarmNode.put("eggType", eggType);
 
         // Call addItem without workflow function
