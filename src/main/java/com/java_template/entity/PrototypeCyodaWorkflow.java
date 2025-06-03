@@ -1,25 +1,9 @@
-Certainly! Moving the asynchronous logic such as fetching external API data and updating the entity into the workflow function `processcyodaEntity` is the right approach to clean controllers and centralize business logic where it belongs.
-
-Below is the updated complete Java code implementing this approach:
-
-- `processcyodaEntity` now:
-  - Validates and fetches external data based on the `apiUrl` inside the entity.
-  - Updates the entity fields `fetchedData` and `fetchedAt`.
-  - Does **not** call add/update/delete on the current entity (to avoid recursion).
-  - Any supplementary entities can be created/updated here using `entityService` if needed (not shown here as no example given).
-
-- Controller endpoints are simplified:
-  - `createEntity` and `updateEntityApiUrl` only prepare the entity and call `addItem` or `updateItem`.
-  - Removed fire-and-forget async calls from controller.
-
----
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.java_template.common.service.EntityService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -40,7 +24,6 @@ import java.net.URI;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
 
@@ -81,14 +64,10 @@ public class CyodaEntityControllerPrototype {
 
     /**
      * Workflow function to process cyodaEntity before persistence.
-     * This function:
-     * - fetches external data from apiUrl
-     * - updates entity fields fetchedData and fetchedAt
-     * - can create/update supplementary entities of other models (not shown here)
-     * Must NOT call addItem/updateItem/deleteItem on the same entity (to avoid recursion)
+     * It asynchronously fetches data from the apiUrl and updates fetchedData and fetchedAt fields.
+     * It does not perform add/update/delete on the same entity to prevent infinite recursion.
      */
     private CompletableFuture<ObjectNode> processcyodaEntity(ObjectNode entityNode) {
-        // Defensive copy of RestTemplate and ObjectMapper usage is safe here
         return CompletableFuture.supplyAsync(() -> {
             try {
                 JsonNode apiUrlNode = entityNode.get("apiUrl");
@@ -101,7 +80,8 @@ public class CyodaEntityControllerPrototype {
                     logger.warn("Entity apiUrl.url is empty, skipping fetch");
                     return entityNode;
                 }
-                // Validate URL
+
+                // Validate URL format to avoid runtime exceptions
                 new URI(url);
 
                 logger.info("Workflow: fetching external data from {}", url);
@@ -113,17 +93,15 @@ public class CyodaEntityControllerPrototype {
 
                 JsonNode fetchedDataJson = objectMapper.readTree(response);
 
-                // Update entity fields directly
+                // Update fetchedData and fetchedAt fields
                 entityNode.set("fetchedData", fetchedDataJson);
                 entityNode.put("fetchedAt", Instant.now().toString());
 
-                // Here you can create or update other entities of different models if needed
-                // e.g., entityService.addItem("otherEntityModel", otherVersion, otherEntity, null);
-
                 logger.info("Workflow: fetchedData and fetchedAt updated in entity");
             } catch (Exception e) {
-                logger.error("Workflow: error fetching external data: {}", e.getMessage());
-                // optionally handle error, set error state in entityNode, etc.
+                logger.error("Workflow: error fetching external data: {}", e.toString());
+                // Optionally, set error info inside entityNode to indicate failure
+                entityNode.put("fetchError", e.getMessage());
             }
             return entityNode;
         });
@@ -132,12 +110,13 @@ public class CyodaEntityControllerPrototype {
     @PostMapping
     public ResponseEntity<Entity> createEntity(@RequestBody @Valid ApiUrlRequestDto request) {
         ObjectNode entityNode = objectMapper.createObjectNode();
-        entityNode.putNull("technicalId"); // will be set by entityService
+        entityNode.putNull("technicalId");
         ObjectNode apiUrlNode = objectMapper.createObjectNode();
         apiUrlNode.put("url", request.getApi_url());
         entityNode.set("apiUrl", apiUrlNode);
         entityNode.putNull("fetchedData");
         entityNode.putNull("fetchedAt");
+        entityNode.putNull("fetchError");
 
         CompletableFuture<UUID> idFuture = entityService.addItem(
                 ENTITY_NAME,
@@ -167,9 +146,10 @@ public class CyodaEntityControllerPrototype {
         apiUrlNode.put("url", request.getApi_url());
         itemNode.set("apiUrl", apiUrlNode);
 
-        // Clear fetched data as URL changed
+        // Clear fetched data and errors as URL changed
         itemNode.putNull("fetchedData");
         itemNode.putNull("fetchedAt");
+        itemNode.putNull("fetchError");
 
         CompletableFuture<UUID> updatedIdFuture = entityService.updateItem(
                 ENTITY_NAME,
@@ -194,7 +174,6 @@ public class CyodaEntityControllerPrototype {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Entity not found");
         }
 
-        // Invoke workflow function manually to fetch data and update entity before persistence
         CompletableFuture<ObjectNode> processedFuture = processcyodaEntity(itemNode)
                 .thenCompose(processedEntity -> entityService.updateItem(
                         ENTITY_NAME,
@@ -211,23 +190,16 @@ public class CyodaEntityControllerPrototype {
 
     @GetMapping
     public ResponseEntity<List<Entity>> getAllEntities() {
-        CompletableFuture<List<ObjectNode>> itemsFuture = entityService.getItems(ENTITY_NAME, ENTITY_VERSION)
-                .thenApply(arrayNode -> {
-                    List<ObjectNode> list = new ArrayList<>();
-                    if (arrayNode != null) {
-                        arrayNode.forEach(node -> {
-                            if (node.isObject()) {
-                                list.add((ObjectNode) node);
-                            }
-                        });
-                    }
-                    return list;
-                });
-        List<ObjectNode> items = itemsFuture.join();
+        CompletableFuture<ArrayNode> itemsFuture = entityService.getItems(ENTITY_NAME, ENTITY_VERSION);
+        ArrayNode items = itemsFuture.join();
 
         List<Entity> entities = new ArrayList<>();
-        for (ObjectNode node : items) {
-            entities.add(objectMapper.convertValue(node, Entity.class));
+        if (items != null) {
+            for (JsonNode node : items) {
+                if (node.isObject()) {
+                    entities.add(objectMapper.convertValue(node, Entity.class));
+                }
+            }
         }
         logger.info("Retrieved all entities, count: {}", entities.size());
         return ResponseEntity.ok(entities);
@@ -261,24 +233,3 @@ public class CyodaEntityControllerPrototype {
                 .body(Collections.singletonMap("error", ex.getReason()));
     }
 }
-```
-
----
-
-### Summary of Key Changes
-
-- **All external API data fetching and updating of `fetchedData` and `fetchedAt` moved into `processcyodaEntity` workflow function.**
-- `addItem` and `updateItem` now receive the workflow function and will apply it *before* persisting the entity.
-- Removed any explicit async fetch/update calls from controller endpoints.
-- `manualFetch` endpoint now:
-  - Retrieves the entity,
-  - Calls `processcyodaEntity`,
-  - Persists the updated entity,
-  - Returns the updated entity.
-- Entities are represented as `ObjectNode` inside the workflow function to easily manipulate JSON fields.
-- The code respects the rule: no add/update/delete on the same entity model inside the workflow function (only direct modification of the entity JSON).
-- Controller code is much cleaner and focused on request validation and response.
-
-This structure is more robust, testable, and maintainable. The async workflow function can also be extended to add supplementary entities or perform more complex logic, keeping controllers thin.
-
-Let me know if you want me to help with tests or further improvements!
