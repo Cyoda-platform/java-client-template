@@ -1,0 +1,42 @@
+{
+    "description": "Workflow to process and adjust order pricing and configuration flag",
+    "name": "order_processing_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start processing the order from initial state",
+            "end_state": "Price_adjusted",
+            "end_state_description": "Order price has been adjusted",
+            "name": "start_order_processing",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAdjustPrice"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Add configuration presence flag to the order",
+            "end_state": "Config_flag_added",
+            "end_state_description": "Order has a config flag added",
+            "name": "add_config_flag",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAddConfigFlag"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Price_adjusted",
+            "start_state_description": "Order price has been adjusted"
+        }
+    ]
+}
