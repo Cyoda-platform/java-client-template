@@ -1,4 +1,3 @@
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -52,15 +51,21 @@ public class CyodaEntityControllerPrototype {
     private final Function<ObjectNode, CompletableFuture<ObjectNode>> processDirector = (ObjectNode directorNode) -> {
         logger.info("Processing Director entity in workflow before persistence: {}", directorNode.path("name").asText());
 
-        // Example: If directorNode doesn't have a nationality, set default
-        if (!directorNode.hasNonNull("nationality") || directorNode.get("nationality").asText().isEmpty()) {
+        // Prevent infinite recursion by checking if this workflow already processed this node
+        if (directorNode.has("processedByWorkflow") && directorNode.get("processedByWorkflow").asBoolean(false)) {
+            logger.warn("Director entity already processed by workflow, skipping further processing");
+            return CompletableFuture.completedFuture(directorNode);
+        }
+        directorNode.put("processedByWorkflow", true);
+
+        // Set default nationality if missing or empty
+        if (!directorNode.hasNonNull("nationality") || directorNode.get("nationality").asText().trim().isEmpty()) {
             directorNode.put("nationality", "Unknown");
             logger.info("Set default nationality 'Unknown' for Director {}", directorNode.path("name").asText());
         }
 
-        // We can fetch related entities or add supplementary data here if needed
-        // For example, log count of movies for this director (just an example)
-        // But we cannot add/update/delete Director entities here!
+        // Additional validation or enrichment can be done here
+        // For example, ensure birthDate format is valid, else reject or set default (optional)
 
         return CompletableFuture.completedFuture(directorNode);
     };
@@ -75,13 +80,38 @@ public class CyodaEntityControllerPrototype {
     private final Function<ObjectNode, CompletableFuture<ObjectNode>> processMovie = (ObjectNode movieNode) -> {
         logger.info("Processing Movie entity in workflow before persistence: {}", movieNode.path("name").asText());
 
-        // Example: Add or update a field before persistence
-        if (!movieNode.hasNonNull("genre") || movieNode.get("genre").asText().isEmpty()) {
+        // Prevent infinite recursion by checking if this workflow already processed this node
+        if (movieNode.has("processedByWorkflow") && movieNode.get("processedByWorkflow").asBoolean(false)) {
+            logger.warn("Movie entity already processed by workflow, skipping further processing");
+            return CompletableFuture.completedFuture(movieNode);
+        }
+        movieNode.put("processedByWorkflow", true);
+
+        // Set default genre if missing or empty
+        if (!movieNode.hasNonNull("genre") || movieNode.get("genre").asText().trim().isEmpty()) {
             movieNode.put("genre", "Unknown");
             logger.info("Set default genre 'Unknown' for Movie {}", movieNode.path("name").asText());
         }
 
-        // Example async task: simulate workflow/event processing asynchronously here
+        // Basic validation for year to be within reasonable range
+        if (movieNode.hasNonNull("year")) {
+            int year = movieNode.get("year").asInt(-1);
+            if (year < 1888 || year > 2100) {
+                logger.warn("Provided year {} for movie {} is out of accepted range (1888-2100), setting to 1900", year, movieNode.path("name").asText());
+                movieNode.put("year", 1900);
+            }
+        } else {
+            movieNode.put("year", 1900);
+            logger.info("Year not specified for movie {}, set to default 1900", movieNode.path("name").asText());
+        }
+
+        // Validate nominations array presence and structure
+        if (!movieNode.hasNonNull("nominations") || !movieNode.get("nominations").isArray() || movieNode.get("nominations").size() == 0) {
+            logger.warn("Movie {} nominations missing or empty, setting empty array", movieNode.path("name").asText());
+            movieNode.putArray("nominations");
+        }
+
+        // Async workflow task simulating event-driven processing
         CompletableFuture.runAsync(() -> {
             UUID techId = null;
             if (movieNode.hasNonNull("technicalId")) {
@@ -96,12 +126,12 @@ public class CyodaEntityControllerPrototype {
             try {
                 Thread.sleep(1000); // simulate delay
             } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
             }
 
             logger.info("Async workflow processing for Movie technicalId {} completed", techId);
         });
 
-        // Return the (possibly modified) movieNode to be persisted
         return CompletableFuture.completedFuture(movieNode);
     };
 
@@ -143,7 +173,6 @@ public class CyodaEntityControllerPrototype {
         UUID techId = idFuture.join();
         movie.setTechnicalId(techId);
         logger.info("Movie created with technicalId {}", techId);
-        // fireAndForgetProcessing removed and replaced by workflow function processMovie
         return movie;
     }
 
@@ -183,8 +212,6 @@ public class CyodaEntityControllerPrototype {
         return error;
     }
 
-    // Removed fireAndForgetProcessing method since async tasks moved to processMovie workflow function
-
     // Utility class to convert ObjectNode to entity classes
     private static class JsonUtil {
         private static final com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
@@ -192,7 +219,7 @@ public class CyodaEntityControllerPrototype {
         private static Director convertObjectNodeToDirector(ObjectNode node) {
             try {
                 Director director = objectMapper.treeToValue(node, Director.class);
-                if (node.has("technicalId")) {
+                if (node.has("technicalId") && !node.get("technicalId").isNull()) {
                     director.setTechnicalId(UUID.fromString(node.get("technicalId").asText()));
                 }
                 return director;
@@ -204,7 +231,7 @@ public class CyodaEntityControllerPrototype {
         private static Movie convertObjectNodeToMovie(ObjectNode node) {
             try {
                 Movie movie = objectMapper.treeToValue(node, Movie.class);
-                if (node.has("technicalId")) {
+                if (node.has("technicalId") && !node.get("technicalId").isNull()) {
                     movie.setTechnicalId(UUID.fromString(node.get("technicalId").asText()));
                 }
                 return movie;
@@ -302,16 +329,3 @@ public class CyodaEntityControllerPrototype {
         private List<Nomination> nominations;
     }
 }
-```
----
-
-### Summary of changes:
-
-- Converted `processDirector` and `processMovie` workflow functions to accept `ObjectNode` (entity as JSON tree), modify it directly, and return a `CompletableFuture<ObjectNode>`.
-- Moved async tasks **previously in `fireAndForgetProcessing`** into `processMovie` workflow function as a `CompletableFuture.runAsync(...)` task.
-- Set default values or mutate entity fields inside these workflow functions.
-- Removed the old `fireAndForgetProcessing` method from the controller.
-- Controllers now only prepare entity POJOs, call `entityService.addItem` with the respective `process{Entity}` workflow function, and return results.
-- This moves all pre-persistence logic and async workflow tasks to the workflow functions, keeping controllers lean and robust.
-
-This approach uses the new `workflow=process{entity_name}` feature fully and encapsulates async and state mutation logic before persistence as required.
