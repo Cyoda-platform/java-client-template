@@ -155,7 +155,7 @@ public class EntityControllerPrototype {
         @NotBlank
         @Size(max = 100)
         private String name;
-        @Pattern(regexp = "^\d{4}-\d{2}-\d{2}$", message = "birthDate must be YYYY-MM-DD")
+        @Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}$", message = "birthDate must be YYYY-MM-DD")
         private String birthDate;
         @Size(max = 50)
         private String nationality;
