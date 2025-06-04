@@ -1,0 +1,78 @@
+{
+    "description": "Workflow for subscriber registration and welcome email sending",
+    "name": "subscriber_registration_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Validate subscriber email is present",
+            "end_state": "Email_validated",
+            "end_state_description": "Subscriber email validated",
+            "name": "validate_email",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processValidateEmail"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Set default status if missing",
+            "end_state": "Status_set",
+            "end_state_description": "Subscriber status set to default if required",
+            "name": "set_default_status",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSetDefaultStatus"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Email_validated",
+            "start_state_description": "Subscriber email validated"
+        },
+        {
+            "automated": true,
+            "description": "Enrich subscriber entity with a welcome cat fact",
+            "end_state": "Welcome_cat_fact_enriched",
+            "end_state_description": "Subscriber entity enriched with welcome cat fact",
+            "name": "enrich_with_welcome_cat_fact",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processEnrichWithWelcomeCatFact"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Status_set",
+            "start_state_description": "Subscriber status set to default if required"
+        },
+        {
+            "automated": true,
+            "description": "Send welcome email to subscriber",
+            "end_state": "Welcome_email_sent",
+            "end_state_description": "Welcome email has been sent to subscriber",
+            "name": "send_welcome_email",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSendWelcomeEmail"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Welcome_cat_fact_enriched",
+            "start_state_description": "Subscriber entity enriched with welcome cat fact"
+        }
+    ]
+}
