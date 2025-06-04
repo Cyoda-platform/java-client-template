@@ -1,5 +1,6 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
@@ -31,9 +32,9 @@ import static com.java_template.common.config.Config.*;
 @RestController
 @RequestMapping("/api/cyoda-entity")
 @Validated
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private static final List<String> PAIRS = List.of("BTC/USD", "ETH/USD");
     private static final List<String> SIDES = List.of("buy", "sell");
@@ -41,8 +42,14 @@ public class CyodaEntityControllerPrototype {
     @Resource
     private EntityService entityService;
 
+    private final ObjectMapper objectMapper;
+
     private ScheduledExecutorService orderGeneratorScheduler;
     private volatile boolean generatingOrders = false;
+
+    public Controller(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
 
     @PostConstruct
     public void init() {
