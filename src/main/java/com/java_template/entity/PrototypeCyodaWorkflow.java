@@ -1,22 +1,3 @@
-Certainly! To comply fully with the new paradigm and best practices you described, we will:
-
-- Move **all async logic and side effects**, including sending emails or other notifications, into the workflow function `processSubscriber` invoked before persisting the entity.
-- Keep the controller methods lean, focusing mainly on validation, request/response handling, and invoking the service with the workflow.
-- Use the `ObjectNode` form of the entity inside the workflow to allow direct mutation.
-- For the weekly fact sending, since it is a separate operation not tied to entity persistence, we can introduce a workflow for the **fact entity** if applicable, or create a dedicated workflow function to handle sending logic asynchronously, called from the controller.
-
----
-
-Below is the **updated code** with all async tasks moved to workflow functions.  
-I will:
-
-- Refactor `processSubscriber` to accept and mutate `ObjectNode`.
-- Move the "send weekly fact" async logic into a new workflow function `processSentFact`.
-- Adjust controller methods accordingly.
-
----
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -44,7 +25,6 @@ import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
 
@@ -60,13 +40,13 @@ public class CyodaEntityControllerPrototype {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
-    private static final String ENTITY_NAME = "subscriber"; // entityModel name
+    private static final String ENTITY_NAME = "subscriber";
     private static final String SENT_FACT_ENTITY_NAME = "sentFact";
 
-    // In-memory store for interactions - no change here
+    // In-memory store for interactions
     private final Map<UUID, List<Interaction>> interactions = Collections.synchronizedMap(new HashMap<>());
 
-    // --------- DTOs ---------
+    // DTOs
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
@@ -89,10 +69,10 @@ public class CyodaEntityControllerPrototype {
         private String interactionType;
 
         @NotBlank
-        private String timestamp; // ISO-8601 string
+        private String timestamp;
     }
 
-    // --------- Entities ---------
+    // Entities
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
@@ -120,56 +100,40 @@ public class CyodaEntityControllerPrototype {
         private int sentCount;
     }
 
-    // --------- Workflow Functions ---------
-
-    /**
-     * Workflow to process subscriber entity before persisting.
-     * - Mutates the entity state (ObjectNode)
-     * - Performs async side effects such as sending welcome email or other tasks (fire and forget)
-     * - Can get/add other entities but cannot add/update/delete entity of same model
-     */
+    // Workflow function to process subscriber entity before persisting
     private CompletableFuture<ObjectNode> processSubscriber(ObjectNode subscriberNode) {
-        // Default status if missing
+        // Ensure status field
         if (!subscriberNode.hasNonNull("status")) {
             subscriberNode.put("status", "pending");
         }
 
-        // Example async side effect: send welcome email (simulated here)
+        // Async side effect: send welcome email
         return CompletableFuture.runAsync(() -> {
             String email = subscriberNode.path("email").asText(null);
             if (email != null) {
                 logger.info("Async sending welcome email to: {}", email);
-                // TODO: Real email sending logic here, e.g. call external service
+                // Real email sending logic should be here
             }
         }).thenApply(v -> subscriberNode);
     }
 
-    /**
-     * Workflow to process SentFact entity before persisting.
-     * It triggers sending the fact asynchronously to subscribers.
-     */
+    // Workflow function to process sentFact entity before persisting
     private CompletableFuture<ObjectNode> processSentFact(ObjectNode sentFactNode) {
-        // Extract fact and sentCount
         String fact = sentFactNode.path("fact").asText(null);
         int sentCount = sentFactNode.path("sentCount").asInt(0);
 
         return CompletableFuture.runAsync(() -> {
             logger.info("Async sending fact to {} subscribers: {}", sentCount, fact);
-            // TODO: Real email/send logic here
+            // Real email/send logic should be here
         }).thenApply(v -> sentFactNode);
     }
 
-    // --------- Controller Endpoints ---------
-
-    /**
-     * Signup endpoint - now clean and lean.
-     * Async tasks moved to workflow function.
-     */
+    // Endpoint for subscriber sign up
     @PostMapping("/subscribers")
     public Subscriber signUp(@RequestBody @Valid SignUpRequest request) throws ExecutionException, InterruptedException {
         logger.info("Received signup request for email: {}", request.getEmail());
 
-        // Check if email exists (sync call)
+        // Check for existing email
         ArrayNode allSubs = entityService.getItems(ENTITY_NAME, ENTITY_VERSION).get();
         for (JsonNode node : allSubs) {
             if (request.getEmail().equalsIgnoreCase(node.path("email").asText())) {
@@ -177,14 +141,13 @@ public class CyodaEntityControllerPrototype {
             }
         }
 
-        // Prepare new Subscriber entity as ObjectNode
+        // Create new subscriber as ObjectNode
         ObjectNode newSubscriberNode = objectMapper.createObjectNode();
         UUID subscriberId = UUID.randomUUID();
         newSubscriberNode.put("subscriberId", subscriberId.toString());
         newSubscriberNode.put("email", request.getEmail());
-        // status will be set in workflow if missing
 
-        // Persist with workflow function
+        // Persist with workflow
         CompletableFuture<UUID> idFuture = entityService.addItem(
                 ENTITY_NAME,
                 ENTITY_VERSION,
@@ -194,32 +157,30 @@ public class CyodaEntityControllerPrototype {
 
         UUID technicalId = idFuture.get();
 
-        // Build response DTO
-        Subscriber result = new Subscriber(subscriberId, request.getEmail(), newSubscriberNode.path("status").asText());
-        return result;
+        // Prepare response
+        String status = newSubscriberNode.path("status").asText("pending");
+        return new Subscriber(subscriberId, request.getEmail(), status);
     }
 
-    /**
-     * Endpoint to trigger sending weekly fact.
-     * Now the async sending logic is moved into processSentFact workflow.
-     */
+    // Endpoint to send weekly cat fact
     @PostMapping("/facts/sendWeekly")
     public Map<String, Object> sendWeeklyFact() throws Exception {
         logger.info("Triggering weekly fact send");
 
         String factText;
 
-        // Fetch fact from external service
         try {
             String resp = restTemplate.getForObject(new URI("https://catfact.ninja/fact"), String.class);
             JsonNode root = objectMapper.readTree(resp);
             factText = root.path("fact").asText();
+            if(factText == null || factText.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Invalid fact received");
+            }
         } catch (Exception e) {
             logger.error("Failed to fetch cat fact", e);
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch cat fact");
         }
 
-        // Count subscribers
         int count;
         try {
             ArrayNode allSubs = entityService.getItems(ENTITY_NAME, ENTITY_VERSION).get();
@@ -229,13 +190,12 @@ public class CyodaEntityControllerPrototype {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to fetch subscribers");
         }
 
-        // Prepare SentFact entity as ObjectNode
         ObjectNode sentFactNode = objectMapper.createObjectNode();
         sentFactNode.put("fact", factText);
         sentFactNode.put("timestamp", Instant.now().toString());
         sentFactNode.put("sentCount", count);
 
-        // Persist SentFact with workflow to send asynchronously
+        // Persist sentFact with workflow for async send
         entityService.addItem(
                 SENT_FACT_ENTITY_NAME,
                 ENTITY_VERSION,
@@ -250,9 +210,7 @@ public class CyodaEntityControllerPrototype {
         return out;
     }
 
-    /**
-     * Get all subscribers (no changes)
-     */
+    // Get all subscribers
     @GetMapping("/subscribers")
     public List<Subscriber> getSubscribers() throws ExecutionException, InterruptedException {
         ArrayNode allSubs = entityService.getItems(ENTITY_NAME, ENTITY_VERSION).get();
@@ -264,9 +222,7 @@ public class CyodaEntityControllerPrototype {
         return list;
     }
 
-    /**
-     * Summary report endpoint - no async logic here, no changes needed
-     */
+    // Get report summary
     @GetMapping("/reports/summary")
     public Map<String, Object> getReportSummary() throws ExecutionException, InterruptedException {
         int totalSubs;
@@ -276,12 +232,13 @@ public class CyodaEntityControllerPrototype {
         } catch (Exception e) {
             totalSubs = 0;
         }
-        int totalSent = 0;
+
+        int totalSent;
         try {
             ArrayNode sentFacts = entityService.getItems(SENT_FACT_ENTITY_NAME, ENTITY_VERSION).get();
             totalSent = sentFacts.size();
         } catch (Exception e) {
-            // ignore
+            totalSent = 0;
         }
 
         long opens = interactions.values().stream().flatMap(List::stream)
@@ -289,7 +246,6 @@ public class CyodaEntityControllerPrototype {
         long clicks = interactions.values().stream().flatMap(List::stream)
                 .filter(i -> "click".equals(i.getInteractionType())).count();
 
-        // Get last fact sent timestamp
         Instant last = null;
         try {
             ArrayNode sentFactsArray = entityService.getItems(SENT_FACT_ENTITY_NAME, ENTITY_VERSION).get();
@@ -302,8 +258,7 @@ public class CyodaEntityControllerPrototype {
                     }
                 }
             }
-        } catch (Exception e) {
-            // ignore
+        } catch (Exception ignored) {
         }
 
         Map<String, Object> summary = new HashMap<>();
@@ -315,9 +270,7 @@ public class CyodaEntityControllerPrototype {
         return summary;
     }
 
-    /**
-     * Track interaction - no async task here, no changes
-     */
+    // Track interaction
     @PostMapping("/interactions")
     public Map<String, Object> trackInteraction(@RequestBody @Valid InteractionRequest request) throws ExecutionException, InterruptedException {
         UUID sid;
@@ -326,17 +279,19 @@ public class CyodaEntityControllerPrototype {
         } catch (IllegalArgumentException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid UUID");
         }
-        // verify subscriber exists
+
         ObjectNode subscriberNode = entityService.getItem(ENTITY_NAME, ENTITY_VERSION, sid).get();
         if (subscriberNode == null || subscriberNode.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Subscriber not found");
         }
+
         Instant ts;
         try {
             ts = Instant.parse(request.getTimestamp());
         } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid timestamp");
         }
+
         Interaction inter = new Interaction(sid, request.getInteractionType(), ts);
         interactions.computeIfAbsent(sid, k -> Collections.synchronizedList(new ArrayList<>()))
                 .add(inter);
@@ -349,8 +304,7 @@ public class CyodaEntityControllerPrototype {
         return resp;
     }
 
-    // --------- Exception Handlers ---------
-
+    // Exception handlers
     @ExceptionHandler(ResponseStatusException.class)
     @ResponseStatus
     public Map<String, Object> handleStatus(ResponseStatusException ex) {
@@ -368,22 +322,7 @@ public class CyodaEntityControllerPrototype {
         err.put("status", 500);
         err.put("error", "Internal Server Error");
         err.put("message", "Unexpected error");
+        logger.error("Unexpected error", ex);
         return err;
     }
 }
-```
-
----
-
-### Summary of changes:
-- `processSubscriber(ObjectNode)` now accepts the entity as `ObjectNode` and mutates it (sets default status).
-- Moved welcome email sending logic to async code inside `processSubscriber`.
-- For the "sendWeeklyFact" endpoint, instead of firing async from the controller, we:
-  - Create a new `sentFact` entity as `ObjectNode`.
-  - Persist it through `entityService.addItem` with workflow `processSentFact`, which handles the async sending.
-- The controller methods are now free from async/future logic related to side effects.
-- The `process{entity_name}` functions are the single source of truth for entity mutation and async side effects before persistence, following your guidelines.
-
----
-
-If you want me to split workflows into separate classes or services for better modularity, just ask!
