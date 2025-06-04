@@ -1,0 +1,78 @@
+{
+    "description": "Workflow for managing the CatFactLog entity lifecycle.",
+    "name": "CatFactLog_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Create a new CatFactLog entry",
+            "end_state": "CatFactLog_created",
+            "end_state_description": "A CatFactLog entry has been created",
+            "name": "create_catfactlog",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "process_create_catfactlog"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Validate the CatFactLog entry",
+            "end_state": "CatFactLog_validated",
+            "end_state_description": "The CatFactLog entry has been validated",
+            "name": "validate_catfactlog",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "process_validate_catfactlog"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "CatFactLog_created",
+            "start_state_description": "A CatFactLog entry has been created"
+        },
+        {
+            "automated": true,
+            "description": "Publish the CatFactLog entry",
+            "end_state": "CatFactLog_published",
+            "end_state_description": "The CatFactLog entry has been published",
+            "name": "publish_catfactlog",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "process_publish_catfactlog"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "CatFactLog_validated",
+            "start_state_description": "The CatFactLog entry has been validated"
+        },
+        {
+            "automated": true,
+            "description": "Archive the CatFactLog entry",
+            "end_state": "CatFactLog_archived",
+            "end_state_description": "The CatFactLog entry has been archived",
+            "name": "archive_catfactlog",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "process_archive_catfactlog"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "CatFactLog_published",
+            "start_state_description": "The CatFactLog entry has been published"
+        }
+    ]
+}
