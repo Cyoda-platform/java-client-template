@@ -2,7 +2,7 @@ name: Java CI
 
 on:
   push:
-  branches: [ 1a227ac8-3f5b-11b2-ba20-3e7b56738ce4 ]
+    branches: [ 1a227ac8-3f5b-11b2-ba20-3e7b56738ce4 ]
 
 jobs:
   build:
