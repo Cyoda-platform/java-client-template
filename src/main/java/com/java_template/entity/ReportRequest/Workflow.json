@@ -1,0 +1,46 @@
+{
+    "description": "Workflow to process report requests by aggregating order data and sending hourly email reports",
+    "name": "report_request_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start processing the report request",
+            "end_state": "Orders_aggregated",
+            "end_state_description": "Orders have been aggregated",
+            "name": "start_report_request",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processReportRequest"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Aggregate orders for report content",
+            "end_state": "Email_sent",
+            "end_state_description": "Email report has been sent",
+            "name": "aggregate_orders",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAggregateOrders"
+                    },
+                    {
+                        "description": "",
+                        "name": "processSendEmail"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Orders_aggregated",
+            "start_state_description": "Orders have been aggregated"
+        }
+    ]
+}
