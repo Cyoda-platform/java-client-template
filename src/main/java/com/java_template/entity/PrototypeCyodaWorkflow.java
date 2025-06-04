@@ -1,7 +1,6 @@
 ```java
 package com.java_template.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
@@ -14,7 +13,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -45,18 +43,66 @@ public class CyodaEntityControllerPrototype {
         logger.info("CyodaEntityControllerPrototype initialized");
     }
 
-    // Workflow function for Director entity
-    private Function<Director, Director> processDirector = (Director director) -> {
-        // Here you can modify the Director entity before persistence if needed
-        logger.info("Processing Director entity in workflow before persistence: {}", director.getName());
-        return director;
+    /**
+     * Workflow function for Director entity.
+     * Accepts ObjectNode representing Director entity.
+     * Can modify the entity fields directly before persistence.
+     * Can get/add other entityModels but cannot add/update/delete Director entities.
+     */
+    private final Function<ObjectNode, CompletableFuture<ObjectNode>> processDirector = (ObjectNode directorNode) -> {
+        logger.info("Processing Director entity in workflow before persistence: {}", directorNode.path("name").asText());
+
+        // Example: If directorNode doesn't have a nationality, set default
+        if (!directorNode.hasNonNull("nationality") || directorNode.get("nationality").asText().isEmpty()) {
+            directorNode.put("nationality", "Unknown");
+            logger.info("Set default nationality 'Unknown' for Director {}", directorNode.path("name").asText());
+        }
+
+        // We can fetch related entities or add supplementary data here if needed
+        // For example, log count of movies for this director (just an example)
+        // But we cannot add/update/delete Director entities here!
+
+        return CompletableFuture.completedFuture(directorNode);
     };
 
-    // Workflow function for Movie entity
-    private Function<Movie, Movie> processMovie = (Movie movie) -> {
-        // Here you can modify the Movie entity before persistence if needed
-        logger.info("Processing Movie entity in workflow before persistence: {}", movie.getName());
-        return movie;
+    /**
+     * Workflow function for Movie entity.
+     * Accepts ObjectNode representing Movie entity.
+     * Can modify the entity fields directly before persistence.
+     * Can get/add other entityModels but cannot add/update/delete Movie entities.
+     * Also performs async tasks previously done in fireAndForgetProcessing.
+     */
+    private final Function<ObjectNode, CompletableFuture<ObjectNode>> processMovie = (ObjectNode movieNode) -> {
+        logger.info("Processing Movie entity in workflow before persistence: {}", movieNode.path("name").asText());
+
+        // Example: Add or update a field before persistence
+        if (!movieNode.hasNonNull("genre") || movieNode.get("genre").asText().isEmpty()) {
+            movieNode.put("genre", "Unknown");
+            logger.info("Set default genre 'Unknown' for Movie {}", movieNode.path("name").asText());
+        }
+
+        // Example async task: simulate workflow/event processing asynchronously here
+        CompletableFuture.runAsync(() -> {
+            UUID techId = null;
+            if (movieNode.hasNonNull("technicalId")) {
+                try {
+                    techId = UUID.fromString(movieNode.get("technicalId").asText());
+                } catch (Exception ignored) {
+                }
+            }
+            logger.info("Async workflow processing for Movie technicalId {} started", techId);
+
+            // TODO: implement event-driven workflow or other async tasks here
+            try {
+                Thread.sleep(1000); // simulate delay
+            } catch (InterruptedException ignored) {
+            }
+
+            logger.info("Async workflow processing for Movie technicalId {} completed", techId);
+        });
+
+        // Return the (possibly modified) movieNode to be persisted
+        return CompletableFuture.completedFuture(movieNode);
     };
 
     @PostMapping(value = "/directors", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
@@ -97,7 +143,7 @@ public class CyodaEntityControllerPrototype {
         UUID techId = idFuture.join();
         movie.setTechnicalId(techId);
         logger.info("Movie created with technicalId {}", techId);
-        fireAndForgetProcessing(movie); // TODO: integrate real event/workflow
+        // fireAndForgetProcessing removed and replaced by workflow function processMovie
         return movie;
     }
 
@@ -137,13 +183,7 @@ public class CyodaEntityControllerPrototype {
         return error;
     }
 
-    @Async
-    public void fireAndForgetProcessing(Movie movie) {
-        CompletableFuture.runAsync(() -> {
-            logger.info("Async processing for movie technicalId {}", movie.getTechnicalId());
-            // TODO: implement event-driven workflow
-        });
-    }
+    // Removed fireAndForgetProcessing method since async tasks moved to processMovie workflow function
 
     // Utility class to convert ObjectNode to entity classes
     private static class JsonUtil {
@@ -178,7 +218,7 @@ public class CyodaEntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class Director {
-        @JsonIgnore
+        @com.fasterxml.jackson.annotation.JsonIgnore
         private UUID technicalId;
         private String name;
         @Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}$", message = "birthDate must be YYYY-MM-DD")
@@ -191,7 +231,7 @@ public class CyodaEntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class Movie {
-        @JsonIgnore
+        @com.fasterxml.jackson.annotation.JsonIgnore
         private UUID technicalId;
         private String name;
         private Integer year;
@@ -265,9 +305,13 @@ public class CyodaEntityControllerPrototype {
 ```
 ---
 
-**Explanation:**
+### Summary of changes:
 
-- Added two workflow functions `processDirector` and `processMovie` as `Function<Director, Director>` and `Function<Movie, Movie>` respectively.
-- These functions are passed as the last argument to `entityService.addItem(...)` calls for Director and Movie entities.
-- Inside these workflow functions, you can modify the entity before it is persisted. Currently, they just log and return the entity unchanged.
-- This meets the requirement that the workflow function must have prefix `process` followed by the entity name.
+- Converted `processDirector` and `processMovie` workflow functions to accept `ObjectNode` (entity as JSON tree), modify it directly, and return a `CompletableFuture<ObjectNode>`.
+- Moved async tasks **previously in `fireAndForgetProcessing`** into `processMovie` workflow function as a `CompletableFuture.runAsync(...)` task.
+- Set default values or mutate entity fields inside these workflow functions.
+- Removed the old `fireAndForgetProcessing` method from the controller.
+- Controllers now only prepare entity POJOs, call `entityService.addItem` with the respective `process{Entity}` workflow function, and return results.
+- This moves all pre-persistence logic and async workflow tasks to the workflow functions, keeping controllers lean and robust.
+
+This approach uses the new `workflow=process{entity_name}` feature fully and encapsulates async and state mutation logic before persistence as required.
