@@ -1,18 +1,39 @@
+Certainly! Moving all asynchronous logic inside the workflow functions (`process{entity_name}`) is the right design choice. It isolates business logic related to entity processing, keeps controllers slim, and leverages the asynchronous nature of workflow functions.
+
+---
+
+### What to move:
+
+- **Order simulation**: The controller should only create raw Orders and call `addItems` with workflow `processOrder` to handle all async logic, including any enrichment or side effects.
+- **Hourly report generation**: Instead of controller fetching orders, calculating totals, and adding report entity, move all report generation logic inside `processHourlyReport`.
+- **Sending email**: This async side effect should be in `processHourlyReport`.
+- **Any data fetching and additional entity adding**: Should be done inside workflow, never in controller.
+
+---
+
+### How to implement:
+
+- The controller only calls `entityService.addItem` or `addItems` with the raw entities and the workflow function.
+- Workflow function receives `ObjectNode` representing the entity's data.
+- Workflow function modifies the entity (via `ObjectNode.put(...)` etc) if needed.
+- Workflow function can `entityService.getItems(...)` or `entityService.addItem(...)` but **never** on the same entityModel to avoid recursion.
+- Workflow function returns the (possibly modified) `ObjectNode` to be persisted.
+
+---
+
+### Updated code with all async logic moved into workflow functions:
+
 ```java
 package com.java_template.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.common.service.EntityService;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.stereotype.Component;
+import org.springframework.web.bind.annotation.RequestMapping;
 
 import javax.annotation.PostConstruct;
 import java.math.BigDecimal;
@@ -21,55 +42,55 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
+@Slf4j
 @Component
 @RequestMapping("/cyoda-entity")
-public class CyodaEntityControllerPrototype {
-
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+public class CyodaEntityController {
 
     private final EntityService entityService;
     private static final String ENTITY_NAME = "Order";
+    private static final String HOURLY_REPORT_ENTITY = "HourlyReport";
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    private static final ObjectMapper mapper = new ObjectMapper();
+
+    public CyodaEntityController(EntityService entityService) {
         this.entityService = entityService;
     }
 
+    // Controller just calls simulateOrdersBatch with raw data and workflow function
     @PostConstruct
     public void startSimulation() {
-        logger.info("Starting initial order simulation batch...");
+        log.info("Starting initial order simulation batch...");
         simulateOrdersBatch(50);
     }
 
     @Scheduled(fixedRate = 10000)
     public void simulateOrdersPeriodically() {
-        logger.info("Periodic order simulation triggered");
+        log.info("Periodic order simulation triggered");
         simulateOrdersBatch(10);
     }
 
+    // Instead of generating report here, we just trigger an empty report entity.
+    // The report generation logic moves to processHourlyReport workflow.
     @Scheduled(cron = "0 0 * * * *", zone = "UTC")
-    public void generateReportAndSendEmail() throws ExecutionException, InterruptedException {
-        logger.info("Hourly report generation and email sending triggered");
-        String hourKey = generateCurrentHourKey();
+    public void triggerHourlyReport() {
+        log.info("Triggering hourly report generation");
+        // Create empty report entity with timestamp key, workflow will fill details
+        ObjectNode reportNode = mapper.createObjectNode();
+        String hourKey = ZonedDateTime.now(ZoneOffset.UTC).withMinute(0).withSecond(0).withNano(0).toString();
+        reportNode.put("reportTimestamp", hourKey);
+        // totalsByPair will be computed in workflow, so just create empty object now
+        reportNode.putObject("totalsByPair");
 
-        List<Order> lastHourOrders = getOrdersFromLastHour();
-
-        Map<String, BigDecimal> totalsByPair = lastHourOrders.stream()
-                .filter(o -> o.getStatus() == OrderStatus.EXECUTED)
-                .collect(Collectors.groupingBy(Order::getPair,
-                        Collectors.mapping(Order::getAmount,
-                                Collectors.reducing(BigDecimal.ZERO, BigDecimal::add))));
-
-        HourlyReport report = new HourlyReport(hourKey, totalsByPair);
-        // Save report as entity, add workflow function processHourlyReport
-        entityService.addItem("HourlyReport", ENTITY_VERSION, report, this::processHourlyReport).get();
-
-        sendReportEmail(report);
+        entityService.addItem(HOURLY_REPORT_ENTITY, ENTITY_VERSION, reportNode, this::processHourlyReport)
+                .exceptionally(ex -> {
+                    log.error("Failed to add HourlyReport entity", ex);
+                    return null;
+                });
     }
 
     private void simulateOrdersBatch(int count) {
@@ -77,154 +98,148 @@ public class CyodaEntityControllerPrototype {
         List<String> pairs = Arrays.asList("BTC-USD", "ETH-USD", "XRP-USD");
         List<String> users = Arrays.asList("user1", "user2", "user3", "user4");
 
-        List<Order> batch = new ArrayList<>();
+        List<ObjectNode> batch = new ArrayList<>();
 
         for (int i = 0; i < count; i++) {
-            Order order = new Order();
-            order.setOrderId(UUID.randomUUID());
-            order.setTimestamp(Instant.now().minusSeconds(rnd.nextInt(3600)));
-            order.setPrice(BigDecimal.valueOf(1000 + rnd.nextDouble() * 50000).setScale(2, BigDecimal.ROUND_HALF_UP));
-            order.setAmount(BigDecimal.valueOf(0.01 + rnd.nextDouble() * 5).setScale(4, BigDecimal.ROUND_HALF_UP));
-            order.setPair(pairs.get(rnd.nextInt(pairs.size())));
-            order.setSide(rnd.nextBoolean() ? OrderSide.BUY : OrderSide.SELL);
-            order.setStatus(rnd.nextDouble() < 0.8 ? OrderStatus.EXECUTED : OrderStatus.REJECTED);
-            order.setUserId(users.get(rnd.nextInt(users.size())));
-            batch.add(order);
+            ObjectNode orderNode = mapper.createObjectNode();
+            orderNode.put("orderId", UUID.randomUUID().toString());
+            orderNode.put("timestamp", Instant.now().minusSeconds(rnd.nextInt(3600)).toString());
+            orderNode.put("price", BigDecimal.valueOf(1000 + rnd.nextDouble() * 50000).setScale(2, BigDecimal.ROUND_HALF_UP).toString());
+            orderNode.put("amount", BigDecimal.valueOf(0.01 + rnd.nextDouble() * 5).setScale(4, BigDecimal.ROUND_HALF_UP).toString());
+            orderNode.put("pair", pairs.get(rnd.nextInt(pairs.size())));
+            orderNode.put("side", rnd.nextBoolean() ? "BUY" : "SELL");
+            orderNode.put("status", rnd.nextDouble() < 0.8 ? "EXECUTED" : "REJECTED");
+            orderNode.put("userId", users.get(rnd.nextInt(users.size())));
+
+            batch.add(orderNode);
         }
 
-        try {
-            // Use addItems with workflow function processOrder
-            CompletableFuture<List<UUID>> idsFuture = entityService.addItems(ENTITY_NAME, ENTITY_VERSION, batch, this::processOrder);
-            idsFuture.get(); // wait for completion
-        } catch (InterruptedException | ExecutionException e) {
-            logger.error("Error adding batch orders", e);
-            Thread.currentThread().interrupt();
-        }
-        logger.info("Simulated {} orders", count);
-    }
-
-    private List<Order> getOrdersFromLastHour() throws ExecutionException, InterruptedException {
-        Instant oneHourAgo = Instant.now().minusSeconds(3600);
-
-        ArrayNode items = entityService.getItems(ENTITY_NAME, ENTITY_VERSION).get();
-
-        List<Order> orders = new ArrayList<>();
-
-        for (int i = 0; i < items.size(); i++) {
-            ObjectNode obj = (ObjectNode) items.get(i);
-            // Map ObjectNode to Order
-            Order order = JsonUtil.fromObjectNode(obj, Order.class);
-            if (order.getTimestamp().isAfter(oneHourAgo)) {
-                orders.add(order);
-            }
-        }
-        return orders;
-    }
-
-    private String generateCurrentHourKey() {
-        ZonedDateTime nowUtc = ZonedDateTime.now(ZoneOffset.UTC).withMinute(0).withSecond(0).withNano(0);
-        return nowUtc.toString();
-    }
-
-    private void sendReportEmail(HourlyReport report) {
-        // TODO: Replace with real email sending implementation
-        logger.info("Sending email with report for hour {}: {}", report.getReportTimestamp(), report.getTotalsByPair());
-        try {
-            Thread.sleep(1000);
-        } catch (InterruptedException e) {
-            logger.error("Email sending interrupted", e);
-            Thread.currentThread().interrupt();
-        }
-        logger.info("Email sent successfully");
+        // Add all orders with workflow processOrder
+        entityService.addItems(ENTITY_NAME, ENTITY_VERSION, batch, this::processOrder)
+                .exceptionally(ex -> {
+                    log.error("Failed to add batch orders", ex);
+                    return null;
+                });
     }
 
     /**
      * Workflow function for Order entity.
-     * It receives an Order object and returns the possibly modified Order asynchronously.
-     * You can update state or add/get entities of other models here.
+     * Processes the order asynchronously before persistence.
+     * Modifies entity as needed, can add/get other entities but not same entity model.
      */
-    private CompletableFuture<Order> processOrder(Order order) {
-        // Example: Add a simple log and return as is.
-        logger.debug("Processing Order workflow for orderId: {}", order.getOrderId());
+    private CompletableFuture<ObjectNode> processOrder(ObjectNode entity) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                // Example: Add a processing timestamp
+                entity.put("processedTimestamp", Instant.now().toString());
+                // Potentially enrich or validate entity here
 
-        // Example modification: if order status is REJECTED, add some flag or note (not in current model)
-        // For demo, just return the order unchanged asynchronously.
-        return CompletableFuture.completedFuture(order);
+                // Example: If status REJECTED, add a rejection reason field
+                if ("REJECTED".equals(entity.get("status").asText())) {
+                    entity.put("rejectionReason", "Simulated rejection");
+                }
+
+                // Example: Add a supplementary entity of a different model if needed
+                // e.g. a notification entity, but not on this Order entity itself
+
+                log.debug("Order processed in workflow: {}", entity.get("orderId").asText());
+                return entity;
+            } catch (Exception e) {
+                log.error("Error processing order workflow", e);
+                // Return entity unchanged on error to avoid blocking persistence
+                return entity;
+            }
+        });
     }
 
     /**
      * Workflow function for HourlyReport entity.
-     * It receives an HourlyReport object and returns the possibly modified HourlyReport asynchronously.
+     * Generates the report by fetching orders from last hour,
+     * calculating totals, updating the report entity,
+     * and sending an email asynchronously.
      */
-    private CompletableFuture<HourlyReport> processHourlyReport(HourlyReport report) {
-        logger.debug("Processing HourlyReport workflow for timestamp: {}", report.getReportTimestamp());
-        // No modifications for now, just return as is.
-        return CompletableFuture.completedFuture(report);
+    private CompletableFuture<ObjectNode> processHourlyReport(ObjectNode reportEntity) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                String reportTimestamp = reportEntity.get("reportTimestamp").asText();
+                log.info("Processing HourlyReport workflow for hour: {}", reportTimestamp);
+
+                // Parse reportTimestamp to Instant for filtering
+                Instant reportInstant = Instant.parse(reportTimestamp);
+
+                // Get all orders to calculate report
+                ArrayNode ordersArray = entityService.getItems(ENTITY_NAME, ENTITY_VERSION).get();
+
+                // Filter orders within the last hour from reportTimestamp
+                List<ObjectNode> relevantOrders = new ArrayList<>();
+                for (int i = 0; i < ordersArray.size(); i++) {
+                    ObjectNode orderNode = (ObjectNode) ordersArray.get(i);
+                    Instant orderTs = Instant.parse(orderNode.get("timestamp").asText());
+                    if (!orderTs.isBefore(reportInstant) && orderTs.isBefore(reportInstant.plusSeconds(3600))) {
+                        relevantOrders.add(orderNode);
+                    }
+                }
+
+                // Calculate totals by pair for EXECUTED orders
+                Map<String, BigDecimal> totalsByPair = relevantOrders.stream()
+                        .filter(o -> "EXECUTED".equals(o.get("status").asText()))
+                        .collect(Collectors.groupingBy(
+                                o -> o.get("pair").asText(),
+                                Collectors.mapping(
+                                        o -> new BigDecimal(o.get("amount").asText()),
+                                        Collectors.reducing(BigDecimal.ZERO, BigDecimal::add)
+                                )
+                        ));
+
+                // Update reportEntity totalsByPair field
+                ObjectNode totalsNode = mapper.createObjectNode();
+                totalsByPair.forEach((pair, total) -> totalsNode.put(pair, total.toString()));
+                reportEntity.set("totalsByPair", totalsNode);
+
+                // Send report email asynchronously - fire and forget
+                sendReportEmailAsync(reportTimestamp, totalsByPair);
+
+                log.info("HourlyReport workflow done for hour: {}", reportTimestamp);
+
+                return reportEntity;
+            } catch (Exception e) {
+                log.error("Error in HourlyReport workflow", e);
+                return reportEntity;
+            }
+        });
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class Order {
-        @JsonIgnore
-        private UUID technicalId; // stored as technicalId in entityService
-        private UUID orderId;
-        private BigDecimal price;
-        private String pair;
-        private BigDecimal amount;
-        private Instant timestamp;
-        private OrderStatus status;
-        private OrderSide side;
-        private String userId;
-    }
-
-    public enum OrderStatus {
-        REJECTED,
-        EXECUTED
-    }
-
-    public enum OrderSide {
-        BUY,
-        SELL
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class HourlyReport {
-        private String reportTimestamp;
-        private Map<String, BigDecimal> totalsByPair;
-    }
-}
-
-// Utility class to convert ObjectNode to POJO using Jackson
-package com.java_template.entity;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-
-public class JsonUtil {
-    private static final ObjectMapper mapper = new ObjectMapper();
-
-    public static <T> T fromObjectNode(ObjectNode node, Class<T> clazz) {
-        try {
-            return mapper.treeToValue(node, clazz);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+    /**
+     * Fire and forget email sending method.
+     * Can be called inside workflow without blocking the persistence.
+     */
+    private void sendReportEmailAsync(String reportTimestamp, Map<String, BigDecimal> totalsByPair) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                // Simulate email sending delay
+                Thread.sleep(1000);
+                log.info("Email sent for report hour {} with data: {}", reportTimestamp, totalsByPair);
+            } catch (InterruptedException e) {
+                log.error("Email sending interrupted", e);
+                Thread.currentThread().interrupt();
+            }
+        });
     }
 }
 ```
+
 ---
 
-### Explanation
+### Summary of changes:
 
-- Added a new parameter `workflow` of type `Function<T, CompletableFuture<T>>` (or equivalent) in all `entityService.addItem` and `addItems` calls.
-- Created two workflow functions:
-  - `processOrder(Order order)` for the `Order` entity.
-  - `processHourlyReport(HourlyReport report)` for the `HourlyReport` entity.
-- These workflow functions return a `CompletableFuture` of the entity after applying any processing.
-- Updated calls to `entityService.addItem` and `addItems` to pass the corresponding workflow function.
-- Workflow functions currently just log and return the entity unchanged asynchronously but can be extended to modify the entity or interact with other entities.
+- Controller methods now only create raw `ObjectNode` entities and call `entityService.addItem(s)` with workflow functions.
+- `simulateOrdersBatch` creates raw orders and calls `addItems` with `processOrder`.
+- `triggerHourlyReport` creates an empty `HourlyReport` entity with timestamp and calls `addItem` with `processHourlyReport`.
+- All async logic (processing orders, calculating reports, sending emails) is inside workflow functions `processOrder` and `processHourlyReport`.
+- Workflow functions receive and modify `ObjectNode` entities directly.
+- Workflow functions use `entityService.getItems` or `addItem` on different entityModels but **not on their own** to avoid recursion.
+- Email sending is a fire-and-forget async call inside the workflow.
 
-This matches the new expected signature of `entityService.addItem` and the contract described.
+---
+
+This approach makes your controller lean, moves all business logic and asynchronous processes into the workflow functions where they belong, and uses the new capabilities of the updated `entityService.addItem` API effectively.
