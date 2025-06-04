@@ -1,5 +1,6 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
@@ -26,19 +27,21 @@ import static com.java_template.common.config.Config.*;
 @RestController
 @RequestMapping("/api/cyoda-entity")
 @Validated
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @PostConstruct
     public void init() {
-        logger.info("CyodaEntityControllerPrototype initialized");
+        logger.info("Controller initialized");
     }
 
     @PostMapping(value = "/directors", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
@@ -117,10 +120,9 @@ public class CyodaEntityControllerPrototype {
         return error;
     }
 
-    private static class JsonUtil {
-        private static final com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
+    private class JsonUtil {
 
-        private static Director convertObjectNodeToDirector(ObjectNode node) {
+        private Director convertObjectNodeToDirector(ObjectNode node) {
             try {
                 Director director = objectMapper.treeToValue(node, Director.class);
                 if (node.has("technicalId") && !node.get("technicalId").isNull()) {
@@ -132,7 +134,7 @@ public class CyodaEntityControllerPrototype {
             }
         }
 
-        private static Movie convertObjectNodeToMovie(ObjectNode node) {
+        private Movie convertObjectNodeToMovie(ObjectNode node) {
             try {
                 Movie movie = objectMapper.treeToValue(node, Movie.class);
                 if (node.has("technicalId") && !node.get("technicalId").isNull()) {
