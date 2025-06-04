@@ -1,7 +1,6 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.common.service.EntityService;
 import lombok.extern.slf4j.Slf4j;
@@ -15,24 +14,23 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 
 import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @Slf4j
 @Component
 @RequestMapping("/cyoda-entity")
-public class CyodaEntityController {
+public class Controller {
 
     private final EntityService entityService;
+    private final ObjectMapper mapper;
+
     private static final String ENTITY_NAME = "Order";
     private static final String HOURLY_REPORT_ENTITY = "HourlyReport";
 
-    private static final ObjectMapper mapper = new ObjectMapper();
-
-    public CyodaEntityController(EntityService entityService) {
+    public Controller(EntityService entityService, ObjectMapper mapper) {
         this.entityService = entityService;
+        this.mapper = mapper;
     }
 
     // Controller just calls simulateOrdersBatch with raw data without workflow
