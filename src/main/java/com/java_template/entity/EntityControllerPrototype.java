@@ -1,4 +1,3 @@
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -10,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -22,24 +22,18 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import jakarta.validation.constraints.Min;
 
 @Slf4j
+@Validated
 @RestController
 @RequestMapping("/entity")
 public class EntityControllerPrototype {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
-
-    // In-memory store for orders, keyed by UUID orderId
     private final Map<UUID, Order> orders = new ConcurrentHashMap<>();
-
-    // In-memory store for hourly reports keyed by ISO hour string (e.g. "2024-06-01T15:00:00Z")
     private final Map<String, HourlyReport> hourlyReports = new ConcurrentHashMap<>();
 
-    /**
-     * Simulate orders continuously in background.
-     * Here, we just simulate a batch on startup for demo purposes.
-     */
     @PostConstruct
     public void startSimulation() {
         logger.info("Starting initial order simulation batch...");
@@ -47,12 +41,9 @@ public class EntityControllerPrototype {
         // TODO: Replace with proper scheduled or async continuous simulation
     }
 
-    /**
-     * Endpoint to manually trigger a batch simulation of orders.
-     */
     @PostMapping("/simulateOrders")
     public ResponseEntity<Map<String, Object>> simulateOrders(
-            @RequestParam(defaultValue = "20") int count) {
+        @RequestParam(defaultValue = "20") @Min(1) int count) {
         logger.info("Simulating {} orders on demand", count);
         simulateOrdersBatch(count);
         Map<String, Object> resp = new HashMap<>();
@@ -61,96 +52,72 @@ public class EntityControllerPrototype {
         return ResponseEntity.ok(resp);
     }
 
-    /**
-     * Endpoint to manually trigger hourly report generation.
-     */
     @PostMapping("/generateHourlyReport")
     public ResponseEntity<Map<String, Object>> generateHourlyReport() {
         logger.info("Generating hourly report on demand");
         String hourKey = generateCurrentHourKey();
-
         List<Order> lastHourOrders = getOrdersFromLastHour();
-
         Map<String, BigDecimal> totalsByPair = lastHourOrders.stream()
                 .filter(o -> o.getStatus() == OrderStatus.EXECUTED)
                 .collect(Collectors.groupingBy(Order::getPair,
                         Collectors.mapping(Order::getAmount,
                                 Collectors.reducing(BigDecimal.ZERO, BigDecimal::add))));
-
         HourlyReport report = new HourlyReport(hourKey, totalsByPair);
         hourlyReports.put(hourKey, report);
-
         Map<String, Object> resp = new HashMap<>();
         resp.put("message", "Hourly report generated");
         resp.put("reportTimestamp", hourKey);
         return ResponseEntity.ok(resp);
     }
 
-    /**
-     * Endpoint to retrieve the latest hourly report.
-     */
     @GetMapping("/hourlyReport/latest")
     public ResponseEntity<HourlyReport> getLatestHourlyReport() {
-        Optional<String> latestHour = hourlyReports.keySet().stream()
-                .max(String::compareTo);
+        Optional<String> latestHour = hourlyReports.keySet().stream().max(String::compareTo);
         if (latestHour.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No reports available");
         }
-        HourlyReport report = hourlyReports.get(latestHour.get());
-        return ResponseEntity.ok(report);
+        return ResponseEntity.ok(hourlyReports.get(latestHour.get()));
     }
 
-    /**
-     * Endpoint to trigger sending the latest hourly report email asynchronously.
-     */
     @PostMapping("/sendReportEmail")
     public ResponseEntity<Map<String, Object>> sendReportEmail() {
         logger.info("Received request to send latest report email");
-
-        Optional<String> latestHour = hourlyReports.keySet().stream()
-                .max(String::compareTo);
+        Optional<String> latestHour = hourlyReports.keySet().stream().max(String::compareTo);
         if (latestHour.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No reports available to email");
         }
-
         HourlyReport report = hourlyReports.get(latestHour.get());
-
         CompletableFuture.runAsync(() -> {
             try {
                 // TODO: Replace with real email sending logic
                 logger.info("Sending email with report for hour {}: {}", report.getReportTimestamp(), report.getTotalsByPair());
-                Thread.sleep(1000); // simulate delay
+                Thread.sleep(1000);
                 logger.info("Email sent successfully");
             } catch (InterruptedException e) {
                 logger.error("Email sending interrupted", e);
                 Thread.currentThread().interrupt();
             }
         });
-
         Map<String, Object> resp = new HashMap<>();
         resp.put("message", "Email sending triggered asynchronously");
         resp.put("emailTimestamp", Instant.now().toString());
         return ResponseEntity.ok(resp);
     }
 
-    // --- Helper methods ---
-
     private void simulateOrdersBatch(int count) {
         Random rnd = new Random();
         List<String> pairs = Arrays.asList("BTC-USD", "ETH-USD", "XRP-USD");
         List<String> users = Arrays.asList("user1", "user2", "user3", "user4");
-
         for (int i = 0; i < count; i++) {
             Order order = new Order();
             order.setOrderId(UUID.randomUUID());
-            order.setTimestamp(Instant.now().minusSeconds(rnd.nextInt(3600))); // random up to last hour
+            order.setTimestamp(Instant.now().minusSeconds(rnd.nextInt(3600)));
             order.setPrice(BigDecimal.valueOf(1000 + rnd.nextDouble() * 50000).setScale(2, BigDecimal.ROUND_HALF_UP));
             order.setAmount(BigDecimal.valueOf(0.01 + rnd.nextDouble() * 5).setScale(4, BigDecimal.ROUND_HALF_UP));
             order.setPair(pairs.get(rnd.nextInt(pairs.size())));
             order.setSide(rnd.nextBoolean() ? OrderSide.BUY : OrderSide.SELL);
-            order.setStatus(rnd.nextDouble() < 0.8 ? OrderStatus.EXECUTED : OrderStatus.REJECTED); // 80% executed
+            order.setStatus(rnd.nextDouble() < 0.8 ? OrderStatus.EXECUTED : OrderStatus.REJECTED);
             order.setUserId(users.get(rnd.nextInt(users.size())));
-
             orders.put(order.getOrderId(), order);
         }
         logger.info("Simulated {} orders", count);
@@ -158,17 +125,13 @@ public class EntityControllerPrototype {
 
     private List<Order> getOrdersFromLastHour() {
         Instant oneHourAgo = Instant.now().minusSeconds(3600);
-        return orders.values().stream()
-                .filter(o -> o.getTimestamp().isAfter(oneHourAgo))
-                .collect(Collectors.toList());
+        return orders.values().stream().filter(o -> o.getTimestamp().isAfter(oneHourAgo)).collect(Collectors.toList());
     }
 
     private String generateCurrentHourKey() {
         ZonedDateTime nowUtc = ZonedDateTime.now(ZoneOffset.UTC).withMinute(0).withSecond(0).withNano(0);
         return nowUtc.toString();
     }
-
-    // --- Exception Handling ---
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<Map<String, String>> handleResponseStatusException(ResponseStatusException ex) {
@@ -187,8 +150,6 @@ public class EntityControllerPrototype {
         error.put("message", "Internal Server Error");
         return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
     }
-
-    // --- Data models ---
 
     @Data
     @NoArgsConstructor
@@ -222,4 +183,3 @@ public class EntityControllerPrototype {
         private Map<String, BigDecimal> totalsByPair;
     }
 }
-```
