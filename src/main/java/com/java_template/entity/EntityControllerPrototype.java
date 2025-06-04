@@ -1,6 +1,5 @@
 package com.java_template.entity;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
@@ -41,7 +40,6 @@ public class EntityControllerPrototype {
 
     @PostMapping(value = "/directors", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public Director createDirector(@RequestBody @Valid DirectorCreateRequest request) {
-        // validation annotations handle input checks
         UUID id = UUID.randomUUID();
         Director director = new Director(id, request.getName(), request.getBirthDate(), request.getNationality(), new ArrayList<>());
         directors.put(id, director);
@@ -120,6 +118,7 @@ public class EntityControllerPrototype {
     public static class Director {
         private UUID id;
         private String name;
+        @Pattern(regexp = "^\d{4}-\d{2}-\d{2}$", message = "birthDate must be YYYY-MM-DD")
         private String birthDate;
         private String nationality;
         private List<Movie> movies;
