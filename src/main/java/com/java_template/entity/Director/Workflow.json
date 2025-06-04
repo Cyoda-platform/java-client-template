@@ -1,0 +1,42 @@
+{
+    "description": "Workflow for processing Director entities",
+    "name": "director_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Set processed flag on Director entity",
+            "end_state": "ProcessedFlagSet",
+            "end_state_description": "Processed flag has been set",
+            "name": "set_processed_flag",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSetProcessedFlag"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Set default nationality if missing",
+            "end_state": "DefaultNationalitySet",
+            "end_state_description": "Default nationality set if needed",
+            "name": "set_default_nationality",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSetDefaultNationality"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "ProcessedFlagSet",
+            "start_state_description": "Processed flag has been set"
+        }
+    ]
+}
