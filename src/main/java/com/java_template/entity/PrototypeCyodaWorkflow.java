@@ -1,29 +1,3 @@
-Certainly! Moving all asynchronous logic inside the workflow functions (`process{entity_name}`) is the right design choice. It isolates business logic related to entity processing, keeps controllers slim, and leverages the asynchronous nature of workflow functions.
-
----
-
-### What to move:
-
-- **Order simulation**: The controller should only create raw Orders and call `addItems` with workflow `processOrder` to handle all async logic, including any enrichment or side effects.
-- **Hourly report generation**: Instead of controller fetching orders, calculating totals, and adding report entity, move all report generation logic inside `processHourlyReport`.
-- **Sending email**: This async side effect should be in `processHourlyReport`.
-- **Any data fetching and additional entity adding**: Should be done inside workflow, never in controller.
-
----
-
-### How to implement:
-
-- The controller only calls `entityService.addItem` or `addItems` with the raw entities and the workflow function.
-- Workflow function receives `ObjectNode` representing the entity's data.
-- Workflow function modifies the entity (via `ObjectNode.put(...)` etc) if needed.
-- Workflow function can `entityService.getItems(...)` or `entityService.addItem(...)` but **never** on the same entityModel to avoid recursion.
-- Workflow function returns the (possibly modified) `ObjectNode` to be persisted.
-
----
-
-### Updated code with all async logic moved into workflow functions:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -130,26 +104,45 @@ public class CyodaEntityController {
     private CompletableFuture<ObjectNode> processOrder(ObjectNode entity) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                // Example: Add a processing timestamp
+                // Add a processing timestamp
                 entity.put("processedTimestamp", Instant.now().toString());
-                // Potentially enrich or validate entity here
 
-                // Example: If status REJECTED, add a rejection reason field
+                // If status REJECTED, add a rejection reason field
                 if ("REJECTED".equals(entity.get("status").asText())) {
                     entity.put("rejectionReason", "Simulated rejection");
                 }
 
-                // Example: Add a supplementary entity of a different model if needed
-                // e.g. a notification entity, but not on this Order entity itself
+                // Example: add supplementary entity of a different model (Notification)
+                if ("EXECUTED".equals(entity.get("status").asText())) {
+                    ObjectNode notification = mapper.createObjectNode();
+                    notification.put("notificationId", UUID.randomUUID().toString());
+                    notification.put("orderId", entity.get("orderId").asText());
+                    notification.put("message", "Order executed successfully");
+                    notification.put("timestamp", Instant.now().toString());
+
+                    // Add notification entity asynchronously, fire and forget
+                    entityService.addItem("Notification", ENTITY_VERSION, notification, this::processNotification)
+                            .exceptionally(ex -> {
+                                log.error("Failed to add Notification entity", ex);
+                                return null;
+                            });
+                }
 
                 log.debug("Order processed in workflow: {}", entity.get("orderId").asText());
                 return entity;
             } catch (Exception e) {
                 log.error("Error processing order workflow", e);
-                // Return entity unchanged on error to avoid blocking persistence
                 return entity;
             }
         });
+    }
+
+    /**
+     * Workflow function for Notification entity.
+     * Just pass through for now, could add more logic or enrich notification.
+     */
+    private CompletableFuture<ObjectNode> processNotification(ObjectNode entity) {
+        return CompletableFuture.completedFuture(entity);
     }
 
     /**
@@ -168,9 +161,15 @@ public class CyodaEntityController {
                 Instant reportInstant = Instant.parse(reportTimestamp);
 
                 // Get all orders to calculate report
-                ArrayNode ordersArray = entityService.getItems(ENTITY_NAME, ENTITY_VERSION).get();
+                ArrayNode ordersArray;
+                try {
+                    ordersArray = entityService.getItems(ENTITY_NAME, ENTITY_VERSION).get();
+                } catch (Exception e) {
+                    log.error("Failed to fetch orders for report generation", e);
+                    return reportEntity;
+                }
 
-                // Filter orders within the last hour from reportTimestamp
+                // Filter orders within the hour [reportInstant, reportInstant + 1 hour)
                 List<ObjectNode> relevantOrders = new ArrayList<>();
                 for (int i = 0; i < ordersArray.size(); i++) {
                     ObjectNode orderNode = (ObjectNode) ordersArray.get(i);
@@ -211,7 +210,7 @@ public class CyodaEntityController {
 
     /**
      * Fire and forget email sending method.
-     * Can be called inside workflow without blocking the persistence.
+     * Called inside workflow without blocking the persistence.
      */
     private void sendReportEmailAsync(String reportTimestamp, Map<String, BigDecimal> totalsByPair) {
         CompletableFuture.runAsync(() -> {
@@ -226,20 +225,3 @@ public class CyodaEntityController {
         });
     }
 }
-```
-
----
-
-### Summary of changes:
-
-- Controller methods now only create raw `ObjectNode` entities and call `entityService.addItem(s)` with workflow functions.
-- `simulateOrdersBatch` creates raw orders and calls `addItems` with `processOrder`.
-- `triggerHourlyReport` creates an empty `HourlyReport` entity with timestamp and calls `addItem` with `processHourlyReport`.
-- All async logic (processing orders, calculating reports, sending emails) is inside workflow functions `processOrder` and `processHourlyReport`.
-- Workflow functions receive and modify `ObjectNode` entities directly.
-- Workflow functions use `entityService.getItems` or `addItem` on different entityModels but **not on their own** to avoid recursion.
-- Email sending is a fire-and-forget async call inside the workflow.
-
----
-
-This approach makes your controller lean, moves all business logic and asynchronous processes into the workflow functions where they belong, and uses the new capabilities of the updated `entityService.addItem` API effectively.
