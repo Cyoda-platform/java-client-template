@@ -1,4 +1,3 @@
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -10,11 +9,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
-import javax.validation.Valid;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
@@ -23,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 @RequestMapping("/api")
+@Validated
 @Slf4j
 public class EntityControllerPrototype {
 
@@ -33,12 +36,12 @@ public class EntityControllerPrototype {
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // DTOs
-
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     static class SubscribeRequest {
+        @NotBlank
+        @Email
         private String email;
     }
 
@@ -70,6 +73,8 @@ public class EntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     static class UnsubscribeRequest {
+        @NotBlank
+        @Email
         private String email;
     }
 
@@ -89,106 +94,73 @@ public class EntityControllerPrototype {
         private Instant subscribedAt;
     }
 
-
-    // 1. POST /api/subscribe
-    @PostMapping("/subscribe")
-    public ResponseEntity<SubscribeResponse> subscribe(@Valid @RequestBody SubscribeRequest request) {
-        if (request.getEmail() == null || request.getEmail().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email must be provided");
-        }
-
-        // Check if already subscribed
+    @PostMapping("/subscribe") // must be first
+    public ResponseEntity<SubscribeResponse> subscribe(@RequestBody @Valid SubscribeRequest request) {
+        String email = request.getEmail();
         boolean exists = subscribers.values().stream()
-                .anyMatch(sub -> sub.getEmail().equalsIgnoreCase(request.getEmail()));
-
+                .anyMatch(sub -> sub.getEmail().equalsIgnoreCase(email));
         if (exists) {
-            log.info("Subscription attempt for already subscribed email: {}", request.getEmail());
+            log.info("Subscription attempt for already subscribed email: {}", email);
             return ResponseEntity.ok(new SubscribeResponse("Already subscribed", null));
         }
-
         String id = UUID.randomUUID().toString();
-        Subscriber subscriber = new Subscriber(id, request.getEmail(), Instant.now());
+        Subscriber subscriber = new Subscriber(id, email, Instant.now());
         subscribers.put(id, subscriber);
-
-        log.info("New subscriber added: {}", subscriber.getEmail());
-
+        log.info("New subscriber added: {}", email);
         return ResponseEntity.ok(new SubscribeResponse("Subscription successful", id));
     }
 
-    // 2. POST /api/facts/sendWeekly
     @PostMapping("/facts/sendWeekly")
     public ResponseEntity<SendWeeklyResponse> sendWeeklyCatFact() {
         String catFact;
-
         try {
-            // Call external API https://catfact.ninja/fact
             String url = "https://catfact.ninja/fact";
             String rawResponse = restTemplate.getForObject(url, String.class);
             JsonNode rootNode = objectMapper.readTree(rawResponse);
             catFact = rootNode.path("fact").asText();
-
             if (catFact.isBlank()) {
                 throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Cat fact is empty");
             }
         } catch (Exception e) {
-            log.error("Failed to fetch cat fact from external API", e);
+            log.error("Failed to fetch cat fact", e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to fetch cat fact");
         }
-
         lastFactSentAt = Instant.now();
         lastFactText = catFact;
-
-        // Fire-and-forget sending emails
-        fireAndForgetSendEmails(catFact);
-
+        fireAndForgetSendEmails(catFact); // TODO: integrate real email service
         log.info("Weekly cat fact sent to {} subscribers", subscribers.size());
-
         return ResponseEntity.ok(new SendWeeklyResponse("Weekly cat fact sent", catFact));
     }
 
     @Async
     void fireAndForgetSendEmails(String catFact) {
         CompletableFuture.runAsync(() -> {
-            // TODO: Replace this mock logic with actual email sending service integration
-            try {
-                for (Subscriber sub : subscribers.values()) {
-                    log.info("Sending email to {} with fact: {}", sub.getEmail(), catFact);
-                    // Simulate sending delay
+            for (Subscriber sub : subscribers.values()) {
+                log.info("Sending email to {} with fact: {}", sub.getEmail(), catFact);
+                try {
                     Thread.sleep(50);
+                } catch (InterruptedException e) {
+                    log.error("Interrupted", e);
+                    Thread.currentThread().interrupt();
                 }
-                log.info("All emails sent successfully");
-            } catch (InterruptedException e) {
-                log.error("Email sending interrupted", e);
-                Thread.currentThread().interrupt();
             }
+            log.info("All emails sent");
         });
     }
 
-    // 3. GET /api/admin/stats
     @GetMapping("/admin/stats")
     public ResponseEntity<StatsResponse> getStats() {
-        int totalSubs = subscribers.size();
-        Instant lastSent = lastFactSentAt;
-        return ResponseEntity.ok(new StatsResponse(totalSubs, lastSent));
+        return ResponseEntity.ok(new StatsResponse(subscribers.size(), lastFactSentAt));
     }
 
-    // 4. POST /api/unsubscribe
-    @PostMapping("/unsubscribe")
-    public ResponseEntity<UnsubscribeResponse> unsubscribe(@Valid @RequestBody UnsubscribeRequest request) {
-        if (request.getEmail() == null || request.getEmail().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email must be provided");
-        }
-
+    @PostMapping("/unsubscribe") // must be first
+    public ResponseEntity<UnsubscribeResponse> unsubscribe(@RequestBody @Valid UnsubscribeRequest request) {
         String emailLower = request.getEmail().toLowerCase();
-        String keyToRemove = null;
-
-        for (Map.Entry<String, Subscriber> entry : subscribers.entrySet()) {
-            if (entry.getValue().getEmail().equalsIgnoreCase(emailLower)) {
-                keyToRemove = entry.getKey();
-                break;
-            }
-        }
-
+        String keyToRemove = subscribers.entrySet().stream()
+                .filter(entry -> entry.getValue().getEmail().equalsIgnoreCase(emailLower))
+                .map(Map.Entry::getKey)
+                .findFirst()
+                .orElse(null);
         if (keyToRemove != null) {
             subscribers.remove(keyToRemove);
             log.info("Unsubscribed email: {}", request.getEmail());
@@ -199,11 +171,9 @@ public class EntityControllerPrototype {
         }
     }
 
-    // Minimal Exception handler for ResponseStatusException
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<String> handleResponseStatusException(ResponseStatusException ex) {
         log.error("Request failed: {}", ex.getReason());
         return ResponseEntity.status(ex.getStatusCode()).body(ex.getReason());
     }
 }
-```
