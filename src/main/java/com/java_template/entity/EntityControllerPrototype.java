@@ -100,7 +100,7 @@ public class EntityControllerPrototype {
     public Map<String, Object> handleResponseStatusException(ResponseStatusException ex) {
         Map<String, Object> error = new HashMap<>();
         error.put("status", ex.getStatusCode().value());
-        error.put("error", ex.getStatusCode().getReasonPhrase());
+        error.put("error", ex.getStatusCode().toString());
         error.put("message", ex.getReason());
         error.put("timestamp", OffsetDateTime.now().toString());
         return error;
@@ -155,7 +155,7 @@ public class EntityControllerPrototype {
         @NotBlank
         @Size(max = 100)
         private String name;
-        @Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}$", message = "birthDate must be YYYY-MM-DD")
+        @Pattern(regexp = "^\d{4}-\d{2}-\d{2}$", message = "birthDate must be YYYY-MM-DD")
         private String birthDate;
         @Size(max = 50)
         private String nationality;
