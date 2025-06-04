@@ -1,0 +1,42 @@
+{
+    "description": "Workflow for generating hourly reports and sending emails",
+    "name": "hourly_report_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start processing hourly report",
+            "end_state": "Totals_calculated",
+            "end_state_description": "Totals by pair calculated",
+            "name": "start_hourly_report",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processCalculateTotals"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Send the hourly report email",
+            "end_state": "Email_sent",
+            "end_state_description": "Hourly report email sent",
+            "name": "send_report_email",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSendEmail"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Totals_calculated",
+            "start_state_description": "Totals by pair calculated"
+        }
+    ]
+}
