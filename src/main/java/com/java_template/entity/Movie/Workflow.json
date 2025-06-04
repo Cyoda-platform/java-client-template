@@ -1,0 +1,78 @@
+{
+    "description": "Workflow for processing Movie entity with validation and async processing",
+    "name": "movie_entity_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Initial processing of the Movie entity",
+            "end_state": "Default_genre_set",
+            "end_state_description": "Default genre set if missing",
+            "name": "start_processing",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSetDefaultGenre"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Validate the year attribute of the Movie",
+            "end_state": "Year_validated",
+            "end_state_description": "Year validated and corrected if needed",
+            "name": "validate_year_transition",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processValidateYear"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Default_genre_set",
+            "start_state_description": "Default genre set if missing"
+        },
+        {
+            "automated": true,
+            "description": "Validate nominations array presence and structure",
+            "end_state": "Nominations_validated",
+            "end_state_description": "Nominations validated and set if missing",
+            "name": "validate_nominations_transition",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processValidateNominations"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Year_validated",
+            "start_state_description": "Year validated and corrected if needed"
+        },
+        {
+            "automated": true,
+            "description": "Trigger asynchronous workflow processing",
+            "end_state": "Workflow_processed",
+            "end_state_description": "Asynchronous workflow processing triggered",
+            "name": "async_processing_transition",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAsyncWorkflow"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Nominations_validated",
+            "start_state_description": "Nominations validated and set if missing"
+        }
+    ]
+}
