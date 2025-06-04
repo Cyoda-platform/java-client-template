@@ -1,0 +1,60 @@
+{
+    "description": "Workflow for handling orders, notifications, and hourly reports",
+    "name": "order_processing_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Process an order entity",
+            "end_state": "Order_processed",
+            "end_state_description": "Order has been processed",
+            "name": "process_order_transition",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processOrder"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Process a notification entity",
+            "end_state": "Notification_processed",
+            "end_state_description": "Notification has been processed",
+            "name": "process_notification_transition",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processNotification"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Order_processed",
+            "start_state_description": "Order has been processed"
+        },
+        {
+            "automated": true,
+            "description": "Process an hourly report entity",
+            "end_state": "HourlyReport_processed",
+            "end_state_description": "Hourly report has been processed",
+            "name": "process_hourly_report_transition",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processHourlyReport"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Notification_processed",
+            "start_state_description": "Notification has been processed"
+        }
+    ]
+}
