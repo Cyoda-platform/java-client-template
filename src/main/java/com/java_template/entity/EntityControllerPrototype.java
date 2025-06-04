@@ -33,6 +33,8 @@ public class EntityControllerPrototype {
     private volatile Instant lastFactSentAt = null;
     private volatile String lastFactText = null;
 
+    private final Map<String, Interaction> interactions = new ConcurrentHashMap<>();
+
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -67,6 +69,7 @@ public class EntityControllerPrototype {
     static class StatsResponse {
         private int totalSubscribers;
         private Instant lastFactSent;
+        private int totalInteractions;
     }
 
     @Data
@@ -92,6 +95,21 @@ public class EntityControllerPrototype {
         private String id;
         private String email;
         private Instant subscribedAt;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    static class Interaction {
+        private String id;
+        private String subscriberId;
+        private InteractionType type;
+        private Instant timestamp;
+    }
+
+    enum InteractionType {
+        OPEN,
+        CLICK
     }
 
     @PostMapping("/subscribe") // must be first
@@ -150,7 +168,8 @@ public class EntityControllerPrototype {
 
     @GetMapping("/admin/stats")
     public ResponseEntity<StatsResponse> getStats() {
-        return ResponseEntity.ok(new StatsResponse(subscribers.size(), lastFactSentAt));
+        int totalInteractions = interactions.size();
+        return ResponseEntity.ok(new StatsResponse(subscribers.size(), lastFactSentAt, totalInteractions));
     }
 
     @PostMapping("/unsubscribe") // must be first
@@ -169,6 +188,23 @@ public class EntityControllerPrototype {
             log.info("Unsubscribe attempt for non-existent email: {}", request.getEmail());
             return ResponseEntity.ok(new UnsubscribeResponse("Email not found in subscription list"));
         }
+    }
+
+    /**
+     * Track interaction (email open or click) for a subscriber.
+     * This is a simple prototype endpoint.
+     */
+    @PostMapping("/interactions/track")
+    public ResponseEntity<String> trackInteraction(@RequestParam @NotBlank String subscriberId,
+                                                   @RequestParam InteractionType type) {
+        if (!subscribers.containsKey(subscriberId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Subscriber ID not found");
+        }
+        String interactionId = UUID.randomUUID().toString();
+        Interaction interaction = new Interaction(interactionId, subscriberId, type, Instant.now());
+        interactions.put(interactionId, interaction);
+        log.info("Tracked interaction {} for subscriber {} of type {}", interactionId, subscriberId, type);
+        return ResponseEntity.ok("Interaction tracked");
     }
 
     @ExceptionHandler(ResponseStatusException.class)
