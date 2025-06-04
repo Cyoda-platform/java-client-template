@@ -41,7 +41,6 @@ public class EntityControllerPrototype {
 
     @PostMapping(value = "/directors", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public Director createDirector(@RequestBody @Valid DirectorCreateRequest request) {
-        // validation annotations handle input checks
         UUID id = UUID.randomUUID();
         Director director = new Director(id, request.getName(), request.getBirthDate(), request.getNationality(), new ArrayList<>());
         directors.put(id, director);
@@ -120,7 +119,7 @@ public class EntityControllerPrototype {
     public static class Director {
         private UUID id;
         private String name;
-        @Pattern(regexp = "^\d{4}-\d{2}-\d{2}$", message = "birthDate must be YYYY-MM-DD")
+        @Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}$", message = "birthDate must be YYYY-MM-DD")
         private String birthDate;
         private String nationality;
         private List<Movie> movies;
@@ -156,7 +155,7 @@ public class EntityControllerPrototype {
         @NotBlank
         @Size(max = 100)
         private String name;
-        @Pattern(regexp = "^\d{4}-\d{2}-\d{2}$", message = "birthDate must be YYYY-MM-DD")
+        @Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}$", message = "birthDate must be YYYY-MM-DD")
         private String birthDate;
         @Size(max = 50)
         private String nationality;
