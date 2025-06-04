@@ -1,0 +1,42 @@
+{
+    "description": "Workflow for registering subscribers and sending welcome emails",
+    "name": "subscriber_registration_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Initialize subscriber status to pending if not set",
+            "end_state": "Status_ensured",
+            "end_state_description": "Subscriber status has been ensured",
+            "name": "initiate_subscription",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processEnsureStatus"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Send welcome email to subscriber",
+            "end_state": "Welcome_email_sent",
+            "end_state_description": "Welcome email has been sent",
+            "name": "send_welcome_email",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSendWelcomeEmail"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Status_ensured",
+            "start_state_description": "Subscriber status has been ensured"
+        }
+    ]
+}
