@@ -1,0 +1,22 @@
+name: Java CI
+
+on:
+push:
+branches: [ 1a227ac8-3f5b-11b2-ba20-3e7b56738ce4 ]
+
+jobs:
+build:
+
+runs-on: ubuntu-latest
+
+steps:
+  - uses: actions/checkout@v3
+  - name: Set up JDK 21
+    uses: actions/setup-java@v4
+    with:
+      java-version: 21
+      distribution: temurin
+  - name: Grant execute permission for gradlew
+    run: chmod +x ./gradlew
+  - name: Build with Gradle
+    run: ./gradlew clean build --no-daemon
