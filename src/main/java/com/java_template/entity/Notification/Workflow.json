@@ -1,0 +1,60 @@
+{
+    "description": "Workflow managing notification, order, and hourly report processing",
+    "name": "notification_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start processing notification entity",
+            "end_state": "Notification_processed",
+            "end_state_description": "Notification entity processed",
+            "name": "start_notification_workflow",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Processes notification entity",
+                        "name": "processNotification"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Start processing order entity",
+            "end_state": "Order_processed",
+            "end_state_description": "Order entity processed",
+            "name": "start_order_workflow",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Processes order entity",
+                        "name": "processOrder"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Notification_processed",
+            "start_state_description": "Notification entity processed"
+        },
+        {
+            "automated": true,
+            "description": "Start processing hourly report entity",
+            "end_state": "HourlyReport_processed",
+            "end_state_description": "Hourly report entity processed",
+            "name": "start_hourly_report_workflow",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Processes hourly report entity",
+                        "name": "processHourlyReport"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Order_processed",
+            "start_state_description": "Order entity processed"
+        }
+    ]
+}
