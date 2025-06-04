@@ -1,0 +1,60 @@
+{
+    "description": "Workflow to fetch, send, and log weekly cat facts",
+    "name": "sentFact_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start processing sentFact",
+            "end_state": "Fact_fetched",
+            "end_state_description": "Cat fact has been fetched",
+            "name": "start_sentFact_process",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processFetchFact"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Send cat fact emails to subscribers",
+            "end_state": "Emails_sent",
+            "end_state_description": "Cat fact emails have been sent to subscribers",
+            "name": "send_emails",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSendEmails"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Fact_fetched",
+            "start_state_description": "Cat fact has been fetched"
+        },
+        {
+            "automated": true,
+            "description": "Log the sent cat fact with metadata",
+            "end_state": "SentFact_processed",
+            "end_state_description": "Sent fact has been logged and processed",
+            "name": "log_sent_fact",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processLogSentFact"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Emails_sent",
+            "start_state_description": "Cat fact emails have been sent"
+        }
+    ]
+}
