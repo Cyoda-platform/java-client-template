@@ -41,6 +41,7 @@ public class EntityControllerPrototype {
 
     @PostMapping(value = "/directors", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public Director createDirector(@RequestBody @Valid DirectorCreateRequest request) {
+        // validation annotations handle input checks
         UUID id = UUID.randomUUID();
         Director director = new Director(id, request.getName(), request.getBirthDate(), request.getNationality(), new ArrayList<>());
         directors.put(id, director);
