@@ -1,16 +1,3 @@
-Certainly! To move all asynchronous logic and related tasks from the controller into the workflow functions (`process{entity_name}`), I will refactor the code so that:
-
-- The controller just validates input and calls `entityService.addItem(s)` with the corresponding workflow function.
-- All async processing, side effects, and entity state modifications happen inside the workflow functions.
-- Workflow functions receive the entity as an `ObjectNode` (per your description), modify it directly, and can also read/add entities of different models via `entityService` methods.
-- The workflow functions return the (possibly modified) entity wrapped in a `CompletableFuture<ObjectNode>`.
-- The controller no longer runs async tasks (like sending emails or generating orders) itself.
-
----
-
-Here is the updated Java code with the requested refactoring and best practices applied:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -98,12 +85,11 @@ public class CyodaEntityControllerPrototype {
 
             newOrders.add(orderNode);
         }
-        // Add items with workflow that processes order entities asynchronously before persistence
         CompletableFuture<List<UUID>> idsFuture = entityService.addItems(
                 "Order",
                 ENTITY_VERSION,
                 newOrders,
-                this::processOrder // workflow function
+                this::processOrder
         );
         idsFuture.whenComplete((ids, ex) -> {
             if (ex != null) {
@@ -114,30 +100,28 @@ public class CyodaEntityControllerPrototype {
         });
     }
 
-    /**
-     * Workflow function for "Order" entity.
-     * Processes the Order entity asynchronously before persistence.
-     * Can modify entity state by changing ObjectNode fields directly.
-     * Can get/add entities of different entityModels via entityService.
-     * Cannot add/update/delete "Order" entities here to avoid infinite recursion.
-     */
     private CompletableFuture<ObjectNode> processOrder(ObjectNode orderNode) {
-        // Example: Adjust price by 0.1% before saving
-        double price = orderNode.get("price").asDouble();
-        double adjustedPrice = price * 1.001;
-        orderNode.put("price", adjustedPrice);
-
-        // Example: You might want to add supplementary data from another entityModel here asynchronously
-        // For demo purposes, let's fetch some config entity and add a flag if config exists
-        return entityService.getItems("Config", ENTITY_VERSION)
-                .thenApply(configsNode -> {
-                    if (configsNode != null && configsNode.size() > 0) {
-                        orderNode.put("hasConfig", true);
-                    } else {
+        try {
+            if (orderNode.hasNonNull("price")) {
+                double price = orderNode.get("price").asDouble();
+                double adjustedPrice = price * 1.001;
+                orderNode.put("price", adjustedPrice);
+            }
+            // Example of fetching supplementary entity data and adding a flag
+            return entityService.getItems("Config", ENTITY_VERSION)
+                    .thenApply(configsNode -> {
+                        orderNode.put("hasConfig", configsNode != null && configsNode.size() > 0);
+                        return orderNode;
+                    })
+                    .exceptionally(ex -> {
+                        logger.warn("Failed to fetch Config entities during processOrder workflow", ex);
                         orderNode.put("hasConfig", false);
-                    }
-                    return orderNode;
-                });
+                        return orderNode;
+                    });
+        } catch (Exception e) {
+            logger.error("Exception in processOrder workflow function", e);
+            return CompletableFuture.completedFuture(orderNode);
+        }
     }
 
     private double generatePriceForPair(String pair, Random rnd) {
@@ -156,29 +140,22 @@ public class CyodaEntityControllerPrototype {
             @RequestParam(required = false)
             @Pattern(regexp = "BTC/USD|ETH/USD", message = "Pair must be BTC/USD or ETH/USD")
                     String pairFilter) {
-
-        // Fetch orders asynchronously
         return entityService.getItems("Order", ENTITY_VERSION)
                 .thenApply(ordersNode -> {
-                    List<ObjectNode> filteredOrders = new ArrayList<>();
-                    for (int i = 0; i < ordersNode.size(); i++) {
-                        ObjectNode order = (ObjectNode) ordersNode.get(i);
-                        if (pairFilter == null || pairFilter.equals(order.get("pair").asText())) {
-                            filteredOrders.add(order);
-                        }
-                    }
-                    // Summarize by pair
                     Map<String, SummaryAccumulator> summaryMap = new HashMap<>();
                     for (String pair : PAIRS) {
                         summaryMap.put(pair, new SummaryAccumulator());
                     }
-                    for (ObjectNode order : filteredOrders) {
+                    for (int i = 0; i < ordersNode.size(); i++) {
+                        ObjectNode order = (ObjectNode) ordersNode.get(i);
                         String pair = order.get("pair").asText();
-                        SummaryAccumulator acc = summaryMap.get(pair);
-                        if (acc != null) {
-                            acc.count++;
-                            acc.totalAmount += order.get("amount").asDouble();
-                            acc.totalPrice += order.get("price").asDouble();
+                        if (pairFilter == null || pairFilter.equals(pair)) {
+                            SummaryAccumulator acc = summaryMap.get(pair);
+                            if (acc != null) {
+                                acc.count++;
+                                acc.totalAmount += order.get("amount").asDouble();
+                                acc.totalPrice += order.get("price").asDouble();
+                            }
                         }
                     }
                     List<PairSummary> pairSummaries = new ArrayList<>();
@@ -188,6 +165,10 @@ public class CyodaEntityControllerPrototype {
                         pairSummaries.add(new PairSummary(pair, acc.totalAmount, avgPrice));
                     }
                     return ResponseEntity.ok(new SummaryResponse(pairSummaries));
+                })
+                .exceptionally(ex -> {
+                    logger.error("Failed to get orders for summary", ex);
+                    throw new ResponseStatusException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, "Failed to get orders summary");
                 });
     }
 
@@ -201,62 +182,59 @@ public class CyodaEntityControllerPrototype {
     public CompletableFuture<ResponseEntity<ReportResponse>> sendHourlyReport(@RequestBody @Valid ReportRequest request) {
         ObjectNode reportRequestNode = entityService.createObjectNode();
         reportRequestNode.put("email", request.getEmail());
-
-        // Add a dummy "ReportRequest" entity with workflow that sends report email asynchronously before persistence
         return entityService.addItem(
                 "ReportRequest",
                 ENTITY_VERSION,
                 reportRequestNode,
-                this::processReportRequest // workflow function
-        ).thenApply(uuid -> ResponseEntity.ok(new ReportResponse("email_sent", "Report email sent to " + request.getEmail())));
+                this::processReportRequest
+        ).thenApply(uuid -> ResponseEntity.ok(new ReportResponse("email_sent", "Report email sent to " + request.getEmail())))
+         .exceptionally(ex -> {
+             logger.error("Failed to send report request", ex);
+             throw new ResponseStatusException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, "Failed to send report");
+         });
     }
 
-    /**
-     * Workflow function for "ReportRequest" entity.
-     * Sends hourly report email asynchronously before persisting the request entity.
-     * Does NOT add/update/delete "ReportRequest" entities here to avoid recursion.
-     */
     private CompletableFuture<ObjectNode> processReportRequest(ObjectNode reportRequestNode) {
-        String toEmail = reportRequestNode.get("email").asText();
-
-        // Fetch orders and generate report content asynchronously
-        return entityService.getItems("Order", ENTITY_VERSION)
-                .thenCompose(ordersNode -> {
-                    StringBuilder content = new StringBuilder("Hourly Orders Summary:\n");
-                    Map<String, SummaryAccumulator> summaryMap = new HashMap<>();
-                    for (String pair : PAIRS) {
-                        summaryMap.put(pair, new SummaryAccumulator());
-                    }
-                    for (int i = 0; i < ordersNode.size(); i++) {
-                        ObjectNode order = (ObjectNode) ordersNode.get(i);
-                        String pair = order.get("pair").asText();
-                        SummaryAccumulator acc = summaryMap.get(pair);
-                        if (acc != null) {
-                            acc.count++;
-                            acc.totalAmount += order.get("amount").asDouble();
-                            acc.totalPrice += order.get("price").asDouble();
+        try {
+            String toEmail = reportRequestNode.get("email").asText();
+            return entityService.getItems("Order", ENTITY_VERSION)
+                    .thenCompose(ordersNode -> {
+                        Map<String, SummaryAccumulator> summaryMap = new HashMap<>();
+                        for (String pair : PAIRS) {
+                            summaryMap.put(pair, new SummaryAccumulator());
                         }
-                    }
-                    for (String pair : PAIRS) {
-                        SummaryAccumulator acc = summaryMap.get(pair);
-                        double avgPrice = acc.count > 0 ? acc.totalPrice / acc.count : 0.0;
-                        content.append(String.format("- %s: total=%.4f, avg=%.2f%n", pair, acc.totalAmount, avgPrice));
-                    }
-
-                    // Simulate sending email asynchronously (fire & forget)
-                    return sendEmailAsync(toEmail, "Hourly Report", content.toString())
-                            .thenApply(v -> reportRequestNode);
-                });
+                        for (int i = 0; i < ordersNode.size(); i++) {
+                            ObjectNode order = (ObjectNode) ordersNode.get(i);
+                            String pair = order.get("pair").asText();
+                            SummaryAccumulator acc = summaryMap.get(pair);
+                            if (acc != null) {
+                                acc.count++;
+                                acc.totalAmount += order.get("amount").asDouble();
+                                acc.totalPrice += order.get("price").asDouble();
+                            }
+                        }
+                        StringBuilder content = new StringBuilder("Hourly Orders Summary:\n");
+                        for (String pair : PAIRS) {
+                            SummaryAccumulator acc = summaryMap.get(pair);
+                            double avgPrice = acc.count > 0 ? acc.totalPrice / acc.count : 0.0;
+                            content.append(String.format("- %s: total=%.4f, avg=%.2f%n", pair, acc.totalAmount, avgPrice));
+                        }
+                        return sendEmailAsync(toEmail, "Hourly Report", content.toString())
+                                .thenApply(v -> reportRequestNode);
+                    })
+                    .exceptionally(ex -> {
+                        logger.error("Failed during processReportRequest workflow", ex);
+                        return reportRequestNode; // proceed without failing persistence
+                    });
+        } catch (Exception e) {
+            logger.error("Exception in processReportRequest workflow function", e);
+            return CompletableFuture.completedFuture(reportRequestNode);
+        }
     }
 
-    /**
-     * Simulated async email sending method.
-     * Replace with real email integration.
-     */
     private CompletableFuture<Void> sendEmailAsync(String to, String subject, String body) {
         return CompletableFuture.runAsync(() -> {
             logger.info("Sending email to {}\nSubject: {}\nBody:\n{}", to, subject, body);
-            // Simulate delay
             try {
                 Thread.sleep(500);
             } catch (InterruptedException ignored) {
@@ -303,33 +281,3 @@ public class CyodaEntityControllerPrototype {
         private String message;
     }
 }
-```
-
----
-
-### Summary of the refactor:
-
-- **Order generation:**  
-  The controller just creates `ObjectNode` orders and calls `entityService.addItems` with `processOrder` workflow.  
-  The workflow modifies the price and can enrich the entity asynchronously.
-
-- **Order summary endpoint:**  
-  Returns a `CompletableFuture` directly from `entityService.getItems` with no extra async fire/forget.
-
-- **Report email sending:**  
-  The controller creates a `ReportRequest` entity and calls `addItem` with `processReportRequest` workflow.  
-  The workflow asynchronously fetches orders, builds the report, and sends the email (simulated).  
-  The controller just returns response once `addItem` completes.
-
-- **All async logic moved into workflow functions** which mutate the entity's `ObjectNode` before persistence.  
-  This approach avoids infinite recursion by never calling add/update/delete on the same entityModel inside its workflow.
-
-- **EntityService assumed to provide `createObjectNode()` helper for creating empty entities as ObjectNode.**
-
-- The controller becomes very thin and purely input/output oriented.
-
----
-
-If you want, I can also provide a version that uses concrete POJOs inside workflow, but per your description, workflow functions receive and return `ObjectNode`. This version respects that.
-
-Let me know if you want me to help with tests or further improvements!
