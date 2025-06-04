@@ -1,8 +1,10 @@
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -10,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
@@ -23,6 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
+@Validated
 @RestController
 @RequestMapping("/api")
 public class EntityControllerPrototype {
@@ -39,17 +43,11 @@ public class EntityControllerPrototype {
         log.info("EntityControllerPrototype initialized.");
     }
 
-    // --------- Subscriber API ---------
-
+    // POST endpoint must be first annotation
     @PostMapping("/subscribers")
-    public ResponseEntity<Subscriber> createSubscriber(@RequestBody SubscriberRequest request) {
+    public ResponseEntity<Subscriber> createSubscriber(@RequestBody @Valid SubscriberRequest request) {
         log.info("Received subscriber creation request for email: {}", request.getEmail());
 
-        if (request.getEmail() == null || request.getEmail().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email must not be blank");
-        }
-
-        // Simple uniqueness check by email (inefficient, but OK for prototype)
         boolean alreadyExists = subscribers.values().stream()
                 .anyMatch(s -> s.getEmail().equalsIgnoreCase(request.getEmail()));
         if (alreadyExists) {
@@ -74,8 +72,6 @@ public class EntityControllerPrototype {
         return ResponseEntity.ok(subscriber);
     }
 
-    // --------- Weekly Cat Fact Ingestion and Email Sending ---------
-
     @PostMapping("/facts/sendWeekly")
     public ResponseEntity<FactSendResponse> sendWeeklyCatFact() {
         log.info("Triggering weekly cat fact ingestion and email sending.");
@@ -97,7 +93,7 @@ public class EntityControllerPrototype {
 
         int subscriberCount = subscribers.size();
 
-        // Fire and forget sending emails - TODO replace with real async email sending logic
+        // TODO: Replace with real async email sending logic
         CompletableFuture.runAsync(() -> sendCatFactEmails(catFactText));
 
         FactSendResponse response = new FactSendResponse(subscriberCount, catFactText);
@@ -107,16 +103,11 @@ public class EntityControllerPrototype {
 
     @Async
     void sendCatFactEmails(String catFactText) {
-        // TODO: Replace this mock with real email sending service integration
         log.info("Sending cat fact emails to {} subscribers...", subscribers.size());
         subscribers.values().forEach(subscriber -> {
-            // Simulate email sending
             log.info("Sending email to {}: {}", subscriber.getEmail(), catFactText);
         });
-        // Optionally update interactionReports or logs here
     }
-
-    // --------- Reporting ---------
 
     @GetMapping("/report/subscribers")
     public ResponseEntity<SubscriberReport> getSubscriberReport() {
@@ -127,7 +118,6 @@ public class EntityControllerPrototype {
 
     @GetMapping("/report/interaction")
     public ResponseEntity<InteractionReport> getInteractionReport() {
-        // TODO: Replace with real interaction tracking logic
         int emailOpens = interactionReports.values().stream().mapToInt(InteractionReport::getEmailOpens).sum();
         int linkClicks = interactionReports.values().stream().mapToInt(InteractionReport::getLinkClicks).sum();
 
@@ -135,8 +125,6 @@ public class EntityControllerPrototype {
         log.info("Interaction report requested: opens={}, clicks={}", emailOpens, linkClicks);
         return ResponseEntity.ok(report);
     }
-
-    // --------- Exception Handling ---------
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<ErrorResponse> handleResponseStatusException(ResponseStatusException ex) {
@@ -152,12 +140,12 @@ public class EntityControllerPrototype {
                 .body(new ErrorResponse("Unexpected error occurred"));
     }
 
-    // --------- DTOs and Models ---------
-
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     public static class SubscriberRequest {
+        @NotBlank
+        @Email
         private String email;
     }
 
@@ -195,4 +183,3 @@ public class EntityControllerPrototype {
         private String message;
     }
 }
-```
