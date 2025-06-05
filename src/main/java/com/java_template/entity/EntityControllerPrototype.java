@@ -1,14 +1,17 @@
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -19,6 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Slf4j
+@Validated
 @RestController
 @RequestMapping("/api")
 public class EntityControllerPrototype {
@@ -29,7 +33,6 @@ public class EntityControllerPrototype {
 
     @PostConstruct
     public void initData() {
-        // Sample data for prototype testing
         Director d1 = new Director(UUID.randomUUID(), "Christopher Nolan", new ArrayList<>());
         Director d2 = new Director(UUID.randomUUID(), "Greta Gerwig", new ArrayList<>());
 
@@ -54,8 +57,6 @@ public class EntityControllerPrototype {
         log.info("Initialized sample data: {} directors, {} movies", directors.size(), movies.size());
     }
 
-    // --- Director Endpoints ---
-
     @GetMapping(value = "/directors", produces = MediaType.APPLICATION_JSON_VALUE)
     public List<DirectorResponse> getAllDirectors() {
         log.info("GET /directors called");
@@ -65,7 +66,7 @@ public class EntityControllerPrototype {
     }
 
     @GetMapping(value = "/directors/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public DirectorResponse getDirectorById(@PathVariable UUID id) {
+    public DirectorResponse getDirectorById(@PathVariable @NotNull UUID id) {
         log.info("GET /directors/{} called", id);
         Director director = directors.get(id);
         if (director == null) {
@@ -76,15 +77,13 @@ public class EntityControllerPrototype {
     }
 
     @PostMapping(value = "/directors/filter", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public List<DirectorResponse> filterDirectors(@RequestBody DirectorFilterRequest filter) {
+    public List<DirectorResponse> filterDirectors(@RequestBody @Valid DirectorFilterRequest filter) {
         log.info("POST /directors/filter called with filter: {}", filter);
         return directors.values().stream()
                 .filter(d -> filter.getName() == null || d.getName().toLowerCase().contains(filter.getName().toLowerCase()))
                 .map(this::toDirectorResponse)
                 .collect(Collectors.toList());
     }
-
-    // --- Movie Endpoints ---
 
     @GetMapping(value = "/movies", produces = MediaType.APPLICATION_JSON_VALUE)
     public List<MovieResponse> getAllMovies() {
@@ -95,7 +94,7 @@ public class EntityControllerPrototype {
     }
 
     @GetMapping(value = "/movies/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public MovieResponse getMovieById(@PathVariable UUID id) {
+    public MovieResponse getMovieById(@PathVariable @NotNull UUID id) {
         log.info("GET /movies/{} called", id);
         Movie movie = movies.get(id);
         if (movie == null) {
@@ -106,7 +105,7 @@ public class EntityControllerPrototype {
     }
 
     @PostMapping(value = "/movies/filter", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public List<MovieResponse> filterMovies(@RequestBody MovieFilterRequest filter) {
+    public List<MovieResponse> filterMovies(@RequestBody @Valid MovieFilterRequest filter) {
         log.info("POST /movies/filter called with filter: {}", filter);
         return movies.values().stream()
                 .filter(m -> filter.getTitle() == null || m.getTitle().toLowerCase().contains(filter.getTitle().toLowerCase()))
@@ -123,7 +122,16 @@ public class EntityControllerPrototype {
                 .collect(Collectors.toList());
     }
 
-    // --- Mapping helpers ---
+    @ExceptionHandler(ResponseStatusException.class)
+    @ResponseStatus
+    public Map<String, Object> handleResponseStatusException(ResponseStatusException ex) {
+        log.error("Error: {} - {}", ex.getStatusCode(), ex.getReason());
+        Map<String, Object> error = new HashMap<>();
+        error.put("status", ex.getStatusCode().value());
+        error.put("error", ex.getStatusCode().getReasonPhrase());
+        error.put("message", ex.getReason());
+        return error;
+    }
 
     private DirectorResponse toDirectorResponse(Director director) {
         List<MovieResponse> movieResponses = director.getMovies().stream()
@@ -140,21 +148,6 @@ public class EntityControllerPrototype {
         }
         return new MovieResponse(movie.getId(), movie.getTitle(), directorSummary, movie.getAwards());
     }
-
-    // --- Error handling ---
-
-    @ExceptionHandler(ResponseStatusException.class)
-    @ResponseStatus
-    public Map<String, Object> handleResponseStatusException(ResponseStatusException ex) {
-        log.error("Error: {} - {}", ex.getStatusCode(), ex.getReason());
-        Map<String, Object> error = new HashMap<>();
-        error.put("status", ex.getStatusCode().value());
-        error.put("error", ex.getStatusCode().getReasonPhrase());
-        error.put("message", ex.getReason());
-        return error;
-    }
-
-    // --- DTOs & Entities ---
 
     @Data
     @AllArgsConstructor
@@ -205,18 +198,18 @@ public class EntityControllerPrototype {
     @Data
     @NoArgsConstructor
     static class DirectorFilterRequest {
+        @Size(min = 1, max = 100)
         private String name;
     }
 
     @Data
     @NoArgsConstructor
     static class MovieFilterRequest {
+        @Size(min = 1, max = 100)
         private String title;
+        @Size(min = 1, max = 100)
         private String directorName;
+        @Size(min = 1, max = 100)
         private String award;
     }
-
-    // --- TODO placeholders for future external API integration and async processing ---
-    // For example, fire-and-forget jobs can be implemented here with @Async or CompletableFuture.runAsync(...)
 }
-```
