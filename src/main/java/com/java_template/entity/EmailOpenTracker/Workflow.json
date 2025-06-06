@@ -40,30 +40,12 @@
         },
         {
             "automated": true,
-            "description": "Enrich the open event with additional metadata",
-            "end_state": "open_event_enriched",
-            "end_state_description": "Email open event enriched with metadata",
-            "name": "enrich_open_event",
-            "processes": {
-                "externalized_processors": [
-                    {
-                        "description": "",
-                        "name": "process_enrich_open_event"
-                    }
-                ],
-                "schedule_transition_processors": []
-            },
-            "start_state": "open_event_validated",
-            "start_state_description": "Email open event data validated"
-        },
-        {
-            "automated": true,
             "description": "Mark the open event processing as complete",
             "end_state": "completed",
             "end_state_description": "Email open event processing completed",
             "name": "complete_processing",
-            "start_state": "open_event_enriched",
-            "start_state_description": "Email open event enriched with metadata"
+            "start_state": "open_event_validated",
+            "start_state_description": "Email open event data validated"
         }
     ]
 }
