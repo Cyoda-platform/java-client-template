@@ -1,0 +1,69 @@
+{
+    "description": "Workflow for downloading, analyzing, and preparing the analysis report",
+    "name": "analysis_report_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start the analysis workflow by downloading data",
+            "end_state": "data_downloaded",
+            "end_state_description": "CSV data has been downloaded",
+            "name": "start_analysis",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processDownloadData"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Perform data analysis on downloaded CSV data",
+            "end_state": "analysis_completed",
+            "end_state_description": "Data analysis is completed",
+            "name": "perform_analysis",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processPerformAnalysis"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "data_downloaded",
+            "start_state_description": "CSV data has been downloaded"
+        },
+        {
+            "automated": true,
+            "description": "Prepare the final report object",
+            "end_state": "report_prepared",
+            "end_state_description": "The report has been prepared",
+            "name": "prepare_report",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processPrepareReport"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "analysis_completed",
+            "start_state_description": "Data analysis is completed"
+        },
+        {
+            "automated": true,
+            "description": "Complete the workflow by marking entity as completed",
+            "end_state": "completed",
+            "end_state_description": "Workflow is completed",
+            "name": "complete_workflow",
+            "start_state": "report_prepared",
+            "start_state_description": "The report has been prepared"
+        }
+    ]
+}
