@@ -1,0 +1,60 @@
+{
+    "description": "Workflow for processing subscriber entity lifecycle",
+    "name": "subscriber_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Validate subscriber data",
+            "end_state": "Validated",
+            "end_state_description": "Subscriber data validated",
+            "name": "validate_subscriber",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Validates subscriber email and sets status",
+                        "name": "processValidate"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Send welcome email to subscriber",
+            "end_state": "WelcomeEmailSent",
+            "end_state_description": "Welcome email has been sent",
+            "name": "send_welcome_email",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Sends welcome email asynchronously",
+                        "name": "processSendWelcomeEmail"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Validated",
+            "start_state_description": "Subscriber data validated"
+        },
+        {
+            "automated": true,
+            "description": "Mark subscriber processing as completed",
+            "end_state": "Completed",
+            "end_state_description": "Subscriber processing completed",
+            "name": "mark_completed",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Marks the subscriber status as completed",
+                        "name": "processMarkCompleted"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "WelcomeEmailSent",
+            "start_state_description": "Welcome email has been sent"
+        }
+    ]
+}
