@@ -1,4 +1,3 @@
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -13,8 +12,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.util.StringUtils;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 
 import javax.annotation.PostConstruct;
 import java.io.BufferedReader;
@@ -27,6 +32,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
+@Validated
 @RestController
 @RequestMapping("/api/v1")
 public class EntityControllerPrototype {
@@ -37,20 +43,15 @@ public class EntityControllerPrototype {
             "https://raw.githubusercontent.com/Cyoda-platform/cyoda-ai/refs/heads/ai-2.x/data/test-inputs/v1/connections/london_houses.csv";
 
     private final ObjectMapper objectMapper = new ObjectMapper();
-
-    // In-memory store for analysis jobs and their status
     private final Map<String, JobStatus> analysisJobs = new ConcurrentHashMap<>();
-
-    // In-memory store for analysis reports (mocked)
     private final Map<String, Report> analysisReports = new ConcurrentHashMap<>();
-
-    // In-memory subscriber store
     private final Map<String, Subscriber> subscribers = new ConcurrentHashMap<>();
 
-    // --- DTOs ---
     @Data
     public static class RunAnalysisRequest {
+        @Pattern(regexp = "^https?://.*", message = "Invalid URL format")
         private String url;
+        @NotBlank(message = "analysisType must not be blank")
         private String analysisType;
     }
 
@@ -64,7 +65,7 @@ public class EntityControllerPrototype {
     @Data
     @AllArgsConstructor
     public static class JobStatus {
-        private String status;      // e.g. "queued", "running", "completed"
+        private String status;
         private Instant requestedAt;
     }
 
@@ -88,6 +89,8 @@ public class EntityControllerPrototype {
 
     @Data
     public static class AddSubscriberRequest {
+        @NotBlank(message = "Email must not be blank")
+        @Email(message = "Invalid email format")
         private String email;
     }
 
@@ -96,13 +99,16 @@ public class EntityControllerPrototype {
     public static class Subscriber {
         private String subscriberId;
         private String email;
-        private String status; // "subscribed"
+        private String status;
     }
 
     @Data
     @AllArgsConstructor
     public static class SendEmailRequest {
+        @NotBlank(message = "Subject must not be blank")
+        @Size(max = 255, message = "Subject must be at most 255 characters")
         private String subject;
+        @NotBlank(message = "Message must not be blank")
         private String message;
     }
 
@@ -113,42 +119,27 @@ public class EntityControllerPrototype {
         private Instant sentAt;
     }
 
-    // --- API Endpoints ---
-
-    /**
-     * POST /api/v1/analysis/run
-     * Trigger data download, analysis, and report generation.
-     */
     @PostMapping("/analysis/run")
-    public RunAnalysisResponse runAnalysis(@RequestBody(required = false) RunAnalysisRequest request) {
-        String csvUrl = (request != null && StringUtils.hasText(request.getUrl())) ? request.getUrl() : DEFAULT_CSV_URL;
-        String analysisType = (request != null && StringUtils.hasText(request.getAnalysisType())) ? request.getAnalysisType() : "summary";
-
+    public RunAnalysisResponse runAnalysis(@RequestBody @Valid RunAnalysisRequest request) {
+        String csvUrl = StringUtils.hasText(request.getUrl()) ? request.getUrl() : DEFAULT_CSV_URL;
+        String analysisType = request.getAnalysisType();
         String jobId = UUID.randomUUID().toString();
         Instant requestedAt = Instant.now();
-
         analysisJobs.put(jobId, new JobStatus("queued", requestedAt));
         logger.info("Received analysis request. JobId={}, URL={}, AnalysisType={}", jobId, csvUrl, analysisType);
-
-        // Fire-and-forget processing
         CompletableFuture.runAsync(() -> processAnalysisJob(jobId, csvUrl, analysisType));
-
         return new RunAnalysisResponse(jobId, "queued");
     }
 
-    /**
-     * GET /api/v1/analysis/{analysisId}/report
-     * Retrieve generated report for a given analysisId.
-     */
     @GetMapping("/analysis/{analysisId}/report")
-    public Report getReport(@PathVariable String analysisId) {
+    public Report getReport(@PathVariable @NotBlank String analysisId) {
         JobStatus jobStatus = analysisJobs.get(analysisId);
         if (jobStatus == null) {
             logger.error("Report requested for unknown analysisId={}", analysisId);
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Analysis job not found");
         }
         if (!"completed".equalsIgnoreCase(jobStatus.getStatus())) {
-            logger.info("Report requested but analysis not completed for analysisId={}", analysisId);
+            logger.info("Analysis not completed for analysisId={}", analysisId);
             throw new ResponseStatusException(HttpStatus.ACCEPTED, "Analysis is not completed yet");
         }
         Report report = analysisReports.get(analysisId);
@@ -160,16 +151,8 @@ public class EntityControllerPrototype {
         return report;
     }
 
-    /**
-     * POST /api/v1/subscribers
-     * Add a new subscriber email.
-     */
     @PostMapping("/subscribers")
-    public Subscriber addSubscriber(@RequestBody AddSubscriberRequest request) {
-        if (request == null || !StringUtils.hasText(request.getEmail())) {
-            logger.error("Invalid subscriber email received");
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email must be provided");
-        }
+    public Subscriber addSubscriber(@RequestBody @Valid AddSubscriberRequest request) {
         String subscriberId = UUID.randomUUID().toString();
         Subscriber subscriber = new Subscriber(subscriberId, request.getEmail(), "subscribed");
         subscribers.put(subscriberId, subscriber);
@@ -177,22 +160,15 @@ public class EntityControllerPrototype {
         return subscriber;
     }
 
-    /**
-     * GET /api/v1/subscribers
-     * List all subscribers.
-     */
     @GetMapping("/subscribers")
     public Collection<Subscriber> listSubscribers() {
         return subscribers.values();
     }
 
-    /**
-     * POST /api/v1/analysis/{analysisId}/send-email
-     * Send report email to all subscribers.
-     */
     @PostMapping("/analysis/{analysisId}/send-email")
-    public SendEmailResponse sendEmail(@PathVariable String analysisId,
-                                       @RequestBody(required = false) SendEmailRequest emailRequest) {
+    public SendEmailResponse sendEmail(
+            @PathVariable @NotBlank String analysisId,
+            @RequestBody @Valid SendEmailRequest emailRequest) {
         JobStatus jobStatus = analysisJobs.get(analysisId);
         if (jobStatus == null || !"completed".equalsIgnoreCase(jobStatus.getStatus())) {
             logger.error("Email send requested but analysis not completed or unknown analysisId={}", analysisId);
@@ -203,69 +179,42 @@ public class EntityControllerPrototype {
             logger.error("No report to email for analysisId={}", analysisId);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Report not found");
         }
-
-        // Fire-and-forget email sending (mocked)
         CompletableFuture.runAsync(() -> {
-            logger.info("Sending emails for analysisId={}, subject={}", analysisId,
-                    emailRequest != null ? emailRequest.getSubject() : "No Subject");
+            logger.info("Sending emails for analysisId={}, subject={}", analysisId, emailRequest.getSubject());
             // TODO: Implement real email sending logic here
-            try {
-                Thread.sleep(1000); // simulate delay
-            } catch (InterruptedException e) {
-                logger.error("Email sending interrupted", e);
-            }
+            try { Thread.sleep(1000); } catch (InterruptedException ignored) {}
             logger.info("Emails sent to {} subscribers", subscribers.size());
         });
-
         return new SendEmailResponse("sent", Instant.now());
     }
 
-    // --- Internal Methods ---
-
-    /**
-     * Processes the analysis job: downloads CSV data, performs analysis, and stores report.
-     */
     private void processAnalysisJob(String jobId, String csvUrl, String analysisType) {
         logger.info("Started processing analysis job {} with URL {}", jobId, csvUrl);
         analysisJobs.put(jobId, new JobStatus("running", Instant.now()));
-
         try {
             List<Map<String, String>> csvData = downloadCsv(csvUrl);
-            logger.info("CSV data downloaded: {} rows", csvData.size());
-
             Report report = performAnalysis(jobId, csvData, analysisType);
             analysisReports.put(jobId, report);
             analysisJobs.put(jobId, new JobStatus("completed", Instant.now()));
-
-            logger.info("Analysis job {} completed, report generated", jobId);
+            logger.info("Analysis job {} completed", jobId);
         } catch (Exception ex) {
             logger.error("Error processing analysis job " + jobId, ex);
             analysisJobs.put(jobId, new JobStatus("failed", Instant.now()));
         }
     }
 
-    /**
-     * Downloads CSV data from the given URL and parses it into a list of maps.
-     * This is a simple CSV parser prototype (does not handle quoted commas).
-     */
     private List<Map<String, String>> downloadCsv(String csvUrl) throws Exception {
-        logger.info("Downloading CSV from {}", csvUrl);
         URL url = new URL(csvUrl);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("GET");
-        int code = conn.getResponseCode();
-        if (code != 200) {
-            throw new RuntimeException("Failed to download CSV, HTTP code: " + code);
+        if (conn.getResponseCode() != 200) {
+            throw new RuntimeException("Failed to download CSV, HTTP code: " + conn.getResponseCode());
         }
-
         List<Map<String, String>> records = new ArrayList<>();
         try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
             String headerLine = br.readLine();
-            if (headerLine == null) {
-                throw new RuntimeException("CSV file is empty");
-            }
+            if (headerLine == null) throw new RuntimeException("CSV file is empty");
             String[] headers = headerLine.split(",");
-
             String line;
             while ((line = br.readLine()) != null) {
                 String[] values = line.split(",");
@@ -279,35 +228,18 @@ public class EntityControllerPrototype {
         return records;
     }
 
-    /**
-     * Performs a simple summary analysis on the CSV data.
-     * Currently only supports "summary" analysisType.
-     * Calculates mean, median for "price" field and total listings count.
-     * TODO: Extend for other analysis types if needed.
-     */
     private Report performAnalysis(String jobId, List<Map<String, String>> csvData, String analysisType) {
-        logger.info("Performing analysis type '{}' on job {}", analysisType, jobId);
-
-        if (!"summary".equalsIgnoreCase(analysisType)) {
-            logger.warn("Unsupported analysisType '{}', defaulting to summary", analysisType);
-        }
-
         List<Double> prices = new ArrayList<>();
         for (Map<String, String> row : csvData) {
             String priceStr = row.get("price");
             if (priceStr != null) {
-                try {
-                    prices.add(Double.parseDouble(priceStr));
-                } catch (NumberFormatException e) {
-                    logger.warn("Invalid price value skipped: {}", priceStr);
-                }
+                try { prices.add(Double.parseDouble(priceStr)); }
+                catch (NumberFormatException e) { logger.warn("Invalid price skipped: {}", priceStr); }
             }
         }
-
         double mean = prices.stream().mapToDouble(Double::doubleValue).average().orElse(0);
         double median = calculateMedian(prices);
         int total = csvData.size();
-
         SummaryStatistics stats = new SummaryStatistics(mean, median, total);
         return new Report(jobId, stats, Instant.now());
     }
@@ -316,14 +248,10 @@ public class EntityControllerPrototype {
         if (values.isEmpty()) return 0;
         Collections.sort(values);
         int mid = values.size() / 2;
-        if (values.size() % 2 == 0) {
-            return (values.get(mid - 1) + values.get(mid)) / 2.0;
-        } else {
-            return values.get(mid);
-        }
+        return values.size() % 2 == 0
+                ? (values.get(mid - 1) + values.get(mid)) / 2.0
+                : values.get(mid);
     }
-
-    // --- Minimal Exception Handlers ---
 
     @ExceptionHandler(ResponseStatusException.class)
     @ResponseStatus
@@ -347,4 +275,3 @@ public class EntityControllerPrototype {
         return error;
     }
 }
-```
