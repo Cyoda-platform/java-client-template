@@ -1,0 +1,96 @@
+{
+    "description": "Workflow for sending report emails to subscribers",
+    "name": "sendEmailJobWorkflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start sending email process by validating analysisId",
+            "end_state": "validated",
+            "end_state_description": "analysisId validated",
+            "name": "start_send_email",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processValidateAnalysisId"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Verify the analysis job status is completed",
+            "end_state": "jobVerified",
+            "end_state_description": "Job status verified as completed",
+            "name": "verify_job_status",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processCheckJobStatus"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "validated",
+            "start_state_description": "analysisId validated"
+        },
+        {
+            "automated": true,
+            "description": "Prepare email subject and message",
+            "end_state": "emailPrepared",
+            "end_state_description": "Email content prepared",
+            "name": "prepare_email",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processPrepareEmailContent"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "jobVerified",
+            "start_state_description": "Job status verified as completed"
+        },
+        {
+            "automated": true,
+            "description": "Send emails to subscribers",
+            "end_state": "emailsSent",
+            "end_state_description": "Emails sent to subscribers",
+            "name": "send_email",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSendEmails"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "emailPrepared",
+            "start_state_description": "Email content prepared"
+        },
+        {
+            "automated": true,
+            "description": "Mark email as sent in the entity",
+            "end_state": "completed",
+            "end_state_description": "Email sending process completed",
+            "name": "mark_email_sent",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processMarkEmailSent"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "emailsSent",
+            "start_state_description": "Emails sent to subscribers"
+        }
+    ]
+}
