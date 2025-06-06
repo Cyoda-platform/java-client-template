@@ -1,20 +1,3 @@
-Certainly! Moving asynchronous and business logic from controller endpoints into workflow functions (`process{entity_name}`) is a very good design practice. It decouples the controller from processing details, enforcing single responsibility and making code easier to maintain and extend.
-
----
-
-Below is an enhanced Java example based on your existing controller.  
-**All async business logic is moved into corresponding workflow functions named `process{EntityName}`**.  
-- The controller methods become thinner and mostly just call `entityService.addItem` with the relevant workflow function.  
-- The workflow functions manipulate the entity (an `ObjectNode`) and can perform async tasks like fetching CSV, processing analysis, updating other entities, etc.  
-- The workflow functions return the modified entity which will be persisted by the service.  
-- We use Jackson's `ObjectNode` for entity manipulation inside workflow functions (as per your note).  
-- Since workflow functions cannot modify the current entity by calling add/update/delete on the same entity model (to avoid recursion), they may add/update other entityModels if needed.
-
----
-
-### Complete updated Java code with moved async logic into workflow functions
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -140,14 +123,10 @@ public class CyodaEntityControllerPrototype {
         private Instant sentAt;
     }
 
-    // Note: analysisJobs and analysisReports moved to entityService persistence instead of local maps
-    // But since you said we can add supplementary/raw data entities of different entityModel inside workflows,
-    // we will keep them here for demo but in real code you can persist them using entityService as well.
+    // In-memory job status and report storage for demo; in production use entityService persistence
+    private final Map<String, JobStatus> analysisJobs = Collections.synchronizedMap(new HashMap<>());
+    private final Map<String, Report> analysisReports = Collections.synchronizedMap(new HashMap<>());
 
-    private final Map<String, JobStatus> analysisJobs = new HashMap<>();
-    private final Map<String, Report> analysisReports = new HashMap<>();
-
-    // Controller endpoint becomes very thin - just create entity JSON and call addItem with workflow
     @PostMapping("/analysis/run")
     public CompletableFuture<RunAnalysisResponse> runAnalysis(@RequestBody @Valid RunAnalysisRequest request) {
         String csvUrl = StringUtils.hasText(request.getUrl()) ? request.getUrl() : DEFAULT_CSV_URL;
@@ -157,67 +136,67 @@ public class CyodaEntityControllerPrototype {
         entityNode.put("url", csvUrl);
         entityNode.put("analysisType", analysisType);
 
-        // Call addItem with workflow function processAnalysisJob
-        // This workflow function will handle job creation, fetching CSV, analysis, etc asynchronously
         return entityService.addItem("analysisJob", ENTITY_VERSION, entityNode, this::processAnalysisJob)
                 .thenApply(uuid -> new RunAnalysisResponse(uuid.toString(), "queued"));
     }
 
-    // Workflow function for analysisJob entity that runs async analysis pipeline
     private CompletableFuture<ObjectNode> processAnalysisJob(ObjectNode entity) {
-        // Step 1. Assign unique job id as UUID string
         String jobId = UUID.randomUUID().toString();
         entity.put("jobId", jobId);
         entity.put("status", "queued");
         entity.put("requestedAt", Instant.now().toString());
 
-        // Step 2. Start async processing chain (fire and forget inside workflow is allowed)
+        // Persist job status immediately
+        updateJobStatus(jobId, "queued", Instant.now());
+
         CompletableFuture.runAsync(() -> {
             try {
-                updateJobStatus(jobId, "running");
+                updateJobStatus(jobId, "running", null);
                 List<Map<String, String>> csvData = downloadCsv(entity.get("url").asText());
                 Report report = performAnalysis(jobId, csvData, entity.get("analysisType").asText());
-
-                // Persist report entity as a different entityModel "analysisReport"
-                ObjectNode reportNode = objectMapper.createObjectNode();
-                reportNode.put("analysisId", report.getAnalysisId());
-                reportNode.put("generatedAt", report.getGeneratedAt().toString());
-
-                ObjectNode statsNode = objectMapper.createObjectNode();
-                statsNode.put("meanPrice", report.getSummaryStatistics().getMeanPrice());
-                statsNode.put("medianPrice", report.getSummaryStatistics().getMedianPrice());
-                statsNode.put("totalListings", report.getSummaryStatistics().getTotalListings());
-                reportNode.set("summaryStatistics", statsNode);
-
-                entityService.addItem("analysisReport", ENTITY_VERSION, reportNode, this::processAnalysisReport);
-
-                updateJobStatus(jobId, "completed");
+                persistReportEntity(report);
+                updateJobStatus(jobId, "completed", null);
             } catch (Exception ex) {
-                logger.error("Error in analysis workflow", ex);
-                updateJobStatus(jobId, "failed");
+                logger.error("Error processing analysis job {}", jobId, ex);
+                updateJobStatus(jobId, "failed", null);
             }
         });
 
-        // Return entity with jobId and queued status so it will be persisted
         return CompletableFuture.completedFuture(entity);
     }
 
-    // Dummy workflow for analysisReport (can be used for additional processing if needed)
+    private void updateJobStatus(String jobId, String status, Instant requestedAtOverride) {
+        Instant requestedAt = requestedAtOverride != null ? requestedAtOverride : analysisJobs.getOrDefault(jobId, new JobStatus(status, Instant.now())).getRequestedAt();
+        analysisJobs.put(jobId, new JobStatus(status, requestedAt));
+        logger.info("Job {} status set to {}", jobId, status);
+    }
+
+    private void persistReportEntity(Report report) {
+        ObjectNode reportNode = objectMapper.createObjectNode();
+        reportNode.put("analysisId", report.getAnalysisId());
+        reportNode.put("generatedAt", report.getGeneratedAt().toString());
+
+        ObjectNode statsNode = objectMapper.createObjectNode();
+        statsNode.put("meanPrice", report.getSummaryStatistics().getMeanPrice());
+        statsNode.put("medianPrice", report.getSummaryStatistics().getMedianPrice());
+        statsNode.put("totalListings", report.getSummaryStatistics().getTotalListings());
+        reportNode.set("summaryStatistics", statsNode);
+
+        // Persist asynchronously with no further workflow (can be extended if needed)
+        entityService.addItem("analysisReport", ENTITY_VERSION, reportNode, this::processAnalysisReport)
+                .exceptionally(ex -> {
+                    logger.error("Failed to persist analysis report {}", report.getAnalysisId(), ex);
+                    return null;
+                });
+
+        analysisReports.put(report.getAnalysisId(), report);
+    }
+
     private CompletableFuture<ObjectNode> processAnalysisReport(ObjectNode entity) {
-        // For now, no modifications, just return entity
+        // No additional processing currently
         return CompletableFuture.completedFuture(entity);
     }
 
-    // Utility to update job status in local map (in real app persist this with entityService)
-    private void updateJobStatus(String jobId, String status) {
-        synchronized (analysisJobs) {
-            JobStatus current = analysisJobs.getOrDefault(jobId, new JobStatus(status, Instant.now()));
-            analysisJobs.put(jobId, new JobStatus(status, current.getRequestedAt()));
-        }
-        logger.info("Job {} status updated to {}", jobId, status);
-    }
-
-    // Controller endpoint for getting report is thin - just get entity from local map or entityService
     @GetMapping("/analysis/{analysisId}/report")
     public Report getReport(@PathVariable @NotBlank String analysisId) {
         JobStatus jobStatus = analysisJobs.get(analysisId);
@@ -234,18 +213,15 @@ public class CyodaEntityControllerPrototype {
             logger.error("No report found for completed analysisId={}", analysisId);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Report generation error");
         }
-        logger.info("Returning report for analysisId={}", analysisId);
         return report;
     }
 
-    // Controller endpoint to add subscriber with workflow function
     @PostMapping("/subscribers")
     public CompletableFuture<Subscriber> addSubscriber(@RequestBody @Valid AddSubscriberRequest request) {
         ObjectNode entityNode = objectMapper.createObjectNode();
         entityNode.put("email", request.getEmail());
         entityNode.put("status", "subscribed");
 
-        // Workflow function processSubscriber handles any async logic before persisting subscriber
         return entityService.addItem("subscriber", ENTITY_VERSION, entityNode, this::processSubscriber)
                 .thenApply(id -> {
                     Subscriber s = new Subscriber(id.toString(), request.getEmail(), "subscribed");
@@ -254,19 +230,16 @@ public class CyodaEntityControllerPrototype {
                 });
     }
 
-    // Workflow function for subscriber entity
     private CompletableFuture<ObjectNode> processSubscriber(ObjectNode entity) {
-        // Possible async tasks like sending welcome email, validation etc.
-        // We'll simulate a fire-and-forget async task here (e.g. sending welcome email)
         CompletableFuture.runAsync(() -> {
             String email = entity.get("email").asText();
             logger.info("Sending welcome email to {}", email);
-            // TODO: real email sending logic here
-            try { Thread.sleep(500); } catch (InterruptedException ignored) {}
+            // Simulate email sending
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException ignored) { }
             logger.info("Welcome email sent to {}", email);
         });
-
-        // Return entity as is, possibly after modifying any fields
         return CompletableFuture.completedFuture(entity);
     }
 
@@ -293,14 +266,11 @@ public class CyodaEntityControllerPrototype {
         entityNode.put("subject", emailRequest.getSubject());
         entityNode.put("message", emailRequest.getMessage());
 
-        // Workflow function processSendEmail will handle async email sending
         return entityService.addItem("sendEmailJob", ENTITY_VERSION, entityNode, this::processSendEmail)
                 .thenApply(uuid -> new SendEmailResponse("queued", Instant.now()));
     }
 
-    // Workflow function for sendEmailJob entity asynchronously sends emails
     private CompletableFuture<ObjectNode> processSendEmail(ObjectNode entity) {
-        // Fire and forget async email sending
         CompletableFuture.runAsync(() -> {
             String analysisId = entity.get("analysisId").asText();
             String subject = entity.get("subject").asText();
@@ -308,26 +278,22 @@ public class CyodaEntityControllerPrototype {
 
             logger.info("Sending email for analysisId={}, subject={}", analysisId, subject);
 
-            // Check if analysis is completed before sending emails
             JobStatus jobStatus = analysisJobs.get(analysisId);
             if (jobStatus == null || !"completed".equalsIgnoreCase(jobStatus.getStatus())) {
                 logger.warn("Cannot send email, analysis not completed or unknown analysisId={}", analysisId);
                 return;
             }
 
-            // Simulate email sending (replace with real implementation)
+            // Simulate email sending
             try {
                 Thread.sleep(1000);
-            } catch (InterruptedException ignored) {
-            }
+            } catch (InterruptedException ignored) { }
 
             logger.info("Emails sent for analysisId={}", analysisId);
         });
 
         return CompletableFuture.completedFuture(entity);
     }
-
-    // Utility methods for CSV download and analysis
 
     private List<Map<String, String>> downloadCsv(String csvUrl) throws Exception {
         URL url = new URL(csvUrl);
@@ -370,21 +336,18 @@ public class CyodaEntityControllerPrototype {
         double median = calculateMedian(prices);
         int total = csvData.size();
         SummaryStatistics stats = new SummaryStatistics(mean, median, total);
-        Report report = new Report(jobId, stats, Instant.now());
-
-        // Also store in local map for demo - in real app persist report entity
-        analysisReports.put(jobId, report);
-
-        return report;
+        return new Report(jobId, stats, Instant.now());
     }
 
     private double calculateMedian(List<Double> values) {
         if (values.isEmpty()) return 0;
         Collections.sort(values);
         int mid = values.size() / 2;
-        return values.size() % 2 == 0
-                ? (values.get(mid - 1) + values.get(mid)) / 2.0
-                : values.get(mid);
+        if (values.size() % 2 == 0) {
+            return (values.get(mid - 1) + values.get(mid)) / 2.0;
+        } else {
+            return values.get(mid);
+        }
     }
 
     @ExceptionHandler(ResponseStatusException.class)
@@ -410,31 +373,3 @@ public class CyodaEntityControllerPrototype {
     }
 
 }
-```
-
----
-
-### Summary of refactoring:
-- `runAnalysis` now immediately creates a simple entity with URL and analysisType, then calls `entityService.addItem` with `processAnalysisJob` workflow.
-- `processAnalysisJob` asynchronously:
-  - assigns a jobId, marks status queued
-  - downloads CSV, performs analysis
-  - creates new `analysisReport` entity (a different entityModel) and persists it with its own workflow
-  - updates job status in-memory map (in real app should persist)
-- `addSubscriber` endpoint creates subscriber entity and passes to `processSubscriber` workflow, which performs async welcome email sending.
-- `sendEmail` endpoint creates a `sendEmailJob` entity and passes to `processSendEmail` workflow, which asynchronously sends emails.
-- All major async processing is moved out of controllers into workflow functions.
-- The controllers only:
-  - validate input,
-  - build initial entity JSON,
-  - call `entityService.addItem` with appropriate workflow function,
-  - return immediate response with job/entity ID or status.
-
-This makes the code more robust, maintainable, and aligned with the new `entityService.addItem` contract requiring workflow functions.
-
----
-
-If you want, I can help further with:
-- Persisting job statuses and reports as entities instead of local maps,
-- More detailed validation inside workflow functions,
-- Or any other improvements. Just ask!
