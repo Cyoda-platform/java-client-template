@@ -1,0 +1,9 @@
+{
+    "emailOpenTracker": {
+        "emailId": "abc123",
+        "ipAddress": "192.168.1.1",
+        "openTimestamp": "2023-10-05T14:30:00Z",
+        "recipientEmail": "user@example.com",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36"
+    }
+}
