@@ -1,0 +1,87 @@
+{
+    "description": "Workflow for processing an analysis job from initiation to completion",
+    "name": "analysis_job_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start analysis job by queuing it",
+            "end_state": "Queued",
+            "end_state_description": "Analysis job has been queued",
+            "name": "start_analysis_job",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAnalysisJob"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Download CSV data for analysis",
+            "end_state": "CsvDataDownloaded",
+            "end_state_description": "CSV data has been downloaded",
+            "name": "download_csv_data",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processDownloadCsv"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Queued",
+            "start_state_description": "Analysis job has been queued"
+        },
+        {
+            "automated": true,
+            "description": "Perform analysis on downloaded CSV data",
+            "end_state": "AnalysisPerformed",
+            "end_state_description": "Analysis has been performed and report generated",
+            "name": "perform_analysis",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processPerformAnalysis"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "CsvDataDownloaded",
+            "start_state_description": "CSV data has been downloaded"
+        },
+        {
+            "automated": true,
+            "description": "Persist the analysis report entity",
+            "end_state": "ReportPersisted",
+            "end_state_description": "Report entity has been persisted",
+            "name": "persist_report",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processPersistReportEntity"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "AnalysisPerformed",
+            "start_state_description": "Analysis has been performed and report generated"
+        },
+        {
+            "automated": true,
+            "description": "Complete the analysis job",
+            "end_state": "Completed",
+            "end_state_description": "Analysis job completed successfully",
+            "name": "complete_analysis_job",
+            "start_state": "ReportPersisted",
+            "start_state_description": "Report entity has been persisted"
+        }
+    ]
+}
