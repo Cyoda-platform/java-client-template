@@ -1,12 +1,15 @@
-To update the provided code with the new requirements for the `entityService.addItem` method, we'll need to add a workflow function as a parameter to the method and implement a simple workflow function for the entity being added. Since the provided code doesn't include an `addItem` method invocation, I'll assume that you want an example of how and where this could be added.
+To adhere to the new requirements and move the asynchronous logic to the `process{entity_name}` function, we need to identify parts of the endpoint logic that can be offloaded to this workflow function. This approach not only streamlines the controller logic but also leverages the asynchronous capabilities of the workflow function.
 
-For demonstration purposes, let's assume you're adding a `Book` entity. Here's how you might update the code to include the new `workflow` parameter:
+Let's consider refactoring the `addBook` endpoint so that any asynchronous tasks are moved to the `processBook` function. This function will work with the `ObjectNode` representation of the entity, allowing us to modify its state directly before it is persisted.
+
+Here's how you might refactor the code:
 
 ```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
@@ -76,19 +79,30 @@ public class CyodaEntityControllerPrototype {
     public CompletableFuture<UUID> addBook(@RequestBody @Valid Book book) {
         log.info("Adding new book: {}", book);
 
+        // Convert the book object to an ObjectNode
+        ObjectNode bookNode = objectMapper.convertValue(book, ObjectNode.class);
+
         return entityService.addItem(
                 entityModel = "Book",
                 entityVersion = ENTITY_VERSION,
-                entity = book,
+                entity = bookNode,
                 workflow = this::processBook
         );
     }
 
-    private Book processBook(Book book) {
+    private CompletableFuture<ObjectNode> processBook(ObjectNode bookNode) {
         // Example processing logic
-        log.info("Processing book before persistence: {}", book);
-        // Optionally modify the book entity here
-        return book;
+        log.info("Processing book before persistence: {}", bookNode);
+
+        // Asynchronous tasks can be done here
+        return CompletableFuture.supplyAsync(() -> {
+            // Simulate an async task, e.g., fetching additional data or performing calculations
+            // Modify the bookNode directly if needed
+            bookNode.put("processed", true); // Example modification
+
+            log.info("Book processing complete");
+            return bookNode;
+        });
     }
 
     @PostMapping("/reports/weekly")
@@ -156,12 +170,14 @@ public class CyodaEntityControllerPrototype {
 }
 ```
 
-### Explanation
+### Key Changes
 
-1. **New `addBook` Method**: This method handles the addition of new Book entities using the `entityService.addItem` method. It includes the `workflow` parameter, which references the `processBook` method.
+1. **Workflow Function as Asynchronous Task**: The `processBook` function is now performing asynchronous tasks using `CompletableFuture.supplyAsync`. This allows you to perform any necessary calculations or data fetching before persisting the entity.
 
-2. **`processBook` Method**: This is a simple workflow function that can modify the Book entity before it is persisted. It logs the processing action and returns the possibly modified Book entity.
+2. **Direct Modification of `ObjectNode`**: The `processBook` function works directly with the `ObjectNode` type, allowing you to modify its state directly. In this example, a simple `put` operation is performed as a placeholder for potential modifications.
 
-3. **Handling Asynchronous Operations**: The `addBook` method returns a `CompletableFuture<UUID>`, indicating the asynchronous nature of the operation.
+3. **Simplification in Controller**: By moving asynchronous logic to the `processBook` function, the controller is more focused on handling the request and response, making it cleaner and easier to maintain.
 
-4. **Logging**: Logging is used to track the execution and state of operations, which is useful for debugging and monitoring.
+4. **Conversion to `ObjectNode`**: The conversion of the `Book` object to an `ObjectNode` before passing it to `addItem` ensures that the entity is in the correct format for processing.
+
+This approach makes the code more modular and separates concerns effectively, allowing the controller to handle HTTP-specific tasks while the processing logic is encapsulated within the workflow function.
