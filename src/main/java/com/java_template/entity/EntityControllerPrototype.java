@@ -3,12 +3,18 @@ package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
@@ -20,14 +26,15 @@ import java.util.concurrent.ConcurrentHashMap;
 @RestController
 @RequestMapping("/prototype/api")
 @Slf4j
+@Validated
 public class EntityControllerPrototype {
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Map<Long, AnalysisResult> analysisResults = new ConcurrentHashMap<>();
 
-    @PostMapping("/analyzeComments")
-    public ResponseEntity<String> analyzeComments(@RequestBody CommentRequest request) {
+    @PostMapping("/analyzeComments") // must be first
+    public ResponseEntity<String> analyzeComments(@RequestBody @Valid CommentRequest request) {
         long postId = request.getPostId();
         String email = request.getEmail();
 
@@ -56,7 +63,7 @@ public class EntityControllerPrototype {
         }
     }
 
-    @GetMapping("/getAnalysisResults")
+    @GetMapping("/getAnalysisResults") // must be first
     public ResponseEntity<Map<Long, AnalysisResult>> getAnalysisResults() {
         return ResponseEntity.ok(analysisResults);
     }
@@ -71,7 +78,11 @@ public class EntityControllerPrototype {
     @AllArgsConstructor
     @NoArgsConstructor
     private static class CommentRequest {
+        @Min(1)
         private long postId;
+
+        @NotBlank
+        @Email
         private String email;
     }
 
@@ -86,5 +97,3 @@ public class EntityControllerPrototype {
     }
 }
 ```
-
-This Java Spring Boot prototype provides a basic structure for your application, allowing you to validate the API design and user interactions. Modify the placeholders and TODO comments with actual logic as you develop the application further.
