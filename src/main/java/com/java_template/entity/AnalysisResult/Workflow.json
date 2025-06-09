@@ -1,0 +1,60 @@
+{
+    "description": "Workflow for fetching, analyzing comments and sending report email for AnalysisResult entity",
+    "name": "analysis_result_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Fetch comments from external API",
+            "end_state": "Comments_fetched",
+            "end_state_description": "Comments have been fetched",
+            "name": "fetch_comments",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processFetchComments"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Analyze fetched comments for sentiment and key phrases",
+            "end_state": "Comments_analyzed",
+            "end_state_description": "Comments have been analyzed",
+            "name": "analyze_comments",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAnalyzeComments"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Comments_fetched",
+            "start_state_description": "Comments have been fetched"
+        },
+        {
+            "automated": true,
+            "description": "Send analysis report email",
+            "end_state": "Report_sent",
+            "end_state_description": "Report email has been sent",
+            "name": "send_report",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSendReport"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Comments_analyzed",
+            "start_state_description": "Comments have been analyzed"
+        }
+    ]
+}
