@@ -1,12 +1,10 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
@@ -16,9 +14,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.UUID;
@@ -31,15 +30,17 @@ import static com.java_template.common.config.Config.*;
 @RestController
 @RequestMapping("/cyoda/api/photos")
 @Validated
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
     private static final String FAKEREST_API_URL = "https://fakerestapi.azurewebsites.net/api/v1/Books";
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    private final EntityService entityService;
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    private final EntityService entityService;
+    private final ObjectMapper objectMapper;
+
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @PostMapping("/ingest")
@@ -143,4 +144,4 @@ public class CyodaEntityControllerPrototype {
         @Pattern(regexp = "email|push", message = "Notification type must be either 'email' or 'push'")
         private String notificationType;
     }
-}}
+}
