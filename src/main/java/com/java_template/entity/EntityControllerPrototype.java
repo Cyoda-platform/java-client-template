@@ -3,6 +3,9 @@ package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -10,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.ResponseStatusException;
 import org.springframework.web.client.RestTemplate;
@@ -20,6 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 @RequestMapping("/prototype/api")
+@Validated
 public class EntityControllerPrototype {
 
     private static final Logger logger = LoggerFactory.getLogger(EntityControllerPrototype.class);
@@ -27,8 +32,8 @@ public class EntityControllerPrototype {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Map<String, JobStatus> reportJobs = new ConcurrentHashMap<>();
 
-    @PostMapping("/data-retrieval")
-    public ResponseEntity<JsonNode> retrieveData(@RequestBody DataRetrievalRequest request) {
+    @PostMapping("/data-retrieval") // must be first
+    public ResponseEntity<JsonNode> retrieveData(@RequestBody @Valid DataRetrievalRequest request) {
         try {
             logger.info("Retrieving data from external API: {}", request.getApiEndpoint());
             String response = restTemplate.getForObject(request.getApiEndpoint(), String.class);
@@ -40,8 +45,8 @@ public class EntityControllerPrototype {
         }
     }
 
-    @PostMapping("/analyze-metrics")
-    public ResponseEntity<InsightsResponse> analyzeMetrics(@RequestBody BooksRequest booksRequest) {
+    @PostMapping("/analyze-metrics") // must be first
+    public ResponseEntity<InsightsResponse> analyzeMetrics(@RequestBody @Valid BooksRequest booksRequest) {
         logger.info("Analyzing metrics for provided book data");
         // TODO: Implement actual analysis logic
         InsightsResponse insightsResponse = new InsightsResponse("success",
@@ -49,7 +54,7 @@ public class EntityControllerPrototype {
         return ResponseEntity.ok(insightsResponse);
     }
 
-    @GetMapping("/report")
+    @GetMapping("/report") // must be first
     public ResponseEntity<ReportResponse> getReport() {
         logger.info("Retrieving latest report");
         // TODO: Replace with actual report retrieval logic
@@ -58,7 +63,7 @@ public class EntityControllerPrototype {
         return ResponseEntity.ok(reportResponse);
     }
 
-    @PostMapping("/generate-report")
+    @PostMapping("/generate-report") // must be first
     public ResponseEntity<String> generateReport() {
         String jobId = "job-" + System.currentTimeMillis();
         reportJobs.put(jobId, new JobStatus("processing", System.currentTimeMillis()));
@@ -89,7 +94,9 @@ public class EntityControllerPrototype {
     @AllArgsConstructor
     @NoArgsConstructor
     static class DataRetrievalRequest {
+        @NotBlank
         private String apiEndpoint;
+        @NotNull
         private Map<String, String> parameters;
     }
 
@@ -97,6 +104,7 @@ public class EntityControllerPrototype {
     @AllArgsConstructor
     @NoArgsConstructor
     static class BooksRequest {
+        @NotNull
         private JsonNode books;
     }
 
@@ -142,5 +150,3 @@ public class EntityControllerPrototype {
     }
 }
 ```
-
-This prototype provides the basic structure for your Spring Boot application's controller, including endpoints for data retrieval, metrics analysis, and report generation. Mocks and placeholders are used where the specific logic isn't fully defined, and these are marked with TODO comments for future implementation. The prototype also includes logging and basic error handling.
