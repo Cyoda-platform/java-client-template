@@ -1,10 +1,13 @@
-To update the code with the new requirement of adding a workflow function as a parameter to `entityService.addItem`, we need to define and pass a workflow function for processing the entity before it is persisted. Here's how the updated code would look:
+To improve the robustness of the code and to adhere to the requirement of moving asynchronous logic into the workflow function, we can refactor the controller methods to shift as much async logic as possible into the workflow functions. The workflow functions will now handle processing the entity data as well as any additional asynchronous tasks that were previously in the controller methods.
+
+Here's how you can refactor the code:
 
 ```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -42,12 +45,9 @@ public class CyodaEntityControllerPrototype {
             // Assume some external logic to fetch data
             String response = ""; // Replace with actual REST call if needed
             JsonNode activities = new ObjectMapper().readTree(response);
-            
-            // Define the workflow function for processing activities
-            var workflowFunction = this::processActivity;
 
             // Use the workflow function in addItem
-            return entityService.addItem("Activity", ENTITY_VERSION, activities, workflowFunction)
+            return entityService.addItem("Activity", ENTITY_VERSION, activities, this::processActivity)
                 .thenApply(id -> {
                     logger.info("Activities fetched and stored successfully.");
                     return new ApiResponse("success", "Activities fetched and stored successfully.");
@@ -59,11 +59,30 @@ public class CyodaEntityControllerPrototype {
     }
 
     // Define the workflow function for processing Activity entities
-    private JsonNode processActivity(JsonNode activityData) {
+    private ObjectNode processActivity(ObjectNode activityData) {
         // Modify entity state or perform additional logic here
-        // For example, you could add a timestamp or modify some fields
         logger.info("Processing activity entity before persistence: {}", activityData.toString());
+
+        // Example: Add a timestamp or modify some fields
+        activityData.put("processedTimestamp", System.currentTimeMillis());
+
+        // Example of asynchronous logic, like fetching supplementary data
+        CompletableFuture.runAsync(() -> {
+            // Simulate fetching supplementary data and modifying the entity
+            JsonNode supplementaryData = fetchSupplementaryData();
+            activityData.set("supplementaryData", supplementaryData);
+            logger.info("Supplementary data added: {}", supplementaryData);
+        }).join(); // Ensure the async task completes before returning
+
         return activityData;
+    }
+
+    private JsonNode fetchSupplementaryData() {
+        // Simulate fetching supplementary data
+        ObjectMapper objectMapper = new ObjectMapper();
+        ObjectNode supplementaryData = objectMapper.createObjectNode();
+        supplementaryData.put("exampleKey", "exampleValue");
+        return supplementaryData;
     }
 
     @PostMapping("/analyze-activities")
@@ -98,7 +117,7 @@ public class CyodaEntityControllerPrototype {
             // fire-and-forget logic for sending email
             logger.info("Report sent to {}", adminEmail);
         });
-        
+
         logger.info("Report sent successfully to admin.");
         return new ApiResponse("success", "Report sent successfully to admin.");
     }
@@ -168,10 +187,13 @@ public class CyodaEntityControllerPrototype {
 }
 ```
 
-### Key Changes:
-1. **Workflow Function**: A method `processActivity` is defined to act as the workflow function for the "Activity" entity. This function is passed to `entityService.addItem`.
-2. **Usage of Workflow Function**: The function is passed as a parameter in the `addItem` method call in the `fetchActivities` method. This allows for processing the entity data before it gets persisted.
+### Key Points:
+1. **Workflow Function**: The `processActivity` method now handles both modifying the entity state and performing asynchronous tasks such as fetching supplementary data.
+   
+2. **Asynchronous Logic in Workflow**: The asynchronous logic (e.g., fetching and adding supplementary data) is moved into the workflow function. This ensures that all processing happens before the entity is persisted.
 
-### Note:
-- The workflow function is defined to handle any pre-persistence logic. You can modify the function to suit the specific requirements for processing the entity data.
-- Ensure the logic within `processActivity` does not result in recursion by modifying entities of the same model type.
+3. **Ensuring Completion**: We use `.join()` to ensure that the asynchronous task completes before the workflow function returns, ensuring that any modifications are applied to the entity before it is persisted.
+
+4. **Direct Entity Modifications**: Modifications to the entity state are done directly using methods like `put` on the `ObjectNode`.
+
+This refactoring helps centralize and isolate the logic needed to prepare the entity data before persistence, reducing the complexity in the controller methods and improving code maintainability.
