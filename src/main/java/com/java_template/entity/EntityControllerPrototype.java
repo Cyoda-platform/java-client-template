@@ -1,15 +1,13 @@
-```java
-package com.java_template.entity;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -18,21 +16,20 @@ import java.util.concurrent.CompletableFuture;
 
 @RestController
 @RequestMapping("/prototype/api")
+@Validated
 public class EntityControllerPrototype {
 
     private static final Logger logger = LoggerFactory.getLogger(EntityControllerPrototype.class);
-    private final ObjectMapper objectMapper = new ObjectMapper();
     private final Map<String, Report> reportStore = new HashMap<>();
 
     @PostMapping("/data/analyze")
-    public ResponseEntity<Map<String, String>> analyzeData(@RequestBody Map<String, String> request) {
-        String csvUrl = request.get("csvUrl");
+    public ResponseEntity<Map<String, String>> analyzeData(@RequestBody @Valid DataAnalysisRequest request) {
+        String csvUrl = request.getCsvUrl();
         logger.info("Starting data analysis for URL: {}", csvUrl);
 
         // TODO: Implement actual data retrieval and analysis logic
         CompletableFuture.runAsync(() -> {
             try {
-                // Simulate data download and analysis
                 Thread.sleep(2000);
                 reportStore.put("latest", new Report("Report Content", new Date()));
                 logger.info("Data analysis completed for URL: {}", csvUrl);
@@ -45,7 +42,7 @@ public class EntityControllerPrototype {
     }
 
     @PostMapping("/report/send")
-    public ResponseEntity<Map<String, String>> sendReport(@RequestBody ReportRequest reportRequest) {
+    public ResponseEntity<Map<String, String>> sendReport(@RequestBody @Valid ReportRequest reportRequest) {
         logger.info("Sending report to subscribers: {}", reportRequest.getSubscribers());
 
         // TODO: Implement actual email sending logic
@@ -91,10 +88,18 @@ public class EntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     private static class ReportRequest {
+        @NotBlank
         private String reportFormat;
+        @Size(min = 1)
+        @Email
         private List<String> subscribers;
     }
-}
-```
 
-This code provides a basic prototype of the functional requirements discussed, including mock implementations for data analysis and report sending. Adjustments can be made as more details are available.
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    private static class DataAnalysisRequest {
+        @NotBlank
+        private String csvUrl;
+    }
+}
