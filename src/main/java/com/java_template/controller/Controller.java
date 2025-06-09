@@ -1,4 +1,4 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -15,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -26,14 +27,16 @@ import static com.java_template.common.config.Config.ENTITY_VERSION;
 @RestController
 @RequestMapping("/cyoda/api")
 @Validated
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
     private final EntityService entityService;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    // Inject ObjectMapper via constructor
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     // Mock method to simulate fetching supplementary data
@@ -98,7 +101,7 @@ public class CyodaEntityControllerPrototype {
     public CompletableFuture<ResponseEntity<Report>> generateReport(@RequestBody @Valid ReportCriteria reportCriteria) {
         return entityService.getItems("Booking", ENTITY_VERSION)
                 .thenApply(bookings -> {
-                    Report report = new Report(5000, 250, 20); 
+                    Report report = new Report(5000, 250, 20);
                     logger.info("Generated report with criteria: {}", reportCriteria);
                     return ResponseEntity.ok(report);
                 })
