@@ -1,10 +1,10 @@
-Here's a prototype implementation for the `EntityControllerPrototype.java` file using Spring Boot. This implementation focuses on the controller logic and uses mock data for demonstration purposes:
-
 ```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -22,6 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 @RequestMapping("/prototype/api")
+@Validated
 public class EntityControllerPrototype {
 
     private static final Logger logger = LoggerFactory.getLogger(EntityControllerPrototype.class);
@@ -29,7 +30,7 @@ public class EntityControllerPrototype {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Map<String, Booking> bookingsCache = new ConcurrentHashMap<>();
 
-    @PostMapping("/bookings")
+    @PostMapping("/bookings") // must be first
     public ResponseEntity<JsonNode> retrieveAllBookings() {
         try {
             String url = "https://restful-booker.herokuapp.com/booking";
@@ -43,8 +44,8 @@ public class EntityControllerPrototype {
         }
     }
 
-    @PostMapping("/bookings/filter")
-    public ResponseEntity<JsonNode> filterBookings(@RequestBody FilterCriteria filterCriteria) {
+    @PostMapping("/bookings/filter") // must be first
+    public ResponseEntity<JsonNode> filterBookings(@RequestBody @Valid FilterCriteria filterCriteria) {
         try {
             // TODO: Implement actual filtering logic with external API
             // Mock response for demonstration
@@ -57,8 +58,8 @@ public class EntityControllerPrototype {
         }
     }
 
-    @PostMapping("/reports")
-    public ResponseEntity<Report> generateReport(@RequestBody ReportCriteria reportCriteria) {
+    @PostMapping("/reports") // must be first
+    public ResponseEntity<Report> generateReport(@RequestBody @Valid ReportCriteria reportCriteria) {
         try {
             // TODO: Implement actual report generation logic
             // Mock response for demonstration
@@ -83,10 +84,15 @@ public class EntityControllerPrototype {
     @AllArgsConstructor
     private static class Booking {
         private int id;
+        @NotBlank
         private String firstName;
+        @NotBlank
         private String lastName;
+        @Positive
         private double totalPrice;
         private boolean depositPaid;
+        @NotNull
+        @Valid
         private BookingDates bookingDates;
     }
 
@@ -94,7 +100,9 @@ public class EntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     private static class BookingDates {
+        @NotBlank
         private String checkIn;
+        @NotBlank
         private String checkOut;
     }
 
@@ -102,8 +110,11 @@ public class EntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     private static class FilterCriteria {
+        @Valid
         private BookingDates bookingDates;
+        @PositiveOrZero
         private double minPrice;
+        @Positive
         private double maxPrice;
         private boolean depositPaid;
     }
@@ -112,6 +123,7 @@ public class EntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     private static class ReportCriteria {
+        @Valid
         private BookingDates dateRange;
     }
 
@@ -119,11 +131,12 @@ public class EntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     private static class Report {
+        @Positive
         private double totalRevenue;
+        @Positive
         private double averageBookingPrice;
+        @Positive
         private int numberOfBookings;
     }
 }
 ```
-
-This prototype controller outlines the basic structure of the endpoints and uses mock data where the logic isn't fully specified. Please replace the mock logic with actual implementations as needed.
