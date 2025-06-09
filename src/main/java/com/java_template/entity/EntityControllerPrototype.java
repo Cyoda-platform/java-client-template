@@ -1,25 +1,26 @@
-Here's a prototype implementation of the `EntityControllerPrototype.java` file for your Spring Boot application. This prototype focuses on the controller logic and uses mocks and placeholders where necessary:
-
-```java
-package com.java_template.entity;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 @RequestMapping("/prototype/entities")
+@Validated
 public class EntityControllerPrototype {
 
     private static final Logger logger = LoggerFactory.getLogger(EntityControllerPrototype.class);
@@ -27,7 +28,7 @@ public class EntityControllerPrototype {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @PostMapping
-    public Entity createEntity(@RequestBody EntityRequest request) {
+    public Entity createEntity(@RequestBody @Valid EntityRequest request) {
         String id = generateId();
         Entity entity = new Entity(id, request.getApiUrl(), null, null);
         entityStore.put(id, entity);
@@ -37,7 +38,7 @@ public class EntityControllerPrototype {
     }
 
     @PostMapping("/{id}")
-    public Entity updateEntity(@PathVariable String id, @RequestBody EntityRequest request) {
+    public Entity updateEntity(@PathVariable String id, @RequestBody @Valid EntityRequest request) {
         Entity entity = entityStore.get(id);
         if (entity == null) {
             logger.error("Entity not found for ID: {}", id);
@@ -119,16 +120,8 @@ public class EntityControllerPrototype {
 
     @Data
     static class EntityRequest {
+        @NotBlank
+        @Size(max = 255)
         private String apiUrl;
     }
 }
-```
-
-### Key Points:
-- **Logging**: Using SLF4J for logging various actions and errors.
-- **Asynchronous Fetching**: Uses `CompletableFuture.runAsync()` to simulate fetching data asynchronously.
-- **Entity Storage**: Uses `ConcurrentHashMap` as an in-memory store for entities.
-- **Error Handling**: Basic error handling with `@ExceptionHandler`.
-- **Lombok**: Utilizes Lombok annotations for boilerplate code reduction.
-
-This prototype helps in validating the structure and interaction flow of your API.
