@@ -1,6 +1,3 @@
-Incorporating the `processEntity` function as an asynchronous workflow allows us to offload certain tasks from the controller, making the code cleaner and more robust. Below is the updated code where async logic, like fetching data, is moved into the `processEntity` function:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -43,7 +40,7 @@ public class CyodaEntityControllerPrototype {
     public CompletableFuture<Entity> createEntity(@RequestBody @Valid EntityRequest request) {
         ObjectNode entity = objectMapper.createObjectNode();
         entity.put("apiUrl", request.getApiUrl());
-        
+
         return entityService.addItem("entity", ENTITY_VERSION, entity, this::processEntity)
                 .thenApply(technicalId -> {
                     Entity createdEntity = new Entity();
@@ -54,7 +51,6 @@ public class CyodaEntityControllerPrototype {
     }
 
     private CompletableFuture<ObjectNode> processEntity(ObjectNode entity) {
-        // Example processing logic
         entity.put("apiUrl", entity.get("apiUrl").asText().toLowerCase());
 
         return CompletableFuture.runAsync(() -> {
@@ -91,14 +87,16 @@ public class CyodaEntityControllerPrototype {
     @PostMapping("/{id}/fetch")
     public CompletableFuture<Entity> fetchEntityData(@PathVariable UUID id) {
         return entityService.getItem("entity", ENTITY_VERSION, id)
-                .thenApply(itemNode -> {
+                .thenCompose(itemNode -> {
                     if (itemNode == null) {
                         logger.error("Entity not found for technical ID: {}", id);
                         throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Entity not found");
                     }
                     ObjectNode entity = (ObjectNode) itemNode;
-                    logger.info("Fetched data for entity with technical ID: {}", id);
-                    return new Entity(id, entity.get("apiUrl").asText(), entity.get("fetchedData"), entity.get("fetchedAt").asLong());
+                    return processEntity(entity).thenApply(processedEntity -> {
+                        logger.info("Fetched data for entity with technical ID: {}", id);
+                        return new Entity(id, processedEntity.get("apiUrl").asText(), processedEntity.get("fetchedData"), processedEntity.get("fetchedAt").asLong());
+                    });
                 });
     }
 
@@ -149,20 +147,3 @@ public class CyodaEntityControllerPrototype {
         private String apiUrl;
     }
 }
-```
-
-### Key Changes:
-
-1. **Refactor to `ObjectNode`**:
-   - The `processEntity` function now works directly with `ObjectNode` to manipulate entity data.
-
-2. **Move Async Logic**:
-   - The asynchronous data fetching logic is moved into the `processEntity` function, which is responsible for modifying the entity state before it is persisted.
-
-3. **Simplified Controller**:
-   - The `createEntity` endpoint is now cleaner, with less logic since the async tasks have been offloaded to the workflow function.
-
-4. **Entity Processing**:
-   - The `processEntity` function performs operations like converting the API URL to lowercase and fetching data asynchronously.
-
-This approach encapsulates the entity processing logic in a dedicated function, promoting a cleaner separation of concerns and making the controller less cluttered.
