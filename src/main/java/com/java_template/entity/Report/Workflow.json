@@ -1,0 +1,60 @@
+{
+    "description": "Workflow to process report by downloading data, analyzing it, and sending the report",
+    "name": "report_processing_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Download CSV data for the report",
+            "end_state": "Data_downloaded",
+            "end_state_description": "CSV data has been downloaded",
+            "name": "download_data",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processDownload"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Analyze the downloaded CSV data",
+            "end_state": "Data_analyzed",
+            "end_state_description": "Downloaded data has been analyzed",
+            "name": "analyze_data",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAnalyze"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Data_downloaded",
+            "start_state_description": "CSV data has been downloaded"
+        },
+        {
+            "automated": true,
+            "description": "Send report to subscribers",
+            "end_state": "Report_sent",
+            "end_state_description": "Report has been sent to subscribers",
+            "name": "send_report",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSend"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Data_analyzed",
+            "start_state_description": "Downloaded data has been analyzed"
+        }
+    ]
+}
