@@ -1,8 +1,7 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
@@ -22,7 +21,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.AsyncRestTemplate;
 import org.springframework.web.client.ResponseStatusException;
 
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 import static com.java_template.common.config.Config.ENTITY_VERSION;
@@ -30,15 +28,17 @@ import static com.java_template.common.config.Config.ENTITY_VERSION;
 @RestController
 @RequestMapping("/cyoda/entity/api")
 @Validated
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
     private final EntityService entityService;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
     private final AsyncRestTemplate asyncRestTemplate = new AsyncRestTemplate();
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    // Constructor injection for EntityService and ObjectMapper
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @PostMapping("/signup")
