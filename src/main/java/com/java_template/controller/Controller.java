@@ -1,4 +1,4 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -25,13 +25,14 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 @RequestMapping("/prototype/api/pets")
 @Validated
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
     private final EntityService entityService;
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @PostMapping("/fetch")
@@ -66,7 +67,7 @@ public class CyodaEntityControllerPrototype {
         return entityService.getItemsByCondition("Pet", ENTITY_VERSION, condition)
                 .thenApply(filteredItems -> {
                     if (filteredItems.isEmpty()) {
-                        logger.info("No pets match the search criteria for species: {}, status: {}, categoryId: {}",
+                        log.info("No pets match the search criteria for species: {}, status: {}, categoryId: {}",
                                 request.getSpecies(), request.getStatus(), request.getCategoryId());
                         return ResponseEntity.ok("No pets match the search criteria.");
                     }
@@ -110,7 +111,7 @@ public class CyodaEntityControllerPrototype {
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<String> handleResponseStatusException(ResponseStatusException ex) {
-        logger.error("Error: {}", ex.getStatusCode().toString());
+        log.error("Error: {}", ex.getStatusCode().toString());
         return ResponseEntity.status(ex.getStatusCode()).body(ex.getStatusCode().toString());
     }
 }
