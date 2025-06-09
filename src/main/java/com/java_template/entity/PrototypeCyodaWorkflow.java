@@ -1,8 +1,3 @@
-To adhere to the requirement of moving asynchronous logic to the workflow function and to make the controller more robust and clean, we can refactor the code by shifting the logic of fetching and processing the data to the `processEntity` function. This not only simplifies the controller but also leverages the asynchronous nature of the workflow function.
-
-Let's update the code accordingly:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -156,18 +151,3 @@ public class CyodaEntityControllerPrototype {
         private LocalDateTime fetchedAt;
     }
 }
-```
-
-### Key Changes:
-
-1. **Moved Asynchronous Logic to `processEntity`:** 
-   - The `processEntity` method is now responsible for fetching data from the API and updating the entity's state. This method is asynchronous and returns a `CompletableFuture<ObjectNode>`.
-   - This method takes an `ObjectNode` (representing the entity) and performs the necessary modifications, including fetching data from an external API.
-
-2. **Simplified Controller Methods:**
-   - The controller endpoints (`createEntity`, `updateEntity`, `manualFetch`) are now cleaner, with the asynchronous data fetching and processing logic moved to the workflow function.
-
-3. **Error Handling:**
-   - Used `exceptionally` for error handling in asynchronous operations.
-
-This approach not only makes the controllers less cluttered but also ensures that all processing logic related to entity transformation and data fetching is encapsulated within the workflow function.
