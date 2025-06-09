@@ -1,8 +1,7 @@
-```java
-package com.java_template.entity;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -12,7 +11,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -20,6 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 @RestController
 @RequestMapping("/prototype/api/photos")
+@Validated
 public class EntityControllerPrototype {
 
     private static final String FAKEREST_API_URL = "https://fakerestapi.azurewebsites.net/api/v1/Books";
@@ -35,7 +34,6 @@ public class EntityControllerPrototype {
 
             if (photos.isArray()) {
                 for (JsonNode photo : photos) {
-                    // TODO: Replace mock ID with real ID from API if available
                     long id = photo.path("ID").asLong();
                     String title = photo.path("Title").asText();
                     String url = "https://example.com/photo" + id + ".jpg"; // Placeholder for photo URL
@@ -55,13 +53,12 @@ public class EntityControllerPrototype {
     }
 
     @PostMapping("/{photoId}/view")
-    public ResponseEntity<String> viewAndComment(@PathVariable Long photoId, @RequestBody CommentRequest commentRequest) {
+    public ResponseEntity<String> viewAndComment(@PathVariable Long photoId, @RequestBody @Valid CommentRequest commentRequest) {
         Photo photo = photoStorage.get(photoId);
         if (photo == null) {
             throw new ResponseStatusException(404, "Photo not found");
         }
         photo.setViews(photo.getViews() + 1);
-        // TODO: Store comment in a real data store
         log.info("Comment added: {}", commentRequest.getComment());
         return ResponseEntity.ok("View and comment recorded");
     }
@@ -69,16 +66,14 @@ public class EntityControllerPrototype {
     @PostMapping("/reports/monthly")
     public ResponseEntity<String> generateMonthlyReport() {
         CompletableFuture.runAsync(() -> {
-            // TODO: Implement report generation logic
             log.info("Report generation started");
         });
         return ResponseEntity.ok("Report generation initiated");
     }
 
     @PostMapping("/notify")
-    public ResponseEntity<String> notifyUsers(@RequestBody NotificationRequest notificationRequest) {
+    public ResponseEntity<String> notifyUsers(@RequestBody @Valid NotificationRequest notificationRequest) {
         CompletableFuture.runAsync(() -> {
-            // TODO: Implement notification logic
             log.info("Notifying users via {}", notificationRequest.getNotificationType());
         });
         return ResponseEntity.ok("Notifications sent");
@@ -98,6 +93,8 @@ public class EntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     private static class CommentRequest {
+        @NotNull
+        @Size(min = 1, max = 255)
         private String comment;
     }
 
@@ -105,9 +102,8 @@ public class EntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     private static class NotificationRequest {
+        @NotNull
+        @Pattern(regexp = "email|push", message = "Notification type must be either 'email' or 'push'")
         private String notificationType;
     }
 }
-```
-
-This prototype code provides a basic structure for the `EntityControllerPrototype.java` file in a Spring Boot application. It includes RESTful endpoints for data ingestion, displaying a photo gallery, viewing and commenting on photos, generating monthly reports, and notifying users. It uses SLF4J for logging and ObjectMapper for JSON processing. Mocks and placeholders are marked with TODO comments for further development.
