@@ -1,8 +1,11 @@
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -20,6 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @RestController
 @RequestMapping("/prototype/api")
 @Slf4j
+@Validated
 public class EntityControllerPrototype {
 
     private final RestTemplate restTemplate;
@@ -31,8 +35,8 @@ public class EntityControllerPrototype {
         this.objectMapper = new ObjectMapper();
     }
 
-    @PostMapping("/books/search")
-    public List<Book> searchBooks(@RequestBody SearchRequest searchRequest) {
+    @PostMapping("/books/search") // must be first
+    public List<Book> searchBooks(@RequestBody @Valid SearchRequest searchRequest) {
         log.info("Searching books with query: {}", searchRequest.getQuery());
         String url = "https://openlibrary.org/search.json?q=" + searchRequest.getQuery();
         
@@ -47,22 +51,22 @@ public class EntityControllerPrototype {
         }
     }
 
-    @GetMapping("/books/{bookId}")
-    public Book getBookDetails(@PathVariable String bookId) {
+    @GetMapping("/books/{bookId}") // must be first
+    public Book getBookDetails(@PathVariable @NotBlank String bookId) {
         log.info("Fetching details for book ID: {}", bookId);
         // TODO: Implement fetching book details logic
         return new Book(); // Placeholder for book details
     }
 
-    @PostMapping("/reports/weekly")
+    @PostMapping("/reports/weekly") // must be first
     public String generateWeeklyReport() {
         log.info("Generating weekly report");
         // TODO: Implement report generation logic
         return "Report URL"; // Placeholder for report URL
     }
 
-    @PostMapping("/recommendations")
-    public List<Book> getRecommendations(@RequestBody UserRequest userRequest) {
+    @PostMapping("/recommendations") // must be first
+    public List<Book> getRecommendations(@RequestBody @Valid UserRequest userRequest) {
         log.info("Fetching recommendations for user: {}", userRequest.getUserId());
         // TODO: Fetch or calculate recommendations
         return userRecommendations.getOrDefault(userRequest.getUserId(), List.of());
@@ -78,14 +82,18 @@ public class EntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     static class SearchRequest {
+        @NotBlank
         private String query;
-        private Map<String, String> filters;
+        
+        @NotNull
+        private Map<@NotBlank String, @NotBlank String> filters;
     }
 
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     static class UserRequest {
+        @NotBlank
         private String userId;
     }
 
@@ -105,5 +113,3 @@ public class EntityControllerPrototype {
         private String error;
     }
 }
-
-```
