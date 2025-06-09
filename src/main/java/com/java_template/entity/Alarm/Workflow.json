@@ -1,0 +1,60 @@
+{
+    "description": "Workflow for processing egg alarm states and transitions",
+    "name": "egg_alarm_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Validate the egg type selected by the user",
+            "end_state": "EggTypeValidated",
+            "end_state_description": "Egg type has been validated",
+            "name": "validate_egg_type",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processValidateEggType"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Set the cooking time based on the validated egg type",
+            "end_state": "TimeSet",
+            "end_state_description": "Cooking time has been set",
+            "name": "set_cooking_time",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSetTime"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "EggTypeValidated",
+            "start_state_description": "Egg type has been validated"
+        },
+        {
+            "automated": true,
+            "description": "Set the alarm status to active and set the request timestamp",
+            "end_state": "AlarmReady",
+            "end_state_description": "Alarm is ready and active",
+            "name": "set_status_and_requested_at",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSetStatusAndRequestedAt"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "TimeSet",
+            "start_state_description": "Cooking time has been set"
+        }
+    ]
+}
