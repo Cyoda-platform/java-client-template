@@ -1,8 +1,3 @@
-Certainly! To move logic from the controller into the workflow function, we can encapsulate any asynchronous operations that modify the entity or perform additional tasks related to the entity within the workflow function. The workflow function is applied to the entity asynchronously before it is persisted, which is ideal for tasks like fetching supplementary data or modifying the entity's state.
-
-Here's how you could refactor the code to move logic into the `processAnalysisResult` workflow function:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -143,11 +138,3 @@ public class CyodaEntityControllerPrototype {
         private boolean emailSent;
     }
 }
-```
-
-### Key Changes:
-- **Workflow Function `processAnalysisResult`:** The main logic for fetching comments, calculating sentiment scores, and sending emails is moved to the `processAnalysisResult` method. This function uses the `entity` as an `ObjectNode` to directly modify its state.
-- **Direct Entity Modification:** Within the `processAnalysisResult`, the entity's properties are updated using `entity.put(...)`.
-- **Asynchronous Tasks:** Fetching comments and sending emails are now part of the asynchronous workflow function, making the controller method cleaner and more focused on handling HTTP requests and responses.
-
-This refactoring encapsulates the business logic within the workflow function, making the controller method more concise and ensuring that the entity is appropriately processed before being persisted.
