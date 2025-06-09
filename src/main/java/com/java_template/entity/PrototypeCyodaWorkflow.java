@@ -1,4 +1,6 @@
-To incorporate the changes in the `entityService.addItem` method, we'll need to create a workflow function that processes the entity before it's persisted. Here's how you can update the code to include this functionality:
+To address your requirement of moving asynchronous logic from the controller into the workflow function, we will refactor the code such that these tasks are encapsulated within the workflow function. This approach will make the controller more concise and delegate the processing logic to the workflow.
+
+Here's the updated code with the changes:
 
 ```java
 package com.java_template.entity;
@@ -7,6 +9,7 @@ import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -44,16 +47,12 @@ public class CyodaEntityControllerPrototype {
         String csvUrl = request.getCsvUrl();
         logger.info("Starting data analysis for URL: {}", csvUrl);
 
-        CompletableFuture.runAsync(() -> {
-            try {
-                Thread.sleep(2000);
-                Map<String, Object> data = new HashMap<>(); // Replace with actual data retrieval logic
-                entityService.addItem("Report", ENTITY_VERSION, new Report("Report Content", new Date()), this::processReport)
-                    .thenAccept(technicalId -> logger.info("Data analysis completed for URL: {}, technicalId: {}", csvUrl, technicalId));
-            } catch (InterruptedException e) {
-                logger.error("Error during data analysis", e);
-            }
-        });
+        ObjectNode reportData = JsonNodeFactory.instance.objectNode();
+        reportData.put("content", "Initial Report Content");
+        reportData.put("generatedAt", new Date().getTime());
+
+        entityService.addItem("Report", ENTITY_VERSION, reportData, this::processReport)
+            .thenAccept(technicalId -> logger.info("Data analysis completed for URL: {}, technicalId: {}", csvUrl, technicalId));
 
         return ResponseEntity.ok(Collections.singletonMap("message", "Data analysis started."));
     }
@@ -62,16 +61,12 @@ public class CyodaEntityControllerPrototype {
     public ResponseEntity<Map<String, String>> sendReport(@RequestBody @Valid ReportRequest reportRequest) {
         logger.info("Sending report to subscribers: {}", reportRequest.getSubscribers());
 
-        CompletableFuture.runAsync(() -> {
-            try {
-                Thread.sleep(1000);
-                entityService.getItemsByCondition("Report", ENTITY_VERSION, 
-                        SearchConditionRequest.group("AND", Condition.of("$.content", "IS_NULL", null)))
-                    .thenAccept(reports -> logger.info("Report sent to subscribers: {}", reportRequest.getSubscribers()));
-            } catch (InterruptedException e) {
-                logger.error("Error while sending report", e);
-            }
-        });
+        entityService.getItemsByCondition("Report", ENTITY_VERSION, 
+                SearchConditionRequest.group("AND", Condition.of("$.content", "IS_NULL", null)))
+            .thenAccept(reports -> {
+                // Process and send reports asynchronously
+                reports.forEach(report -> logger.info("Report sent to subscribers: {}", reportRequest.getSubscribers()));
+            });
 
         return ResponseEntity.ok(Collections.singletonMap("message", "Report sending initiated."));
     }
@@ -98,10 +93,21 @@ public class CyodaEntityControllerPrototype {
         return new ResponseEntity<>(errorResponse, ex.getStatusCode());
     }
 
-    private Report processReport(Report report) {
-        // Perform any processing on the report before it is persisted
-        // Example: Modify content or add metadata
-        report.setContent(report.getContent() + " - Processed");
+    private ObjectNode processReport(ObjectNode report) {
+        // Asynchronous processing logic
+        CompletableFuture.runAsync(() -> {
+            try {
+                Thread.sleep(2000); // Simulate some processing delay
+                // Modify the entity directly
+                report.put("content", report.get("content").asText() + " - Processed");
+                // Add supplementary data
+                // For example, fetching additional data and adding it to the report
+                // Note: Cannot call addItem/updateItem/deleteItem on the current entity
+            } catch (InterruptedException e) {
+                logger.error("Error during report processing", e);
+            }
+        }).join(); // Wait for completion to ensure the process is finished before returning
+
         return report;
     }
 
@@ -135,7 +141,8 @@ public class CyodaEntityControllerPrototype {
 ```
 
 ### Key Changes:
-1. **Workflow Function**: A private method `processReport` is added to process the `Report` entity. This method is passed as an argument to the `entityService.addItem` method.
-2. **Usage in `addItem`**: The `entityService.addItem` call now includes the `processReport` function as the workflow argument. This function modifies the report content by appending " - Processed" before the entity is persisted.
+1. **Entity Preparation**: The `analyzeData` endpoint now prepares the `ObjectNode` for the report using `JsonNodeFactory`.
+2. **Workflow Logic**: The `processReport` function is where all the asynchronous processing logic resides. It modifies the entity state directly and can perform additional data fetching or processing.
+3. **Async Handling**: Asynchronous tasks like sleeping or processing logic have been moved to `processReport`. The `CompletableFuture.runAsync` is used to perform asynchronous operations within the workflow function.
 
-This implementation assumes that the workflow function (`processReport`) is meant to modify the entity's state or perform any other necessary transformations before persisting it. Adjust the logic inside this function according to your actual processing needs.
+By moving asynchronous processing to the workflow function, we achieve a cleaner separation of concerns, and the controller logic is simplified. The `processReport` function handles any asynchronous task related to the report entity before it's persisted, ensuring that the controller remains focused on handling requests and responses.
