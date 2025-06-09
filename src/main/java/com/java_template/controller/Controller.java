@@ -1,4 +1,4 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.java_template.common.service.EntityService;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -25,11 +25,11 @@ import static com.java_template.common.config.Config.*;
 @RestController
 @RequestMapping("/prototype/api/alarm")
 @Validated
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
     private final EntityService entityService;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
     @Data
     @NoArgsConstructor
@@ -40,8 +40,9 @@ public class CyodaEntityControllerPrototype {
         private String eggType;
     }
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     // Workflow function for processing the Alarm entity
