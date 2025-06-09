@@ -1,0 +1,42 @@
+{
+    "description": "Workflow for processing pet data including setting availability status and adding supplementary data",
+    "name": "pet_data_processing_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Set availability status attribute on pet entity",
+            "end_state": "Availability_status_set",
+            "end_state_description": "Availability status has been set on pet entity",
+            "name": "set_availability_status",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSetAvailabilityStatus"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Add supplementary data attribute to pet entity",
+            "end_state": "Supplementary_data_added",
+            "end_state_description": "Supplementary data has been added to pet entity",
+            "name": "add_supplementary_data",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAddSupplementaryData"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Availability_status_set",
+            "start_state_description": "Availability status has been set on pet entity"
+        }
+    ]
+}
