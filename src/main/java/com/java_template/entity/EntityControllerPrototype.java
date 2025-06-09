@@ -1,10 +1,13 @@
-Here's a working prototype of the `EntityControllerPrototype.java` file for a Spring Boot application. This prototype adheres to the design and requirements you've provided:
-
 ```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -12,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
@@ -22,6 +26,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 @RequestMapping("/prototype/api/inventory")
+@Validated
 public class EntityControllerPrototype {
 
     private static final Logger logger = LoggerFactory.getLogger(EntityControllerPrototype.class);
@@ -31,8 +36,8 @@ public class EntityControllerPrototype {
     // Mock inventory data
     private static final Map<String, InventoryReport> inventoryData = new ConcurrentHashMap<>();
 
-    @PostMapping("/fetch")
-    public ResponseEntity<String> fetchInventoryData(@RequestBody InventoryFilter filter) {
+    @PostMapping("/fetch") // must be first
+    public ResponseEntity<String> fetchInventoryData(@RequestBody @Valid InventoryFilter filter) {
         String jobId = "job_" + System.currentTimeMillis();
         entityJobs.put(jobId, new JobStatus("processing", System.currentTimeMillis()));
 
@@ -58,7 +63,7 @@ public class EntityControllerPrototype {
         return ResponseEntity.status(HttpStatus.ACCEPTED).body("Job initiated with ID: " + jobId);
     }
 
-    @GetMapping("/report")
+    @GetMapping("/report") // must be first
     public ResponseEntity<InventoryReport> getReport() {
         // TODO: Replace with actual report generation logic
         InventoryReport report = new InventoryReport(150, 250.75, 37500, Map.of("electronics", 50, "furniture", 100));
@@ -76,16 +81,14 @@ public class EntityControllerPrototype {
     @AllArgsConstructor
     @NoArgsConstructor
     public static class InventoryFilter {
+        @NotBlank
         private String category;
-        private PriceRange priceRange;
-    }
 
-    @Data
-    @AllArgsConstructor
-    @NoArgsConstructor
-    public static class PriceRange {
-        private int min;
-        private int max;
+        @NotNull
+        private Integer minPrice;
+
+        @NotNull
+        private Integer maxPrice;
     }
 
     @Data
@@ -107,12 +110,3 @@ public class EntityControllerPrototype {
     }
 }
 ```
-
-### Key Points:
-- **Endpoints**: Two endpoints, `/fetch` and `/report`, handle fetching inventory data and retrieving reports, respectively.
-- **Asynchronous Task**: `CompletableFuture.runAsync(...)` is used to handle data fetching and processing in the background.
-- **Error Handling**: `@ExceptionHandler` is used to handle `ResponseStatusException` with basic logging.
-- **Mock Data**: The prototype uses mock data and placeholders, marked with `TODO`, for inventory data and processing logic.
-- **Lombok**: Utilized for generating boilerplate code for model classes.
-
-Feel free to update the placeholders and mock logic with real implementations as you progress with the development.
