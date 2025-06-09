@@ -1,0 +1,42 @@
+{
+    "description": "Workflow for processing user activity data with timestamp addition and supplementary data enrichment",
+    "name": "activity_tracking_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Add processed timestamp to the activity entity",
+            "end_state": "Timestamp_added",
+            "end_state_description": "Processed timestamp added to the entity",
+            "name": "add_processed_timestamp",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAddTimestamp"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state before processing"
+        },
+        {
+            "automated": true,
+            "description": "Add supplementary data to the activity entity asynchronously",
+            "end_state": "Supplementary_data_added",
+            "end_state_description": "Supplementary data has been added to the entity",
+            "name": "add_supplementary_data",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAddSupplementaryData"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Timestamp_added",
+            "start_state_description": "Entity has processed timestamp"
+        }
+    ]
+}
