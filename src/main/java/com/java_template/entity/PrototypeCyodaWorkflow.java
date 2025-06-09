@@ -1,6 +1,12 @@
-To update the `CyodaEntityControllerPrototype` according to the new requirement, you need to add a workflow function as a parameter to the `entityService.addItem` method. This function should be prefixed with 'process' followed by the entity name, in this case, `FlightSearchResult`. The function will be applied to the entity asynchronously before it is persisted.
+To refactor the code and move the asynchronous logic into the `process{entity_name}` function, we'll leverage the flexibility of the workflow function to handle any async operations or modifications to the entity before it is persisted. 
 
-Below is the updated Java code with the `processFlightSearchResult` workflow function added:
+Here's how you can refactor the code to achieve this:
+
+1. Move the asynchronous logic, such as API calls or any data processing that needs to be done before persisting, into the `processFlightSearchResult` function.
+2. Ensure that this function modifies the entity directly using methods like `entity.put(...)` if necessary.
+3. The controller will then call `entityService.addItem` with the `processFlightSearchResult` function as the workflow argument, keeping the controller logic clean and concise.
+
+Below is the updated Java code:
 
 ```java
 package com.java_template.entity;
@@ -44,42 +50,47 @@ public class CyodaEntityControllerPrototype {
         String jobId = UUID.randomUUID().toString();
         DeferredResult<ResponseEntity<FlightSearchResult>> output = new DeferredResult<>();
 
-        CompletableFuture.runAsync(() -> {
+        // Prepare the initial entity data
+        ObjectNode flightSearchResultNode = objectMapper.createObjectNode();
+        flightSearchResultNode.put("jobId", jobId);
+        // Add other initial fields from criteria if necessary
+
+        CompletableFuture<UUID> idFuture = entityService.addItem(
+                "FlightSearchResult",
+                ENTITY_VERSION,
+                flightSearchResultNode,
+                this::processFlightSearchResult
+        );
+
+        idFuture.thenAccept(technicalId -> {
             try {
-                // Mock external API call
-                String apiUrl = "https://api.example.com/flights"; // TODO: Replace with actual Airport Gap API endpoint
-                // Mocking API call result and parsing logic
-
-                // Using EntityService to store search results
-                FlightSearchResult mockResult = new FlightSearchResult(); // Mock result
-                CompletableFuture<UUID> idFuture = entityService.addItem(
-                        "FlightSearchResult",
-                        ENTITY_VERSION,
-                        mockResult,
-                        this::processFlightSearchResult
-                );
-
-                idFuture.thenAccept(technicalId -> {
-                    output.setResult(ResponseEntity.ok(mockResult));
-                }).exceptionally(e -> {
-                    logger.error("Error saving search result", e);
-                    output.setErrorResult(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error saving search result"));
-                    return null;
-                });
-
+                FlightSearchResult result = objectMapper.treeToValue(flightSearchResultNode, FlightSearchResult.class);
+                output.setResult(ResponseEntity.ok(result));
             } catch (Exception e) {
-                logger.error("Error initiating search", e);
-                output.setErrorResult(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error initiating search"));
+                logger.error("Error converting entity to FlightSearchResult", e);
+                output.setErrorResult(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error processing search result"));
             }
+        }).exceptionally(e -> {
+            logger.error("Error saving search result", e);
+            output.setErrorResult(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error saving search result"));
+            return null;
         });
 
         return output;
     }
 
-    private FlightSearchResult processFlightSearchResult(FlightSearchResult entity) {
-        // Process the entity before saving it to the database
-        // Example: Modify some fields or log information
-        logger.info("Processing FlightSearchResult entity: {}", entity);
+    private ObjectNode processFlightSearchResult(ObjectNode entity) {
+        // Mock external API call and process logic
+        try {
+            // Simulate an API call or any async operation
+            String apiUrl = "https://api.example.com/flights"; // TODO: Replace with actual API endpoint
+            // Perform necessary operations and modify the entity
+            // Example:
+            entity.put("status", "processed");
+            // You can also add supplementary data from another entity model if needed
+        } catch (Exception e) {
+            logger.error("Error processing FlightSearchResult entity", e);
+        }
         return entity;
     }
 
@@ -170,4 +181,10 @@ public class CyodaEntityControllerPrototype {
 }
 ```
 
-In this updated code, I've added the `processFlightSearchResult` method which acts as the workflow function. It logs some information about the `FlightSearchResult` entity and returns it. You can customize the processing logic as per your requirements.
+### Key Changes:
+
+- The `processFlightSearchResult` function now handles the asynchronous logic like API calls and entity modification.
+- The controller's responsibility is reduced to merely preparing the initial data and invoking `entityService.addItem`.
+- The workflow function `processFlightSearchResult` modifies the entity directly, ensuring that any necessary changes are applied before persistence.
+
+This approach keeps your controller logic clean and leverages the workflow function for any complex processing or asynchronous tasks.
