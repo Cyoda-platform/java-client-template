@@ -1,13 +1,13 @@
-```java
-package com.java_template.entity;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
@@ -15,19 +15,19 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @RestController
 @RequestMapping("/prototype/api/pets")
+@Validated
 public class EntityControllerPrototype {
 
     private final Map<String, List<Pet>> petDataStore = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final RestTemplate restTemplate = new RestTemplate();
 
-    @PostMapping("/fetch")
-    public ResponseEntity<?> fetchAndTransformPetDetails(@RequestBody FetchRequest request) {
+    @PostMapping("/fetch") // must be first
+    public ResponseEntity<?> fetchAndTransformPetDetails(@RequestBody @Valid FetchRequest request) {
         try {
             // TODO: Replace with actual external API call
             String externalApiUrl = "https://app.swaggerhub.com/apis/WinBeyond/PetstorePetstore/1.0.0#/pet/findPetsByStatus";
@@ -46,7 +46,7 @@ public class EntityControllerPrototype {
         }
     }
 
-    @GetMapping
+    @GetMapping // must be first
     public ResponseEntity<?> retrieveTransformedPetData() {
         List<Pet> pets = petDataStore.get("latest");
         if (pets == null || pets.isEmpty()) {
@@ -55,8 +55,8 @@ public class EntityControllerPrototype {
         return ResponseEntity.ok(pets);
     }
 
-    @PostMapping("/notify")
-    public ResponseEntity<?> notifyNoMatchingPets(@RequestBody FetchRequest request) {
+    @PostMapping("/notify") // must be first
+    public ResponseEntity<?> notifyNoMatchingPets(@RequestBody @Valid FetchRequest request) {
         List<Pet> pets = petDataStore.get("latest");
         if (pets == null || pets.isEmpty()) {
             logger.info("No pets match the search criteria for species: {}, status: {}, categoryId: {}",
@@ -75,8 +75,16 @@ public class EntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     private static class FetchRequest {
+        @NotNull(message = "Species cannot be null")
+        @Size(min = 1, message = "Species must not be empty")
         private String species;
+
+        @NotNull(message = "Status cannot be null")
+        @Size(min = 1, message = "Status must not be empty")
         private String status;
+
+        @NotNull(message = "Category ID cannot be null")
+        @Min(value = 1, message = "Category ID must be greater than 0")
         private Integer categoryId;
     }
 
@@ -97,6 +105,3 @@ public class EntityControllerPrototype {
         return ResponseEntity.status(ex.getStatusCode()).body(ex.getStatusCode().toString());
     }
 }
-```
-
-This Java class provides a working prototype of the `EntityControllerPrototype` for a Spring Boot application. The controller includes endpoints for fetching and transforming pet details, retrieving transformed data, and notifying users when no pets match the search criteria. It uses mocks and placeholders where necessary for demonstration purposes, with comments indicating where further implementation is needed.
