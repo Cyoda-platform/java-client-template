@@ -1,0 +1,60 @@
+{
+    "description": "Workflow to process photo entity through validation, view increment, and additional asynchronous tasks",
+    "name": "photo_processing_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start processing the photo entity by ensuring it has a title",
+            "end_state": "Title_Ensured",
+            "end_state_description": "Photo title ensured",
+            "name": "start_processing",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processEnsureTitle"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Increment the view count of the photo",
+            "end_state": "Views_Incremented",
+            "end_state_description": "Photo views incremented",
+            "name": "increment_views",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processIncrementViews"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Title_Ensured",
+            "start_state_description": "Photo title ensured"
+        },
+        {
+            "automated": true,
+            "description": "Perform additional asynchronous tasks related to the photo",
+            "end_state": "Processing_Completed",
+            "end_state_description": "Photo processing completed",
+            "name": "execute_additional_tasks",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAdditionalTasks"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Views_Incremented",
+            "start_state_description": "Photo views incremented"
+        }
+    ]
+}
