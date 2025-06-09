@@ -1,0 +1,78 @@
+{
+    "description": "Workflow for batch processing of user data to generate and publish reports",
+    "name": "report_processing_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Fetch external data and update entity",
+            "end_state": "Data_Fetched",
+            "end_state_description": "External data has been fetched",
+            "name": "fetch_data",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processFetchData"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Transform fetched data",
+            "end_state": "Data_Transformed",
+            "end_state_description": "Data has been transformed",
+            "name": "transform_data",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processTransformData"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Data_Fetched",
+            "start_state_description": "External data has been fetched"
+        },
+        {
+            "automated": true,
+            "description": "Generate report based on transformed data",
+            "end_state": "Report_Generated",
+            "end_state_description": "Report has been generated",
+            "name": "generate_report",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processGenerateReport"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Data_Transformed",
+            "start_state_description": "Data has been transformed"
+        },
+        {
+            "automated": true,
+            "description": "Publish report (e.g. send email)",
+            "end_state": "Report_Published",
+            "end_state_description": "Report has been published",
+            "name": "publish_report",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processPublishReport"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Report_Generated",
+            "start_state_description": "Report has been generated"
+        }
+    ]
+}
