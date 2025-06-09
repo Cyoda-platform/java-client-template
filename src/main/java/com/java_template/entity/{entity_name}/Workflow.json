@@ -1,0 +1,60 @@
+{
+    "description": "Workflow for processing {entity_name} entity through supplementary data fetching, mandatory field validation, and finalization",
+    "name": "{entity_name}_processing_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start processing the entity by fetching supplementary data",
+            "end_state": "SupplementaryDataProcessed",
+            "end_state_description": "Supplementary data has been processed",
+            "name": "start_processing",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSupplementaryData"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Validate and set default for mandatory field if missing",
+            "end_state": "MandatoryFieldValidated",
+            "end_state_description": "Mandatory field validated and set",
+            "name": "validate_mandatory_field",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processMandatoryField"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "SupplementaryDataProcessed",
+            "start_state_description": "Supplementary data has been processed"
+        },
+        {
+            "automated": true,
+            "description": "Finalize processing by setting processed timestamp and entity version",
+            "end_state": "ProcessingFinalized",
+            "end_state_description": "Entity processing finalized",
+            "name": "finalize_processing",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processFinalization"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "MandatoryFieldValidated",
+            "start_state_description": "Mandatory field validated and set"
+        }
+    ]
+}
