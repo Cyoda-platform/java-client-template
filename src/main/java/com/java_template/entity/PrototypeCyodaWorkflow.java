@@ -1,8 +1,3 @@
-To refactor the code such that asynchronous logic is moved into the workflow function, we can move tasks that modify the entity or involve additional data fetching into the `processInventory` function. This will help keep the controller code cleaner and focus on handling HTTP requests and responses.
-
-Here’s how you can refactor the code to utilize the workflow function for asynchronous tasks:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -60,10 +55,10 @@ public class CyodaEntityControllerPrototype {
     private CompletableFuture<JsonNode> processInventory(JsonNode entity) {
         ObjectNode entityObject = (ObjectNode) entity;
 
-        // Example of modifying the entity before persistence
+        // Modify the entity before persistence
         entityObject.put("processed", true);
 
-        // Example of an asynchronous task: fetching supplementary data
+        // Fetch supplementary data asynchronously
         return fetchSupplementaryData(entityObject).thenApply(supplementaryData -> {
             entityObject.set("supplementaryData", supplementaryData);
             logger.info("Processed entity with supplementary data: {}", entity);
@@ -91,7 +86,20 @@ public class CyodaEntityControllerPrototype {
                 Condition.of("$.price", "GREATER_OR_EQUAL", filter.getMinPrice()),
                 Condition.of("$.price", "LESS_OR_EQUAL", filter.getMaxPrice()));
 
-        // Asynchronous task moved to the workflow function, so this can focus on response
+        CompletableFuture.runAsync(() -> {
+            try {
+                CompletableFuture<ArrayNode> filteredItemsFuture = entityService.getItemsByCondition(
+                        "Inventory", ENTITY_VERSION, conditionRequest);
+
+                filteredItemsFuture.thenAccept(filteredItems -> {
+                    // Process the filtered items - this logic is now expected to be part of workflow functions
+                });
+
+            } catch (Exception e) {
+                logger.error("Error fetching inventory data", e);
+            }
+        });
+
         return ResponseEntity.status(HttpStatus.ACCEPTED).body("Job initiated with ID: " + jobId);
     }
 
@@ -140,14 +148,3 @@ public class CyodaEntityControllerPrototype {
         private Map<String, Integer> categoryDistribution;
     }
 }
-```
-
-### Key Changes:
-
-1. **Moved Asynchronous Logic to `processInventory`**: The `fetchSupplementaryData` method simulates fetching additional data asynchronously and is incorporated into the `processInventory` function. This allows the workflow to modify the entity with supplementary data before persistence.
-
-2. **Simplified Controller Logic**: The controller endpoints now focus more on handling HTTP requests and responses, with less business logic clutter.
-
-3. **Asynchronous Fetching**: The example includes a `fetchSupplementaryData` method, demonstrating how supplementary data can be fetched asynchronously and added to the entity within the workflow function.
-
-By moving asynchronous tasks to the workflow function, you maintain a single point of modification for the entity, reducing redundancy and potential errors, while keeping the controller lean and focused on its primary responsibilities.
