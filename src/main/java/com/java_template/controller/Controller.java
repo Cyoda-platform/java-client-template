@@ -1,8 +1,9 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import jakarta.validation.Valid;
@@ -29,13 +30,16 @@ import static com.java_template.common.config.Config.ENTITY_VERSION;
 @RestController
 @RequestMapping("/cyoda/api")
 @Validated
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    // Inject ObjectMapper via constructor
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @PostMapping("/data/analyze")
@@ -61,9 +65,9 @@ public class CyodaEntityControllerPrototype {
     public ResponseEntity<Map<String, String>> sendReport(@RequestBody @Valid ReportRequest reportRequest) {
         logger.info("Sending report to subscribers: {}", reportRequest.getSubscribers());
 
-        entityService.getItemsByCondition("Report", ENTITY_VERSION, 
+        entityService.getItemsByCondition("Report", ENTITY_VERSION,
                 SearchConditionRequest.group("AND", Condition.of("$.content", "IS_NULL", null)))
-            .thenAccept(reports -> reports.forEach(report -> 
+            .thenAccept(reports -> reports.forEach(report ->
                 logger.info("Report sent to subscribers: {}", reportRequest.getSubscribers())))
             .exceptionally(ex -> {
                 logger.error("Error sending reports: {}", ex.getMessage());
