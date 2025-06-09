@@ -1,0 +1,96 @@
+{
+    "description": "Workflow for flight search processing using Airport Gap API",
+    "name": "flight_search_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Validate input flight search criteria",
+            "end_state": "InputValidated",
+            "end_state_description": "Input has been validated",
+            "name": "validate_input",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processValidateInput"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Call external Airport Gap API",
+            "end_state": "ApiCalled",
+            "end_state_description": "External API has been called",
+            "name": "call_external_api",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processCallExternalApi"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "InputValidated",
+            "start_state_description": "Input has been validated"
+        },
+        {
+            "automated": true,
+            "description": "Parse API response",
+            "end_state": "ResponseParsed",
+            "end_state_description": "API response has been parsed",
+            "name": "parse_response",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processParseResponse"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "ApiCalled",
+            "start_state_description": "External API has been called"
+        },
+        {
+            "automated": true,
+            "description": "Apply business logic to parsed data",
+            "end_state": "BusinessLogicApplied",
+            "end_state_description": "Business logic applied to data",
+            "name": "apply_business_logic",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processApplyBusinessLogic"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "ResponseParsed",
+            "start_state_description": "API response has been parsed"
+        },
+        {
+            "automated": true,
+            "description": "Finalize the flight search result",
+            "end_state": "Processed",
+            "end_state_description": "Flight search result processing completed",
+            "name": "finalize_result",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processFinalizeResult"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "BusinessLogicApplied",
+            "start_state_description": "Business logic applied to data"
+        }
+    ]
+}
