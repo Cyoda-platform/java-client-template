@@ -1,0 +1,42 @@
+{
+    "description": "Workflow for fetching and processing data for an entity based on provided API URL",
+    "name": "entity_data_fetch_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Fetch data from the API URL",
+            "end_state": "Data_fetched",
+            "end_state_description": "Data has been fetched from the API",
+            "name": "fetch_data",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processFetchData"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Perform post-fetch processing on the data",
+            "end_state": "Processing_completed",
+            "end_state_description": "Post fetch processing completed",
+            "name": "post_fetch_processing",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processPostFetchProcessing"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Data_fetched",
+            "start_state_description": "Data has been fetched from the API"
+        }
+    ]
+}
