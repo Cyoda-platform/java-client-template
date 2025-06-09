@@ -1,7 +1,3 @@
-To make the `CyodaEntityControllerPrototype` class more robust and reduce the logic within the controller methods, we can move any asynchronous tasks to the `processBooking` workflow function. This will help in separating concerns, making the code cleaner and more maintainable.
-
-Below is an updated version of the class where we move some logic to the `processBooking` function. The assumption here is that any asynchronous operations that are not tightly coupled with the response logic can be moved to the workflow function.
-
 ```java
 package com.java_template.entity;
 
@@ -43,15 +39,10 @@ public class CyodaEntityControllerPrototype {
 
     // Define the workflow function
     private CompletableFuture<JsonNode> processBooking(JsonNode bookingData) {
-        // Perform asynchronous tasks before persisting the entity
         return CompletableFuture.supplyAsync(() -> {
             if (bookingData.isObject()) {
                 ObjectNode bookingObject = (ObjectNode) bookingData;
-                
-                // Example modification: Add a field to indicate workflow processing
                 bookingObject.put("workflowProcessed", true);
-
-                // Fetch some supplementary data asynchronously (mocked example)
                 JsonNode supplementaryData = fetchSupplementaryData();
                 bookingObject.set("supplementaryData", supplementaryData);
             }
@@ -102,12 +93,12 @@ public class CyodaEntityControllerPrototype {
     public CompletableFuture<ResponseEntity<UUID>> addBooking(@RequestBody @Valid Booking booking) {
         JsonNode bookingData = objectMapper.valueToTree(booking);
 
-        return processBooking(bookingData) // Use the workflow function to process asynchronously
+        return processBooking(bookingData)
                 .thenCompose(processedData -> entityService.addItem(
                         "Booking",
                         ENTITY_VERSION,
                         processedData,
-                        entity -> processedData // Directly use the processed data
+                        entity -> processedData 
                 ))
                 .thenApply(bookingId -> {
                     logger.info("Added new booking with ID: {}", bookingId);
@@ -123,8 +114,7 @@ public class CyodaEntityControllerPrototype {
     public CompletableFuture<ResponseEntity<Report>> generateReport(@RequestBody @Valid ReportCriteria reportCriteria) {
         return entityService.getItems("Booking", ENTITY_VERSION)
                 .thenApply(bookings -> {
-                    // Mocked report generation logic for demonstration
-                    Report report = new Report(5000, 250, 20); // Replace with actual report logic
+                    Report report = new Report(5000, 250, 20); 
                     logger.info("Generated report with criteria: {}", reportCriteria);
                     return ResponseEntity.ok(report);
                 })
@@ -203,9 +193,3 @@ public class CyodaEntityControllerPrototype {
     }
 }
 ```
-
-### Key Changes:
-- The workflow function `processBooking` is now asynchronous and performs operations like modifying the entity and fetching supplementary data asynchronously before the entity is persisted.
-- The `addBooking` method calls `processBooking` to handle any pre-persistence logic asynchronously.
-- Example code for fetching supplementary data is included in `processBooking`, which simulates an asynchronous task.
-- The `workflow` parameter in `addItem` is now a lambda that directly uses the asynchronously processed data.
