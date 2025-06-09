@@ -8,6 +8,12 @@ plugins {
     id 'com.google.protobuf' version '0.9.4'
 }
 
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
 group = 'com.java-template'
 version = '1.0-SNAPSHOT'
 
@@ -113,4 +119,15 @@ task bootJarWorkflowImport(type: org.springframework.boot.gradle.tasks.bundling.
     mainClassName = "com.java_template.common.tool.WorkflowImportTool"
     targetJavaVersion = JavaVersion.VERSION_21
     dependsOn configurations.runtimeClasspath
+}
+
+tasks.register('runApp', JavaExec) {
+    group = 'application'
+    description = 'Run arbitrary main class'
+    classpath = sourceSets.main.runtimeClasspath
+    def requestedMain = project.findProperty('mainClass') ?: 'com.java_template.Application'
+    mainClass.set(requestedMain.toString())
+    javaLauncher.set(javaToolchains.launcherFor {
+        languageVersion.set(JavaLanguageVersion.of(21))
+    })
 }
