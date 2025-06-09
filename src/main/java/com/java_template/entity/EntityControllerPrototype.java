@@ -1,8 +1,12 @@
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -10,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
@@ -20,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 @RequestMapping("/prototype/entities")
+@Validated
 public class EntityControllerPrototype {
 
     private static final Logger logger = LoggerFactory.getLogger(EntityControllerPrototype.class);
@@ -28,7 +34,7 @@ public class EntityControllerPrototype {
     private final RestTemplate restTemplate = new RestTemplate();
 
     @PostMapping
-    public ResponseEntity<Entity> createEntity(@RequestBody Entity newEntity) {
+    public ResponseEntity<Entity> createEntity(@RequestBody @Valid Entity newEntity) {
         String entityId = generateEntityId();
         try {
             JsonNode fetchedData = fetchDataFromApi(newEntity.getApiUrl());
@@ -44,7 +50,7 @@ public class EntityControllerPrototype {
     }
 
     @PostMapping("/{id}")
-    public ResponseEntity<Entity> updateEntity(@PathVariable String id, @RequestBody Entity updatedEntity) {
+    public ResponseEntity<Entity> updateEntity(@PathVariable String id, @RequestBody @Valid Entity updatedEntity) {
         Entity existingEntity = entityStore.get(id);
         if (existingEntity == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Entity not found");
@@ -121,11 +127,11 @@ public class EntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     static class Entity {
+        @NotBlank
+        @Size(max = 255)
         private String apiUrl;
+
         private JsonNode fetchedData;
         private LocalDateTime fetchedAt;
     }
 }
-```
-
-This prototype provides a basic structure for your Java Spring Boot application, using mocked or placeholder logic where necessary. It includes API endpoints for creating, updating, manually fetching, deleting, and retrieving entities. JSON responses from external APIs are parsed using `ObjectMapper.readTree(...)` to ensure compatibility with different JSON structures.
