@@ -1,0 +1,60 @@
+{
+    "description": "Workflow to process, validate, and finalize user entity asynchronously",
+    "name": "user_entity_processing_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Enrich the user entity with additional data like timestamps and version",
+            "end_state": "User_enriched",
+            "end_state_description": "User entity enriched with additional data",
+            "name": "enrich_user",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processEnrichUser"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state before processing"
+        },
+        {
+            "automated": true,
+            "description": "Validate the enriched user entity for required fields and correctness",
+            "end_state": "User_validated",
+            "end_state_description": "User entity validated successfully or with errors",
+            "name": "validate_user",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processValidateUser"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "User_enriched",
+            "start_state_description": "User entity enriched with additional data"
+        },
+        {
+            "automated": true,
+            "description": "Finalize the user entity by setting status based on validation results",
+            "end_state": "User_finalized",
+            "end_state_description": "User entity marked as ready or error",
+            "name": "finalize_user",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processFinalizeUser"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "User_validated",
+            "start_state_description": "User entity validated successfully or with errors"
+        }
+    ]
+}
