@@ -1,4 +1,6 @@
-To accommodate the changes in the `entityService.addItem` method, we need to define a workflow function and pass it as an argument. The function should be prefixed with `process` followed by the entity name, which in this case is `Photo`. This function can modify the entity data before it is persisted. Below is the updated Java code:
+To make your code more robust and to adhere to the requirement of moving asynchronous logic to the workflow function, we need to refactor the code to shift asynchronous tasks to the `process{entity_name}` function. This function will handle any necessary transformations or side effects before the entity is persisted.
+
+Here's how you can refactor the code:
 
 ```java
 package com.java_template.entity;
@@ -54,8 +56,8 @@ public class CyodaEntityControllerPrototype {
                 JsonNode photos = objectMapper.readTree(response);
 
                 if (photos.isArray()) {
-                    List<Photo> photoList = objectMapper.convertValue(photos, objectMapper.getTypeFactory().constructCollectionType(List.class, Photo.class));
-                    for (Photo photo : photoList) {
+                    List<ObjectNode> photoList = objectMapper.convertValue(photos, objectMapper.getTypeFactory().constructCollectionType(List.class, ObjectNode.class));
+                    for (ObjectNode photo : photoList) {
                         entityService.addItem("Photo", ENTITY_VERSION, photo, this::processPhoto).join();
                     }
                 }
@@ -102,11 +104,18 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.ok("Notifications sent");
     }
 
-    private Photo processPhoto(Photo photo) {
+    private ObjectNode processPhoto(ObjectNode photo) {
         // Example workflow logic: add a default title if missing
-        if (photo.getTitle() == null || photo.getTitle().isEmpty()) {
-            photo.setTitle("Untitled");
+        if (!photo.has("title") || photo.get("title").asText().isEmpty()) {
+            photo.put("title", "Untitled");
         }
+
+        // Increment views asynchronously
+        CompletableFuture.runAsync(() -> {
+            int views = photo.has("views") ? photo.get("views").asInt() : 0;
+            photo.put("views", views + 1);
+        }).join();
+
         // Additional processing logic can be added here
         return photo;
     }
@@ -114,16 +123,6 @@ public class CyodaEntityControllerPrototype {
     @Data
     @AllArgsConstructor
     @NoArgsConstructor
-    private static class Photo {
-        private String technicalId; // Note: 'id' is replaced by 'technicalId'
-        private String title;
-        private String url;
-        private int views;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     private static class CommentRequest {
         @NotNull
         @Size(min = 1, max = 255)
@@ -141,4 +140,12 @@ public class CyodaEntityControllerPrototype {
 }
 ```
 
-In this code, I added a method `processPhoto` which acts as the workflow function. This function is passed to `entityService.addItem` and is responsible for any transformation or processing required on the `Photo` entity before it is persisted. The function currently adds a default title if the title is missing, but you can extend it to include more complex logic as needed.
+### Key Changes:
+
+1. **Photo Workflow Function**: The `processPhoto` function now handles some of the asynchronous logic, such as incrementing view counts. This ensures that any side effects or state changes on the entity occur before it is persisted.
+
+2. **Entity Type**: Changed from `Photo` class to `ObjectNode` to align with the requirement of modifying the entity directly using methods like `put()`.
+
+3. **Comments and Other Logic**: I've kept the `viewAndComment` logic as it appears to involve user interaction that might not be appropriate to move directly into the workflow function. However, if you have other asynchronous tasks that fit the criteria, they should be moved into the workflow function similarly.
+
+This refactoring helps ensure that the controller is free from excessive logic and that any entity-related transformations or side effects are handled in a centralized workflow function, making the code more maintainable and robust.
