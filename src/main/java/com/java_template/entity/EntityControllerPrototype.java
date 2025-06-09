@@ -1,8 +1,10 @@
-```java
-package com.java_template.entity;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -11,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
@@ -22,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 @RestController
 @RequestMapping("/prototype/api")
+@Validated
 public class EntityControllerPrototype {
 
     private final Logger logger = LoggerFactory.getLogger(EntityControllerPrototype.class);
@@ -32,11 +36,9 @@ public class EntityControllerPrototype {
     private final Map<String, ReportData> reportDataStore = new ConcurrentHashMap<>();
 
     @PostMapping("/users/fetch")
-    public ResponseEntity<String> fetchAndStoreUserData(@RequestBody Map<String, String> request) {
-        String apiUrl = request.get("apiUrl");
-
+    public ResponseEntity<String> fetchAndStoreUserData(@RequestBody @Valid FetchRequest request) {
         try {
-            String response = restTemplate.getForObject(apiUrl, String.class);
+            String response = restTemplate.getForObject(request.getApiUrl(), String.class);
             JsonNode users = objectMapper.readTree(response);
             users.forEach(user -> {
                 String userId = user.get("id").asText();
@@ -52,14 +54,13 @@ public class EntityControllerPrototype {
     }
 
     @PostMapping("/reports/generate")
-    public ResponseEntity<ReportResponse> generateMonthlyReport(@RequestBody Map<String, String> request) {
-        String month = request.get("month");
-        String reportId = "report-" + month;
+    public ResponseEntity<ReportResponse> generateMonthlyReport(@RequestBody @Valid ReportRequest request) {
+        String reportId = "report-" + request.getMonth();
 
         CompletableFuture.runAsync(() -> {
             // TODO: Implement actual report generation logic
-            reportDataStore.put(reportId, new ReportData(reportId, "Report content for " + month));
-            logger.info("Report generated for month: {}", month);
+            reportDataStore.put(reportId, new ReportData(reportId, "Report content for " + request.getMonth()));
+            logger.info("Report generated for month: {}", request.getMonth());
         });
 
         return ResponseEntity.ok(new ReportResponse("success", reportId));
@@ -77,12 +78,9 @@ public class EntityControllerPrototype {
     }
 
     @PostMapping("/reports/send")
-    public ResponseEntity<String> sendReportToAdmin(@RequestBody Map<String, String> request) {
-        String reportId = request.get("reportId");
-        String adminEmail = request.get("adminEmail");
-
+    public ResponseEntity<String> sendReportToAdmin(@RequestBody @Valid SendReportRequest request) {
         // TODO: Implement email sending logic
-        logger.info("Report {} sent to admin email: {}", reportId, adminEmail);
+        logger.info("Report {} sent to admin email: {}", request.getReportId(), request.getAdminEmail());
         return ResponseEntity.ok("Report sent to admin email successfully");
     }
 
@@ -115,5 +113,29 @@ public class EntityControllerPrototype {
         private String status;
         private String reportId;
     }
+
+    @Data
+    @NoArgsConstructor
+    static class FetchRequest {
+        @NotBlank
+        private String apiUrl;
+    }
+
+    @Data
+    @NoArgsConstructor
+    static class ReportRequest {
+        @NotBlank
+        @Pattern(regexp = "\\d{4}-\\d{2}", message = "Month should be in the format yyyy-MM")
+        private String month;
+    }
+
+    @Data
+    @NoArgsConstructor
+    static class SendReportRequest {
+        @NotBlank
+        private String reportId;
+        @NotBlank
+        @Pattern(regexp = ".+@.+\\..+", message = "Email should be valid")
+        private String adminEmail;
+    }
 }
-```
