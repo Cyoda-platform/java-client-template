@@ -1,8 +1,7 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
@@ -29,21 +28,22 @@ import static com.java_template.common.config.Config.*;
 @RestController
 @RequestMapping("/cyoda/api")
 @Validated
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
     private final EntityService entityService;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @PostMapping("/data-retrieval")
     public CompletableFuture<ResponseEntity<JsonNode>> retrieveData(@RequestBody @Valid DataRetrievalRequest request) {
         logger.info("Retrieving data from external API: {}", request.getApiEndpoint());
-        return entityService.getItemsByCondition("{entity_name}", ENTITY_VERSION, 
-            SearchConditionRequest.group("AND", 
+        return entityService.getItemsByCondition("{entity_name}", ENTITY_VERSION,
+            SearchConditionRequest.group("AND",
                 Condition.of("$.field", "EQUALS", request.getParameters().get("value"))))
             .thenApply(ResponseEntity::ok);
     }
