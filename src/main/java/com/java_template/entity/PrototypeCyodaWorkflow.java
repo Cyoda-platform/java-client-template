@@ -1,10 +1,3 @@
-To enhance the robustness of your code by reducing the logic in controllers, you should move relevant asynchronous tasks to the `process{entity_name}` workflow function. This function is invoked right before the entity is persisted, which allows you to handle asynchronous operations and modify the entity's state.
-
-Let's move the logic related to setting the `time` and any other potential asynchronous operations into the `processAlarm` function. Additionally, we'll convert the `Alarm` object to an `ObjectNode` to allow direct manipulation of its fields.
-
-Below is the refactored code:
-
-```java
 package com.java_template.entity;
 
 import com.java_template.common.service.EntityService;
@@ -51,9 +44,8 @@ public class CyodaEntityControllerPrototype {
         this.entityService = entityService;
     }
 
-    // New workflow function for processing the Alarm entity
+    // Workflow function for processing the Alarm entity
     private CompletableFuture<ObjectNode> processAlarm(ObjectNode alarm) {
-        // Example asynchronous processing logic
         return CompletableFuture.supplyAsync(() -> {
             String eggType = alarm.get("eggType").asText();
             int time;
@@ -73,6 +65,7 @@ public class CyodaEntityControllerPrototype {
                     throw new IllegalArgumentException("Invalid egg type");
             }
 
+            // Set time, status, and requestedAt fields
             alarm.put("time", time);
             alarm.put("status", "active");
             alarm.put("requestedAt", LocalDateTime.now().toString());
@@ -120,13 +113,19 @@ public class CyodaEntityControllerPrototype {
                 });
     }
 
-    // TODO: Add @Async or fire-and-forget logic for alarm countdown and notification
+    // Example of a potential asynchronous countdown task for future implementation
+    // This is not directly related to entity persistence, but could be part of the workflow
+    private CompletableFuture<Void> startAlarmCountdown(ObjectNode alarm) {
+        return CompletableFuture.runAsync(() -> {
+            try {
+                int time = alarm.get("time").asInt();
+                Thread.sleep(time * 1000L); // Simulate countdown
+                logger.info("Alarm countdown finished for eggType: {}", alarm.get("eggType").asText());
+                // Notify user or update status as necessary
+            } catch (InterruptedException e) {
+                logger.error("Countdown interrupted", e);
+                Thread.currentThread().interrupt();
+            }
+        });
+    }
 }
-```
-
-### Key Changes:
-- **Workflow Function**: The `processAlarm` function now handles the logic for setting the `time`, `status`, and `requestedAt` fields. This function uses `CompletableFuture.supplyAsync` to perform these operations asynchronously.
-- **ObjectNode**: The `Alarm` entity was changed to use `ObjectNode` to allow direct manipulation of its fields within the `processAlarm` function.
-- **Controller Simplification**: The `createAlarm` endpoint is simplified by moving the logic for setting entity fields to the `processAlarm` function.
-
-This approach improves the code structure by reducing the logic in the controller and leveraging the workflow function for asynchronous and pre-persistence operations.
