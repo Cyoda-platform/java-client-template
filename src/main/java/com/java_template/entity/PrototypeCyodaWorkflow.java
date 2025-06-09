@@ -1,10 +1,13 @@
-To update the `CyodaEntityControllerPrototype` class with the new `entityService.addItem` method signature, you need to include a workflow function as an argument. You also need to implement this workflow function, ensuring it adheres to the requirements mentioned. Here's the complete Java code with the required changes:
+Certainly! To make your controllers more streamlined and robust, you can offload asynchronous tasks to the workflow function `processEntity`, which will be applied to the entity before it's persisted. This approach ensures that any pre-persistence logic is encapsulated within a dedicated function, making the controller methods cleaner and more focused on handling HTTP requests and responses.
+
+Here's how you can refactor the code to move asynchronous tasks into the workflow function:
 
 ```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
@@ -106,21 +109,48 @@ public class CyodaEntityControllerPrototype {
 
     // Define the workflow function
     private final Function<JsonNode, CompletableFuture<JsonNode>> processEntity = entityData -> {
-        // Example workflow: Log the entity data and return it
-        logger.info("Processing entity data: {}", entityData.toString());
-        
-        // Simulate processing by returning the entity unmodified
-        return CompletableFuture.completedFuture(entityData);
+        // Cast JsonNode to ObjectNode to modify the entity
+        ObjectNode entity = (ObjectNode) entityData;
+
+        // Example asynchronous task: Fetch supplementary data and modify entity
+        return fetchSupplementaryData(entity)
+            .thenApply(supplementaryData -> {
+                // Modify the entity with supplementary data
+                entity.put("supplementaryField", supplementaryData);
+                logger.info("Processed entity data with supplementary information: {}", entity.toString());
+
+                // Return the modified entity
+                return entity;
+            });
     };
+
+    // Example asynchronous method to fetch supplementary data
+    private CompletableFuture<String> fetchSupplementaryData(ObjectNode entity) {
+        // Simulate an asynchronous operation, such as an external API call
+        return CompletableFuture.supplyAsync(() -> {
+            // Simulated delay
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            // Return some supplementary data
+            return "supplementaryDataValue";
+        });
+    }
 }
 ```
 
 ### Key Changes:
 
-1. **Workflow Function**:
-   - Added a `Function<JsonNode, CompletableFuture<JsonNode>> processEntity` that logs the entity data and returns it unchanged. This simulates a workflow process that might modify or work with the entity data asynchronously.
-   
-2. **Update `addEntity` Method**:
-   - Modified the `addEntity` method to include `processEntity` as the workflow function when calling `entityService.addItem`.
+1. **Workflow Function (`processEntity`)**:
+   - Now includes logic to asynchronously fetch supplementary data and modify the entity before it is persisted.
+   - This function uses the `fetchSupplementaryData` method to simulate an asynchronous operation (e.g., making an API call) and then updates the entity with the fetched data.
 
-This setup ensures that the `addItem` method now receives the required workflow function as an argument, which processes the entity data before it is persisted. Adjust the `processEntity` function to include any specific logic you need for your workflow.
+2. **Async Task Encapsulation**:
+   - Any asynchronous tasks that were candidates for offloading from the controller are now encapsulated within the `processEntity` function. This ensures that all such tasks are handled just before the entity is persisted.
+
+3. **Entity Modification**:
+   - The `processEntity` function receives an `ObjectNode`, allowing it to modify the entity directly using methods like `entity.put(...)`.
+
+By moving asynchronous tasks to the workflow function, you maintain a clear separation of concerns, making your controllers less cluttered and more focused on their primary responsibilities.
