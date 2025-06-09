@@ -1,4 +1,4 @@
-To implement the changes required by the new `entityService.addItem` method, you will need to add a workflow function as a parameter and implement this function. Here's how you can update the Java code:
+To adhere to the new requirements, we need to refactor the code to move any asynchronous logic from the controller endpoints into the `processEntity` workflow function. This will make the controller more robust and cleaner by reducing the complexity within the endpoints. Here's how you can achieve this:
 
 ```java
 package com.java_template.entity;
@@ -20,11 +20,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
 
@@ -103,42 +103,39 @@ public class CyodaEntityControllerPrototype {
                 .thenApply(deletedItemsInfo -> ResponseEntity.noContent().build());
     }
 
-    private void fetchData(String entityId, String apiUrl) {
-        try {
-            String response = new RestTemplate().getForObject(apiUrl, String.class);
-            JsonNode fetchedData = objectMapper.readTree(response);
+    private CompletableFuture<ObjectNode> processEntity(ObjectNode entity) {
+        // Asynchronous task to modify the entity state before persistence
+        return CompletableFuture.supplyAsync(() -> {
+            String apiUrl = entity.get("apiUrl").asText();
+            log.info("Processing entity with API URL: {}", apiUrl);
 
-            SearchConditionRequest condition = SearchConditionRequest.group("AND",
-                    Condition.of("$.technicalId", "EQUALS", entityId));
-            entityService.getItemsByCondition("Entity", ENTITY_VERSION, condition)
-                    .thenApply(items -> {
-                        if (items.size() > 0) {
-                            ObjectNode item = (ObjectNode) items.get(0);
-                            item.put("fetchedData", fetchedData);
-                            item.put("fetchedAt", String.valueOf(System.currentTimeMillis()));
-                            entityService.updateItem("Entity", ENTITY_VERSION, UUID.fromString(entityId), item);
-                        }
-                        return null;
-                    });
-            log.info("Data fetched successfully for entity technical ID: {}", entityId);
-        } catch (Exception e) {
-            log.error("Error fetching data for entity technical ID: {}", entityId, e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
-        }
-    }
+            try {
+                // Fetch additional data
+                String response = new RestTemplate().getForObject(apiUrl, String.class);
+                JsonNode fetchedData = objectMapper.readTree(response);
 
-    private Entity processEntity(Entity entity) {
-        // You can modify the entity's state here before it gets persisted.
-        // For instance, you might add a timestamp or modify some fields.
-        log.info("Processing entity with API URL: {}", entity.getApiUrl());
-        // Example modification:
-        entity.setFetchedAt(String.valueOf(System.currentTimeMillis()));
-        return entity;
+                // Modify entity state
+                entity.set("fetchedData", fetchedData);
+                entity.put("fetchedAt", String.valueOf(System.currentTimeMillis()));
+
+                // Additional asynchronous tasks can be added here
+
+            } catch (Exception e) {
+                log.error("Error processing entity with API URL: {}", apiUrl, e);
+            }
+
+            return entity;
+        });
     }
 }
 ```
 
-### Explanation:
-- **Workflow Function**: The `processEntity` method serves as the workflow function, prefixed with `process` followed by the entity name as required.
-- **Function Parameter**: The `createEntity` method now includes `this::processEntity` as a parameter to `entityService.addItem`, ensuring the function is applied before persistence.
-- **Entity Modification**: Inside `processEntity`, you can modify the `Entity` object. In this example, we set the `fetchedAt` field to the current timestamp. You can expand this logic as needed.
+### Key Changes:
+
+- **Workflow Function**: The `processEntity` method is updated to handle asynchronous tasks. It fetches additional data from the `apiUrl`, modifies the entity's state by setting `fetchedData` and `fetchedAt`, and logs the process. This function is used as the workflow function in the `entityService.addItem` call.
+  
+- **Asynchronous Logic**: The asynchronous data fetching logic previously found in the `fetchData` method of the controller has been moved to the `processEntity` function. This helps in simplifying the controller logic and centralizes the entity's state manipulation within the workflow function.
+
+- **Entity Parameter**: The `processEntity` function now accepts an `ObjectNode` type for the entity parameter, allowing direct modification of the entity's JSON structure.
+
+This approach ensures that the controller focuses on handling HTTP requests, while the workflow function encapsulates the complex entity processing logic, making your code cleaner and more maintainable.
