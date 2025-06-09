@@ -1,8 +1,7 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -27,14 +26,16 @@ import static com.java_template.common.config.Config.*;
 @RestController
 @RequestMapping("/cyoda/entities")
 @Validated
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
+    private final ObjectMapper objectMapper;
     private final EntityService entityService;
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    // Inject ObjectMapper via constructor
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @PostMapping
