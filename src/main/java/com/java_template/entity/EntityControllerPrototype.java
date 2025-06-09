@@ -1,11 +1,12 @@
-Here's a prototype of the `EntityControllerPrototype.java` file for your Spring Boot application. This implementation focuses on providing a working structure and validates the overall API design.
-
-```java
-package com.java_template.entity;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.*;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -19,6 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 @RequestMapping("/prototype/api")
+@Validated
 public class EntityControllerPrototype {
 
     private static final Logger logger = LoggerFactory.getLogger(EntityControllerPrototype.class);
@@ -27,7 +29,7 @@ public class EntityControllerPrototype {
     private final Map<String, ActivityData> activityStore = new ConcurrentHashMap<>();
 
     @PostMapping("/fetch-activities")
-    public ApiResponse fetchActivities(@RequestBody FetchRequest fetchRequest) {
+    public ApiResponse fetchActivities(@RequestBody @Valid FetchRequest fetchRequest) {
         String apiUrl = fetchRequest.getApiUrl();
         try {
             String response = restTemplate.getForObject(apiUrl, String.class);
@@ -43,7 +45,7 @@ public class EntityControllerPrototype {
     }
 
     @PostMapping("/analyze-activities")
-    public ApiResponse analyzeActivities(@RequestBody AnalyzeRequest analyzeRequest) {
+    public ApiResponse analyzeActivities(@RequestBody @Valid AnalyzeRequest analyzeRequest) {
         String analysisType = analyzeRequest.getAnalysisType();
         // TODO: Analyze activities stored in activityStore based on analysisType
         
@@ -59,7 +61,7 @@ public class EntityControllerPrototype {
     }
 
     @PostMapping("/send-report")
-    public ApiResponse sendReport(@RequestBody SendReportRequest sendReportRequest) {
+    public ApiResponse sendReport(@RequestBody @Valid SendReportRequest sendReportRequest) {
         String adminEmail = sendReportRequest.getAdminEmail();
         // TODO: Send report to adminEmail asynchronously
         CompletableFuture.runAsync(() -> {
@@ -81,8 +83,11 @@ public class EntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     static class FetchRequest {
+        @NotBlank
         private String apiUrl;
+        @NotBlank
         private String startDate;
+        @NotBlank
         private String endDate;
     }
 
@@ -90,6 +95,7 @@ public class EntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     static class AnalyzeRequest {
+        @NotBlank
         private String analysisType;
     }
 
@@ -97,7 +103,9 @@ public class EntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     static class SendReportRequest {
+        @NotBlank
         private String adminEmail;
+        @NotBlank
         private String reportDate;
     }
 
@@ -135,12 +143,3 @@ public class EntityControllerPrototype {
         // Define fields for activity data
     }
 }
-```
-
-### Key Points:
-- The prototype uses Spring Web annotations for defining RESTful endpoints.
-- Logging is implemented using SLF4J.
-- Asynchronous operations are handled using `CompletableFuture.runAsync(...)`.
-- JSON processing is done using `ObjectMapper`.
-- Response handling includes basic error handling with `@ExceptionHandler`.
-- Lombok annotations are used for data classes to simplify code.
