@@ -1,4 +1,4 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -17,20 +17,21 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.UUID;
 
 import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping("/cyoda/api")
 @Validated
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @PostMapping("/fetch-activities")
@@ -38,7 +39,7 @@ public class CyodaEntityControllerPrototype {
         String apiUrl = fetchRequest.getApiUrl();
         try {
             String response = ""; // Simulate fetching data
-            JsonNode activities = new ObjectMapper().readTree(response);
+            JsonNode activities = objectMapper.readTree(response);
             return entityService.addItem("Activity", ENTITY_VERSION, activities)
                 .thenApply(id -> {
                     logger.info("Activities fetched and stored successfully.");
@@ -51,7 +52,6 @@ public class CyodaEntityControllerPrototype {
     }
 
     private JsonNode fetchSupplementaryData() {
-        ObjectMapper objectMapper = new ObjectMapper();
         ObjectNode supplementaryData = objectMapper.createObjectNode();
         supplementaryData.put("exampleKey", "exampleValue");
         return supplementaryData;
