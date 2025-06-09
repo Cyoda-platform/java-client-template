@@ -1,0 +1,24 @@
+{
+    "description": "Workflow for fetching and updating data from external API for an entity",
+    "name": "entity_data_fetch_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start fetching data from external API",
+            "end_state": "Data_fetched",
+            "end_state_description": "Data has been fetched and stored in entity",
+            "name": "start_fetch_data",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processFetchData"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        }
+    ]
+}
