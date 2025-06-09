@@ -1,7 +1,3 @@
-To move asynchronous logic from the controller endpoints into the `process{entity_name}` workflow function, we need to refactor the code such that the workflow function handles any asynchronous tasks or modifications to the entity before it is persisted. This approach will help streamline the controller logic and centralize the processing of entities.
-
-Below is the updated Java code, where the asynchronous transformation and any other relevant logic are moved into the `processPet` workflow function:
-
 ```java
 package com.java_template.entity;
 
@@ -43,7 +39,7 @@ public class CyodaEntityControllerPrototype {
     public CompletableFuture<ResponseEntity<?>> fetchAndTransformPetDetails(@RequestBody @Valid FetchRequest request) {
         // Simulate fetching external data
         JsonNode jsonResponse = objectMapper.createArrayNode(); // Replace with actual API call result
-
+        
         // Transform data asynchronously and store using EntityService with workflow
         return transformAndStorePetData(jsonResponse)
                 .thenApply(ids -> ResponseEntity.ok("Transformed pets stored successfully"));
@@ -80,32 +76,30 @@ public class CyodaEntityControllerPrototype {
     }
 
     private CompletableFuture<List<UUID>> transformAndStorePetData(JsonNode jsonResponse) {
-        // Assume transformPetData is now part of the workflow function
         List<ObjectNode> transformedPets = transformPetData(jsonResponse);
-
-        // Store transformed pets using EntityService with workflow
         return entityService.addItems("Pet", ENTITY_VERSION, transformedPets, this::processPet);
     }
 
-    // Example asynchronous processing and transformation logic
+    // Workflow function to process Pet entities
     private ObjectNode processPet(ObjectNode pet) {
-        // Modify the entity directly
         pet.put("availabilityStatus", "Available");
-        // Add any asynchronous tasks here that involve secondary entities or external services
-        // Ensure they don't involve adding/updating/deleting the same entity model
-
-        // Example: Fetch additional data from an external service and augment the entity
         CompletableFuture.runAsync(() -> {
-            // Simulate an asynchronous task (e.g., fetching supplementary data)
-            // pet.put("additionalInfo", fetchSupplementaryData(pet));
-        });
-
+            String supplementaryData = fetchSupplementaryData(pet);
+            pet.put("additionalInfo", supplementaryData);
+        }).join(); // Ensure async task completes before proceeding
         return pet;
     }
 
     private List<ObjectNode> transformPetData(JsonNode jsonResponse) {
-        // TODO: Implement transformation logic
-        return List.of(); // Placeholder return
+        // Convert JsonNode to List<ObjectNode> representing pets
+        // This is a placeholder implementation; replace with actual transformation logic
+        return List.of();
+    }
+
+    private String fetchSupplementaryData(ObjectNode pet) {
+        // Simulate fetching supplementary data from an external service
+        // This is a placeholder implementation; replace with actual logic
+        return "Supplementary Data";
     }
 
     @Data
@@ -132,10 +126,3 @@ public class CyodaEntityControllerPrototype {
     }
 }
 ```
-
-### Key Changes:
-- Moved the transformation and processing logic into the `processPet` method, which is now a workflow function.
-- The `processPet` function now processes each pet entity, modifying its state and potentially performing asynchronous tasks.
-- The `transformAndStorePetData` method orchestrates the transformation and storage of pet data, utilizing the workflow function.
-
-This structure allows the controller to remain clean, focusing on request handling, while the workflow function handles entity-specific processing tasks asynchronously.
