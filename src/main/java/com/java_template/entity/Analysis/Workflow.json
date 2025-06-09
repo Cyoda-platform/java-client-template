@@ -1,0 +1,78 @@
+{
+    "description": "Workflow for product performance analysis and reporting",
+    "name": "product_performance_analysis_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Validate initial data in the entity",
+            "end_state": "Validated",
+            "end_state_description": "Data validated successfully",
+            "name": "validate_data",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Validates initial data in the entity",
+                        "name": "processValidate"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Compute KPI metrics and aggregations",
+            "end_state": "MetricsComputed",
+            "end_state_description": "Performance metrics computed",
+            "name": "compute_metrics",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Performs KPI calculations and aggregations",
+                        "name": "processComputeMetrics"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Validated",
+            "start_state_description": "Data validated successfully"
+        },
+        {
+            "automated": true,
+            "description": "Identify trends and flag underperforming products",
+            "end_state": "TrendsIdentified",
+            "end_state_description": "Trends identified and underperforming products flagged",
+            "name": "identify_trends",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Identifies trends and flags underperforming products",
+                        "name": "processIdentifyTrends"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "MetricsComputed",
+            "start_state_description": "Performance metrics computed"
+        },
+        {
+            "automated": true,
+            "description": "Finalize the report and mark as completed",
+            "end_state": "ReportFinalized",
+            "end_state_description": "Analysis report finalized and ready",
+            "name": "finalize_report",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Finalizes the report and marks it ready",
+                        "name": "processFinalizeReport"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "TrendsIdentified",
+            "start_state_description": "Trends identified and underperforming products flagged"
+        }
+    ]
+}
