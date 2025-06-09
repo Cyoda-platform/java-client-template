@@ -1,8 +1,12 @@
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -15,13 +19,17 @@ import org.springframework.util.concurrent.ListenableFutureCallback;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.AsyncRestTemplate;
 import org.springframework.web.client.ResponseStatusException;
-
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 @RequestMapping("/prototype/api")
+@Validated
 public class EntityControllerPrototype {
 
     private static final Logger logger = LoggerFactory.getLogger(EntityControllerPrototype.class);
@@ -31,7 +39,7 @@ public class EntityControllerPrototype {
     private final AsyncRestTemplate asyncRestTemplate = new AsyncRestTemplate();
 
     @PostMapping("/signup")
-    public ResponseEntity<String> signup(@RequestBody User user) {
+    public ResponseEntity<String> signup(@RequestBody @Valid User user) {
         if (users.containsKey(user.getEmail())) {
             logger.info("User with email {} already exists.", user.getEmail());
             return ResponseEntity.status(HttpStatus.CONFLICT).body("User already registered.");
@@ -73,7 +81,7 @@ public class EntityControllerPrototype {
     }
 
     @PostMapping("/sendEmails")
-    public CompletableFuture<ResponseEntity<String>> sendEmails(@RequestBody CatFact catFact) {
+    public CompletableFuture<ResponseEntity<String>> sendEmails(@RequestBody @Valid CatFact catFact) {
         return CompletableFuture.runAsync(() -> {
             users.forEach((email, user) -> {
                 // TODO: Implement actual email sending logic here
@@ -103,7 +111,12 @@ public class EntityControllerPrototype {
     @AllArgsConstructor
     @NoArgsConstructor
     private static class User {
+        @NotBlank
+        @Email
         private String email;
+        
+        @NotBlank
+        @Size(min = 2, max = 50)
         private String name;
     }
 
@@ -111,6 +124,7 @@ public class EntityControllerPrototype {
     @AllArgsConstructor
     @NoArgsConstructor
     private static class CatFact {
+        @NotBlank
         private String fact;
     }
 
@@ -123,6 +137,3 @@ public class EntityControllerPrototype {
         private String openRate;
     }
 }
-```
-
-This Java Spring Boot controller is a working prototype that matches the functional requirements you specified. It uses mock implementations for some aspects, like email sending, and includes TODO comments where further development is needed. If everything looks good, I'll call `finish_discussion`.
