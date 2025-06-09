@@ -1,0 +1,40 @@
+{
+    "description": "Workflow for processing entity_name entities, fetching data and updating timestamp",
+    "name": "entity_name_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start processing the entity by fetching data from API",
+            "end_state": "Data_fetched",
+            "end_state_description": "Entity data fetched from external API",
+            "name": "start_processing",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "name": "processFetchData"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state with no entity data"
+        },
+        {
+            "automated": true,
+            "description": "Update the fetchedAt timestamp after data fetching",
+            "end_state": "Processing_completed",
+            "end_state_description": "Entity processing completed with updated timestamp",
+            "name": "update_timestamp",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "name": "processUpdateTimestamp"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Data_fetched",
+            "start_state_description": "Entity data has been fetched"
+        }
+    ]
+}
