@@ -1,5 +1,3 @@
-To improve code robustness and maintainability, we can offload certain asynchronous tasks from the controller to the `process{entity_name}` functions. We'll focus on tasks that can be logically tied to the entity being processed, like data enrichment or additional asynchronous operations that are independent of the main entity operations. Let's update the code accordingly:
-
 ```java
 package com.java_template.entity;
 
@@ -16,6 +14,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -144,11 +143,3 @@ public class CyodaEntityControllerPrototype {
     }
 }
 ```
-
-### Key Changes:
-
-1. **Moved Asynchronous Logic to `processSubscriber`:** The retrieval of a cat fact has been moved to the `processSubscriber` method. This method now fetches a cat fact asynchronously and adds it to the subscriber data before it is persisted.
-
-2. **Returned `CompletableFuture<JsonNode>` from `processSubscriber`:** The `processSubscriber` method now returns a `CompletableFuture<JsonNode>` to handle asynchronous processing. The `entityService.addItem` call will now handle this asynchronous processing before persisting the entity.
-
-By moving the asynchronous logic into the workflow function, the controller is simplified, and the workflow function can handle additional data enrichment or asynchronous operations related to the entity.
