@@ -1,0 +1,42 @@
+{
+    "description": "Workflow for fetching data from external API and updating entity fields",
+    "name": "entity_data_fetch_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Normalize the API URL to lowercase",
+            "end_state": "ApiUrl_normalized",
+            "end_state_description": "API URL has been normalized to lowercase",
+            "name": "normalize_api_url",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processNormalizeApiUrl"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Fetch data from the normalized API URL and update entity",
+            "end_state": "Data_fetched",
+            "end_state_description": "Data has been fetched and stored in entity",
+            "name": "fetch_data",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processFetchData"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "ApiUrl_normalized",
+            "start_state_description": "API URL has been normalized to lowercase"
+        }
+    ]
+}
