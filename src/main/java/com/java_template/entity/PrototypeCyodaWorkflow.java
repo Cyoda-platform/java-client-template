@@ -4,13 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -25,7 +20,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping("/prototype/entities")
@@ -42,60 +37,54 @@ public class CyodaEntityControllerPrototype {
     }
 
     @PostMapping
-    public CompletableFuture<ResponseEntity<Entity>> createEntity(@RequestBody @Valid EntityRequest request) {
-        Entity entity = new Entity(null, request.getApiUrl(), null, null);
+    public CompletableFuture<ResponseEntity<ObjectNode>> createEntity(@RequestBody @Valid EntityRequest request) {
+        ObjectNode entity = objectMapper.createObjectNode();
+        entity.put("apiUrl", request.getApiUrl());
 
         return entityService.addItem("Entity", ENTITY_VERSION, entity, this::processEntity)
                 .thenApply(technicalId -> {
-                    entity.setTechnicalId(technicalId);
+                    entity.put("technicalId", technicalId.toString());
                     return ResponseEntity.status(HttpStatus.CREATED).body(entity);
                 });
     }
 
-    private CompletableFuture<Entity> processEntity(Entity entity) {
+    private CompletableFuture<ObjectNode> processEntity(ObjectNode entity) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                String apiUrl = entity.getApiUrl();
+                String apiUrl = entity.get("apiUrl").asText();
                 String response = restTemplate.getForObject(apiUrl, String.class);
                 JsonNode fetchedData = objectMapper.readTree(response);
-                entity.setFetchedData(fetchedData);
-                entity.setFetchedAt(LocalDateTime.now());
-                log.info("Data fetched successfully for entity: {}", entity.getTechnicalId());
+                entity.set("fetchedData", fetchedData);
+                entity.put("fetchedAt", LocalDateTime.now().toString());
+                log.info("Data fetched successfully for entity: {}", entity);
             } catch (Exception e) {
-                log.error("Failed to fetch data for entity: {}. Error: {}", entity.getTechnicalId(), e.getMessage());
-                // Handle exception if needed
+                log.error("Failed to fetch data for entity. Error: {}", e.getMessage());
+                entity.put("fetchError", "Failed to fetch data");
             }
             return entity;
         });
     }
 
     @PostMapping("/{id}")
-    public CompletableFuture<ResponseEntity<Entity>> updateEntity(@PathVariable UUID id, @RequestBody @Valid EntityRequest request) {
+    public CompletableFuture<ResponseEntity<ObjectNode>> updateEntity(@PathVariable UUID id, @RequestBody @Valid EntityRequest request) {
         return entityService.getItem("Entity", ENTITY_VERSION, id)
                 .thenCompose(item -> {
-                    Entity entity = objectMapper.convertValue(item, Entity.class);
-                    entity.setApiUrl(request.getApiUrl());
+                    ObjectNode entity = (ObjectNode) item;
+                    entity.put("apiUrl", request.getApiUrl());
 
                     return entityService.updateItem("Entity", ENTITY_VERSION, id, entity)
                             .thenApply(updatedId -> ResponseEntity.ok(entity));
-                });
-    }
-
-    @PostMapping("/{id}/fetch")
-    public CompletableFuture<ResponseEntity<Entity>> manualFetch(@PathVariable UUID id) {
-        return entityService.getItem("Entity", ENTITY_VERSION, id)
-                .thenApply(item -> {
-                    Entity entity = objectMapper.convertValue(item, Entity.class);
-                    fetchDataFromApi(entity);
-                    return ResponseEntity.ok(entity);
+                })
+                .exceptionally(ex -> {
+                    throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Entity not found");
                 });
     }
 
     @GetMapping
-    public CompletableFuture<ResponseEntity<List<Entity>>> getAllEntities() {
+    public CompletableFuture<ResponseEntity<List<ObjectNode>>> getAllEntities() {
         return entityService.getItems("Entity", ENTITY_VERSION)
                 .thenApply(items -> {
-                    List<Entity> entities = objectMapper.convertValue(items, objectMapper.getTypeFactory().constructCollectionType(List.class, Entity.class));
+                    List<ObjectNode> entities = objectMapper.convertValue(items, objectMapper.getTypeFactory().constructCollectionType(List.class, ObjectNode.class));
                     return ResponseEntity.ok(entities);
                 });
     }
@@ -103,28 +92,16 @@ public class CyodaEntityControllerPrototype {
     @DeleteMapping("/{id}")
     public CompletableFuture<ResponseEntity<String>> deleteEntity(@PathVariable UUID id) {
         return entityService.deleteItem("Entity", ENTITY_VERSION, id)
-                .thenApply(deletedId -> ResponseEntity.ok("Entity deleted successfully."));
+                .thenApply(deletedId -> ResponseEntity.ok("Entity deleted successfully."))
+                .exceptionally(ex -> {
+                    throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Entity not found");
+                });
     }
 
     @DeleteMapping
     public CompletableFuture<ResponseEntity<String>> deleteAllEntities() {
         return entityService.deleteItems("Entity", ENTITY_VERSION)
                 .thenApply(deletedItemsInfo -> ResponseEntity.ok("All entities deleted successfully."));
-    }
-
-    private void fetchDataFromApi(Entity entity) {
-        CompletableFuture.runAsync(() -> {
-            try {
-                String apiUrl = entity.getApiUrl();
-                String response = restTemplate.getForObject(apiUrl, String.class);
-                JsonNode fetchedData = objectMapper.readTree(response);
-                entity.setFetchedData(fetchedData);
-                entity.setFetchedAt(LocalDateTime.now());
-                log.info("Data fetched successfully for entity technicalId: {}", entity.getTechnicalId());
-            } catch (Exception e) {
-                log.error("Failed to fetch data for entity technicalId: {}. Error: {}", entity.getTechnicalId(), e.getMessage());
-            }
-        });
     }
 
     @ExceptionHandler(ResponseStatusException.class)
@@ -134,19 +111,16 @@ public class CyodaEntityControllerPrototype {
                 .body(Map.of("error", ex.getStatusCode().toString()));
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    static class Entity {
-        private UUID technicalId;
-        private String apiUrl;
-        private JsonNode fetchedData;
-        private LocalDateTime fetchedAt;
-    }
-
-    @Data
     static class EntityRequest {
         @NotBlank
         private String apiUrl;
+
+        public String getApiUrl() {
+            return apiUrl;
+        }
+
+        public void setApiUrl(String apiUrl) {
+            this.apiUrl = apiUrl;
+        }
     }
 }
