@@ -1,0 +1,60 @@
+{
+    "description": "Workflow for product performance analysis including data retrieval, analysis, and report generation",
+    "name": "product_performance_analysis_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Retrieve product data from external source",
+            "end_state": "Data_retrieved",
+            "end_state_description": "Product data has been retrieved",
+            "name": "retrieve_data",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Simulate data fetching",
+                        "name": "processStepOne"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Analyze the retrieved product data",
+            "end_state": "Data_analyzed",
+            "end_state_description": "Product data has been analyzed",
+            "name": "analyze_data",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Simulate data analysis",
+                        "name": "processStepTwo"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Data_retrieved",
+            "start_state_description": "Product data has been retrieved"
+        },
+        {
+            "automated": true,
+            "description": "Finalize the data processing and prepare report",
+            "end_state": "Processing_completed",
+            "end_state_description": "Data processing and report preparation completed",
+            "name": "finalize_processing",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Finalize processing",
+                        "name": "processStepThree"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Data_analyzed",
+            "start_state_description": "Product data has been analyzed"
+        }
+    ]
+}
