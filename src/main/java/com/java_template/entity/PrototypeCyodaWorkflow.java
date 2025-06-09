@@ -1,10 +1,3 @@
-To enhance the robustness of your code by moving asynchronous logic into the `workflow` function, we need to shift tasks like fetching data from an external API into the `processEntity` function. This will help in keeping the controller lean and focused on its primary responsibility of handling HTTP requests.
-
-Let’s refactor the code to move the asynchronous API fetching logic into the `processEntity` function. We'll also change the `Entity` class to use `ObjectNode` instead of a custom class, as `ObjectNode` allows for direct manipulation of JSON data.
-
-Here's the updated version:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -65,6 +58,8 @@ public class CyodaEntityControllerPrototype {
                 log.info("Data fetched successfully for entity: {}", entity);
             } catch (Exception e) {
                 log.error("Failed to fetch data for entity. Error: {}", e.getMessage());
+                // Handle exceptions properly, possibly set an error state in the entity
+                entity.put("fetchError", "Failed to fetch data");
             }
             return entity;
         });
@@ -129,12 +124,3 @@ public class CyodaEntityControllerPrototype {
         }
     }
 }
-```
-
-### Changes Made:
-
-1. **Entity Representation**: Changed from a custom `Entity` class to `ObjectNode` for JSON manipulation.
-2. **Asynchronous Logic**: Moved the API data fetching logic into the `processEntity` function. This function uses `CompletableFuture.supplyAsync` to perform the asynchronous operation.
-3. **Direct JSON Manipulation**: Using `ObjectNode` allows for direct manipulation of JSON properties, which is efficient and fits well with the workflow function design.
-
-This refactoring ensures that the controller remains focused on handling HTTP requests, while any asynchronous processing or data fetching related to the entity is handled within the workflow function.
