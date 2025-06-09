@@ -1,14 +1,15 @@
-```java
-package com.java_template.entity;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
@@ -20,6 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @RestController
 @RequestMapping("/prototype/entities")
 @Slf4j
+@Validated
 public class EntityControllerPrototype {
 
     private final Map<String, Entity> entityStore = new ConcurrentHashMap<>();
@@ -31,13 +33,16 @@ public class EntityControllerPrototype {
     @AllArgsConstructor
     private static class Entity {
         private String entityId;
+        
+        @NotBlank(message = "API URL must not be blank")
         private String apiUrl;
+        
         private JsonNode fetchedData;
         private String fetchedAt;
     }
 
     @PostMapping
-    public ResponseEntity<Entity> createEntity(@RequestBody Entity entity) {
+    public ResponseEntity<Entity> createEntity(@RequestBody @Valid Entity entity) {
         log.info("Creating entity with API URL: {}", entity.getApiUrl());
         String entityId = "entity-" + System.currentTimeMillis();
         entity.setEntityId(entityId);
@@ -49,7 +54,7 @@ public class EntityControllerPrototype {
     }
 
     @PostMapping("/{entityId}")
-    public ResponseEntity<Entity> updateEntity(@PathVariable String entityId, @RequestBody Entity entity) {
+    public ResponseEntity<Entity> updateEntity(@PathVariable String entityId, @RequestBody @Valid Entity entity) {
         log.info("Updating entity with ID: {}", entityId);
         Entity existingEntity = entityStore.get(entityId);
 
@@ -121,6 +126,3 @@ public class EntityControllerPrototype {
                 .body(ex.getStatusCode().toString());
     }
 }
-```
-
-This prototype sets up a basic Spring Boot controller with mocked storage and asynchronous data fetching using the RestTemplate and ObjectMapper. The controller is equipped with basic logging and error handling. It provides endpoints for creating, updating, fetching, and deleting entities, adhering to the functional requirements specified.
