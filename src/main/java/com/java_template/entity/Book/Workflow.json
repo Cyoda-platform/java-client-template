@@ -1,0 +1,42 @@
+{
+    "description": "Workflow to process book entities by fetching additional info and marking as processed",
+    "name": "book_processing_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Fetch additional book information asynchronously",
+            "end_state": "Additional_info_fetched",
+            "end_state_description": "Additional information has been fetched for the book",
+            "name": "fetch_additional_info",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processFetchAdditionalInfo"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Mark the book as processed",
+            "end_state": "Processed",
+            "end_state_description": "Book has been marked as processed",
+            "name": "mark_processed",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processMarkProcessed"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Additional_info_fetched",
+            "start_state_description": "Additional information has been fetched for the book"
+        }
+    ]
+}
