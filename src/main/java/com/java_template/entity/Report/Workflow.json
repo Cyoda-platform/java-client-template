@@ -1,0 +1,78 @@
+{
+    "description": "Workflow for validating, analyzing, generating report, and notifying completion",
+    "name": "report_generation_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Validate input data for the report",
+            "end_state": "Data_validated",
+            "end_state_description": "Input data has been validated",
+            "name": "validate_data",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processValidateData"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Analyze the data for the report",
+            "end_state": "Data_analyzed",
+            "end_state_description": "Data has been analyzed",
+            "name": "analyze_data",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAnalyzeData"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Data_validated",
+            "start_state_description": "Input data has been validated"
+        },
+        {
+            "automated": true,
+            "description": "Generate the report based on analysis",
+            "end_state": "Report_generated",
+            "end_state_description": "Report has been generated",
+            "name": "generate_report",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processGenerateReport"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Data_analyzed",
+            "start_state_description": "Data has been analyzed"
+        },
+        {
+            "automated": true,
+            "description": "Notify completion of the report generation workflow",
+            "end_state": "Workflow_completed",
+            "end_state_description": "Report generation workflow completed",
+            "name": "notify_completion",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processNotifyCompletion"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Report_generated",
+            "start_state_description": "Report has been generated"
+        }
+    ]
+}
