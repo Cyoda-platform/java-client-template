@@ -1,8 +1,3 @@
-To improve the robustness of the code and to adhere to the requirement of moving asynchronous logic into the workflow function, we can refactor the controller methods to shift as much async logic as possible into the workflow functions. The workflow functions will now handle processing the entity data as well as any additional asynchronous tasks that were previously in the controller methods.
-
-Here's how you can refactor the code:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -42,11 +37,8 @@ public class CyodaEntityControllerPrototype {
     public CompletableFuture<ApiResponse> fetchActivities(@RequestBody @Valid FetchRequest fetchRequest) {
         String apiUrl = fetchRequest.getApiUrl();
         try {
-            // Assume some external logic to fetch data
-            String response = ""; // Replace with actual REST call if needed
+            String response = ""; // Simulate fetching data
             JsonNode activities = new ObjectMapper().readTree(response);
-
-            // Use the workflow function in addItem
             return entityService.addItem("Activity", ENTITY_VERSION, activities, this::processActivity)
                 .thenApply(id -> {
                     logger.info("Activities fetched and stored successfully.");
@@ -58,27 +50,18 @@ public class CyodaEntityControllerPrototype {
         }
     }
 
-    // Define the workflow function for processing Activity entities
     private ObjectNode processActivity(ObjectNode activityData) {
-        // Modify entity state or perform additional logic here
         logger.info("Processing activity entity before persistence: {}", activityData.toString());
-
-        // Example: Add a timestamp or modify some fields
         activityData.put("processedTimestamp", System.currentTimeMillis());
-
-        // Example of asynchronous logic, like fetching supplementary data
         CompletableFuture.runAsync(() -> {
-            // Simulate fetching supplementary data and modifying the entity
             JsonNode supplementaryData = fetchSupplementaryData();
             activityData.set("supplementaryData", supplementaryData);
             logger.info("Supplementary data added: {}", supplementaryData);
-        }).join(); // Ensure the async task completes before returning
-
+        }).join();
         return activityData;
     }
 
     private JsonNode fetchSupplementaryData() {
-        // Simulate fetching supplementary data
         ObjectMapper objectMapper = new ObjectMapper();
         ObjectNode supplementaryData = objectMapper.createObjectNode();
         supplementaryData.put("exampleKey", "exampleValue");
@@ -88,10 +71,8 @@ public class CyodaEntityControllerPrototype {
     @PostMapping("/analyze-activities")
     public CompletableFuture<ApiResponse> analyzeActivities(@RequestBody @Valid AnalyzeRequest analyzeRequest) {
         String analysisType = analyzeRequest.getAnalysisType();
-        // Retrieve and analyze activities using external service
         return entityService.getItems("Activity", ENTITY_VERSION)
             .thenApply(activities -> {
-                // Perform analysis logic here
                 logger.info("Activities analyzed successfully.");
                 return new ApiResponse("success", "Activities analyzed successfully.", "example-pattern", "additional details");
             });
@@ -99,10 +80,8 @@ public class CyodaEntityControllerPrototype {
 
     @GetMapping("/get-report")
     public CompletableFuture<ReportResponse> getReport() {
-        // Retrieve report from external service
         return entityService.getItems("Report", ENTITY_VERSION)
             .thenApply(reports -> {
-                // Assume logic for extracting the latest report
                 JsonNode report = reports.get(0); // Simplified logic
                 logger.info("Daily report retrieved successfully.");
                 return new ReportResponse("2023-10-10", "Daily report summary", "Highlighted trends", "Notable anomalies");
@@ -112,12 +91,9 @@ public class CyodaEntityControllerPrototype {
     @PostMapping("/send-report")
     public ApiResponse sendReport(@RequestBody @Valid SendReportRequest sendReportRequest) {
         String adminEmail = sendReportRequest.getAdminEmail();
-        // Send report asynchronously
         CompletableFuture.runAsync(() -> {
-            // fire-and-forget logic for sending email
             logger.info("Report sent to {}", adminEmail);
         });
-
         logger.info("Report sent successfully to admin.");
         return new ApiResponse("success", "Report sent successfully to admin.");
     }
@@ -185,15 +161,3 @@ public class CyodaEntityControllerPrototype {
         private String anomalies;
     }
 }
-```
-
-### Key Points:
-1. **Workflow Function**: The `processActivity` method now handles both modifying the entity state and performing asynchronous tasks such as fetching supplementary data.
-   
-2. **Asynchronous Logic in Workflow**: The asynchronous logic (e.g., fetching and adding supplementary data) is moved into the workflow function. This ensures that all processing happens before the entity is persisted.
-
-3. **Ensuring Completion**: We use `.join()` to ensure that the asynchronous task completes before the workflow function returns, ensuring that any modifications are applied to the entity before it is persisted.
-
-4. **Direct Entity Modifications**: Modifications to the entity state are done directly using methods like `put` on the `ObjectNode`.
-
-This refactoring helps centralize and isolate the logic needed to prepare the entity data before persistence, reducing the complexity in the controller methods and improving code maintainability.
