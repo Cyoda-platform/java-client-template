@@ -1,15 +1,14 @@
-To address the requirement for adding a workflow function as an argument to the `entityService.addItem` call, I will update the `analyzeComments` method to include a workflow function. This function will be prefixed with `process` followed by the entity name, which in this case is `AnalysisResult`. The workflow function will take an `AnalysisResult` instance, perform any necessary operations, and return the modified entity. 
+Certainly! To move logic from the controller into the workflow function, we can encapsulate any asynchronous operations that modify the entity or perform additional tasks related to the entity within the workflow function. The workflow function is applied to the entity asynchronously before it is persisted, which is ideal for tasks like fetching supplementary data or modifying the entity's state.
 
-Here's how the updated code will look:
+Here's how you could refactor the code to move logic into the `processAnalysisResult` workflow function:
 
 ```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Min;
@@ -53,37 +52,49 @@ public class CyodaEntityControllerPrototype {
         long postId = request.getPostId();
         String email = request.getEmail();
 
-        String url = "https://jsonplaceholder.typicode.com/comments?postId=" + postId;
+        AnalysisResult analysisResult = new AnalysisResult(postId, 0.75, new String[]{"example"}, true);
+
+        return entityService.addItem(
+                "AnalysisResult",
+                ENTITY_VERSION,
+                analysisResult,
+                entity -> processAnalysisResult(entity, email) // Workflow function
+        ).thenApply(id -> ResponseEntity.ok("Analysis complete and report sent to email."));
+    }
+
+    private CompletableFuture<ObjectNode> processAnalysisResult(ObjectNode entity, String email) {
         return CompletableFuture.supplyAsync(() -> {
             try {
+                long postId = entity.get("postId").asLong();
+                String url = "https://jsonplaceholder.typicode.com/comments?postId=" + postId;
                 String response = new RestTemplate().getForObject(url, String.class);
                 JsonNode comments = objectMapper.readTree(response);
 
-                // Implement real analysis logic here
-                AnalysisResult analysisResult = new AnalysisResult(postId, 0.75, new String[]{"example"}, true);
+                // Perform analysis and modify entity state
+                double sentimentScore = calculateSentimentScore(comments);
+                entity.put("sentimentScore", sentimentScore);
 
-                CompletableFuture<UUID> analysisResultFuture = entityService.addItem(
-                        "AnalysisResult",
-                        ENTITY_VERSION,
-                        analysisResult,
-                        this::processAnalysisResult // Workflow function
-                );
+                // Simulate sending an email
+                boolean emailSent = sendEmail(email, sentimentScore);
+                entity.put("emailSent", emailSent);
 
-                logger.info("Sending analysis report to email: {}", email);
-
-                return ResponseEntity.ok("Analysis complete and report sent to email.");
+                logger.info("Analysis complete for postId: {}. Email sent: {}", postId, emailSent);
             } catch (Exception e) {
-                logger.error("Error during analysis: {}", e.getMessage());
-                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
+                logger.error("Error processing AnalysisResult: {}", e.getMessage());
             }
+            return entity;
         });
     }
 
-    private AnalysisResult processAnalysisResult(AnalysisResult analysisResult) {
-        // Modify the entity as required before it is persisted
-        // For example, you could adjust the sentiment score or add additional data
-        analysisResult.setSentimentScore(analysisResult.getSentimentScore() * 1.1); // Example modification
-        return analysisResult;
+    private double calculateSentimentScore(JsonNode comments) {
+        // Implement real sentiment analysis logic here
+        return 0.8; // Example sentiment score
+    }
+
+    private boolean sendEmail(String email, double sentimentScore) {
+        // Implement real email sending logic here
+        logger.info("Sending email to {} with sentiment score: {}", email, sentimentScore);
+        return true; // Simulate successful email send
     }
 
     @GetMapping("/getAnalysisResults")
@@ -135,7 +146,8 @@ public class CyodaEntityControllerPrototype {
 ```
 
 ### Key Changes:
-- **Workflow Function:** Added a workflow function `processAnalysisResult` that modifies the `AnalysisResult` object before it is persisted.
-- **Workflow Function Invocation:** Passed the `processAnalysisResult` function as a parameter to the `entityService.addItem` method. 
+- **Workflow Function `processAnalysisResult`:** The main logic for fetching comments, calculating sentiment scores, and sending emails is moved to the `processAnalysisResult` method. This function uses the `entity` as an `ObjectNode` to directly modify its state.
+- **Direct Entity Modification:** Within the `processAnalysisResult`, the entity's properties are updated using `entity.put(...)`.
+- **Asynchronous Tasks:** Fetching comments and sending emails are now part of the asynchronous workflow function, making the controller method cleaner and more focused on handling HTTP requests and responses.
 
-This modification ensures that the entity is processed as required before being added to the system, adhering to the changes in the `addItem` method signature.
+This refactoring encapsulates the business logic within the workflow function, making the controller method more concise and ensuring that the entity is appropriately processed before being persisted.
