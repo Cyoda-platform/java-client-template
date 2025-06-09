@@ -1,14 +1,3 @@
-To refactor the code and move the asynchronous logic into the `process{entity_name}` function, we'll leverage the flexibility of the workflow function to handle any async operations or modifications to the entity before it is persisted. 
-
-Here's how you can refactor the code to achieve this:
-
-1. Move the asynchronous logic, such as API calls or any data processing that needs to be done before persisting, into the `processFlightSearchResult` function.
-2. Ensure that this function modifies the entity directly using methods like `entity.put(...)` if necessary.
-3. The controller will then call `entityService.addItem` with the `processFlightSearchResult` function as the workflow argument, keeping the controller logic clean and concise.
-
-Below is the updated Java code:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -53,7 +42,11 @@ public class CyodaEntityControllerPrototype {
         // Prepare the initial entity data
         ObjectNode flightSearchResultNode = objectMapper.createObjectNode();
         flightSearchResultNode.put("jobId", jobId);
-        // Add other initial fields from criteria if necessary
+        flightSearchResultNode.put("departureAirport", criteria.getDepartureAirport());
+        flightSearchResultNode.put("arrivalAirport", criteria.getArrivalAirport());
+        flightSearchResultNode.put("departureDate", criteria.getDepartureDate());
+        flightSearchResultNode.put("returnDate", criteria.getReturnDate());
+        flightSearchResultNode.put("passengers", criteria.getPassengers());
 
         CompletableFuture<UUID> idFuture = entityService.addItem(
                 "FlightSearchResult",
@@ -83,13 +76,18 @@ public class CyodaEntityControllerPrototype {
         // Mock external API call and process logic
         try {
             // Simulate an API call or any async operation
-            String apiUrl = "https://api.example.com/flights"; // TODO: Replace with actual API endpoint
-            // Perform necessary operations and modify the entity
-            // Example:
+            // In reality, you would make an HTTP request here
+            logger.info("Processing FlightSearchResult entity asynchronously: {}", entity);
+            // Example modification
             entity.put("status", "processed");
-            // You can also add supplementary data from another entity model if needed
+
+            // You can add supplementary data from another entity model if needed
+            // For example, adding additional info from a secondary model
+            // ObjectNode supplementaryData = entityService.getItem(...).get();
+            // entity.set("supplementaryData", supplementaryData);
         } catch (Exception e) {
             logger.error("Error processing FlightSearchResult entity", e);
+            // Handle any exceptions during processing
         }
         return entity;
     }
@@ -176,15 +174,12 @@ public class CyodaEntityControllerPrototype {
     @AllArgsConstructor
     @NoArgsConstructor
     private static class FlightSearchResult {
-        // Simplified placeholder for flight search result
+        private String jobId;
+        private String departureAirport;
+        private String arrivalAirport;
+        private String departureDate;
+        private String returnDate;
+        private int passengers;
+        private String status;
     }
 }
-```
-
-### Key Changes:
-
-- The `processFlightSearchResult` function now handles the asynchronous logic like API calls and entity modification.
-- The controller's responsibility is reduced to merely preparing the initial data and invoking `entityService.addItem`.
-- The workflow function `processFlightSearchResult` modifies the entity directly, ensuring that any necessary changes are applied before persistence.
-
-This approach keeps your controller logic clean and leverages the workflow function for any complex processing or asynchronous tasks.
