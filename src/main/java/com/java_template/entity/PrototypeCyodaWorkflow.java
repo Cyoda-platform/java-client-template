@@ -1,8 +1,3 @@
-To make your code more robust and to adhere to the requirement of moving asynchronous logic to the workflow function, we need to refactor the code to shift asynchronous tasks to the `process{entity_name}` function. This function will handle any necessary transformations or side effects before the entity is persisted.
-
-Here's how you can refactor the code:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -28,7 +23,7 @@ import org.springframework.web.client.RestTemplate;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
+import java.util.concurrent.ExecutionException;
 
 import static com.java_template.common.config.Config.*;
 
@@ -58,7 +53,12 @@ public class CyodaEntityControllerPrototype {
                 if (photos.isArray()) {
                     List<ObjectNode> photoList = objectMapper.convertValue(photos, objectMapper.getTypeFactory().constructCollectionType(List.class, ObjectNode.class));
                     for (ObjectNode photo : photoList) {
-                        entityService.addItem("Photo", ENTITY_VERSION, photo, this::processPhoto).join();
+                        try {
+                            entityService.addItem("Photo", ENTITY_VERSION, photo, this::processPhoto).get();
+                        } catch (InterruptedException | ExecutionException e) {
+                            logger.error("Error processing photo", e);
+                            Thread.currentThread().interrupt(); // Restore interrupted status
+                        }
                     }
                 }
             } catch (Exception e) {
@@ -79,11 +79,16 @@ public class CyodaEntityControllerPrototype {
     public ResponseEntity<String> viewAndComment(@PathVariable UUID photoId, @RequestBody @Valid CommentRequest commentRequest) {
         CompletableFuture.runAsync(() -> {
             logger.info("Retrieving photo with ID: {}", photoId);
-            ObjectNode photoNode = entityService.getItem("Photo", ENTITY_VERSION, photoId).join();
-            int views = photoNode.get("views").asInt() + 1;
-            photoNode.put("views", views);
-            entityService.updateItem("Photo", ENTITY_VERSION, photoId, photoNode).join();
-            logger.info("Comment added: {}", commentRequest.getComment());
+            try {
+                ObjectNode photoNode = entityService.getItem("Photo", ENTITY_VERSION, photoId).get();
+                int views = photoNode.get("views").asInt() + 1;
+                photoNode.put("views", views);
+                entityService.updateItem("Photo", ENTITY_VERSION, photoId, photoNode).get();
+                logger.info("Comment added: {}", commentRequest.getComment());
+            } catch (InterruptedException | ExecutionException e) {
+                logger.error("Error viewing and commenting on photo", e);
+                Thread.currentThread().interrupt(); // Restore interrupted status
+            }
         });
         return ResponseEntity.ok("View and comment recorded");
     }
@@ -92,6 +97,7 @@ public class CyodaEntityControllerPrototype {
     public ResponseEntity<String> generateMonthlyReport() {
         CompletableFuture.runAsync(() -> {
             logger.info("Report generation started");
+            // Add report generation logic here
         });
         return ResponseEntity.ok("Report generation initiated");
     }
@@ -100,6 +106,7 @@ public class CyodaEntityControllerPrototype {
     public ResponseEntity<String> notifyUsers(@RequestBody @Valid NotificationRequest notificationRequest) {
         CompletableFuture.runAsync(() -> {
             logger.info("Notifying users via {}", notificationRequest.getNotificationType());
+            // Add notification logic here
         });
         return ResponseEntity.ok("Notifications sent");
     }
@@ -110,13 +117,12 @@ public class CyodaEntityControllerPrototype {
             photo.put("title", "Untitled");
         }
 
-        // Increment views asynchronously
-        CompletableFuture.runAsync(() -> {
-            int views = photo.has("views") ? photo.get("views").asInt() : 0;
-            photo.put("views", views + 1);
-        }).join();
+        // Increment views
+        int views = photo.has("views") ? photo.get("views").asInt() : 0;
+        photo.put("views", views + 1);
 
-        // Additional processing logic can be added here
+        // Any additional asynchronous tasks related to the entity can be added here
+
         return photo;
     }
 
@@ -138,14 +144,3 @@ public class CyodaEntityControllerPrototype {
         private String notificationType;
     }
 }
-```
-
-### Key Changes:
-
-1. **Photo Workflow Function**: The `processPhoto` function now handles some of the asynchronous logic, such as incrementing view counts. This ensures that any side effects or state changes on the entity occur before it is persisted.
-
-2. **Entity Type**: Changed from `Photo` class to `ObjectNode` to align with the requirement of modifying the entity directly using methods like `put()`.
-
-3. **Comments and Other Logic**: I've kept the `viewAndComment` logic as it appears to involve user interaction that might not be appropriate to move directly into the workflow function. However, if you have other asynchronous tasks that fit the criteria, they should be moved into the workflow function similarly.
-
-This refactoring helps ensure that the controller is free from excessive logic and that any entity-related transformations or side effects are handled in a centralized workflow function, making the code more maintainable and robust.
