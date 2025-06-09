@@ -1,0 +1,60 @@
+{
+    "description": "Workflow to process user entity through multiple stages",
+    "name": "user_processing_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Fetch supplementary data and enrich the user entity",
+            "end_state": "Supplementary_data_fetched",
+            "end_state_description": "Supplementary data has been fetched and added",
+            "name": "fetch_supplementary_data",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processFetchSupplementaryData"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Add creation timestamp to user entity",
+            "end_state": "Creation_timestamp_added",
+            "end_state_description": "Creation timestamp has been added",
+            "name": "add_creation_timestamp",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAddCreationTimestamp"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Supplementary_data_fetched",
+            "start_state_description": "Supplementary data has been fetched and added"
+        },
+        {
+            "automated": true,
+            "description": "Finalize user processing",
+            "end_state": "Processing_finalized",
+            "end_state_description": "User processing finalized",
+            "name": "finalize_processing",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processFinalize"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Creation_timestamp_added",
+            "start_state_description": "Creation timestamp has been added"
+        }
+    ]
+}
