@@ -1,8 +1,7 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
@@ -28,16 +27,17 @@ import static com.java_template.common.config.Config.ENTITY_VERSION;
 @RestController
 @RequestMapping("/cyoda/api")
 @Validated
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
     private final EntityService entityService;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate = new RestTemplate();
     private static final String CAT_FACT_API_URL = "https://catfact.ninja/fact";
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @PostMapping("/users/signup")
@@ -45,7 +45,7 @@ public class CyodaEntityControllerPrototype {
         return entityService.addItem("subscriber", ENTITY_VERSION, emailRequest)
                 .thenApply(technicalId -> {
                     logger.info("User signed up with email: {}", emailRequest.getEmail());
-                    return ResponseEntity.status(201).body("{"message": "User signed up successfully."}");
+                    return ResponseEntity.status(201).body("{\"message\": \"User signed up successfully.\"}");
                 });
     }
 
@@ -56,7 +56,7 @@ public class CyodaEntityControllerPrototype {
             JsonNode jsonResponse = objectMapper.readTree(response.getBody());
             String fact = jsonResponse.get("fact").asText();
             logger.info("Retrieved cat fact: {}", fact);
-            return ResponseEntity.ok("{"fact": "" + fact + ""}");
+            return ResponseEntity.ok("{\"fact\": \"" + fact + "\"}");
         } catch (Exception e) {
             logger.error("Error retrieving cat fact", e);
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, e.getMessage());
@@ -72,7 +72,7 @@ public class CyodaEntityControllerPrototype {
                         String email = subscriber.get("email").asText();
                         logger.info("Sent cat fact to: {}", email);
                     });
-                    return ResponseEntity.ok("{"message": "Weekly cat fact sent to all subscribers."}");
+                    return ResponseEntity.ok("{\"message\": \"Weekly cat fact sent to all subscribers.\"}");
                 });
     }
 
@@ -88,7 +88,7 @@ public class CyodaEntityControllerPrototype {
                         return entityService.deleteItem("subscriber", ENTITY_VERSION, technicalId)
                                 .thenApply(deletedId -> {
                                     logger.info("User unsubscribed with email: {}", emailRequest.getEmail());
-                                    return ResponseEntity.ok("{"message": "User unsubscribed successfully."}");
+                                    return ResponseEntity.ok("{\"message\": \"User unsubscribed successfully.\"}");
                                 });
                     } else {
                         throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Subscriber not found");
@@ -102,14 +102,14 @@ public class CyodaEntityControllerPrototype {
                 .thenApply(subscribers -> {
                     int count = subscribers.size();
                     logger.info("Number of subscribers: {}", count);
-                    return ResponseEntity.ok("{"count": " + count + "}");
+                    return ResponseEntity.ok("{\"count\": " + count + "}");
                 });
     }
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<String> handleResponseStatusException(ResponseStatusException ex) {
         logger.error("Error occurred: {}", ex.getMessage());
-        return ResponseEntity.status(ex.getStatusCode()).body("{"error": "" + ex.getStatusCode().toString() + ""}");
+        return ResponseEntity.status(ex.getStatusCode()).body("{\"error\": \"" + ex.getStatusCode().toString() + "\"}");
     }
 
     @Data
