@@ -1,0 +1,60 @@
+{
+    "description": "Workflow for processing subscriber entities to fetch and add cat facts weekly",
+    "name": "subscriber_cat_fact_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start processing the subscriber entity by fetching a cat fact",
+            "end_state": "CatFact_fetched",
+            "end_state_description": "Cat fact has been fetched and stored temporarily",
+            "name": "start_processing",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Fetch cat fact from external API and store it temporarily",
+                        "name": "processFetchCatFact"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state before processing"
+        },
+        {
+            "automated": true,
+            "description": "Add the fetched cat fact to the subscriber entity and remove temporary storage",
+            "end_state": "CatFact_added",
+            "end_state_description": "Cat fact added to entity final attribute",
+            "name": "add_cat_fact_to_entity",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Move temporary cat fact to final attribute and clean up",
+                        "name": "processAddCatFactToEntity"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "CatFact_fetched",
+            "start_state_description": "Cat fact has been fetched and stored temporarily"
+        },
+        {
+            "automated": true,
+            "description": "Mark the subscriber entity as processed and update version",
+            "end_state": "Processed",
+            "end_state_description": "Entity marked as processed with updated version",
+            "name": "mark_entity_processed",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Update entity status and version",
+                        "name": "processMarkEntityProcessed"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "CatFact_added",
+            "start_state_description": "Cat fact added to entity final attribute"
+        }
+    ]
+}
