@@ -1,14 +1,18 @@
-```java
-package com.java_template.entity;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
@@ -19,6 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 @RequestMapping("/prototype/api")
+@Validated
 public class EntityControllerPrototype {
 
     private static final Logger logger = LoggerFactory.getLogger(EntityControllerPrototype.class);
@@ -27,14 +32,14 @@ public class EntityControllerPrototype {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private static final String CAT_FACT_API_URL = "https://catfact.ninja/fact";
 
-    @PostMapping("/users/signup")
-    public ResponseEntity<String> signUp(@RequestBody EmailRequest emailRequest) {
+    @PostMapping("/users/signup") // must be first
+    public ResponseEntity<String> signUp(@RequestBody @Valid EmailRequest emailRequest) {
         subscribers.put(emailRequest.getEmail(), "subscribed");
         logger.info("User signed up with email: {}", emailRequest.getEmail());
         return ResponseEntity.status(201).body("{\"message\": \"User signed up successfully.\"}");
     }
 
-    @PostMapping("/cat-facts/retrieve")
+    @PostMapping("/cat-facts/retrieve") // must be first
     public ResponseEntity<String> retrieveCatFact() {
         try {
             ResponseEntity<String> response = restTemplate.getForEntity(CAT_FACT_API_URL, String.class);
@@ -48,7 +53,7 @@ public class EntityControllerPrototype {
         }
     }
 
-    @PostMapping("/cat-facts/send")
+    @PostMapping("/cat-facts/send") // must be first
     public ResponseEntity<String> sendWeeklyCatFact() {
         CompletableFuture.runAsync(() -> {
             // TODO: Implement actual email sending logic
@@ -60,14 +65,14 @@ public class EntityControllerPrototype {
         return ResponseEntity.ok("{\"message\": \"Weekly cat fact sent to all subscribers.\"}");
     }
 
-    @PostMapping("/users/unsubscribe")
-    public ResponseEntity<String> unsubscribe(@RequestBody EmailRequest emailRequest) {
+    @PostMapping("/users/unsubscribe") // must be first
+    public ResponseEntity<String> unsubscribe(@RequestBody @Valid EmailRequest emailRequest) {
         subscribers.remove(emailRequest.getEmail());
         logger.info("User unsubscribed with email: {}", emailRequest.getEmail());
         return ResponseEntity.ok("{\"message\": \"User unsubscribed successfully.\"}");
     }
 
-    @GetMapping("/report/subscriber-count")
+    @GetMapping("/report/subscriber-count") // must be first
     public ResponseEntity<String> getSubscriberCount() {
         int count = subscribers.size();
         logger.info("Number of subscribers: {}", count);
@@ -84,9 +89,9 @@ public class EntityControllerPrototype {
     @AllArgsConstructor
     @NoArgsConstructor
     public static class EmailRequest {
+        @NotNull
+        @NotBlank
+        @Email
         private String email;
     }
 }
-```
-
-This prototype provides a basic structure for your cat fact subscription service using Spring Boot. It includes logging, error handling, and mocks for various components, allowing you to validate the UX and API structure. The implementation assumes external dependencies such as email sending logic will be added later.
