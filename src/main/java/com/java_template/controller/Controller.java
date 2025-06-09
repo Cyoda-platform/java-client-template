@@ -1,4 +1,4 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -14,7 +14,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -33,15 +32,14 @@ import static com.java_template.common.config.Config.ENTITY_VERSION;
 @RequestMapping("/cyoda/api")
 @Slf4j
 @Validated
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
     private final ObjectMapper objectMapper;
     private final EntityService entityService;
     private final RestTemplate restTemplate;
 
-    @Autowired
-    public CyodaEntityControllerPrototype(EntityService entityService, RestTemplate restTemplate) {
-        this.objectMapper = new ObjectMapper();
+    public Controller(ObjectMapper objectMapper, EntityService entityService, RestTemplate restTemplate) {
+        this.objectMapper = objectMapper;
         this.entityService = entityService;
         this.restTemplate = restTemplate;
     }
