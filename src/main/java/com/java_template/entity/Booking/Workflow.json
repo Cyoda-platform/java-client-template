@@ -1,0 +1,57 @@
+{
+    "description": "Workflow for processing booking reports including marking workflow processed, attaching supplementary data, and calculating totals",
+    "name": "booking_report_generation_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start processing the booking entity",
+            "end_state": "WorkflowProcessed",
+            "end_state_description": "Booking marked as workflow processed",
+            "name": "start_processing",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "name": "processMarkWorkflowProcessed"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Attach supplementary data to booking entity",
+            "end_state": "SupplementaryDataAttached",
+            "end_state_description": "Supplementary data attached to booking",
+            "name": "attach_supplementary_data",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "name": "processAttachSupplementaryData"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "WorkflowProcessed",
+            "start_state_description": "Booking marked as workflow processed"
+        },
+        {
+            "automated": true,
+            "description": "Calculate totals and finalize booking report",
+            "end_state": "ReportCalculated",
+            "end_state_description": "Report totals calculated and attached",
+            "name": "calculate_totals",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "name": "processCalculateTotals"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "SupplementaryDataAttached",
+            "start_state_description": "Supplementary data attached to booking"
+        }
+    ]
+}
