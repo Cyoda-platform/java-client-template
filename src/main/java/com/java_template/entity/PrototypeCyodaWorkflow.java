@@ -1,12 +1,3 @@
-To refactor the code and move asynchronous logic from the controller to the `process{entity_name}` workflow function, let’s focus on the asynchronous tasks within the `signup` endpoint. The main goal is to ensure that any asynchronous processing related to the entity is handled within the workflow function. Here’s how we can achieve this:
-
-1. **Move Async Logic to Workflow:** For the `signup` endpoint, we can move any asynchronous operations that relate to processing the user entity into the `processUser` function. This can include tasks like adding supplementary data or modifying the entity's state asynchronously.
-
-2. **Ensure the Workflow Function is Asynchronous:** The `processUser` function can perform asynchronous operations and modify the entity state before it is persisted.
-
-Here is the refactored code:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -34,7 +25,7 @@ import org.springframework.web.client.ResponseStatusException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping("/cyoda/entity/api")
@@ -72,18 +63,26 @@ public class CyodaEntityControllerPrototype {
     private CompletableFuture<JsonNode> processUser(JsonNode entityData) {
         ObjectNode userNode = (ObjectNode) entityData;
 
-        // Example of an asynchronous operation: Fetch a supplementary data
+        // Simulate asynchronous task: Fetching supplementary data
         CompletableFuture<Void> supplementaryDataFuture = CompletableFuture.runAsync(() -> {
-            // Simulate fetching supplementary data asynchronously
-            logger.info("Fetching supplementary data for user: {}", userNode.get("email").asText());
-            // Example: Add supplementary data to the user entity
-            userNode.put("supplementaryField", "Sample value");
+            try {
+                logger.info("Fetching supplementary data for user: {}", userNode.get("email").asText());
+                // Example: Add supplementary data to the user entity
+                userNode.put("supplementaryField", "Sample value");
+            } catch (Exception e) {
+                logger.error("Error fetching supplementary data", e);
+            }
         });
 
+        // Ensure that supplementary data is added before proceeding
         return supplementaryDataFuture.thenApplyAsync(v -> {
-            // Example: Add a timestamp or modify the entity data
-            userNode.put("createdAt", System.currentTimeMillis());
-            logger.info("Processing user entity with data: {}", userNode);
+            try {
+                // Example: Add a creation timestamp
+                userNode.put("createdAt", System.currentTimeMillis());
+                logger.info("Processed user entity with data: {}", userNode);
+            } catch (Exception e) {
+                logger.error("Error processing user entity", e);
+            }
             return userNode;
         });
     }
@@ -174,11 +173,3 @@ public class CyodaEntityControllerPrototype {
         private String openRate;
     }
 }
-```
-
-### Key Changes:
-- **Async Workflow Logic in `processUser`:** The `processUser` function now contains asynchronous logic to fetch supplementary data or perform any other async operations. This logic is encapsulated within the workflow function, making the controller cleaner and more focused on handling HTTP requests and responses.
-  
-- **Return Type:** The `processUser` function returns a `CompletableFuture<JsonNode>`, allowing it to perform asynchronous operations and modify the entity state before returning.
-
-By moving the async logic into the `processUser` workflow function, we adhere to the principle of keeping the controller light and focused on request handling while offloading entity-specific processing to the workflow, which is invoked just before persistence.
