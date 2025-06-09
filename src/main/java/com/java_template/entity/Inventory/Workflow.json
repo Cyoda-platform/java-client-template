@@ -1,0 +1,78 @@
+{
+    "description": "Workflow to process inventory data and generate reports",
+    "name": "inventory_reporting_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start processing inventory entity",
+            "end_state": "Processed",
+            "end_state_description": "Entity marked as processed",
+            "name": "start_processing",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processMarkProcessed"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Fetch supplementary data for inventory entity",
+            "end_state": "SupplementaryDataFetched",
+            "end_state_description": "Supplementary data added to entity",
+            "name": "fetch_supplementary_data",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processFetchSupplementaryData"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Processed",
+            "start_state_description": "Entity marked as processed"
+        },
+        {
+            "automated": true,
+            "description": "Calculate key metrics for the inventory report",
+            "end_state": "MetricsCalculated",
+            "end_state_description": "Metrics calculated and added to entity",
+            "name": "calculate_metrics",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processCalculateMetrics"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "SupplementaryDataFetched",
+            "start_state_description": "Supplementary data added to entity"
+        },
+        {
+            "automated": true,
+            "description": "Finalize the inventory report",
+            "end_state": "ReportReady",
+            "end_state_description": "Report finalized and ready",
+            "name": "finalize_report",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processFinalizeReport"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "MetricsCalculated",
+            "start_state_description": "Metrics calculated and added to entity"
+        }
+    ]
+}
