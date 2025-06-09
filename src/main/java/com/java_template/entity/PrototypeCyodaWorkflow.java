@@ -1,10 +1,19 @@
-To update the code according to the new requirements, we need to modify the `entityService.addItem` method call to include the new workflow function. Additionally, we need to implement this workflow function, which will process the entity data asynchronously before it is persisted. Here's how you can modify the existing code:
+To refactor the code and move asynchronous logic to the newly added workflow functions, we need to identify which parts of the current controller logic can be offloaded to these functions. This will help in making the controller slimmer and more focused on handling HTTP requests and responses. Here's how you can refactor the code:
+
+1. **Identify Async Logic**: The `retrieveData` method is performing an asynchronous task. This logic can be moved to a workflow function.
+
+2. **Implement Workflow Functions**: Implement workflow functions for each entity type that requires processing before being persisted.
+
+3. **Remove Async Logic from Controller**: Update the controller to use these workflow functions and remove the async logic from the endpoints.
+
+Here's how you can refactor the code:
 
 ```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -21,7 +30,6 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
@@ -33,41 +41,47 @@ public class CyodaEntityControllerPrototype {
     private final EntityService entityService;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
-    private final Map<String, JobStatus> entityJobs = new ConcurrentHashMap<>();
 
     public CyodaEntityControllerPrototype(EntityService entityService) {
         this.entityService = entityService;
     }
 
-    // New method to process entity data
-    private JsonNode processEntityName(JsonNode entityData) {
-        // Implement the logic to process the entity data
-        // You can modify the entityData here if needed
-        logger.info("Processing entity data: {}", entityData);
-        
-        // Example: Add a new field to the entity
-        ((ObjectNode) entityData).put("processed", true);
+    // Workflow function for processing entity before persistence
+    private CompletableFuture<JsonNode> processEntityName(ObjectNode entityData) {
+        return CompletableFuture.supplyAsync(() -> {
+            logger.info("Processing entity data asynchronously: {}", entityData);
 
-        return entityData;
+            // Example: Simulate data processing
+            try {
+                Thread.sleep(2000); // Simulate processing time
+                entityData.put("status", "processed");
+                logger.info("Entity processed: {}", entityData);
+            } catch (InterruptedException e) {
+                logger.error("Error processing entity data", e);
+            }
+
+            return entityData;
+        });
     }
 
     @PostMapping("/data/retrieve")
-    public Map<String, Object> retrieveData(@RequestBody @Valid RetrieveDataRequest request) {
-        logger.info("Retrieving data for date: {}", request.getDate());
+    public CompletableFuture<Map<String, Object>> retrieveData(@RequestBody @Valid RetrieveDataRequest request) {
+        logger.info("Initiating data retrieval for date: {}", request.getDate());
 
-        CompletableFuture.runAsync(() -> {
-            String jobId = "job-" + System.currentTimeMillis();
-            entityJobs.put(jobId, new JobStatus("processing", request.getDate()));
-            try {
-                Thread.sleep(2000); // Simulate processing time
-                entityJobs.put(jobId, new JobStatus("completed", request.getDate()));
-                logger.info("Data retrieval job completed: {}", jobId);
-            } catch (InterruptedException e) {
-                logger.error("Error processing job: {}", jobId, e);
-            }
-        });
+        // Assume "RetrieveData" is our entity name for this example
+        ObjectNode data = objectMapper.createObjectNode();
+        data.put("date", request.getDate());
 
-        return Map.of("status", "success", "message", "Data retrieval initiated");
+        return entityService.addItem(
+                entityModel = "RetrieveData",
+                entityVersion = ENTITY_VERSION,
+                entity = data,
+                workflow = this::processEntityName // Workflow function
+        ).thenApply(id -> Map.of(
+                "status", "success",
+                "message", "Data retrieval job initiated",
+                "entityId", id.toString()
+        ));
     }
 
     @PostMapping("/analysis/perform")
@@ -118,18 +132,6 @@ public class CyodaEntityControllerPrototype {
         return Map.of("error", ex.getStatusCode().toString());
     }
 
-    // Example method to add an entity, showcasing the new addItem signature
-    public CompletableFuture<UUID> addEntity(String entityName, JsonNode data) {
-        logger.info("Adding entity: {}", entityName);
-
-        return entityService.addItem(
-                entityModel = entityName,
-                entityVersion = ENTITY_VERSION,
-                entity = data,
-                workflow = this::processEntityName // Pass the workflow function
-        );
-    }
-
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
@@ -153,25 +155,15 @@ public class CyodaEntityControllerPrototype {
         @NotNull
         private JsonNode analysis;
     }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    static class JobStatus {
-        @NotBlank
-        private String status;
-        @NotBlank
-        private String requestedAt;
-    }
 }
 ```
 
 ### Explanation:
 
-1. **Workflow Function**: Added a method `processEntityName` to serve as the workflow function which processes the entity data. You can implement any logic needed to manipulate the entity data within this function.
+- **Workflow Function**: The `processEntityName` method is now responsible for processing the entity asynchronously. It simulates a delay (representing some processing) and updates the entity's status.
 
-2. **Add Entity Method**: Provided an example of how you might call `entityService.addItem` with the new workflow function parameter. This is demonstrated in the `addEntity` method.
+- **Controller Logic**: The `retrieveData` endpoint now directly calls `entityService.addItem`, passing the workflow function. It handles the entity creation and processing asynchronously.
 
-3. **Logging and Modifications**: Enhanced logging to ensure you can trace the processing steps. In the workflow function, I added an example of modifying the entity data by adding a new field.
+- **Streamlined Controller**: The controller is now focused on handling HTTP requests and responses, delegating the processing logic to the workflow function.
 
-Make sure to adjust the `processEntityName` method to suit the specific logic you need for processing your entities.
+This approach ensures that the controller remains clean and free from excessive logic, while still allowing for complex entity processing before persistence. Adjust the workflow function as needed to fit the specific logic for your entities.
