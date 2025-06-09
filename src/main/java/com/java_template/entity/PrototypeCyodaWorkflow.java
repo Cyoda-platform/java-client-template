@@ -1,8 +1,11 @@
-To accommodate the change in the `entityService.addItem` method which now requires a workflow function, we must first define a workflow function for the `User` entity. The naming convention requires the function to be prefixed with `process` followed by the entity name. In this case, the entity name is `User`, so the function will be named `processUser`.
+To make the controller more robust and to adhere to the architecture requirement that moves all asynchronous tasks into the workflow function, we should refactor the logic such that any asynchronous processing of the entity data is moved into the `processUser` function. This will ensure that the controller's responsibility is more lightweight and focused on handling requests and responses, while keeping the business logic separate.
 
-The workflow function can be used to modify or process the entity data before it's persisted. According to your requirements, it can interact with entities of different models but cannot modify entities of the same model to avoid recursion.
+Here's how we can refactor the code:
 
-Below is the updated Java code with the new workflow function and the modified method to include this function when calling `entityService.addItem`.
+1. **Move Asynchronous Logic**: Any asynchronous operations or modifications to the entity data should be moved to the `processUser` function.
+2. **Implement Business Logic in Workflow**: The workflow function should perform any necessary transformations or asynchronous operations before the entity is persisted.
+
+Let's refactor the code accordingly:
 
 ```java
 package com.java_template.entity;
@@ -44,10 +47,18 @@ public class CyodaEntityControllerPrototype {
 
     // New workflow function for User entity
     public CompletableFuture<ObjectNode> processUser(ObjectNode userNode) {
-        // Example processing logic: Add a timestamp or modify user details
-        logger.info("Processing user entity before persistence: {}", userNode);
-        // Perform any processing here
-        return CompletableFuture.completedFuture(userNode);
+        logger.info("Processing user entity asynchronously before persistence: {}", userNode);
+
+        // Example asynchronous logic: enrich the user data with an external service call or perform validation
+        CompletableFuture<ObjectNode> enrichedUserFuture = CompletableFuture.supplyAsync(() -> {
+            // Simulate asynchronous operation, e.g., fetching additional data or performing complex validation
+            // Modify userNode directly if needed, e.g., userNode.put("newField", "value");
+            userNode.put("processedTimestamp", System.currentTimeMillis()); // Example modification
+            logger.info("User entity enriched with additional data: {}", userNode);
+            return userNode;
+        });
+
+        return enrichedUserFuture;
     }
 
     @PostMapping("/retrieve-user")
@@ -65,19 +76,16 @@ public class CyodaEntityControllerPrototype {
                     return CompletableFuture.completedFuture(ResponseEntity.status(404).body(null));
                 }
 
-                // Process the user entity before persistence
-                return processUser(dataNode).thenCompose(processedDataNode -> {
-                    // Add the item with the processed data node
-                    return entityService.addItem(
-                            entityModel = "User",
-                            entityVersion = ENTITY_VERSION,
-                            entity = processedDataNode,
-                            workflow = this::processUser
-                    ).thenApply(id -> {
-                        User user = objectMapper.convertValue(processedDataNode, User.class);
-                        logger.info("User retrieved and processed: {}", user);
-                        return ResponseEntity.ok(user);
-                    });
+                // Add the item with the workflow function that processes the user entity
+                return entityService.addItem(
+                        entityModel = "User",
+                        entityVersion = ENTITY_VERSION,
+                        entity = dataNode,
+                        workflow = this::processUser
+                ).thenApply(id -> {
+                    User user = objectMapper.convertValue(dataNode, User.class);
+                    logger.info("User retrieved and processed: {}", user);
+                    return ResponseEntity.ok(user);
                 });
 
             });
@@ -146,8 +154,7 @@ class UserIdRequest {
 ```
 
 ### Key Changes:
-1. **Workflow Function**: Added `processUser` as a workflow function to process the `User` entity.
-2. **Entity Addition**: Modified the `retrieveUser` method to include the workflow function when calling `entityService.addItem`.
-3. **Logging**: Added logging to track the processing of the user entity.
+- **Workflow Function Logic**: The `processUser` function now contains asynchronous logic to modify and enrich the `User` entity before it is persisted.
+- **Controller Simplification**: The controller's `retrieveUser` method is simplified by removing logic that can be handled within the workflow function.
 
-This update should accommodate the new requirement for the `entityService.addItem` method.
+This approach ensures that any asynchronous tasks related to processing the entity are encapsulated in the workflow function, thereby reducing the complexity of the controller and adhering to the architectural guidelines.
