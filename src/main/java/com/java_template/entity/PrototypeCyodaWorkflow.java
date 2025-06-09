@@ -1,10 +1,11 @@
-To update the code as per your requirements, we need to add a new workflow function named `processEntity` and pass it as an argument to the `entityService.addItem` method. This workflow function will be applied to the entity before it is persisted. Here's the updated Java code:
+Incorporating the `processEntity` function as an asynchronous workflow allows us to offload certain tasks from the controller, making the code cleaner and more robust. Below is the updated code where async logic, like fetching data, is moved into the `processEntity` function:
 
 ```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -40,22 +41,33 @@ public class CyodaEntityControllerPrototype {
 
     @PostMapping
     public CompletableFuture<Entity> createEntity(@RequestBody @Valid EntityRequest request) {
-        Entity entity = new Entity(null, request.getApiUrl(), null, null);
+        ObjectNode entity = objectMapper.createObjectNode();
+        entity.put("apiUrl", request.getApiUrl());
+        
         return entityService.addItem("entity", ENTITY_VERSION, entity, this::processEntity)
                 .thenApply(technicalId -> {
-                    entity.setTechnicalId(technicalId);
-                    fetchDataAsync(entity);
+                    Entity createdEntity = new Entity();
+                    createdEntity.setTechnicalId(technicalId);
                     logger.info("Created entity with technical ID: {}", technicalId);
-                    return entity;
+                    return createdEntity;
                 });
     }
 
-    private Entity processEntity(Entity entity) {
+    private CompletableFuture<ObjectNode> processEntity(ObjectNode entity) {
         // Example processing logic
-        // Modify the entity as needed before it is persisted
-        entity.setApiUrl(entity.getApiUrl().toLowerCase()); // Example modification
-        logger.info("Processed entity with apiUrl: {}", entity.getApiUrl());
-        return entity;
+        entity.put("apiUrl", entity.get("apiUrl").asText().toLowerCase());
+
+        return CompletableFuture.runAsync(() -> {
+            try {
+                // Simulate an asynchronous task, like fetching data
+                JsonNode fetchedData = objectMapper.readTree("{\"example\": \"data\"}");
+                entity.set("fetchedData", fetchedData);
+                entity.put("fetchedAt", System.currentTimeMillis());
+                logger.info("Fetched data for entity with apiUrl: {}", entity.get("apiUrl").asText());
+            } catch (Exception e) {
+                logger.error("Error fetching data for entity with apiUrl: {}", entity.get("apiUrl").asText(), e);
+            }
+        }).thenApply(v -> entity);
     }
 
     @PostMapping("/{id}")
@@ -66,13 +78,12 @@ public class CyodaEntityControllerPrototype {
                         logger.error("Entity not found for technical ID: {}", id);
                         throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Entity not found");
                     }
-                    Entity entity = objectMapper.convertValue(itemNode, Entity.class);
-                    entity.setApiUrl(request.getApiUrl());
+                    ObjectNode entity = (ObjectNode) itemNode;
+                    entity.put("apiUrl", request.getApiUrl());
                     return entityService.updateItem("entity", ENTITY_VERSION, id, entity)
                             .thenApply(updatedId -> {
-                                fetchDataAsync(entity);
                                 logger.info("Updated entity with technical ID: {}", updatedId);
-                                return entity;
+                                return new Entity(updatedId, entity.get("apiUrl").asText(), entity.get("fetchedData"), entity.get("fetchedAt").asLong());
                             });
                 });
     }
@@ -85,10 +96,9 @@ public class CyodaEntityControllerPrototype {
                         logger.error("Entity not found for technical ID: {}", id);
                         throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Entity not found");
                     }
-                    Entity entity = objectMapper.convertValue(itemNode, Entity.class);
-                    fetchDataAsync(entity);
-                    logger.info("Manually fetched data for entity technical ID: {}", id);
-                    return entity;
+                    ObjectNode entity = (ObjectNode) itemNode;
+                    logger.info("Fetched data for entity with technical ID: {}", id);
+                    return new Entity(id, entity.get("apiUrl").asText(), entity.get("fetchedData"), entity.get("fetchedAt").asLong());
                 });
     }
 
@@ -122,20 +132,6 @@ public class CyodaEntityControllerPrototype {
         return Map.of("error", ex.getStatusCode().toString());
     }
 
-    private void fetchDataAsync(Entity entity) {
-        CompletableFuture.runAsync(() -> {
-            try {
-                // TODO: Replace with actual HTTP client call
-                JsonNode fetchedData = objectMapper.readTree("{\"example\": \"data\"}");
-                entity.setFetchedData(fetchedData);
-                entity.setFetchedAt(System.currentTimeMillis());
-                logger.info("Fetched data for entity with technical ID: {}", entity.getTechnicalId());
-            } catch (Exception e) {
-                logger.error("Error fetching data for entity with technical ID: {}", entity.getTechnicalId(), e);
-            }
-        });
-    }
-
     @Data
     @AllArgsConstructor
     @NoArgsConstructor
@@ -155,12 +151,18 @@ public class CyodaEntityControllerPrototype {
 }
 ```
 
-### Explanation:
+### Key Changes:
 
-1. **Workflow Function Implementation**: The `processEntity` method is created to process the entity before it is persisted. This function modifies the `apiUrl` by converting it to lowercase as an example. You can customize this function to perform other necessary transformations.
+1. **Refactor to `ObjectNode`**:
+   - The `processEntity` function now works directly with `ObjectNode` to manipulate entity data.
 
-2. **Passing the Workflow Function**: The `processEntity` function is passed as an argument to the `entityService.addItem` method.
+2. **Move Async Logic**:
+   - The asynchronous data fetching logic is moved into the `processEntity` function, which is responsible for modifying the entity state before it is persisted.
 
-3. **Logging**: Added a log statement within the `processEntity` method to log the changes made to the entity.
+3. **Simplified Controller**:
+   - The `createEntity` endpoint is now cleaner, with less logic since the async tasks have been offloaded to the workflow function.
 
-Feel free to modify the `processEntity` method to suit your specific business logic needs.
+4. **Entity Processing**:
+   - The `processEntity` function performs operations like converting the API URL to lowercase and fetching data asynchronously.
+
+This approach encapsulates the entity processing logic in a dedicated function, promoting a cleaner separation of concerns and making the controller less cluttered.
