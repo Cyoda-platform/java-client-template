@@ -1,4 +1,4 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -10,9 +10,6 @@ import com.java_template.common.util.SearchConditionRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -30,22 +27,24 @@ import static com.java_template.common.config.Config.ENTITY_VERSION;
 @RestController
 @RequestMapping("/prototype/api/inventory")
 @Validated
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
-    private static final ObjectMapper objectMapper = new ObjectMapper();
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
+
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @PostMapping("/add")
     public ResponseEntity<String> addInventoryItem(@RequestBody @Valid JsonNode data) {
         CompletableFuture<UUID> idFuture = entityService.addItem(
-                entityModel = "Inventory",
-                entityVersion = ENTITY_VERSION,
-                entity = data
+                "Inventory",
+                ENTITY_VERSION,
+                data
         );
 
         return ResponseEntity.status(HttpStatus.CREATED).body("Item added with ID: " + idFuture.join());
@@ -123,9 +122,6 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.status(e.getStatusCode()).body("Error: " + e.getStatusCode().toString());
     }
 
-    @Data
-    @AllArgsConstructor
-    @NoArgsConstructor
     public static class InventoryFilter {
         @NotBlank
         private String category;
@@ -135,15 +131,75 @@ public class CyodaEntityControllerPrototype {
 
         @NotNull
         private Integer maxPrice;
+
+        public String getCategory() {
+            return category;
+        }
+
+        public void setCategory(String category) {
+            this.category = category;
+        }
+
+        public Integer getMinPrice() {
+            return minPrice;
+        }
+
+        public void setMinPrice(Integer minPrice) {
+            this.minPrice = minPrice;
+        }
+
+        public Integer getMaxPrice() {
+            return maxPrice;
+        }
+
+        public void setMaxPrice(Integer maxPrice) {
+            this.maxPrice = maxPrice;
+        }
     }
 
-    @Data
-    @AllArgsConstructor
-    @NoArgsConstructor
     public static class InventoryReport {
         private int totalItems;
         private double averagePrice;
         private int totalValue;
         private Map<String, Integer> categoryDistribution;
+
+        public InventoryReport(int totalItems, double averagePrice, int totalValue, Map<String, Integer> categoryDistribution) {
+            this.totalItems = totalItems;
+            this.averagePrice = averagePrice;
+            this.totalValue = totalValue;
+            this.categoryDistribution = categoryDistribution;
+        }
+
+        public int getTotalItems() {
+            return totalItems;
+        }
+
+        public void setTotalItems(int totalItems) {
+            this.totalItems = totalItems;
+        }
+
+        public double getAveragePrice() {
+            return averagePrice;
+        }
+
+        public void setAveragePrice(double averagePrice) {
+            this.averagePrice = averagePrice;
+        }
+
+        public int getTotalValue() {
+            return totalValue;
+        }
+
+        public void setTotalValue(int totalValue) {
+            this.totalValue = totalValue;
+        }
+
+        public Map<String, Integer> getCategoryDistribution() {
+            return categoryDistribution;
+        }
+
+        public void setCategoryDistribution(Map<String, Integer> categoryDistribution) {
+            this.categoryDistribution = categoryDistribution;
+        }
     }
 }
