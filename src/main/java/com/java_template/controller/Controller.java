@@ -1,4 +1,4 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.ResponseStatusException;
 import org.springframework.web.context.request.async.DeferredResult;
@@ -24,13 +25,15 @@ import static com.java_template.common.config.Config.ENTITY_VERSION;
 @RestController
 @RequestMapping("/new/api/flights")
 @Validated
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
+    private final ObjectMapper objectMapper;
     private final EntityService entityService;
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    // Constructor injection of ObjectMapper and EntityService
+    public Controller(ObjectMapper objectMapper, EntityService entityService) {
+        this.objectMapper = objectMapper;
         this.entityService = entityService;
     }
 
