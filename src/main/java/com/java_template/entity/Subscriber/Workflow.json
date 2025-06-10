@@ -1,0 +1,60 @@
+{
+    "description": "Workflow for processing a subscriber entity from initial status to finalization",
+    "name": "subscriber_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start processing subscriber by setting initial status",
+            "end_state": "Status_set",
+            "end_state_description": "Subscriber status set to pending_verification",
+            "name": "start_processing_subscriber",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSetInitialStatus"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Fetch a cat fact and add to subscriber entity",
+            "end_state": "Cat_fact_fetched",
+            "end_state_description": "Cat fact fetched and added to subscriber",
+            "name": "fetch_cat_fact",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processFetchCatFact"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Status_set",
+            "start_state_description": "Subscriber status set to pending_verification"
+        },
+        {
+            "automated": true,
+            "description": "Finalize processing of subscriber",
+            "end_state": "Processing_finalized",
+            "end_state_description": "Subscriber processing finalized",
+            "name": "finalize_subscriber_processing",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processFinalize"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Cat_fact_fetched",
+            "start_state_description": "Cat fact fetched and added to subscriber"
+        }
+    ]
+}
