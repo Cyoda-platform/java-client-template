@@ -1,8 +1,9 @@
-```java
-package com.java_template.entity;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -10,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
@@ -20,6 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 @RequestMapping("/prototype/api")
+@Validated // Enables validation for request parameters and bodies
 public class EntityControllerPrototype {
 
     private static final Logger logger = LoggerFactory.getLogger(EntityControllerPrototype.class);
@@ -27,8 +30,8 @@ public class EntityControllerPrototype {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Map<String, Report> reports = new ConcurrentHashMap<>();
 
-    @PostMapping("/comments/analyze")
-    public ResponseEntity<String> analyzeComments(@RequestBody CommentRequest commentRequest) {
+    @PostMapping("/comments/analyze") // must be first
+    public ResponseEntity<String> analyzeComments(@RequestBody @Valid CommentRequest commentRequest) {
         int postId = commentRequest.getPostId();
         logger.info("Received request to analyze comments for postId: {}", postId);
 
@@ -61,8 +64,8 @@ public class EntityControllerPrototype {
         }
     }
 
-    @GetMapping("/reports/{reportId}")
-    public ResponseEntity<Report> getReport(@PathVariable String reportId) {
+    @GetMapping("/reports/{reportId}") // must be first
+    public ResponseEntity<Report> getReport(@PathVariable @NotBlank String reportId) {
         logger.info("Fetching report with ID: {}", reportId);
         Report report = reports.get(reportId);
         if (report != null) {
@@ -83,6 +86,7 @@ public class EntityControllerPrototype {
     @AllArgsConstructor
     @NoArgsConstructor
     static class CommentRequest {
+        @Min(1)
         private int postId;
     }
 
@@ -97,13 +101,3 @@ public class EntityControllerPrototype {
         private double sentimentScore;
     }
 }
-```
-
-### Key Points:
-- This code provides a working prototype of a Spring Boot controller handling two endpoints.
-- Comments are fetched from an external API using `RestTemplate`.
-- An analysis process is simulated using `CompletableFuture.runAsync`.
-- Reports are stored in a `ConcurrentHashMap` for retrieval.
-- Basic logging is added using SLF4J.
-- Error handling is implemented with `@ExceptionHandler`.
-- Lombok is used for model classes to simplify the code.
