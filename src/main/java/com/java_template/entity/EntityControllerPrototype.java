@@ -1,8 +1,13 @@
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -20,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 @RequestMapping("/prototype/api")
+@Validated
 public class EntityControllerPrototype {
 
     private static final Logger logger = LoggerFactory.getLogger(EntityControllerPrototype.class);
@@ -28,7 +34,7 @@ public class EntityControllerPrototype {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @PostMapping("/signup")
-    public ResponseEntity<?> signUp(@RequestBody Subscriber subscriber) {
+    public ResponseEntity<?> signUp(@RequestBody @Valid Subscriber subscriber) {
         logger.info("Received sign-up request for email: {}", subscriber.getEmail());
         String userId = String.valueOf(subscriber.getEmail().hashCode());
         subscribers.put(userId, subscriber);
@@ -53,21 +59,21 @@ public class EntityControllerPrototype {
     @PostMapping("/sendWeeklyEmail")
     public ResponseEntity<?> sendWeeklyEmail() {
         logger.info("Initiating weekly email send-out");
-        
+
         CompletableFuture.runAsync(() -> {
             subscribers.forEach((id, subscriber) -> {
                 // TODO: Implement actual email sending logic here
                 logger.info("Sending email to {}", subscriber.getEmail());
             });
         });
-        
+
         return ResponseEntity.ok(Map.of("message", "Weekly emails sent to all subscribers"));
     }
 
     @GetMapping("/stats/subscribers")
     public ResponseEntity<?> getSubscriberStats() {
         logger.info("Retrieving subscriber stats");
-        
+
         // Mock interaction data
         int totalSubscribers = subscribers.size();
         int opens = (int) (totalSubscribers * 0.8); // Mock 80% open rate
@@ -89,10 +95,12 @@ public class EntityControllerPrototype {
     @AllArgsConstructor
     @NoArgsConstructor
     static class Subscriber {
+        @NotBlank
+        @Email
         private String email;
+
+        @NotBlank
+        @Size(min = 1, max = 100)
         private String name;
     }
 }
-```
-
-This code provides a working prototype of your Spring Boot application with RESTful API endpoints. It uses SLF4J for logging, Lombok for boilerplate reduction, and includes basic error handling. The `sendWeeklyEmail` endpoint uses a `CompletableFuture` to simulate asynchronous processing. Note that actual email sending logic and persistent storage are marked with TODOs for future implementation.
