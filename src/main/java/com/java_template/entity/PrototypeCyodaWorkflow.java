@@ -1,6 +1,11 @@
-To update the `CyodaEntityControllerPrototype` class according to the new requirements, we need to add a workflow function as a parameter to the `entityService.addItem` call and implement this workflow function. The function should be prefixed with `process` followed by the entity name. In this case, the entity is a `report`, so the function will be named `processReport`.
+To refactor the code and move asynchronous tasks into the `processReport` workflow function, we'll need to shift the logic related to report analysis and persistence from the controller to this function. This approach will keep the controller cleaner and adhere to the principle of separating business logic from the controller layer.
 
-Here's the updated Java code:
+Here's how you can refactor the code:
+
+1. Move the report creation and analysis logic into the `processReport` function.
+2. Ensure that `processReport` can handle asynchronous operations as required.
+
+Here's the updated code:
 
 ```java
 package com.java_template.entity;
@@ -8,6 +13,7 @@ package com.java_template.entity;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
@@ -53,25 +59,13 @@ public class CyodaEntityControllerPrototype {
             CompletableFuture<ArrayNode> commentsFuture = entityService.getItemsByCondition("comments", ENTITY_VERSION, condition);
             ArrayNode comments = commentsFuture.join();
 
-            // TODO: Replace with actual analysis logic
-            logger.info("Analyzing comments...");
-            CompletableFuture.runAsync(() -> {
-                try {
-                    // Mock analysis process
-                    Thread.sleep(1000);
-                    String reportId = "report-" + postId;
-                    Report report = new Report(reportId, postId, "Sample analysis summary",
-                            new String[]{"keyword1", "keyword2"}, 0.75);
+            // Prepare report object
+            ObjectNode report = objectMapper.createObjectNode();
+            report.put("reportId", "report-" + postId);
+            report.put("postId", postId);
 
-                    // Save report using EntityService with workflow
-                    entityService.addItem("report", ENTITY_VERSION, report, this::processReport).join();
-
-                    logger.info("Analysis complete for postId: {}", postId);
-                    // TODO: Send email with report
-                } catch (InterruptedException e) {
-                    logger.error("Error during analysis", e);
-                }
-            });
+            // Save report using EntityService with workflow
+            entityService.addItem("report", ENTITY_VERSION, report, this::processReport).join();
 
             return ResponseEntity.ok("Comments analyzed and report generation initiated.");
         } catch (Exception e) {
@@ -112,13 +106,27 @@ public class CyodaEntityControllerPrototype {
     }
 
     // Workflow function to process Report entity
-    private Report processReport(Report report) {
-        // Example processing logic: Update sentimentScore based on some criteria
-        if (report.getSentimentScore() < 0.5) {
-            report.setAnalysisSummary(report.getAnalysisSummary() + " (Negative Sentiment)");
-        } else {
-            report.setAnalysisSummary(report.getAnalysisSummary() + " (Positive Sentiment)");
-        }
+    private ObjectNode processReport(ObjectNode report) {
+        // Example processing logic: Perform analysis and update report
+        CompletableFuture.runAsync(() -> {
+            try {
+                // Mock analysis process
+                Thread.sleep(1000);
+                double sentimentScore = Math.random();  // Mock sentiment score
+                String analysisSummary = sentimentScore < 0.5 ? "Negative Sentiment" : "Positive Sentiment";
+
+                // Update the report entity
+                report.put("analysisSummary", analysisSummary);
+                report.put("sentimentScore", sentimentScore);
+                report.putArray("keywords").addAll(objectMapper.createArrayNode().add("keyword1").add("keyword2"));
+
+                logger.info("Analysis complete for postId: {}", report.get("postId").asInt());
+                // TODO: Send email with report
+            } catch (InterruptedException e) {
+                logger.error("Error during analysis", e);
+            }
+        }).join(); // Ensure async completion before returning
+
         return report;
     }
 
@@ -145,6 +153,10 @@ public class CyodaEntityControllerPrototype {
 
 ### Key Changes:
 
-1. **Added `processReport` Method**: This function processes the `Report` entity before it is persisted. It updates the analysis summary based on the sentiment score.
+1. **Moved Asynchronous Logic to `processReport`**: The report analysis and entity modification logic are now part of the `processReport` function. This method processes the report asynchronously and updates its state before persistence.
 
-2. **Updated `addItem` Call**: The `addItem` method in `entityService` is now called with the additional `processReport` workflow function.
+2. **Use of `ObjectNode` in `processReport`**: Since the workflow function receives an `ObjectNode`, we modify the entity directly using `put` and `putArray`.
+
+3. **Simplified Controller Logic**: The controller now primarily focuses on fetching data and calling the service layer, while the complex logic resides in the `processReport` function. 
+
+This approach ensures that the controller remains clean and the business logic is encapsulated within the workflow function, which handles the asynchronous processes and modifies the entity's state before it is saved.
