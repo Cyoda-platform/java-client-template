@@ -1,12 +1,3 @@
-To refactor the code and move asynchronous tasks into the `processReport` workflow function, we'll need to shift the logic related to report analysis and persistence from the controller to this function. This approach will keep the controller cleaner and adhere to the principle of separating business logic from the controller layer.
-
-Here's how you can refactor the code:
-
-1. Move the report creation and analysis logic into the `processReport` function.
-2. Ensure that `processReport` can handle asynchronous operations as required.
-
-Here's the updated code:
-
 ```java
 package com.java_template.entity;
 
@@ -32,9 +23,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.List;
 
 import static com.java_template.common.config.Config.*;
 
@@ -108,25 +97,21 @@ public class CyodaEntityControllerPrototype {
     // Workflow function to process Report entity
     private ObjectNode processReport(ObjectNode report) {
         // Example processing logic: Perform analysis and update report
-        CompletableFuture.runAsync(() -> {
-            try {
-                // Mock analysis process
-                Thread.sleep(1000);
-                double sentimentScore = Math.random();  // Mock sentiment score
-                String analysisSummary = sentimentScore < 0.5 ? "Negative Sentiment" : "Positive Sentiment";
+        try {
+            // Mock analysis process
+            double sentimentScore = Math.random();  // Mock sentiment score
+            String analysisSummary = sentimentScore < 0.5 ? "Negative Sentiment" : "Positive Sentiment";
 
-                // Update the report entity
-                report.put("analysisSummary", analysisSummary);
-                report.put("sentimentScore", sentimentScore);
-                report.putArray("keywords").addAll(objectMapper.createArrayNode().add("keyword1").add("keyword2"));
+            // Update the report entity
+            report.put("analysisSummary", analysisSummary);
+            report.put("sentimentScore", sentimentScore);
+            report.putArray("keywords").addAll(objectMapper.createArrayNode().add("keyword1").add("keyword2"));
 
-                logger.info("Analysis complete for postId: {}", report.get("postId").asInt());
-                // TODO: Send email with report
-            } catch (InterruptedException e) {
-                logger.error("Error during analysis", e);
-            }
-        }).join(); // Ensure async completion before returning
-
+            logger.info("Analysis complete for postId: {}", report.get("postId").asInt());
+            // TODO: Send email with report
+        } catch (Exception e) {
+            logger.error("Error during analysis", e);
+        }
         return report;
     }
 
@@ -150,13 +135,3 @@ public class CyodaEntityControllerPrototype {
     }
 }
 ```
-
-### Key Changes:
-
-1. **Moved Asynchronous Logic to `processReport`**: The report analysis and entity modification logic are now part of the `processReport` function. This method processes the report asynchronously and updates its state before persistence.
-
-2. **Use of `ObjectNode` in `processReport`**: Since the workflow function receives an `ObjectNode`, we modify the entity directly using `put` and `putArray`.
-
-3. **Simplified Controller Logic**: The controller now primarily focuses on fetching data and calling the service layer, while the complex logic resides in the `processReport` function. 
-
-This approach ensures that the controller remains clean and the business logic is encapsulated within the workflow function, which handles the asynchronous processes and modifies the entity's state before it is saved.
