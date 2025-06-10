@@ -1,4 +1,4 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -29,11 +29,17 @@ import static com.java_template.common.config.Config.*;
 @RestController
 @RequestMapping("/cyoda/api")
 @Validated
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    private final EntityService entityService = new EntityService();
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
+    private final ObjectMapper objectMapper;
+    private final EntityService entityService;
+
+    // Constructor injection for ObjectMapper and EntityService
+    public Controller(ObjectMapper objectMapper, EntityService entityService) {
+        this.objectMapper = objectMapper;
+        this.entityService = entityService;
+    }
 
     @PostMapping("/comments/analyze")
     public ResponseEntity<String> analyzeComments(@RequestBody @Valid CommentRequest commentRequest) {
@@ -90,7 +96,7 @@ public class CyodaEntityControllerPrototype {
     public ResponseEntity<Map<String, String>> handleResponseStatusException(ResponseStatusException ex) {
         logger.error("Handling exception: {}", ex.getMessage());
         return ResponseEntity.status(ex.getStatusCode())
-                .body(Map.of("status", "error", "message", ex.getStatusCode().toString()));
+                .body(Map.of("status", "error", "message", ex.getReason()));
     }
 
     @Data
