@@ -1,7 +1,3 @@
-To enhance the code by moving asynchronous tasks into the workflow function, we'll focus on consolidating any logic or asynchronous operations that can be performed right before the entity is persisted. This approach will help keep the controllers cleaner and more focused on handling HTTP requests.
-
-Here's a refined version of the Java code, with async logic moved into the `processSubscriber` function:
-
 ```java
 package com.java_template.entity;
 
@@ -21,14 +17,14 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping("/cyoda/api")
@@ -104,13 +100,12 @@ public class CyodaEntityControllerPrototype {
     }
 
     private CompletableFuture<ObjectNode> processSubscriber(ObjectNode subscriber) {
-        // Example processing logic: modify the entity state directly
         logger.info("Processing subscriber before persistence: {}", subscriber.get("email").asText());
-
-        // Example of adding additional attributes to the subscriber
+        
+        // Modify entity state directly
         subscriber.put("status", "pending_verification");
 
-        // Asynchronous operations, e.g., fetching additional data or initializing related entities
+        // Asynchronous operation to fetch and add a cat fact
         CompletableFuture<Void> fetchCatFactFuture = CompletableFuture.runAsync(() -> {
             try {
                 String apiUrl = "https://catfact.ninja/fact";
@@ -124,7 +119,6 @@ public class CyodaEntityControllerPrototype {
             }
         });
 
-        // Ensure all async operations complete
         return fetchCatFactFuture.thenApply(voidResult -> subscriber);
     }
 
@@ -142,12 +136,3 @@ public class CyodaEntityControllerPrototype {
     }
 }
 ```
-
-### Key Changes:
-1. **Workflow Function as Asynchronous Task**: The `processSubscriber` function now includes asynchronous logic, such as fetching a cat fact and adding it to the subscriber entity. This is done using a `CompletableFuture`.
-
-2. **Direct Entity Modification**: The workflow function directly modifies the `ObjectNode` instance representing the entity, thus ensuring any state changes are correctly persisted.
-
-3. **Cleaner Controllers**: The `signUp` endpoint is now cleaner, as it delegates async logic to the workflow function, reducing complexity within the controller itself.
-
-This approach aligns with the requirement to keep controllers focused on request handling while the workflow function manages pre-persistence processing and asynchronous operations.
