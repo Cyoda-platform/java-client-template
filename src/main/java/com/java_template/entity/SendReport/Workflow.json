@@ -1,0 +1,60 @@
+{
+    "description": "Workflow to analyze books, generate a report, and send it via email",
+    "name": "send_report_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start analyzing book data",
+            "end_state": "Books_analyzed",
+            "end_state_description": "Books have been analyzed",
+            "name": "start_analysis",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAnalyzeBooks"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Generate the book summary report",
+            "end_state": "Report_generated",
+            "end_state_description": "Summary report has been generated",
+            "name": "generate_report",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processGenerateReport"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Books_analyzed",
+            "start_state_description": "Books have been analyzed"
+        },
+        {
+            "automated": true,
+            "description": "Send the generated report via email",
+            "end_state": "Report_sent",
+            "end_state_description": "The report has been sent via email",
+            "name": "send_report_email",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSendEmail"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Report_generated",
+            "start_state_description": "Summary report has been generated"
+        }
+    ]
+}
