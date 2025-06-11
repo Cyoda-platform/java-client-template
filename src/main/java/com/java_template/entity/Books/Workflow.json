@@ -1,0 +1,78 @@
+{
+    "description": "Workflow for processing book data analysis including retrieval, analysis, report generation, and completion.",
+    "name": "books_data_analysis_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Retrieve book data from external API",
+            "end_state": "Data_retrieved",
+            "end_state_description": "Book data has been retrieved",
+            "name": "retrieve_data",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processRetrieveData"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Analyze the retrieved book data",
+            "end_state": "Data_analyzed",
+            "end_state_description": "Book data has been analyzed",
+            "name": "analyze_data",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAnalyzeData"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Data_retrieved",
+            "start_state_description": "Book data has been retrieved"
+        },
+        {
+            "automated": true,
+            "description": "Generate summary report from analyzed data",
+            "end_state": "Report_generated",
+            "end_state_description": "Summary report has been generated",
+            "name": "generate_report",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processGenerateReport"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Data_analyzed",
+            "start_state_description": "Book data has been analyzed"
+        },
+        {
+            "automated": true,
+            "description": "Complete the book data processing workflow",
+            "end_state": "Completed",
+            "end_state_description": "Book data analysis workflow completed",
+            "name": "complete_process",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processComplete"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Report_generated",
+            "start_state_description": "Summary report has been generated"
+        }
+    ]
+}
