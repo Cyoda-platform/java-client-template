@@ -1,13 +1,3 @@
-To refactor the code by moving logic from the controller methods to the `process{entity_name}` workflow functions, we need to extract any asynchronous logic related to entity processing and place it in these functions. This will help in making the controllers cleaner and more focused on managing HTTP requests and responses.
-
-Here's how you can refactor the code:
-
-1. **Move Asynchronous Logic to Workflow Functions:** Identify any asynchronous logic, especially those that modify the entity state or involve supplementary data retrieval or processing, and move them to the workflow functions.
-
-2. **Use `ObjectNode` for Entity Modification:** Since the entity is an `ObjectNode`, use methods like `put()` to modify its state.
-
-Here's the updated code reflecting these changes:
-
 ```java
 package com.java_template.entity;
 
@@ -50,12 +40,12 @@ public class CyodaEntityControllerPrototype {
 
         return CompletableFuture.runAsync(() -> {
             try {
-                // Perform asynchronous book data analysis
+                ObjectNode analysisData = createAnalysisData(criteria);
                 entityService.addItem(
                     "Books",
                     ENTITY_VERSION,
-                    createAnalysisData(criteria),
-                    processBooks // Use the workflow function
+                    analysisData,
+                    processBooks
                 ).join();
                 log.info("Book data analysis initiated for jobId: {}", jobId);
             } catch (Exception e) {
@@ -79,19 +69,18 @@ public class CyodaEntityControllerPrototype {
     @PostMapping("/reports/send")
     public CompletableFuture<SendStatus> sendReport(@RequestBody @Valid SendRequest request) {
         return entityService.getItem("Report", ENTITY_VERSION, UUID.fromString(request.getReportId()))
-                .thenApply(item -> {
+                .thenCompose(item -> {
                     Report report = objectMapper.convertValue(item, Report.class);
                     if (!"completed".equals(report.getStatus())) {
                         throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not available for sending");
                     }
-                    // Send logic moved to workflow
-                    entityService.addItem(
+                    ObjectNode sendData = createSendData(report, request);
+                    return entityService.addItem(
                         "SendReport",
                         ENTITY_VERSION,
-                        createSendData(report, request),
-                        processSendReport // Use the workflow function
-                    ).join();
-                    return new SendStatus("success", "Report sent successfully");
+                        sendData,
+                        processSendReport
+                    ).thenApply(v -> new SendStatus("success", "Report sent successfully"));
                 });
     }
 
@@ -102,23 +91,29 @@ public class CyodaEntityControllerPrototype {
 
     // Workflow function for processing Books entity
     private Function<ObjectNode, ObjectNode> processBooks = books -> {
-        // Asynchronously analyze books data
         CompletableFuture.runAsync(() -> {
-            // Simulate analysis logic
-            books.put("status", "completed");
-            books.put("content", "Book analysis completed.");
-            log.info("Books analysis completed");
+            try {
+                // Example of asynchronous processing
+                books.put("status", "completed");
+                books.put("content", "Book analysis completed.");
+                log.info("Books analysis completed");
+            } catch (Exception e) {
+                log.error("Error processing books", e);
+            }
         }).join();
         return books;
     };
 
     // Workflow function for processing SendReport entity
     private Function<ObjectNode, ObjectNode> processSendReport = sendData -> {
-        // Asynchronously send report
         CompletableFuture.runAsync(() -> {
-            // Simulate sending logic
-            sendData.put("status", "sent");
-            log.info("Report sent successfully to recipients.");
+            try {
+                // Example of asynchronous sending logic
+                sendData.put("status", "sent");
+                log.info("Report sent successfully to recipients.");
+            } catch (Exception e) {
+                log.error("Error sending report", e);
+            }
         }).join();
         return sendData;
     };
@@ -187,11 +182,3 @@ public class CyodaEntityControllerPrototype {
     }
 }
 ```
-
-### Key Changes:
-
-- **`processBooks` and `processSendReport` Workflow Functions:** These functions now handle the asynchronous logic for processing books and sending reports respectively. They modify the `ObjectNode` entity state directly using methods like `put()`.
-
-- **Entity Data Preparation:** Helper methods `createAnalysisData` and `createSendData` are used to prepare `ObjectNode` instances for processing, keeping the controller methods clean.
-
-This refactoring moves asynchronous logic from the controller to workflow functions, making the controller more focused and the codebase more maintainable.
