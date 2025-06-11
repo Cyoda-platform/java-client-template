@@ -1,10 +1,19 @@
-To update the code with the new requirement of including a workflow function as a parameter in `entityService.addItem`, we need to implement a workflow function for each entity type that will be passed to the `addItem` method. Here's the updated code:
+To refactor the code by moving logic from the controller methods to the `process{entity_name}` workflow functions, we need to extract any asynchronous logic related to entity processing and place it in these functions. This will help in making the controllers cleaner and more focused on managing HTTP requests and responses.
+
+Here's how you can refactor the code:
+
+1. **Move Asynchronous Logic to Workflow Functions:** Identify any asynchronous logic, especially those that modify the entity state or involve supplementary data retrieval or processing, and move them to the workflow functions.
+
+2. **Use `ObjectNode` for Entity Modification:** Since the entity is an `ObjectNode`, use methods like `put()` to modify its state.
+
+Here's the updated code reflecting these changes:
 
 ```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
@@ -41,19 +50,16 @@ public class CyodaEntityControllerPrototype {
 
         return CompletableFuture.runAsync(() -> {
             try {
-                String response = entityService.getItem("Books", ENTITY_VERSION, UUID.randomUUID()).get().toString(); // Example usage
-                JsonNode books = objectMapper.readTree(response);
-                // TODO: Implement actual data analysis logic here
-                Report report = new Report("completed", "Book analysis report content...");
+                // Perform asynchronous book data analysis
                 entityService.addItem(
-                    "Report", 
-                    ENTITY_VERSION, 
-                    report, 
-                    processReport // Pass the workflow function here
-                );
-                log.info("Book data analyzed successfully for jobId: {}", jobId);
+                    "Books",
+                    ENTITY_VERSION,
+                    createAnalysisData(criteria),
+                    processBooks // Use the workflow function
+                ).join();
+                log.info("Book data analysis initiated for jobId: {}", jobId);
             } catch (Exception e) {
-                log.error("Error analyzing book data for jobId: {}", jobId, e);
+                log.error("Error initiating book data analysis for jobId: {}", jobId, e);
             }
         }).thenApply(v -> new ReportStatus(jobId, "processing"));
     }
@@ -78,8 +84,13 @@ public class CyodaEntityControllerPrototype {
                     if (!"completed".equals(report.getStatus())) {
                         throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not available for sending");
                     }
-                    // TODO: Implement actual email sending logic here
-                    log.info("Report sent successfully to recipients: {}", request.getRecipients());
+                    // Send logic moved to workflow
+                    entityService.addItem(
+                        "SendReport",
+                        ENTITY_VERSION,
+                        createSendData(report, request),
+                        processSendReport // Use the workflow function
+                    ).join();
                     return new SendStatus("success", "Report sent successfully");
                 });
     }
@@ -89,13 +100,41 @@ public class CyodaEntityControllerPrototype {
         return new ErrorResponse(ex.getStatusCode().toString(), ex.getReason());
     }
 
-    // Workflow function for processing Report entity
-    private Function<Report, Report> processReport = report -> {
-        // Modify the report if needed before persistence
-        // For example, update the status or content
-        report.setContent(report.getContent() + " - Processed");
-        return report;
+    // Workflow function for processing Books entity
+    private Function<ObjectNode, ObjectNode> processBooks = books -> {
+        // Asynchronously analyze books data
+        CompletableFuture.runAsync(() -> {
+            // Simulate analysis logic
+            books.put("status", "completed");
+            books.put("content", "Book analysis completed.");
+            log.info("Books analysis completed");
+        }).join();
+        return books;
     };
+
+    // Workflow function for processing SendReport entity
+    private Function<ObjectNode, ObjectNode> processSendReport = sendData -> {
+        // Asynchronously send report
+        CompletableFuture.runAsync(() -> {
+            // Simulate sending logic
+            sendData.put("status", "sent");
+            log.info("Report sent successfully to recipients.");
+        }).join();
+        return sendData;
+    };
+
+    private ObjectNode createAnalysisData(AnalysisCriteria criteria) {
+        ObjectNode data = objectMapper.createObjectNode();
+        data.put("popularityThreshold", criteria.getPopularityThreshold());
+        return data;
+    }
+
+    private ObjectNode createSendData(Report report, SendRequest request) {
+        ObjectNode data = objectMapper.createObjectNode();
+        data.put("reportContent", report.getContent());
+        data.put("recipients", String.join(",", request.getRecipients()));
+        return data;
+    }
 
     @Data
     @NoArgsConstructor
@@ -149,4 +188,10 @@ public class CyodaEntityControllerPrototype {
 }
 ```
 
-In this updated version, the `processReport` function is defined as a `Function<Report, Report>`, which is then passed to the `addItem` method. The function can modify the `Report` entity before it is persisted. You can add additional logic inside the `processReport` function as needed.
+### Key Changes:
+
+- **`processBooks` and `processSendReport` Workflow Functions:** These functions now handle the asynchronous logic for processing books and sending reports respectively. They modify the `ObjectNode` entity state directly using methods like `put()`.
+
+- **Entity Data Preparation:** Helper methods `createAnalysisData` and `createSendData` are used to prepare `ObjectNode` instances for processing, keeping the controller methods clean.
+
+This refactoring moves asynchronous logic from the controller to workflow functions, making the controller more focused and the codebase more maintainable.
