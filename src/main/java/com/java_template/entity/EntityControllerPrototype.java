@@ -1,8 +1,9 @@
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -20,6 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @RestController
 @RequestMapping("/prototype/api")
 @Slf4j
+@Validated
 public class EntityControllerPrototype {
 
     private static final String FAKE_API_URL = "https://fakerestapi.azurewebsites.net/api/v1/Books";
@@ -27,8 +29,8 @@ public class EntityControllerPrototype {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Map<String, Report> reportStorage = new ConcurrentHashMap<>();
 
-    @PostMapping("/books/analyze")
-    public ReportStatus analyzeBooks(@RequestBody AnalysisCriteria criteria) {
+    @PostMapping("/books/analyze") // must be first
+    public ReportStatus analyzeBooks(@RequestBody @Valid AnalysisCriteria criteria) {
         String jobId = UUID.randomUUID().toString();
         reportStorage.put(jobId, new Report("processing", null));
 
@@ -49,8 +51,8 @@ public class EntityControllerPrototype {
         return new ReportStatus(jobId, "processing");
     }
 
-    @GetMapping("/reports/{reportId}")
-    public Report getReport(@PathVariable String reportId) {
+    @GetMapping("/reports/{reportId}") // must be first
+    public Report getReport(@PathVariable @NotBlank String reportId) {
         Report report = reportStorage.get(reportId);
         if (report == null || "processing".equals(report.getStatus())) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not available");
@@ -58,8 +60,8 @@ public class EntityControllerPrototype {
         return report;
     }
 
-    @PostMapping("/reports/send")
-    public SendStatus sendReport(@RequestBody SendRequest request) {
+    @PostMapping("/reports/send") // must be first
+    public SendStatus sendReport(@RequestBody @Valid SendRequest request) {
         Report report = reportStorage.get(request.getReportId());
         if (report == null || !"completed".equals(report.getStatus())) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not available for sending");
@@ -78,6 +80,7 @@ public class EntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     static class AnalysisCriteria {
+        @Min(1)
         private int popularityThreshold;
     }
 
@@ -101,7 +104,9 @@ public class EntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     static class SendRequest {
+        @NotBlank
         private String reportId;
+        @Size(min = 1)
         private String[] recipients;
     }
 
@@ -121,6 +126,3 @@ public class EntityControllerPrototype {
         private String error;
     }
 }
-```
-
-This prototype illustrates the basic structure and functionality of the API as per your requirements. The actual data analysis and email sending logic should be implemented where marked with TODO comments.
