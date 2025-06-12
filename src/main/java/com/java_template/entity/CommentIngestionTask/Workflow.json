@@ -1,0 +1,103 @@
+{
+    "description": "Workflow for the Comment Ingestion Task entity managing data ingestion, processing and aggregation lifecycle.",
+    "name": "comment_ingestion_task_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Initialize and start the ingestion task",
+            "end_state": "initialized",
+            "end_state_description": "Task has been initialized",
+            "name": "start_ingestion_task",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "name": "processCommentIngestionTask"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state before task creation"
+        },
+        {
+            "automated": true,
+            "description": "Move task from initialized to fetching_ids",
+            "end_state": "fetching_ids",
+            "end_state_description": "Fetching max item ID and comment IDs started",
+            "name": "begin_fetching_ids",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "name": "processFetchMaxItemId"
+                    },
+                    {
+                        "name": "processFetchCommentIdsInTimeWindow"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "initialized",
+            "start_state_description": "Task is initialized"
+        },
+        {
+            "automated": true,
+            "description": "Move task from fetching_ids to fetching_comments",
+            "end_state": "fetching_comments",
+            "end_state_description": "Fetching comment contents started",
+            "name": "begin_fetching_comments",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "name": "processFetchItemById"
+                    },
+                    {
+                        "name": "processExtractCommentTime"
+                    },
+                    {
+                        "name": "processDetectLanguages"
+                    },
+                    {
+                        "name": "processUpdateAggregates"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "fetching_ids",
+            "start_state_description": "Max item and comment IDs fetched"
+        },
+        {
+            "automated": true,
+            "description": "Finalize the ingestion task",
+            "end_state": "completed",
+            "end_state_description": "Task completed successfully",
+            "name": "finalize_task",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "name": "processCommentIngestionTask"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "fetching_comments",
+            "start_state_description": "Comments processed and aggregates updated"
+        },
+        {
+            "automated": true,
+            "description": "Handle task failure",
+            "end_state": "failed",
+            "end_state_description": "Task marked as failed",
+            "name": "fail_task",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "name": "processCommentIngestionTask"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "initialized",
+            "start_state_description": "Task failed at any stage"
+        }
+    ]
+}
