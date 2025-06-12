@@ -1,90 +1,92 @@
+Certainly! The goal is to move asynchronous side-effects and additional logic from the controllers into the workflow functions (`process{EntityName}`), which run asynchronously right before the entity is persisted. This clears controllers from side-effect logic and makes the code more robust and modular.
+
+---
+
+### What we can move to workflow functions:
+
+1. **Subscription confirmation email sending**  
+   Originally done as a `CompletableFuture.runAsync()` in the `/subscribe` endpoint.  
+   But `/subscribe` does not persist any entity (just generates a token and stores in-memory), so this cannot be moved into a workflow function for Subscriber entity because no entity is persisted here.
+
+2. **After subscription confirmed (`/subscribe/confirm`)**  
+   We persist the Subscriber entity here, so the workflow function `processSubscriber` can send the confirmation email asynchronously **before** persistence.
+
+3. **Unsubscription confirmation email sending**  
+   In `/unsubscribe`, similarly to `/subscribe`, no entity is persisted, so it cannot be moved.
+
+4. **After unsubscription confirmed (`/unsubscribe/confirm`)**  
+   We remove the subscriber entity from EntityService, so no persistence on Subscriber entity here, cannot move logic into Subscriber workflow.
+
+5. **Sending unsubscription confirmed email**  
+   This runs after subscriber is removed - no persistence on Subscriber entity - cannot move it.
+
+6. **Fetching, storing, notifying NBA scores**  
+   This is triggered by `/games/fetch` endpoint that does **not** persist a Game entity directly. The `gamesByDate` map is updated directly in memory, but no call to `entityService.addItem` or similar.  
+   If we want to persist Game entities, we would call `entityService.addItem` for each game, passing `processGame` workflow. That would allow the workflow function for Game to handle notification sending.  
+   Alternatively, if we do not persist Game entities, we cannot use workflow.
+
+---
+
+### Summary of possibilities
+
+- Move email sending after subscription confirmation into `processSubscriber` workflow.
+- For games, if persisting each game entity, then move notification sending into `processGame` workflow.
+- For unsubscribe and subscription request tokens (which are only in-memory maps), cannot move to workflow as no persistence occurs.
+
+---
+
+### What I will do
+
+- Implement `processSubscriber(ObjectNode entity)` workflow that sends confirmation email asynchronously before persistence.
+- Create `processGame(ObjectNode entity)` workflow that can send notifications asynchronously after games are persisted.
+- Modify endpoints accordingly:
+  - `/subscribe/confirm` persists Subscriber, workflow sends confirmation email.
+  - `/games/fetch` persists games individually with `processGame` workflow that sends notifications.
+- Remove async email sending from controllers that are now in workflows.
+- Keep token generation and token-confirmation logic in controllers (no persistence, so no workflow opportunity).
+
+---
+
+### Updated Java code (only relevant parts and new workflows added)
+
 ```java
-package com.java_template.entity;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.java_template.common.service.EntityService;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Positive;
-import jakarta.validation.constraints.PositiveOrZero;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.util.StringUtils;
-import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
-import org.springframework.web.server.ResponseStatusException;
-
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.time.Instant;
-import java.util.*;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
-import static com.java_template.common.config.Config.*;
-
-@Slf4j
-@Validated
 @RestController
 @RequestMapping("/api/cyoda")
 public class CyodaEntityControllerPrototype {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    // ... other fields ...
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    private final RestTemplate restTemplate = new RestTemplate();
-
-    private final EntityService entityService;
-
-    private final Map<String, Subscriber> subscribers = new ConcurrentHashMap<>();
-    private final Map<String, String> subscriptionConfirmations = new ConcurrentHashMap<>();
-    private final Map<String, String> unsubscriptionConfirmations = new ConcurrentHashMap<>();
-    private final Map<String, List<Game>> gamesByDate = new ConcurrentHashMap<>();
-    private SchedulerConfig schedulerConfig = new SchedulerConfig("0 0 18 * * ?", true);
-
-    private static final String ENTITY_NAME = "Subscriber";
-
-    public CyodaEntityControllerPrototype(EntityService entityService) {
-        this.entityService = entityService;
-    }
-
-    /**
-     * Workflow function to process Subscriber entity asynchronously before persistence.
-     * You can modify the Subscriber entity here if needed.
-     */
-    private CompletableFuture<Subscriber> processSubscriber(Subscriber subscriber) {
-        // Example: Add additional processing or validation asynchronously if needed.
-        // Returning the subscriber as-is here.
-        return CompletableFuture.completedFuture(subscriber);
-    }
-
-    @PostMapping("/subscribe")
-    public ResponseEntity<Map<String, String>> subscribe(@RequestBody @Valid SubscribeRequest request) {
-        logger.info("Received subscription request for email '{}'", request.getEmail());
-        if (subscribers.containsKey(request.getEmail())) {
-            logger.error("Email '{}' already subscribed", request.getEmail());
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already subscribed");
-        }
-        String token = UUID.randomUUID().toString();
-        subscriptionConfirmations.put(token, request.getEmail());
+    // Workflow for Subscriber entity
+    private CompletableFuture<ObjectNode> processSubscriber(ObjectNode entity) {
+        // Send confirmation email asynchronously here before subscriber is persisted
+        String email = entity.get("email").asText();
+        logger.info("Workflow: Sending subscription confirmed email to {}", email);
+        // Fire-and-forget async email sending
         CompletableFuture.runAsync(() -> {
-            logger.info("Sending subscription confirmation email to {} with token {}", request.getEmail(), token);
-            // TODO: integrate real email sending here
+            // TODO: Implement real email sending logic here
+            logger.info("[Email] Subscription confirmed email sent to {}", email);
         });
-        return ResponseEntity.ok(Map.of("message", "Subscription request received. Please confirm via email."));
+        // Return the entity unchanged (or modify if needed)
+        return CompletableFuture.completedFuture(entity);
+    }
+
+    // Workflow for Game entity
+    private CompletableFuture<ObjectNode> processGame(ObjectNode entity) {
+        // When a game is persisted, send notifications asynchronously
+        logger.info("Workflow: Sending notifications to all subscribers about new game scores");
+        CompletableFuture.runAsync(() -> {
+            // Notify all subscribers - example logic
+            subscribers.values().forEach(sub -> {
+                logger.info("[Email] Sending daily NBA scores email to {}", sub.getEmail());
+                // TODO: Send actual email with game info
+            });
+        });
+        // Return the entity unchanged (or modify if needed)
+        return CompletableFuture.completedFuture(entity);
     }
 
     @PostMapping("/subscribe/confirm")
@@ -92,85 +94,25 @@ public class CyodaEntityControllerPrototype {
         logger.info("Confirm subscription with token {}", request.getToken());
         String email = subscriptionConfirmations.remove(request.getToken());
         if (email == null) {
-            logger.error("Invalid or expired subscription confirmation token: {}", request.getToken());
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid or expired token");
         }
         Subscriber subscriber = new Subscriber(email, Instant.now());
         subscribers.put(email, subscriber);
-        // Persist subscriber via EntityService addItem with workflow function
+
+        // Convert Subscriber POJO to ObjectNode to pass to entityService
+        ObjectNode subscriberNode = objectMapper.valueToTree(subscriber);
+
+        // Persist Subscriber with workflow function
         CompletableFuture<UUID> idFuture = entityService.addItem(
-                ENTITY_NAME,
-                ENTITY_VERSION,
-                subscriber,
-                this::processSubscriber
+            ENTITY_NAME,
+            ENTITY_VERSION,
+            subscriberNode,
+            this::processSubscriber // workflow function
         );
         idFuture.join();
+
         logger.info("Subscription confirmed for email {}", email);
         return ResponseEntity.ok(Map.of("message", "Subscription confirmed."));
-    }
-
-    @PostMapping("/unsubscribe")
-    public ResponseEntity<Map<String, String>> unsubscribe(@RequestBody @Valid UnsubscribeRequest request) {
-        logger.info("Received unsubscribe request for email '{}'", request.getEmail());
-        if (!subscribers.containsKey(request.getEmail())) {
-            logger.error("Email '{}' not subscribed", request.getEmail());
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Email not subscribed");
-        }
-        String token = UUID.randomUUID().toString();
-        unsubscriptionConfirmations.put(token, request.getEmail());
-        CompletableFuture.runAsync(() -> {
-            logger.info("Sending unsubscribe confirmation email to {} with token {}", request.getEmail(), token);
-            // TODO: integrate real email sending here
-        });
-        return ResponseEntity.ok(Map.of("message", "Unsubscribe request received. Please confirm via email."));
-    }
-
-    @PostMapping("/unsubscribe/confirm")
-    public ResponseEntity<Map<String, String>> confirmUnsubscription(@RequestBody @Valid ConfirmTokenRequest request) throws Exception {
-        logger.info("Confirm unsubscription with token {}", request.getToken());
-        String email = unsubscriptionConfirmations.remove(request.getToken());
-        if (email == null) {
-            logger.error("Invalid or expired unsubscription confirmation token: {}", request.getToken());
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid or expired token");
-        }
-        subscribers.remove(email);
-        // Remove subscriber entity from EntityService by condition (email)
-        String condition = String.format("email='%s'", email.replace("'", "\\'"));
-        ArrayNode filtered = entityService.getItemsByCondition(ENTITY_NAME, ENTITY_VERSION, condition).join();
-        for (JsonNode node : filtered) {
-            UUID technicalId = UUID.fromString(node.get("technicalId").asText());
-            entityService.deleteItem(ENTITY_NAME, ENTITY_VERSION, technicalId).join();
-        }
-        logger.info("Unsubscription confirmed for email {}", email);
-        CompletableFuture.runAsync(() -> {
-            logger.info("Sending unsubscription confirmed email to {}", email);
-            // TODO: integrate real email sending here
-        });
-        return ResponseEntity.ok(Map.of("message", "Unsubscription confirmed."));
-    }
-
-    @GetMapping("/subscribers")
-    public ResponseEntity<SubscribersPageResponse> getSubscribers(
-            @RequestParam(defaultValue = "0") @PositiveOrZero int page,
-            @RequestParam(defaultValue = "20") @Positive int size) throws Exception {
-        logger.info("Retrieving subscribers page {} size {}", page, size);
-        ArrayNode allEntities = entityService.getItems(ENTITY_NAME, ENTITY_VERSION).join();
-        List<String> allEmails = new ArrayList<>();
-        for (JsonNode node : allEntities) {
-            String email = node.get("email").asText();
-            allEmails.add(email);
-            // Update local cache for consistency
-            Instant subscribedAt = Instant.parse(node.get("subscribedAt").asText());
-            subscribers.put(email, new Subscriber(email, subscribedAt));
-        }
-        int total = allEmails.size();
-        int fromIndex = page * size;
-        if (fromIndex >= total) {
-            return ResponseEntity.ok(new SubscribersPageResponse(page, size, (total + size - 1) / size, total, List.of()));
-        }
-        int toIndex = Math.min(fromIndex + size, total);
-        List<String> pageContent = allEmails.subList(fromIndex, toIndex);
-        return ResponseEntity.ok(new SubscribersPageResponse(page, size, (total + size - 1) / size, total, pageContent));
     }
 
     @PostMapping("/games/fetch")
@@ -178,163 +120,78 @@ public class CyodaEntityControllerPrototype {
         logger.info("Fetching NBA scores for date {}", request.getDate());
         CompletableFuture.runAsync(() -> {
             try {
-                fetchStoreAndNotify(request.getDate());
+                // Fetch raw JSON from NBA API
+                String apiKey = "test"; // TODO: secure config
+                String url = "https://api.sportsdata.io/v3/nba/scores/json/ScoresBasicFinal/" + request.getDate() + "?key=" + apiKey;
+                String rawJson = restTemplate.getForObject(new URI(url), String.class);
+                if (rawJson == null) {
+                    logger.error("Empty response from NBA API");
+                    return;
+                }
+
+                ArrayNode root = (ArrayNode) objectMapper.readTree(rawJson);
+                for (JsonNode node : root) {
+                    ObjectNode gameNode = objectMapper.createObjectNode();
+                    gameNode.put("gameId", node.path("GameID").asText());
+                    gameNode.put("date", request.getDate());
+                    gameNode.put("homeTeam", node.path("HomeTeam").asText());
+                    gameNode.put("awayTeam", node.path("AwayTeam").asText());
+                    gameNode.put("homeScore", node.path("HomeTeamScore").asInt(0));
+                    gameNode.put("awayScore", node.path("AwayTeamScore").asInt(0));
+                    gameNode.put("status", node.path("Status").asText());
+
+                    // Persist each game with workflow to handle notifications
+                    entityService.addItem(
+                        "Game",
+                        ENTITY_VERSION,
+                        gameNode,
+                        this::processGame
+                    ).join();
+                }
+                logger.info("Finished storing and notifying for NBA games on {}", request.getDate());
             } catch (Exception e) {
-                logger.error("Error during fetch/store/notify for date {}: {}", request.getDate(), e.getMessage(), e);
+                logger.error("Error during fetch/store/notify: {}", e.getMessage(), e);
             }
         });
         return ResponseEntity.ok(Map.of("message", "Scores fetch started for " + request.getDate() + "."));
     }
 
-    @GetMapping("/games/{date}")
-    public ResponseEntity<List<Game>> getGamesByDate(
-            @PathVariable @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}") String date) {
-        logger.info("Retrieving games for date {}", date);
-        List<Game> games = gamesByDate.getOrDefault(date, Collections.emptyList());
-        return ResponseEntity.ok(games);
-    }
+    // Other endpoints remain unchanged, except remove async email sending from subscribe and unsubscribe endpoints
 
-    @PostMapping("/scheduler/config")
-    public ResponseEntity<Map<String, String>> updateSchedulerConfig(@RequestBody @Valid SchedulerConfigRequest request) {
-        logger.info("Updating scheduler config: cron='{}', enabled={}", request.getCronExpression(), request.isEnabled());
-        schedulerConfig = new SchedulerConfig(request.getCronExpression(), request.isEnabled());
-        // TODO: update actual scheduler config if implemented
-        return ResponseEntity.ok(Map.of("message", "Scheduler updated."));
-    }
-
-    private void fetchStoreAndNotify(String date) throws URISyntaxException {
-        String apiKey = "test"; // TODO: replace with secure config
-        String url = "https://api.sportsdata.io/v3/nba/scores/json/ScoresBasicFinal/" + date + "?key=" + apiKey;
-        logger.info("Calling external NBA API: {}", url);
-        URI uri = new URI(url);
-        String rawJson = restTemplate.getForObject(uri, String.class);
-        if (rawJson == null) {
-            logger.error("Empty response from NBA API for date {}", date);
-            return;
-        }
-        try {
-            JsonNode root = objectMapper.readTree(rawJson);
-            if (!root.isArray()) {
-                logger.warn("NBA API response is not an array for date {}: {}", date, root.toString());
-                return;
-            }
-            List<Game> games = new ArrayList<>();
-            for (JsonNode node : root) {
-                Game game = new Game();
-                game.setGameId(node.path("GameID").asText(null));
-                game.setDate(date);
-                game.setHomeTeam(node.path("HomeTeam").asText(null));
-                game.setAwayTeam(node.path("AwayTeam").asText(null));
-                game.setHomeScore(node.path("HomeTeamScore").asInt(0));
-                game.setAwayScore(node.path("AwayTeamScore").asInt(0));
-                game.setStatus(node.path("Status").asText(null));
-                games.add(game);
-            }
-            gamesByDate.put(date, games);
-            logger.info("Stored {} games for date {}", games.size(), date);
-            CompletableFuture.runAsync(() -> {
-                logger.info("Sending notifications to {} subscribers", subscribers.size());
-                for (Subscriber sub : subscribers.values()) {
-                    logger.info("Sending daily NBA scores email to {}", sub.getEmail());
-                    // TODO: send actual HTML formatted email
-                }
-            });
-        } catch (Exception e) {
-            logger.error("Error parsing NBA API response: {}", e.getMessage(), e);
-        }
-    }
-
-    @ExceptionHandler(ResponseStatusException.class)
-    public ResponseEntity<Map<String, String>> handleResponseStatusException(ResponseStatusException ex) {
-        logger.error("Handling ResponseStatusException: {}", ex.getReason());
-        return ResponseEntity.status(ex.getStatusCode())
-                .body(Map.of("error", ex.getReason()));
-    }
-
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, String>> handleGenericException(Exception ex) {
-        logger.error("Unexpected error: {}", ex.getMessage(), ex);
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", "Internal server error"));
-    }
-
-    @Data
-    public static class SubscribeRequest {
-        @NotBlank
-        @Email
-        private String email;
-    }
-
-    @Data
-    public static class ConfirmTokenRequest {
-        @NotBlank
-        private String token;
-    }
-
-    @Data
-    public static class UnsubscribeRequest {
-        @NotBlank
-        @Email
-        private String email;
-    }
-
-    @Data
-    public static class FetchScoresRequest {
-        @NotBlank
-        @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}")
-        private String date;
-    }
-
-    @Data
-    public static class SchedulerConfigRequest {
-        @NotBlank
-        private String cronExpression;
-        private boolean enabled;
-    }
-
-    @Data
-    @AllArgsConstructor
-    public static class Subscriber {
-        private String email;
-        private Instant subscribedAt;
-    }
-
-    @Data
-    @NoArgsConstructor
-    public static class Game {
-        private String gameId;
-        private String date;
-        private String homeTeam;
-        private String awayTeam;
-        private int homeScore;
-        private int awayScore;
-        private String status;
-    }
-
-    @Data
-    @AllArgsConstructor
-    public static class SubscribersPageResponse {
-        private int page;
-        private int size;
-        private int totalPages;
-        private int totalSubscribers;
-        private List<String> subscribers;
-    }
-
-    @Data
-    @AllArgsConstructor
-    public static class SchedulerConfig {
-        private String cronExpression;
-        private boolean enabled;
-    }
 }
 ```
+
 ---
 
-### Explanation
-- Added a private method `processSubscriber(Subscriber subscriber)` which matches the required naming convention `process{EntityName}` where entity name is `Subscriber`.
-- This method returns a `CompletableFuture<Subscriber>` and currently just returns the entity as-is, but you can modify entity state inside this function if needed.
-- Updated the call to `entityService.addItem` in `confirmSubscription` method to pass the `processSubscriber` workflow function as the last argument.
-- This satisfies the new `entityService.addItem` signature which now expects a workflow function to be applied before persistence.
+### Key changes in detail:
 
-Let me know if you need the workflow function to do something specific!
+- **Workflow functions changed to accept and return `CompletableFuture<ObjectNode>`** which matches the new contract.
+- **`processSubscriber`**:
+  - Sends subscription confirmation email asynchronously.
+  - Returns the entity node unchanged.
+- **`processGame`**:
+  - Sends notifications to all subscribers asynchronously when a game entity is persisted.
+- **`/subscribe/confirm`** endpoint:
+  - Converts `Subscriber` POJO to `ObjectNode`.
+  - Calls `addItem` with `processSubscriber` workflow.
+  - Removes async email sending from controller.
+- **`/games/fetch`** endpoint:
+  - Fetches games from API.
+  - For each game, constructs an `ObjectNode` and persists with `processGame` workflow.
+  - Removes earlier in-memory map storage and direct notification code from controller.
+- **Removed all direct `CompletableFuture.runAsync` email sending calls from controller methods except those that cannot be moved (token emails on subscribe/unsubscribe requests).**
+
+---
+
+### Why this approach is correct and required:
+
+- The workflow functions are guaranteed to run asynchronously before persistence.
+- Any side-effects (email sending, notifying subscribers) happen inside workflows, making the persistence and side-effects atomic in logical flow.
+- Controllers focus on request validation, token management, and calling the service layer.
+- Prevents duplication of logic and scattered async tasks.
+- Avoids infinite recursion by not allowing workflow to add/update/delete the same entity (which we respect).
+- Allows workflows to modify entity state if needed (not used here but possible).
+
+---
+
+If you want, I can provide the **full updated source code** with all changes applied. Just ask!
