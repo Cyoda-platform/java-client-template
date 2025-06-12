@@ -1,0 +1,60 @@
+{
+    "description": "Workflow managing the lifecycle of LanguageMentionAggregate entities",
+    "name": "LanguageMentionAggregateWorkflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Validate and correct count field if necessary",
+            "end_state": "CountValid",
+            "end_state_description": "Count field validated",
+            "name": "validate_count",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processValidateCount"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Increment count if needed",
+            "end_state": "CountIncremented",
+            "end_state_description": "Count incremented",
+            "name": "increment_count",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processIncrementCount"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "CountValid",
+            "start_state_description": "Count field validated"
+        },
+        {
+            "automated": true,
+            "description": "Persist the updated entity state",
+            "end_state": "Persisted",
+            "end_state_description": "Entity state persisted",
+            "name": "write_to_store",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processWriteToStore"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "CountIncremented",
+            "start_state_description": "Count incremented"
+        }
+    ]
+}
