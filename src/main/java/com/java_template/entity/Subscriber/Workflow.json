@@ -1,0 +1,78 @@
+{
+    "description": "Workflow for subscriber email subscription confirmation",
+    "name": "subscriber_subscription_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start the subscription process by validating email",
+            "end_state": "EmailValidated",
+            "end_state_description": "Email has been validated",
+            "name": "start_subscription_process",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Validate email format",
+                        "name": "processValidateEmail"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Generate confirmation token for subscription",
+            "end_state": "TokenGenerated",
+            "end_state_description": "Confirmation token has been generated",
+            "name": "generate_confirmation_token",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Generate confirmation token and attach to entity",
+                        "name": "processGenerateToken"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "EmailValidated",
+            "start_state_description": "Email has been validated"
+        },
+        {
+            "automated": true,
+            "description": "Send subscription confirmation email",
+            "end_state": "ConfirmationEmailSent",
+            "end_state_description": "Confirmation email has been sent",
+            "name": "send_confirmation_email",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Send confirmation email asynchronously",
+                        "name": "processSendConfirmationEmail"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "TokenGenerated",
+            "start_state_description": "Confirmation token has been generated"
+        },
+        {
+            "automated": true,
+            "description": "Mark subscription as pending confirmation",
+            "end_state": "PendingConfirmation",
+            "end_state_description": "Subscription is pending confirmation",
+            "name": "mark_pending_confirmation",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Mark entity state as pending confirmation",
+                        "name": "processMarkPending"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "ConfirmationEmailSent",
+            "start_state_description": "Confirmation email has been sent"
+        }
+    ]
+}
