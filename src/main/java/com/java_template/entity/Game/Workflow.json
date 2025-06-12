@@ -1,0 +1,60 @@
+{
+    "description": "Workflow for fetching NBA game scores, storing them, and sending notifications",
+    "name": "game_score_fetch_and_notify_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Fetch NBA game scores from external API",
+            "end_state": "Data_fetched",
+            "end_state_description": "NBA game scores fetched from external API",
+            "name": "fetch_data",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processFetchData"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Store fetched NBA game scores locally",
+            "end_state": "Data_stored",
+            "end_state_description": "NBA game scores stored locally",
+            "name": "store_data",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processStoreData"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Data_fetched",
+            "start_state_description": "NBA game scores fetched from external API"
+        },
+        {
+            "automated": true,
+            "description": "Send notifications to all subscribers about new game scores",
+            "end_state": "Notifications_sent",
+            "end_state_description": "Notifications sent to subscribers",
+            "name": "send_notifications",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSendNotifications"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Data_stored",
+            "start_state_description": "NBA game scores stored locally"
+        }
+    ]
+}
