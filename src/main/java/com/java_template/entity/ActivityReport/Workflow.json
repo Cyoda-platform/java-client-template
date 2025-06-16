@@ -1,0 +1,34 @@
+{
+    "description": "Workflow for processing ActivityReport entities including data fetching, analysis, and audit logging",
+    "name": "ActivityReportProcessingWorkflow",
+    "transitions": [
+        {
+            "automated": true,
+            "end_state": "FetchedAndAnalyzed",
+            "name": "start_processing",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "name": "processFetchAndAnalyze"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None"
+        },
+        {
+            "automated": true,
+            "end_state": "AuditLogCreated",
+            "name": "create_audit_log",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "name": "processCreateAuditLog"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "FetchedAndAnalyzed"
+        }
+    ]
+}
