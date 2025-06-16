@@ -1,29 +1,3 @@
-Certainly! Moving asynchronous and supplementary logic into the workflow function `process{entity_name}` will clean up the controller and encapsulate entity-related logic close to the persistence lifecycle, making the code more robust and maintainable.
-
----
-
-### What to move into `processActivityReport`:
-
-- All async tasks related to entity processing before persistence.
-- Secondary entity creation or fetching related to the main entity.
-- "Fire and forget" logic like sending emails, additional data enrichment, or data fetching from other sources.
-- Any modification of the entity itself (directly on the `ObjectNode`).
-
----
-
-### Approach:
-
-- Change the workflow function signature to take and return an `ObjectNode` (the entity JSON node), because the workflow function is invoked before persistence with a raw entity object.
-- Move all async logic from the controller into this workflow function.
-- Use `entityService` inside the workflow for any secondary entity CRUD on other models.
-- Convert domain objects like `ActivityReport` to/from `ObjectNode` as needed inside the workflow function.
-- The controller will only call `entityService.addItem()` with the workflow function and minimal logic.
-
----
-
-### Updated full Java code with all async logic moved to workflow function:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -46,11 +20,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.client.RestTemplate;
 
 import javax.annotation.PostConstruct;
 import java.net.URI;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -70,6 +46,7 @@ public class CyodaEntityControllerPrototype {
 
     private final EntityService entityService;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final RestTemplate restTemplate = new RestTemplate();
 
     public CyodaEntityControllerPrototype(EntityService entityService) {
         this.entityService = entityService;
@@ -80,20 +57,16 @@ public class CyodaEntityControllerPrototype {
         logger.info("CyodaEntityControllerPrototype initialized");
     }
 
-    /**
-     * Controller endpoint only prepares the entity and triggers the addItem with workflow.
-     * All async processing moved to processActivityReport (workflow).
-     */
+    // Endpoint triggers ingestion by adding minimal entity with workflow processing all logic asynchronously before persistence
     @PostMapping("/ingest")
     public ResponseEntity<GenericResponse> ingestActivities(@RequestBody @Valid IngestRequest ingestRequest) {
         String dateStr = ingestRequest.getDate() != null ? ingestRequest.getDate() : LocalDate.now().toString();
         logger.info("Received ingestion request for date {}", dateStr);
 
-        // Prepare minimal initial entity to insert, with date only.
         ObjectNode initialEntity = objectMapper.createObjectNode();
         initialEntity.put("date", dateStr);
 
-        // Add entity with workflow function that will enrich, fetch and process data async before persistence.
+        // Add item with workflow function - all processing happens asynchronously inside workflow
         CompletableFuture<UUID> addFuture = entityService.addItem(
                 ENTITY_NAME,
                 ENTITY_VERSION,
@@ -101,10 +74,11 @@ public class CyodaEntityControllerPrototype {
                 this::processActivityReport
         );
 
-        // Return immediately, ingestion + processing is async inside workflow function.
+        // Return immediately
         return ResponseEntity.ok(new GenericResponse("success", "Data ingestion and processing started for date " + dateStr));
     }
 
+    // Retrieve ActivityReport by date
     @GetMapping("/report")
     public ResponseEntity<ActivityReport> getReport(
             @RequestParam @NotBlank @Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}$") String date) {
@@ -129,6 +103,7 @@ public class CyodaEntityControllerPrototype {
         }
     }
 
+    // Endpoint to request sending report email; actual email sending is done asynchronously via secondary entity created in workflow
     @PostMapping("/report/send")
     public ResponseEntity<GenericResponse> sendReportEmail(@RequestBody @Valid SendReportRequest request) {
         String date = request.getDate();
@@ -144,43 +119,53 @@ public class CyodaEntityControllerPrototype {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found for date " + date);
         }
 
-        // For sending email, we move this logic into a dedicated entity "EmailJob" created in workflow function.
-        // So here controller just confirms the request.
+        // Create EmailJob entity asynchronously to trigger email sending workflow later
+        ObjectNode emailJobEntity = objectMapper.createObjectNode();
+        emailJobEntity.put("emailTo", adminEmail);
+        emailJobEntity.put("subject", "Requested Activity Report for " + date);
+        emailJobEntity.put("body", "The activity report for date " + date + " has been requested.");
+        emailJobEntity.put("createdAt", OffsetDateTime.now().toString());
+        emailJobEntity.put("status", "pending");
+        emailJobEntity.put("reportDate", date);
+
+        // Add EmailJob entity with no workflow (identity function)
+        entityService.addItem("EmailJob", "1.0", emailJobEntity, Function.identity());
 
         return ResponseEntity.ok(new GenericResponse("success", "Report send request received for " + date + " to " + adminEmail));
     }
 
     /**
-     * Workflow function: processActivityReport
-     * This function is invoked asynchronously before the entity is persisted.
-     * It receives the entity as ObjectNode (JSON), can modify it, and add/get other entities.
-     * Cannot modify entity of the same entityModel (ActivityReport) via add/update/delete.
-     * Here all async tasks moved:
-     * - Fetching data from external API
-     * - Computing report fields
-     * - Sending emails (via creating secondary entity EmailJob)
+     * Workflow function processing ActivityReport entity before persistence.
+     * This function:
+     *  - Fetches external data,
+     *  - Computes and enriches the entity,
+     *  - Creates secondary entities as needed,
+     *  - Returns modified entity for persistence.
+     *  
+     *  Must not add/update/delete entity of the same model (ActivityReport) to avoid recursion.
      */
     private CompletableFuture<ObjectNode> processActivityReport(ObjectNode entity) {
-
         return CompletableFuture.supplyAsync(() -> {
             try {
                 String dateStr = entity.path("date").asText(null);
                 if (dateStr == null || dateStr.isBlank()) {
-                    throw new IllegalArgumentException("Date property is missing or empty in entity");
+                    throw new IllegalArgumentException("Entity 'date' field is missing or empty");
                 }
                 logger.info("Workflow: processing ActivityReport for date {}", dateStr);
 
-                // Fetch activities from external API
-                URI uri = new URI("https://fakerestapi.azurewebsites.net/api/v1/Activities");
-                String rawJson = entityService.fetchRawJson(uri.toString()).join(); // Assuming fetchRawJson API exists in entityService, else use Http client here
+                // Fetch external activities from Fakerest API with RestTemplate (sync call inside async block)
+                URI fakerestUri = new URI("https://fakerestapi.azurewebsites.net/api/v1/Activities");
+                String rawJson = restTemplate.getForObject(fakerestUri, String.class);
+                if (rawJson == null) {
+                    throw new IllegalStateException("Failed to fetch data from Fakerest API");
+                }
+                JsonNode activitiesNode = objectMapper.readTree(rawJson);
 
-                ObjectMapper mapper = new ObjectMapper();
-                JsonNode activitiesNode = mapper.readTree(rawJson);
                 int totalActivities = 0;
-                Map<String, Integer> activityTypesCount = Map.of("typeA", 0, "typeB", 0, "typeC", 0);
-
-                // Use mutable map for counts
-                var mutableCounts = new java.util.HashMap<>(activityTypesCount);
+                Map<String, Integer> activityTypesCount = new HashMap<>();
+                activityTypesCount.put("typeA", 0);
+                activityTypesCount.put("typeB", 0);
+                activityTypesCount.put("typeC", 0);
 
                 if (activitiesNode.isArray()) {
                     totalActivities = activitiesNode.size();
@@ -188,53 +173,44 @@ public class CyodaEntityControllerPrototype {
                         String activityName = activityNode.path("activityName").asText("");
                         int mod = activityName.length() % 3;
                         switch (mod) {
-                            case 0 -> mutableCounts.merge("typeA", 1, Integer::sum);
-                            case 1 -> mutableCounts.merge("typeB", 1, Integer::sum);
-                            default -> mutableCounts.merge("typeC", 1, Integer::sum);
+                            case 0 -> activityTypesCount.merge("typeA", 1, Integer::sum);
+                            case 1 -> activityTypesCount.merge("typeB", 1, Integer::sum);
+                            default -> activityTypesCount.merge("typeC", 1, Integer::sum);
                         }
                     }
                 }
 
-                // Put computed fields into entity (modifying before persistence)
+                // Modify entity directly - these changes will be persisted
                 entity.put("totalActivities", totalActivities);
-                entity.set("activityTypes", mapper.valueToTree(mutableCounts));
-                entity.set("trends", mapper.valueToTree(Map.of("mostActiveUser", "user123", "peakActivityHour", "15:00")));
-                entity.set("anomalies", mapper.valueToTree(new String[]{"User456 showed unusually high activity"}));
+                entity.set("activityTypes", objectMapper.valueToTree(activityTypesCount));
+                entity.set("trends", objectMapper.valueToTree(Map.of("mostActiveUser", "user123", "peakActivityHour", "15:00")));
+                entity.set("anomalies", objectMapper.valueToTree(new String[]{"User456 showed unusually high activity"}));
 
-                logger.info("Workflow: enriched ActivityReport entity with computed fields");
+                logger.info("Workflow: enriched ActivityReport entity with computed values");
 
-                // Example: create secondary entities (e.g. log entity or email job) asynchronously
-                // Here we create an "EmailJob" entity to send report email asynchronously
-                // This avoids sending email directly in controller or workflow sync blocking
+                // Optional: create secondary log entity for audit or monitoring
+                ObjectNode auditLogEntity = objectMapper.createObjectNode();
+                auditLogEntity.put("entityModel", ENTITY_NAME);
+                auditLogEntity.put("entityDate", dateStr);
+                auditLogEntity.put("event", "ActivityReport processed");
+                auditLogEntity.put("timestamp", OffsetDateTime.now().toString());
 
-                // Check if adminEmail is present in the entity (optional)
-                if (entity.has("adminEmail")) {
-                    String adminEmail = entity.get("adminEmail").asText();
+                entityService.addItem("AuditLog", "1.0", auditLogEntity, Function.identity());
 
-                    ObjectNode emailJobEntity = mapper.createObjectNode();
-                    emailJobEntity.put("emailTo", adminEmail);
-                    emailJobEntity.put("subject", "Activity Report for " + dateStr);
-                    emailJobEntity.put("body", "Report for date " + dateStr + " is ready.");
-                    emailJobEntity.put("createdAt", OffsetDateTime.now().toString());
-                    emailJobEntity.put("status", "pending");
+                logger.info("Workflow: created AuditLog entity");
 
-                    // Add the email job entity - different entityModel "EmailJob"
-                    entityService.addItem("EmailJob", "1.0", emailJobEntity, Function.identity());
-
-                    logger.info("Workflow: created EmailJob entity for admin email {}", adminEmail);
-                }
-
-                // Return the modified entity for persistence
+                // Return modified entity for persistence
                 return entity;
 
             } catch (Exception e) {
-                logger.error("Error in workflow processActivityReport: {}", e.getMessage(), e);
+                logger.error("Error during processActivityReport workflow: {}", e.getMessage(), e);
                 throw new RuntimeException(e);
             }
         });
     }
 
-    // Request / response DTOs
+    // DTOs
+
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
@@ -275,35 +251,3 @@ public class CyodaEntityControllerPrototype {
     }
 
 }
-```
-
----
-
-### Summary of changes:
-
-- The controller's `/ingest` endpoint now only creates a minimal entity `{ "date": "yyyy-MM-dd" }` and calls `entityService.addItem()` with workflow function `processActivityReport`.
-- The workflow function `processActivityReport` asynchronously:
-  - Fetches external activity data,
-  - Computes all report fields,
-  - Modifies the entity directly with computed results,
-  - Optionally creates secondary entities like `"EmailJob"` for sending emails asynchronously (instead of sending emails directly inside controller),
-  - Returns the modified entity for persistence.
-- The send report email endpoint now just confirms request; actual email sending logic should be done via secondary entities or separate async workers.
-- The workflow function returns a `CompletableFuture<ObjectNode>` as required.
-- All async and "fire and forget" operations moved out of controller and into workflow function.
-
----
-
-### Benefits:
-
-- Controllers are slim and only responsible for HTTP request/response.
-- Business logic and async tasks related to entity lifecycle are centralized in workflow functions.
-- Avoids infinite recursion by not modifying same entityModel inside workflow.
-- Enables better error handling and retry for async tasks inside workflow.
-- Clean separation of concerns and better code maintainability.
-
----
-
-If your `EntityService` does not provide a method like `fetchRawJson`, you can inject and use an HTTP client (e.g. `RestTemplate` or `HttpClient`) inside the workflow function as well.
-
-Let me know if you want me to adjust for that or add more detailed email sending or secondary entity handling!
