@@ -1,14 +1,17 @@
-```java
-package com.java_template.entity;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
@@ -19,6 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 @RequestMapping("/prototype/api")
+@Validated
 public class EntityControllerPrototype {
 
     private static final Logger logger = LoggerFactory.getLogger(EntityControllerPrototype.class);
@@ -30,7 +34,7 @@ public class EntityControllerPrototype {
     private final Map<String, String> dailyReports = new ConcurrentHashMap<>();
 
     @PostMapping("/fetch-activities")
-    public String fetchActivities(@RequestBody DateRange dateRange) {
+    public String fetchActivities(@RequestBody @Valid DateRange dateRange) {
         logger.info("Fetching activities from external API for date range: {} - {}", dateRange.getStartDate(), dateRange.getEndDate());
         try {
             // TODO: Replace URL with real Fakerest API endpoint
@@ -53,7 +57,7 @@ public class EntityControllerPrototype {
     }
 
     @PostMapping("/process-activities")
-    public String processActivities(@RequestBody ActivityRequest activityRequest) {
+    public String processActivities(@RequestBody @Valid ActivityRequest activityRequest) {
         logger.info("Processing activities for request: {}", activityRequest);
         CompletableFuture.runAsync(() -> {
             // TODO: Implement actual processing logic
@@ -76,7 +80,7 @@ public class EntityControllerPrototype {
     }
 
     @GetMapping("/daily-report")
-    public String getDailyReport(@RequestParam String date) {
+    public String getDailyReport(@RequestParam @NotBlank String date) {
         logger.info("Retrieving daily report for date: {}", date);
         String report = dailyReports.get(date);
         if (report != null) {
@@ -96,7 +100,12 @@ public class EntityControllerPrototype {
     @AllArgsConstructor
     @NoArgsConstructor
     private static class DateRange {
+        @NotNull
+        @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}")
         private String startDate;
+
+        @NotNull
+        @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}")
         private String endDate;
     }
 
@@ -104,9 +113,8 @@ public class EntityControllerPrototype {
     @AllArgsConstructor
     @NoArgsConstructor
     private static class ActivityRequest {
+        @NotNull
+        @Size(min = 1)
         private String key;
     }
 }
-```
-
-This code provides a basic prototype for an `EntityController` in a Spring Boot application. It includes endpoints for fetching activities, processing them, and retrieving daily reports. Note that some parts are mocked or simplified for prototyping purposes, such as storing data in a `ConcurrentHashMap` and simulating processing with a delay. Additionally, the external API call is made using a placeholder URL, and you'll need to replace it with the actual Fakerest API endpoint.
