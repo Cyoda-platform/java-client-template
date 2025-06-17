@@ -1,24 +1,29 @@
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 @RestController
 @RequestMapping("/prototype/api")
+@Validated
 public class EntityControllerPrototype {
 
     private static final Logger logger = LoggerFactory.getLogger(EntityControllerPrototype.class);
@@ -26,8 +31,8 @@ public class EntityControllerPrototype {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ConcurrentMap<String, Booking> bookings = new ConcurrentHashMap<>();
 
-    @PostMapping("/bookings/retrieve")
-    public ResponseEntity<JsonNode> retrieveBookings(@RequestBody ApiRequest request) {
+    @PostMapping("/bookings/retrieve") // must be first
+    public ResponseEntity<JsonNode> retrieveBookings(@RequestBody @Valid ApiRequest request) {
         try {
             String apiUrl = "https://restful-booker.herokuapp.com/booking";
             ResponseEntity<String> response = restTemplate.getForEntity(apiUrl, String.class);
@@ -41,8 +46,8 @@ public class EntityControllerPrototype {
         }
     }
 
-    @PostMapping("/bookings/filter")
-    public ResponseEntity<JsonNode> filterBookings(@RequestBody FilterCriteria filterCriteria) {
+    @PostMapping("/bookings/filter") // must be first
+    public ResponseEntity<JsonNode> filterBookings(@RequestBody @Valid FilterCriteria filterCriteria) {
         try {
             // TODO: Implement filtering logic
             JsonNode filteredBookings = objectMapper.createObjectNode(); // Placeholder
@@ -54,8 +59,8 @@ public class EntityControllerPrototype {
         }
     }
 
-    @PostMapping("/reports/generate")
-    public ResponseEntity<ReportSummary> generateReport(@RequestBody ReportCriteria reportCriteria) {
+    @PostMapping("/reports/generate") // must be first
+    public ResponseEntity<ReportSummary> generateReport(@RequestBody @Valid ReportCriteria reportCriteria) {
         try {
             // TODO: Implement report generation logic
             ReportSummary reportSummary = new ReportSummary(1500, 200, 10); // Placeholder
@@ -67,7 +72,7 @@ public class EntityControllerPrototype {
         }
     }
 
-    @GetMapping("/reports")
+    @GetMapping("/reports") // must be first
     public ResponseEntity<ReportSummary> getReport() {
         try {
             // TODO: Retrieve and return the generated report
@@ -85,6 +90,7 @@ public class EntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     static class ApiRequest {
+        @NotBlank
         private String apiKey;
     }
 
@@ -92,18 +98,30 @@ public class EntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     static class FilterCriteria {
+        @NotBlank
         private String startDate;
+        
+        @NotBlank
         private String endDate;
-        private double minPrice;
-        private double maxPrice;
-        private boolean depositPaid;
+
+        @NotNull
+        private Double minPrice;
+
+        @NotNull
+        private Double maxPrice;
+
+        @NotNull
+        private Boolean depositPaid;
     }
 
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     static class ReportCriteria {
+        @NotBlank
         private String startDate;
+
+        @NotBlank
         private String endDate;
     }
 
@@ -136,6 +154,3 @@ public class EntityControllerPrototype {
         private String checkOut;
     }
 }
-```
-
-This code provides a basic prototype for the Spring Boot application that interacts with the Restful Booker API. It includes endpoints for retrieving and filtering bookings and generating and retrieving reports. Mocks and placeholders are used where specific logic is not yet implemented, marked with `TODO` comments. The code is structured to allow easy extension and adaptation as more details become available.
