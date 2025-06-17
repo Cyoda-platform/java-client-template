@@ -1,8 +1,11 @@
-```java
-package com.java_template.entity;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -10,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -23,14 +27,15 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 @RequestMapping("/prototype/api/data")
+@Validated
 public class EntityControllerPrototype {
 
     private static final Logger logger = LoggerFactory.getLogger(EntityControllerPrototype.class);
     private Map<String, AnalysisResult> analysisResults = new ConcurrentHashMap<>();
     private ObjectMapper objectMapper = new ObjectMapper();
 
-    @PostMapping("/analyze")
-    public ResponseEntity<AnalysisResponse> analyzeData(@RequestBody DataRequest dataRequest) {
+    @PostMapping("/analyze") // must be first
+    public ResponseEntity<AnalysisResponse> analyzeData(@RequestBody @Valid DataRequest dataRequest) {
         String jobId = UUID.randomUUID().toString();
         LocalDateTime requestedAt = LocalDateTime.now();
         analysisResults.put(jobId, new AnalysisResult("processing", requestedAt));
@@ -50,8 +55,8 @@ public class EntityControllerPrototype {
         return ResponseEntity.ok(new AnalysisResponse("Data analysis initiated", jobId));
     }
 
-    @GetMapping("/report/{analysisId}")
-    public ResponseEntity<ReportResponse> getReport(@PathVariable String analysisId) {
+    @GetMapping("/report/{analysisId}") // must be first
+    public ResponseEntity<ReportResponse> getReport(@PathVariable @NotBlank String analysisId) {
         AnalysisResult result = analysisResults.get(analysisId);
         if (result == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Analysis not found");
@@ -60,8 +65,8 @@ public class EntityControllerPrototype {
         return ResponseEntity.ok(new ReportResponse(analysisId, result.getStatus(), result.getReport()));
     }
 
-    @PostMapping("/send-report")
-    public ResponseEntity<MessageResponse> sendReport(@RequestBody EmailRequest emailRequest) {
+    @PostMapping("/send-report") // must be first
+    public ResponseEntity<MessageResponse> sendReport(@RequestBody @Valid EmailRequest emailRequest) {
         // TODO: Implement email sending logic
         logger.info("Sending report to email: {}", emailRequest.getEmail());
         return ResponseEntity.ok(new MessageResponse("Report sent successfully"));
@@ -78,6 +83,9 @@ public class EntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     private static class DataRequest {
+        @NotNull
+        @NotBlank
+        @Size(max = 255)
         private String dataUrl;
     }
 
@@ -102,7 +110,12 @@ public class EntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     private static class EmailRequest {
+        @NotNull
+        @NotBlank
         private String analysisId;
+
+        @NotNull
+        @Email
         private String email;
     }
 
@@ -130,6 +143,3 @@ public class EntityControllerPrototype {
         private String report;
     }
 }
-```
-
-This code provides a basic prototype for your Spring Boot application's controller logic, utilizing Spring Web for the REST API. It includes endpoints for analyzing data, retrieving reports, and sending reports via email. It uses `ConcurrentHashMap` for in-memory storage of analysis results and `ObjectMapper` for JSON processing. Proper logging and basic error handling are included, with `TODO` comments indicating where further implementation is needed.
