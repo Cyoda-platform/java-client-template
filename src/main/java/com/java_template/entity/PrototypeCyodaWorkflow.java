@@ -1,8 +1,3 @@
-To adhere to the requirement of moving asynchronous logic into the `process{entity_name}` function and reducing the logic in the controller, we need to refactor the code such that the asynchronous operations are handled within the workflow function. This will make the controller more streamlined and delegate the processing to the workflow function.
-
-Here's how you can refactor the code to achieve this:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -58,7 +53,7 @@ public class CyodaEntityControllerPrototype {
                 "AnalysisResult",
                 ENTITY_VERSION,
                 initialResult,
-                (entity) -> processAnalysisResult(entity, dataRequest.getDataUrl()) // Pass the workflow function with additional data
+                (entity) -> processAnalysisResult(entity, dataRequest.getDataUrl())
         );
 
         return ResponseEntity.ok(new AnalysisResponse("Data analysis initiated", jobId));
@@ -68,7 +63,7 @@ public class CyodaEntityControllerPrototype {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 JsonNode data = objectMapper.readTree(new URL(dataUrl));
-                // TODO: Implement actual data analysis logic
+                // Simulate data analysis
                 logger.info("Data analyzed: {}", data.toString());
                 entity.put("status", "completed");
                 entity.put("report", "Sample analysis result");
@@ -99,7 +94,7 @@ public class CyodaEntityControllerPrototype {
 
     @PostMapping("/send-report")
     public ResponseEntity<MessageResponse> sendReport(@RequestBody @Valid EmailRequest emailRequest) {
-        // TODO: Implement email sending logic
+        // Simulate email sending logic
         logger.info("Sending report to email: {}", emailRequest.getEmail());
         return ResponseEntity.ok(new MessageResponse("Report sent successfully"));
     }
@@ -175,13 +170,3 @@ public class CyodaEntityControllerPrototype {
         private String report;
     }
 }
-```
-
-### Key Changes:
-1. **Workflow Function Implementation**: We moved the asynchronous data analysis logic into the `processAnalysisResult` function. This function takes `ObjectNode` as a parameter and modifies it directly.
-
-2. **Controller Simplification**: The controller now primarily handles the request initiation and response, while the detailed processing logic is handled by the workflow function. 
-
-3. **Asynchronous Processing**: The `processAnalysisResult` function utilizes `CompletableFuture.supplyAsync` to perform asynchronous processing of the data analysis.
-
-This refactoring delegates the responsibility of processing and modifying the entity to a dedicated function, making the controller less cluttered and more focused on handling HTTP requests and responses.
