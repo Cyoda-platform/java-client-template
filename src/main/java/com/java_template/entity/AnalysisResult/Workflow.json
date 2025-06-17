@@ -1,0 +1,60 @@
+{
+    "description": "Workflow for processing analysis results including downloading data, analyzing it, and completing the workflow.",
+    "name": "analysis_result_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start the analysis process by downloading data",
+            "end_state": "Data_downloaded",
+            "end_state_description": "Data has been downloaded",
+            "name": "start_analysis",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processDownloadData"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Analyze the downloaded data",
+            "end_state": "Data_analyzed",
+            "end_state_description": "Data has been analyzed",
+            "name": "analyze_data",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAnalyzeData"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Data_downloaded",
+            "start_state_description": "Data has been downloaded"
+        },
+        {
+            "automated": true,
+            "description": "Complete the analysis workflow",
+            "end_state": "Analysis_completed",
+            "end_state_description": "The analysis workflow is completed",
+            "name": "complete_analysis",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processComplete"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Data_analyzed",
+            "start_state_description": "Data has been analyzed"
+        }
+    ]
+}
