@@ -1,10 +1,13 @@
-To accommodate the changes in the `entityService.addItem` method, we'll need to implement a workflow function named `processAnalysisResult` and pass it as a parameter. This function will be responsible for any additional processing that needs to happen with the `AnalysisResult` entity before it is persisted. Here's how you can update the code:
+To adhere to the requirement of moving asynchronous logic into the `process{entity_name}` function and reducing the logic in the controller, we need to refactor the code such that the asynchronous operations are handled within the workflow function. This will make the controller more streamlined and delegate the processing to the workflow function.
+
+Here's how you can refactor the code to achieve this:
 
 ```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
@@ -27,7 +30,6 @@ import java.net.URL;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 
 import static com.java_template.common.config.Config.ENTITY_VERSION;
 
@@ -48,38 +50,34 @@ public class CyodaEntityControllerPrototype {
     public ResponseEntity<AnalysisResponse> analyzeData(@RequestBody @Valid DataRequest dataRequest) {
         String jobId = UUID.randomUUID().toString();
         LocalDateTime requestedAt = LocalDateTime.now();
-        AnalysisResult initialResult = new AnalysisResult("processing", requestedAt);
+        ObjectNode initialResult = objectMapper.createObjectNode();
+        initialResult.put("status", "processing");
+        initialResult.put("requestedAt", requestedAt.toString());
 
         CompletableFuture<UUID> uuidFuture = entityService.addItem(
                 "AnalysisResult",
                 ENTITY_VERSION,
                 initialResult,
-                this::processAnalysisResult // Pass the workflow function
+                (entity) -> processAnalysisResult(entity, dataRequest.getDataUrl()) // Pass the workflow function with additional data
         );
-
-        uuidFuture.thenRunAsync(() -> {
-            try {
-                JsonNode data = objectMapper.readTree(new URL(dataRequest.getDataUrl()));
-                // TODO: Implement actual data analysis logic
-                logger.info("Data analyzed: {}", data.toString());
-                AnalysisResult completedResult = new AnalysisResult("completed", requestedAt, "Sample analysis result");
-                entityService.updateItem("AnalysisResult", ENTITY_VERSION, UUID.fromString(jobId), completedResult);
-            } catch (IOException e) {
-                logger.error("Failed to analyze data", e);
-                AnalysisResult failedResult = new AnalysisResult("failed", requestedAt);
-                entityService.updateItem("AnalysisResult", ENTITY_VERSION, UUID.fromString(jobId), failedResult);
-            }
-        });
 
         return ResponseEntity.ok(new AnalysisResponse("Data analysis initiated", jobId));
     }
 
-    private AnalysisResult processAnalysisResult(AnalysisResult analysisResult) {
-        // Implement your processing logic here
-        logger.info("Processing AnalysisResult before persistence: {}", analysisResult);
-        // Example: Modify the analysis result status or add additional data
-        analysisResult.setStatus("pre-processing completed");
-        return analysisResult;
+    private CompletableFuture<ObjectNode> processAnalysisResult(ObjectNode entity, String dataUrl) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                JsonNode data = objectMapper.readTree(new URL(dataUrl));
+                // TODO: Implement actual data analysis logic
+                logger.info("Data analyzed: {}", data.toString());
+                entity.put("status", "completed");
+                entity.put("report", "Sample analysis result");
+            } catch (IOException e) {
+                logger.error("Failed to analyze data", e);
+                entity.put("status", "failed");
+            }
+            return entity;
+        });
     }
 
     @GetMapping("/report/{analysisId}")
@@ -179,4 +177,11 @@ public class CyodaEntityControllerPrototype {
 }
 ```
 
-In this update, we've added a `processAnalysisResult` method, which acts as the workflow function. This function is invoked before the entity is persisted, allowing for any pre-persistence processing of the `AnalysisResult`. The method is passed as an argument to `entityService.addItem` using a method reference.
+### Key Changes:
+1. **Workflow Function Implementation**: We moved the asynchronous data analysis logic into the `processAnalysisResult` function. This function takes `ObjectNode` as a parameter and modifies it directly.
+
+2. **Controller Simplification**: The controller now primarily handles the request initiation and response, while the detailed processing logic is handled by the workflow function. 
+
+3. **Asynchronous Processing**: The `processAnalysisResult` function utilizes `CompletableFuture.supplyAsync` to perform asynchronous processing of the data analysis.
+
+This refactoring delegates the responsibility of processing and modifying the entity to a dedicated function, making the controller less cluttered and more focused on handling HTTP requests and responses.
