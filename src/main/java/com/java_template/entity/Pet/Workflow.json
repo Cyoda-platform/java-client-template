@@ -1,0 +1,42 @@
+{
+    "description": "Workflow to process pet entity details including setting default availability and fetching supplementary data",
+    "name": "pet_details_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Add default availability status if missing",
+            "end_state": "Availability_status_added",
+            "end_state_description": "Default availability status added to pet entity",
+            "name": "add_default_availability",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAddDefaultAvailability"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Fetch supplementary data asynchronously and update pet entity",
+            "end_state": "Supplementary_data_fetched",
+            "end_state_description": "Supplementary data fetched and pet entity updated",
+            "name": "fetch_supplementary_data",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processFetchSupplementaryData"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Availability_status_added",
+            "start_state_description": "Default availability status added to pet entity"
+        }
+    ]
+}
