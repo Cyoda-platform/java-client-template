@@ -1,5 +1,3 @@
-To adhere to your requirements of moving asynchronous logic from the controller to the workflow function, we can refactor the code to shift such tasks into the `process{entity_name}` function. Here is an updated version of the code, focusing on the `addPet` method, which now offloads logic to the workflow function:
-
 ```java
 package com.java_template.entity;
 
@@ -112,18 +110,23 @@ public class CyodaEntityControllerPrototype {
     }
 
     private final Function<JsonNode, JsonNode> processPet = petNode -> {
-        // Example logic: Add a default availability status if not present
+        // Add a default availability status if not present
         if (!petNode.has("availabilityStatus")) {
             ((ObjectNode) petNode).put("availabilityStatus", "unknown");
         }
 
-        // Example: Asynchronous task simulation - fetch supplementary data
+        // Simulate async task to fetch supplementary data
         CompletableFuture.runAsync(() -> {
-            // Simulate fetching supplementary data and updating the pet node
-            logger.info("Fetching supplementary data for pet: {}", petNode.get("name").asText());
-            // Assume we fetched some data and update the pet node (e.g., set a flag)
-            ((ObjectNode) petNode).put("supplementaryDataFetched", true);
-            logger.info("Updated pet entity with supplementary data: {}", petNode);
+            try {
+                // Simulate delay for fetching data
+                Thread.sleep(1000);
+                // Assume supplementary data is fetched and update the entity
+                ((ObjectNode) petNode).put("supplementaryDataFetched", true);
+                logger.info("Fetched and updated pet entity with supplementary data: {}", petNode);
+            } catch (InterruptedException e) {
+                logger.error("Error fetching supplementary data", e);
+                Thread.currentThread().interrupt();
+            }
         });
 
         return petNode;
@@ -132,7 +135,7 @@ public class CyodaEntityControllerPrototype {
     @PostMapping("/notify")
     public ResponseEntity<?> notifyUser(@RequestBody @Valid Notification notification) {
         logger.info("Sending notification: {}", notification.getMessage());
-        // TODO: Implement actual notification logic
+        // Implement actual notification logic
         return ResponseEntity.ok(Map.of("status", "success", "notificationSent", true));
     }
 
@@ -189,11 +192,3 @@ public class CyodaEntityControllerPrototype {
     }
 }
 ```
-
-### Key Changes:
-
-- **`processPet` Function**: This function now contains async logic to simulate fetching supplementary data. It modifies the pet entity by adding a `supplementaryDataFetched` flag.
-  
-- **Asynchronous Task**: Demonstrated using `CompletableFuture.runAsync` within the `processPet` function. This simulates an async operation that might be used to enrich entity data before persistence.
-
-By moving the asynchronous task to the `process{entity_name}` function, we separate concerns and ensure that the controller remains focused on handling HTTP requests and responses, while business logic related to the entity itself is encapsulated within the workflow function. Adjust the async logic to meet your specific needs for fetching supplementary data or performing other pre-persistence tasks.
