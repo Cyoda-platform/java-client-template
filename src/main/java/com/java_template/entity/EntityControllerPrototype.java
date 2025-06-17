@@ -1,8 +1,10 @@
-```java
-package com.java_template.entity;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -10,16 +12,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 
 @RestController
 @RequestMapping("/prototype/api/pets")
+@Validated
 public class EntityControllerPrototype {
 
     private static final Logger logger = LoggerFactory.getLogger(EntityControllerPrototype.class);
@@ -27,8 +30,8 @@ public class EntityControllerPrototype {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Map<String, Pet> petDataStore = new HashMap<>(); // Mock data store
 
-    @PostMapping("/search")
-    public ResponseEntity<?> searchPets(@RequestBody SearchCriteria searchCriteria) {
+    @PostMapping("/search") // must be first
+    public ResponseEntity<?> searchPets(@RequestBody @Valid SearchCriteria searchCriteria) {
         logger.info("Searching for pets with criteria: {}", searchCriteria);
 
         try {
@@ -51,14 +54,14 @@ public class EntityControllerPrototype {
         }
     }
 
-    @GetMapping("/results")
+    @GetMapping("/results") // must be first
     public ResponseEntity<?> getResults() {
         logger.info("Retrieving pet search results");
         return ResponseEntity.ok(petDataStore.values());
     }
 
-    @PostMapping("/notify")
-    public ResponseEntity<?> notifyUser(@RequestBody Notification notification) {
+    @PostMapping("/notify") // must be first
+    public ResponseEntity<?> notifyUser(@RequestBody @Valid Notification notification) {
         logger.info("Sending notification: {}", notification.getMessage());
 
         // TODO: Implement actual notification logic
@@ -77,8 +80,16 @@ public class EntityControllerPrototype {
     @AllArgsConstructor
     @NoArgsConstructor
     static class SearchCriteria {
+        @NotBlank
+        @Size(max = 50)
         private String species;
+
+        @NotBlank
+        @Pattern(regexp = "available|pending|sold", message = "Status must be one of: available, pending, sold")
         private String status;
+
+        @NotBlank
+        @Size(max = 10)
         private String categoryId;
     }
 
@@ -86,10 +97,19 @@ public class EntityControllerPrototype {
     @AllArgsConstructor
     @NoArgsConstructor
     static class Pet {
+        @NotBlank
         private String name;
+
+        @NotBlank
         private String species;
+
+        @NotBlank
         private String status;
+
+        @NotBlank
         private String category;
+
+        @NotBlank
         private String availabilityStatus;
     }
 
@@ -97,9 +117,7 @@ public class EntityControllerPrototype {
     @AllArgsConstructor
     @NoArgsConstructor
     static class Notification {
+        @NotBlank
         private String message;
     }
 }
-```
-
-This prototype sets up a basic structure where you can search for pets and get results using a mock data store. It also includes a notification endpoint, basic error handling, and uses SLF4J for logging. The real API endpoint is used for demonstration purposes, and JSON parsing is done with `ObjectMapper`.
