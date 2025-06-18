@@ -1,0 +1,42 @@
+{
+    "description": "Workflow for processing book entity including title processing and audit creation",
+    "name": "book_entity_processing_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start processing the book entity by processing the title",
+            "end_state": "Title_processed",
+            "end_state_description": "Book title processed",
+            "name": "start_processing",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processTitle"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Create audit record after title processing",
+            "end_state": "Audit_created",
+            "end_state_description": "Audit entity created",
+            "name": "audit_creation",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAudit"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Title_processed",
+            "start_state_description": "Book title processed"
+        }
+    ]
+}
