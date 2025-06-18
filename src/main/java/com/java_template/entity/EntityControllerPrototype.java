@@ -1,8 +1,11 @@
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -11,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
@@ -22,6 +26,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
+@Validated
 @RestController
 @RequestMapping("/prototype/api/reports/inventory")
 public class EntityControllerPrototype {
@@ -30,15 +35,9 @@ public class EntityControllerPrototype {
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
-
-    // In-memory storage for reports: reportId -> ReportData
     private final Map<String, InventoryReport> reports = new ConcurrentHashMap<>();
-
-    // Simulated job status map if needed later (optional)
     private final Map<String, JobStatus> entityJobs = new ConcurrentHashMap<>();
 
-    // Base URL of external SwaggerHub API for inventory search
-    // TODO: Replace with actual external API endpoint if different or include authentication if needed
     private static final String EXTERNAL_API_URL = "https://virtserver.swaggerhub.com/CGIANNAROS/Test/1.0.0/developers/searchInventory";
 
     @PostConstruct
@@ -46,25 +45,19 @@ public class EntityControllerPrototype {
         logger.info("EntityControllerPrototype initialized");
     }
 
-    /**
-     * POST: Generate report by fetching inventory data from external API,
-     * perform calculations and store report for retrieval.
-     */
     @PostMapping
-    public ResponseEntity<GenerateReportResponse> generateReport(@RequestBody GenerateReportRequest request) {
-        logger.info("Received request to generate inventory report with filters: {}", request.getFilters());
+    public ResponseEntity<GenerateReportResponse> generateReport(@RequestBody @Valid GenerateReportRequest request) {
+        logger.info("Received request to generate inventory report with category={} dateFrom={} dateTo={}",
+                request.getCategory(), request.getDateFrom(), request.getDateTo());
 
         String reportId = UUID.randomUUID().toString();
         Instant requestedAt = Instant.now();
-
-        // Store job status as processing (optional utility for async tracking)
         entityJobs.put(reportId, new JobStatus("processing", requestedAt));
 
-        // Fire and forget report generation async task
         CompletableFuture.runAsync(() -> {
             try {
                 logger.info("Starting report generation for reportId={}", reportId);
-                JsonNode inventoryData = callExternalInventoryApi(request.getFilters());
+                JsonNode inventoryData = callExternalInventoryApi(request);
                 InventoryReport report = calculateReport(inventoryData);
                 report.setReportId(reportId);
                 report.setGeneratedAt(Instant.now());
@@ -80,11 +73,8 @@ public class EntityControllerPrototype {
         return ResponseEntity.ok(new GenerateReportResponse(reportId, "SUCCESS", "Report generation started"));
     }
 
-    /**
-     * GET: Retrieve generated report by reportId.
-     */
     @GetMapping("/{reportId}")
-    public ResponseEntity<InventoryReport> getReport(@PathVariable String reportId) {
+    public ResponseEntity<InventoryReport> getReport(@PathVariable @NotBlank String reportId) {
         logger.info("Retrieving report for reportId={}", reportId);
         InventoryReport report = reports.get(reportId);
         if (report == null) {
@@ -94,19 +84,11 @@ public class EntityControllerPrototype {
         return ResponseEntity.ok(report);
     }
 
-    /**
-     * Calls the external SwaggerHub API to retrieve inventory data.
-     * Uses filters if provided.
-     * Returns raw JsonNode from response body.
-     */
-    private JsonNode callExternalInventoryApi(Filters filters) {
+    private JsonNode callExternalInventoryApi(GenerateReportRequest request) {
         try {
-            String url = EXTERNAL_API_URL;
-            // TODO: If the external API supports filters via query params or POST body, implement here.
-            // For prototype, assuming GET without filters.
-
-            logger.info("Calling external API: {}", url);
-            String response = restTemplate.getForObject(url, String.class);
+            // TODO: Enhance to send filters via query params or request body if supported
+            logger.info("Calling external API: {}", EXTERNAL_API_URL);
+            String response = restTemplate.getForObject(EXTERNAL_API_URL, String.class);
             return objectMapper.readTree(response);
         } catch (Exception e) {
             logger.error("Error calling external API: {}", e.getMessage(), e);
@@ -114,13 +96,6 @@ public class EntityControllerPrototype {
         }
     }
 
-    /**
-     * Calculates report metrics from the raw inventory JSON data.
-     * This prototype assumes inventory data is a JSON array of items,
-     * each item containing fields like "price" (number).
-     *
-     * TODO: Adjust parsing according to real external API response structure.
-     */
     private InventoryReport calculateReport(JsonNode inventoryData) {
         if (!inventoryData.isArray()) {
             logger.error("Expected inventory data to be an array");
@@ -132,27 +107,18 @@ public class EntityControllerPrototype {
 
         for (JsonNode item : inventoryData) {
             totalItems++;
-            double price = 0.0;
-            if (item.has("price") && item.get("price").isNumber()) {
-                price = item.get("price").asDouble();
-            }
+            double price = item.has("price") && item.get("price").isNumber() ? item.get("price").asDouble() : 0.0;
             totalValue += price;
         }
 
         double averagePrice = totalItems > 0 ? totalValue / totalItems : 0.0;
-
         InventoryReport report = new InventoryReport();
         report.setTotalItems(totalItems);
         report.setTotalValue(totalValue);
         report.setAveragePrice(averagePrice);
-        // otherStatistics can be extended here if needed
-
-        logger.info("Calculated report: totalItems={}, averagePrice={}, totalValue={}",
-                totalItems, averagePrice, totalValue);
-
+        logger.info("Calculated report: totalItems={}, averagePrice={}, totalValue={}", totalItems, averagePrice, totalValue);
         return report;
     }
-
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<ErrorResponse> handleResponseStatusException(ResponseStatusException ex) {
@@ -168,30 +134,16 @@ public class EntityControllerPrototype {
                 .body(new ErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR.toString(), "Internal server error"));
     }
 
-
-    // --- DTOs and helper classes ---
-
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     public static class GenerateReportRequest {
-        private Filters filters;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class Filters {
+        @Size(max = 100)
         private String category;
-        private DateRange dateRange;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class DateRange {
-        private String from; // YYYY-MM-DD
-        private String to;   // YYYY-MM-DD
+        @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}")
+        private String dateFrom;
+        @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}")
+        private String dateTo;
     }
 
     @Data
@@ -199,7 +151,7 @@ public class EntityControllerPrototype {
     @AllArgsConstructor
     public static class GenerateReportResponse {
         private String reportId;
-        private String status; // SUCCESS | FAILURE
+        private String status;
         private String message;
     }
 
@@ -210,14 +162,14 @@ public class EntityControllerPrototype {
         private int totalItems;
         private double averagePrice;
         private double totalValue;
-        private Map<String, Object> otherStatistics; // extensible for category stats etc.
+        private Map<String, Object> otherStatistics;
         private Instant generatedAt;
     }
 
     @Data
     @AllArgsConstructor
     public static class JobStatus {
-        private String status; // e.g. processing, completed, failed
+        private String status;
         private Instant timestamp;
     }
 
@@ -228,4 +180,3 @@ public class EntityControllerPrototype {
         private String message;
     }
 }
-```
