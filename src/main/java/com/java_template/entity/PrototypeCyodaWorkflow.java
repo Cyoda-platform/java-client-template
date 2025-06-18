@@ -1,15 +1,3 @@
-Certainly! To follow the requirement strictly:
-
-- Move **all asynchronous and pre-persistence logic** from the controller endpoints into the corresponding `process{EntityName}` workflow functions.
-- The workflow function receives the entity as an `ObjectNode` (Jackson JSON tree node), so all modifications should be done on it directly.
-- The workflow can call `entityService` methods for **different** entityModels (not the current one), for supplementary or raw data.
-- The controllers will become much thinner, delegating entity manipulation and async calls into these workflow functions.
-
----
-
-Below is the **updated Java code** with these principles applied:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -58,14 +46,12 @@ public class CyodaEntityControllerPrototype {
         this.entityService = entityService;
     }
 
-    /**
-     * Workflow function to process BookEntity before persistence.
-     * This function replaces all async and pre-persistence logic from controller.
-     * It expects ObjectNode representing the entity and can mutate it.
-     */
+    // Workflow function for processing BookEntity asynchronously before persistence
     private CompletableFuture<ObjectNode> processBookEntity(ObjectNode entity) {
-        // 1. Modify entity directly if needed
-        // Append "[Processed]" tag to title if not present
+        // Defensive null checks and modifications
+        if (entity == null) return CompletableFuture.completedFuture(null);
+
+        // Append "[Processed]" to title if not present
         if (entity.hasNonNull("title")) {
             String title = entity.get("title").asText();
             if (!title.contains("[Processed]")) {
@@ -73,21 +59,44 @@ public class CyodaEntityControllerPrototype {
             }
         }
 
-        // 2. Example: Add supplementary entity (different model)
-        // For example, raw data or audit log for the book
-        ObjectNode auditEntity = objectMapper.createObjectNode();
-        auditEntity.put("bookId", entity.path("bookId").asText(UUID.randomUUID().toString()));
-        auditEntity.put("processedAt", Instant.now().toString());
-        auditEntity.put("processedBy", "processBookEntityWorkflow");
-        auditEntity.put("originalTitle", entity.path("title").asText());
-        // Add audit entity asynchronously - different model e.g. "BookAudit"
-        entityService.addItem("BookAudit", ENTITY_VERSION, auditEntity, obj -> CompletableFuture.completedFuture(obj));
+        // Add a supplementary audit entity asynchronously (different entityModel)
+        try {
+            ObjectNode auditEntity = objectMapper.createObjectNode();
+            String bookId = entity.path("bookId").asText(UUID.randomUUID().toString());
+            auditEntity.put("bookId", bookId);
+            auditEntity.put("processedAt", Instant.now().toString());
+            auditEntity.put("processedBy", "processBookEntityWorkflow");
+            auditEntity.put("originalTitle", entity.path("title").asText());
+            // We do not wait for completion, fire and forget
+            entityService.addItem("BookAudit", ENTITY_VERSION, auditEntity, obj -> CompletableFuture.completedFuture(obj));
+        } catch (Exception e) {
+            logger.error("Failed to create audit entity in processBookEntity", e);
+        }
 
-        // 3. If you want to enrich entity with external data asynchronously before persistence,
-        // you can make async calls here (e.g. enrich with cover image URL)
-        // but here we keep it simple and synchronous for demo
-
+        // Potential place to add async enrichment if needed (e.g. external API call)
+        // For now, synchronous return
         return CompletableFuture.completedFuture(entity);
+    }
+
+    // Workflow function for processing ingestion jobs asynchronously before persistence
+    private CompletableFuture<ObjectNode> processIngestionJob(ObjectNode entity) {
+        return CompletableFuture.supplyAsync(() -> {
+            if (entity == null) return null;
+            try {
+                // Simulate ingestion work
+                Thread.sleep(2000);
+                entity.put("status", "completed");
+                entity.put("completedAt", Instant.now().toString());
+            } catch (InterruptedException e) {
+                entity.put("status", "failed");
+                entity.put("errorMessage", e.getMessage());
+                Thread.currentThread().interrupt();
+            } catch (Exception e) {
+                entity.put("status", "failed");
+                entity.put("errorMessage", e.getMessage());
+            }
+            return entity;
+        });
     }
 
     @PostMapping("/books/search")
@@ -96,7 +105,14 @@ public class CyodaEntityControllerPrototype {
                 request.getQuery(), request.getGenre(), request.getPublicationYear(), request.getAuthor());
 
         Map<String, String> uriVars = Map.of("query", request.getQuery());
-        JsonNode root = restTemplate.getForObject(OPEN_LIBRARY_SEARCH_API, JsonNode.class, uriVars);
+        JsonNode root = null;
+        try {
+            root = restTemplate.getForObject(OPEN_LIBRARY_SEARCH_API, JsonNode.class, uriVars);
+        } catch (Exception ex) {
+            logger.error("Error calling OpenLibrary API", ex);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch data from Open Library API");
+        }
+
         if (root == null || !root.has("docs")) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Invalid data from Open Library API");
         }
@@ -111,7 +127,7 @@ public class CyodaEntityControllerPrototype {
                     ? "https://covers.openlibrary.org/b/id/" + coverId + "-M.jpg"
                     : null;
             String genre = getFirstTextFromArray(doc, "subject");
-            Integer pubYear = doc.has("first_publish_year") && !doc.get("first_publish_year").isNull()
+            Integer pubYear = (doc.has("first_publish_year") && !doc.get("first_publish_year").isNull())
                     ? doc.get("first_publish_year").asInt() : null;
             String bookId = doc.has("key") ? doc.get("key").asText() : UUID.randomUUID().toString();
 
@@ -125,12 +141,14 @@ public class CyodaEntityControllerPrototype {
                 continue;
             }
 
+            if (title == null || title.isBlank()) continue; // skip invalid
+
             bookNode.put("title", title);
-            bookNode.put("author", author);
+            bookNode.put("author", author != null ? author : "");
             if (coverImageUrl != null) {
                 bookNode.put("coverImageUrl", coverImageUrl);
             }
-            bookNode.put("genre", genre);
+            bookNode.put("genre", genre != null ? genre : "");
             if (pubYear != null) {
                 bookNode.put("publicationYear", pubYear);
             }
@@ -140,10 +158,8 @@ public class CyodaEntityControllerPrototype {
         }
 
         // Persist entities using workflow function processBookEntity per item
-        // This will asynchronously apply the workflow on each entity before persist
         return entityService.addItems(ENTITY_NAME, ENTITY_VERSION, filteredResults, this::processBookEntity)
                 .thenApply(ids -> {
-                    // Convert ObjectNodes back to BookSummary DTOs for response
                     List<BookSummary> responseResults = new ArrayList<>();
                     for (ObjectNode node : filteredResults) {
                         BookSummary bs = new BookSummary(
@@ -178,6 +194,7 @@ public class CyodaEntityControllerPrototype {
                     try {
                         return ResponseEntity.ok(objectMapper.treeToValue(item, BookDetails.class));
                     } catch (Exception e) {
+                        logger.error("Error converting book details", e);
                         throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error mapping book details", e);
                     }
                 });
@@ -185,8 +202,6 @@ public class CyodaEntityControllerPrototype {
 
     @GetMapping("/reports/weekly")
     public ResponseEntity<WeeklyReport> getWeeklyReport() {
-        // Since this is a simple synchronous endpoint with no async or persistence,
-        // no workflow needed here.
         WeeklyReport report = new WeeklyReport(
                 Instant.now().minusSeconds(7 * 24 * 60 * 60).toString().substring(0, 10),
                 Instant.now().toString().substring(0, 10),
@@ -204,21 +219,17 @@ public class CyodaEntityControllerPrototype {
 
     @PostMapping("/recommendations")
     public ResponseEntity<RecommendationResponse> getRecommendations(@RequestBody @Valid RecommendationRequest request) {
-        // This endpoint has no async persistence, just returns recommendations from local cache.
-        // If async enrichment is needed, it should be moved to a different entity workflow.
+        // For demonstration, static recommendations; in real scenario, async enrichment can be added
         List<Recommendation> recs = new ArrayList<>();
-        // Suppose user search history is not persisted here, so just return static recs
         recs.add(new Recommendation("Popular Book", "Famous Author", null, "Popular recommendation"));
         return ResponseEntity.ok(new RecommendationResponse(recs));
     }
 
     @PostMapping("/ingestion/daily")
     public ResponseEntity<IngestionResponse> triggerDailyIngestion() {
-        // Move ingestion logic to ingestion entity workflow to run async pre-persistence
-        // Here just create ingestion entity with status "processing", workflow will update it asynchronously
-
         ObjectNode ingestionEntity = objectMapper.createObjectNode();
-        ingestionEntity.put("jobId", UUID.randomUUID().toString());
+        String jobId = UUID.randomUUID().toString();
+        ingestionEntity.put("jobId", jobId);
         ingestionEntity.put("status", "processing");
         ingestionEntity.put("startedAt", Instant.now().toString());
 
@@ -231,30 +242,14 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.ok(new IngestionResponse("started", "Daily ingestion process triggered"));
     }
 
-    /**
-     * Workflow function to process ingestion job asynchronously.
-     * It simulates ingestion task, updates status accordingly.
-     */
-    private CompletableFuture<ObjectNode> processIngestionJob(ObjectNode entity) {
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                Thread.sleep(2000); // Simulate ingestion delay
-                entity.put("status", "completed");
-                entity.put("completedAt", Instant.now().toString());
-            } catch (InterruptedException e) {
-                entity.put("status", "failed");
-                entity.put("errorMessage", e.getMessage());
-            }
-            return entity;
-        });
-    }
-
-    // Utility methods to extract text from JsonNode
+    // Utility methods to extract text from JsonNode safely
     private String getFirstText(JsonNode n, String f) {
+        if (n == null || f == null) return null;
         return n.hasNonNull(f) ? n.get(f).asText() : null;
     }
 
     private String getFirstTextFromArray(JsonNode n, String f) {
+        if (n == null || f == null) return null;
         if (n.has(f) && n.get(f).isArray() && n.get(f).size() > 0) {
             return n.get(f).get(0).asText();
         }
@@ -378,43 +373,3 @@ public class CyodaEntityControllerPrototype {
                 .body(new ErrorResponse(ex.getStatusCode().toString(), ex.getReason()));
     }
 }
-```
-
----
-
-### Summary of changes and rationale:
-
-- **`processBookEntity`**:
-  - Converts the entity to `ObjectNode`, modifies fields (e.g., appends `[Processed]` to title).
-  - Adds a supplementary entity `BookAudit` asynchronously to record audit info.
-  - Any async enrichment or calls related to the Book entity before persistence should go here.
-  - The controller just prepares raw `ObjectNode` entities and calls `addItems` with workflow.
-
-- **`searchBooks` endpoint**:
-  - Only fetches external API, filters, transforms results into `ObjectNode` list.
-  - Calls `entityService.addItems` passing the workflow `processBookEntity`.
-  - Returns DTOs built from the final entities.
-
-- **`triggerDailyIngestion` endpoint**:
-  - Instead of sleeping in controller, creates an `IngestionJob` entity with "processing" status.
-  - Calls `entityService.addItem` with `processIngestionJob` workflow that asynchronously updates status to "completed" or "failed".
-  - This moves fire-and-forget ingestion async task into the workflow function.
-
-- Other endpoints:
-  - `getBookDetails` remains similar because it just reads persisted data.
-  - `getWeeklyReport` and `getRecommendations` are mostly synchronous, no persistence, so no workflows needed.
-  - Exception handling unchanged.
-
----
-
-### Benefits:
-
-- Controllers are **thin**, only responsible for request/response.
-- All async logic & entity mutations happen **before persistence** inside the workflow functions.
-- Workflow functions can persist supplementary entities of different types safely.
-- No infinite recursion risk because workflow functions cannot mutate the current entity model via `entityService`.
-- Async workflows can handle complex enrichment, audit logging, or batch processing transparently.
-
----
-
-Let me know if you want me to extract workflows into separate dedicated classes or services for better separation!
