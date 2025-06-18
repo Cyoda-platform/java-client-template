@@ -1,4 +1,3 @@
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -12,9 +11,14 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 import javax.annotation.PostConstruct;
 import java.time.Instant;
@@ -23,6 +27,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
+@Validated
 @RestController
 @RequestMapping("/prototype/api")
 public class EntityControllerPrototype {
@@ -31,19 +36,10 @@ public class EntityControllerPrototype {
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
-
-    // Mock storage for search results keyed by user session or query id (simplified)
     private final Map<String, List<BookSummary>> cachedSearchResults = new ConcurrentHashMap<>();
-
-    // Mock storage for book details, keyed by bookId
     private final Map<String, BookDetails> bookDetailsCache = new ConcurrentHashMap<>();
-
-    // Mock user search history for recommendations keyed by userId
     private final Map<String, List<String>> userSearchHistory = new ConcurrentHashMap<>();
-
-    // Mock job status storage (e.g. ingestion jobs)
     private final Map<String, JobStatus> ingestionJobs = new ConcurrentHashMap<>();
-
     private static final String OPEN_LIBRARY_SEARCH_API = "https://openlibrary.org/search.json?q={query}";
 
     @PostConstruct
@@ -51,210 +47,133 @@ public class EntityControllerPrototype {
         logger.info("EntityControllerPrototype initialized");
     }
 
-    // 1. Search Books - POST /api/books/search
     @PostMapping("/books/search")
-    public ResponseEntity<SearchResponse> searchBooks(@RequestBody SearchRequest request) {
-        logger.info("Received search request: query='{}' filters={}", request.getQuery(), request.getFilters());
-        if (request.getQuery() == null || request.getQuery().trim().isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Query parameter must not be empty");
-        }
-
+    public ResponseEntity<SearchResponse> searchBooks(@RequestBody @Valid SearchRequest request) {
+        logger.info("Received search request: query='{}' genre='{}' year='{}' author='{}'",
+                request.getQuery(), request.getGenre(), request.getPublicationYear(), request.getAuthor());
         try {
-            // Build Open Library API URL with query param (encoding handled by RestTemplate)
-            Map<String, String> uriVariables = new HashMap<>();
-            uriVariables.put("query", request.getQuery());
-
-            String url = OPEN_LIBRARY_SEARCH_API;
-
-            JsonNode root = restTemplate.getForObject(url, JsonNode.class, uriVariables);
+            Map<String, String> uriVars = Map.of("query", request.getQuery());
+            JsonNode root = restTemplate.getForObject(OPEN_LIBRARY_SEARCH_API, JsonNode.class, uriVars);
             if (root == null || !root.has("docs")) {
-                logger.error("Open Library API returned unexpected data structure");
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Invalid data from Open Library API");
             }
-
             List<BookSummary> results = new ArrayList<>();
-
             for (JsonNode doc : root.get("docs")) {
-                // Extract fields safely with fallback
                 String title = getFirstText(doc, "title");
                 String author = getFirstTextFromArray(doc, "author_name");
                 String coverId = doc.has("cover_i") ? doc.get("cover_i").asText() : null;
-                String coverImageUrl = coverId != null ? "https://covers.openlibrary.org/b/id/" + coverId + "-M.jpg" : null;
-                String genre = getFirstTextFromArray(doc, "subject"); // genre approximated by subject
-                Integer pubYear = doc.has("first_publish_year") && !doc.get("first_publish_year").isNull()
-                        ? doc.get("first_publish_year").asInt()
+                String coverImageUrl = coverId != null
+                        ? "https://covers.openlibrary.org/b/id/" + coverId + "-M.jpg"
                         : null;
+                String genre = getFirstTextFromArray(doc, "subject");
+                Integer pubYear = doc.has("first_publish_year") && !doc.get("first_publish_year").isNull()
+                        ? doc.get("first_publish_year").asInt() : null;
                 String bookId = doc.has("key") ? doc.get("key").asText() : UUID.randomUUID().toString();
-
-                // Apply filters (simple in-memory filter)
-                if (request.getFilters() != null) {
-                    if (request.getFilters().getGenre() != null && (genre == null || !genre.toLowerCase().contains(request.getFilters().getGenre().toLowerCase()))) {
-                        continue;
-                    }
-                    if (request.getFilters().getPublicationYear() != null && !request.getFilters().getPublicationYear().equals(pubYear)) {
-                        continue;
-                    }
-                    if (request.getFilters().getAuthor() != null && (author == null || !author.toLowerCase().contains(request.getFilters().getAuthor().toLowerCase()))) {
-                        continue;
-                    }
+                if (request.getGenre() != null && (genre == null || !genre.equalsIgnoreCase(request.getGenre()))) {
+                    continue;
                 }
-
+                if (request.getPublicationYear() != null && !request.getPublicationYear().equals(pubYear)) {
+                    continue;
+                }
+                if (request.getAuthor() != null && (author == null || !author.toLowerCase().contains(request.getAuthor().toLowerCase()))) {
+                    continue;
+                }
                 results.add(new BookSummary(title, author, coverImageUrl, genre, pubYear, bookId));
             }
-
-            // Cache results by a simplistic key (could be session/user id or request hash)
             String cacheKey = UUID.randomUUID().toString();
             cachedSearchResults.put(cacheKey, results);
-
-            // Store user search history for recommendations (mock userId = "anonymous" here for prototype)
             userSearchHistory.computeIfAbsent("anonymous", k -> new ArrayList<>()).add(request.getQuery());
-
-            logger.info("Search processed: {} results found", results.size());
             return ResponseEntity.ok(new SearchResponse(results));
+        } catch (ResponseStatusException ex) {
+            throw ex;
         } catch (Exception ex) {
             logger.error("Error during book search", ex);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to search books");
         }
     }
 
-    // 2. Get Book Details - GET /api/books/{bookId}
     @GetMapping("/books/{bookId}")
-    public ResponseEntity<BookDetails> getBookDetails(@PathVariable String bookId) {
-        logger.info("Fetching details for bookId={}", bookId);
+    public ResponseEntity<BookDetails> getBookDetails(@PathVariable @NotBlank String bookId) {
         BookDetails details = bookDetailsCache.get(bookId);
         if (details != null) {
-            logger.info("Book details found in cache");
             return ResponseEntity.ok(details);
         }
-
-        // TODO: Implement real external fetch or database retrieval
-        // For now, mock response with minimal info
-        logger.info("Book details not found in cache, returning mock data");
-        BookDetails mockDetails = new BookDetails(
-                "Unknown Title",
-                "Unknown Author",
-                null,
-                "Unknown Genre",
-                null,
-                "No description available",
-                "Unknown Publisher",
-                "N/A"
+        BookDetails mock = new BookDetails(
+                "Unknown Title", "Unknown Author", null,
+                "Unknown Genre", null, "No description available",
+                "Unknown Publisher", "N/A"
         );
-        return ResponseEntity.ok(mockDetails);
+        return ResponseEntity.ok(mock);
     }
 
-    // 3. Generate Weekly Report - GET /api/reports/weekly
     @GetMapping("/reports/weekly")
     public ResponseEntity<WeeklyReport> getWeeklyReport() {
-        logger.info("Generating weekly report");
-
-        // TODO: Replace with real analytics logic
         WeeklyReport report = new WeeklyReport(
                 Instant.now().minusSeconds(7 * 24 * 60 * 60).toString().substring(0, 10),
                 Instant.now().toString().substring(0, 10),
-                Arrays.asList(
-                        new MostSearchedBook("Example Book 1", 42),
-                        new MostSearchedBook("Example Book 2", 27)
-                ),
-                new UserPreferences(
-                        Arrays.asList("Fantasy", "Science Fiction"),
-                        Arrays.asList("J.K. Rowling", "Isaac Asimov")
-                )
+                Arrays.asList(new MostSearchedBook("Example Book 1", 42),
+                              new MostSearchedBook("Example Book 2", 27)),
+                new UserPreferences(Arrays.asList("Fantasy", "Science Fiction"),
+                                    Arrays.asList("J.K. Rowling", "Isaac Asimov"))
         );
-
         return ResponseEntity.ok(report);
     }
 
-    // 4. Get Personalized Recommendations - POST /api/recommendations
     @PostMapping("/recommendations")
-    public ResponseEntity<RecommendationResponse> getRecommendations(@RequestBody RecommendationRequest request) {
-        logger.info("Generating recommendations for userId={}", request.getUserId());
+    public ResponseEntity<RecommendationResponse> getRecommendations(@RequestBody @Valid RecommendationRequest request) {
         List<String> history = userSearchHistory.getOrDefault(request.getUserId(), Collections.emptyList());
-
-        // TODO: Replace with real recommendation logic
         List<Recommendation> recs = new ArrayList<>();
-        for (String query : history) {
-            recs.add(new Recommendation(
-                    "Recommended Book for " + query,
-                    "Some Author",
-                    null,
-                    "Based on your search for '" + query + "'"
-            ));
+        for (String q : history) {
+            recs.add(new Recommendation("Recommended Book for " + q, "Some Author", null,
+                    "Based on your search for '" + q + "'"));
         }
         if (recs.isEmpty()) {
-            recs.add(new Recommendation(
-                    "Popular Book",
-                    "Famous Author",
-                    null,
-                    "Popular recommendation"
-            ));
+            recs.add(new Recommendation("Popular Book", "Famous Author", null, "Popular recommendation"));
         }
-
         return ResponseEntity.ok(new RecommendationResponse(recs));
     }
 
-    // 5. Data Ingestion Trigger (Scheduled) - POST /api/ingestion/daily
     @PostMapping("/ingestion/daily")
     public ResponseEntity<IngestionResponse> triggerDailyIngestion() {
         String jobId = UUID.randomUUID().toString();
-        Instant requestedAt = Instant.now();
-        ingestionJobs.put(jobId, new JobStatus("processing", requestedAt));
-        logger.info("Daily ingestion job triggered, jobId={}", jobId);
-
-        // Fire-and-forget ingestion task
+        ingestionJobs.put(jobId, new JobStatus("processing", Instant.now()));
         CompletableFuture.runAsync(() -> {
             try {
-                // TODO: Implement actual ingestion logic fetching from Open Library and updating DB/cache
-                logger.info("Starting ingestion jobId={}", jobId);
-                Thread.sleep(2000); // simulate delay
+                Thread.sleep(2000);
                 ingestionJobs.put(jobId, new JobStatus("completed", Instant.now()));
-                logger.info("Completed ingestion jobId={}", jobId);
             } catch (InterruptedException e) {
                 ingestionJobs.put(jobId, new JobStatus("failed", Instant.now()));
-                logger.error("Ingestion job failed jobId={}", jobId, e);
             }
         });
-
         return ResponseEntity.ok(new IngestionResponse("started", "Daily ingestion process triggered"));
     }
 
-    // Basic error handler for ResponseStatusException
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<ErrorResponse> handleResponseStatusException(ResponseStatusException ex) {
-        logger.error("Handled exception: {}", ex.getReason(), ex);
         return ResponseEntity.status(ex.getStatusCode())
                 .body(new ErrorResponse(ex.getStatusCode().toString(), ex.getReason()));
     }
 
-    // Helper methods to safely extract JSON fields
-    private String getFirstText(JsonNode node, String fieldName) {
-        return node.hasNonNull(fieldName) ? node.get(fieldName).asText() : null;
+    private String getFirstText(JsonNode n, String f) {
+        return n.hasNonNull(f) ? n.get(f).asText() : null;
     }
 
-    private String getFirstTextFromArray(JsonNode node, String fieldName) {
-        if (node.has(fieldName) && node.get(fieldName).isArray() && node.get(fieldName).size() > 0) {
-            return node.get(fieldName).get(0).asText();
+    private String getFirstTextFromArray(JsonNode n, String f) {
+        if (n.has(f) && n.get(f).isArray() && n.get(f).size() > 0) {
+            return n.get(f).get(0).asText();
         }
         return null;
     }
-
-    // DTOs and simple model classes
 
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     public static class SearchRequest {
+        @NotBlank
         private String query;
-        private Filters filters;
-
-        @Data
-        @NoArgsConstructor
-        @AllArgsConstructor
-        public static class Filters {
-            private String genre;
-            private Integer publicationYear;
-            private String author;
-        }
+        private String genre;
+        private Integer publicationYear;
+        private String author;
     }
 
     @Data
@@ -320,6 +239,7 @@ public class EntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class RecommendationRequest {
+        @NotBlank
         private String userId;
     }
 
@@ -364,4 +284,3 @@ public class EntityControllerPrototype {
         private String message;
     }
 }
-```
