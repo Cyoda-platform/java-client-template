@@ -1,0 +1,60 @@
+{
+    "description": "Workflow for generating inventory reports by fetching data, calculating metrics, and completing the report.",
+    "name": "inventory_report_generation_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start the inventory report generation workflow",
+            "end_state": "InventoryDataFetched",
+            "end_state_description": "Inventory data fetched from external API",
+            "name": "start_inventory_report_generation",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Fetch inventory data from external API and attach to entity",
+                        "name": "processFetchInventoryData"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state with no inventory report"
+        },
+        {
+            "automated": true,
+            "description": "Calculate total items, average price, and total value from fetched data",
+            "end_state": "InventoryReportCalculated",
+            "end_state_description": "Inventory report metrics calculated",
+            "name": "calculate_inventory_report_metrics",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Calculate report metrics and update entity",
+                        "name": "processCalculateReport"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "InventoryDataFetched",
+            "start_state_description": "Inventory data fetched from external API"
+        },
+        {
+            "automated": true,
+            "description": "Complete the inventory report generation workflow",
+            "end_state": "InventoryReportCompleted",
+            "end_state_description": "Inventory report generation completed",
+            "name": "complete_inventory_report",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Finalize and complete the report entity",
+                        "name": "processCompleteReport"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "InventoryReportCalculated",
+            "start_state_description": "Inventory report metrics calculated"
+        }
+    ]
+}
