@@ -1,44 +1,3 @@
-Certainly! The best approach is to move all asynchronous and post-processing logic related to the entity inside the `processInventoryReport` workflow function. This will keep controllers slim and delegate the entity state modifications and any async supplementary operations to the workflow function.
-
----
-
-### What to move from controller to workflow function:
-
-1. **Report calculation logic** — currently done in controller after fetching external data.
-2. **Calling external API** — this is async and can be moved into workflow so controller only sends entity data to workflow which completes the data.
-3. **Any data enrichment / adding supplementary entities**.
-
----
-
-### Approach:
-
-- Controller will:
-  - Receive request.
-  - Create a minimal entity with input parameters (filters).
-  - Call `entityService.addItem` with workflow function.
-  - Return a response immediately with reportId.
-
-- Workflow function `processInventoryReport` will:
-  - Call external API with request parameters from entity.
-  - Calculate the report.
-  - Modify the entity ObjectNode directly by adding calculated fields.
-  - Optionally add supplementary entities.
-  - Return modified entity for persistence.
-
----
-
-### Implementation notes:
-
-- Since workflow function must accept and return ObjectNode (or entity data) and cannot call add/update/delete on **same** entityModel, but can do so on others.
-- We will convert entity parameter to ObjectNode and mutate it.
-- The workflow function is async and can run any async calls.
-- Controller only calls `addItem` with the incoming entity data and workflow function.
-
----
-
-### Updated complete controller code with workflow function refactor:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -58,6 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
@@ -93,44 +53,36 @@ public class CyodaEntityControllerPrototype {
         logger.info("CyodaEntityControllerPrototype initialized");
     }
 
-    /**
-     * Workflow function applied asynchronously before persistence.
-     * It receives the entity as an ObjectNode, modifies it directly.
-     * It:
-     * - Calls external API using filters from entity.
-     * - Calculates the report from external data.
-     * - Modifies the entity with the calculated fields.
-     * - Can add supplementary entities of different entityModels if needed.
-     */
+    // Workflow function applied asynchronously before persistence.
+    // Receives entity ObjectNode, modifies it directly.
+    // Calls external API, calculates report, updates entity fields.
     private final Function<ObjectNode, CompletableFuture<ObjectNode>> processInventoryReport = entityNode -> {
         logger.info("processInventoryReport workflow started for entity");
 
-        // Extract filters from entityNode, e.g. category, dateFrom, dateTo
-        String category = entityNode.has("category") && !entityNode.get("category").isNull() ? entityNode.get("category").asText() : null;
-        String dateFrom = entityNode.has("dateFrom") && !entityNode.get("dateFrom").isNull() ? entityNode.get("dateFrom").asText() : null;
-        String dateTo = entityNode.has("dateTo") && !entityNode.get("dateTo").isNull() ? entityNode.get("dateTo").asText() : null;
+        // Extract filters from entityNode
+        String category = entityNode.hasNonNull("category") ? entityNode.get("category").asText() : null;
+        String dateFrom = entityNode.hasNonNull("dateFrom") ? entityNode.get("dateFrom").asText() : null;
+        String dateTo = entityNode.hasNonNull("dateTo") ? entityNode.get("dateTo").asText() : null;
 
-        // Generate reportId and generatedAt here so they are stored in entity
+        // Generate and set reportId and generatedAt
         String reportId = UUID.randomUUID().toString();
         Instant generatedAt = Instant.now();
-
         entityNode.put("reportId", reportId);
         entityNode.put("generatedAt", generatedAt.toString());
 
-        // Call external API async
         return CompletableFuture.supplyAsync(() -> {
             try {
                 logger.info("Calling external API from workflow for reportId={}", reportId);
 
-                // In real case, you might build a request with filters, here just a simple GET
+                // In a real scenario, should pass filters to external API if supported
                 String response = restTemplate.getForObject(EXTERNAL_API_URL, String.class);
+                if (response == null) throw new IllegalStateException("External API returned null response");
 
                 JsonNode inventoryData = objectMapper.readTree(response);
                 if (!inventoryData.isArray()) {
                     throw new IllegalStateException("External API returned non-array data");
                 }
 
-                // Calculate report stats
                 int totalItems = 0;
                 double totalValue = 0.0;
 
@@ -142,13 +94,13 @@ public class CyodaEntityControllerPrototype {
 
                 double averagePrice = totalItems > 0 ? totalValue / totalItems : 0.0;
 
-                // Modify the entityNode directly with calculated report fields
+                // Update entityNode with calculated report fields
                 entityNode.put("totalItems", totalItems);
                 entityNode.put("totalValue", totalValue);
                 entityNode.put("averagePrice", averagePrice);
 
-                // You can add other statistics or metadata here as needed
-                // e.g. entityNode.put("someOtherStat", value);
+                // Placeholder for adding supplementary entities if needed:
+                // e.g. entityService.addItem("OtherEntityModel", ENTITY_VERSION, supplementaryData, null);
 
                 logger.info("processInventoryReport workflow completed for reportId={}", reportId);
 
@@ -156,32 +108,29 @@ public class CyodaEntityControllerPrototype {
 
             } catch (Exception e) {
                 logger.error("Error in processInventoryReport workflow: {}", e.getMessage(), e);
-                // You can decide how to handle errors here,
-                // e.g. mark entity with error state or rethrow
-                // For now, rethrow to fail persistence
-                throw new RuntimeException(e);
+                // Mark entityNode with error info to persist error state if needed
+                entityNode.put("error", "Failed to generate report: " + e.getMessage());
+                // Could also add an error status or timestamp
+                entityNode.put("status", "failed");
+                entityNode.put("errorTimestamp", Instant.now().toString());
+                // Return entityNode with error info to persist partial state
+                return entityNode;
             }
         });
     };
 
-    /**
-     * Controller endpoint now only accepts request,
-     * converts it to ObjectNode, adds minimal data,
-     * then calls addItem with the workflow function.
-     * Returns immediately with the reportId generated inside workflow.
-     */
+    // Controller endpoint to start report generation
+    // Prepares minimal entity with input filters, calls addItem with workflow
     @PostMapping
     public CompletableFuture<ResponseEntity<GenerateReportResponse>> generateReport(@RequestBody @Valid GenerateReportRequest request) {
         logger.info("Received request to generate inventory report with category={} dateFrom={} dateTo={}",
                 request.getCategory(), request.getDateFrom(), request.getDateTo());
 
-        // Prepare minimal entity as ObjectNode with input filters
         ObjectNode entityNode = objectMapper.createObjectNode();
         if (request.getCategory() != null) entityNode.put("category", request.getCategory());
         if (request.getDateFrom() != null) entityNode.put("dateFrom", request.getDateFrom());
         if (request.getDateTo() != null) entityNode.put("dateTo", request.getDateTo());
 
-        // Add item with workflow function
         return entityService.addItem(ENTITY_NAME, ENTITY_VERSION, entityNode, processInventoryReport)
                 .thenApply(uuid -> {
                     String reportId = uuid != null ? uuid.toString() : null;
@@ -195,25 +144,26 @@ public class CyodaEntityControllerPrototype {
                 });
     }
 
-    /**
-     * Get report by reportId.
-     */
+    // Get report by reportId, returns persisted ObjectNode entity
     @GetMapping("/{reportId}")
     public CompletableFuture<ResponseEntity<ObjectNode>> getReport(@PathVariable @NotBlank String reportId) {
         logger.info("Retrieving report for reportId={}", reportId);
 
-        // Build condition to find by reportId field
         SearchConditionRequest condition = SearchConditionRequest.group("AND",
                 Condition.of("$.reportId", "EQUALS", reportId));
 
-        // Return the raw ObjectNode so client can get all fields
         return entityService.getItemsByCondition(ENTITY_NAME, ENTITY_VERSION, condition)
                 .thenApply(arrayNode -> {
                     if (arrayNode == null || arrayNode.isEmpty()) {
                         logger.error("Report not found for reportId={}", reportId);
                         throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found");
                     }
-                    return ResponseEntity.ok((ObjectNode) arrayNode.get(0));
+                    JsonNode node = arrayNode.get(0);
+                    if (!(node instanceof ObjectNode)) {
+                        logger.error("Stored report entity is not an ObjectNode for reportId={}", reportId);
+                        throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Invalid report data");
+                    }
+                    return ResponseEntity.ok((ObjectNode) node);
                 });
     }
 
@@ -259,23 +209,3 @@ public class CyodaEntityControllerPrototype {
         private String message;
     }
 }
-```
-
----
-
-### Summary of changes:
-
-- **Controller** just prepares minimal entity data from request and calls `addItem` with `processInventoryReport` workflow.
-- **processInventoryReport workflow**:
-  - Generates `reportId` and sets `generatedAt`.
-  - Calls external API asynchronously.
-  - Calculates report statistics.
-  - Directly modifies the entity ObjectNode with results.
-- Removed all async logic and report calculation from controller.
-- Controller `getReport` returns raw ObjectNode with all persisted data.
-- This makes controller "thin" and all business logic async and entity-specific is in workflow function, as required.
-
----
-
-This approach follows your requirement precisely, makes the codebase more robust, better separation of concerns, easier to maintain and extend.  
-Let me know if you want me to help with adding supplementary entities or more complex async workflows inside the workflow function!
