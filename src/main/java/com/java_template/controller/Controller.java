@@ -1,8 +1,7 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
@@ -30,28 +29,27 @@ import static com.java_template.common.config.Config.*;
 @RestController
 @RequestMapping("/cyoda/entity")
 @Validated
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final RestTemplate restTemplate = new RestTemplate();
-    private final ObjectMapper objectMapper = new ObjectMapper();
-
+    private final ObjectMapper objectMapper;
     private final EntityService entityService;
 
     private static final String OPEN_LIBRARY_SEARCH_API = "https://openlibrary.org/search.json?q={query}";
     private static final String ENTITY_NAME = "BookEntity";
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    // Inject ObjectMapper via constructor
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     // Workflow function for processing BookEntity asynchronously before persistence
     private CompletableFuture<ObjectNode> processBookEntity(ObjectNode entity) {
-        // Defensive null checks and modifications
         if (entity == null) return CompletableFuture.completedFuture(null);
 
-        // Append "[Processed]" to title if not present
         if (entity.hasNonNull("title")) {
             String title = entity.get("title").asText();
             if (!title.contains("[Processed]")) {
@@ -59,7 +57,6 @@ public class CyodaEntityControllerPrototype {
             }
         }
 
-        // Add a supplementary audit entity asynchronously (different entityModel)
         try {
             ObjectNode auditEntity = objectMapper.createObjectNode();
             String bookId = entity.path("bookId").asText(UUID.randomUUID().toString());
@@ -67,23 +64,18 @@ public class CyodaEntityControllerPrototype {
             auditEntity.put("processedAt", Instant.now().toString());
             auditEntity.put("processedBy", "processBookEntityWorkflow");
             auditEntity.put("originalTitle", entity.path("title").asText());
-            // We do not wait for completion, fire and forget
             entityService.addItem("BookAudit", ENTITY_VERSION, auditEntity);
         } catch (Exception e) {
             logger.error("Failed to create audit entity in processBookEntity", e);
         }
 
-        // Potential place to add async enrichment if needed (e.g. external API call)
-        // For now, synchronous return
         return CompletableFuture.completedFuture(entity);
     }
 
-    // Workflow function for processing ingestion jobs asynchronously before persistence
     private CompletableFuture<ObjectNode> processIngestionJob(ObjectNode entity) {
         return CompletableFuture.supplyAsync(() -> {
             if (entity == null) return null;
             try {
-                // Simulate ingestion work
                 Thread.sleep(2000);
                 entity.put("status", "completed");
                 entity.put("completedAt", Instant.now().toString());
@@ -141,7 +133,7 @@ public class CyodaEntityControllerPrototype {
                 continue;
             }
 
-            if (title == null || title.isBlank()) continue; // skip invalid
+            if (title == null || title.isBlank()) continue;
 
             bookNode.put("title", title);
             bookNode.put("author", author != null ? author : "");
@@ -157,7 +149,6 @@ public class CyodaEntityControllerPrototype {
             filteredResults.add(bookNode);
         }
 
-        // Persist entities without workflow function
         return entityService.addItems(ENTITY_NAME, ENTITY_VERSION, filteredResults)
                 .thenApply(ids -> {
                     List<BookSummary> responseResults = new ArrayList<>();
@@ -219,7 +210,6 @@ public class CyodaEntityControllerPrototype {
 
     @PostMapping("/recommendations")
     public ResponseEntity<RecommendationResponse> getRecommendations(@RequestBody @Valid RecommendationRequest request) {
-        // For demonstration, static recommendations; in real scenario, async enrichment can be added
         List<Recommendation> recs = new ArrayList<>();
         recs.add(new Recommendation("Popular Book", "Famous Author", null, "Popular recommendation"));
         return ResponseEntity.ok(new RecommendationResponse(recs));
@@ -242,7 +232,6 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.ok(new IngestionResponse("started", "Daily ingestion process triggered"));
     }
 
-    // Utility methods to extract text from JsonNode safely
     private String getFirstText(JsonNode n, String f) {
         if (n == null || f == null) return null;
         return n.hasNonNull(f) ? n.get(f).asText() : null;
