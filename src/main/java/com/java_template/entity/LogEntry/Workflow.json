@@ -1,0 +1,42 @@
+{
+    "description": "Workflow for processing user activity entities including logging and notification",
+    "name": "activity_tracking_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start processing an activity entity",
+            "end_state": "Activity_processed",
+            "end_state_description": "Activity entity processed with enrichment and notification",
+            "name": "start_processing_activity",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processActivity"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Start processing a log entry entity",
+            "end_state": "LogEntry_processed",
+            "end_state_description": "LogEntry entity processed with analysis and report generation",
+            "name": "start_processing_logentry",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processLogEntry"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Activity_processed",
+            "start_state_description": "Activity processed"
+        }
+    ]
+}
