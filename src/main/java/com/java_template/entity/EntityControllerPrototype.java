@@ -1,8 +1,9 @@
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -12,17 +13,18 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
-import javax.annotation.PostConstruct;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
+@Validated
 @RestController
 @RequestMapping("/prototype/activities")
 public class EntityControllerPrototype {
@@ -32,31 +34,19 @@ public class EntityControllerPrototype {
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // Store reports keyed by date string (ISO format yyyy-MM-dd)
     private final Map<String, DailyReport> dailyReports = new ConcurrentHashMap<>();
-
-    // Simulate async job status tracking
     private final Map<String, JobStatus> entityJobs = new ConcurrentHashMap<>();
 
-    // Admin email placeholder for sending reports
     private static final String ADMIN_EMAIL = "admin@example.com";
-
-    // Fakerest API endpoint for activities
     private static final String EXTERNAL_ACTIVITY_API = "https://fakerestapi.azurewebsites.net/api/v1/Activities";
 
-    // --- DTOs ---
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
+    @Data @NoArgsConstructor @AllArgsConstructor
     static class JobStatus {
-        private String status; // e.g. "processing", "done", "failed"
+        private String status;
         private Instant requestedAt;
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
+    @Data @NoArgsConstructor @AllArgsConstructor
     static class DailyReportSummary {
         private int totalUsers;
         private int totalActivities;
@@ -65,30 +55,19 @@ public class EntityControllerPrototype {
         private List<Anomaly> anomaliesDetected;
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
+    @Data @NoArgsConstructor @AllArgsConstructor
     static class Anomaly {
         private int userId;
         private String activity;
         private String note;
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
+    @Data @NoArgsConstructor @AllArgsConstructor
     static class DailyReport {
-        private String date; // ISO date yyyy-MM-dd
+        private String date;
         private DailyReportSummary summary;
     }
 
-    // --- API Endpoints ---
-
-    /**
-     * POST /prototype/activities/ingest
-     * Triggers data ingestion from Fakerest API, processes data,
-     * generates daily report, and sends email to admin.
-     */
     @PostMapping("/ingest")
     public ResponseEntity<?> ingestActivities() {
         String jobId = UUID.randomUUID().toString();
@@ -97,7 +76,6 @@ public class EntityControllerPrototype {
         logger.info("Received ingest request, jobId={}", jobId);
         entityJobs.put(jobId, new JobStatus("processing", requestedAt));
 
-        // Fire-and-forget async processing
         CompletableFuture.runAsync(() -> {
             try {
                 processIngestionJob(jobId);
@@ -115,35 +93,25 @@ public class EntityControllerPrototype {
         ));
     }
 
-    /**
-     * GET /prototype/activities/report/daily
-     * Returns the latest daily report summary.
-     */
     @GetMapping("/report/daily")
     public ResponseEntity<DailyReport> getLatestDailyReport() {
         if (dailyReports.isEmpty()) {
             logger.info("No daily reports found");
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No reports available");
         }
-        // Return the report with the latest date
         String latestDate = dailyReports.keySet().stream().max(String::compareTo).get();
         DailyReport report = dailyReports.get(latestDate);
         logger.info("Returning daily report for date {}", latestDate);
         return ResponseEntity.ok(report);
     }
 
-    /**
-     * GET /prototype/activities/report/history?startDate=yyyy-MM-dd&endDate=yyyy-MM-dd
-     * Returns historical daily reports for the specified date range.
-     */
     @GetMapping("/report/history")
     public ResponseEntity<List<DailyReport>> getHistoricalReports(
-            @RequestParam String startDate,
-            @RequestParam String endDate) {
+            @RequestParam @NotBlank @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}") String startDate,
+            @RequestParam @NotBlank @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}") String endDate) {
 
         logger.info("Fetching reports from {} to {}", startDate, endDate);
 
-        // Validate date format - minimal validation, production should use proper date parsing
         if (startDate.compareTo(endDate) > 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "startDate must be <= endDate");
         }
@@ -158,24 +126,13 @@ public class EntityControllerPrototype {
         return ResponseEntity.ok(reports);
     }
 
-    // --- Internal logic ---
-
     private void processIngestionJob(String jobId) {
         logger.info("Starting ingestion jobId={}", jobId);
-
-        // 1. Fetch activity data from external Fakerest API
         JsonNode activitiesData = fetchExternalActivities();
-
-        // 2. Process data to identify patterns
         DailyReport report = analyzeActivities(activitiesData);
-
-        // 3. Store report
         dailyReports.put(report.getDate(), report);
         logger.info("Stored daily report for date {}", report.getDate());
-
-        // 4. Send report email to admin
         sendReportEmail(report);
-
         logger.info("Ingestion jobId={} completed", jobId);
     }
 
@@ -192,38 +149,25 @@ public class EntityControllerPrototype {
 
     private DailyReport analyzeActivities(JsonNode activitiesData) {
         logger.info("Analyzing {} activities", activitiesData.size());
-
         Map<Integer, Integer> userActivityCount = new HashMap<>();
         Map<String, Integer> activityTypeCount = new HashMap<>();
-
-        // Example data fields from Fakerest activities:
-        // id, title, dueDate, completed, userId - userId is not in Fakerest activities, so we simulate below
-
-        // TODO: Fakerest API does not provide userId in activities model,
-        // so we simulate userId assignment for prototyping purposes
         Random random = new Random();
 
         for (JsonNode activity : activitiesData) {
-            int userId = random.nextInt(10) + 1; // Simulate userId 1-10
+            int userId = random.nextInt(10) + 1;
             String activityTitle = activity.path("title").asText("unknown");
-
             userActivityCount.put(userId, userActivityCount.getOrDefault(userId, 0) + 1);
             activityTypeCount.put(activityTitle, activityTypeCount.getOrDefault(activityTitle, 0) + 1);
         }
 
         int totalUsers = userActivityCount.size();
         int totalActivities = activitiesData.size();
-
-        // Most frequent activity
         String mostFrequentActivity = activityTypeCount.entrySet()
                 .stream()
                 .max(Map.Entry.comparingByValue())
                 .map(Map.Entry::getKey)
                 .orElse("N/A");
-
         double averageActivitiesPerUser = totalUsers > 0 ? (double) totalActivities / totalUsers : 0;
-
-        // Simple anomaly detection: users with activity count > average * 1.5
         List<Anomaly> anomalies = new ArrayList<>();
         double anomalyThreshold = averageActivitiesPerUser * 1.5;
         for (Map.Entry<Integer, Integer> entry : userActivityCount.entrySet()) {
@@ -240,8 +184,7 @@ public class EntityControllerPrototype {
                 anomalies
         );
 
-        String today = Instant.now().toString().substring(0, 10); // yyyy-MM-dd from ISO
-
+        String today = Instant.now().toString().substring(0, 10);
         return new DailyReport(today, summary);
     }
 
@@ -253,10 +196,7 @@ public class EntityControllerPrototype {
                 report.getSummary().getTotalUsers(),
                 report.getSummary().getTotalActivities(),
                 report.getSummary().getMostFrequentActivity());
-        // Fire-and-forget simulation - no blocking here
     }
-
-    // --- Minimal Exception Handling ---
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<Map<String, String>> handleResponseStatusException(ResponseStatusException ex) {
@@ -278,4 +218,3 @@ public class EntityControllerPrototype {
         return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }
-```
