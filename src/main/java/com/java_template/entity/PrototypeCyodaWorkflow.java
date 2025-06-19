@@ -1,55 +1,7 @@
-Absolutely, moving asynchronous logic and related data manipulations into the workflow function (`process{EntityName}`) is a great approach to keep controllers clean and focused on request/response handling. It also guarantees that the entity is fully prepared before persistence, and the workflow function’s asynchronous nature is perfect for background tasks or enriching data.
-
----
-
-### What to move?
-
-Looking at the controller code, the async and processing logic that can be moved to the workflow function includes:
-
-- Modifying the entity data before persistence (e.g., adding timestamp).
-- Any supplementary data fetch or enrichment related to the entity.
-- Fire-and-forget async tasks related to the entity.
-- Analyzing activities and generating daily reports (some parts can be moved if relevant to the entity).
-- Sending emails or notifications related to the entity lifecycle.
-
----
-
-### What to keep in the controller?
-
-- Receiving HTTP requests.
-- Validating request parameters.
-- Calling service methods that add/update entities with a workflow function.
-- Returning appropriate HTTP responses.
-
----
-
-### Plan for refactoring:
-
-- **Ingest endpoint** remains simple: fetch external data, add entities via `entityService.addItem` with workflow.
-- Move:
-  - Adding timestamps and other enrichment into `processActivity`.
-  - Any secondary entity creation (if needed) into `processActivity`.
-  - Possibly call report analysis and email sending *after* entities persisted — here challenge: workflow is per entity, but report generation is for bulk data — so this remains in controller or separate scheduled job.
-- Remove async `CompletableFuture.runAsync` in controller for ingestion, since persistence and processing will be async via workflow.
-- The workflow function can also spawn async calls to add supplementary entities of different models.
-- The workflow cannot update/add/delete entities of the same model to avoid recursion, but it can call `entityService` methods for other models.
-
----
-
-### Updated Code
-
-Below is a refactored version of your controller and workflow function for `Activity`. Key points:
-
-- The controller `ingestActivities` method fetches external data, iterates over each activity, and calls `entityService.addItem` with `this::processActivity` workflow.
-- The `processActivity` workflow function enriches the entity by adding timestamp and potentially calling other async tasks such as adding supplementary entities or sending notifications (fire-and-forget).
-- Removed async job tracking inside the controller since each entity addition is handled asynchronously by `entityService`.
-- Report generation and email sending are moved into a **new workflow entity** or left for a scheduled job or separate service (since it’s bulk data related).
-- For demonstration, I kept report generation inside the workflow on the first entity only (not ideal for production) — you can move this logic to a dedicated job/service.
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import jakarta.validation.constraints.NotBlank;
@@ -78,6 +30,7 @@ public class CyodaEntityControllerPrototype {
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     private static final String ADMIN_EMAIL = "admin@example.com";
     private static final String EXTERNAL_ACTIVITY_API = "https://fakerestapi.azurewebsites.net/api/v1/Activities";
@@ -85,6 +38,7 @@ public class CyodaEntityControllerPrototype {
 
     public CyodaEntityControllerPrototype(EntityService entityService) {
         this.entityService = entityService;
+        this.objectMapper = new ObjectMapper();
     }
 
     @PostMapping("/ingest")
@@ -101,7 +55,7 @@ public class CyodaEntityControllerPrototype {
                 CompletableFuture<Void> future = entityService.addItem(
                         ENTITY_NAME,
                         ENTITY_VERSION,
-                        activity,
+                        activity.deepCopy(), // Defensive copy to avoid shared mutable state issues
                         this::processActivity
                 ).thenAccept(id -> logger.info("Persisted Activity entity with id={}", id))
                  .exceptionally(ex -> {
@@ -136,7 +90,7 @@ public class CyodaEntityControllerPrototype {
 
             ObjectNode entityNode = (ObjectNode) activityEntity;
 
-            // Add processed timestamp
+            // Add processed timestamp safely
             entityNode.put("processedTimestamp", Instant.now().toString());
 
             // Example: enrich with some derived field
@@ -145,47 +99,43 @@ public class CyodaEntityControllerPrototype {
                 entityNode.put("titleLength", title.length());
             }
 
-            // Fire and forget: add supplementary entity of a different model
-            // For example, create a "LogEntry" entity recording this ingestion event
-            Map<String, Object> logEntry = new HashMap<>();
-            logEntry.put("message", "Ingested activity with title: " + title);
-            logEntry.put("ingestedAt", Instant.now().toString());
+            // Add supplementary entity asynchronously (LogEntry)
+            try {
+                ObjectNode logEntryNode = objectMapper.createObjectNode();
+                logEntryNode.put("message", "Ingested activity with title: " + title);
+                logEntryNode.put("ingestedAt", Instant.now().toString());
 
-            // Convert Map to ObjectNode
-            ObjectNode logEntryNode = entityNode.objectNode();
-            logEntry.forEach((k, v) -> logEntryNode.put(k, v.toString()));
+                entityService.addItem(
+                        "LogEntry",  // Different entityModel
+                        ENTITY_VERSION,
+                        logEntryNode,
+                        this::processLogEntry
+                ).exceptionally(ex -> {
+                    logger.error("Failed to persist LogEntry supplementary entity", ex);
+                    return null;
+                });
+            } catch (Exception e) {
+                logger.error("Exception while creating supplementary LogEntry entity", e);
+            }
 
-            // Add supplementary entity asynchronously; no need to wait
-            entityService.addItem(
-                    "LogEntry",  // Different entityModel
-                    ENTITY_VERSION,
-                    logEntryNode,
-                    this::processLogEntry // You can implement processing for LogEntry if needed
-            ).exceptionally(ex -> {
-                logger.error("Failed to persist LogEntry supplementary entity", ex);
-                return null;
-            });
-
-            // Example: You can also trigger notifications here asynchronously
-            // For demo: simulate fire-and-forget notification
+            // Fire and forget: asynchronous notification (simulated)
             CompletableFuture.runAsync(() -> {
                 try {
                     logger.info("Sending notification for activity titled '{}'", title);
-                    // Simulate notification sending, e.g. call external service or email
-                    // ...
+                    // Simulate notification sending, e.g., call external service or email
+                    // No blocking, fire and forget
                 } catch (Exception e) {
                     logger.error("Failed to send notification", e);
                 }
             });
 
-            // Return the modified entity for persistence
             return entityNode;
         });
     }
 
     /**
-     * Optional workflow function for LogEntry entities, if needed.
-     * Here you can add timestamps or other derived fields.
+     * Workflow function for LogEntry entities.
+     * You can enrich or add metadata here.
      */
     private CompletableFuture<JsonNode> processLogEntry(JsonNode logEntryEntity) {
         return CompletableFuture.supplyAsync(() -> {
@@ -196,33 +146,48 @@ public class CyodaEntityControllerPrototype {
         });
     }
 
-
+    /**
+     * Fetch external activities from the configured API.
+     * Throws ResponseStatusException on failure.
+     */
     private JsonNode fetchExternalActivities() {
         try {
             logger.info("Fetching activities from Fakerest API: {}", EXTERNAL_ACTIVITY_API);
             String json = restTemplate.getForObject(EXTERNAL_ACTIVITY_API, String.class);
-            return entityService.getObjectMapper().readTree(json);
+            if (json == null || json.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Empty response from external activities API");
+            }
+            return objectMapper.readTree(json);
+        } catch (ResponseStatusException rse) {
+            throw rse;
         } catch (Exception e) {
             logger.error("Failed to fetch activities from external API", e);
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch external activities");
         }
     }
 
-    // Other endpoints such as report generation remain here or can be moved to a dedicated service or scheduled job
+    // --- Optional endpoints for reports if needed, left as pass-through or minimal ---
 
+    // If you want to generate reports, consider a separate scheduled service that queries persisted entities
+    // and generates reports asynchronously, decoupled from ingestion workflow.
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<Map<String, String>> handleResponseStatusException(ResponseStatusException ex) {
+        logger.error("Handling ResponseStatusException: {}", ex.getMessage());
+        Map<String, String> error = Map.of(
+                "error", ex.getStatus().toString(),
+                "message", ex.getReason()
+        );
+        return new ResponseEntity<>(error, ex.getStatus());
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Map<String, String>> handleGenericException(Exception ex) {
+        logger.error("Unexpected error occurred", ex);
+        Map<String, String> error = Map.of(
+                "error", HttpStatus.INTERNAL_SERVER_ERROR.toString(),
+                "message", "Internal server error"
+        );
+        return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
 }
-```
-
----
-
-### Summary of refactoring:
-
-- The controller’s `/ingest` endpoint only fetches raw data and calls `entityService.addItem` with the workflow function.
-- The workflow function `processActivity` enriches the entity, adds supplementary entities (like `LogEntry`), and triggers fire-and-forget async tasks (e.g., notification).
-- This way, all async and enrichment logic is moved into the workflow function.
-- The controller stays free from async complexity and heavy business logic.
-- The workflow function is the single place responsible for preparing the entity before it is persisted.
-
----
-
-If you want me to move other logic like report generation or anomaly detection into workflows or separate entities, or implement workflows for other entities, let me know!
