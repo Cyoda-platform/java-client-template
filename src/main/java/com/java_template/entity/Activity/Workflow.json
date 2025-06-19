@@ -1,0 +1,78 @@
+{
+    "description": "Workflow processing user activities with enrichment, logging and notification",
+    "name": "activity_processing_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start processing activity by adding processed timestamp",
+            "end_state": "ProcessedTimestampAdded",
+            "end_state_description": "Processed timestamp has been added to activity",
+            "name": "start_processing",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAddProcessedTimestamp"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Enrich activity with title length",
+            "end_state": "TitleLengthEnriched",
+            "end_state_description": "Activity enriched with title length",
+            "name": "enrich_title_length",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processEnrichTitleLength"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "ProcessedTimestampAdded",
+            "start_state_description": "Processed timestamp has been added to activity"
+        },
+        {
+            "automated": true,
+            "description": "Add a log entry for the ingested activity",
+            "end_state": "LogEntryAdded",
+            "end_state_description": "Supplementary log entry created",
+            "name": "add_log_entry",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processAddLogEntry"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "TitleLengthEnriched",
+            "start_state_description": "Activity enriched with title length"
+        },
+        {
+            "automated": true,
+            "description": "Send notification for the processed activity",
+            "end_state": "NotificationSent",
+            "end_state_description": "Notification sent for the activity",
+            "name": "send_notification",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSendNotification"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "LogEntryAdded",
+            "start_state_description": "Supplementary log entry created"
+        }
+    ]
+}
