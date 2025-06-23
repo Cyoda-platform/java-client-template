@@ -1,0 +1,78 @@
+{
+    "description": "Workflow for processing CatFact entity including creation, fetching fact, sending emails, and updating interactions",
+    "name": "CatFact_Workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Set createdAt timestamp if missing",
+            "end_state": "CreatedAt_set",
+            "end_state_description": "createdAt timestamp has been set",
+            "name": "set_created_at",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSetCreatedAt"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Fetch cat fact from external API and update entity",
+            "end_state": "CatFact_fetched",
+            "end_state_description": "Cat fact text has been fetched and updated",
+            "name": "fetch_cat_fact",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processFetchCatFact"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "CreatedAt_set",
+            "start_state_description": "createdAt timestamp has been set"
+        },
+        {
+            "automated": true,
+            "description": "Send cat fact emails to subscribers asynchronously",
+            "end_state": "Emails_sent",
+            "end_state_description": "Cat fact emails have been sent to subscribers",
+            "name": "send_emails",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSendEmails"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "CatFact_fetched",
+            "start_state_description": "Cat fact text has been fetched and updated"
+        },
+        {
+            "automated": true,
+            "description": "Update or create FactInteraction entities based on subscribers",
+            "end_state": "FactInteractions_updated",
+            "end_state_description": "FactInteraction entities updated or created",
+            "name": "update_fact_interactions",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processUpdateFactInteractions"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Emails_sent",
+            "start_state_description": "Cat fact emails have been sent to subscribers"
+        }
+    ]
+}
