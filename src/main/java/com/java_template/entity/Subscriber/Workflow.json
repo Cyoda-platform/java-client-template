@@ -1,0 +1,42 @@
+{
+    "description": "Workflow to normalize subscriber status and perform additional processing",
+    "name": "subscriber_status_normalization_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Normalize the status field to uppercase",
+            "end_state": "Status_normalized",
+            "end_state_description": "Subscriber status has been normalized",
+            "name": "start_normalize_status",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processNormalizeStatus"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Perform additional subscriber processing step",
+            "end_state": "Processing_completed",
+            "end_state_description": "Additional subscriber processing completed",
+            "name": "perform_additional_processing",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSomeOtherStep"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Status_normalized",
+            "start_state_description": "Subscriber status has been normalized"
+        }
+    ]
+}
