@@ -1,0 +1,78 @@
+{
+    "description": "Workflow for processing subscriber subscription including validation, duplicate check, setting subscribe date, and initializing metrics",
+    "name": "subscriber_subscription_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start subscription process by validating email",
+            "end_state": "EmailValidated",
+            "end_state_description": "Subscriber email validated",
+            "name": "start_subscription",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processValidateEmail"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Check for duplicate subscriber by email",
+            "end_state": "DuplicateChecked",
+            "end_state_description": "Duplicate subscription checked",
+            "name": "check_duplicate_subscription",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processCheckDuplicate"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "EmailValidated",
+            "start_state_description": "Subscriber email validated"
+        },
+        {
+            "automated": true,
+            "description": "Set the subscription date on subscriber entity",
+            "end_state": "SubscribeDateSet",
+            "end_state_description": "Subscription date set",
+            "name": "set_subscription_date",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSetSubscribeDate"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "DuplicateChecked",
+            "start_state_description": "Duplicate subscription checked"
+        },
+        {
+            "automated": true,
+            "description": "Initialize interaction metrics entity for subscriber",
+            "end_state": "MetricsInitialized",
+            "end_state_description": "Interaction metrics initialized",
+            "name": "initialize_interaction_metrics",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processInitializeMetrics"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "SubscribeDateSet",
+            "start_state_description": "Subscription date set"
+        }
+    ]
+}
