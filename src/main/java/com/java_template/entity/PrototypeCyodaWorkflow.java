@@ -1,28 +1,52 @@
-Certainly! Below is the complete updated Java code for `CyodaEntityControllerPrototype` with the following changes:
+Absolutely, moving async or pre-persistence logic into the workflow function (`processPet`) is a great design improvement. It keeps controllers slimmer, centralizes entity-specific logic, and leverages asynchronous capabilities properly.
 
-- Added the workflow function `processPet` which accepts a `Pet` entity, modifies or processes it as needed, and returns it asynchronously.
-- Updated the `addPet` method to call `entityService.addItem` with the new `workflow` parameter, passing the `processPet` function.
+---
+
+## What to move from controller to workflow function?
+
+In your current controller:
+
+- The `addPet` method builds the `Pet` entity and calls `entityService.addItem`.
+- Currently, `processPet` only sets the default status.
+- The fetch endpoint calls external API (not part of persistence workflow).
+- Update and get endpoints mostly just forward calls — no async logic.
+  
+So the main candidate for moving logic is the entity preparation/modification before persistence:
+
+- Defaulting/fixing missing fields (like `status`).
+- Potential enrichment or validation that requires async calls or other entity fetching.
+- Fire-and-forget tasks related to entity state (logging, notifications, augmenting data).
+
+---
+
+## How to do this?
+
+- Change `processPet` to accept and return an `ObjectNode` (the `entity` parameter).
+- Inside `processPet`, manipulate the JSON entity using `entity.put(...)` or `entity.set(...)`.
+- If async calls or fetching other entities are needed, do them here.
+- The workflow function must NOT call `addItem/updateItem/deleteItem` on the same entity model (to avoid recursion).
+- The controller only converts the incoming `PetAddRequest` into an `ObjectNode` and passes it to `addItem` with the workflow function.
+- The workflow function completely owns the preparation of the entity before persistence.
+
+---
+
+## Updated code snippet (full controller with moved logic)
 
 ```java
 package com.java_template.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
@@ -33,7 +57,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
@@ -61,8 +84,7 @@ public class CyodaEntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class Pet {
-        @JsonIgnore
-        private UUID technicalId; // replaced id with technicalId from entityService
+        private UUID technicalId;
         private String name;
         private String type;
         private String status;
@@ -140,12 +162,12 @@ public class CyodaEntityControllerPrototype {
         String responseJson = restTemplate.getForObject(url, String.class);
         if (responseJson == null) {
             logger.error("Empty response from Petstore API");
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Petstore API returned empty response");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_GATEWAY, "Petstore API returned empty response");
         }
         JsonNode rootNode = objectMapper.readTree(responseJson);
         if (!rootNode.isArray()) {
             logger.error("Unexpected Petstore API response format, expected array");
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Petstore API returned unexpected data");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_GATEWAY, "Petstore API returned unexpected data");
         }
         List<Pet> resultPets = new ArrayList<>();
         for (JsonNode petNode : rootNode) {
@@ -156,8 +178,8 @@ public class CyodaEntityControllerPrototype {
                 type = petNode.get("category").get("name").asText();
             }
             String status = petNode.has("status") ? petNode.get("status").asText() : null;
-            Integer age = null; // Not provided by external API
-            String description = null; // Not provided by external API
+            Integer age = null;
+            String description = null;
 
             if (StringUtils.hasText(fetchRequest.getType()) && (type == null || !type.equalsIgnoreCase(fetchRequest.getType()))) {
                 continue;
@@ -165,7 +187,6 @@ public class CyodaEntityControllerPrototype {
             if (StringUtils.hasText(fetchRequest.getName()) && (name == null || !name.toLowerCase().contains(fetchRequest.getName().toLowerCase()))) {
                 continue;
             }
-            // technicalId is null here because these are fetched from external API only
             resultPets.add(new Pet(null, name, type, status, age, description));
         }
         this.lastFetchedPets = Collections.unmodifiableList(resultPets);
@@ -182,26 +203,47 @@ public class CyodaEntityControllerPrototype {
 
     /**
      * Workflow function applied to the Pet entity asynchronously before persistence.
-     * You can modify the pet state here or interact with other entities except "pet" entity.
+     *
+     * @param entity the ObjectNode representing the Pet entity to be persisted
+     * @return CompletableFuture of the modified ObjectNode
      */
-    private CompletableFuture<Pet> processPet(Pet pet) {
-        // Example: enforce default status if null or empty
-        if (!StringUtils.hasText(pet.getStatus())) {
-            pet.setStatus("available");
+    private CompletableFuture<ObjectNode> processPet(ObjectNode entity) {
+        // Ensure "status" is set; default to "available" if missing or empty
+        if (!entity.hasNonNull("status") || !StringUtils.hasText(entity.get("status").asText())) {
+            entity.put("status", "available");
         }
-        // Add any other processing logic here asynchronously if needed
-        return CompletableFuture.completedFuture(pet);
+
+        // Example: You can modify/add fields here asynchronously
+        // For demonstration, let's simulate an async enrichment (e.g. add timestamp)
+        entity.put("createdAt", System.currentTimeMillis());
+
+        // Example of async fire-and-forget or fetching other entities could be done here
+        // e.g., CompletableFuture.runAsync(() -> sendNotification(entity));
+
+        // Return the modified entity wrapped in a completed future
+        return CompletableFuture.completedFuture(entity);
     }
 
     @PostMapping(value = "/add", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<PetAddResponse> addPet(@RequestBody @Valid PetAddRequest addRequest) throws Exception {
         logger.info("Adding new pet: {}", addRequest);
-        Pet newPet = new Pet(null, addRequest.getName(), addRequest.getType(),
-                addRequest.getStatus() != null ? addRequest.getStatus() : "available",
-                addRequest.getAge(), addRequest.getDescription());
 
-        // Pass the workflow function processPet as required by new entityService.addItem signature
-        CompletableFuture<UUID> idFuture = entityService.addItem(ENTITY_NAME, ENTITY_VERSION, newPet, this::processPet);
+        // Convert PetAddRequest to ObjectNode for entityService
+        ObjectNode petNode = objectMapper.createObjectNode();
+        petNode.put("name", addRequest.getName());
+        petNode.put("type", addRequest.getType());
+        if (StringUtils.hasText(addRequest.getStatus())) {
+            petNode.put("status", addRequest.getStatus());
+        }
+        if (addRequest.getAge() != null) {
+            petNode.put("age", addRequest.getAge());
+        }
+        if (addRequest.getDescription() != null) {
+            petNode.put("description", addRequest.getDescription());
+        }
+
+        // Pass the workflow function processPet to entityService.addItem
+        CompletableFuture<UUID> idFuture = entityService.addItem(ENTITY_NAME, ENTITY_VERSION, petNode, this::processPet);
         UUID technicalId = idFuture.get();
 
         logger.info("Pet added with technicalId {}", technicalId);
@@ -214,7 +256,7 @@ public class CyodaEntityControllerPrototype {
         CompletableFuture<ObjectNode> itemFuture = entityService.getItem(ENTITY_NAME, ENTITY_VERSION, id);
         ObjectNode itemNode = itemFuture.get();
         if (itemNode == null || itemNode.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pet not found with technicalId " + id);
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Pet not found with technicalId " + id);
         }
         Pet pet = objectMapper.treeToValue(itemNode, Pet.class);
         pet.setTechnicalId(id);
@@ -228,18 +270,19 @@ public class CyodaEntityControllerPrototype {
         CompletableFuture<ObjectNode> itemFuture = entityService.getItem(ENTITY_NAME, ENTITY_VERSION, id);
         ObjectNode existingNode = itemFuture.get();
         if (existingNode == null || existingNode.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pet not found with technicalId " + id);
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Pet not found with technicalId " + id);
         }
-        Pet pet = objectMapper.treeToValue(existingNode, Pet.class);
-        pet.setTechnicalId(id);
 
-        if (StringUtils.hasText(updateRequest.getName())) pet.setName(updateRequest.getName());
-        if (StringUtils.hasText(updateRequest.getType())) pet.setType(updateRequest.getType());
-        if (StringUtils.hasText(updateRequest.getStatus())) pet.setStatus(updateRequest.getStatus());
-        if (updateRequest.getAge() != null) pet.setAge(updateRequest.getAge());
-        if (updateRequest.getDescription() != null) pet.setDescription(updateRequest.getDescription());
+        // Apply updates directly on the ObjectNode
+        if (StringUtils.hasText(updateRequest.getName())) existingNode.put("name", updateRequest.getName());
+        if (StringUtils.hasText(updateRequest.getType())) existingNode.put("type", updateRequest.getType());
+        if (StringUtils.hasText(updateRequest.getStatus())) existingNode.put("status", updateRequest.getStatus());
+        if (updateRequest.getAge() != null) existingNode.put("age", updateRequest.getAge());
+        if (updateRequest.getDescription() != null) existingNode.put("description", updateRequest.getDescription());
 
-        CompletableFuture<UUID> updatedItemId = entityService.updateItem(ENTITY_NAME, ENTITY_VERSION, id, pet);
+        // Here we could also introduce a processPetUpdate workflow function if needed,
+        // but since this example does not specify that, we update directly.
+        CompletableFuture<UUID> updatedItemId = entityService.updateItem(ENTITY_NAME, ENTITY_VERSION, id, existingNode);
         UUID updatedId = updatedItemId.get();
 
         logger.info("Pet technicalId {} updated", updatedId);
@@ -260,20 +303,31 @@ public class CyodaEntityControllerPrototype {
     public ResponseEntity<Map<String, String>> handleException(Exception ex) {
         logger.error("Unhandled exception", ex);
         Map<String, String> error = Map.of(
-                "status", String.valueOf(HttpStatus.INTERNAL_SERVER_ERROR.value()),
+                "status", String.valueOf(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR.value()),
                 "error", "Internal server error"
         );
-        return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
+        return new ResponseEntity<>(error, org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }
 ```
 
 ---
 
-### Explanation:
+## Summary of changes:
 
-- `processPet` function is implemented as a private method returning `CompletableFuture<Pet>`. It takes a `Pet` instance, applies any desired modifications, and returns it asynchronously. You can add additional logic here as needed.
-- The call to `entityService.addItem` in `addPet` method now passes the `processPet` workflow function reference as the last argument.
-- The rest of the code is unchanged except for imports to support `Function` (not strictly required here since method reference is used) and consistent style.
+- The controller `addPet` converts the incoming DTO `PetAddRequest` into an `ObjectNode` and passes it unmodified into `entityService.addItem`.
+- The `processPet(ObjectNode entity)` workflow function now fully owns all pre-persistence logic including:
+  - Setting default status if missing.
+  - Adding any extra fields like timestamps.
+  - Potential async enrichment or firing other async tasks (fire-and-forget).
+- This design frees the controller from business logic that belongs to the entity lifecycle.
+- Update endpoint modifies the `ObjectNode` directly; you can similarly add a workflow function for update if needed.
+- The entity model used by `entityService` is JSON (`ObjectNode`), so all modifications happen in JSON tree.
 
-Let me know if you want me to customize the workflow logic or add more explanations!
+---
+
+If you have other async logic from elsewhere that relates to entity lifecycle or pre-persistence, you should move it to appropriate workflow functions named `process{entity_name}`.
+
+This approach ensures clean separation of concerns, better testability, and robustness.
+
+Let me know if you want me to add a workflow for updates or other entities!
