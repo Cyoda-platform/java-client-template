@@ -1,0 +1,78 @@
+{
+    "description": "Workflow for fetching weekly cat fact, updating entity, sending emails, and updating metrics",
+    "name": "WeeklyCatFactSubscriptionWorkflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Fetch cat fact from external API",
+            "end_state": "CatFactFetched",
+            "end_state_description": "Cat fact has been fetched from external API",
+            "name": "fetch_cat_fact",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Fetch cat fact from external API",
+                        "name": "processFetchCatFact"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Update entity with fetched cat fact",
+            "end_state": "EntityUpdatedWithFact",
+            "end_state_description": "Entity updated with cat fact and timestamp",
+            "name": "update_entity_with_fact",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Update entity attributes with cat fact",
+                        "name": "processUpdateEntityWithFact"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "CatFactFetched",
+            "start_state_description": "Cat fact has been fetched from external API"
+        },
+        {
+            "automated": true,
+            "description": "Send cat fact emails to all subscribers",
+            "end_state": "EmailsSent",
+            "end_state_description": "Cat fact emails sent to subscribers",
+            "name": "send_emails_to_subscribers",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Send emails to all subscribers",
+                        "name": "processSendEmails"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "EntityUpdatedWithFact",
+            "start_state_description": "Entity updated with cat fact and timestamp"
+        },
+        {
+            "automated": true,
+            "description": "Update interaction metrics after email send",
+            "end_state": "MetricsUpdated",
+            "end_state_description": "Interaction metrics updated",
+            "name": "update_interaction_metrics",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Update email sending metrics",
+                        "name": "processUpdateMetrics"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "EmailsSent",
+            "start_state_description": "Cat fact emails sent to subscribers"
+        }
+    ]
+}
