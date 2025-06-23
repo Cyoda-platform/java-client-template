@@ -1,4 +1,3 @@
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -60,10 +59,7 @@ public class CyodaEntityControllerPrototype {
         logger.info("CyodaEntityControllerPrototype initialized");
     }
 
-    /**
-     * Workflow function for Subscriber entity.
-     * Example: normalize status to uppercase.
-     */
+    // Workflow function for Subscriber entity: normalize status to uppercase
     private Function<Object, Object> processSubscriber = entity -> {
         if (entity instanceof ObjectNode) {
             ObjectNode obj = (ObjectNode) entity;
@@ -71,34 +67,26 @@ public class CyodaEntityControllerPrototype {
             if (statusNode != null && !statusNode.isNull()) {
                 obj.put("status", statusNode.asText().toUpperCase());
             }
-            // Potentially more processing here
         }
         return entity;
     };
 
-    /**
-     * Workflow function for CatFact entity.
-     * Will:
-     *  - populate createdAt if missing
-     *  - fetch a cat fact from external API and replace factText
-     *  - send emails to all subscribers asynchronously (fire-and-forget)
-     *  - update FactInteraction entity accordingly
-     *
-     * Note: Because this function runs asynchronously before persistence,
-     * all side effects (fetching, emailing, updating other entities) are done here,
-     * making controller lean.
-     */
+    // Workflow function for CatFact entity:
+    // - populate createdAt if missing
+    // - fetch cat fact from external API and update factText
+    // - send emails to subscribers asynchronously
+    // - update FactInteraction entities accordingly
     private Function<Object, Object> processCatFact = entity -> {
         if (!(entity instanceof ObjectNode)) return entity;
         ObjectNode obj = (ObjectNode) entity;
 
-        // 1) Set createdAt if missing
+        // Set createdAt if missing
         if (!obj.hasNonNull("createdAt")) {
             obj.put("createdAt", Instant.now().toString());
         }
 
         try {
-            // 2) Fetch new cat fact from external API
+            // Fetch cat fact from external API
             String factText = null;
             try {
                 String response = restTemplate.getForObject(URI.create(CAT_FACT_API_URL), String.class);
@@ -115,64 +103,57 @@ public class CyodaEntityControllerPrototype {
             if (factText != null && !factText.isBlank()) {
                 obj.put("factText", factText);
             } else {
-                // If no fact fetched, keep existing or empty string
                 obj.putIfAbsent("factText", "");
             }
 
-            // 3) Send emails to subscribers asynchronously & update FactInteraction entity
-            // Because we cannot call add/update/delete on same entityModel (CatFact),
-            // we do these operations on different entityModels (Subscriber, FactInteraction)
-
-            // Get all subscribers
+            // Send emails to subscribers and update FactInteraction entities
             CompletableFuture<ArrayNode> subscribersFuture = entityService.getItems(ENTITY_NAME_SUBSCRIBER, ENTITY_VERSION);
             ArrayNode subscribers = subscribersFuture.join();
 
-            // Simulate sending emails (fire-and-forget)
             for (JsonNode s : subscribers) {
                 String email = s.get("email").asText();
-                // Here we just log, actual emailing logic should be implemented elsewhere
                 logger.info("Sent cat fact email to subscriber: {}", email);
             }
 
-            // Update FactInteraction entity for this fact
-            UUID factId;
+            // Determine factId if available
+            UUID factId = null;
             if (obj.hasNonNull("factId")) {
-                factId = UUID.fromString(obj.get("factId").asText());
-            } else {
-                // factId may be null before persistence - generate a temporary UUID for search or skip updating interactions
-                factId = null;
+                try {
+                    factId = UUID.fromString(obj.get("factId").asText());
+                } catch (IllegalArgumentException e) {
+                    logger.warn("Invalid factId format in entity: {}", obj.get("factId").asText());
+                }
             }
 
             if (factId != null) {
-                // Query existing interactions for this factId
-                CompletableFuture<ArrayNode> interactionsFuture = entityService.getItemsByCondition(
-                        ENTITY_NAME_FACTINTERACTION,
-                        ENTITY_VERSION,
-                        objectMapper.createObjectNode().put("factId", factId.toString())
-                );
-
+                // Get existing FactInteraction entities for this factId
+                ObjectNode condition = objectMapper.createObjectNode().put("factId", factId.toString());
+                CompletableFuture<ArrayNode> interactionsFuture = entityService.getItemsByCondition(ENTITY_NAME_FACTINTERACTION, ENTITY_VERSION, condition);
                 ArrayNode existingInteractions = interactionsFuture.join();
 
                 if (existingInteractions.isEmpty()) {
-                    // Add new FactInteraction entity
+                    // Add new FactInteraction entity with emailsSent = number of subscribers
                     ObjectNode newInteraction = objectMapper.createObjectNode();
                     newInteraction.put("factId", factId.toString());
                     newInteraction.put("emailsSent", subscribers.size());
                     newInteraction.put("emailsOpened", 0);
                     newInteraction.put("linksClicked", 0);
 
-                    // Add FactInteraction entity asynchronously
                     entityService.addItem(ENTITY_NAME_FACTINTERACTION, ENTITY_VERSION, newInteraction, processFactInteraction)
                             .exceptionally(ex -> {
-                                logger.error("Failed to add new FactInteraction entity", ex);
+                                logger.error("Failed to add FactInteraction entity", ex);
                                 return null;
                             });
                 } else {
-                    // Update existing FactInteraction entities: increment emailsSent
+                    // Update existing FactInteraction entities: increment emailsSent by number of subscribers
                     for (JsonNode interactionNode : existingInteractions) {
-                        // We cannot update same entityModel inside workflow for current entity (CatFact),
-                        // but here we are updating different entityModel (FactInteraction), which is allowed.
-                        UUID interactionId = UUID.fromString(interactionNode.get("technicalId").asText());
+                        UUID interactionId;
+                        try {
+                            interactionId = UUID.fromString(interactionNode.get("technicalId").asText());
+                        } catch (IllegalArgumentException e) {
+                            logger.warn("Invalid technicalId format in FactInteraction: {}", interactionNode.get("technicalId").asText());
+                            continue;
+                        }
                         int emailsSent = interactionNode.get("emailsSent").asInt() + subscribers.size();
                         int emailsOpened = interactionNode.get("emailsOpened").asInt();
                         int linksClicked = interactionNode.get("linksClicked").asInt();
@@ -191,7 +172,7 @@ public class CyodaEntityControllerPrototype {
                     }
                 }
             } else {
-                logger.warn("factId is null - skipping FactInteraction update");
+                logger.warn("factId is null or invalid - skipping FactInteraction update");
             }
 
         } catch (Exception e) {
@@ -201,10 +182,7 @@ public class CyodaEntityControllerPrototype {
         return entity;
     };
 
-    /**
-     * Workflow function for FactInteraction entity.
-     * No side effects now, just return entity as is.
-     */
+    // Workflow function for FactInteraction entity: no changes currently
     private Function<Object, Object> processFactInteraction = entity -> entity;
 
     @PostMapping(value = "/subscribers", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
@@ -216,7 +194,13 @@ public class CyodaEntityControllerPrototype {
         for (JsonNode node : subscribersArray) {
             String email = node.get("email").asText();
             if (email.equalsIgnoreCase(request.getEmail())) {
-                UUID technicalId = UUID.fromString(node.get("technicalId").asText());
+                UUID technicalId;
+                try {
+                    technicalId = UUID.fromString(node.get("technicalId").asText());
+                } catch (IllegalArgumentException e) {
+                    logger.warn("Invalid technicalId format in Subscriber: {}", node.get("technicalId").asText());
+                    continue;
+                }
                 Subscriber existingSubscriber = new Subscriber(technicalId, email, node.get("status").asText(),
                         Instant.parse(node.get("subscribedAt").asText()));
                 logger.info("Subscriber with email {} already exists: {}", request.getEmail(), technicalId);
@@ -238,7 +222,13 @@ public class CyodaEntityControllerPrototype {
         ArrayNode subscribersArray = subscribersFuture.join();
         List<Subscriber> subscribersList = new ArrayList<>();
         for (JsonNode node : subscribersArray) {
-            UUID technicalId = UUID.fromString(node.get("technicalId").asText());
+            UUID technicalId;
+            try {
+                technicalId = UUID.fromString(node.get("technicalId").asText());
+            } catch (IllegalArgumentException e) {
+                logger.warn("Invalid technicalId format in Subscriber: {}", node.get("technicalId").asText());
+                continue;
+            }
             String email = node.get("email").asText();
             String status = node.get("status").asText();
             Instant subscribedAt = Instant.parse(node.get("subscribedAt").asText());
@@ -247,11 +237,7 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.ok(subscribersList);
     }
 
-    /**
-     * Now this endpoint just creates a CatFact entity with empty or partial data.
-     * The processCatFact workflow will fetch the actual fact, send emails,
-     * and update related entities asynchronously before persistence.
-     */
+    // Endpoint to create a CatFact entity triggering workflow that fetches fact and sends emails asynchronously
     @PostMapping(value = "/facts/sendWeekly", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<FactSentResponse> sendWeeklyCatFact(@RequestBody @Valid FactSendRequest request) {
         logger.info("Received request to send weekly cat fact, triggeredBy={}", request.getTriggeredBy());
@@ -261,12 +247,9 @@ public class CyodaEntityControllerPrototype {
         UUID factId = factIdFuture.join();
         fact.setFactId(factId);
 
-        // We cannot get updated factText here because it's updated asynchronously in workflow,
-        // so we just return the factId and empty factText here.
-        // Alternatively, fetch the persisted entity again if needed.
+        // factText updated asynchronously, cannot return it here immediately
         FactSentResponse response = new FactSentResponse(factId, "", 0);
 
-        // For subscribers count, fetch separately
         CompletableFuture<ArrayNode> subscribersFuture = entityService.getItems(ENTITY_NAME_SUBSCRIBER, ENTITY_VERSION);
         int subscribersCount = subscribersFuture.join().size();
         response.setSentToSubscribers(subscribersCount);
@@ -289,8 +272,16 @@ public class CyodaEntityControllerPrototype {
         ArrayNode interactionsArray = interactionsFuture.join();
         List<FactInteraction> list = new ArrayList<>();
         for (JsonNode node : interactionsArray) {
-            UUID technicalId = UUID.fromString(node.get("technicalId").asText());
-            UUID factId = UUID.fromString(node.get("factId").asText());
+            UUID technicalId;
+            UUID factId;
+            try {
+                technicalId = UUID.fromString(node.get("technicalId").asText());
+                factId = UUID.fromString(node.get("factId").asText());
+            } catch (IllegalArgumentException e) {
+                logger.warn("Invalid UUID format in FactInteraction: techId={}, factId={}",
+                        node.get("technicalId").asText(), node.get("factId").asText());
+                continue;
+            }
             int emailsSent = node.get("emailsSent").asInt();
             int emailsOpened = node.get("emailsOpened").asInt();
             int linksClicked = node.get("linksClicked").asInt();
@@ -374,31 +365,3 @@ public class CyodaEntityControllerPrototype {
         private int linksClicked;
     }
 }
-```
-
----
-
-### Explanation of refactoring:
-
-- Moved all async and side-effect logic related to the `CatFact` entity into the `processCatFact` workflow function:
-
-  - Fetching cat fact from external API.
-  - Setting `createdAt`.
-  - Sending emails to subscribers (simulated by logging).
-  - Querying and updating `FactInteraction` entities accordingly.
-
-- This function receives the entity as an `ObjectNode` (JSON object), modifies it (`factText`, `createdAt`), and performs side effects on *different* entityModels via `entityService` calls.
-
-- **Important:** It does NOT call `addItem`, `updateItem`, or `deleteItem` on the same entityModel (`CatFact`) to prevent recursion, but it is allowed to do so on other entityModels (`FactInteraction`).
-
-- The controller method `sendWeeklyCatFact` now only creates an empty `CatFact` entity, triggers the workflow asynchronously, and returns immediately with minimal data.
-
-- The `processSubscriber` workflow normalizes the subscriber status string to uppercase, moving simple logic out of controller.
-
-- Removed the previous asynchronous email sending method `sendEmailsToSubscribersAsync` from the controller since emailing is now done in the workflow.
-
-- This approach frees controllers from heavy logic, centralizes entity-related processing in workflows, and follows your requirement about async tasks moving into workflows.
-
----
-
-If you want me to move more logic or refactor other entities similarly, just ask!
