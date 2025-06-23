@@ -1,38 +1,3 @@
-Absolutely, moving async or pre-persistence logic into the workflow function (`processPet`) is a great design improvement. It keeps controllers slimmer, centralizes entity-specific logic, and leverages asynchronous capabilities properly.
-
----
-
-## What to move from controller to workflow function?
-
-In your current controller:
-
-- The `addPet` method builds the `Pet` entity and calls `entityService.addItem`.
-- Currently, `processPet` only sets the default status.
-- The fetch endpoint calls external API (not part of persistence workflow).
-- Update and get endpoints mostly just forward calls — no async logic.
-  
-So the main candidate for moving logic is the entity preparation/modification before persistence:
-
-- Defaulting/fixing missing fields (like `status`).
-- Potential enrichment or validation that requires async calls or other entity fetching.
-- Fire-and-forget tasks related to entity state (logging, notifications, augmenting data).
-
----
-
-## How to do this?
-
-- Change `processPet` to accept and return an `ObjectNode` (the `entity` parameter).
-- Inside `processPet`, manipulate the JSON entity using `entity.put(...)` or `entity.set(...)`.
-- If async calls or fetching other entities are needed, do them here.
-- The workflow function must NOT call `addItem/updateItem/deleteItem` on the same entity model (to avoid recursion).
-- The controller only converts the incoming `PetAddRequest` into an `ObjectNode` and passes it to `addItem` with the workflow function.
-- The workflow function completely owns the preparation of the entity before persistence.
-
----
-
-## Updated code snippet (full controller with moved logic)
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -57,7 +22,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
 
@@ -171,15 +135,12 @@ public class CyodaEntityControllerPrototype {
         }
         List<Pet> resultPets = new ArrayList<>();
         for (JsonNode petNode : rootNode) {
-            Long externalId = petNode.has("id") ? petNode.get("id").asLong() : null;
             String name = petNode.has("name") ? petNode.get("name").asText() : null;
             String type = null;
             if (petNode.has("category") && petNode.get("category").has("name")) {
                 type = petNode.get("category").get("name").asText();
             }
             String status = petNode.has("status") ? petNode.get("status").asText() : null;
-            Integer age = null;
-            String description = null;
 
             if (StringUtils.hasText(fetchRequest.getType()) && (type == null || !type.equalsIgnoreCase(fetchRequest.getType()))) {
                 continue;
@@ -187,7 +148,7 @@ public class CyodaEntityControllerPrototype {
             if (StringUtils.hasText(fetchRequest.getName()) && (name == null || !name.toLowerCase().contains(fetchRequest.getName().toLowerCase()))) {
                 continue;
             }
-            resultPets.add(new Pet(null, name, type, status, age, description));
+            resultPets.add(new Pet(null, name, type, status, null, null));
         }
         this.lastFetchedPets = Collections.unmodifiableList(resultPets);
         Map<String, List<Pet>> response = Map.of("pets", resultPets);
@@ -201,26 +162,15 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.ok(Map.of("pets", lastFetchedPets));
     }
 
-    /**
-     * Workflow function applied to the Pet entity asynchronously before persistence.
-     *
-     * @param entity the ObjectNode representing the Pet entity to be persisted
-     * @return CompletableFuture of the modified ObjectNode
-     */
     private CompletableFuture<ObjectNode> processPet(ObjectNode entity) {
-        // Ensure "status" is set; default to "available" if missing or empty
         if (!entity.hasNonNull("status") || !StringUtils.hasText(entity.get("status").asText())) {
             entity.put("status", "available");
         }
-
-        // Example: You can modify/add fields here asynchronously
-        // For demonstration, let's simulate an async enrichment (e.g. add timestamp)
         entity.put("createdAt", System.currentTimeMillis());
 
-        // Example of async fire-and-forget or fetching other entities could be done here
-        // e.g., CompletableFuture.runAsync(() -> sendNotification(entity));
+        // Example placeholder for async fire-and-forget tasks, e.g. notifications
+        // CompletableFuture.runAsync(() -> sendNotification(entity));
 
-        // Return the modified entity wrapped in a completed future
         return CompletableFuture.completedFuture(entity);
     }
 
@@ -228,7 +178,6 @@ public class CyodaEntityControllerPrototype {
     public ResponseEntity<PetAddResponse> addPet(@RequestBody @Valid PetAddRequest addRequest) throws Exception {
         logger.info("Adding new pet: {}", addRequest);
 
-        // Convert PetAddRequest to ObjectNode for entityService
         ObjectNode petNode = objectMapper.createObjectNode();
         petNode.put("name", addRequest.getName());
         petNode.put("type", addRequest.getType());
@@ -242,7 +191,6 @@ public class CyodaEntityControllerPrototype {
             petNode.put("description", addRequest.getDescription());
         }
 
-        // Pass the workflow function processPet to entityService.addItem
         CompletableFuture<UUID> idFuture = entityService.addItem(ENTITY_NAME, ENTITY_VERSION, petNode, this::processPet);
         UUID technicalId = idFuture.get();
 
@@ -263,6 +211,18 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.ok(pet);
     }
 
+    private CompletableFuture<ObjectNode> processPetUpdate(ObjectNode entity) {
+        // Example update workflow: ensure status is valid or default to "available"
+        if (!entity.hasNonNull("status") || !StringUtils.hasText(entity.get("status").asText())) {
+            entity.put("status", "available");
+        }
+        entity.put("updatedAt", System.currentTimeMillis());
+
+        // Additional async logic or enrichment can be done here
+
+        return CompletableFuture.completedFuture(entity);
+    }
+
     @PostMapping(value = "/update/{id}", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<MessageResponse> updatePet(@PathVariable("id") UUID id,
                                                      @RequestBody @Valid PetUpdateRequest updateRequest) throws Exception {
@@ -273,16 +233,16 @@ public class CyodaEntityControllerPrototype {
             throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Pet not found with technicalId " + id);
         }
 
-        // Apply updates directly on the ObjectNode
         if (StringUtils.hasText(updateRequest.getName())) existingNode.put("name", updateRequest.getName());
         if (StringUtils.hasText(updateRequest.getType())) existingNode.put("type", updateRequest.getType());
         if (StringUtils.hasText(updateRequest.getStatus())) existingNode.put("status", updateRequest.getStatus());
         if (updateRequest.getAge() != null) existingNode.put("age", updateRequest.getAge());
         if (updateRequest.getDescription() != null) existingNode.put("description", updateRequest.getDescription());
 
-        // Here we could also introduce a processPetUpdate workflow function if needed,
-        // but since this example does not specify that, we update directly.
-        CompletableFuture<UUID> updatedItemId = entityService.updateItem(ENTITY_NAME, ENTITY_VERSION, id, existingNode);
+        CompletableFuture<ObjectNode> processedNodeFuture = processPetUpdate(existingNode);
+        ObjectNode processedNode = processedNodeFuture.get();
+
+        CompletableFuture<UUID> updatedItemId = entityService.updateItem(ENTITY_NAME, ENTITY_VERSION, id, processedNode);
         UUID updatedId = updatedItemId.get();
 
         logger.info("Pet technicalId {} updated", updatedId);
@@ -309,25 +269,3 @@ public class CyodaEntityControllerPrototype {
         return new ResponseEntity<>(error, org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }
-```
-
----
-
-## Summary of changes:
-
-- The controller `addPet` converts the incoming DTO `PetAddRequest` into an `ObjectNode` and passes it unmodified into `entityService.addItem`.
-- The `processPet(ObjectNode entity)` workflow function now fully owns all pre-persistence logic including:
-  - Setting default status if missing.
-  - Adding any extra fields like timestamps.
-  - Potential async enrichment or firing other async tasks (fire-and-forget).
-- This design frees the controller from business logic that belongs to the entity lifecycle.
-- Update endpoint modifies the `ObjectNode` directly; you can similarly add a workflow function for update if needed.
-- The entity model used by `entityService` is JSON (`ObjectNode`), so all modifications happen in JSON tree.
-
----
-
-If you have other async logic from elsewhere that relates to entity lifecycle or pre-persistence, you should move it to appropriate workflow functions named `process{entity_name}`.
-
-This approach ensures clean separation of concerns, better testability, and robustness.
-
-Let me know if you want me to add a workflow for updates or other entities!
