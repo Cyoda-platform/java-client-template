@@ -1,29 +1,28 @@
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Async;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
-import javax.annotation.PostConstruct;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Slf4j
+@Validated
 @RestController
 @RequestMapping("/entity")
 public class EntityControllerPrototype {
@@ -34,40 +33,25 @@ public class EntityControllerPrototype {
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
-
-    // Store last generated report keyed by a fixed key "latest"
     private final Map<String, BookingReportResponse> reportsCache = new ConcurrentHashMap<>();
-
-    // Date formatter for parsing booking dates
     private final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
-    /**
-     * POST /entity/bookings/filter
-     * Fetches all bookings, applies filters, computes summary, caches last report.
-     */
-    @PostMapping("/bookings/filter")
-    public ResponseEntity<BookingReportResponse> filterBookings(@RequestBody BookingFilterRequest request) {
+    @PostMapping("/bookings/filter") // must be first
+    public ResponseEntity<BookingReportResponse> filterBookings(@RequestBody @Valid BookingFilterRequest request) {
         log.info("Received filter request: {}", request);
-
         try {
-            // Step 1: Fetch all booking IDs
             ResponseEntity<String> bookingIdsResp = restTemplate.getForEntity(BOOKING_IDS_ENDPOINT, String.class);
             if (!bookingIdsResp.getStatusCode().is2xxSuccessful() || bookingIdsResp.getBody() == null) {
                 log.error("Failed to fetch booking IDs, status: {}", bookingIdsResp.getStatusCode());
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch booking IDs");
             }
             JsonNode bookingIdsJson = objectMapper.readTree(bookingIdsResp.getBody());
-
             List<Integer> bookingIds = new ArrayList<>();
             if (bookingIdsJson.isArray()) {
                 for (JsonNode node : bookingIdsJson) {
                     bookingIds.add(node.get("bookingid").asInt());
                 }
             }
-
-            log.info("Fetched {} booking IDs", bookingIds.size());
-
-            // Step 2: Fetch booking details for each ID (in prototype, sequential)
             List<BookingDetails> allBookings = new ArrayList<>();
             for (Integer id : bookingIds) {
                 String url = String.format(BOOKING_DETAILS_ENDPOINT_TEMPLATE, id);
@@ -78,36 +62,20 @@ public class EntityControllerPrototype {
                         continue;
                     }
                     JsonNode bookingJson = objectMapper.readTree(bookingResp.getBody());
-
                     BookingDetails bd = parseBookingDetails(id, bookingJson);
                     allBookings.add(bd);
                 } catch (Exception e) {
                     log.warn("Exception fetching booking {}: {}", id, e.getMessage());
                 }
             }
-
-            log.info("Fetched details for {} bookings", allBookings.size());
-
-            // Step 3: Filter bookings based on request.filters
             List<BookingDetails> filtered = allBookings.stream()
                     .filter(b -> filterBooking(b, request.getFilters()))
                     .collect(Collectors.toList());
-
-            log.info("Filtered down to {} bookings after applying filters", filtered.size());
-
-            // Step 4: Calculate summary
             BookingSummary summary = calculateSummary(filtered, request.getReportDateRanges());
-
-            // Step 5: Prepare response and cache it
             BookingReportResponse response = new BookingReportResponse(filtered, summary);
             reportsCache.put("latest", response);
-
-            log.info("Report generation complete");
-
             return ResponseEntity.ok(response);
-
         } catch (ResponseStatusException rse) {
-            log.error("ResponseStatusException: {}", rse.getReason());
             throw rse;
         } catch (Exception e) {
             log.error("Unexpected error during filterBookings", e);
@@ -115,22 +83,14 @@ public class EntityControllerPrototype {
         }
     }
 
-    /**
-     * GET /entity/reports/latest
-     * Returns last generated report or 404 if none.
-     */
-    @GetMapping("/reports/latest")
+    @GetMapping("/reports/latest") // must be first
     public ResponseEntity<BookingReportResponse> getLatestReport() {
         BookingReportResponse report = reportsCache.get("latest");
         if (report == null) {
-            log.info("No latest report found");
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
-        log.info("Returning latest report");
         return ResponseEntity.ok(report);
     }
-
-    // --- Helper methods and DTOs ---
 
     private BookingDetails parseBookingDetails(int bookingId, JsonNode json) {
         BookingDetails bd = new BookingDetails();
@@ -139,7 +99,6 @@ public class EntityControllerPrototype {
         bd.setLastName(json.path("lastname").asText(null));
         bd.setTotalPrice(json.path("totalprice").asDouble(0));
         bd.setDepositPaid(json.path("depositpaid").asBoolean(false));
-
         JsonNode bookingDates = json.path("bookingdates");
         if (!bookingDates.isMissingNode()) {
             BookingDates dates = new BookingDates();
@@ -151,67 +110,40 @@ public class EntityControllerPrototype {
     }
 
     private boolean filterBooking(BookingDetails booking, BookingFilter filters) {
-        if (filters == null) {
-            return true; // no filters, accept all
-        }
-
-        // Filter by checkin date range (inclusive)
+        if (filters == null) return true;
         if (filters.getCheckinDateFrom() != null) {
             LocalDate from = LocalDate.parse(filters.getCheckinDateFrom(), DATE_FORMATTER);
             LocalDate checkin = safeParseDate(booking.getBookingDates() != null ? booking.getBookingDates().getCheckin() : null);
-            if (checkin == null || checkin.isBefore(from)) {
-                return false;
-            }
+            if (checkin == null || checkin.isBefore(from)) return false;
         }
         if (filters.getCheckinDateTo() != null) {
             LocalDate to = LocalDate.parse(filters.getCheckinDateTo(), DATE_FORMATTER);
             LocalDate checkin = safeParseDate(booking.getBookingDates() != null ? booking.getBookingDates().getCheckin() : null);
-            if (checkin == null || checkin.isAfter(to)) {
-                return false;
-            }
+            if (checkin == null || checkin.isAfter(to)) return false;
         }
-
-        // Filter by total price range
-        if (filters.getTotalPriceMin() != null && booking.getTotalPrice() < filters.getTotalPriceMin()) {
-            return false;
-        }
-        if (filters.getTotalPriceMax() != null && booking.getTotalPrice() > filters.getTotalPriceMax()) {
-            return false;
-        }
-
-        // Filter by deposit paid
-        if (filters.getDepositPaid() != null && !filters.getDepositPaid().equals(booking.getDepositPaid())) {
-            return false;
-        }
-
+        if (filters.getTotalPriceMin() != null && booking.getTotalPrice() < filters.getTotalPriceMin()) return false;
+        if (filters.getTotalPriceMax() != null && booking.getTotalPrice() > filters.getTotalPriceMax()) return false;
+        if (filters.getDepositPaid() != null && !filters.getDepositPaid().equals(booking.getDepositPaid())) return false;
         return true;
     }
 
     private LocalDate safeParseDate(String dateStr) {
         try {
-            if (dateStr == null) return null;
-            return LocalDate.parse(dateStr, DATE_FORMATTER);
+            return dateStr == null ? null : LocalDate.parse(dateStr, DATE_FORMATTER);
         } catch (Exception e) {
             return null;
         }
     }
 
     private BookingSummary calculateSummary(List<BookingDetails> bookings, List<DateRange> dateRanges) {
-        double totalRevenue = bookings.stream()
-                .mapToDouble(BookingDetails::getTotalPrice)
-                .sum();
-
+        double totalRevenue = bookings.stream().mapToDouble(BookingDetails::getTotalPrice).sum();
         double avgPrice = bookings.isEmpty() ? 0 : totalRevenue / bookings.size();
-
         List<DateRangeCount> counts = new ArrayList<>();
         if (dateRanges != null) {
             for (DateRange dr : dateRanges) {
                 LocalDate from = safeParseDate(dr.getFrom());
                 LocalDate to = safeParseDate(dr.getTo());
-                if (from == null || to == null) {
-                    // skip invalid date range
-                    continue;
-                }
+                if (from == null || to == null) continue;
                 long count = bookings.stream()
                         .filter(b -> {
                             LocalDate checkin = safeParseDate(b.getBookingDates() != null ? b.getBookingDates().getCheckin() : null);
@@ -220,7 +152,6 @@ public class EntityControllerPrototype {
                 counts.add(new DateRangeCount(dr.getFrom(), dr.getTo(), count));
             }
         }
-
         return new BookingSummary(totalRevenue, avgPrice, counts);
     }
 
@@ -228,30 +159,38 @@ public class EntityControllerPrototype {
     public ResponseEntity<Map<String, String>> handleResponseStatusException(ResponseStatusException ex) {
         Map<String, String> error = new HashMap<>();
         error.put("error", ex.getReason());
-        log.error("Handled ResponseStatusException: {}", ex.getReason());
         return ResponseEntity.status(ex.getStatusCode()).body(error);
     }
 
-    // --- DTOs ---
-
     @Data
     public static class BookingFilterRequest {
+        @Valid
         private BookingFilter filters;
-        private List<DateRange> reportDateRanges;
+        @Valid
+        private List<@Valid DateRange> reportDateRanges;
     }
 
     @Data
     public static class BookingFilter {
+        @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}")
         private String checkinDateFrom;
+        @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}")
         private String checkinDateTo;
+        @Min(0)
         private Double totalPriceMin;
+        @Min(0)
         private Double totalPriceMax;
+        @NotNull
         private Boolean depositPaid;
     }
 
     @Data
     public static class DateRange {
+        @NotBlank
+        @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}")
         private String from;
+        @NotBlank
+        @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}")
         private String to;
     }
 
@@ -297,4 +236,3 @@ public class EntityControllerPrototype {
         private long count;
     }
 }
-```
