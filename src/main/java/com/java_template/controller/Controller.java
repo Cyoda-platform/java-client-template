@@ -1,4 +1,4 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -35,12 +35,12 @@ import static com.java_template.common.config.Config.*;
 @RestController
 @Validated
 @RequestMapping("/api/cyoda")
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final RestTemplate restTemplate = new RestTemplate();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
     private final EntityService entityService;
 
@@ -48,15 +48,16 @@ public class CyodaEntityControllerPrototype {
     private static final String ENTITY_NAME_CATFACT = "CatFact";
     private static final String ENTITY_NAME_FACTINTERACTION = "FactInteraction";
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     private static final String CAT_FACT_API_URL = "https://catfact.ninja/fact";
 
     @PostConstruct
     public void init() {
-        logger.info("CyodaEntityControllerPrototype initialized");
+        logger.info("Controller initialized");
     }
 
     // Workflow function for Subscriber entity: normalize status to uppercase
