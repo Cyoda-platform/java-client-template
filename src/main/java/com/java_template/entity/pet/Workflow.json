@@ -1,0 +1,78 @@
+{
+    "description": "Workflow for managing pet entity lifecycle in Purrfect Pets API",
+    "name": "purrfect_pets_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Initialize the pet entity with version",
+            "end_state": "Initialized",
+            "end_state_description": "Pet entity initialized",
+            "name": "initialize_pet",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processInitialize"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Validate pet entity status",
+            "end_state": "Validated",
+            "end_state_description": "Pet entity validated",
+            "name": "validate_pet",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processValidate"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Initialized",
+            "start_state_description": "Pet entity initialized"
+        },
+        {
+            "automated": true,
+            "description": "Set default values for pet entity",
+            "end_state": "DefaultsSet",
+            "end_state_description": "Default values set for pet entity",
+            "name": "set_defaults_pet",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSetDefaults"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Validated",
+            "start_state_description": "Pet entity validated"
+        },
+        {
+            "automated": true,
+            "description": "Perform post-processing on pet entity",
+            "end_state": "Processed",
+            "end_state_description": "Pet entity post-processed",
+            "name": "post_process_pet",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processPostProcess"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "DefaultsSet",
+            "start_state_description": "Default values set for pet entity"
+        }
+    ]
+}
