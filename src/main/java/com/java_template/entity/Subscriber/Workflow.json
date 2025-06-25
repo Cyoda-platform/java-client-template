@@ -1,0 +1,42 @@
+{
+    "description": "Workflow for subscriber entity management",
+    "name": "subscriber_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start processing subscriber entity",
+            "end_state": "Subscriber_email_normalized",
+            "end_state_description": "Subscriber email has been normalized",
+            "name": "start_subscriber_processing",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processNormalizeEmail"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Send welcome email to subscriber",
+            "end_state": "Subscriber_welcome_email_sent",
+            "end_state_description": "Welcome email has been sent to subscriber",
+            "name": "send_welcome_email",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processSendWelcomeEmail"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Subscriber_email_normalized",
+            "start_state_description": "Subscriber email has been normalized"
+        }
+    ]
+}
