@@ -1,47 +1,47 @@
 {
-    "description": "Pet entity workflow FSM",
-    "initial_state": "none",
-    "states": {
-        "asyncOps": {
-            "transitions": {
-                "complete": {
-                    "next": "completed"
-                }
-            }
-        },
-        "completed": {
-            "transitions": {}
-        },
-        "enrich": {
-            "transitions": {
-                "enrichment_done": {
-                    "action": {
-                        "name": "processAsyncOps"
-                    },
-                    "next": "asyncOps"
-                }
-            }
-        },
-        "none": {
-            "transitions": {
-                "start_validation": {
-                    "action": {
-                        "name": "processValidate"
-                    },
-                    "next": "validate"
-                }
-            }
-        },
-        "validate": {
-            "transitions": {
-                "validation_success": {
-                    "action": {
-                        "name": "processEnrich"
-                    },
-                    "next": "enrich"
-                }
-            }
+  "description": "Pet entity workflow FSM",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_validation": {
+          "action": {
+            "name": "processValidate"
+          },
+          "next": "validate"
         }
+      }
     },
-    "workflow_name": "pet_workflow"
+    "validate": {
+      "transitions": {
+        "validation_success": {
+          "action": {
+            "name": "processEnrich"
+          },
+          "next": "enrich"
+        }
+      }
+    },
+    "enrich": {
+      "transitions": {
+        "enrichment_done": {
+          "action": {
+            "name": "processAsyncOps"
+          },
+          "next": "asyncOps"
+        }
+      }
+    },
+    "asyncOps": {
+      "transitions": {
+        "complete": {
+          "next": "completed"
+        }
+      }
+    },
+    "completed": {
+      "transitions": {}
+    }
+  },
+  "workflow_name": "pet_workflow"
 }
