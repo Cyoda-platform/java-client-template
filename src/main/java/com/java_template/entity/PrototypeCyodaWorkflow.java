@@ -1,35 +1,3 @@
-Certainly! Moving asynchronous and business logic from controller endpoints into the workflow function (`process{entity_name}`) is a great design pattern. It keeps controllers clean, improves separation of concerns, and leverages the workflow function’s asynchronous capabilities right before persistence.
-
----
-
-### What to move into `processPet` workflow?
-
-- Any asynchronous calls that enrich or validate the entity.
-- Any entity state modifications (e.g., setting defaults, computed fields).
-- Any fetching or adding of secondary/supplementary entities of **different** models.
-- Fire-and-forget tasks related to the entity that must happen before persistence.
-
----
-
-### What **cannot** be done in the workflow?
-
-- Modifying the current entity via add/update/delete — will cause recursion.
-- Calling controllers or business logic outside the scope of the entity modification.
-
----
-
-### Refactoring plan for your code:
-
-- Move any async validations/enrichments before persistence inside `processPet`.
-- Move the check for pet existence in `addFavorite` into a new workflow `processFavorite`.
-- Remove async logic from controller endpoints and just call `addItem` with workflow.
-- Keep controllers thin: just validate input and call entityService with workflow.
-
----
-
-### Updated code: refactored controller + new workflow functions
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -77,36 +45,48 @@ public class CyodaEntityControllerPrototype {
         this.objectMapper = objectMapper;
     }
 
-    // ===========================
-    // Workflow function for Pet entity
-    // ===========================
+    // Workflow function for Pet entity - enrich, validate, async operations before persistence
     private final Function<JsonNode, CompletableFuture<JsonNode>> processPet = entityData -> {
+        if (!(entityData instanceof ObjectNode)) {
+            CompletableFuture<JsonNode> failed = new CompletableFuture<>();
+            failed.completeExceptionally(new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Entity data must be a JSON object"));
+            return failed;
+        }
         ObjectNode entity = (ObjectNode) entityData;
 
-        // Example: enrich entity with createdAt timestamp if missing
-        if (!entity.has("createdAt")) {
+        // Enrich with createdAt timestamp if missing
+        if (!entity.has("createdAt") || entity.get("createdAt").isNull()) {
             entity.put("createdAt", System.currentTimeMillis());
         }
 
-        // Example: set default status if missing
-        if (!entity.has("status") || entity.get("status").asText().isEmpty()) {
+        // Set default status if missing or empty
+        if (!entity.has("status") || entity.get("status").asText().trim().isEmpty()) {
             entity.put("status", "available");
         }
 
-        // You can perform async tasks here, e.g.:
-        // - fetch supplementary data from other entityModel
-        // - log or trigger async analytics (fire-and-forget)
-        // For demonstration, simulate async delay:
+        // Validate category name presence
+        if (!entity.has("category") || !entity.get("category").has("name") || entity.get("category").get("name").asText().trim().isEmpty()) {
+            CompletableFuture<JsonNode> failed = new CompletableFuture<>();
+            failed.completeExceptionally(new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Category name must be provided"));
+            return failed;
+        }
+
+        // Example async operation: simulate latency or fetch supplementary data (no real call here)
+        // Return entity as-is wrapped in CompletableFuture
         return CompletableFuture.completedFuture(entity);
     };
 
-    // Workflow function for Favorite entity (assuming entityModel = "favorite")
+    // Workflow function for Favorite entity - validate pet existence asynchronously before persistence
     private final Function<JsonNode, CompletableFuture<JsonNode>> processFavorite = entityData -> {
+        if (!(entityData instanceof ObjectNode)) {
+            CompletableFuture<JsonNode> failed = new CompletableFuture<>();
+            failed.completeExceptionally(new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Entity data must be a JSON object"));
+            return failed;
+        }
         ObjectNode favoriteEntity = (ObjectNode) entityData;
 
-        // Validate pet existence asynchronously before favorite is persisted
         String petId = favoriteEntity.has("petId") ? favoriteEntity.get("petId").asText() : null;
-        if (petId == null) {
+        if (petId == null || petId.trim().isEmpty()) {
             CompletableFuture<JsonNode> failed = new CompletableFuture<>();
             failed.completeExceptionally(new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "petId must be provided"));
             return failed;
@@ -123,17 +103,13 @@ public class CyodaEntityControllerPrototype {
                         failed.completeExceptionally(new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Pet with given id not found"));
                         return failed;
                     }
-                    // Optionally enrich favorite entity here (e.g. add timestamp)
-                    if (!favoriteEntity.has("addedAt")) {
+                    // Add favorite addedAt timestamp if missing
+                    if (!favoriteEntity.has("addedAt") || favoriteEntity.get("addedAt").isNull()) {
                         favoriteEntity.put("addedAt", System.currentTimeMillis());
                     }
                     return CompletableFuture.completedFuture(favoriteEntity);
                 });
     };
-
-    // ===========================
-    // Controller endpoints
-    // ===========================
 
     @PostMapping("/fetch")
     public CompletableFuture<ResponseEntity<PetsResponse>> fetchPets(@RequestBody @Valid PetFetchRequest request) {
@@ -144,7 +120,7 @@ public class CyodaEntityControllerPrototype {
             condition = null;
         } else if (request.getStatus() != null && request.getTags() != null && !request.getTags().isEmpty()) {
             Condition statusCond = Condition.of("$.status", "EQUALS", request.getStatus());
-            // tags filter - simplified
+            // Tags filter is simplified, as complex list filtering may not be supported
             Condition tagCond = Condition.of("$.tags[*]", "INOT_CONTAINS", request.getTags());
             condition = SearchConditionRequest.group("AND", statusCond, tagCond);
         } else if (request.getStatus() != null) {
@@ -178,7 +154,6 @@ public class CyodaEntityControllerPrototype {
                 });
     }
 
-    // Now simply add favorite entity with processFavorite workflow validating pet existence asynchronously
     @PostMapping("/favorites/add")
     public CompletableFuture<ResponseEntity<FavoriteResponse>> addFavorite(@RequestBody @Valid FavoriteRequest request) {
         logger.info("addFavorite petId={}", request.getPetId());
@@ -198,8 +173,12 @@ public class CyodaEntityControllerPrototype {
             return CompletableFuture.completedFuture(ResponseEntity.ok(new FavoritesListResponse(List.of())));
         }
         List<Condition> conditions = petIds.stream()
+                .filter(id -> id != null && !id.trim().isEmpty())
                 .map(id -> Condition.of("$.technicalId", "EQUALS", id))
                 .collect(Collectors.toList());
+        if (conditions.isEmpty()) {
+            return CompletableFuture.completedFuture(ResponseEntity.ok(new FavoritesListResponse(List.of())));
+        }
         SearchConditionRequest condition = SearchConditionRequest.group("OR", conditions.toArray(new Condition[0]));
 
         return entityService.getItemsByCondition(ENTITY_NAME, ENTITY_VERSION, condition)
@@ -211,9 +190,6 @@ public class CyodaEntityControllerPrototype {
                 });
     }
 
-    /**
-     * Updated method to add Pet entity using processPet workflow that enriches and validates entity asynchronously.
-     */
     public CompletableFuture<UUID> addPet(JsonNode petData) {
         return entityService.addItem(
                 ENTITY_NAME,
@@ -225,20 +201,20 @@ public class CyodaEntityControllerPrototype {
 
     private Pet jsonNodeToPet(JsonNode node) {
         Pet pet = new Pet();
-        pet.setId(node.has("technicalId") ? node.get("technicalId").asText() : null);
-        pet.setName(node.has("name") ? node.get("name").asText() : null);
-        pet.setStatus(node.has("status") ? node.get("status").asText() : null);
-        if (node.has("category") && node.get("category").has("name")) {
+        pet.setId(node.has("technicalId") && !node.get("technicalId").isNull() ? node.get("technicalId").asText() : null);
+        pet.setName(node.has("name") && !node.get("name").isNull() ? node.get("name").asText() : null);
+        pet.setStatus(node.has("status") && !node.get("status").isNull() ? node.get("status").asText() : null);
+        if (node.has("category") && node.get("category").has("name") && !node.get("category").get("name").isNull()) {
             pet.setCategory(node.get("category").get("name").asText());
         }
         if (node.has("tags") && node.get("tags").isArray()) {
             List<String> tags = objectMapper.convertValue(node.get("tags"), List.class)
-                    .stream().map(Object::toString).collect(Collectors.toList());
+                    .stream().filter(tag -> tag != null).map(Object::toString).collect(Collectors.toList());
             pet.setTags(tags);
         }
         if (node.has("photoUrls") && node.get("photoUrls").isArray()) {
             List<String> photos = objectMapper.convertValue(node.get("photoUrls"), List.class)
-                    .stream().map(Object::toString).collect(Collectors.toList());
+                    .stream().filter(photo -> photo != null).map(Object::toString).collect(Collectors.toList());
             pet.setPhotoUrls(photos);
         }
         return pet;
@@ -252,14 +228,11 @@ public class CyodaEntityControllerPrototype {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
+        logger.error("Internal server error:", ex);
         ErrorResponse error = new ErrorResponse(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR.toString(),
                 "Internal server error");
         return new ResponseEntity<>(error, org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR);
     }
-
-    // ===========================
-    // DTO classes
-    // ===========================
 
     @Data
     public static class PetFetchRequest {
@@ -313,38 +286,3 @@ public class CyodaEntityControllerPrototype {
         private String message;
     }
 }
-```
-
----
-
-### Summary of changes:
-
-- **`processPet` workflow:**
-  - Enriches pet entity with defaults like `createdAt` and `status`.
-  - You can add additional async logic here if needed.
-
-- **`processFavorite` workflow:**
-  - Validates asynchronously if the referenced pet exists.
-  - Adds timestamp metadata.
-  - Throws exceptions to abort persistence if validation fails.
-
-- **Controller endpoints:**
-  - `addFavorite()` no longer performs pet existence checks explicitly.
-  - Instead, passes the favorite entity and workflow to `entityService.addItem`.
-  - Other endpoints remain thin and simple.
-
-- **Benefits:**
-  - Controllers are free from async/validation logic clutter.
-  - All entity-specific logic now lives in workflow functions.
-  - Async tasks happen right before persistence, improving data consistency.
-  - Fire-and-forget and enrichment become natural in workflow.
-
----
-
-If you have other async tasks or validations related to entities, move them into their respective `process{entity_name}` workflows.
-
-This pattern makes your codebase more modular, testable, and maintainable, aligning perfectly with your requirements.
-
----
-
-If you want, I can help you refactor more entities or add more complex async processing inside those workflows!
