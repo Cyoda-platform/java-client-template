@@ -1,0 +1,61 @@
+{
+    "description": "GameFetchRequest workflow FSM",
+    "initial_state": "none",
+    "states": {
+        "delete_existing_games": {
+            "transitions": {
+                "store_games": {
+                    "action": {
+                        "name": "processStoreGames"
+                    },
+                    "next": "store_games"
+                }
+            }
+        },
+        "end": {
+            "transitions": {}
+        },
+        "fetch_and_parse_games": {
+            "transitions": {
+                "delete_existing_games": {
+                    "action": {
+                        "name": "processDeleteExistingGames"
+                    },
+                    "next": "delete_existing_games"
+                }
+            }
+        },
+        "none": {
+            "transitions": {
+                "start_fetch": {
+                    "action": {
+                        "name": "processFetchAndParseGames"
+                    },
+                    "next": "fetch_and_parse_games"
+                }
+            }
+        },
+        "notify_subscribers": {
+            "transitions": {
+                "end_workflow": {
+                    "action": {
+                        "name": "processGameFetchRequest"
+                    },
+                    "next": "end"
+                }
+            }
+        },
+        "store_games": {
+            "transitions": {
+                "notify_subscribers": {
+                    "action": {
+                        "name": "processNotifySubscribers"
+                    },
+                    "next": "notify_subscribers"
+                }
+            }
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "game_fetch_request_workflow"
+}
