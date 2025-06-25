@@ -1,50 +1,3 @@
-Certainly! The goal is to move all asynchronous and supplementary logic that happens before or during persistence into the respective `process{entity_name}` workflow functions. This makes controllers thinner and moves side effects, async fetches, notifications, and entity enrichments into workflow functions, applied asynchronously right before persisting the entity.
-
----
-
-### What async logic can be moved?
-
-1. **Subscriber subscription**:  
-   Currently, the controller checks if subscriber exists and then adds it.  
-   - The check if subscriber exists must remain in controller (to avoid duplicates).  
-   - But any other enrichment or async side-effects can move to `processSubscriber`.
-
-2. **Fetching NBA scores, storing games, and notifying subscribers**:  
-   Currently, the controller method `fetchAndStoreScores` triggers `fetchStoreAndNotify` asynchronously.  
-   - This whole async fetch-store-notify logic can be moved into `processGame` workflow.  
-   - The controller just adds a "fetch request" entity (say `GameFetchRequest`) with the date.  
-   - The workflow function on that request entity triggers fetch, deletes old games, stores new games, and notifies subscribers—without involving the controller.
-
-3. **Game entity workflow**:  
-   - Can enrich or modify game entities before persistence.  
-   - But the bulk of async fetch and notify moves to the new fetch-request entity workflow.
-
----
-
-### How to implement?
-
-- Introduce a new entity model `GameFetchRequest` which accepts a date string.  
-- Controller just adds a `GameFetchRequest` entity (with workflow `processGameFetchRequest`) to trigger async fetch-store-notify flow.  
-- `processGameFetchRequest` fetches the remote NBA API, deletes old games for date, adds new games (using `entityService.addItem` **of different entityModel**), and sends notifications.  
-- `processGame` workflow remains for enriching individual `Game` entities before persistence.  
-- `processSubscriber` can be minimal or do enrichment/validation if needed.
-
----
-
-### Code changes overview:
-
-- Add `processGameFetchRequest` workflow function.  
-- Change `/games/fetch` endpoint to add `GameFetchRequest` entity instead of doing async logic itself.  
-- Move the `fetchStoreAndNotify` logic into `processGameFetchRequest`.  
-- Modify entityService calls in the workflows accordingly.  
-- Keep validations and existence checks in controller where necessary (e.g. subscriber existence).  
-- Workflow functions receive `ObjectNode` (Jackson JSON object), so convert to/from POJOs inside workflow.
-
----
-
-### Full updated Java code with these changes:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -60,7 +13,6 @@ import lombok.NoArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
@@ -98,8 +50,6 @@ public class CyodaEntityControllerPrototype {
     public CyodaEntityControllerPrototype(EntityService entityService) {
         this.entityService = entityService;
     }
-
-    // --- Request/Response DTOs ---
 
     @Data
     @NoArgsConstructor
@@ -181,8 +131,6 @@ public class CyodaEntityControllerPrototype {
         @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}")
         private String date;
     }
-
-    // --- Controller endpoints ---
 
     @PostMapping("/subscribe")
     public ResponseEntity<SubscribeResponse> subscribe(@RequestBody @Valid SubscribeRequest request) throws ExecutionException, InterruptedException {
@@ -267,9 +215,6 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.ok(new GamesResponse(games, null, null, games.size()));
     }
 
-    /**
-     * Now this endpoint just adds a GameFetchRequest entity with workflow that does all fetching/storing/notifying.
-     */
     @PostMapping("/games/fetch")
     public ResponseEntity<FetchGamesResponse> fetchAndStoreScores(@RequestBody @Valid FetchGamesRequest request) throws ExecutionException, InterruptedException {
         String date = request.getDate();
@@ -292,38 +237,24 @@ public class CyodaEntityControllerPrototype {
 
     // --- Workflow functions ---
 
-    /**
-     * Workflow for Subscriber entity.
-     * Example: could enrich or validate subscriber entity.
-     * Must return the modified entity (ObjectNode).
-     */
     private final Function<Object, Object> processSubscriber = entity -> {
-        if (!(entity instanceof ObjectNode)) return entity; // defensive
+        if (!(entity instanceof ObjectNode)) return entity;
         ObjectNode objectNode = (ObjectNode) entity;
 
-        // Example: normalize email to lowercase
         if (objectNode.has("email")) {
             String email = objectNode.get("email").asText().toLowerCase(Locale.ROOT);
             objectNode.put("email", email);
         }
-        // Add subscribedAt if missing
         if (!objectNode.has("subscribedAt")) {
             objectNode.put("subscribedAt", System.currentTimeMillis());
         }
-        // more enrichment can be added here
         return objectNode;
     };
 
-    /**
-     * Workflow for Game entity.
-     * This function runs before persisting each Game entity.
-     * Can enrich, validate, or modify the game.
-     */
     private final Function<Object, Object> processGame = entity -> {
-        if (!(entity instanceof ObjectNode)) return entity; // defensive
+        if (!(entity instanceof ObjectNode)) return entity;
         ObjectNode objectNode = (ObjectNode) entity;
 
-        // Example: ensure date field is normalized to YYYY-MM-DD string
         if (objectNode.has("date")) {
             String dateStr = objectNode.get("date").asText();
             try {
@@ -332,29 +263,13 @@ public class CyodaEntityControllerPrototype {
             } catch (DateTimeParseException ignored) {
             }
         }
-        // Other enrichment or validation logic here
-
         return objectNode;
     };
 
-    /**
-     * Workflow for GameFetchRequest entity.
-     * This is the new async point to:
-     * - fetch NBA scores from API,
-     * - delete existing Game entities for that date,
-     * - add new Game entities,
-     * - notify subscribers.
-     *
-     * This function is triggered async just before persisting the fetch request entity.
-     *
-     * WARNING: You cannot modify or add/delete entities of the same entityModel (GameFetchRequest) here,
-     * but can operate on other entityModels (Game, Subscriber).
-     */
     private final Function<Object, Object> processGameFetchRequest = entity -> {
         if (!(entity instanceof ObjectNode)) return entity;
         ObjectNode fetchRequestNode = (ObjectNode) entity;
         try {
-            // Extract date from fetch request entity
             if (!fetchRequestNode.has("date")) {
                 logger.warn("GameFetchRequest entity missing 'date' field");
                 return entity;
@@ -363,7 +278,6 @@ public class CyodaEntityControllerPrototype {
 
             logger.info("Processing GameFetchRequest workflow for date {}", date);
 
-            // Step 1: fetch raw NBA scores JSON from API
             String url = String.format(NBA_API_URL_TEMPLATE, date);
             String rawJson = restTemplate.getForObject(url, String.class);
             if (rawJson == null || rawJson.isBlank()) {
@@ -376,7 +290,6 @@ public class CyodaEntityControllerPrototype {
                 return entity;
             }
 
-            // Step 2: delete existing games for the date
             String condition = String.format("{\"date\":\"%s\"}", date);
             CompletableFuture<ArrayNode> existingGamesFuture = entityService.getItemsByCondition(GAME_ENTITY, ENTITY_VERSION, condition);
             ArrayNode existingGames = existingGamesFuture.get();
@@ -388,18 +301,15 @@ public class CyodaEntityControllerPrototype {
                 }
             }
 
-            // Step 3: add new Game entities with the processGame workflow
             List<CompletableFuture<UUID>> futures = new ArrayList<>();
             for (JsonNode gameNode : rootNode) {
                 Game game = parseGameFromJsonNode(gameNode, date);
                 futures.add(entityService.addItem(GAME_ENTITY, ENTITY_VERSION, game, processGame));
             }
-            // Wait for all adds to complete
             for (CompletableFuture<UUID> f : futures) f.get();
 
             logger.info("Stored {} games for date {}", futures.size(), date);
 
-            // Step 4: notify all subscribers by logging email messages
             CompletableFuture<ArrayNode> subscribersFuture = entityService.getItems(SUBSCRIBER_ENTITY, ENTITY_VERSION);
             ArrayNode subscribersArray = subscribersFuture.get();
 
@@ -431,8 +341,6 @@ public class CyodaEntityControllerPrototype {
         } catch (Exception e) {
             logger.error("Error in processGameFetchRequest workflow", e);
         }
-
-        // Return entity as-is (maybe add a status field or timestamp if you want)
         return entity;
     };
 
@@ -457,21 +365,3 @@ public class CyodaEntityControllerPrototype {
         return new Game(date, homeTeam, awayTeam, homeScore, awayScore, otherInfo);
     }
 }
-```
-
----
-
-### Explanation:
-
-- `/games/fetch` endpoint now just creates a `GameFetchRequest` entity with the requested date.
-- `processGameFetchRequest` workflow function does all async work for fetching NBA scores, deleting old games, adding new games, and notifying subscribers.
-- `processGame` workflow can be used to enrich or normalize each `Game` entity before persistence.
-- `processSubscriber` workflow normalizes emails and adds subscription timestamp.
-- Controllers removed async logic, making them simpler and more robust.
-- The workflows run asynchronously before persistence and can modify the entities directly.
-- The workflow functions use only `entityService` calls for different entityModels (allowed).
-- The workflow functions do not add/update/delete entities of their own entityModel to avoid recursion.
-
----
-
-This design leverages the workflow function's asynchronous nature and entity modification capabilities to keep business logic out of controllers and inside workflows, which is the right approach as you requested.
