@@ -61,7 +61,7 @@ public class EntityControllerPrototype {
     @AllArgsConstructor
     static class FetchGamesRequest {
         @NotBlank
-        @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}", message = "Invalid date format, expected YYYY-MM-DD")
+        @Pattern(regexp = "\d{4}-\d{2}-\d{2}", message = "Invalid date format, expected YYYY-MM-DD")
         private String date;
     }
 
@@ -142,7 +142,7 @@ public class EntityControllerPrototype {
 
     @GetMapping("/games/{date}")
     public ResponseEntity<GamesResponse> getGamesByDate(
-            @PathVariable @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}", message = "Invalid date format, expected YYYY-MM-DD") String date) {
+            @PathVariable @Pattern(regexp = "\d{4}-\d{2}-\d{2}", message = "Invalid date format, expected YYYY-MM-DD") String date) {
         try {
             LocalDate.parse(date);
         } catch (DateTimeParseException e) {
@@ -211,15 +211,18 @@ public class EntityControllerPrototype {
             return;
         }
         StringBuilder summary = new StringBuilder();
-        summary.append("NBA Scores for ").append(date).append(":\n");
+        summary.append("NBA Scores for ").append(date).append(":
+");
         for (Game g : games) {
-            summary.append(String.format("%s vs %s: %d - %d\n",
+            summary.append(String.format("%s vs %s: %d - %d
+",
                     g.getHomeTeam(), g.getAwayTeam(),
                     Optional.ofNullable(g.getHomeScore()).orElse(-1),
                     Optional.ofNullable(g.getAwayScore()).orElse(-1)));
         }
         for (String email : emails) {
-            logger.info("Sending email to {}: \n{}", email, summary);
+            logger.info("Sending email to {}: 
+{}", email, summary);
             // TODO: integrate real email sending
         }
         logger.info("Email notifications sent to {} subscribers for date {}", emails.size(), date);
@@ -229,7 +232,9 @@ public class EntityControllerPrototype {
     public ResponseEntity<Map<String, Object>> handleResponseStatusException(ResponseStatusException ex) {
         Map<String, Object> err = new HashMap<>();
         err.put("status", ex.getStatusCode().value());
-        err.put("error", ex.getStatusCode().getReasonPhrase());
+        // Convert HttpStatusCode to HttpStatus to get reason phrase safely
+        HttpStatus httpStatus = HttpStatus.resolve(ex.getStatusCode().value());
+        err.put("error", httpStatus != null ? httpStatus.getReasonPhrase() : "Error");
         err.put("message", ex.getReason());
         return ResponseEntity.status(ex.getStatusCode()).body(err);
     }
