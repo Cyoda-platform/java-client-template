@@ -1,0 +1,48 @@
+{
+    "description": "Game entity workflow FSM",
+    "initial_state": "none",
+    "states": {
+        "done": {
+            "transitions": {}
+        },
+        "none": {
+            "transitions": {
+                "start_processing": {
+                    "action": {
+                        "name": "processValidateDate"
+                    },
+                    "next": "validate_date"
+                }
+            }
+        },
+        "prepare_notification": {
+            "transitions": {
+                "finish_processing": {
+                    "next": "done"
+                }
+            }
+        },
+        "update_scores": {
+            "transitions": {
+                "prepare_notification_transition": {
+                    "action": {
+                        "name": "processPrepareNotification"
+                    },
+                    "next": "prepare_notification"
+                }
+            }
+        },
+        "validate_date": {
+            "transitions": {
+                "update_scores_transition": {
+                    "action": {
+                        "name": "processUpdateScores"
+                    },
+                    "next": "update_scores"
+                }
+            }
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "game_workflow"
+}
