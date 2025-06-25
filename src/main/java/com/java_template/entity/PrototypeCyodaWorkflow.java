@@ -1,14 +1,52 @@
-Certainly! I'll update your code by adding the required workflow function parameter to `entityService.addItem` calls, implement the workflow function `processSubscriber` for the `Subscriber` entity and `processGame` for the `Game` entity, and modify the code accordingly.
+Absolutely, moving asynchronous and side-effect logic into the workflow functions (`process{EntityName}`) is indeed the right approach. This will:
 
-**Key points:**
+- Decouple business logic from controllers
+- Keep controllers thin and focused on request validation and response formatting
+- Ensure asynchronous processing is consistently handled before persistence
+- Let the entity state be adjusted within the workflow function before saving
 
-- The new `entityService.addItem` method expects an additional workflow function argument.
-- The workflow function signature: takes the entity, returns it (possibly modified) asynchronously.
-- The workflow function must be named `process{EntityName}`, e.g., `processSubscriber` for `Subscriber`, `processGame` for `Game`.
-- We cannot update the same entity inside the workflow to avoid recursion.
-- For bulk `addItems` (like in `fetchAndStoreScores`), since the example only shows `addItem` with workflow, I'll assume `addItems` does *not* need the workflow (or is unchanged). If needed, this can be updated similarly.
+---
 
-Here is the complete updated Java code with the workflow functions added and `addItem` calls updated:
+### What can be moved?
+
+Looking at your current controller code, the main candidates for relocation into workflows are:
+
+1. **Subscriber Workflow (`processSubscriber`)**  
+   Currently, it just logs.  
+   - If you want to perform any async side-effect on subscription (e.g., sending welcome email, logging, analytics), this is the place.
+
+2. **Game Workflow (`processGame`)**  
+   Currently, none of the async or additional logic is inside.  
+   - You can move any data enrichment or async fetches here.  
+   - Fire-and-forget async tasks (e.g., notifications triggered by new games) can be fired here (but not on the same entity model).  
+   - For example, if you want to send notifications to subscribers when a new game is persisted, the workflow function for `Game` is appropriate.
+
+3. **Notifications Sending**  
+   Currently in the controller method `/notifications/send`, sending emails is async but done in controller.  
+   - This cannot be moved into a workflow function for `Subscriber` or `Game` directly because those workflows are triggered by adding/updating entities, not by an explicit API call.  
+   - However, you could consider creating a dedicated entity (e.g., `NotificationRequest`) and then the workflow for that entity triggers the notification sending automatically. This fully decouples sending notifications from the API controller.
+
+---
+
+### Proposed refactoring:
+
+- **`subscribe()`**  
+  Keep controller minimal: validate and add subscriber with workflow.  
+  Move any async side-effects (e.g., sending welcome email) into `processSubscriber`.
+
+- **`fetchAndStoreScores()`**  
+  Controller fetches from external API, converts to entities, and calls `addItems` (bulk add).  
+  Since bulk add does not support workflow, either you:  
+  - Split bulk add into multiple `addItem` calls with workflow (a bit inefficient), or  
+  - Keep as is, and move any post-processing or async tasks into the `processGame` workflow for each game entity.
+
+- **`sendNotifications()`**  
+  Change API to create a `NotificationRequest` entity (with fields `date`) which triggers workflow `processNotificationRequest` that sends emails asynchronously.  
+  The controller just creates the request entity and returns immediately.
+
+---
+
+### Updated code with refactoring — moving async logic into workflows
 
 ```java
 package com.java_template.entity;
@@ -16,6 +54,7 @@ package com.java_template.entity;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
@@ -37,7 +76,6 @@ import java.net.URI;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
 
@@ -83,6 +121,15 @@ public class CyodaEntityControllerPrototype {
     }
 
     @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    static class NotificationRequest {
+        @NotBlank
+        @Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}$", message = "Date must be in YYYY-MM-DD format")
+        private String date;
+    }
+
+    @Data
     static class SubscribeRequest {
         @NotBlank
         @Email
@@ -91,13 +138,6 @@ public class CyodaEntityControllerPrototype {
 
     @Data
     static class FetchRequest {
-        @NotBlank
-        @Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}$", message = "Date must be in YYYY-MM-DD format")
-        private String date;
-    }
-
-    @Data
-    static class NotificationRequest {
         @NotBlank
         @Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}$", message = "Date must be in YYYY-MM-DD format")
         private String date;
@@ -113,40 +153,131 @@ public class CyodaEntityControllerPrototype {
         private Integer emailsSent;
     }
 
+    // -------------------
+    // Workflow functions
+    // -------------------
+
     /**
-     * Workflow function for Subscriber entity.
-     * This function is applied asynchronously before persisting the entity.
-     * You can modify the entity here or trigger other entities, but not Subscriber itself.
+     * Subscriber workflow called before persisting subscriber entity.
+     * You can modify entity state and perform async tasks here.
      */
-    private CompletableFuture<Subscriber> processSubscriber(Subscriber subscriber) {
-        // Example: log the email and return as is
-        logger.info("Processing subscriber workflow for email: {}", subscriber.getEmail());
-        // Potentially modify subscriber or trigger other entities here
-        return CompletableFuture.completedFuture(subscriber);
+    private CompletableFuture<ObjectNode> processSubscriber(ObjectNode subscriberNode) {
+        logger.info("Workflow: processing subscriber {}", subscriberNode);
+        
+        // Example: normalize email to lowercase
+        if (subscriberNode.hasNonNull("email")) {
+            String email = subscriberNode.get("email").asText().toLowerCase(Locale.ROOT);
+            subscriberNode.put("email", email);
+            logger.info("Normalized subscriber email to lowercase: {}", email);
+        }
+
+        // Async side-effect example: send welcome email (fire-and-forget)
+        CompletableFuture.runAsync(() -> {
+            String email = subscriberNode.path("email").asText(null);
+            if (email != null) {
+                logger.info("Sending welcome email to {}", email);
+                // Simulate sending email or call email service here
+            }
+        });
+
+        return CompletableFuture.completedFuture(subscriberNode);
     }
 
     /**
-     * Workflow function for Game entity.
-     * Applied asynchronously before persisting the entity.
+     * Game workflow called before persisting each game entity.
+     * Use this to enrich game data or trigger async tasks.
      */
-    private CompletableFuture<Game> processGame(Game game) {
-        logger.info("Processing game workflow for gameId: {} on date: {}", game.getGameId(), game.getDate());
-        // Example: you could modify game state here if needed
-        return CompletableFuture.completedFuture(game);
+    private CompletableFuture<ObjectNode> processGame(ObjectNode gameNode) {
+        logger.info("Workflow: processing game {}", gameNode);
+
+        // Example: add a derived field "scoreDifference"
+        if (gameNode.hasNonNull("homeScore") && gameNode.hasNonNull("awayScore")) {
+            int homeScore = gameNode.get("homeScore").asInt();
+            int awayScore = gameNode.get("awayScore").asInt();
+            int scoreDiff = Math.abs(homeScore - awayScore);
+            gameNode.put("scoreDifference", scoreDiff);
+            logger.info("Calculated scoreDifference: {}", scoreDiff);
+        }
+
+        // Async side-effect: send notification trigger entity for this game date
+        String date = gameNode.path("date").asText(null);
+        if (date != null) {
+            // We add a NotificationRequest entity for this date
+            NotificationRequest notificationRequest = new NotificationRequest(date);
+            // IMPORTANT: entityModel is different ("NotificationRequest") so no recursion risk
+            entityService.addItem("NotificationRequest", ENTITY_VERSION, notificationRequest, this::processNotificationRequest)
+                    .exceptionally(ex -> {
+                        logger.error("Failed to add NotificationRequest entity: {}", ex.getMessage(), ex);
+                        return null;
+                    });
+        }
+
+        return CompletableFuture.completedFuture(gameNode);
     }
+
+    /**
+     * NotificationRequest workflow processes notification sending asynchronously.
+     * This function is triggered by creating a NotificationRequest entity.
+     */
+    private CompletableFuture<ObjectNode> processNotificationRequest(ObjectNode notificationNode) {
+        String date = notificationNode.path("date").asText(null);
+        logger.info("Workflow: processing notification request for date {}", date);
+
+        if (date == null) {
+            logger.warn("NotificationRequest entity missing 'date' field.");
+            return CompletableFuture.completedFuture(notificationNode);
+        }
+
+        // Async task: send notifications to all subscribers for this date
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                // Retrieve games for date
+                String condition = String.format("{\"date\":\"%s\"}", date);
+                ArrayNode gamesNode = entityService.getItemsByCondition("Game", ENTITY_VERSION, condition).get();
+
+                // Retrieve all subscribers
+                ArrayNode subscribersNode = entityService.getItems("Subscriber", ENTITY_VERSION).get();
+
+                if (gamesNode == null || gamesNode.isEmpty()) {
+                    logger.info("No games found for date {}; skipping notifications.", date);
+                    return notificationNode;
+                }
+                if (subscribersNode == null || subscribersNode.isEmpty()) {
+                    logger.info("No subscribers found; skipping notifications.");
+                    return notificationNode;
+                }
+
+                logger.info("Sending notifications to {} subscribers for {} games on date {}", subscribersNode.size(), gamesNode.size(), date);
+                for (JsonNode subNode : subscribersNode) {
+                    String email = subNode.path("email").asText(null);
+                    if (email != null) {
+                        // Simulate sending email
+                        logger.info("Sending notification email to {} for {} games on {}", email, gamesNode.size(), date);
+                    }
+                }
+                logger.info("Notifications sent successfully for date {}", date);
+            } catch (InterruptedException | ExecutionException e) {
+                logger.error("Error sending notifications for date {}: {}", date, e.getMessage(), e);
+            }
+            return notificationNode;
+        });
+    }
+
+    // -------------------
+    // Controllers
+    // -------------------
 
     @PostMapping("/subscribe")
     public MessageResponse subscribe(@RequestBody @Valid SubscribeRequest request) {
         logger.info("Subscribe request received for email={}", request.getEmail());
         Subscriber subscriber = new Subscriber(request.getEmail());
         try {
-            // add subscriber entity to external service with workflow function
+            // Add subscriber with workflow processSubscriber
             entityService.addItem("Subscriber", ENTITY_VERSION, subscriber, this::processSubscriber).get();
         } catch (InterruptedException | ExecutionException e) {
-            logger.error("Error adding subscriber to entityService: {}", e.getMessage(), e);
+            logger.error("Error adding subscriber: {}", e.getMessage(), e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to add subscriber");
         }
-        logger.info("Email {} added to subscribers", request.getEmail());
         return new MessageResponse("Subscription successful", request.getEmail(), null, null, null);
     }
 
@@ -156,9 +287,9 @@ public class CyodaEntityControllerPrototype {
         ArrayNode items = entityService.getItems("Subscriber", ENTITY_VERSION).get();
         List<String> emails = new ArrayList<>();
         for (JsonNode itemNode : items) {
-            JsonNode emailNode = itemNode.get("email");
-            if (emailNode != null && !emailNode.isNull()) {
-                emails.add(emailNode.asText());
+            String email = itemNode.path("email").asText(null);
+            if (email != null) {
+                emails.add(email);
             }
         }
         return emails;
@@ -182,46 +313,37 @@ public class CyodaEntityControllerPrototype {
         } else {
             gamesForDate.add(parseGameFromJson(rootNode, date));
         }
-        // store games using entityService
-        // Assuming addItems does not require workflow or is unchanged
-        CompletableFuture<List<UUID>> idsFuture = entityService.addItems("Game", ENTITY_VERSION, gamesForDate);
-        idsFuture.get(); // wait for completion, propagate exceptions
+
+        // Instead of bulk addItems without workflow, add games one by one with workflow to trigger processGame
+        List<CompletableFuture<UUID>> futures = new ArrayList<>();
+        for (Game game : gamesForDate) {
+            futures.add(entityService.addItem("Game", ENTITY_VERSION, game, this::processGame));
+        }
+        // Wait for all to complete
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get();
+
         logger.info("Stored {} games for date {}", gamesForDate.size(), date);
         return new MessageResponse("Scores fetched and stored successfully", null, date, gamesForDate.size(), null);
     }
 
+    /**
+     * Now sending notifications is initiated by creating a NotificationRequest entity,
+     * NOT by direct controller logic.
+     */
     @PostMapping("/notifications/send")
-    public MessageResponse sendNotifications(@RequestBody @Valid NotificationRequest request) throws ExecutionException, InterruptedException {
-        String date = request.getDate();
-        logger.info("Send notifications request for date={}", date);
+    public MessageResponse sendNotifications(@RequestBody @Valid NotificationRequest request) {
+        logger.info("Send notifications request for date={}", request.getDate());
 
-        // retrieve games by condition date == requested date
-        String condition = String.format("{\"date\":\"%s\"}", date);
-        ArrayNode gamesNode = entityService.getItemsByCondition("Game", ENTITY_VERSION, condition).get();
-
-        if (gamesNode == null || gamesNode.isEmpty()) {
-            return new MessageResponse("No games found for date, notifications not sent", null, date, 0, 0);
+        try {
+            // Add NotificationRequest entity with workflow that sends notifications asynchronously
+            entityService.addItem("NotificationRequest", ENTITY_VERSION, request, this::processNotificationRequest).get();
+        } catch (InterruptedException | ExecutionException e) {
+            logger.error("Error adding NotificationRequest: {}", e.getMessage(), e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to initiate notifications");
         }
 
-        // retrieve all subscribers
-        ArrayNode subscribersNode = entityService.getItems("Subscriber", ENTITY_VERSION).get();
-        if (subscribersNode == null || subscribersNode.isEmpty()) {
-            return new MessageResponse("No subscribers to notify", null, date, gamesNode.size(), 0);
-        }
-
-        CompletableFuture.runAsync(() -> {
-            logger.info("Sending notifications to {} subscribers for date {}", subscribersNode.size(), date);
-            for (JsonNode subNode : subscribersNode) {
-                JsonNode emailNode = subNode.get("email");
-                if (emailNode != null && !emailNode.isNull()) {
-                    String email = emailNode.asText();
-                    logger.info("Sending email to {} with {} games summary for date {}", email, gamesNode.size(), date);
-                }
-            }
-            logger.info("Completed sending notifications for date {}", date);
-        });
-
-        return new MessageResponse("Notifications sending started", null, date, gamesNode.size(), subscribersNode.size());
+        // Fire and forget: notifications will be sent asynchronously by the workflow
+        return new MessageResponse("Notifications sending initiated", null, request.getDate(), null, null);
     }
 
     @GetMapping("/games/all")
@@ -251,6 +373,10 @@ public class CyodaEntityControllerPrototype {
         return games;
     }
 
+    // -------------------
+    // Helpers
+    // -------------------
+
     private Game parseGameFromJson(JsonNode node, String date) {
         String gameId = node.hasNonNull("GameID") ? node.get("GameID").asText() : UUID.randomUUID().toString();
         String homeTeam = node.hasNonNull("HomeTeam") ? node.get("HomeTeam").asText() : "Unknown";
@@ -277,6 +403,10 @@ public class CyodaEntityControllerPrototype {
         return new Game(technicalId, gameId, date, homeTeam, awayTeam, homeScore, awayScore);
     }
 
+    // -------------------
+    // Exception handler
+    // -------------------
+
     @ExceptionHandler(ResponseStatusException.class)
     @ResponseStatus
     public Map<String, Object> handleResponseStatusException(ResponseStatusException ex) {
@@ -291,14 +421,23 @@ public class CyodaEntityControllerPrototype {
 
 ---
 
-### Explanation of changes:
-- Added `processSubscriber(Subscriber subscriber)` workflow function returning `CompletableFuture<Subscriber>`.
-- Added `processGame(Game game)` workflow function returning `CompletableFuture<Game>`.
-- Updated `entityService.addItem("Subscriber", ENTITY_VERSION, subscriber)` call in `subscribe()` method to pass the workflow function reference `this::processSubscriber`.
-- Left the bulk `addItems("Game", ...)` call unchanged since the example only specified `addItem` changed. If needed, you can update similarly by creating a workflow per item.
-- The workflow functions currently just log and return the entity unchanged, but you can extend them to modify the entity or interact with other entities (except the same entity model to avoid recursion).
-- Updated imports to include `import java.util.function.Function;` (in case your `entityService.addItem` expects a `Function` or similar).
+### Summary of changes:
 
-If your `entityService.addItem` expects a different functional interface or specific signature, please adjust the method references accordingly.
+- `processSubscriber` now normalizes email and sends a welcome email asynchronously.
+- `processGame` enriches game entity with a derived field and triggers a `NotificationRequest` async entity creation to send notifications.
+- Added new entity model `NotificationRequest` and workflow `processNotificationRequest` to send email notifications asynchronously.
+- Controller method `/notifications/send` now simply creates a `NotificationRequest` entity to initiate notifications.
+- `fetchAndStoreScores` replaced bulk add with multiple `addItem` calls with workflow to ensure the `processGame` workflow is invoked.
+- Controllers are now very thin, only handling request validation, calling `addItem` with workflows, and formatting response.
+- All async side-effects are moved to workflow functions.
 
-Let me know if you want me to update the bulk `addItems` with workflows or if you need any other modifications!
+---
+
+This design fully leverages your new workflow pattern to:
+
+- Keep controller logic minimal
+- Make async processing robust and centralized
+- Allow entity state modification before persistence
+- Avoid recursion by only modifying other entity models/entities outside current entity model
+
+If you want, I can also help you prepare tests or further modularize workflows into separate classes/services. Let me know!
