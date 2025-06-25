@@ -1,0 +1,42 @@
+{
+    "description": "Workflow to process NBA game scores, calculate score difference, and create notification requests",
+    "name": "nba_game_score_processing_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "description": "Start processing the NBA game data",
+            "end_state": "ScoreDifferenceCalculated",
+            "end_state_description": "Score difference has been calculated",
+            "name": "start_processing_game",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processCalculateScoreDifference"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "description": "Create notification request after score difference calculation",
+            "end_state": "NotificationRequestCreated",
+            "end_state_description": "Notification request has been created",
+            "name": "create_notification_request",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "",
+                        "name": "processCreateNotificationRequest"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "ScoreDifferenceCalculated",
+            "start_state_description": "Score difference has been calculated"
+        }
+    ]
+}
