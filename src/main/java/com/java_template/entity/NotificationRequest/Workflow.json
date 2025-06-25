@@ -1,0 +1,57 @@
+{
+    "description": "Workflow for processing notification requests including fetching games, subscribers, and sending notifications",
+    "name": "notification_request_workflow",
+    "transitions": [
+        {
+            "automated": true,
+            "end_state": "Games_fetched",
+            "end_state_description": "NBA games have been fetched for the date",
+            "name": "start_notification_request",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Fetch NBA games for the given date",
+                        "name": "processFetchGames"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state"
+        },
+        {
+            "automated": true,
+            "end_state": "Subscribers_fetched",
+            "end_state_description": "Subscribers have been fetched",
+            "name": "fetch_subscribers",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Fetch subscribers for notifications",
+                        "name": "processFetchSubscribers"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Games_fetched",
+            "start_state_description": "NBA games have been fetched for the date"
+        },
+        {
+            "automated": true,
+            "end_state": "Notifications_sent",
+            "end_state_description": "Notifications have been sent to subscribers",
+            "name": "send_notifications",
+            "processes": {
+                "externalized_processors": [
+                    {
+                        "description": "Send notification emails to subscribers",
+                        "name": "processSendNotifications"
+                    }
+                ],
+                "schedule_transition_processors": []
+            },
+            "start_state": "Subscribers_fetched",
+            "start_state_description": "Subscribers have been fetched"
+        }
+    ]
+}
