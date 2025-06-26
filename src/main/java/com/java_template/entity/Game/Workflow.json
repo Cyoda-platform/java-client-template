@@ -1,57 +1,57 @@
 {
-    "description": "Game entity FSM workflow",
-    "initial_state": "none",
-    "states": {
-        "addProcessingTimestamp": {
-            "transitions": {
-                "transition_to_validate": {
-                    "action": {
-                        "name": "processValidate"
-                    },
-                    "next": "validate"
-                }
-            }
-        },
-        "enrich": {
-            "transitions": {
-                "transition_to_finalize": {
-                    "action": {
-                        "name": "processFinalize"
-                    },
-                    "next": "finalize"
-                }
-            }
-        },
-        "finalize": {
-            "transitions": {
-                "transition_to_terminal": {
-                    "next": "terminal"
-                }
-            }
-        },
-        "none": {
-            "transitions": {
-                "transition_to_addProcessingTimestamp": {
-                    "action": {
-                        "name": "processAddProcessingTimestamp"
-                    },
-                    "next": "addProcessingTimestamp"
-                }
-            }
-        },
-        "terminal": {
-            "transitions": {}
-        },
-        "validate": {
-            "transitions": {
-                "transition_to_enrich": {
-                    "action": {
-                        "name": "processEnrich"
-                    },
-                    "next": "enrich"
-                }
-            }
+  "description": "Game entity FSM workflow",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "transition_to_addProcessingTimestamp": {
+          "action": {
+            "name": "processAddProcessingTimestamp"
+          },
+          "next": "addProcessingTimestamp"
         }
+      }
     },
-    "workflow_name": "game_workflow"
+    "addProcessingTimestamp": {
+      "transitions": {
+        "transition_to_validate": {
+          "action": {
+            "name": "processValidate"
+          },
+          "next": "validate"
+        }
+      }
+    },
+    "validate": {
+      "transitions": {
+        "transition_to_enrich": {
+          "action": {
+            "name": "processEnrich"
+          },
+          "next": "enrich"
+        }
+      }
+    },
+    "enrich": {
+      "transitions": {
+        "transition_to_finalize": {
+          "action": {
+            "name": "processFinalize"
+          },
+          "next": "finalize"
+        }
+      }
+    },
+    "finalize": {
+      "transitions": {
+        "transition_to_terminal": {
+          "next": "terminal"
+        }
+      }
+    },
+    "terminal": {
+      "transitions": {}
+    }
+  },
+  "workflow_name": "game_workflow"
 }
