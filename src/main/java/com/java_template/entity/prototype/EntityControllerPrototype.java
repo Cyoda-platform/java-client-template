@@ -1,4 +1,4 @@
-package com.java_template.entity;
+package com.java_template.entity.prototype;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
@@ -77,6 +77,7 @@ public class EntityControllerPrototype {
     }
 
     @Data
+    @NoArgsConstructor
     @AllArgsConstructor
     static class FetchScoresRequest {
         @NotBlank
