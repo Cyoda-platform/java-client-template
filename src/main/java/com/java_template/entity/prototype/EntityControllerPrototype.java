@@ -13,7 +13,6 @@ import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
@@ -80,6 +79,19 @@ public class EntityControllerPrototype {
         subscribers.putIfAbsent(request.getEmail().toLowerCase(Locale.ROOT), LocalDate.now());
         log.info("Subscription successful for email: {}", request.getEmail());
         return ResponseEntity.ok(new MessageResponse("Subscription successful"));
+    }
+
+    @DeleteMapping(path = "/subscribe", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<MessageResponse> unsubscribe(@RequestBody @Valid SubscribeRequest request) {
+        log.info("Received unsubscribe request for email: {}", request.getEmail());
+        boolean removed = subscribers.remove(request.getEmail().toLowerCase(Locale.ROOT)) != null;
+        if (removed) {
+            log.info("Unsubscription successful for email: {}", request.getEmail());
+            return ResponseEntity.ok(new MessageResponse("Unsubscription successful"));
+        } else {
+            log.info("Email not found for unsubscription: {}", request.getEmail());
+            return ResponseEntity.ok(new MessageResponse("Email not found in subscription list"));
+        }
     }
 
     @GetMapping(path = "/subscribers", produces = MediaType.APPLICATION_JSON_VALUE)
