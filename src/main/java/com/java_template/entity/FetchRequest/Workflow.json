@@ -1,0 +1,109 @@
+{
+    "description": "FetchRequest workflow FSM",
+    "initial_state": "none",
+    "states": {
+        "completed": {
+            "transitions": {}
+        },
+        "date_validation": {
+            "transitions": {
+                "date_valid": {
+                    "action": {
+                        "name": "processFetchGames"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "isDateValid"
+                        },
+                        "type": "function"
+                    },
+                    "next": "fetch_games"
+                },
+                "invalid_date": {
+                    "condition": {
+                        "function": {
+                            "name": "isDateInvalid"
+                        },
+                        "type": "function"
+                    },
+                    "next": "failed"
+                }
+            }
+        },
+        "failed": {
+            "transitions": {}
+        },
+        "fetch_games": {
+            "transitions": {
+                "fetch_error": {
+                    "next": "failed"
+                },
+                "fetch_failed": {
+                    "next": "failed"
+                },
+                "games_fetched": {
+                    "action": {
+                        "name": "processStoreGames"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "hasGamesToStore"
+                        },
+                        "type": "function"
+                    },
+                    "next": "store_games"
+                },
+                "games_not_fetched": {
+                    "next": "failed"
+                },
+                "invalid_response": {
+                    "next": "failed"
+                },
+                "no_date": {
+                    "next": "failed"
+                }
+            }
+        },
+        "none": {
+            "transitions": {
+                "validate_date": {
+                    "action": {
+                        "name": "processValidateDate"
+                    },
+                    "next": "date_validation"
+                }
+            }
+        },
+        "notify_subscribers": {
+            "transitions": {
+                "no_notification": {
+                    "next": "completed"
+                },
+                "notified": {
+                    "next": "completed"
+                }
+            }
+        },
+        "store_games": {
+            "transitions": {
+                "games_stored": {
+                    "action": {
+                        "name": "processNotifySubscribers"
+                    },
+                    "next": "notify_subscribers"
+                },
+                "no_games_to_store": {
+                    "action": {
+                        "name": "processNotifySubscribers"
+                    },
+                    "next": "notify_subscribers"
+                },
+                "store_failed": {
+                    "next": "failed"
+                }
+            }
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "FetchRequestWorkflow"
+}
