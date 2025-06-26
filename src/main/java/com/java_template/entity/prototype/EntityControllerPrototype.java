@@ -2,6 +2,10 @@ package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -9,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -18,6 +23,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
+@Validated
 @RestController
 @RequestMapping("/prototype")
 public class EntityControllerPrototype {
@@ -25,32 +31,19 @@ public class EntityControllerPrototype {
     private final Map<UUID, NotificationRecord> notificationStore = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    /**
-     * POST /prototype/events/detect
-     * Receive cat event data and analyze if it matches key event criteria.
-     */
     @PostMapping("/events/detect")
-    public ResponseEntity<EventDetectResponse> detectEvent(@RequestBody EventDetectRequest request) {
+    public ResponseEntity<EventDetectResponse> detectEvent(@RequestBody @Valid EventDetectRequest request) {
         log.info("Received event detection request: eventType='{}', timestamp='{}'", request.getEventType(), request.getTimestamp());
-
-        // Simple mock logic: detect only "food_request" as key event
         boolean isKeyEvent = "food_request".equalsIgnoreCase(request.getEventType());
         String notificationMessage = null;
-
         if (isKeyEvent) {
             notificationMessage = "Emergency! A cat demands snacks";
-            // Fire-and-forget sending notification to all humans (mock)
             fireAndForgetSendNotification(notificationMessage, "default_human_recipient@example.com");
         }
-
         EventDetectResponse response = new EventDetectResponse(isKeyEvent, notificationMessage != null ? notificationMessage : "");
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * GET /prototype/notifications
-     * Return all stored notifications.
-     */
     @GetMapping("/notifications")
     public ResponseEntity<List<NotificationRecord>> getNotifications() {
         log.info("Retrieving all notifications, count={}", notificationStore.size());
@@ -59,28 +52,20 @@ public class EntityControllerPrototype {
         return ResponseEntity.ok(notifications);
     }
 
-    /**
-     * POST /prototype/notifications/send
-     * Trigger sending a notification (mocked).
-     */
     @PostMapping("/notifications/send")
-    public ResponseEntity<NotificationSendResponse> sendNotification(@RequestBody NotificationSendRequest request) {
+    public ResponseEntity<NotificationSendResponse> sendNotification(@RequestBody @Valid NotificationSendRequest request) {
         log.info("Sending notification to recipient='{}' with message='{}'", request.getRecipient(), request.getMessage());
-
-        // TODO: Replace mock sending logic with real external integration (email, SMS, push, etc.)
-        boolean sendSuccess = true; // Simulated success
-
+        boolean sendSuccess = true; // TODO: Replace mock sending logic with real external integration
         if (sendSuccess) {
             UUID id = UUID.randomUUID();
             NotificationRecord record = new NotificationRecord(id, request.getMessage(), Instant.now());
             notificationStore.put(id, record);
             log.info("Notification sent and stored with id={}", id);
-            NotificationSendResponse response = new NotificationSendResponse("sent", "Notification sent successfully");
-            return ResponseEntity.ok(response);
+            return ResponseEntity.ok(new NotificationSendResponse("sent", "Notification sent successfully"));
         } else {
             log.error("Failed to send notification to '{}'", request.getRecipient());
-            NotificationSendResponse response = new NotificationSendResponse("failed", "Failed to send notification");
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new NotificationSendResponse("failed", "Failed to send notification"));
         }
     }
 
@@ -88,7 +73,6 @@ public class EntityControllerPrototype {
     void fireAndForgetSendNotification(String message, String recipient) {
         CompletableFuture.runAsync(() -> {
             log.info("Async sending notification: '{}' to '{}'", message, recipient);
-            // TODO: Replace with real sending logic
             UUID id = UUID.randomUUID();
             NotificationRecord record = new NotificationRecord(id, message, Instant.now());
             notificationStore.put(id, record);
@@ -96,12 +80,10 @@ public class EntityControllerPrototype {
         });
     }
 
-    // --- Exception Handling ---
-
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<ErrorResponse> handleResponseStatusException(ResponseStatusException ex) {
         log.error("ResponseStatusException: {}", ex.getMessage());
-        ErrorResponse error = new ErrorResponse(ex.getStatusCode().toString(), ex.getReason());
+        ErrorResponse error = new ErrorResponse(ex.getStatusCode().toString(), ex.getStatusCode().toString());
         return new ResponseEntity<>(error, ex.getStatusCode());
     }
 
@@ -112,15 +94,17 @@ public class EntityControllerPrototype {
         return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    // --- DTOs ---
-
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     public static class EventDetectRequest {
+        @NotBlank
         private String eventType;
+        @NotBlank
         private String eventData;
-        private String timestamp; // ISO8601 string
+        @NotBlank
+        @Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}T.+$", message = "timestamp must be ISO8601")
+        private String timestamp;
     }
 
     @Data
@@ -144,7 +128,10 @@ public class EntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class NotificationSendRequest {
+        @NotBlank
+        @Size(max = 255)
         private String message;
+        @NotBlank
         private String recipient;
     }
 
