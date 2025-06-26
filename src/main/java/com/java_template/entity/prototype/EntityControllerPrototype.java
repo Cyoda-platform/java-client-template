@@ -32,7 +32,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequestMapping("/prototype")
 public class EntityControllerPrototype {
 
-    private static final String NBA_API_KEY = "test"; // TODO: Replace with config/env variable
+    private static final String NBA_API_KEY = "6032f3846c344757b821862f3adbc182"; // TODO: Replace with config/env variable
     private static final String NBA_API_URL_TEMPLATE = "https://api.sportsdata.io/v3/nba/scores/json/ScoresBasicFinal/%s?key=%s";
 
     private final ObjectMapper objectMapper = new ObjectMapper();

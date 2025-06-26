@@ -3,6 +3,7 @@ package com.java_template.entity.FetchRequest;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.java_template.common.service.EntityService;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,24 +34,24 @@ public class FetchRequestWorkflow {
     }
 
     // Main workflow orchestration method
-    public CompletableFuture<ObjectNode> processFetchRequest(ObjectNode entity) {
-        // Orchestration only, no business logic here; call other process* methods
-        String dateStr = entity.path("date").asText(null);
-        if (dateStr == null) {
-            logger.warn("FetchRequest entity missing required 'date' field");
-            return CompletableFuture.completedFuture(entity);
-        }
-        entity.put("status", "processing");
-        return validateDate(entity)
-                .thenCompose(this::fetchGames)
-                .thenCompose(this::storeGames)
-                .thenCompose(this::notifySubscribers)
-                .exceptionally(ex -> {
-                    logger.error("Error in workflow processFetchRequest: {}", ex.getMessage(), ex);
-                    entity.put("status", "failed");
-                    return entity;
-                });
-    }
+//    public CompletableFuture<ObjectNode> processFetchRequest(ObjectNode entity) {
+//        // Orchestration only, no business logic here; call other process* methods
+//        String dateStr = entity.path("date").asText(null);
+//        if (dateStr == null) {
+//            logger.warn("FetchRequest entity missing required 'date' field");
+//            return CompletableFuture.completedFuture(entity);
+//        }
+//        entity.put("status", "processing");
+//        return validateDate(entity)
+//                .thenCompose(this::fetchGames)
+//                .thenCompose(this::storeGames)
+//                .thenCompose(this::notifySubscribers)
+//                .exceptionally(ex -> {
+//                    logger.error("Error in workflow processFetchRequest: {}", ex.getMessage(), ex);
+//                    entity.put("status", "failed");
+//                    return entity;
+//                });
+//    }
 
     // Validate date format in entity, update state
     public CompletableFuture<ObjectNode> processValidateDate(ObjectNode entity) {
@@ -133,7 +134,8 @@ public class FetchRequestWorkflow {
                         gamesList.add((ObjectNode) node);
                     }
                 });
-                CompletableFuture<List<UUID>> future = entityService.addItems("Game", ENTITY_VERSION, gamesList, null);
+//                CompletableFuture<List<UUID>> future = entityService.addItems("Game", ENTITY_VERSION, gamesList, null);
+                CompletableFuture<List<UUID>> future = entityService.addItems("Game", ENTITY_VERSION, gamesList);
                 future.join();
                 entity.put("status", "games_stored");
                 logger.info("Stored {} games", gamesList.size());
