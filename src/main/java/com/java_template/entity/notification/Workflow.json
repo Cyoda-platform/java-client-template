@@ -1,0 +1,21 @@
+{
+    "description": "Notification entity workflow FSM",
+    "initial_state": "none",
+    "states": {
+        "none": {
+            "transitions": {
+                "process_notification": {
+                    "action": {
+                        "name": "processNotification"
+                    },
+                    "next": "processed"
+                }
+            }
+        },
+        "processed": {
+            "transitions": {}
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "notification_workflow"
+}
