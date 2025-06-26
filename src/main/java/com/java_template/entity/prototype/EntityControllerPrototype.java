@@ -1,4 +1,4 @@
-package com.java_template.entity;
+package com.java_template.entity.prototype;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
