@@ -1,0 +1,59 @@
+{
+    "description": "Workflow for event detection and notification creation",
+    "initial_state": "none",
+    "states": {
+        "create_notification": {
+            "transitions": {
+                "add_notification": {
+                    "action": {
+                        "name": "createNotificationEntity"
+                    },
+                    "next": "event_processed"
+                }
+            }
+        },
+        "event_detected": {
+            "transitions": {
+                "check_key_event": {
+                    "action": {
+                        "name": "markDetectedTrue"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "isKeyEvent"
+                        },
+                        "type": "function"
+                    },
+                    "next": "create_notification"
+                },
+                "skip_notification": {
+                    "action": {
+                        "name": "markDetectedFalse"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "isNotKeyEvent"
+                        },
+                        "type": "function"
+                    },
+                    "next": "event_processed"
+                }
+            }
+        },
+        "event_processed": {
+            "transitions": {}
+        },
+        "none": {
+            "transitions": {
+                "detect_event": {
+                    "action": {
+                        "name": "processEvent"
+                    },
+                    "next": "event_detected"
+                }
+            }
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "event_notification_workflow"
+}
