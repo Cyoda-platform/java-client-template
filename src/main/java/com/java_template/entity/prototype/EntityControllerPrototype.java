@@ -156,6 +156,22 @@ public class EntityControllerPrototype {
         return ResponseEntity.ok(resp);
     }
 
+    @DeleteMapping("/unsubscribe")
+    public ResponseEntity<Map<String, String>> deleteSubscription(@RequestParam @NotBlank @Email String email) {
+        String normalizedEmail = email.toLowerCase();
+        log.info("Unsubscribe request for email: {}", normalizedEmail);
+        Map<String, String> response = new HashMap<>();
+        if (subscribers.remove(normalizedEmail) != null) {
+            response.put("message", "Unsubscribed successfully");
+            log.info("Email {} unsubscribed", normalizedEmail);
+            return ResponseEntity.ok(response);
+        } else {
+            response.put("message", "Email not found in subscribers");
+            log.info("Email {} not found for unsubscribe", normalizedEmail);
+            return ResponseEntity.status(404).body(response);
+        }
+    }
+
     @Async
     void fetchStoreAndNotify(String date) {
         try {
