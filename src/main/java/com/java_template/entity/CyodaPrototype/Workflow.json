@@ -1,37 +1,37 @@
 {
-    "description": "CyodaPrototype NBA Scores Notification Workflow FSM",
-    "initial_state": "none",
-    "states": {
-        "end": {
-            "transitions": {}
-        },
-        "none": {
-            "transitions": {
-                "fetch_scores": {
-                    "action": {
-                        "name": "processFetchScores"
-                    },
-                    "next": "scores_fetched"
-                }
-            }
-        },
-        "notifications_sent": {
-            "transitions": {
-                "complete": {
-                    "next": "end"
-                }
-            }
-        },
-        "scores_fetched": {
-            "transitions": {
-                "send_notifications": {
-                    "action": {
-                        "name": "processSendNotifications"
-                    },
-                    "next": "notifications_sent"
-                }
-            }
+  "description": "CyodaPrototype NBA Scores Notification Workflow FSM",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "fetch_scores": {
+          "action": {
+            "name": "processFetchScores"
+          },
+          "next": "scores_fetched"
         }
+      }
     },
-    "workflow_name": "CyodaPrototypeWorkflow"
+    "scores_fetched": {
+      "transitions": {
+        "send_notifications": {
+          "action": {
+            "name": "processSendNotifications"
+          },
+          "next": "notifications_sent"
+        }
+      }
+    },
+    "notifications_sent": {
+      "transitions": {
+        "complete": {
+          "next": "end"
+        }
+      }
+    },
+    "end": {
+      "transitions": {}
+    }
+  },
+  "workflow_name": "CyodaPrototypeWorkflow"
 }
