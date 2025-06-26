@@ -64,6 +64,5 @@
             }
         }
     },
-    "version": "1.0",
     "workflow_name": "pet_workflow"
 }
