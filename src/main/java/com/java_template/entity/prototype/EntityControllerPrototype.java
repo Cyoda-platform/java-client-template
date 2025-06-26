@@ -1,26 +1,25 @@
-```java
 package com.java_template.entity;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
-import org.springframework.util.StringUtils;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import javax.annotation.PostConstruct;
-import javax.validation.Valid;
-import javax.validation.constraints.Email;
-import javax.validation.constraints.NotBlank;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.*;
@@ -28,28 +27,25 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
+@Validated
 @RestController
 @RequestMapping("/prototype")
 public class EntityControllerPrototype {
 
-    private static final String NBA_API_KEY = "test"; // TODO: replace with real secure config
+    private static final String NBA_API_KEY = "test"; // TODO: secure config
     private static final String NBA_API_URL_TEMPLATE = "https://api.sportsdata.io/v3/nba/scores/json/ScoresBasicFinal/%s?key=%s";
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
-
-    // In-memory storage mocks
     private final Map<String, Subscriber> subscribers = new ConcurrentHashMap<>();
-    // Key: date (yyyy-MM-dd), Value: list of games
     private final Map<String, List<Game>> gamesByDate = new ConcurrentHashMap<>();
-
-    // --- Models ---
 
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     static class SubscribeRequest {
-        @NotBlank @Email
+        @NotBlank
+        @Email
         private String email;
     }
 
@@ -72,20 +68,20 @@ public class EntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     static class Game {
-        private String date; // YYYY-MM-DD
+        private String date;
         private String homeTeam;
         private String awayTeam;
         private Integer homeScore;
         private Integer awayScore;
         private String status;
-        // TODO: Add other relevant fields if needed
     }
 
     @Data
     @AllArgsConstructor
     static class FetchScoresRequest {
         @NotBlank
-        private String date; // YYYY-MM-DD
+        @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}")
+        private String date;
     }
 
     @Data
@@ -94,215 +90,121 @@ public class EntityControllerPrototype {
         private String message;
     }
 
-    // --- API Endpoints ---
+    @PostConstruct
+    void initDemo() {
+        subscribers.put("demo@example.com", new Subscriber("demo@example.com", OffsetDateTime.now()));
+    }
 
-    /**
-     * POST /subscribe
-     * Add subscriber email to notification list.
-     */
     @PostMapping("/subscribe")
-    public ResponseEntity<SubscribeResponse> subscribe(@Valid @RequestBody SubscribeRequest request) {
-        String email = request.getEmail().toLowerCase(Locale.ROOT);
-        log.info("Subscription request received for email: {}", email);
-
+    public ResponseEntity<SubscribeResponse> subscribe(@RequestBody @Valid SubscribeRequest request) {
+        String email = request.getEmail().toLowerCase();
+        log.info("Subscription request for {}", email);
         if (subscribers.containsKey(email)) {
-            log.info("Email {} already subscribed", email);
             return ResponseEntity.ok(new SubscribeResponse("Email already subscribed", email));
         }
-
-        Subscriber subscriber = new Subscriber(email, OffsetDateTime.now());
-        subscribers.put(email, subscriber);
-
-        log.info("Email {} subscribed successfully", email);
+        subscribers.put(email, new Subscriber(email, OffsetDateTime.now()));
         return ResponseEntity.ok(new SubscribeResponse("Subscription successful", email));
     }
 
-    /**
-     * POST /scores/fetch
-     * Fetch NBA scores for a given date from external API, store locally, send notifications.
-     */
     @PostMapping("/scores/fetch")
-    public ResponseEntity<FetchScoresResponse> fetchScores(@Valid @RequestBody FetchScoresRequest request) {
+    public ResponseEntity<FetchScoresResponse> fetchScores(@RequestBody @Valid FetchScoresRequest request) {
         String date = request.getDate();
-        log.info("Fetch scores request received for date: {}", date);
-
-        // Validate date format (basic)
         try {
             LocalDate.parse(date);
         } catch (Exception ex) {
-            log.error("Invalid date format: {}", date);
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid date format, expected YYYY-MM-DD");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Invalid date format, expected YYYY-MM-DD");
         }
-
         CompletableFuture.runAsync(() -> fetchStoreAndNotify(date));
-
         return ResponseEntity.ok(new FetchScoresResponse("Scores fetching started for date " + date));
     }
 
-    /**
-     * GET /subscribers
-     * Retrieve all subscribed emails.
-     */
     @GetMapping("/subscribers")
     public ResponseEntity<List<String>> getAllSubscribers() {
-        log.info("Retrieving all subscribers, count={}", subscribers.size());
-        List<String> emails = new ArrayList<>(subscribers.keySet());
-        return ResponseEntity.ok(emails);
+        return ResponseEntity.ok(new ArrayList<>(subscribers.keySet()));
     }
 
-    /**
-     * GET /games/all?page={page}&size={size}
-     * Retrieve all stored NBA games with pagination.
-     */
     @GetMapping("/games/all")
     public ResponseEntity<Map<String, Object>> getAllGames(
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        log.info("Retrieving all games, page: {}, size: {}", page, size);
-
-        List<Game> allGames = new ArrayList<>();
-        gamesByDate.values().forEach(allGames::addAll);
-
-        int totalGames = allGames.size();
-        int totalPages = (int) Math.ceil((double) totalGames / size);
-
-        if (page < 1) page = 1;
-        if (page > totalPages) page = totalPages;
-
-        int fromIndex = (page - 1) * size;
-        int toIndex = Math.min(fromIndex + size, totalGames);
-
-        List<Game> pageContent = fromIndex < toIndex ? allGames.subList(fromIndex, toIndex) : Collections.emptyList();
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("page", page);
-        response.put("size", size);
-        response.put("totalPages", totalPages);
-        response.put("totalGames", totalGames);
-        response.put("games", pageContent);
-
-        return ResponseEntity.ok(response);
+            @RequestParam(defaultValue = "1") @Min(1) int page,
+            @RequestParam(defaultValue = "10") @Min(1) int size) {
+        List<Game> all = new ArrayList<>();
+        gamesByDate.values().forEach(all::addAll);
+        int total = all.size();
+        int pages = (int) Math.ceil((double) total / size);
+        if (page > pages) page = pages;
+        int from = (page - 1) * size;
+        int to = Math.min(from + size, total);
+        List<Game> content = from < to ? all.subList(from, to) : Collections.emptyList();
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("page", page);
+        resp.put("size", size);
+        resp.put("totalPages", pages);
+        resp.put("totalGames", total);
+        resp.put("games", content);
+        return ResponseEntity.ok(resp);
     }
 
-    /**
-     * GET /games/{date}
-     * Retrieve all games for a specific date.
-     */
     @GetMapping("/games/{date}")
-    public ResponseEntity<Map<String, Object>> getGamesByDate(@PathVariable String date) {
-        log.info("Retrieving games for date: {}", date);
-        if (!StringUtils.hasText(date)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Date parameter is required");
-        }
-        List<Game> games = gamesByDate.getOrDefault(date, Collections.emptyList());
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("date", date);
-        response.put("games", games);
-
-        return ResponseEntity.ok(response);
+    public ResponseEntity<Map<String, Object>> getGamesByDate(
+            @PathVariable @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}") String date) {
+        List<Game> list = gamesByDate.getOrDefault(date, Collections.emptyList());
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("date", date);
+        resp.put("games", list);
+        return ResponseEntity.ok(resp);
     }
-
-    // --- Internal async logic ---
 
     @Async
     void fetchStoreAndNotify(String date) {
-        log.info("Starting fetchStoreAndNotify for date {}", date);
         try {
             String url = String.format(NBA_API_URL_TEMPLATE, date, NBA_API_KEY);
-            log.info("Fetching external NBA scores from URL: {}", url);
-
-            URI uri = new URI(url);
-            String rawJson = restTemplate.getForObject(uri, String.class);
-
-            JsonNode rootNode = objectMapper.readTree(rawJson);
-            if (!rootNode.isArray()) {
-                log.warn("Unexpected JSON structure from NBA API: not an array");
-                return;
+            String raw = restTemplate.getForObject(new URI(url), String.class);
+            JsonNode root = objectMapper.readTree(raw);
+            if (root.isArray()) {
+                List<Game> fetched = new ArrayList<>();
+                root.forEach(node -> {
+                    Game g = new Game();
+                    g.setDate(date);
+                    g.setHomeTeam(node.path("HomeTeam").asText(null));
+                    g.setAwayTeam(node.path("AwayTeam").asText(null));
+                    g.setHomeScore(node.path("HomeTeamScore").asInt(0));
+                    g.setAwayScore(node.path("AwayTeamScore").asInt(0));
+                    g.setStatus(node.path("Status").asText(null));
+                    fetched.add(g);
+                });
+                gamesByDate.put(date, fetched);
+                CompletableFuture.runAsync(() -> sendEmailNotifications(date, fetched)); // fire-and-forget
             }
-
-            List<Game> fetchedGames = new ArrayList<>();
-            for (JsonNode gameNode : rootNode) {
-                Game game = new Game();
-                game.setDate(date);
-                game.setHomeTeam(getTextSafe(gameNode, "HomeTeam"));
-                game.setAwayTeam(getTextSafe(gameNode, "AwayTeam"));
-                game.setHomeScore(getIntSafe(gameNode, "HomeTeamScore"));
-                game.setAwayScore(getIntSafe(gameNode, "AwayTeamScore"));
-                game.setStatus(getTextSafe(gameNode, "Status"));
-
-                fetchedGames.add(game);
-            }
-
-            gamesByDate.put(date, fetchedGames);
-            log.info("Stored {} games for date {}", fetchedGames.size(), date);
-
-            // Send notifications (fire-and-forget)
-            CompletableFuture.runAsync(() -> sendEmailNotifications(date, fetchedGames));
         } catch (Exception e) {
-            log.error("Error during fetchStoreAndNotify for date {}: {}", date, e.toString());
+            log.error("Error fetching scores: {}", e.toString());
         }
     }
 
-    private String getTextSafe(JsonNode node, String fieldName) {
-        JsonNode child = node.get(fieldName);
-        return (child != null && !child.isNull()) ? child.asText() : null;
-    }
-
-    private Integer getIntSafe(JsonNode node, String fieldName) {
-        JsonNode child = node.get(fieldName);
-        return (child != null && child.isInt()) ? child.asInt() : null;
-    }
-
-    // TODO: Replace with real email sending logic
     private void sendEmailNotifications(String date, List<Game> games) {
-        log.info("Sending email notifications to {} subscribers for date {}", subscribers.size(), date);
-        String summary = buildSummaryMessage(date, games);
-
-        for (Subscriber subscriber : subscribers.values()) {
-            // TODO: Implement real email sending here
-            log.info("Sending email to {}: \n{}", subscriber.getEmail(), summary);
-        }
+        StringBuilder sb = new StringBuilder("NBA Scores for ").append(date).append(":\n");
+        games.forEach(g -> sb.append(String.format("%s vs %s: %d-%d [%s]\n",
+                g.getHomeTeam(), g.getAwayTeam(),
+                g.getHomeScore(), g.getAwayScore(),
+                g.getStatus())));
+        subscribers.keySet().forEach(email -> log.info("Email to {}: {}", email, sb));
     }
-
-    private String buildSummaryMessage(String date, List<Game> games) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("NBA Scores for ").append(date).append(":\n\n");
-        for (Game g : games) {
-            sb.append(String.format("%s vs %s: %d - %d [%s]\n",
-                    g.getHomeTeam(), g.getAwayTeam(),
-                    Optional.ofNullable(g.getHomeScore()).orElse(0),
-                    Optional.ofNullable(g.getAwayScore()).orElse(0),
-                    Optional.ofNullable(g.getStatus()).orElse("N/A")));
-        }
-        return sb.toString();
-    }
-
-    // --- Basic error handling ---
 
     @ExceptionHandler(ResponseStatusException.class)
-    public ResponseEntity<Map<String, Object>> handleResponseStatusException(ResponseStatusException ex) {
-        Map<String, Object> error = new HashMap<>();
-        error.put("error", ex.getStatusCode().toString());
-        error.put("message", ex.getReason());
-        logger.error("Handling ResponseStatusException: {} - {}", ex.getStatusCode(), ex.getReason());
-        return new ResponseEntity<>(error, ex.getStatusCode());
+    public ResponseEntity<Map<String, Object>> handleStatus(ResponseStatusException ex) {
+        Map<String, Object> err = new HashMap<>();
+        err.put("error", ex.getStatusCode().toString());
+        err.put("message", ex.getReason());
+        log.error("Status exception: {}", ex.toString());
+        return new ResponseEntity<>(err, ex.getStatusCode());
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, Object>> handleGenericException(Exception ex) {
-        Map<String, Object> error = new HashMap<>();
-        error.put("error", HttpStatus.INTERNAL_SERVER_ERROR.toString());
-        error.put("message", "Internal server error");
-        logger.error("Unhandled exception: ", ex);
-        return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-
-    // --- Initialization for demo purposes ---
-    @PostConstruct
-    public void initDemoData() {
-        // Add a demo subscriber
-        subscribers.put("demo@example.com", new Subscriber("demo@example.com", OffsetDateTime.now()));
+    public ResponseEntity<Map<String, Object>> handleAll(Exception ex) {
+        Map<String, Object> err = new HashMap<>();
+        err.put("error", org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR.toString());
+        err.put("message", "Internal server error");
+        log.error("Unhandled exception: ", ex);
+        return new ResponseEntity<>(err, org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }
-```
