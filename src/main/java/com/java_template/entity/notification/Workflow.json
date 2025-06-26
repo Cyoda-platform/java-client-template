@@ -67,6 +67,5 @@
             }
         }
     },
-    "version": "1.0",
     "workflow_name": "notification_workflow"
 }
