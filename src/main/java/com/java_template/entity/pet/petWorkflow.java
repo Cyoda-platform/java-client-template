@@ -10,24 +10,19 @@ import org.springframework.web.client.RestTemplate;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 
-import static com.java_template.common.config.Config.*;
-
 @Slf4j
 @Component
 public class PetWorkflow {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
-    // Use post construct if initialization needed
     @PostConstruct
     public void init() {
-        // Initialization logic if needed
     }
 
     public CompletableFuture<ObjectNode> processPet(ObjectNode entity) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                // Set default status if missing or blank
                 if (!entity.hasNonNull("status") || entity.get("status").asText().isEmpty()) {
                     entity.put("status", "available");
                 }
@@ -76,12 +71,22 @@ public class PetWorkflow {
                     }
                 }
 
-                // TODO: Add supplementary entity logic here if needed, without modifying current entity directly
-
             } catch (Exception ex) {
                 logger.error("Error in processPet workflow function", ex);
             }
             return entity;
         });
+    }
+
+    public CompletableFuture<ObjectNode> isNamePresent(ObjectNode entity) {
+        boolean value = entity.hasNonNull("name") && !entity.get("name").asText().isEmpty();
+        entity.put("success", value);
+        return CompletableFuture.completedFuture(entity);
+    }
+
+    public CompletableFuture<ObjectNode> isNameAbsent(ObjectNode entity) {
+        boolean value = !entity.hasNonNull("name") || entity.get("name").asText().isEmpty();
+        entity.put("success", value);
+        return CompletableFuture.completedFuture(entity);
     }
 }
