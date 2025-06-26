@@ -1,0 +1,72 @@
+{
+    "description": "NotificationWorkflow FSM for processing notifications",
+    "initial_state": "none",
+    "states": {
+        "end_failed": {
+            "transitions": {}
+        },
+        "end_sent": {
+            "transitions": {}
+        },
+        "none": {
+            "transitions": {
+                "start_prepare_message": {
+                    "action": {
+                        "name": "prepareMessage"
+                    },
+                    "next": "prepare_message"
+                }
+            }
+        },
+        "prepare_message": {
+            "transitions": {
+                "to_validate_recipient": {
+                    "action": {
+                        "name": "validateRecipient"
+                    },
+                    "next": "validate_recipient"
+                }
+            }
+        },
+        "send_notification": {
+            "transitions": {
+                "send": {
+                    "action": {
+                        "name": "sendNotification"
+                    },
+                    "next": "end_sent"
+                }
+            }
+        },
+        "validate_recipient": {
+            "transitions": {
+                "recipient_empty": {
+                    "action": {
+                        "name": "validateRecipient"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "isRecipientEmpty"
+                        },
+                        "type": "function"
+                    },
+                    "next": "end_failed"
+                },
+                "recipient_not_empty": {
+                    "action": {
+                        "name": "validateRecipient"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "isRecipientNotEmpty"
+                        },
+                        "type": "function"
+                    },
+                    "next": "send_notification"
+                }
+            }
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "notification_workflow"
+}
