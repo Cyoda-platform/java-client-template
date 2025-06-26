@@ -1,6 +1,5 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
@@ -13,17 +12,11 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.*;
@@ -35,20 +28,20 @@ import static com.java_template.common.config.Config.*;
 @Validated
 @RestController
 @RequestMapping("/cyoda-prototype")
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
     private static final String NBA_API_KEY = "test"; // TODO: secure config
     private static final String NBA_API_URL_TEMPLATE = "https://api.sportsdata.io/v3/nba/scores/json/ScoresBasicFinal/%s?key=%s";
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
     private final EntityService entityService;
-    private final HttpClient httpClient = HttpClient.newBuilder().build();
 
     // In-memory subscribers cache, thread-safe map to avoid concurrency issues
     private final Map<String, Subscriber> subscribers = Collections.synchronizedMap(new HashMap<>());
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @Data
