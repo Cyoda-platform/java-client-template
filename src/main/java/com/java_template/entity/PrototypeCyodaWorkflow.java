@@ -1,15 +1,3 @@
-Certainly! To follow the recommended best practice:
-
-- Move all non-trivial business or async logic from controller endpoints into the corresponding `process{entity_name}` workflow functions.
-- These workflow functions receive the entity as an `ObjectNode` and can modify it or add secondary entities of different models.
-- The controller then just calls `entityService.addItem()` with the workflow function.
-- This keeps controllers lean and pushes async and business logic into workflows that run right before persistence.
-
----
-
-### Updated code with moved async logic into workflow function `processNotification`:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -62,7 +50,7 @@ public class CyodaEntityControllerPrototype {
             return ResponseEntity.badRequest().body(new SuccessResponse(false, "eventTimestamp is required"));
         }
 
-        // Create the Notification entity to persist
+        // Construct Notification entity with initial data
         Notification notification = new Notification();
         notification.setNotificationId(UUID.randomUUID().toString());
         notification.setCatId(event.getCatId());
@@ -70,7 +58,7 @@ public class CyodaEntityControllerPrototype {
         notification.setTimestamp(Instant.now().toString());
         notification.setMessage("Emergency! A cat demands snacks.");
 
-        // Persist notification with workflow function that handles async logic inside
+        // Persist notification with workflow function that handles async processing before persistence
         CompletableFuture<UUID> idFuture = entityService.addItem(
                 "notification",
                 ENTITY_VERSION,
@@ -78,39 +66,39 @@ public class CyodaEntityControllerPrototype {
                 this::processNotification
         );
 
-        // We don't wait here for completion, fire-and-forget
+        // Fire and forget, no blocking on idFuture here
         return ResponseEntity.ok(new SuccessResponse(true, "Event received and notification processing started"));
     }
 
     /**
-     * Workflow function to process Notification entity asynchronously before persistence.
-     * This function is executed asynchronously with the entity as ObjectNode.
-     * You can modify the entity state directly here and add/get entities of different entityModels.
-     * You CANNOT add/update/delete the current entityModel inside this function.
+     * Workflow function to process Notification entity asynchronously prior to persistence.
+     * Accepts notification entity as ObjectNode, modifies state directly.
+     * Can add/get entities of different entityModels but MUST NOT modify current notification entityModel via entityService.
+     * Returns the modified entity for persistence.
      */
     private CompletableFuture<ObjectNode> processNotification(ObjectNode notificationEntity) {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 logger.info("Processing notification workflow for entity: {}", notificationEntity);
 
-                // Example of modifying the entity: add a processed timestamp
+                // Add processed timestamp to entity
                 notificationEntity.put("processedTimestamp", Instant.now().toString());
 
-                // Example: You can add supplementary entities of other models here via entityService
-                // For demonstration, let's say we add a log entity of model "notification_log"
+                // Create supplementary entity for logging purposes
                 ObjectNode logEntity = notificationEntity.objectNode();
                 logEntity.put("notificationId", notificationEntity.path("notificationId").asText());
                 logEntity.put("logMessage", "Notification processed asynchronously");
                 logEntity.put("logTimestamp", Instant.now().toString());
 
-                // Add the supplementary entity - different model, allowed
+                // Add supplementary entity of different entityModel "notification_log"
                 entityService.addItem("notification_log", ENTITY_VERSION, logEntity);
 
-                // The modified notificationEntity will be persisted after this completes
+                // Additional async logic can be added here if needed
+
                 return notificationEntity;
             } catch (Exception e) {
                 logger.error("Error during notification workflow processing", e);
-                // On error: return entity without changes to avoid breaking persistence
+                // Return entity unchanged on error to avoid breaking persistence
                 return notificationEntity;
             }
         });
@@ -149,23 +137,3 @@ public class CyodaEntityControllerPrototype {
         private String message;
     }
 }
-```
-
----
-
-### Explanation:
-- The original async logic of sending notification and further processing is **moved into** `processNotification` which is the workflow function applied **right before persistence**.
-- The controller creates the notification entity and calls `entityService.addItem` with the workflow function.
-- `processNotification` receives the entity as `ObjectNode`, modifies it (adds processedTimestamp), and adds a supplementary entity `notification_log` via `entityService.addItem`.
-- This function runs asynchronously and can contain all complex async logic related to this entity.
-- Controller is now simplified and does not hold async or business logic; it just validates input and triggers persistence with workflow.
-
----
-
-This approach:
-- Makes your controller lightweight.
-- Moves async and business logic into dedicated workflow functions.
-- Prevents infinite recursion by not modifying the same entityModel inside workflow.
-- Leverages workflow functions as the right place for async side-effects and supplementary entity creation.
-
-If you want, I can help you extract more logic into workflows for other entity endpoints as well.
