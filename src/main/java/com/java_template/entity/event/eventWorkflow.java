@@ -33,19 +33,6 @@ public class EventWorkflow {
                 if (isKeyEvent) {
                     String notificationMsg = "Emergency! A cat demands snacks";
                     eventEntity.put("message", notificationMsg);
-
-                    ObjectNode notificationEntity = objectMapper.createObjectNode();
-                    notificationEntity.put("message", notificationMsg);
-                    notificationEntity.put("timestamp", Instant.now().toString());
-                    notificationEntity.put("recipient", "default_human_recipient@example.com");
-
-                    // Add notification entity asynchronously without workflow (identity function)
-                    entityService.addItem("notification", ENTITY_VERSION, notificationEntity, n -> n)
-                            .thenAccept(id -> log.info("Notification created by event workflow with id={}", id))
-                            .exceptionally(ex -> {
-                                log.error("Failed to add notification entity in event workflow", ex);
-                                return null;
-                            });
                 } else {
                     eventEntity.put("message", "");
                 }
@@ -58,4 +45,49 @@ public class EventWorkflow {
         });
     }
 
+    public CompletableFuture<ObjectNode> markDetectedTrue(ObjectNode entity) {
+        entity.put("detected", true);
+        return CompletableFuture.completedFuture(entity);
+    }
+
+    public CompletableFuture<ObjectNode> markDetectedFalse(ObjectNode entity) {
+        entity.put("detected", false);
+        return CompletableFuture.completedFuture(entity);
+    }
+
+    public CompletableFuture<ObjectNode> createNotificationEntity(ObjectNode entity) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                String notificationMsg = entity.path("message").asText("Notification");
+                ObjectNode notificationEntity = objectMapper.createObjectNode();
+                notificationEntity.put("message", notificationMsg);
+                notificationEntity.put("timestamp", Instant.now().toString());
+                notificationEntity.put("recipient", "default_human_recipient@example.com");
+
+                entityService.addItem("notification", ENTITY_VERSION, notificationEntity, n -> n)
+                        .thenAccept(id -> log.info("Notification created by event workflow with id={}", id))
+                        .exceptionally(ex -> {
+                            log.error("Failed to add notification entity in event workflow", ex);
+                            return null;
+                        });
+
+                return entity;
+            } catch (Exception e) {
+                log.error("Exception in createNotificationEntity workflow", e);
+                return entity;
+            }
+        });
+    }
+
+    public CompletableFuture<ObjectNode> isKeyEvent(ObjectNode entity) {
+        boolean value = "food_request".equalsIgnoreCase(entity.path("eventType").asText(""));
+        entity.put("success", value);
+        return CompletableFuture.completedFuture(entity);
+    }
+
+    public CompletableFuture<ObjectNode> isNotKeyEvent(ObjectNode entity) {
+        boolean value = !"food_request".equalsIgnoreCase(entity.path("eventType").asText(""));
+        entity.put("success", value);
+        return CompletableFuture.completedFuture(entity);
+    }
 }
