@@ -1,0 +1,69 @@
+{
+    "description": "PetWorkflow FSM for pet enrichment and defaulting",
+    "initial_state": "none",
+    "states": {
+        "done": {
+            "transitions": {}
+        },
+        "enrichPet": {
+            "transitions": {
+                "finish": {
+                    "action": {
+                        "name": "processPet"
+                    },
+                    "next": "done"
+                }
+            }
+        },
+        "none": {
+            "transitions": {
+                "start_processPet": {
+                    "action": {
+                        "name": "processPet"
+                    },
+                    "next": "processPet"
+                }
+            }
+        },
+        "processPet": {
+            "transitions": {
+                "check_name_present": {
+                    "action": {
+                        "name": "processPet"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "isNamePresent"
+                        },
+                        "type": "function"
+                    },
+                    "next": "enrichPet"
+                },
+                "set_defaults": {
+                    "action": {
+                        "name": "processPet"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "isNameAbsent"
+                        },
+                        "type": "function"
+                    },
+                    "next": "setDefaults"
+                }
+            }
+        },
+        "setDefaults": {
+            "transitions": {
+                "finish": {
+                    "action": {
+                        "name": "processPet"
+                    },
+                    "next": "done"
+                }
+            }
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "pet_workflow"
+}
