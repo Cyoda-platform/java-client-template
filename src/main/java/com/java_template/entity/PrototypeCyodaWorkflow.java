@@ -1,8 +1,36 @@
+Certainly! Moving asynchronous tasks and complex logic from the controller endpoints into the workflow functions (`process{entity_name}`) is a great design choice. This keeps controllers thin, makes the code more maintainable, and leverages the new workflow mechanism as intended.
+
+---
+
+### What we will do:
+
+- Move the **fetching external data**, **storing it**, and **sending notifications** logic into the workflow function `processprototype`.
+- Modify the workflow function to accept and return a `ObjectNode` (Jackson JSON node), which allows direct manipulation of the entity state.
+- Convert entity objects passed to `addItem`/`addItems` into `ObjectNode` before passing them along with the workflow.
+- Update controller endpoints to just call `addItem` or `addItems` with data and workflow, no longer doing async or heavy lifting.
+- Since the workflow cannot modify entities of the same model via add/update/delete (to avoid recursion), it will only **add supplementary entities**, or modify the current entity directly.
+
+---
+
+### Key points for workflow:
+
+- The workflow function signature will be something like:  
+  `CompletableFuture<ObjectNode> processprototype(ObjectNode entity)`
+
+- It can call `entityService.addItem` on **different** entityModels (e.g., for notifications or supplementary data).
+
+- It can modify the current entity state via `entity.put(field, value)`.
+
+---
+
+### Updated full code reflecting these changes:
+
 ```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
@@ -19,7 +47,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
@@ -49,7 +76,7 @@ public class CyodaEntityControllerPrototype {
     private static final String API_KEY = "test"; // TODO: Replace with secure config
     private static final String EXTERNAL_API_TEMPLATE = "https://api.sportsdata.io/v3/nba/scores/json/ScoresBasicFinal/%s?key=%s";
     private static final String ENTITY_NAME = "prototype";
-    private static final int ENTITY_VERSION = 1; // Assuming ENTITY_VERSION constant (replace with actual)
+    private static final int ENTITY_VERSION = 1; // Replace with actual constant
 
     public CyodaEntityControllerPrototype(EntityService entityService) {
         this.entityService = entityService;
@@ -57,115 +84,203 @@ public class CyodaEntityControllerPrototype {
 
     /**
      * Workflow function for "prototype" entity.
-     * This function can modify entity state asynchronously before persistence.
-     * Must return the entity after processing.
+     * This function performs all async tasks before persistence:
+     * - For fetchScores: fetches external scores, adds them as new entities
+     * - For subscribe: nothing async, just returns entity
+     *
+     * It receives entity as ObjectNode and returns CompletableFuture of processed ObjectNode.
      */
-    private CompletableFuture<Object> processprototype(Object entity) {
-        // Example workflow: just return entity as is (no changes).
-        // You can add your custom logic here (modify entity, call other entities, etc.)
-        return CompletableFuture.completedFuture(entity);
+    private CompletableFuture<ObjectNode> processprototype(ObjectNode entity) {
+        // Determine action type from entity contents
+        // For example, we can define a 'action' field in the entity to distinguish requests
+        String action = entity.has("action") ? entity.get("action").asText() : "";
+
+        if ("fetchScores".equals(action)) {
+            return processFetchScores(entity);
+        } else if ("subscribe".equals(action)) {
+            // No async logic needed here, just return entity
+            return CompletableFuture.completedFuture(entity);
+        } else {
+            // Default: just return entity as is
+            return CompletableFuture.completedFuture(entity);
+        }
     }
 
+    /**
+     * Workflow function to fetch external NBA scores, add games entities, and send notifications.
+     * Modifies the current entity by adding a field "gamesCount".
+     *
+     * @param entity input ObjectNode with at least "date" field
+     * @return completed future of modified entity
+     */
+    private CompletableFuture<ObjectNode> processFetchScores(ObjectNode entity) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                String date = entity.get("date").asText();
+                logger.info("processprototype: fetching scores for date={}", date);
+
+                // Fetch from external API
+                String url = String.format(EXTERNAL_API_TEMPLATE, date, API_KEY);
+                URI uri = new URI(url);
+                String rawJson = restTemplate.getForObject(uri, String.class);
+                if (rawJson == null || rawJson.isEmpty()) {
+                    logger.warn("Empty response from external API for date {}", date);
+                    entity.put("gamesCount", 0);
+                    return entity;
+                }
+
+                JsonNode rootNode = objectMapper.readTree(rawJson);
+                List<ObjectNode> games = new ArrayList<>();
+
+                if (rootNode.isArray()) {
+                    for (JsonNode node : rootNode) {
+                        ObjectNode gameNode = parseGameToObjectNode(node);
+                        games.add(gameNode);
+                    }
+                } else {
+                    logger.warn("Unexpected JSON structure from external API for date {}", date);
+                }
+
+                // Add each game as a separate entity of different model (e.g., "game")
+                // We must NOT add/update/delete entities of the same entityModel "prototype" here to avoid recursion
+                // So we use a different entity model "game" for games storage
+
+                for (ObjectNode gameNode : games) {
+                    // Fire and forget - no need to wait; but wait is possible if needed
+                    entityService.addItem(
+                            "game", // different entity model for games
+                            ENTITY_VERSION,
+                            gameNode,
+                            o -> CompletableFuture.completedFuture(o) // trivial workflow for games
+                    );
+                }
+
+                entity.put("gamesCount", games.size());
+
+                // Send notifications asynchronously as supplementary entities or logs
+                // For demo: create notification entities for each subscriber
+
+                List<String> subscriberEmails = getSubscriberEmailsSync();
+
+                StringBuilder summary = new StringBuilder("NBA Scores for ").append(date).append(":\n");
+                if (games.isEmpty()) {
+                    summary.append("No games played on this day.");
+                } else {
+                    for (ObjectNode g : games) {
+                        String homeTeam = g.path("homeTeam").asText();
+                        String awayTeam = g.path("awayTeam").asText();
+                        int homeScore = g.path("homeScore").asInt(-1);
+                        int awayScore = g.path("awayScore").asInt(-1);
+                        summary.append(String.format("%s %d - %d %s\n", homeTeam, homeScore, awayScore, awayTeam));
+                    }
+                }
+
+                for (String email : subscriberEmails) {
+                    ObjectNode notification = objectMapper.createObjectNode();
+                    notification.put("email", email);
+                    notification.put("subject", "NBA Scores Notification");
+                    notification.put("body", summary.toString());
+                    notification.put("date", date);
+
+                    // Add notification entity of different model "notification"
+                    entityService.addItem(
+                            "notification",
+                            ENTITY_VERSION,
+                            notification,
+                            o -> CompletableFuture.completedFuture(o) // trivial workflow
+                    );
+                    logger.info("Queued notification for email {}", email);
+                }
+
+                return entity;
+            } catch (Exception e) {
+                logger.error("Error in processFetchScores workflow", e);
+                // Optionally mark error in entity
+                entity.put("error", "Failed to fetch or process scores");
+                return entity;
+            }
+        });
+    }
+
+    // Helper to parse external game JSON node into ObjectNode for entity storage
+    private ObjectNode parseGameToObjectNode(JsonNode node) {
+        ObjectNode gameNode = objectMapper.createObjectNode();
+        gameNode.put("date", node.path("Day").asText(""));
+        gameNode.put("homeTeam", node.path("HomeTeam").asText(""));
+        gameNode.put("awayTeam", node.path("AwayTeam").asText(""));
+        gameNode.put("homeScore", node.path("HomeTeamScore").asInt(-1));
+        gameNode.put("awayScore", node.path("AwayTeamScore").asInt(-1));
+        return gameNode;
+    }
+
+    // Helper method to synchronously get all subscriber emails
+    private List<String> getSubscriberEmailsSync() throws ExecutionException, InterruptedException {
+        SearchConditionRequest cond = SearchConditionRequest.group("AND",
+                Condition.of("$.email", "EXISTS", null));
+        CompletableFuture<com.fasterxml.jackson.databind.node.ArrayNode> future = entityService.getItemsByCondition(
+                ENTITY_NAME, ENTITY_VERSION, cond);
+        com.fasterxml.jackson.databind.node.ArrayNode arrayNode = future.get();
+        List<String> emails = new ArrayList<>();
+        arrayNode.forEach(jsonNode -> {
+            if (jsonNode.has("email")) {
+                emails.add(jsonNode.get("email").asText());
+            }
+        });
+        return emails;
+    }
+
+    /**
+     * Controller endpoint simplified to just call addItem with workflow.
+     * The workflow will handle all async processing.
+     */
     @PostMapping("/fetch-scores")
     public ResponseEntity<FetchScoresResponse> fetchScores(@RequestBody @Valid FetchScoresRequest request) {
         logger.info("Received fetch-scores request for date={}", request.getDate());
-        CompletableFuture.runAsync(() -> fetchStoreNotify(request.getDate()));
+
+        // Create entity as ObjectNode with action and date
+        ObjectNode entityNode = objectMapper.createObjectNode();
+        entityNode.put("action", "fetchScores");
+        entityNode.put("date", request.getDate());
+
+        CompletableFuture<UUID> idFuture = entityService.addItem(
+                ENTITY_NAME,
+                ENTITY_VERSION,
+                entityNode,
+                this::processprototype
+        );
+
+        // We do not wait for completion here, fire and forget
         return ResponseEntity.ok(new FetchScoresResponse("success", request.getDate(), -1));
     }
 
-    @Async
-    protected void fetchStoreNotify(String date) {
-        logger.info("Starting fetchStoreNotify for date={}", date);
-        try {
-            String url = String.format(EXTERNAL_API_TEMPLATE, date, API_KEY);
-            URI uri = new URI(url);
-            String rawJson = restTemplate.getForObject(uri, String.class);
-            if (rawJson == null || rawJson.isEmpty()) {
-                logger.error("Empty response from external API for date {}", date);
-                return;
-            }
-            JsonNode rootNode = objectMapper.readTree(rawJson);
-            List<Game> games = new ArrayList<>();
-            if (rootNode.isArray()) {
-                for (JsonNode node : rootNode) {
-                    games.add(parseGameFromJson(node));
-                }
-            } else {
-                logger.warn("Unexpected JSON structure from external API for date {}", date);
-            }
-            // Store games using entityService with workflow function
-            if (!games.isEmpty()) {
-                try {
-                    // Wrap workflow function to match entityService.addItems signature
-                    Function<Object, CompletableFuture<Object>> workflowFunction = entity -> processprototype(entity);
-                    CompletableFuture<List<UUID>> idsFuture = entityService.addItems(
-                            ENTITY_NAME,
-                            ENTITY_VERSION,
-                            games,
-                            workflowFunction
-                    );
-                    List<UUID> ids = idsFuture.get();
-                    logger.info("Stored {} games with technicalIds {}", games.size(), ids);
-                } catch (InterruptedException | ExecutionException e) {
-                    logger.error("Failed to store games for date {}", date, e);
-                }
-            }
-            sendNotifications(date, games);
-        } catch (Exception e) {
-            logger.error("Error during fetchStoreNotify for date " + date, e);
-        }
-    }
-
-    private Game parseGameFromJson(JsonNode node) {
-        String homeTeam = node.path("HomeTeam").asText("");
-        String awayTeam = node.path("AwayTeam").asText("");
-        int homeScore = node.path("HomeTeamScore").asInt(-1);
-        int awayScore = node.path("AwayTeamScore").asInt(-1);
-        String dateStr = node.path("Day").asText("");
-        return new Game(dateStr, homeTeam, awayTeam, homeScore, awayScore);
-    }
-
-    private void sendNotifications(String date, List<Game> games) {
-        StringBuilder summary = new StringBuilder("NBA Scores for ").append(date).append(":\n");
-        if (games.isEmpty()) {
-            summary.append("No games played on this day.");
-        } else {
-            for (Game g : games) {
-                summary.append(String.format("%s %d - %d %s\n", g.getHomeTeam(), g.getHomeScore(), g.getAwayScore(), g.getAwayTeam()));
-            }
-        }
-        List<Subscriber> subscribers = getAllSubscribers();
-        for (Subscriber sub : subscribers) {
-            logger.info("Sending email to {} with summary:\n{}", sub.getEmail(), summary);
-        }
-    }
-
+    /**
+     * Subscription endpoint simplified.
+     * The workflow just returns the same entity.
+     */
     @PostMapping("/subscribe")
     public ResponseEntity<SubscribeResponse> subscribe(@RequestBody @Valid SubscribeRequest request) throws ExecutionException, InterruptedException {
         logger.info("Subscription request received for email={}", request.getEmail());
+
         // Check if already subscribed by email ignoring case
         SearchConditionRequest condition = SearchConditionRequest.group("AND",
                 Condition.of("$.email", "IEQUALS", request.getEmail()));
-        CompletableFuture<List<Map<String, Object>>> existingSubsFuture = entityService.getItemsByCondition(
+        CompletableFuture<com.fasterxml.jackson.databind.node.ArrayNode> existingSubsFuture = entityService.getItemsByCondition(
                 ENTITY_NAME,
                 ENTITY_VERSION,
                 condition
-        ).thenApply(arrayNode -> {
-            List<Map<String, Object>> list = new ArrayList<>();
-            arrayNode.forEach(jsonNode -> {
-                Map<String, Object> map = objectMapper.convertValue(jsonNode, Map.class);
-                list.add(map);
-            });
-            return list;
-        });
-        List<Map<String, Object>> existingSubs = existingSubsFuture.get();
+        );
+        com.fasterxml.jackson.databind.node.ArrayNode existingSubs = existingSubsFuture.get();
+
         if (existingSubs.isEmpty()) {
-            Subscriber newSub = new Subscriber(request.getEmail());
-            // Use workflow function processprototype for addItem
+            // Create entity node for subscriber with action subscribe
+            ObjectNode entityNode = objectMapper.createObjectNode();
+            entityNode.put("email", request.getEmail());
+            entityNode.put("action", "subscribe");
+
             CompletableFuture<UUID> idFuture = entityService.addItem(
                     ENTITY_NAME,
                     ENTITY_VERSION,
-                    newSub,
+                    entityNode,
                     this::processprototype
             );
             idFuture.get();
@@ -179,20 +294,8 @@ public class CyodaEntityControllerPrototype {
     @GetMapping("/subscribers")
     public ResponseEntity<SubscribersResponse> getSubscribers() throws ExecutionException, InterruptedException {
         logger.info("Retrieving all subscribers");
-        List<Subscriber> subscribers = getAllSubscribers();
-        List<String> emails = subscribers.stream().map(Subscriber::getEmail).collect(Collectors.toList());
+        List<String> emails = getSubscriberEmailsSync();
         return ResponseEntity.ok(new SubscribersResponse(emails));
-    }
-
-    private List<Subscriber> getAllSubscribers() throws ExecutionException, InterruptedException {
-        CompletableFuture<com.fasterxml.jackson.databind.node.ArrayNode> itemsFuture = entityService.getItems(ENTITY_NAME, ENTITY_VERSION);
-        com.fasterxml.jackson.databind.node.ArrayNode arrayNode = itemsFuture.get();
-        List<Subscriber> subscribers = new ArrayList<>();
-        arrayNode.forEach(jsonNode -> {
-            Subscriber sub = objectMapper.convertValue(jsonNode, Subscriber.class);
-            subscribers.add(sub);
-        });
-        return subscribers;
     }
 
     @GetMapping("/games/all")
@@ -200,7 +303,7 @@ public class CyodaEntityControllerPrototype {
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) int size) throws ExecutionException, InterruptedException {
         logger.info("Retrieving all games with pagination page={}, size={}", page, size);
-        CompletableFuture<com.fasterxml.jackson.databind.node.ArrayNode> itemsFuture = entityService.getItems(ENTITY_NAME, ENTITY_VERSION);
+        CompletableFuture<com.fasterxml.jackson.databind.node.ArrayNode> itemsFuture = entityService.getItems("game", ENTITY_VERSION);
         com.fasterxml.jackson.databind.node.ArrayNode arrayNode = itemsFuture.get();
         List<Game> allGames = new ArrayList<>();
         arrayNode.forEach(jsonNode -> {
@@ -222,7 +325,7 @@ public class CyodaEntityControllerPrototype {
         SearchConditionRequest condition = SearchConditionRequest.group("AND",
                 Condition.of("$.date", "EQUALS", date));
         CompletableFuture<com.fasterxml.jackson.databind.node.ArrayNode> filteredItemsFuture = entityService.getItemsByCondition(
-                ENTITY_NAME, ENTITY_VERSION, condition);
+                "game", ENTITY_VERSION, condition);
         com.fasterxml.jackson.databind.node.ArrayNode arrayNode = filteredItemsFuture.get();
         List<Game> games = new ArrayList<>();
         arrayNode.forEach(jsonNode -> {
@@ -313,13 +416,6 @@ public class CyodaEntityControllerPrototype {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
-    static class Subscriber {
-        private String email;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     static class Game {
         private String date;
         private String homeTeam;
@@ -329,12 +425,19 @@ public class CyodaEntityControllerPrototype {
     }
 }
 ```
+
 ---
 
-### Explanation of changes:
-- Added a private method `processprototype(Object entity)` that returns a `CompletableFuture<Object>` as the workflow function. It currently returns the entity as is, but you can customize it.
-- Updated calls to `entityService.addItem` and `entityService.addItems` to include the workflow function as the last parameter.
-- For `addItems`, wrapped `processprototype` in a `Function<Object, CompletableFuture<Object>>` lambda.
-- For `addItem`, referenced `this::processprototype` directly.
+### Summary of changes:
 
-This matches the new method signature and the requirement that the workflow function name starts with `process` + entity name.
+- **All async/network calls and side effects moved into `processprototype` workflow function**.
+- Controller methods create a minimal entity ObjectNode marking the `action` (`fetchScores` or `subscribe`), pass it to `addItem` with the workflow.
+- `processprototype` inspects the action and performs the appropriate async logic **before** persisting the entity.
+- Games are stored as a **different entity model** `"game"` to avoid recursion.
+- Notifications are stored as `"notification"` entities (you can replace this with your actual notification sending logic).
+- This design frees controllers from business logic and makes workflows the single place for async pre-persist processing.
+- All entities passed to `addItem` are `ObjectNode` instances, enabling direct modification.
+
+---
+
+If you want, I can help further to split workflows by action into separate methods or move notification sending out of entity store into a real mail service, etc. But this approach is solid, scalable, and fits your requirement perfectly.
