@@ -1,7 +1,8 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
@@ -32,14 +33,16 @@ import static com.java_template.common.config.Config.*;
 @Validated
 @RestController
 @RequestMapping("cyoda/cat_event")
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @Data
@@ -98,7 +101,7 @@ public class CyodaEntityControllerPrototype {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "timestamp must be ISO8601");
         }
 
-        ObjectNode eventNode = entityService.getObjectMapper().createObjectNode();
+        ObjectNode eventNode = objectMapper.createObjectNode();
         eventNode.put("eventType", request.getEventType());
         eventNode.put("eventDescription", request.getEventDescription());
         eventNode.put("timestamp", eventInstant.toString());
