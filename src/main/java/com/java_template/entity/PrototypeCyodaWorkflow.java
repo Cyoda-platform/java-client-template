@@ -1,31 +1,3 @@
-Certainly! Moving asynchronous tasks and complex logic from the controller endpoints into the workflow functions (`process{entity_name}`) is a great design choice. This keeps controllers thin, makes the code more maintainable, and leverages the new workflow mechanism as intended.
-
----
-
-### What we will do:
-
-- Move the **fetching external data**, **storing it**, and **sending notifications** logic into the workflow function `processprototype`.
-- Modify the workflow function to accept and return a `ObjectNode` (Jackson JSON node), which allows direct manipulation of the entity state.
-- Convert entity objects passed to `addItem`/`addItems` into `ObjectNode` before passing them along with the workflow.
-- Update controller endpoints to just call `addItem` or `addItems` with data and workflow, no longer doing async or heavy lifting.
-- Since the workflow cannot modify entities of the same model via add/update/delete (to avoid recursion), it will only **add supplementary entities**, or modify the current entity directly.
-
----
-
-### Key points for workflow:
-
-- The workflow function signature will be something like:  
-  `CompletableFuture<ObjectNode> processprototype(ObjectNode entity)`
-
-- It can call `entityService.addItem` on **different** entityModels (e.g., for notifications or supplementary data).
-
-- It can modify the current entity state via `entity.put(field, value)`.
-
----
-
-### Updated full code reflecting these changes:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -56,7 +28,6 @@ import java.net.URI;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.java_template.common.config.Config.*;
@@ -86,13 +57,11 @@ public class CyodaEntityControllerPrototype {
      * Workflow function for "prototype" entity.
      * This function performs all async tasks before persistence:
      * - For fetchScores: fetches external scores, adds them as new entities
-     * - For subscribe: nothing async, just returns entity
+     * - For subscribe: no async logic, just returns entity
      *
      * It receives entity as ObjectNode and returns CompletableFuture of processed ObjectNode.
      */
     private CompletableFuture<ObjectNode> processprototype(ObjectNode entity) {
-        // Determine action type from entity contents
-        // For example, we can define a 'action' field in the entity to distinguish requests
         String action = entity.has("action") ? entity.get("action").asText() : "";
 
         if ("fetchScores".equals(action)) {
@@ -116,6 +85,13 @@ public class CyodaEntityControllerPrototype {
     private CompletableFuture<ObjectNode> processFetchScores(ObjectNode entity) {
         return CompletableFuture.supplyAsync(() -> {
             try {
+                if (!entity.hasNonNull("date")) {
+                    logger.warn("processFetchScores: missing date field");
+                    entity.put("gamesCount", 0);
+                    entity.put("error", "Missing date");
+                    return entity;
+                }
+
                 String date = entity.get("date").asText();
                 logger.info("processprototype: fetching scores for date={}", date);
 
@@ -126,6 +102,7 @@ public class CyodaEntityControllerPrototype {
                 if (rawJson == null || rawJson.isEmpty()) {
                     logger.warn("Empty response from external API for date {}", date);
                     entity.put("gamesCount", 0);
+                    entity.put("error", "Empty response from external API");
                     return entity;
                 }
 
@@ -141,14 +118,10 @@ public class CyodaEntityControllerPrototype {
                     logger.warn("Unexpected JSON structure from external API for date {}", date);
                 }
 
-                // Add each game as a separate entity of different model (e.g., "game")
-                // We must NOT add/update/delete entities of the same entityModel "prototype" here to avoid recursion
-                // So we use a different entity model "game" for games storage
-
+                // Add each game as a separate entity of different model ("game"), avoiding recursion
                 for (ObjectNode gameNode : games) {
-                    // Fire and forget - no need to wait; but wait is possible if needed
                     entityService.addItem(
-                            "game", // different entity model for games
+                            "game",
                             ENTITY_VERSION,
                             gameNode,
                             o -> CompletableFuture.completedFuture(o) // trivial workflow for games
@@ -158,8 +131,6 @@ public class CyodaEntityControllerPrototype {
                 entity.put("gamesCount", games.size());
 
                 // Send notifications asynchronously as supplementary entities or logs
-                // For demo: create notification entities for each subscriber
-
                 List<String> subscriberEmails = getSubscriberEmailsSync();
 
                 StringBuilder summary = new StringBuilder("NBA Scores for ").append(date).append(":\n");
@@ -182,7 +153,6 @@ public class CyodaEntityControllerPrototype {
                     notification.put("body", summary.toString());
                     notification.put("date", date);
 
-                    // Add notification entity of different model "notification"
                     entityService.addItem(
                             "notification",
                             ENTITY_VERSION,
@@ -195,14 +165,12 @@ public class CyodaEntityControllerPrototype {
                 return entity;
             } catch (Exception e) {
                 logger.error("Error in processFetchScores workflow", e);
-                // Optionally mark error in entity
                 entity.put("error", "Failed to fetch or process scores");
                 return entity;
             }
         });
     }
 
-    // Helper to parse external game JSON node into ObjectNode for entity storage
     private ObjectNode parseGameToObjectNode(JsonNode node) {
         ObjectNode gameNode = objectMapper.createObjectNode();
         gameNode.put("date", node.path("Day").asText(""));
@@ -213,7 +181,6 @@ public class CyodaEntityControllerPrototype {
         return gameNode;
     }
 
-    // Helper method to synchronously get all subscriber emails
     private List<String> getSubscriberEmailsSync() throws ExecutionException, InterruptedException {
         SearchConditionRequest cond = SearchConditionRequest.group("AND",
                 Condition.of("$.email", "EXISTS", null));
@@ -229,39 +196,28 @@ public class CyodaEntityControllerPrototype {
         return emails;
     }
 
-    /**
-     * Controller endpoint simplified to just call addItem with workflow.
-     * The workflow will handle all async processing.
-     */
     @PostMapping("/fetch-scores")
     public ResponseEntity<FetchScoresResponse> fetchScores(@RequestBody @Valid FetchScoresRequest request) {
         logger.info("Received fetch-scores request for date={}", request.getDate());
 
-        // Create entity as ObjectNode with action and date
         ObjectNode entityNode = objectMapper.createObjectNode();
         entityNode.put("action", "fetchScores");
         entityNode.put("date", request.getDate());
 
-        CompletableFuture<UUID> idFuture = entityService.addItem(
+        entityService.addItem(
                 ENTITY_NAME,
                 ENTITY_VERSION,
                 entityNode,
                 this::processprototype
         );
 
-        // We do not wait for completion here, fire and forget
         return ResponseEntity.ok(new FetchScoresResponse("success", request.getDate(), -1));
     }
 
-    /**
-     * Subscription endpoint simplified.
-     * The workflow just returns the same entity.
-     */
     @PostMapping("/subscribe")
     public ResponseEntity<SubscribeResponse> subscribe(@RequestBody @Valid SubscribeRequest request) throws ExecutionException, InterruptedException {
         logger.info("Subscription request received for email={}", request.getEmail());
 
-        // Check if already subscribed by email ignoring case
         SearchConditionRequest condition = SearchConditionRequest.group("AND",
                 Condition.of("$.email", "IEQUALS", request.getEmail()));
         CompletableFuture<com.fasterxml.jackson.databind.node.ArrayNode> existingSubsFuture = entityService.getItemsByCondition(
@@ -272,7 +228,6 @@ public class CyodaEntityControllerPrototype {
         com.fasterxml.jackson.databind.node.ArrayNode existingSubs = existingSubsFuture.get();
 
         if (existingSubs.isEmpty()) {
-            // Create entity node for subscriber with action subscribe
             ObjectNode entityNode = objectMapper.createObjectNode();
             entityNode.put("email", request.getEmail());
             entityNode.put("action", "subscribe");
@@ -424,20 +379,3 @@ public class CyodaEntityControllerPrototype {
         private int awayScore;
     }
 }
-```
-
----
-
-### Summary of changes:
-
-- **All async/network calls and side effects moved into `processprototype` workflow function**.
-- Controller methods create a minimal entity ObjectNode marking the `action` (`fetchScores` or `subscribe`), pass it to `addItem` with the workflow.
-- `processprototype` inspects the action and performs the appropriate async logic **before** persisting the entity.
-- Games are stored as a **different entity model** `"game"` to avoid recursion.
-- Notifications are stored as `"notification"` entities (you can replace this with your actual notification sending logic).
-- This design frees controllers from business logic and makes workflows the single place for async pre-persist processing.
-- All entities passed to `addItem` are `ObjectNode` instances, enabling direct modification.
-
----
-
-If you want, I can help further to split workflows by action into separate methods or move notification sending out of entity store into a real mail service, etc. But this approach is solid, scalable, and fits your requirement perfectly.
