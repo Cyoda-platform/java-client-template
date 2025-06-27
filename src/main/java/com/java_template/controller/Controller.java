@@ -1,4 +1,4 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -36,12 +36,12 @@ import static com.java_template.common.config.Config.*;
 @Validated
 @RestController
 @RequestMapping("/cyoda-prototype")
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate = new RestTemplate();
 
     private static final String API_KEY = "test"; // TODO: Replace with secure config
@@ -49,8 +49,9 @@ public class CyodaEntityControllerPrototype {
     private static final String ENTITY_NAME = "prototype";
     private static final int ENTITY_VERSION = 1; // Replace with actual constant
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     private CompletableFuture<ObjectNode> processprototype(ObjectNode entity) {
@@ -251,7 +252,7 @@ public class CyodaEntityControllerPrototype {
 
     @GetMapping("/games/{date}")
     public ResponseEntity<GamesByDateResponse> getGamesByDate(
-            @PathVariable @Pattern(regexp = "\d{4}-\d{2}-\d{2}") String date) throws ExecutionException, InterruptedException {
+            @PathVariable @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}") String date) throws ExecutionException, InterruptedException {
         logger.info("Retrieving games for date={}", date);
         SearchConditionRequest condition = SearchConditionRequest.group("AND",
                 Condition.of("$.date", "EQUALS", date));
@@ -289,7 +290,7 @@ public class CyodaEntityControllerPrototype {
     @AllArgsConstructor
     static class FetchScoresRequest {
         @NotNull
-        @Pattern(regexp = "\d{4}-\d{2}-\d{2}")
+        @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}")
         private String date;
     }
 
