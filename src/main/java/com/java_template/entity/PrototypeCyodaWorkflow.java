@@ -1,29 +1,7 @@
-Certainly! Based on your requirements, the best approach is to move **all asynchronous tasks and related logic from the controller endpoints into the workflow function `processCatEvent`**. This will:
-
-- Make controllers thin and focused on handling HTTP requests/responses only.
-- Allow the workflow function to handle all async tasks before the entity is persisted.
-- Use the `ObjectNode` entity form inside the workflow to modify/persist state.
-- Respect the rule: No modifications (add/update/delete) on the current entityModel inside the workflow function, but allowed on other entities.
-
----
-
-### What we will do:
-
-- Move the asynchronous notification logic (`processEventAndNotify`) into the workflow function.
-- Convert the `CatEvent` entity parameter of the workflow function to be an `ObjectNode`.
-- Modify the entity state (e.g. setting `notificationStatus`) **directly** on the entity node.
-- Keep controller code simple: build validated entity node, call `entityService.addItem` with workflow function, return response.
-- Remove async calls from controller (including `CompletableFuture.runAsync`).
-- Workflow function can still call `entityService` for other entityModels if needed.
-
----
-
-### Full updated Java code:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
@@ -47,7 +25,6 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
 
@@ -113,10 +90,11 @@ public class CyodaEntityControllerPrototype {
      * Workflow function applied asynchronously before persistence.
      * Receives the entity as ObjectNode, can modify it directly.
      * Performs asynchronous notification sending and updates notificationStatus accordingly.
+     * Does not call entityService.addItem/updateItem/deleteItem on current entity model to avoid infinite recursion.
      */
     private CompletableFuture<ObjectNode> processCatEvent(ObjectNode entity) {
         try {
-            // Ensure notificationStatus is "pending" if missing
+            // Ensure notificationStatus is "pending" if missing or empty
             if (!entity.hasNonNull("notificationStatus") || entity.get("notificationStatus").asText().isEmpty()) {
                 entity.put("notificationStatus", "pending");
             }
@@ -124,10 +102,8 @@ public class CyodaEntityControllerPrototype {
             // Fire and forget async notification sending and update notificationStatus accordingly
             CompletableFuture.runAsync(() -> {
                 try {
-                    // Simulate delay for notification processing
-                    Thread.sleep(500);
+                    Thread.sleep(500); // simulate delay for notification processing
 
-                    // Compose notification message
                     String eventType = entity.hasNonNull("eventType") ? entity.get("eventType").asText() : "unknown";
                     String eventDescription = entity.hasNonNull("eventDescription") ? entity.get("eventDescription").asText() : "";
 
@@ -141,9 +117,8 @@ public class CyodaEntityControllerPrototype {
                     // Update entity notificationStatus = "sent"
                     entity.put("notificationStatus", "sent");
 
-                    // IMPORTANT: cannot update current entityModel here (would cause infinite recursion)
-                    // So we do NOT call entityService.updateItem for this entity.
-                    // Instead, rely on the fact that the updated entity state will be persisted after workflow.
+                    // Do NOT call entityService.updateItem on current entity to avoid recursion.
+                    // The updated entity state inside workflow will be persisted automatically.
 
                 } catch (InterruptedException e) {
                     logger.error("Notification sending interrupted", e);
@@ -160,7 +135,6 @@ public class CyodaEntityControllerPrototype {
             entity.put("notificationStatus", "failed");
         }
 
-        // Return the possibly modified entity node
         return CompletableFuture.completedFuture(entity);
     }
 
@@ -176,12 +150,12 @@ public class CyodaEntityControllerPrototype {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "timestamp must be ISO8601");
         }
 
-        // Create ObjectNode representing the entity (instead of POJO)
+        // Create ObjectNode representing the entity
         ObjectNode eventNode = entityService.getObjectMapper().createObjectNode();
         eventNode.put("eventType", request.getEventType());
         eventNode.put("eventDescription", request.getEventDescription());
         eventNode.put("timestamp", eventInstant.toString());
-        eventNode.put("notificationStatus", "pending"); // initial status
+        eventNode.put("notificationStatus", "pending");
 
         CompletableFuture<UUID> idFuture = entityService.addItem(
                 "CatEvent",
@@ -223,14 +197,14 @@ public class CyodaEntityControllerPrototype {
                     Condition.of("$.eventType", "EQUALS", eventType));
         }
 
-        CompletableFuture<com.fasterxml.jackson.databind.node.ArrayNode> itemsFuture;
+        CompletableFuture<ArrayNode> itemsFuture;
         if (condition == null) {
             itemsFuture = entityService.getItems("CatEvent", ENTITY_VERSION);
         } else {
             itemsFuture = entityService.getItemsByCondition("CatEvent", ENTITY_VERSION, condition);
         }
 
-        com.fasterxml.jackson.databind.node.ArrayNode nodes = itemsFuture.join();
+        ArrayNode nodes = itemsFuture.join();
         List<CatEvent> events = new ArrayList<>();
         nodes.forEach(node -> events.add(convertNodeToCatEvent((ObjectNode) node)));
 
@@ -270,26 +244,3 @@ public class CyodaEntityControllerPrototype {
         return new ResponseEntity<>(err, ex.getStatusCode());
     }
 }
-```
-
----
-
-### Summary of key changes:
-
-- The workflow function signature changed to `CompletableFuture<ObjectNode> processCatEvent(ObjectNode entity)`.
-- The workflow function handles **all async workflow tasks**:
-  - Sets default `notificationStatus` to `"pending"` if missing.
-  - Fires asynchronous notification sending (simulated delay).
-  - Updates `notificationStatus` **inside entity node** to `"sent"` or `"failed"` accordingly.
-- Controller `detectCatEvent` builds an `ObjectNode` entity and passes workflow function to `entityService.addItem`.
-- Removed all async logic from controller.
-- Notification sending is **now a fire-and-forget async task inside workflow**.
-- The entity's state modifications happen directly on the `ObjectNode` and will be persisted after workflow completes.
-- Avoid calling `entityService.updateItem` on the current entity inside workflow (would cause recursion).
-- Controllers are now clean and focused purely on request/response.
-
----
-
-This design fully aligns with your requirement to move async and entity state mutation logic into the workflow function, making controllers simpler and code more robust.
-
-If you want me to help with any additional refactoring or explanation, just ask!
