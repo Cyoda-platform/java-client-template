@@ -30,21 +30,26 @@ public class Workflow {
     private static final String EXTERNAL_API_TEMPLATE = "https://api.sportsdata.io/v3/nba/scores/json/ScoresBasicFinal/%s?key=%s";
     private static final String ENTITY_NAME = "prototype";
 
-    public CompletableFuture<ObjectNode> processprototype(ObjectNode entity) {
-        String action = entity.has("action") ? entity.get("action").asText() : "";
-
-        if ("fetchScores".equals(action)) {
-            return processFetchScores(entity);
-        } else if ("subscribe".equals(action)) {
-            // No async logic needed here, just return entity
-            return CompletableFuture.completedFuture(entity);
-        } else {
-            // Default: just return entity as is
-            return CompletableFuture.completedFuture(entity);
-        }
+    public CompletableFuture<ObjectNode> isDefaultAction(ObjectNode entity) {
+        boolean value = !entity.has("action") || entity.get("action").asText().isEmpty() ||
+                (!"fetchScores".equals(entity.get("action").asText()) && !"subscribe".equals(entity.get("action").asText()));
+        entity.put("success", value);
+        return CompletableFuture.completedFuture(entity);
     }
 
-    private CompletableFuture<ObjectNode> processFetchScores(ObjectNode entity) {
+    public CompletableFuture<ObjectNode> isFetchScoresAction(ObjectNode entity) {
+        boolean value = entity.has("action") && "fetchScores".equals(entity.get("action").asText());
+        entity.put("success", value);
+        return CompletableFuture.completedFuture(entity);
+    }
+
+    public CompletableFuture<ObjectNode> isSubscribeAction(ObjectNode entity) {
+        boolean value = entity.has("action") && "subscribe".equals(entity.get("action").asText());
+        entity.put("success", value);
+        return CompletableFuture.completedFuture(entity);
+    }
+
+    public CompletableFuture<ObjectNode> processFetchScores(ObjectNode entity) {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 if (!entity.hasNonNull("date")) {
@@ -79,7 +84,7 @@ public class Workflow {
                     log.warn("Unexpected JSON structure from external API for date {}", date);
                 }
 
-                // Add each game as a separate entity of different model (\"game\"), avoiding recursion
+                // Add each game as a separate entity of different model ("game"), avoiding recursion
                 for (ObjectNode gameNode : games) {
                     entityService.addItem(
                             "game",
@@ -130,6 +135,11 @@ public class Workflow {
                 return entity;
             }
         });
+    }
+
+    public CompletableFuture<ObjectNode> processSubscribe(ObjectNode entity) {
+        // No processing logic needed, just return entity immediately
+        return CompletableFuture.completedFuture(entity);
     }
 
     private ObjectNode parseGameToObjectNode(JsonNode node) {
