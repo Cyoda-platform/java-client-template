@@ -55,6 +55,19 @@ public class EntityControllerPrototype {
         return ResponseEntity.ok(new ArrayList<>(subscribers.keySet()));
     }
 
+    // New endpoint: DELETE subscriber by email
+    @DeleteMapping("/subscribers/{email}")
+    public ResponseEntity<SubscriptionResponse> deleteSubscriber(
+        @PathVariable @Email String email) {
+        logger.info("Received request to delete subscriber: {}", email);
+        Subscriber removed = subscribers.remove(email);
+        if (removed == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new SubscriptionResponse("Subscriber not found", email));
+        }
+        return ResponseEntity.ok(new SubscriptionResponse("Subscriber deleted", email));
+    }
+
     @GetMapping("/games/all")
     public ResponseEntity<List<Game>> getAllGames(
         @RequestParam(name = "limit", defaultValue = "20") @Min(1) int limit,
@@ -76,6 +89,19 @@ public class EntityControllerPrototype {
         logger.info("Retrieving games for date {}", date);
         List<Game> games = gamesByDate.getOrDefault(date, Collections.emptyList());
         return ResponseEntity.ok(games);
+    }
+
+    // New endpoint: DELETE games for a specific date
+    @DeleteMapping("/games/{date}")
+    public ResponseEntity<FetchResponse> deleteGamesByDate(
+        @PathVariable @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}") String date) {
+        logger.info("Received request to delete games for date: {}", date);
+        List<Game> removed = gamesByDate.remove(date);
+        if (removed == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new FetchResponse("No games found for date", date, 0));
+        }
+        return ResponseEntity.ok(new FetchResponse("Games deleted for date", date, removed.size()));
     }
 
     @PostMapping("/games/fetch")
