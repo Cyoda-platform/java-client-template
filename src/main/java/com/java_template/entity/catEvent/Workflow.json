@@ -1,0 +1,53 @@
+{
+    "description": "CatEvent FSM workflow for detecting and processing dramatic food requests",
+    "initial_state": "none",
+    "states": {
+        "dramatic_food_request_detected": {
+            "transitions": {
+                "create_notification": {
+                    "action": {
+                        "name": "createNotification"
+                    },
+                    "next": "notification_created"
+                }
+            }
+        },
+        "end": {
+            "transitions": {}
+        },
+        "none": {
+            "transitions": {
+                "detect_dramatic_food_request": {
+                    "condition": {
+                        "function": {
+                            "name": "isDramaticFoodRequest"
+                        },
+                        "type": "function"
+                    },
+                    "next": "dramatic_food_request_detected"
+                },
+                "ignore_other_events": {
+                    "condition": {
+                        "function": {
+                            "name": "isNotDramaticFoodRequest"
+                        },
+                        "type": "function"
+                    },
+                    "next": "end"
+                }
+            }
+        },
+        "notification_created": {
+            "transitions": {
+                "process_notification": {
+                    "action": {
+                        "name": "processNotification"
+                    },
+                    "next": "end"
+                }
+            }
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "cat_event_workflow"
+}
