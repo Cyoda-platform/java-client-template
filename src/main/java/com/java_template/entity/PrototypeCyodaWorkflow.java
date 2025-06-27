@@ -1,61 +1,3 @@
-Certainly! This is a great architectural improvement: moving asynchronous logic and side effects from controllers into the workflow functions (`process{entity_name}`), which are invoked right before persistence, keeps controllers thin and focuses workflows on entity state mutation and related async tasks.
-
----
-
-### What to move into workflow functions?
-
-1. **For `subscriber` entity**:
-   - Currently, subscription just adds subscriber.
-   - No async side effects like notifications yet, so minimal logic.
-   - We can keep validations in controller; workflow can be used for possible future async enrichments.
-
-2. **For `game` entity**:
-   - The current `fetchStoreAndNotify` method:
-     - Fetches external data,
-     - Saves games,
-     - Sends notifications to subscribers.
-
-   - The fetching and notification are async tasks related to games.
-   - We **cannot** add/update/delete `game` entities inside `processGame` (would cause recursion).
-   - But we **can**:
-     - Modify the entity,
-     - Add supplementary entities of other models (e.g., logs, notifications),
-     - Fire async tasks,
-     - Retrieve other entities (e.g., subscribers),
-     - Send notifications.
-
----
-
-### Approach:
-
-- **Move notification sending into `processGame` workflow**:
-  - When a game entity is about to be persisted, `processGame` will fetch subscribers and send notifications.
-  - This decouples notification from controller.
-- **Fetch external data**:
-  - This is a controller-level trigger (`fetchAndNotify`), so **cannot move fetch into `processGame`** because `processGame` receives only a single entity and does not trigger bulk inserts.
-  - The controller still triggers fetch, then inserts games **one-by-one** with workflow attached.
-- **Change `fetchAndNotify` controller**:
-  - Fetch external data,
-  - For each game in fetched data, call `entityService.addItem(…, game, processGame)`.
-- **In `processGame`**:
-  - Send notification about the particular game asynchronously (fire-and-forget).
-  - Modify game entity if needed.
-- **In `processSubscriber`**:
-  - No changes for now.
-
----
-
-### Important:
-
-- `processGame` must **not** invoke `entityService.addItem` on `game` again (infinite recursion).
-- Can invoke `entityService` methods for other entity models (e.g., logs).
-- The entity parameter is an `ObjectNode` (Jackson JSON tree), so we modify it directly.
-
----
-
-### Updated code:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -73,7 +15,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
@@ -83,7 +24,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
 
@@ -106,28 +46,20 @@ public class CyodaEntityControllerPrototype {
 
     public CyodaEntityControllerPrototype(EntityService entityService) {
         this.entityService = entityService;
-        this.objectMapper = entityService.getObjectMapper(); // reuse mapper from service if available
+        this.objectMapper = entityService.getObjectMapper();
     }
 
-    /**
-     * Workflow function applied to subscriber entity before persistence.
-     * Currently just returns entity without changes.
-     */
+    // Workflow function applied to subscriber entity before persistence.
     private CompletableFuture<Object> processSubscriber(Object entityObj) {
-        // entityObj is ObjectNode
         ObjectNode entity = (ObjectNode) entityObj;
-        // Example: could add timestamp if not present
         if (!entity.has("subscribedAt")) {
             entity.put("subscribedAt", Instant.now().toString());
         }
         return CompletableFuture.completedFuture(entity);
     }
 
-    /**
-     * Workflow function applied to game entity before persistence.
-     * Sends notification asynchronously to all subscribers about this game.
-     * Can modify the game entity if needed.
-     */
+    // Workflow function applied to game entity before persistence.
+    // Sends notification asynchronously to all subscribers about this game.
     private CompletableFuture<Object> processGame(Object entityObj) {
         ObjectNode gameEntity = (ObjectNode) entityObj;
         String date = gameEntity.has("date") ? gameEntity.get("date").asText() : "";
@@ -136,7 +68,6 @@ public class CyodaEntityControllerPrototype {
         int homeScore = gameEntity.has("homeScore") ? gameEntity.get("homeScore").asInt() : 0;
         int awayScore = gameEntity.has("awayScore") ? gameEntity.get("awayScore").asInt() : 0;
 
-        // Fire and forget notification asynchronously
         CompletableFuture.runAsync(() -> {
             try {
                 entityService.getItems(ENTITY_NAME_SUBSCRIBER, ENTITY_VERSION).thenAccept(subscribers -> {
@@ -147,12 +78,10 @@ public class CyodaEntityControllerPrototype {
                     StringBuilder summary = new StringBuilder();
                     summary.append("NBA Game Notification:\n");
                     summary.append(String.format("%s vs %s on %s: %d - %d\n", homeTeam, awayTeam, date, homeScore, awayScore));
-
                     subscribers.forEach(subscriberNode -> {
                         JsonNode emailNode = subscriberNode.get("email");
                         if (emailNode != null && !emailNode.isNull()) {
                             String email = emailNode.asText();
-                            // Simulate sending email
                             logger.info("Sending email to {}: \n{}", email, summary);
                         }
                     });
@@ -162,13 +91,10 @@ public class CyodaEntityControllerPrototype {
             }
         });
 
-        // Optionally modify the game entity, e.g. add notificationSent flag
         gameEntity.put("notificationSent", true);
 
         return CompletableFuture.completedFuture(gameEntity);
     }
-
-    /* CONTROLLER ENDPOINTS */
 
     @PostMapping("/subscribe")
     public CompletableFuture<ResponseEntity<SubscriptionResponse>> subscribe(@RequestBody @Valid SubscribeRequest request) {
@@ -198,12 +124,12 @@ public class CyodaEntityControllerPrototype {
         return entityService.getItems(ENTITY_NAME_SUBSCRIBER, ENTITY_VERSION)
                 .thenApply(arrayNode -> {
                     List<String> emails = new ArrayList<>();
-                    for (JsonNode node : arrayNode) {
+                    arrayNode.forEach(node -> {
                         JsonNode emailNode = node.get("email");
                         if (emailNode != null && !emailNode.isNull()) {
                             emails.add(emailNode.asText());
                         }
-                    }
+                    });
                     logger.info("Found {} subscribers", emails.size());
                     return ResponseEntity.ok(emails);
                 });
@@ -223,13 +149,13 @@ public class CyodaEntityControllerPrototype {
                                         .body(new SubscriptionResponse("Subscriber not found", email)));
                     }
                     List<CompletableFuture<UUID>> deletes = new ArrayList<>();
-                    for (JsonNode node : arrayNode) {
+                    arrayNode.forEach(node -> {
                         JsonNode idNode = node.get("technicalId");
                         if (idNode != null && !idNode.isNull()) {
                             UUID id = UUID.fromString(idNode.asText());
                             deletes.add(entityService.deleteItem(ENTITY_NAME_SUBSCRIBER, ENTITY_VERSION, id));
                         }
-                    }
+                    });
                     return CompletableFuture.allOf(deletes.toArray(new CompletableFuture[0]))
                             .thenApply(v -> ResponseEntity.ok(new SubscriptionResponse("Subscriber deleted", email)));
                 });
@@ -243,12 +169,12 @@ public class CyodaEntityControllerPrototype {
         return entityService.getItems(ENTITY_NAME_GAME, ENTITY_VERSION)
                 .thenApply(arrayNode -> {
                     List<Game> games = new ArrayList<>();
-                    for (JsonNode node : arrayNode) {
+                    arrayNode.forEach(node -> {
                         Game game = convertNodeToGame(node);
                         if (game != null) {
                             games.add(game);
                         }
-                    }
+                    });
                     games.sort(Comparator.comparing(Game::getDate).thenComparing(Game::getGameId));
                     int fromIndex = Math.min(offset, games.size());
                     int toIndex = Math.min(offset + limit, games.size());
@@ -267,12 +193,12 @@ public class CyodaEntityControllerPrototype {
         return entityService.getItemsByCondition(ENTITY_NAME_GAME, ENTITY_VERSION, condition)
                 .thenApply(arrayNode -> {
                     List<Game> games = new ArrayList<>();
-                    for (JsonNode node : arrayNode) {
+                    arrayNode.forEach(node -> {
                         Game game = convertNodeToGame(node);
                         if (game != null) {
                             games.add(game);
                         }
-                    }
+                    });
                     return ResponseEntity.ok(games);
                 });
     }
@@ -293,22 +219,19 @@ public class CyodaEntityControllerPrototype {
                                         .body(new FetchResponse("No games found for date", date, 0)));
                     }
                     List<CompletableFuture<UUID>> deletes = new ArrayList<>();
-                    for (JsonNode node : arrayNode) {
+                    arrayNode.forEach(node -> {
                         JsonNode idNode = node.get("technicalId");
                         if (idNode != null && !idNode.isNull()) {
                             UUID id = UUID.fromString(idNode.asText());
                             deletes.add(entityService.deleteItem(ENTITY_NAME_GAME, ENTITY_VERSION, id));
                         }
-                    }
+                    });
                     return CompletableFuture.allOf(deletes.toArray(new CompletableFuture[0]))
                             .thenApply(v -> ResponseEntity.ok(new FetchResponse("Games deleted for date", date, deletes.size())));
                 });
     }
 
-    /**
-     * New fetch & store games controller.
-     * Fetch external API, parse games, insert games one by one with workflow to send notifications.
-     */
+    // Fetch external data, insert games one by one applying workflow to send notifications
     @PostMapping("/games/fetch")
     public CompletableFuture<ResponseEntity<FetchResponse>> fetchAndNotify(@RequestBody @Valid FetchRequest request) {
         String dateParam = (request.getDate() != null) ? request.getDate() : LocalDate.now().toString();
@@ -332,7 +255,7 @@ public class CyodaEntityControllerPrototype {
             }
 
             List<CompletableFuture<UUID>> futures = new ArrayList<>();
-            for (JsonNode node : rootNode) {
+            rootNode.forEach(node -> {
                 ObjectNode gameNode = objectMapper.createObjectNode();
                 gameNode.put("gameId", node.path("GameID").asText(""));
                 gameNode.put("date", dateParam);
@@ -340,9 +263,9 @@ public class CyodaEntityControllerPrototype {
                 gameNode.put("awayTeam", node.path("AwayTeam").asText(""));
                 gameNode.put("homeScore", node.path("HomeTeamScore").asInt(0));
                 gameNode.put("awayScore", node.path("AwayTeamScore").asInt(0));
-                // Add each game with workflow to send notification
                 futures.add(entityService.addItem(ENTITY_NAME_GAME, ENTITY_VERSION, gameNode, this::processGame));
-            }
+            });
+
             return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
                     .thenApply(v -> ResponseEntity.ok(new FetchResponse("Scores fetched and notifications sent", dateParam, futures.size())));
         });
@@ -431,29 +354,3 @@ public class CyodaEntityControllerPrototype {
         private String message;
     }
 }
-```
-
----
-
-### Summary of workflow logic moved:
-
-- **Subscriber**: Added timestamp in workflow.
-
-- **Game**:
-  - Notifications to subscribers moved inside `processGame`.
-  - `fetchAndNotify` controller fetches external data and calls `entityService.addItem` for each game with workflow `processGame`.
-  - This avoids batch insert without workflow and moves side effects (notification) into workflow.
-  - Added `notificationSent` flag in the entity inside workflow.
-
-- Controller methods are simplified, only orchestrate high-level tasks.
-
----
-
-This design ensures:
-
-- Workflow functions handle async side effects related to the entity and related entities.
-- Controllers remain clean.
-- No recursion or infinite loops because workflows do not add/update/delete the same entity type.
-- Notifications are sent asynchronously on each persisted game entity.
-
-Let me know if you want me to adjust or further modularize!
