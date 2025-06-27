@@ -1,20 +1,20 @@
 {
-    "description": "Subscriber entity workflow FSM",
-    "initial_state": "none",
-    "states": {
-        "none": {
-            "transitions": {
-                "subscribe": {
-                    "action": {
-                        "name": "initializeSubscription"
-                    },
-                    "next": "subscribed"
-                }
-            }
-        },
-        "subscribed": {
-            "transitions": {}
+  "description": "Subscriber entity workflow FSM",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "subscribe": {
+          "action": {
+            "name": "initializeSubscription"
+          },
+          "next": "subscribed"
         }
+      }
     },
-    "workflow_name": "subscriber_workflow"
+    "subscribed": {
+      "transitions": {}
+    }
+  },
+  "workflow_name": "subscriber_workflow"
 }
