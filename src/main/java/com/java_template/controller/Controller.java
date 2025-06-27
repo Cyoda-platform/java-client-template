@@ -1,5 +1,6 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import jakarta.validation.Valid;
@@ -24,14 +25,17 @@ import static com.java_template.common.config.Config.*;
 @Validated
 @RestController
 @RequestMapping("/cyoda/api")
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    // Inject ObjectMapper via constructor
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     /**
@@ -41,7 +45,7 @@ public class CyodaEntityControllerPrototype {
     @PostMapping("/events/detect")
     public CompletableFuture<ResponseEntity<Map<String, String>>> detectEvent(@RequestBody @Valid CatEventRequest catEventRequest) {
         logger.info("Received event detection request: {}", catEventRequest);
-        ObjectNode entity = entityService.getObjectMapper().valueToTree(catEventRequest);
+        ObjectNode entity = objectMapper.valueToTree(catEventRequest);
         // Defensive: ensure required fields present
         if (!entity.hasNonNull("eventType") || !entity.hasNonNull("timestamp")) {
             return CompletableFuture.completedFuture(ResponseEntity.badRequest().body(Map.of("error", "Missing required eventType or timestamp")));
@@ -86,7 +90,7 @@ public class CyodaEntityControllerPrototype {
     @PostMapping("/notifications/manual")
     public CompletableFuture<ResponseEntity<Map<String, String>>> manualNotification(@RequestBody @Valid ManualNotificationRequest request) {
         logger.info("Manual notification request received: {}", request);
-        ObjectNode entity = entityService.getObjectMapper().valueToTree(request);
+        ObjectNode entity = objectMapper.valueToTree(request);
         entity.put("eventType", "manual_override");
         entity.put("timestamp", Instant.now().toString());
         return entityService.addItem(
@@ -95,10 +99,6 @@ public class CyodaEntityControllerPrototype {
                 entity
         ).thenApply(id -> ResponseEntity.ok(Map.of("status", "sent", "id", id.toString())));
     }
-
-    // --------------------
-    // Workflow functions removed
-    // --------------------
 
     // --------------------
     // DTO classes
