@@ -49,4 +49,22 @@ public class Workflow {
         }
         return CompletableFuture.completedFuture(entity);
     }
+
+    public CompletableFuture<ObjectNode> isNotificationFailed(ObjectNode entity) {
+        boolean value = entity.hasNonNull("notificationStatus") && "failed".equals(entity.get("notificationStatus").asText());
+        entity.put("success", value);
+        return CompletableFuture.completedFuture(entity);
+    }
+
+    public CompletableFuture<ObjectNode> isNotificationPending(ObjectNode entity) {
+        boolean value = entity.hasNonNull("notificationStatus") && "pending".equals(entity.get("notificationStatus").asText());
+        entity.put("success", value);
+        return CompletableFuture.completedFuture(entity);
+    }
+
+    public CompletableFuture<ObjectNode> isNotificationSent(ObjectNode entity) {
+        boolean value = entity.hasNonNull("notificationStatus") && "sent".equals(entity.get("notificationStatus").asText());
+        entity.put("success", value);
+        return CompletableFuture.completedFuture(entity);
+    }
 }
