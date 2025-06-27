@@ -1,0 +1,31 @@
+{
+    "description": "Game entity workflow FSM",
+    "initial_state": "none",
+    "states": {
+        "none": {
+            "transitions": {
+                "start_processing": {
+                    "action": {
+                        "name": "processGame"
+                    },
+                    "next": "processing"
+                }
+            }
+        },
+        "notified": {
+            "transitions": {}
+        },
+        "processing": {
+            "transitions": {
+                "send_notification": {
+                    "action": {
+                        "name": "fetchSubscribersAndNotify"
+                    },
+                    "next": "notified"
+                }
+            }
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "game_workflow"
+}
