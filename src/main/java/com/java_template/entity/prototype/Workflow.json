@@ -1,0 +1,62 @@
+{
+    "description": "FSM for prototype workflow handling fetchScores and subscribe actions",
+    "initial_state": "none",
+    "states": {
+        "end_state": {
+            "transitions": {}
+        },
+        "fetchScores_state": {
+            "transitions": {
+                "transition_to_end": {
+                    "next": "end_state"
+                }
+            }
+        },
+        "none": {
+            "transitions": {
+                "transition_default": {
+                    "condition": {
+                        "function": {
+                            "name": "isDefaultAction"
+                        },
+                        "type": "function"
+                    },
+                    "next": "end_state"
+                },
+                "transition_fetchScores": {
+                    "action": {
+                        "name": "processFetchScores"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "isFetchScoresAction"
+                        },
+                        "type": "function"
+                    },
+                    "next": "fetchScores_state"
+                },
+                "transition_subscribe": {
+                    "action": {
+                        "name": "processSubscribe"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "isSubscribeAction"
+                        },
+                        "type": "function"
+                    },
+                    "next": "subscribe_state"
+                }
+            }
+        },
+        "subscribe_state": {
+            "transitions": {
+                "transition_to_end": {
+                    "next": "end_state"
+                }
+            }
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "prototype_workflow"
+}
