@@ -31,7 +31,7 @@ public class Workflow {
                 });
     }
 
-    private CompletableFuture<Void> fetchSubscribersAndNotify(ObjectNode gameEntity) {
+    public CompletableFuture<ObjectNode> fetchSubscribersAndNotify(ObjectNode gameEntity) {
         String date = gameEntity.has("date") ? gameEntity.get("date").asText() : "";
         String homeTeam = gameEntity.has("homeTeam") ? gameEntity.get("homeTeam").asText() : "";
         String awayTeam = gameEntity.has("awayTeam") ? gameEntity.get("awayTeam").asText() : "";
@@ -39,21 +39,23 @@ public class Workflow {
         int awayScore = gameEntity.has("awayScore") ? gameEntity.get("awayScore").asInt() : 0;
 
         return entityService.getItems(ENTITY_NAME_SUBSCRIBER, ENTITY_VERSION)
-                .thenAccept(subscribers -> {
+                .thenApply(subscribers -> {
                     if (subscribers.isEmpty()) {
                         logger.info("No subscribers found for notification about game {} vs {}", homeTeam, awayTeam);
-                        return;
+                    } else {
+                        StringBuilder summary = new StringBuilder();
+                        summary.append("NBA Game Notification:\n");
+                        summary.append(String.format("%s vs %s on %s: %d - %d\n", homeTeam, awayTeam, date, homeScore, awayScore));
+                        subscribers.forEach(subscriberNode -> {
+                            JsonNode emailNode = subscriberNode.get("email");
+                            if (emailNode != null && !emailNode.isNull()) {
+                                String email = emailNode.asText();
+                                logger.info("Sending email to {}: \n{}", email, summary);
+                            }
+                        });
                     }
-                    StringBuilder summary = new StringBuilder();
-                    summary.append("NBA Game Notification:\n");
-                    summary.append(String.format("%s vs %s on %s: %d - %d\n", homeTeam, awayTeam, date, homeScore, awayScore));
-                    subscribers.forEach(subscriberNode -> {
-                        JsonNode emailNode = subscriberNode.get("email");
-                        if (emailNode != null && !emailNode.isNull()) {
-                            String email = emailNode.asText();
-                            logger.info("Sending email to {}: \n{}", email, summary);
-                        }
-                    });
+                    gameEntity.put("notificationSent", true);
+                    return gameEntity;
                 });
     }
 }
