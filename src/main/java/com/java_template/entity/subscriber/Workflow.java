@@ -9,17 +9,23 @@ import static com.java_template.common.config.Config.*;
 @Component("subscriber")
 public class Workflow {
 
-    public CompletableFuture<ObjectNode> processSubscriber(ObjectNode entity) {
-        return CompletableFuture.completedFuture(
-            initializeSubscription(entity)
-        );
-    }
-
-    private ObjectNode initializeSubscription(ObjectNode entity) {
+    public CompletableFuture<ObjectNode> initializeSubscription(ObjectNode entity) {
         if (!entity.has("subscribedAt")) {
             entity.put("subscribedAt", Instant.now().toString());
         }
         entity.put("entityVersion", ENTITY_VERSION);
-        return entity;
+        return CompletableFuture.completedFuture(entity);
+    }
+
+    public CompletableFuture<ObjectNode> subscribe(ObjectNode entity) {
+        return initializeSubscription(entity);
+    }
+
+    public CompletableFuture<ObjectNode> none(ObjectNode entity) {
+        return CompletableFuture.completedFuture(entity);
+    }
+
+    public CompletableFuture<ObjectNode> subscribed(ObjectNode entity) {
+        return CompletableFuture.completedFuture(entity);
     }
 }
