@@ -1,63 +1,63 @@
 {
-    "description": "FSM for CatEvent notification workflow",
-    "initial_state": "none",
-    "states": {
-        "failed": {
-            "transitions": {}
-        },
-        "none": {
-            "transitions": {
-                "start_processing": {
-                    "action": {
-                        "name": "processCatEvent"
-                    },
-                    "next": "pending"
-                }
-            }
-        },
-        "pending": {
-            "transitions": {
-                "notification_failed": {
-                    "action": {
-                        "name": "processCatEvent"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "isNotificationFailed"
-                        },
-                        "type": "function"
-                    },
-                    "next": "failed"
-                },
-                "notification_pending": {
-                    "action": {
-                        "name": "processCatEvent"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "isNotificationPending"
-                        },
-                        "type": "function"
-                    },
-                    "next": "pending"
-                },
-                "notification_sent": {
-                    "action": {
-                        "name": "processCatEvent"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "isNotificationSent"
-                        },
-                        "type": "function"
-                    },
-                    "next": "sent"
-                }
-            }
-        },
-        "sent": {
-            "transitions": {}
+  "description": "FSM for CatEvent notification workflow",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_processing": {
+          "action": {
+            "name": "processCatEvent"
+          },
+          "next": "pending"
         }
+      }
     },
-    "workflow_name": "cat_event_workflow"
+    "pending": {
+      "transitions": {
+        "notification_failed": {
+          "action": {
+            "name": "processCatEvent"
+          },
+          "condition": {
+            "function": {
+              "name": "isNotificationFailed"
+            },
+            "type": "function"
+          },
+          "next": "failed"
+        },
+        "notification_pending": {
+          "action": {
+            "name": "processCatEvent"
+          },
+          "condition": {
+            "function": {
+              "name": "isNotificationPending"
+            },
+            "type": "function"
+          },
+          "next": "pending"
+        },
+        "notification_sent": {
+          "action": {
+            "name": "processCatEvent"
+          },
+          "condition": {
+            "function": {
+              "name": "isNotificationSent"
+            },
+            "type": "function"
+          },
+          "next": "sent"
+        }
+      }
+    },
+    "failed": {
+      "transitions": {}
+    },
+    "sent": {
+      "transitions": {}
+    }
+  },
+  "workflow_name": "cat_event_workflow"
 }
