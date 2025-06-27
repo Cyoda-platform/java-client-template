@@ -8,33 +8,27 @@ import org.springframework.stereotype.Component;
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 
-import static com.java_template.common.config.Config.*;
-
 @Component("notification")
 public class Workflow {
 
     private static final Logger logger = LoggerFactory.getLogger(Workflow.class);
 
-    public CompletableFuture<ObjectNode> processNotification(ObjectNode entity) {
-        try {
-            // Workflow orchestration only - no business logic here
-            return CompletableFuture.completedFuture(entity)
-                    .thenCompose(this::validateTimestamp)
-                    .thenCompose(this::sendNotificationAsync);
-        } catch (Exception ex) {
-            logger.error("Exception in processNotification workflow", ex);
-            return CompletableFuture.completedFuture(entity);
-        }
+    public CompletableFuture<ObjectNode> start_validation(ObjectNode entity) {
+        return validateTimestamp(entity);
     }
 
-    private CompletableFuture<ObjectNode> validateTimestamp(ObjectNode entity) {
+    public CompletableFuture<ObjectNode> timestamp_validated(ObjectNode entity) {
+        return sendNotificationAsync(entity);
+    }
+
+    public CompletableFuture<ObjectNode> validateTimestamp(ObjectNode entity) {
         if (!entity.hasNonNull("timestamp")) {
             entity.put("timestamp", Instant.now().toString());
         }
         return CompletableFuture.completedFuture(entity);
     }
 
-    private CompletableFuture<ObjectNode> sendNotificationAsync(ObjectNode entity) {
+    public CompletableFuture<ObjectNode> sendNotificationAsync(ObjectNode entity) {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 String message = entity.hasNonNull("message") ? entity.get("message").asText() : "No message";
