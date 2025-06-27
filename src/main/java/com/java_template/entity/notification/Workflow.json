@@ -1,0 +1,38 @@
+{
+    "description": "Cat notification workflow FSM",
+    "initial_state": "none",
+    "states": {
+        "end": {
+            "transitions": {}
+        },
+        "none": {
+            "transitions": {
+                "start_validation": {
+                    "action": {
+                        "name": "validateTimestamp"
+                    },
+                    "next": "validateTimestamp"
+                }
+            }
+        },
+        "sendNotificationAsync": {
+            "transitions": {
+                "notification_sent": {
+                    "next": "end"
+                }
+            }
+        },
+        "validateTimestamp": {
+            "transitions": {
+                "timestamp_validated": {
+                    "action": {
+                        "name": "sendNotificationAsync"
+                    },
+                    "next": "sendNotificationAsync"
+                }
+            }
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "notification_workflow"
+}
