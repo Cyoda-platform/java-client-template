@@ -1,41 +1,3 @@
-Certainly! The best practice here is to move all async logic and processing related to the entity into the workflow function `processPrototype`. This will keep controllers lean and delegate business logic to the workflow layer, which executes right before persistence asynchronously.
-
----
-
-### What to move into `processPrototype`:
-
-- The ingestion task processing (`processIngestionTaskAsync`) logic: fetching comment IDs, fetching comments, analyzing comments, updating aggregates, updating task status, etc.
-
-- Any batch processing, language mention extraction, and aggregate updates.
-
----
-
-### How to do this:
-
-- The controller endpoint only creates the initial task entity and calls `entityService.addItem` with the workflow function.
-
-- The workflow function receives the entity as an `ObjectNode`, modifies its state (e.g. status, counters) as needed.
-
-- The workflow function can retrieve or add supplementary entities of other `entityModel`s (e.g. comments, aggregates).
-
-- The workflow function returns the updated entity, which will then be persisted by `entityService`.
-
----
-
-### Important constraints:
-
-- Do **not** add/update/delete entities of the same entity model inside the workflow (infinite recursion).
-
-- The workflow function must be asynchronous, returning `CompletableFuture<Object>`.
-
----
-
-Below is the updated full Java code illustrating this approach.  
-I replaced the entire async ingestion task processing inside the workflow `processPrototype` and simplified controller code accordingly.
-
----
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -63,8 +25,6 @@ import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
@@ -80,15 +40,15 @@ public class CyodaEntityControllerPrototype {
 
     private final EntityService entityService;
 
-    // For demo purposes: storage of supplementary entities keyed by id
+    // Simulated persistent stores for supplementary entities of other entityModels
     private final Map<String, ObjectNode> comments = new ConcurrentHashMap<>();
     private final Map<String, ObjectNode> languageMentionsStore = new ConcurrentHashMap<>();
     private final Map<String, ObjectNode> aggregates = new ConcurrentHashMap<>();
 
-    private final int batchSize = 50;  // TODO: Load from config
-    private final Set<String> languageList = Set.of("Java", "Kotlin", "Python", "Go", "Rust"); // TODO: Load from config
+    private final int batchSize = 50; // TODO: configurable
+    private final Set<String> languageList = Set.of("Java", "Kotlin", "Python", "Go", "Rust"); // TODO: configurable
 
-    private final int maxConcurrentTasks = 2; // TODO: Load from config
+    private final int maxConcurrentTasks = 2; // TODO: configurable
     private int currentRunningTasks = 0;
 
     private static final String ENTITY_NAME = "prototype";
@@ -97,23 +57,19 @@ public class CyodaEntityControllerPrototype {
         this.entityService = entityService;
     }
 
-    /**
-     * Workflow function applied before persisting the ingestion task entity.
-     * Moves entire ingestion processing logic here as async workflow.
-     * Must NOT add/update/delete entities of the same entityModel here.
-     */
+    // Workflow function applied before persisting the ingestion task entity.
+    // Contains all async ingestion processing logic.
     private final Function<Object, CompletableFuture<Object>> processPrototype = entityData -> {
         if (!(entityData instanceof ObjectNode)) {
             return CompletableFuture.completedFuture(entityData);
         }
         ObjectNode entity = (ObjectNode) entityData;
 
-        // Process only if it's an ingestion task entity (basic check)
         if (!entity.has("taskId")) {
+            // Not an ingestion task entity, no special processing
             return CompletableFuture.completedFuture(entity);
         }
 
-        // Limit concurrent tasks
         synchronized (this) {
             if (currentRunningTasks >= maxConcurrentTasks) {
                 entity.put("status", "failed");
@@ -123,28 +79,19 @@ public class CyodaEntityControllerPrototype {
             currentRunningTasks++;
         }
 
-        // Run ingestion processing asynchronously
         return CompletableFuture.supplyAsync(() -> {
             try {
                 logger.info("Workflow: Starting ingestion processing for task {}", entity.get("taskId").asText());
 
                 updateStatus(entity, "fetching_ids");
-                // Simulate fetching comment IDs
-                List<String> fetchedCommentIds = new ArrayList<>();
-                for (int i = 0; i < 100; i++) {
-                    fetchedCommentIds.add("comment-" + (1000 + i));
-                }
+                List<String> fetchedCommentIds = fetchCommentIds(entity.get("startTime").asText(), entity.get("endTime").asText());
                 entity.put("commentsTotalEstimate", fetchedCommentIds.size());
 
                 updateStatus(entity, "fetching_comments");
                 int fetchedCount = 0;
                 List<ObjectNode> batch = new ArrayList<>();
                 for (String commentId : fetchedCommentIds) {
-                    // Create comment entity as ObjectNode (different entityModel)
-                    ObjectNode comment = mapper.createObjectNode();
-                    comment.put("commentId", commentId);
-                    comment.put("text", "Sample comment text mentioning Java and Python.");
-                    comment.put("state", "fetched");
+                    ObjectNode comment = createCommentEntity(commentId);
                     comments.put(commentId, comment);
                     batch.add(comment);
                     fetchedCount++;
@@ -171,15 +118,32 @@ public class CyodaEntityControllerPrototype {
         });
     };
 
+    // Helper: update ingestion task status property and log
     private void updateStatus(ObjectNode entity, String status) {
         entity.put("status", status);
         logger.info("Workflow: Task {} status updated to {}", entity.get("taskId").asText(), status);
     }
 
-    /**
-     * Analyze comments batch: update comment state, language mentions, aggregates.
-     * All supplementary entities are other entityModels, allowed to add/update here.
-     */
+    // Helper: simulate fetching comment IDs between given times
+    private List<String> fetchCommentIds(String startTime, String endTime) {
+        // Simulate with 100 fixed comment Ids for demo
+        List<String> ids = new ArrayList<>();
+        for (int i = 0; i < 100; i++) {
+            ids.add("comment-" + (1000 + i));
+        }
+        return ids;
+    }
+
+    // Helper: create comment entity ObjectNode with initial state
+    private ObjectNode createCommentEntity(String commentId) {
+        ObjectNode comment = mapper.createObjectNode();
+        comment.put("commentId", commentId);
+        comment.put("text", "Sample comment text mentioning Java and Python.");
+        comment.put("state", "fetched");
+        return comment;
+    }
+
+    // Analyze batch of comments: mark analyzed, create language mentions, update aggregates
     private void analyzeCommentsBatch(List<ObjectNode> batch) {
         logger.info("Workflow: Analyzing batch of {} comments", batch.size());
         Random rnd = new Random();
@@ -191,14 +155,12 @@ public class CyodaEntityControllerPrototype {
                     mentioned.add(lang);
                 }
             }
-            // Store language mentions entity (different entityModel)
             ObjectNode lm = mapper.createObjectNode();
             lm.put("commentId", comment.get("commentId").asText());
             ArrayNode langArray = lm.putArray("languagesMentioned");
             mentioned.forEach(langArray::add);
             languageMentionsStore.put(comment.get("commentId").asText(), lm);
 
-            // Update aggregates per language
             for (String lang : mentioned) {
                 aggregates.merge(lang, createInitialAggregate(lang), (oldAgg, newAgg) -> {
                     int oldCount = oldAgg.get("count").asInt(0);
@@ -218,12 +180,12 @@ public class CyodaEntityControllerPrototype {
         return agg;
     }
 
-    // === Controller endpoints simplified ===
-
+    // Controller endpoint: start ingestion task, persist with workflow that does async processing
     @PostMapping(value = "/ingestion/start", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<IngestionTaskResponse> startIngestionTask(
             @RequestBody @Valid IngestionTaskRequest request) {
         logger.info("Received ingestion start request: start={}, end={}", request.getStartTime(), request.getEndTime());
+
         if (Instant.parse(request.getEndTime()).isBefore(Instant.parse(request.getStartTime()))) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "endTime must be after startTime");
         }
@@ -232,7 +194,7 @@ public class CyodaEntityControllerPrototype {
                 throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Max concurrent ingestion tasks running");
             }
         }
-        // Create ingestion task entity as ObjectNode
+
         ObjectNode task = mapper.createObjectNode();
         String taskId = "task-" + Instant.now().toString().replace(":", "-") + "-" +
                 UUID.randomUUID().toString().substring(0, 6);
@@ -243,7 +205,6 @@ public class CyodaEntityControllerPrototype {
         task.put("commentsFetched", 0);
         task.put("commentsTotalEstimate", 0);
 
-        // Persist task entity with workflow function applied
         CompletableFuture<UUID> idFuture = entityService.addItem(
                 ENTITY_NAME,
                 ENTITY_VERSION,
@@ -262,12 +223,10 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.ok(new IngestionTaskResponse(taskId, "initialized"));
     }
 
+    // Controller endpoint: get ingestion task status
     @GetMapping(value = "/ingestion/status/{taskId}", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<IngestionTaskStatusResponse> getIngestionStatus(
             @PathVariable @NotBlank String taskId) {
-        // Since tasks are stored inside workflow function state only, simulate fetching task
-        // For demonstration, just return dummy data or throw NOT_FOUND if unknown
-        // In real app, you'd query persisted entity by taskId with entityService or DB
         Optional<ObjectNode> optTask = findTaskById(taskId);
         if (optTask.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found");
@@ -280,22 +239,23 @@ public class CyodaEntityControllerPrototype {
         ));
     }
 
-    // Dummy method for demonstration - in real app, query DB or entityService
+    // Dummy lookup method: in real app query persistence layer or entityService
     private Optional<ObjectNode> findTaskById(String taskId) {
-        // For demo, check if taskId matches some criteria or return empty
-        // Here we simulate not found always
+        // For demo, simulate not found. Implement as needed.
         return Optional.empty();
     }
 
+    // Controller endpoint: abort ingestion task
     @PostMapping(value = "/ingestion/abort/{taskId}", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<IngestionTaskResponse> abortIngestionTask(
             @PathVariable @NotBlank String taskId) {
-        // For demo, just log and respond aborted
         logger.info("Abort requested for ingestion task {}", taskId);
-        // Real implementation should update task status to aborted and cleanup supplementary entities
+        // In real implementation: update ingestion task status to aborted and cleanup supplementary entities
+        // Here just simulate response
         return ResponseEntity.ok(new IngestionTaskResponse(taskId, "aborted"));
     }
 
+    // Controller endpoint: frequency query for language mentions
     @GetMapping(value = "/frequency/{language}", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<FrequencyResponse> getFrequency(
             @PathVariable @NotBlank String language,
@@ -315,6 +275,7 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.ok(new FrequencyResponse(language, freq));
     }
 
+    // Controller endpoint: analyze batch of comments
     @PostMapping(value = "/comments/analyze", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<AnalyzeResponse> analyzeComments(
             @RequestBody @Valid AnalyzeRequest request) {
@@ -338,8 +299,6 @@ public class CyodaEntityControllerPrototype {
         logger.error("Handled error: {} - {}", ex.getStatusCode(), ex.getReason());
         return ResponseEntity.status(ex.getStatusCode()).body(error);
     }
-
-    // === DTOs simplified ===
 
     @Data
     @NoArgsConstructor
@@ -421,24 +380,3 @@ public class CyodaEntityControllerPrototype {
         private int count;
     }
 }
-```
-
----
-
-### Key points:
-
-- The `processPrototype` workflow function now contains **all** async ingestion task logic, including fetching comments, analyzing, updating status, etc.
-
-- The controller only creates the ingestion task entity and calls `entityService.addItem` with the workflow function.
-
-- The workflow function modifies the same entity (`ObjectNode`), updating status and counters.
-
-- Supplementary entities (comments, language mentions, aggregates) are created/updated inside the workflow function as separate `ObjectNode`s stored in different maps (simulating other entityModels).
-
-- Workflow returns the updated entity which `entityService` persists.
-
-- This pattern fully **frees the controller from async logic** and makes the code more robust, testable, and maintainable.
-
----
-
-If you need me to help move other async tasks or endpoints similarly to new workflow functions, just ask!
