@@ -1,4 +1,4 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -25,7 +25,6 @@ import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
 
@@ -33,11 +32,11 @@ import static com.java_template.common.config.Config.*;
 @Validated
 @RestController
 @RequestMapping("/cyoda-prototype")
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
-    private static final ObjectMapper mapper = new ObjectMapper();
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
+    private final ObjectMapper mapper;
     private final EntityService entityService;
 
     // Simulated persistent stores for supplementary entities of other entityModels
@@ -53,8 +52,9 @@ public class CyodaEntityControllerPrototype {
 
     private static final String ENTITY_NAME = "prototype";
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService, ObjectMapper mapper) {
         this.entityService = entityService;
+        this.mapper = mapper;
     }
 
     // Helper: update ingestion task status property and log
