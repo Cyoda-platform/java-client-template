@@ -26,12 +26,41 @@ public class PrototypeWorkflow {
     private final int maxConcurrentTasks = 2; // TODO: configurable
     private int currentRunningTasks = 0;
 
-    public CompletableFuture<ObjectNode> processPrototype(ObjectNode entity) {
-        if (!entity.has("taskId")) {
-            // Not an ingestion task entity, no special processing
+    public CompletableFuture<ObjectNode> updateStatus(ObjectNode entity) {
+        if (!entity.has("nextStatus")) {
+            entity.put("success", false);
             return CompletableFuture.completedFuture(entity);
         }
+        String status = entity.get("nextStatus").asText();
+        entity.put("status", status);
+        entity.put("success", true);
+        return CompletableFuture.completedFuture(entity);
+    }
 
+    public CompletableFuture<ObjectNode> start_ingestion(ObjectNode entity) {
+        return updateStatus(entity);
+    }
+
+    public CompletableFuture<ObjectNode> error_fetching_ids(ObjectNode entity) {
+        return updateStatus(entity);
+    }
+
+    public CompletableFuture<ObjectNode> ids_fetched(ObjectNode entity) {
+        return updateStatus(entity);
+    }
+
+    public CompletableFuture<ObjectNode> comments_fetched(ObjectNode entity) {
+        return updateStatus(entity);
+    }
+
+    public CompletableFuture<ObjectNode> error_fetching_comments(ObjectNode entity) {
+        return updateStatus(entity);
+    }
+
+    public CompletableFuture<ObjectNode> processPrototype(ObjectNode entity) {
+        if (!entity.has("taskId")) {
+            return CompletableFuture.completedFuture(entity);
+        }
         synchronized (this) {
             if (currentRunningTasks >= maxConcurrentTasks) {
                 entity.put("status", "failed");
@@ -40,15 +69,14 @@ public class PrototypeWorkflow {
             }
             currentRunningTasks++;
         }
-
         return CompletableFuture.supplyAsync(() -> {
             try {
                 logStatus(entity, "Workflow: Starting ingestion processing for task " + entity.get("taskId").asText());
-                updateStatus(entity, "fetching_ids");
+                updateStatusWithValue(entity, "fetching_ids");
                 List<String> fetchedCommentIds = fetchCommentIds(entity.get("startTime").asText(), entity.get("endTime").asText());
                 entity.put("commentsTotalEstimate", fetchedCommentIds.size());
 
-                updateStatus(entity, "fetching_comments");
+                updateStatusWithValue(entity, "fetching_comments");
                 int fetchedCount = 0;
                 List<ObjectNode> batch = new ArrayList<>();
                 for (String commentId : fetchedCommentIds) {
@@ -57,17 +85,15 @@ public class PrototypeWorkflow {
                     batch.add(comment);
                     fetchedCount++;
                     entity.put("commentsFetched", fetchedCount);
-
                     if (batch.size() == batchSize || fetchedCount == fetchedCommentIds.size()) {
                         analyzeCommentsBatch(batch);
                         batch.clear();
                     }
                 }
-
-                updateStatus(entity, "completed");
+                updateStatusWithValue(entity, "completed");
                 logStatus(entity, "Workflow: Completed ingestion task " + entity.get("taskId").asText());
             } catch (Exception ex) {
-                updateStatus(entity, "failed");
+                updateStatusWithValue(entity, "failed");
                 entity.put("errorMessage", ex.getMessage());
                 logStatus(entity, "Workflow: Error processing ingestion task " + entity.get("taskId").asText());
                 logError(ex);
@@ -80,7 +106,7 @@ public class PrototypeWorkflow {
         });
     }
 
-    private void updateStatus(ObjectNode entity, String status) {
+    private void updateStatusWithValue(ObjectNode entity, String status) {
         entity.put("status", status);
     }
 
@@ -92,9 +118,7 @@ public class PrototypeWorkflow {
         log.error("Exception in workflow", ex);
     }
 
-    // Simulated fetching comment IDs from external Firebase API (mocked)
     private List<String> fetchCommentIds(String startTime, String endTime) {
-        // TODO: Replace with real Firebase API call and filtering logic
         List<String> mockIds = new ArrayList<>();
         for (int i = 0; i < 100; i++) {
             mockIds.add("comment-" + (1000 + i));
@@ -102,7 +126,6 @@ public class PrototypeWorkflow {
         return mockIds;
     }
 
-    // Create comment entity with initial state
     private ObjectNode createCommentEntity(String commentId) {
         ObjectNode comment = com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.objectNode();
         comment.put("commentId", commentId);
@@ -111,17 +134,11 @@ public class PrototypeWorkflow {
         return comment;
     }
 
-    // Analyze batch of comments (mock AI)
     private void analyzeCommentsBatch(List<ObjectNode> batch) {
-        // TODO: Replace with real OpenAI API call and parsing
         for (ObjectNode comment : batch) {
             comment.put("state", "analyzed");
-
-            // Mock language mentions randomly
-            Set<String> mentioned = Set.copyOf(languageList); // simplified: mention all for prototype
+            Set<String> mentioned = Set.copyOf(languageList);
             languageMentionsStore.put(comment.get("commentId").asText(), createLanguageMentionsEntity(comment.get("commentId").asText(), mentioned));
-
-            // Update aggregates (simplified)
             for (String lang : mentioned) {
                 aggregates.merge(lang,
                         createLanguageMentionAggregate(lang, 1, "initial"),
