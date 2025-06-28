@@ -1,0 +1,56 @@
+{
+    "description": "Prototype ingestion task FSM with states, transitions, actions, and concurrency control",
+    "initial_state": "none",
+    "states": {
+        "completed": {
+            "transitions": {}
+        },
+        "failed": {
+            "transitions": {}
+        },
+        "fetching_comments": {
+            "transitions": {
+                "comments_fetched": {
+                    "action": {
+                        "name": "updateStatus"
+                    },
+                    "next": "completed"
+                },
+                "error_fetching_comments": {
+                    "action": {
+                        "name": "updateStatus"
+                    },
+                    "next": "failed"
+                }
+            }
+        },
+        "fetching_ids": {
+            "transitions": {
+                "error_fetching_ids": {
+                    "action": {
+                        "name": "updateStatus"
+                    },
+                    "next": "failed"
+                },
+                "ids_fetched": {
+                    "action": {
+                        "name": "updateStatus"
+                    },
+                    "next": "fetching_comments"
+                }
+            }
+        },
+        "none": {
+            "transitions": {
+                "start_ingestion": {
+                    "action": {
+                        "name": "updateStatus"
+                    },
+                    "next": "fetching_ids"
+                }
+            }
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "prototype_workflow"
+}
