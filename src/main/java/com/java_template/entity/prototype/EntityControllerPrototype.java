@@ -1,7 +1,5 @@
-```java
 package com.java_template.entity.prototype;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -11,17 +9,22 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 
-import javax.annotation.PostConstruct;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
+@Validated
 @RestController
 @RequestMapping("/prototype")
 public class EntityControllerPrototype {
@@ -34,41 +37,31 @@ public class EntityControllerPrototype {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final RestTemplate restTemplate = new RestTemplate();
 
-    // Configurable batch size and languages loaded at startup (hardcoded here for prototype)
     private final int batchSize = 50;  // TODO: Load from config
     private final Set<String> languageList = Set.of("Java", "Kotlin", "Python", "Go", "Rust"); // TODO: Load from config
 
-    // Semaphore for concurrency control (simple counter for prototype)
     private final int maxConcurrentTasks = 2; // TODO: Load from config
     private int currentRunningTasks = 0;
 
-    // 1. Start ingestion task
     @PostMapping(value = "/ingestion/start", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<IngestionTaskResponse> startIngestionTask(@RequestBody IngestionTaskRequest request) {
+    public ResponseEntity<IngestionTaskResponse> startIngestionTask(
+            @RequestBody @Valid IngestionTaskRequest request) {
         logger.info("Received ingestion start request: start={}, end={}", request.getStartTime(), request.getEndTime());
-
-        if (request.getStartTime() == null || request.getEndTime() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "startTime and endTime must be provided");
-        }
-        if (request.getEndTime().isBefore(request.getStartTime())) {
+        if (Instant.parse(request.getEndTime()).isBefore(Instant.parse(request.getStartTime()))) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "endTime must be after startTime");
         }
-
         if (currentRunningTasks >= maxConcurrentTasks) {
-            logger.warn("Max concurrent ingestion tasks reached. Rejecting new task.");
             throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Max concurrent ingestion tasks running");
         }
-
-        String taskId = "task-" + Instant.now().toString().replace(":", "-") + "-" + UUID.randomUUID().toString().substring(0, 6);
-        CommentIngestionTask task = new CommentIngestionTask(taskId, request.getStartTime(), request.getEndTime(), TaskStatus.INITIALIZED, 0, 0);
+        String taskId = "task-" + Instant.now().toString().replace(":", "-") + "-" +
+                UUID.randomUUID().toString().substring(0, 6);
+        CommentIngestionTask task = new CommentIngestionTask(taskId, request.getStartTime(),
+                request.getEndTime(), TaskStatus.INITIALIZED, 0, 0);
         ingestionTasks.put(taskId, task);
-
         currentRunningTasks++;
         processIngestionTaskAsync(task);
-
         logger.info("Created ingestion task with id {}", taskId);
-
-        return ResponseEntity.ok(new IngestionTaskResponse(taskId, task.getStatus().toString().toLowerCase()));
+        return ResponseEntity.ok(new IngestionTaskResponse(taskId, task.getStatus().name().toLowerCase()));
     }
 
     @Async
@@ -76,29 +69,20 @@ public class EntityControllerPrototype {
         CompletableFuture.runAsync(() -> {
             try {
                 updateTaskStatus(task, TaskStatus.FETCHING_IDS);
-
-                // TODO: Fetch item IDs from Firebase API using maxitem backward over time window
-                // For prototype: simulate fetching 100 comment IDs
                 List<String> fetchedCommentIds = new ArrayList<>();
-                for (int i = 0; i < 100; i++) {
-                    fetchedCommentIds.add("comment-" + (1000 + i));
-                }
+                for (int i = 0; i < 100; i++) fetchedCommentIds.add("comment-" + (1000 + i));
                 task.setCommentsTotalEstimate(fetchedCommentIds.size());
                 updateTaskStatus(task, TaskStatus.FETCHING_COMMENTS);
-
-                // Fetch comment content and filter deleted/dead (mocked)
                 int fetchedCount = 0;
                 List<Comment> batch = new ArrayList<>();
                 for (String commentId : fetchedCommentIds) {
-                    Comment comment = new Comment(commentId, "Sample comment text mentioning Java and Python.", CommentState.FETCHED, null);
+                    Comment comment = new Comment(commentId,
+                            "Sample comment text mentioning Java and Python.", CommentState.FETCHED, null);
                     comments.put(commentId, comment);
-
                     batch.add(comment);
                     fetchedCount++;
                     task.setCommentsFetched(fetchedCount);
-
                     if (batch.size() == batchSize || fetchedCount == fetchedCommentIds.size()) {
-                        // Analyze batch via AI (mock)
                         analyzeCommentsBatch(batch);
                         batch.clear();
                     }
@@ -115,23 +99,14 @@ public class EntityControllerPrototype {
     }
 
     private void analyzeCommentsBatch(List<Comment> batch) {
-        // TODO: Replace with real OpenAI API call and parsing
         logger.info("Analyzing batch of {} comments", batch.size());
-
-        // Simulate AI response: each comment mentions random subset of languages once
         Random rnd = new Random();
         for (Comment comment : batch) {
             comment.setState(CommentState.ANALYZED);
             Set<String> mentioned = new HashSet<>();
-            for (String lang : languageList) {
-                if (rnd.nextBoolean()) { // Randomly mention language
-                    mentioned.add(lang);
-                }
-            }
+            for (String lang : languageList) if (rnd.nextBoolean()) mentioned.add(lang);
             LanguageMentions lm = new LanguageMentions(comment.getCommentId(), mentioned);
             languageMentionsStore.put(comment.getCommentId(), lm);
-
-            // Aggregate counts per language daily/monthly/weekly - simplified and mocked here
             for (String lang : mentioned) {
                 aggregates.merge(lang,
                         new LanguageMentionAggregate(lang, 1, AggregateState.INITIAL),
@@ -149,86 +124,68 @@ public class EntityControllerPrototype {
         logger.info("Task {} status updated to {}", task.getTaskId(), newStatus);
     }
 
-    // 2. Get ingestion task status
     @GetMapping(value = "/ingestion/status/{taskId}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<IngestionTaskStatusResponse> getIngestionStatus(@PathVariable String taskId) {
+    public ResponseEntity<IngestionTaskStatusResponse> getIngestionStatus(
+            @PathVariable @NotBlank String taskId) {
         CommentIngestionTask task = ingestionTasks.get(taskId);
         if (task == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found");
         }
         return ResponseEntity.ok(new IngestionTaskStatusResponse(
                 task.getTaskId(),
-                task.getStatus().toString().toLowerCase(),
+                task.getStatus().name().toLowerCase(),
                 new Progress(task.getCommentsFetched(), task.getCommentsTotalEstimate())
         ));
     }
 
-    // 3. Abort ingestion task
     @PostMapping(value = "/ingestion/abort/{taskId}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<IngestionTaskResponse> abortIngestionTask(@PathVariable String taskId) {
+    public ResponseEntity<IngestionTaskResponse> abortIngestionTask(
+            @PathVariable @NotBlank String taskId) {
         CommentIngestionTask task = ingestionTasks.get(taskId);
         if (task == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found");
         }
         task.setStatus(TaskStatus.ABORTED);
-        // Immediate cleanup: remove comments and language mentions related to this task (mocked)
-        // TODO: Implement proper cleanup based on task association (here we clear all for demo)
         comments.clear();
         languageMentionsStore.clear();
         aggregates.clear();
-
         logger.info("Aborted and cleaned up ingestion task {}", taskId);
-        return ResponseEntity.ok(new IngestionTaskResponse(taskId, task.getStatus().toString().toLowerCase()));
+        return ResponseEntity.ok(new IngestionTaskResponse(taskId, task.getStatus().name().toLowerCase()));
     }
 
-    // 4. Query frequency for language
     @GetMapping(value = "/frequency/{language}", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<FrequencyResponse> getFrequency(
-            @PathVariable String language,
-            @RequestParam(required = false) String startDate,
-            @RequestParam(required = false) String endDate) {
-        logger.info("Frequency query for language {} with range {} - {}", language, startDate, endDate);
-
+            @PathVariable @NotBlank String language,
+            @RequestParam(required = false) @Pattern(regexp = "\\d{4}-[01]\\d-[0-3]\\d") String startDate,
+            @RequestParam(required = false) @Pattern(regexp = "\\d{4}-[01]\\d-[0-3]\\d") String endDate) {
+        logger.info("Frequency query for {} range {} - {}", language, startDate, endDate);
         if (!languageList.contains(language)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported language");
         }
-
-        // Mocked aggregation response: return fixed data
         FrequencyData daily = new FrequencyData("2023-07-01", 12);
         FrequencyData weekly = new FrequencyData("2023-W27", 56);
         FrequencyData monthly = new FrequencyData("2023-07", 145);
-
         Map<String, List<FrequencyData>> freq = new HashMap<>();
         freq.put("daily", List.of(daily));
         freq.put("weekly", List.of(weekly));
         freq.put("monthly", List.of(monthly));
-
-        FrequencyResponse response = new FrequencyResponse(language, freq);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(new FrequencyResponse(language, freq));
     }
 
-    // 5. Analyze comments batch (internal)
     @PostMapping(value = "/comments/analyze", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<AnalyzeResponse> analyzeComments(@RequestBody AnalyzeRequest request) {
+    public ResponseEntity<AnalyzeResponse> analyzeComments(
+            @RequestBody @Valid AnalyzeRequest request) {
         logger.info("Received batch analyze request with {} comments", request.getComments().size());
-
-        // TODO: Replace with real OpenAI API call and parsing
         List<AnalyzeResult> results = new ArrayList<>();
+        Random rnd = new Random();
         for (AnalyzeComment c : request.getComments()) {
-            // Mock: randomly mention languages
             Set<String> mentioned = new HashSet<>();
-            for (String lang : languageList) {
-                if (new Random().nextBoolean()) {
-                    mentioned.add(lang);
-                }
-            }
+            for (String lang : languageList) if (rnd.nextBoolean()) mentioned.add(lang);
             results.add(new AnalyzeResult(c.getCommentId(), new ArrayList<>(mentioned)));
         }
-
         return ResponseEntity.ok(new AnalyzeResponse(results));
     }
 
-    // Basic error handling
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<Map<String, String>> handleResponseStatusException(ResponseStatusException ex) {
         Map<String, String> error = Map.of(
@@ -239,14 +196,16 @@ public class EntityControllerPrototype {
         return ResponseEntity.status(ex.getStatusCode()).body(error);
     }
 
-    // --- DTOs and Entities ---
-
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     static class IngestionTaskRequest {
-        private Instant startTime;
-        private Instant endTime;
+        @NotBlank
+        @Pattern(regexp = "\\d{4}-[01]\\d-[0-3]\\dT[0-2]\\d:[0-5]\\d:[0-5]\\dZ")
+        private String startTime;
+        @NotBlank
+        @Pattern(regexp = "\\d{4}-[01]\\d-[0-3]\\dT[0-2]\\d:[0-5]\\d:[0-5]\\dZ")
+        private String endTime;
     }
 
     @Data
@@ -275,8 +234,8 @@ public class EntityControllerPrototype {
     @AllArgsConstructor
     static class CommentIngestionTask {
         private String taskId;
-        private Instant startTime;
-        private Instant endTime;
+        private String startTime;
+        private String endTime;
         private TaskStatus status;
         private int commentsFetched;
         private int commentsTotalEstimate;
@@ -301,10 +260,7 @@ public class EntityControllerPrototype {
     }
 
     enum CommentState {
-        FETCHED,
-        PARSED,
-        ANALYZED,
-        FAILED
+        FETCHED, PARSED, ANALYZED, FAILED
     }
 
     @Data
@@ -320,17 +276,10 @@ public class EntityControllerPrototype {
         private String language;
         private int count;
         private AggregateState state;
-
-        void incrementCount(int delta) {
-            this.count += delta;
-        }
+        void incrementCount(int delta) { this.count += delta; }
     }
 
-    enum AggregateState {
-        INITIAL,
-        UPDATED,
-        PERSISTED
-    }
+    enum AggregateState { INITIAL, UPDATED, PERSISTED }
 
     @Data
     @NoArgsConstructor
@@ -349,8 +298,9 @@ public class EntityControllerPrototype {
 
     @Data
     @NoArgsConstructor
-    @AllArgsConstructor
     static class AnalyzeRequest {
+        @Size(min = 1)
+        @Valid
         private List<AnalyzeComment> comments;
     }
 
@@ -358,7 +308,9 @@ public class EntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     static class AnalyzeComment {
+        @NotBlank
         private String commentId;
+        @NotBlank
         private String text;
     }
 
@@ -375,4 +327,3 @@ public class EntityControllerPrototype {
         private List<String> languagesMentioned;
     }
 }
-```
