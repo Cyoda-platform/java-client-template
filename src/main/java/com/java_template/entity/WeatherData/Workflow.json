@@ -1,94 +1,94 @@
 {
-    "description": "WeatherDataWorkflow FSM for fetching and processing weather data",
-    "initial_state": "none",
-    "states": {
-        "end": {
-            "transitions": {}
-        },
-        "fetch_weather_data": {
-            "transitions": {
-                "fetch_failure": {
-                    "action": {
-                        "name": "handleFailure"
-                    },
-                    "next": "handle_failure"
-                },
-                "fetch_success": {
-                    "action": {
-                        "name": "persistRawData"
-                    },
-                    "next": "persist_raw_data"
-                }
-            }
-        },
-        "handle_failure": {
-            "transitions": {
-                "complete_failure": {
-                    "next": "end"
-                }
-            }
-        },
-        "none": {
-            "transitions": {
-                "start_processing": {
-                    "action": {
-                        "name": "processWeatherData"
-                    },
-                    "next": "validate_input"
-                }
-            }
-        },
-        "persist_raw_data": {
-            "transitions": {
-                "persist_failure": {
-                    "action": {
-                        "name": "updateEntitySuccessState"
-                    },
-                    "next": "update_state_success"
-                },
-                "persist_success": {
-                    "action": {
-                        "name": "updateEntitySuccessState"
-                    },
-                    "next": "update_state_success"
-                }
-            }
-        },
-        "update_state_success": {
-            "transitions": {
-                "complete": {
-                    "next": "end"
-                }
-            }
-        },
-        "validate_input": {
-            "transitions": {
-                "invalid_input": {
-                    "action": {
-                        "name": "handleFailure"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "validateInputReturnsFalse"
-                        },
-                        "type": "function"
-                    },
-                    "next": "handle_failure"
-                },
-                "valid_input": {
-                    "action": {
-                        "name": "fetchAndProcess"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "validateInputReturnsTrue"
-                        },
-                        "type": "function"
-                    },
-                    "next": "fetch_weather_data"
-                }
-            }
+  "description": "WeatherDataWorkflow FSM for fetching and processing weather data",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_processing": {
+          "action": {
+            "name": "processWeatherData"
+          },
+          "next": "validate_input"
         }
+      }
     },
-    "workflow_name": "WeatherDataWorkflow"
+    "validate_input": {
+      "transitions": {
+        "invalid_input": {
+          "action": {
+            "name": "handleFailure"
+          },
+          "condition": {
+            "function": {
+              "name": "validateInputReturnsFalse"
+            },
+            "type": "function"
+          },
+          "next": "handle_failure"
+        },
+        "valid_input": {
+          "action": {
+            "name": "fetchAndProcess"
+          },
+          "condition": {
+            "function": {
+              "name": "validateInputReturnsTrue"
+            },
+            "type": "function"
+          },
+          "next": "fetch_weather_data"
+        }
+      }
+    },
+    "handle_failure": {
+      "transitions": {
+        "complete_failure": {
+          "next": "end"
+        }
+      }
+    },
+    "end": {
+      "transitions": {}
+    },
+    "fetch_weather_data": {
+      "transitions": {
+        "fetch_failure": {
+          "action": {
+            "name": "handleFailure"
+          },
+          "next": "handle_failure"
+        },
+        "fetch_success": {
+          "action": {
+            "name": "persistRawData"
+          },
+          "next": "persist_raw_data"
+        }
+      }
+    },
+    "persist_raw_data": {
+      "transitions": {
+        "persist_failure": {
+          "action": {
+            "name": "updateEntitySuccessState"
+          },
+          "next": "update_state_success"
+        },
+        "persist_success": {
+          "action": {
+            "name": "updateEntitySuccessState"
+          },
+          "next": "update_state_success"
+        }
+      }
+    },
+    "update_state_success": {
+      "transitions": {
+        "complete": {
+          "next": "end"
+        }
+      }
+    }
+  },
+  "workflow_name": "WeatherDataWorkflow"
 }
