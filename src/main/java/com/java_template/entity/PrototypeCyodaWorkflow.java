@@ -1,15 +1,3 @@
-Certainly! Moving asynchronous and entity state modification logic into the `process{entity_name}` workflow function is a great approach to keep controllers clean and delegate all entity-related business logic to a dedicated place that runs right before persistence.
-
-Below is a revised complete Java controller code where:
-
-- The controller is slimmed down to only handle request/response and validation.
-- The `processPrototype` workflow function contains all asynchronous or entity state modification logic.
-- For example, if there was any async enrichment, validation, or supplementary entity fetch/add, it is now done inside `processPrototype`.
-- The controller just passes the raw validated entity data to `addItem` with the workflow function.
-
----
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -51,31 +39,45 @@ public class CyodaEntityControllerPrototype {
         this.entityService = entityService;
     }
 
-    // The workflow function that will be applied asynchronously right before persistence
+    // Workflow function that applies async logic and entity modifications before persistence
     private final Function<ObjectNode, CompletableFuture<ObjectNode>> processPrototype = entity -> {
         logger.info("Running processPrototype workflow for entity before persistence");
 
-        // Example async logic: add a timestamp field
+        // Prevent adding/updating/deleting entity of the same model here to avoid recursion
+        // If needed, get/add/update/delete on other entityModels allowed
+
+        // Example: Add or update a timestamp field
         entity.put("processedTimestamp", System.currentTimeMillis());
 
-        // Example async enrichment or validation
-        // You can call entityService.getItem/addItem on other models here (not on 'prototype')
-
-        // Example fire-and-forget async task (like sending notifications, logs, etc.)
-        CompletableFuture.runAsync(() -> {
+        // Example: Validate or enrich entity asynchronously if needed
+        // Simulate an async enrichment task (e.g., fetch supplementary data from another entity model)
+        CompletableFuture<Void> enrichment = CompletableFuture.runAsync(() -> {
             try {
-                // simulate some async external call or side effect
-                logger.info("Async fire-and-forget task triggered from processPrototype");
-                Thread.sleep(100); // simulate delay
-            } catch (InterruptedException e) {
-                logger.error("Error in async fire-and-forget task", e);
+                // For example, fetch a related entity and add some data (pseudo-code)
+                // ObjectNode relatedEntity = entityService.getItem("relatedModel", ENTITY_VERSION, someUUID).join();
+                // if (relatedEntity != null) entity.put("relatedData", relatedEntity.get("someField").asText());
+                logger.debug("Simulated async enrichment task completed");
+            } catch (Exception e) {
+                logger.error("Error during async enrichment in processPrototype", e);
+                // Decide if you want to propagate failure or continue - here we continue
             }
         });
 
-        // Return the potentially modified entity wrapped in completed future
-        return CompletableFuture.completedFuture(entity);
-    };
+        // Example: Fire-and-forget async side effect (e.g., logging, notifications)
+        CompletableFuture.runAsync(() -> {
+            try {
+                logger.info("Async fire-and-forget task triggered from processPrototype");
+                // simulate delay and side effect
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                logger.error("Error in async fire-and-forget task", e);
+                Thread.currentThread().interrupt();
+            }
+        });
 
+        // Wait for enrichment to complete before returning entity to ensure all modifications done
+        return enrichment.thenApply(v -> entity);
+    };
 
     @PostMapping(path = "/items", consumes = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
@@ -89,7 +91,14 @@ public class CyodaEntityControllerPrototype {
                 processPrototype
         );
 
-        UUID technicalId = idFuture.join();
+        UUID technicalId;
+        try {
+            technicalId = idFuture.join();
+        } catch (Exception e) {
+            logger.error("Failed to persist entity in addItem workflow", e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to store entity");
+        }
+
         logger.info("Stored entity with technicalId: {}", technicalId);
         return new IdResponse(technicalId.toString());
     }
@@ -97,16 +106,34 @@ public class CyodaEntityControllerPrototype {
     @GetMapping(path = "/items/{id}")
     public ObjectNode getItemById(@PathVariable("id") @NotBlank String id) {
         logger.info("Received GET /cyoda-entity-prototype/items/{} request", id);
+
+        UUID uuid;
+        try {
+            uuid = UUID.fromString(id);
+        } catch (IllegalArgumentException e) {
+            logger.error("Invalid UUID format for id: {}", id);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid UUID format");
+        }
+
         CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
                 ENTITY_MODEL,
                 ENTITY_VERSION,
-                UUID.fromString(id)
+                uuid
         );
-        ObjectNode item = itemFuture.join();
+
+        ObjectNode item;
+        try {
+            item = itemFuture.join();
+        } catch (Exception e) {
+            logger.error("Failed to retrieve entity for id: {}", id, e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to retrieve entity");
+        }
+
         if (item == null) {
-            logger.error("Item not found for technicalId: {}", id);
+            logger.warn("Item not found for technicalId: {}", id);
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Item with id " + id + " not found");
         }
+
         return item;
     }
 
@@ -136,16 +163,3 @@ public class CyodaEntityControllerPrototype {
         private String message;
     }
 }
-```
-
----
-
-### Summary of changes:
-
-- Moved any logic that modifies entity state or does async work into the `processPrototype` workflow function.
-- This function is called by `entityService.addItem` on the entity data just before it is persisted.
-- The controller only handles HTTP request/response and validation now.
-- You can extend `processPrototype` easily with more async/secondary entity calls or modifications without touching controller logic.
-- Fire-and-forget async tasks are safely executed inside workflow function without blocking the main thread.
-
-This approach fully leverages the new workflow function feature and keeps your controller layer thin and focused on transport concerns.
