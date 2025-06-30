@@ -1,38 +1,3 @@
-Certainly! Moving asynchronous tasks and complex logic from the controller into the workflow function `process{entity_name}` is a great architectural improvement. It decouples the controller from business logic, keeps endpoints lightweight, and fully leverages the new asynchronous pre-persistence workflow mechanism.
-
----
-
-### What should move into `processWeatherData` workflow?
-
-- All async calls to external services (fetching weather data).
-- Processing and transforming the fetched data.
-- Interacting with other entities (adding/getting secondary entities).
-- Setting final entity state before persistence.
-- Handling any asynchronous side-effects related to this entity model (except adding/updating/deleting the same entity).
-
----
-
-### What remains in the controller?
-
-- Validation of the initial request.
-- Triggering the asynchronous persistence with the workflow function.
-- Returning immediate response with requestId.
-- Querying job status/result from in-memory cache or DB.
-
----
-
-### Full refactor highlights:
-
-- The controller POST `/fetch` will just prepare a minimal request entity (e.g. requestId, lat/lon, parameters) and call `addItem` with `processWeatherData` workflow.
-- The `processWeatherData` method will perform the entire flow of fetching, processing, adding secondary entities, and mutating the entity before it is persisted.
-- Job status tracking can be moved inside the workflow as well, or updated via secondary entities.
-- The GET `/result/{requestId}` can remain mostly unchanged to serve results.
-
----
-
-### Updated code:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -53,9 +18,13 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
@@ -73,14 +42,13 @@ public class CyodaEntityControllerPrototype {
     // In-memory cache of job status and results, keyed by requestId
     private final Map<String, JobInfo> entityJobs = new ConcurrentHashMap<>();
 
+    private final HttpClient httpClient = HttpClient.newBuilder().build();
+
     public CyodaEntityControllerPrototype(EntityService entityService) {
         this.entityService = entityService;
     }
 
-    /**
-     * Controller endpoint: Validate request, create minimal entity with requestId and parameters
-     * Call entityService.addItem with workflow function processWeatherData that will do the heavy lifting
-     */
+    // POST endpoint - validate and create minimal entity then call addItem with workflow
     @PostMapping("/fetch")
     public ResponseEntity<FetchResponse> fetchWeather(@RequestBody @Valid FetchRequest request) {
         logger.info("Received weather fetch request: {}", request);
@@ -88,10 +56,12 @@ public class CyodaEntityControllerPrototype {
             request.getLongitude() < -180 || request.getLongitude() > 180) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid latitude or longitude values");
         }
+        if (request.getParameters() == null || request.getParameters().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Parameters list cannot be empty");
+        }
 
         String requestId = UUID.randomUUID().toString();
 
-        // Prepare minimal entity with request info and initial job status
         ObjectNode entity = objectMapper.createObjectNode();
         entity.put("requestId", requestId);
         entity.put("latitude", request.getLatitude());
@@ -102,13 +72,10 @@ public class CyodaEntityControllerPrototype {
         entity.put("status", "processing");
         entity.put("createdTimestamp", Instant.now().toString());
 
-        // Track job locally as well for quick GET result endpoint
         entityJobs.put(requestId, new JobInfo("processing", Instant.now(), null));
 
-        // Workflow function that will asynchronously fetch/process/persist data before this entity is persisted
         Function<ObjectNode, ObjectNode> workflow = this::processWeatherData;
 
-        // Persist entity with workflow - returns CompletableFuture of UUID (entity id)
         CompletableFuture<UUID> idFuture = entityService.addItem(
             "WeatherData",
             ENTITY_VERSION,
@@ -116,25 +83,20 @@ public class CyodaEntityControllerPrototype {
             workflow
         );
 
-        // Async completion handler - update job status on success or failure
         idFuture.whenComplete((id, ex) -> {
             if (ex != null) {
                 logger.error("Failed to persist weather data entity for requestId={}: {}", requestId, ex.getMessage(), ex);
                 entityJobs.put(requestId, new JobInfo("failed", Instant.now(), null));
             } else {
                 logger.info("Weather data entity persisted with id {} for requestId={}", id, requestId);
-                // The detailed result will be saved by the workflow function inside the entity itself or secondary entities
-                // For demo, we keep status updated here - can be improved by reading back stored final entity or secondary entity
-                entityJobs.put(requestId, new JobInfo("success", Instant.now(), null));
+                // Entity updated in workflow, job status updated there as well
             }
         });
 
         return ResponseEntity.accepted().body(new FetchResponse("success", "Weather data fetching triggered", requestId));
     }
 
-    /**
-     * GET endpoint to retrieve job status and result for given requestId
-     */
+    // GET endpoint - return job status and result for requestId
     @GetMapping("/result/{requestId}")
     public ResponseEntity<ResultResponse> getWeatherResult(@PathVariable @NotBlank String requestId) {
         logger.info("Retrieving weather result for requestId={}", requestId);
@@ -150,46 +112,53 @@ public class CyodaEntityControllerPrototype {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new ResultResponse(requestId, null, null, "failed", null));
         }
-        // For demo, result is null here, ideally you would fetch from DB or secondary entity store
-        return ResponseEntity.ok(jobInfo.getResult());
+        if (jobInfo.getResult() != null) {
+            return ResponseEntity.ok(jobInfo.getResult());
+        }
+        // If result is null, still success - return minimal info
+        return ResponseEntity.ok(new ResultResponse(requestId, null, null, "success", null));
     }
 
-    /**
-     * Workflow function to asynchronously fetch and process weather data before persisting the entity.
-     * This is called inside entityService.addItem before the entity is persisted.
-     *
-     * @param entity the entity data as ObjectNode (with request info)
-     * @return the mutated entity data to be persisted
-     */
+    // Workflow to asynchronously fetch/process data and mutate entity before persistence
     private ObjectNode processWeatherData(ObjectNode entity) {
+        String requestId = entity.has("requestId") ? entity.get("requestId").asText() : "unknown";
         try {
-            String requestId = entity.path("requestId").asText();
-            double latitude = entity.path("latitude").asDouble();
-            double longitude = entity.path("longitude").asDouble();
+            double latitude = entity.path("latitude").asDouble(Double.NaN);
+            double longitude = entity.path("longitude").asDouble(Double.NaN);
+            if (Double.isNaN(latitude) || Double.isNaN(longitude)) {
+                throw new IllegalArgumentException("Latitude or longitude missing or invalid");
+            }
             String startDate = entity.hasNonNull("startDate") ? entity.get("startDate").asText() : null;
             String endDate = entity.hasNonNull("endDate") ? entity.get("endDate").asText() : null;
             List<String> parameters = objectMapper.convertValue(entity.get("parameters"), List.class);
 
+            if (parameters == null || parameters.isEmpty()) {
+                throw new IllegalArgumentException("Parameters list missing or empty");
+            }
+
             logger.info("Workflow started for requestId={}", requestId);
 
-            // Build external API URL
             String url = buildOpenMeteoUrl(latitude, longitude, startDate, endDate, parameters);
 
-            // Perform HTTP GET call to external API (blocking call - acceptable inside async workflow)
-            String rawResponse = new java.net.http.HttpClient.Builder().build()
-                .send(java.net.http.HttpRequest.newBuilder(new URI(url)).GET().build(),
-                    java.net.http.HttpResponse.BodyHandlers.ofString())
-                .body();
+            HttpRequest httpRequest = HttpRequest.newBuilder()
+                    .uri(new URI(url))
+                    .GET()
+                    .build();
 
-            if (rawResponse == null) {
+            HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() != 200) {
+                throw new RuntimeException("External API responded with status code: " + response.statusCode());
+            }
+
+            String rawResponse = response.body();
+            if (rawResponse == null || rawResponse.isBlank()) {
                 throw new RuntimeException("Empty response from Open-Meteo API");
             }
 
-            // Parse response JSON
             JsonNode rootNode = objectMapper.readTree(rawResponse);
             JsonNode dailyNode = rootNode.path("daily");
 
-            // Extract dates and parameters data
             List<String> dates = new ArrayList<>();
             if (dailyNode.has("time") && dailyNode.get("time").isArray()) {
                 dailyNode.get("time").forEach(d -> dates.add(d.asText()));
@@ -209,32 +178,43 @@ public class CyodaEntityControllerPrototype {
                 dataMap.put(param, values);
             }
 
-            // Add these results inside the current entity before persisting
             ObjectNode dataNode = objectMapper.createObjectNode();
             dataNode.putPOJO("dates", dates);
             dataNode.putPOJO("parameters", dataMap);
-
             entity.set("data", dataNode);
+
             entity.put("status", "success");
             entity.put("processedTimestamp", Instant.now().toString());
 
-            // Optionally: add secondary/supplementary entities here via entityService.addItem
-            // For example, can add raw API response entity or processed summary entity of different model
-            // entityService.addItem("WeatherRawData", ENTITY_VERSION, rawResponseObjectNode, null);
+            // Optionally add supplementary raw data entity - using a different entity model name
+            try {
+                ObjectNode rawDataEntity = objectMapper.createObjectNode();
+                rawDataEntity.put("requestId", requestId);
+                rawDataEntity.put("createdTimestamp", Instant.now().toString());
+                rawDataEntity.put("rawResponse", rawResponse);
+                entityService.addItem("WeatherRawData", ENTITY_VERSION, rawDataEntity, null);
+            } catch (Exception e) {
+                logger.warn("Failed to persist supplementary raw data entity for requestId={}: {}", requestId, e.getMessage());
+            }
 
-            // Update the in-memory job status cache
-            entityJobs.put(requestId, new JobInfo("success", Instant.now(), null)); // Optionally load full result
+            // Update in-memory job status with full result
+            ResultResponse result = new ResultResponse(
+                    requestId,
+                    latitude,
+                    longitude,
+                    "success",
+                    new WeatherData(dates, dataMap)
+            );
+            entityJobs.put(requestId, new JobInfo("success", Instant.now(), result));
 
             logger.info("Workflow completed successfully for requestId={}", requestId);
 
         } catch (Exception e) {
-            String requestId = entity.has("requestId") ? entity.get("requestId").asText() : "unknown";
             logger.error("Workflow failed for requestId={}: {}", requestId, e.getMessage(), e);
             entity.put("status", "failed");
             entity.put("processedTimestamp", Instant.now().toString());
             entityJobs.put(requestId, new JobInfo("failed", Instant.now(), null));
         }
-
         return entity;
     }
 
@@ -255,8 +235,6 @@ public class CyodaEntityControllerPrototype {
         ErrorResponse error = new ErrorResponse(ex.getStatusCode().toString(), ex.getReason());
         return new ResponseEntity<>(error, ex.getStatusCode());
     }
-
-    // DTOs and helpers
 
     @Data
     @NoArgsConstructor
@@ -318,19 +296,3 @@ public class CyodaEntityControllerPrototype {
         private String message;
     }
 }
-```
-
----
-
-### Summary of changes
-
-- The controller POST `/fetch` no longer calls external API or performs async tasks. It just builds minimal entity and calls `entityService.addItem` with `processWeatherData` workflow.
-- The workflow function `processWeatherData` does all async HTTP calls, JSON parsing, data extraction, entity mutation, and can add/get secondary entities.
-- The workflow updates the entity's state fields including `status`, `data`, and timestamps.
-- Job status cache is updated inside the workflow for immediate GET `/result` availability.
-- The controller GET `/result/{requestId}` stays simple, reading from in-memory cache.
-- This design fully leverages the asynchronous workflow function, keeps controller logic minimal and robust, and separates concerns cleanly.
-
----
-
-If you want, I can further show examples of adding secondary entities inside the workflow or more advanced error handling/logging. Just ask!
