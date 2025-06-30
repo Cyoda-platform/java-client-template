@@ -1,55 +1,76 @@
 {
-  "description": "WeatherRequest FSM workflow",
-  "initial_state": "none",
-  "states": {
-    "none": {
-      "transitions": {
-        "start_validation": {
-          "action": {
-            "name": "validateFields"
-          },
-          "next": "validating"
-        }
-      }
-    },
-    "validating": {
-      "transitions": {
-        "validation_failure": {
-          "action": {
-            "name": "setFailedStatus"
-          },
-          "next": "failed"
+    "description": "WeatherRequest workflow with alert checking",
+    "initial_state": "none",
+    "states": {
+        "checking_alerts": {
+            "transitions": {
+                "alerts_found": {
+                    "action": {
+                        "name": "notifyUsers"
+                    },
+                    "next": "notifying_users"
+                },
+                "no_alerts": {
+                    "next": "completed"
+                }
+            }
         },
-        "validation_success": {
-          "action": {
-            "name": "fetchAndSetWeatherData"
-          },
-          "next": "fetching_data"
-        }
-      }
-    },
-    "failed": {
-      "transitions": {}
-    },
-    "fetching_data": {
-      "transitions": {
-        "fetch_failure": {
-          "action": {
-            "name": "setFailedStatus"
-          },
-          "next": "failed"
+        "completed": {
+            "transitions": {}
         },
-        "fetch_success": {
-          "action": {
-            "name": "setCompletedStatus"
-          },
-          "next": "completed"
+        "failed": {
+            "transitions": {}
+        },
+        "fetching_data": {
+            "transitions": {
+                "fetch_failure": {
+                    "action": {
+                        "name": "setFailedStatus"
+                    },
+                    "next": "failed"
+                },
+                "fetch_success": {
+                    "action": {
+                        "name": "checkWeatherAlerts"
+                    },
+                    "next": "checking_alerts"
+                }
+            }
+        },
+        "none": {
+            "transitions": {
+                "start_validation": {
+                    "action": {
+                        "name": "validateFields"
+                    },
+                    "next": "validating"
+                }
+            }
+        },
+        "notifying_users": {
+            "transitions": {
+                "notification_complete": {
+                    "next": "completed"
+                }
+            }
+        },
+        "validating": {
+            "transitions": {
+                "validation_failure": {
+                    "action": {
+                        "name": "setFailedStatus"
+                    },
+                    "next": "failed"
+                },
+                "validation_success": {
+                    "action": {
+                        "name": "fetchAndSetWeatherData"
+                    },
+                    "next": "fetching_data"
+                }
+            }
         }
-      }
     },
-    "completed": {
-      "transitions": {}
-    }
-  },
-  "workflow_name": "WeatherRequestWorkflow"
+    "version": "1.0",
+    "workflow_name": "WeatherRequestWithAlertsWorkflow"
 }
