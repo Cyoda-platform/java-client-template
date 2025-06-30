@@ -63,6 +63,93 @@ public class WeatherDataWorkflow {
         });
     }
 
+    public CompletableFuture<ObjectNode> validateInputReturnsFalse(ObjectNode entity) {
+        boolean invalid = false;
+        if (!entity.has("latitude") || entity.path("latitude").isNull() || entity.path("latitude").asText().isBlank()) {
+            invalid = true;
+        }
+        if (!entity.has("longitude") || entity.path("longitude").isNull() || entity.path("longitude").asText().isBlank()) {
+            invalid = true;
+        }
+        if (!entity.has("parameters") || !entity.get("parameters").isArray() || entity.get("parameters").size() == 0) {
+            invalid = true;
+        }
+        entity.put("success", !invalid);
+        return CompletableFuture.completedFuture(entity);
+    }
+
+    public CompletableFuture<ObjectNode> validateInputReturnsTrue(ObjectNode entity) {
+        boolean valid = true;
+        if (!entity.has("latitude") || entity.path("latitude").isNull() || entity.path("latitude").asText().isBlank()) {
+            valid = false;
+        }
+        if (!entity.has("longitude") || entity.path("longitude").isNull() || entity.path("longitude").asText().isBlank()) {
+            valid = false;
+        }
+        if (!entity.has("parameters") || !entity.get("parameters").isArray() || entity.get("parameters").size() == 0) {
+            valid = false;
+        }
+        entity.put("success", valid);
+        return CompletableFuture.completedFuture(entity);
+    }
+
+    public CompletableFuture<ObjectNode> handleFailure(ObjectNode entity) {
+        entity.put("status", "failed");
+        entity.put("processedTimestamp", Instant.now().toString());
+        String requestId = entity.has("requestId") ? entity.get("requestId").asText() : "unknown";
+        entityJobs.put(requestId, new JobInfo("failed", Instant.now(), null));
+        return CompletableFuture.completedFuture(entity);
+    }
+
+    public CompletableFuture<ObjectNode> fetchAndProcess(ObjectNode entity) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                String requestId = entity.has("requestId") ? entity.get("requestId").asText() : "unknown";
+                double latitude = entity.path("latitude").asDouble(Double.NaN);
+                double longitude = entity.path("longitude").asDouble(Double.NaN);
+                String startDate = entity.hasNonNull("startDate") ? entity.get("startDate").asText() : null;
+                String endDate = entity.hasNonNull("endDate") ? entity.get("endDate").asText() : null;
+                List<String> parameters = objectMapper.convertValue(entity.get("parameters"), List.class);
+
+                ObjectNode result = fetchAndProcess(entity, requestId, latitude, longitude, startDate, endDate, parameters);
+                return result;
+            } catch (Exception e) {
+                log.error("Fetch and process failed: {}", e.getMessage(), e);
+                entity.put("status", "failed");
+                entity.put("processedTimestamp", Instant.now().toString());
+                return entity;
+            }
+        });
+    }
+
+    public CompletableFuture<ObjectNode> persistRawData(ObjectNode entity) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                String requestId = entity.has("requestId") ? entity.get("requestId").asText() : "unknown";
+                String rawResponse = null;
+                if (entity.has("data")) {
+                    rawResponse = entity.get("data").toString();
+                }
+                ObjectNode rawDataEntity = objectMapper.createObjectNode();
+                rawDataEntity.put("requestId", requestId);
+                rawDataEntity.put("createdTimestamp", Instant.now().toString());
+                rawDataEntity.put("rawResponse", rawResponse != null ? rawResponse : "");
+                entityService.addItem("WeatherRawData", ENTITY_VERSION, rawDataEntity, null);
+            } catch (Exception e) {
+                log.warn("Failed to persist raw data: {}", e.getMessage());
+            }
+            return entity;
+        });
+    }
+
+    public CompletableFuture<ObjectNode> updateEntitySuccessState(ObjectNode entity) {
+        entity.put("status", "success");
+        entity.put("processedTimestamp", Instant.now().toString());
+        String requestId = entity.has("requestId") ? entity.get("requestId").asText() : "unknown";
+        entityJobs.put(requestId, new JobInfo("success", Instant.now(), null));
+        return CompletableFuture.completedFuture(entity);
+    }
+
     private ObjectNode fetchAndProcess(ObjectNode entity, String requestId, double latitude, double longitude, String startDate, String endDate, List<String> parameters) throws Exception {
         log.info("Workflow started for requestId={}", requestId);
 
