@@ -1,4 +1,4 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -17,32 +17,27 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
-import org.springframework.web.client.RestTemplate;
 
-import java.net.URI;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
 
 @RestController
 @RequestMapping(path = "/cyoda/weather", produces = MediaType.APPLICATION_JSON_VALUE)
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
-    private final RestTemplate restTemplate = new RestTemplate();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
     private final EntityService entityService;
 
     private static final String ENTITY_NAME = "WeatherRequest";
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(ObjectMapper objectMapper, EntityService entityService) {
+        this.objectMapper = objectMapper;
         this.entityService = entityService;
     }
 
