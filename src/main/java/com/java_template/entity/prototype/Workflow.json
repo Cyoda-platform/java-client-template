@@ -1,20 +1,20 @@
 {
-    "description": "Prototype FSM for processing Hacker News item entity",
-    "initial_state": "none",
-    "states": {
-        "none": {
-            "transitions": {
-                "process": {
-                    "action": {
-                        "name": "processPrototype"
-                    },
-                    "next": "processed"
-                }
-            }
-        },
-        "processed": {
-            "transitions": {}
+  "description": "Prototype FSM for processing Hacker News item entity",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "process": {
+          "action": {
+            "name": "processPrototype"
+          },
+          "next": "processed"
         }
+      }
     },
-    "workflow_name": "prototype_workflow"
+    "processed": {
+      "transitions": {}
+    }
+  },
+  "workflow_name": "prototype_workflow"
 }
