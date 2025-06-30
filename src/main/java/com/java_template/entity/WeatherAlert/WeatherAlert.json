@@ -1,0 +1,16 @@
+{
+    "alertName": "High Temperature Alert",
+    "condition": {
+        "comparison": "above",
+        "threshold": 30,
+        "type": "temperature"
+    },
+    "createdAt": "2023-10-01T12:00:00Z",
+    "id": "12345",
+    "isActive": true,
+    "lastTriggered": null,
+    "notificationMethod": "email",
+    "status": "pending",
+    "updatedAt": "2023-10-01T12:00:00Z",
+    "userId": "user_67890"
+}
