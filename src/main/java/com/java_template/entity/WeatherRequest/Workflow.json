@@ -1,55 +1,55 @@
 {
-    "description": "WeatherRequest FSM workflow",
-    "initial_state": "none",
-    "states": {
-        "completed": {
-            "transitions": {}
-        },
-        "failed": {
-            "transitions": {}
-        },
-        "fetching_data": {
-            "transitions": {
-                "fetch_failure": {
-                    "action": {
-                        "name": "setFailedStatus"
-                    },
-                    "next": "failed"
-                },
-                "fetch_success": {
-                    "action": {
-                        "name": "setCompletedStatus"
-                    },
-                    "next": "completed"
-                }
-            }
-        },
-        "none": {
-            "transitions": {
-                "start_validation": {
-                    "action": {
-                        "name": "validateFields"
-                    },
-                    "next": "validating"
-                }
-            }
-        },
-        "validating": {
-            "transitions": {
-                "validation_failure": {
-                    "action": {
-                        "name": "setFailedStatus"
-                    },
-                    "next": "failed"
-                },
-                "validation_success": {
-                    "action": {
-                        "name": "fetchAndSetWeatherData"
-                    },
-                    "next": "fetching_data"
-                }
-            }
+  "description": "WeatherRequest FSM workflow",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_validation": {
+          "action": {
+            "name": "validateFields"
+          },
+          "next": "validating"
         }
+      }
     },
-    "workflow_name": "WeatherRequestWorkflow"
+    "validating": {
+      "transitions": {
+        "validation_failure": {
+          "action": {
+            "name": "setFailedStatus"
+          },
+          "next": "failed"
+        },
+        "validation_success": {
+          "action": {
+            "name": "fetchAndSetWeatherData"
+          },
+          "next": "fetching_data"
+        }
+      }
+    },
+    "failed": {
+      "transitions": {}
+    },
+    "fetching_data": {
+      "transitions": {
+        "fetch_failure": {
+          "action": {
+            "name": "setFailedStatus"
+          },
+          "next": "failed"
+        },
+        "fetch_success": {
+          "action": {
+            "name": "setCompletedStatus"
+          },
+          "next": "completed"
+        }
+      }
+    },
+    "completed": {
+      "transitions": {}
+    }
+  },
+  "workflow_name": "WeatherRequestWorkflow"
 }
