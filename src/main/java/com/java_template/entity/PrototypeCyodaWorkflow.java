@@ -1,20 +1,3 @@
-Certainly! Based on your requirements and constraints, we should **move all asynchronous processing and external API calls from the controller into the workflow function** `processWeatherRequest`. This will keep controllers clean and focused on request handling, while the business logic runs asynchronously before persistence.
-
----
-
-### Key points for refactoring:
-- The workflow function `processWeatherRequest` will be async.
-- It receives the entity as an `ObjectNode` (Jackson JSON tree).
-- It can modify this entity directly (e.g., `entity.put(...)`).
-- It can get/add secondary entities of **different** entityModels, but **cannot update/add/delete the same entityModel** (to avoid recursion).
-- The workflow function replaces the existing `CompletableFuture.runAsync()` logic that calls the external API and updates the entity status and data.
-- The initial entity saved in `addItem` is minimal (with status = "processing"), then the workflow function asynchronously fetches the data and updates the entity using `updateItem`.
-
----
-
-### Here is the **updated complete Java code** with the logic moved into the workflow function:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -41,7 +24,6 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -70,16 +52,18 @@ public class CyodaEntityControllerPrototype {
                 request.getLatitude(), request.getLongitude(), request.getParameters(),
                 request.getStartDate(), request.getEndDate());
 
-        // Create initial ObjectNode entity with minimal data and status = "processing"
+        // Create initial entity ObjectNode with minimal information and "processing" status
         ObjectNode initialEntity = objectMapper.createObjectNode();
         initialEntity.put("status", "processing");
         initialEntity.put("fetchedAt", Instant.now().toString());
         initialEntity.put("latitude", request.getLatitude());
         initialEntity.put("longitude", request.getLongitude());
+        initialEntity.put("startDate", request.getStartDate());
+        initialEntity.put("endDate", request.getEndDate());
         initialEntity.putPOJO("parameters", request.getParameters());
-        initialEntity.putNull("data"); // no data yet
+        initialEntity.putNull("data");
 
-        // Pass the workflow function that will process this entity asynchronously before persistence
+        // Workflow function to process the entity asynchronously before persistence
         Function<ObjectNode, CompletableFuture<ObjectNode>> workflow = this::processWeatherRequest;
 
         CompletableFuture<UUID> idFuture = entityService.addItem(
@@ -103,23 +87,41 @@ public class CyodaEntityControllerPrototype {
      * @return CompletableFuture of the modified entity (ObjectNode)
      */
     private CompletableFuture<ObjectNode> processWeatherRequest(ObjectNode entity) {
-        logger.info("Workflow started: processWeatherRequest for entity (partial): {}", entity.toString());
+        logger.info("Workflow started: processWeatherRequest for entity id={}", entity.path("id").asText(null));
 
         return CompletableFuture.supplyAsync(() -> {
             try {
-                // Extract parameters from the entity
+                // Validate mandatory fields are present and correctly typed
+                if (!entity.hasNonNull("latitude") || !entity.hasNonNull("longitude")) {
+                    logger.error("Entity missing latitude or longitude");
+                    entity.put("status", "failed");
+                    entity.put("fetchedAt", Instant.now().toString());
+                    entity.putNull("data");
+                    return entity;
+                }
+                if (!entity.hasNonNull("startDate") || !entity.hasNonNull("endDate")) {
+                    logger.error("Entity missing startDate or endDate");
+                    entity.put("status", "failed");
+                    entity.put("fetchedAt", Instant.now().toString());
+                    entity.putNull("data");
+                    return entity;
+                }
+                if (!entity.hasNonNull("parameters") || !entity.get("parameters").isArray() || entity.get("parameters").size() == 0) {
+                    logger.error("Entity missing parameters or parameters array is empty");
+                    entity.put("status", "failed");
+                    entity.put("fetchedAt", Instant.now().toString());
+                    entity.putNull("data");
+                    return entity;
+                }
+
                 double latitude = entity.get("latitude").asDouble();
                 double longitude = entity.get("longitude").asDouble();
+                String startDate = entity.get("startDate").asText();
+                String endDate = entity.get("endDate").asText();
+
                 List<String> parameters = objectMapper.convertValue(
                         entity.get("parameters"), objectMapper.getTypeFactory().constructCollectionType(List.class, String.class)
                 );
-                // For dates, let's assume startDate and endDate are passed as well - if not, add them to entity or fix accordingly
-                // Here we assume they are missing; you can add them if needed or extend FetchRequest accordingly.
-                // For now, let's put defaults or skip (you can enhance this further).
-
-                // For demonstration, let's assume startDate and endDate are mandatory and already part of entity:
-                String startDate = entity.has("startDate") ? entity.get("startDate").asText() : "2023-01-01";
-                String endDate = entity.has("endDate") ? entity.get("endDate").asText() : "2023-01-02";
 
                 // Build URL for external API call
                 String baseUrl = "https://api.open-meteo.com/v1/forecast";
@@ -138,7 +140,11 @@ public class CyodaEntityControllerPrototype {
 
                 String responseStr = restTemplate.getForObject(URI.create(url), String.class);
                 if (responseStr == null) {
-                    throw new IllegalStateException("Empty response from Open-Meteo API");
+                    logger.error("Empty response from Open-Meteo API");
+                    entity.put("status", "failed");
+                    entity.put("fetchedAt", Instant.now().toString());
+                    entity.putNull("data");
+                    return entity;
                 }
 
                 JsonNode rootNode = objectMapper.readTree(responseStr);
@@ -162,7 +168,7 @@ public class CyodaEntityControllerPrototype {
                 entity.put("fetchedAt", Instant.now().toString());
                 entity.set("data", dataNode);
 
-                logger.info("Workflow completed successfully for entity, status set to 'completed'");
+                logger.info("Workflow completed successfully for entity");
 
             } catch (Exception e) {
                 logger.error("Workflow failed during processing weather data", e);
@@ -171,7 +177,7 @@ public class CyodaEntityControllerPrototype {
                 entity.putNull("data");
             }
 
-            // Return the modified entity - this will be persisted by entityService after the workflow completes
+            // Return the modified entity for persistence
             return entity;
         });
     }
@@ -180,7 +186,14 @@ public class CyodaEntityControllerPrototype {
     public ResponseEntity<ObjectNode> getWeatherResult(@PathVariable @NotBlank String requestId) {
         logger.info("Received GET result request for requestId={}", requestId);
 
-        UUID technicalId = UUID.fromString(requestId);
+        UUID technicalId;
+        try {
+            technicalId = UUID.fromString(requestId);
+        } catch (IllegalArgumentException ex) {
+            logger.error("Invalid UUID format for requestId={}", requestId);
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid requestId format");
+        }
+
         CompletableFuture<JsonNode> itemFuture = entityService.getItem(
                 ENTITY_NAME,
                 ENTITY_VERSION,
@@ -234,23 +247,3 @@ public class CyodaEntityControllerPrototype {
         private String fetchedAt;
     }
 }
-```
-
----
-
-### Summary of the refactoring:
-- The controller **only creates the initial entity** (with minimal data and "processing" status) and calls `addItem` with the workflow function.
-- The **workflow function** `processWeatherRequest` asynchronously:
-  - Reads entity fields,
-  - Calls the external API,
-  - Updates the entity `status`, `fetchedAt`, and `data` fields,
-  - Returns the updated entity, which is then persisted by `entityService`.
-- Removed all asynchronous calls from the controller.
-- The `getWeatherResult` endpoint returns the current stored entity, including status and data.
-- The entity is handled as a Jackson `ObjectNode` which is mutable and directly modifiable inside the workflow function.
-
----
-
-This approach cleanly separates concerns, makes the controller lightweight, and leverages the new workflow function feature for async processing and entity state management before persistence.
-
-If you want, I can help you further improve error handling or add secondary entity creation inside the workflow. Let me know!
