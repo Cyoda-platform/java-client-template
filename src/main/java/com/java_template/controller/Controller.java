@@ -1,6 +1,5 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
@@ -17,34 +16,28 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static com.java_template.common.config.Config.*;
 
 @Slf4j
 @RestController
 @RequestMapping("/cyoda/weather")
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
     private final EntityService entityService;
 
     // In-memory cache of job status and results, keyed by requestId
     private final Map<String, JobInfo> entityJobs = new ConcurrentHashMap<>();
 
-    private final HttpClient httpClient = HttpClient.newBuilder().build();
-
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(ObjectMapper objectMapper, EntityService entityService) {
+        this.objectMapper = objectMapper;
         this.entityService = entityService;
     }
 
