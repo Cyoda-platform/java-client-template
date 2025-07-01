@@ -27,20 +27,7 @@ public class Workflow {
     private static final String EXTERNAL_API_KEY = "test"; // TODO: Replace with secure key
     private static final String EXTERNAL_API_TEMPLATE = "https://api.sportsdata.io/v3/nba/scores/json/ScoresBasicFinal/%s?key=%s";
 
-    // Workflow orchestration entry point
-    public CompletableFuture<ObjectNode> processScoreFetchRequest(ObjectNode entity) {
-        return fetchExternalScores(entity)
-                .thenCompose(root -> deleteOldGames(entity, root))
-                .thenCompose(root -> addNewGames(entity, root))
-                .thenCompose(root -> notifySubscribers(entity, root))
-                .exceptionally(ex -> {
-                    log.error("Error in processScoreFetchRequest workflow", ex);
-                    return entity;
-                });
-    }
-
-    // Fetch scores from external API, return JSON array root node wrapped in CompletableFuture
-    private CompletableFuture<JsonNode> fetchExternalScores(ObjectNode entity) {
+    public CompletableFuture<ObjectNode> fetchExternalScores(ObjectNode entity) {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 String dateStr = entity.get("date").asText();
@@ -49,21 +36,24 @@ public class Workflow {
                 JsonNode root = objectMapper.readTree(jsonResponse);
                 if (!root.isArray()) {
                     log.error("Unexpected response format during score fetch");
-                    return null;
+                    entity.put("fetchStatus", "failed");
+                    return entity;
                 }
-                // Update entity state if needed
                 entity.put("fetchStatus", "fetched");
-                return root;
+                entity.set("fetchedScores", root);
+                return entity;
             } catch (Exception e) {
                 log.error("Failed to fetch external scores", e);
-                return null;
+                entity.put("fetchStatus", "failed");
+                return entity;
             }
         });
     }
 
-    // Delete old games for the date in entity, then pass root forward
-    private CompletableFuture<JsonNode> deleteOldGames(ObjectNode entity, JsonNode root) {
-        if (root == null) return CompletableFuture.completedFuture(entity);
+    public CompletableFuture<ObjectNode> deleteOldGames(ObjectNode entity) {
+        if (!entity.has("fetchStatus") || !"fetched".equals(entity.get("fetchStatus").asText())) {
+            return CompletableFuture.completedFuture(entity);
+        }
         String dateStr = entity.get("date").asText();
         Condition condition = Condition.of("$.date", "EQUALS", dateStr);
         SearchConditionRequest searchCondition = SearchConditionRequest.group("AND", condition);
@@ -76,13 +66,24 @@ public class Workflow {
                             })
                             .collect(Collectors.toList());
                     return CompletableFuture.allOf(deletes.toArray(new CompletableFuture[0]))
-                            .thenApply(v -> root);
+                            .thenApply(v -> {
+                                entity.put("oldGamesDeleted", true);
+                                return entity;
+                            });
                 });
     }
 
-    // Add new games from root JSON array, then pass root forward
-    private CompletableFuture<JsonNode> addNewGames(ObjectNode entity, JsonNode root) {
-        if (root == null) return CompletableFuture.completedFuture(entity);
+    public CompletableFuture<ObjectNode> addNewGames(ObjectNode entity) {
+        if (!entity.has("oldGamesDeleted") || !entity.get("oldGamesDeleted").asBoolean()) {
+            return CompletableFuture.completedFuture(entity);
+        }
+        if (!entity.has("fetchedScores")) {
+            return CompletableFuture.completedFuture(entity);
+        }
+        JsonNode root = entity.get("fetchedScores");
+        if (!root.isArray()) {
+            return CompletableFuture.completedFuture(entity);
+        }
         String dateStr = entity.get("date").asText();
 
         List<CompletableFuture<Void>> addFutures = new ArrayList<>();
@@ -98,18 +99,24 @@ public class Workflow {
             if (gameNode.hasNonNull("AwayTeamScore")) {
                 gameMap.put("awayScore", gameNode.get("AwayTeamScore").asInt());
             }
-            // processGame is a workflow to be applied on the game entity, assumed injected or accessible
             CompletableFuture<UUID> addFuture = entityService.addItem("game", ENTITY_VERSION, gameMap, entityService.getWorkflow("game/processGame"));
             addFutures.add(addFuture.thenAccept(uuid -> {}));
         }
         return CompletableFuture.allOf(addFutures.toArray(new CompletableFuture[0]))
-                .thenApply(v -> root);
+                .thenApply(v -> {
+                    entity.put("newGamesAdded", true);
+                    return entity;
+                });
     }
 
-    // Notify subscribers asynchronously, then complete with entity
-    private CompletableFuture<ObjectNode> notifySubscribers(ObjectNode entity, JsonNode root) {
-        if (root == null) return CompletableFuture.completedFuture(entity);
-
+    public CompletableFuture<ObjectNode> notifySubscribers(ObjectNode entity) {
+        if (!entity.has("newGamesAdded") || !entity.get("newGamesAdded").asBoolean()) {
+            return CompletableFuture.completedFuture(entity);
+        }
+        if (!entity.has("fetchedScores")) {
+            return CompletableFuture.completedFuture(entity);
+        }
+        JsonNode root = entity.get("fetchedScores");
         return entityService.getItems("subscriber", ENTITY_VERSION)
                 .thenApply(subs -> {
                     if (subs.isEmpty()) return entity;
@@ -126,10 +133,19 @@ public class Workflow {
                     for (JsonNode sub : subs) {
                         String email = sub.get("email").asText();
                         log.info("Sending email to {}:\n{}", email, content);
-                        // TODO: Replace with real email sending logic
                     }
                     entity.put("notificationStatus", "sent");
                     return entity;
                 });
     }
+
+    public CompletableFuture<ObjectNode> completeWorkflow(ObjectNode entity) {
+        if (entity.has("notificationStatus") && "sent".equals(entity.get("notificationStatus").asText())) {
+            entity.put("workflowStatus", "done");
+        } else {
+            entity.put("workflowStatus", "incomplete");
+        }
+        return CompletableFuture.completedFuture(entity);
+    }
+
 }
