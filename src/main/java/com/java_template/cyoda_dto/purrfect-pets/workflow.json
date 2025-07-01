@@ -1,0 +1,783 @@
+{
+  "@bean": "com.cyoda.core.model.stateMachine.dto.FullWorkflowContainerDto",
+  "workflow": [
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "0a101a9e-56d5-11f0-9359-ea0542ad46e4",
+      "name": "purrfect-pets:1000:purrfect-pets:1000:dd39100a-5b3d-11b2-bae8-42ec340a0077",
+      "entityClassName": "purrfect-pets.1000",
+      "creationDate": "2025-07-01T23:42:24.533+00:00",
+      "description": "Workflow for Purrfect Pets entity processing",
+      "entityShortClassName": "TreeNodeEntity",
+      "transitionIds": [
+        "0a101daa-56d5-11f0-9359-ea0542ad46e4",
+        "0a102368-56d5-11f0-9359-ea0542ad46e4",
+        "0a1028a4-56d5-11f0-9359-ea0542ad46e4",
+        "0a102de0-56d5-11f0-9359-ea0542ad46e4",
+        "0a102e94-56d5-11f0-9359-ea0542ad46e4"
+      ],
+      "criteriaIds": [
+        "0a101b5c-56d5-11f0-9359-ea0542ad46e4"
+      ],
+      "stateIds": [
+        "noneState"
+      ],
+      "active": true,
+      "useDecisionTree": false,
+      "decisionTrees": [],
+      "metaData": {
+        "documentLink": ""
+      }
+    }
+  ],
+  "transitions": [
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "0a101daa-56d5-11f0-9359-ea0542ad46e4",
+      "name": "notify_async",
+      "entityClassName": "purrfect-pets.1000",
+      "creationDate": "2025-07-01T23:42:24.533+00:00",
+      "description": "",
+      "startStateId": "0a101d0a-56d5-11f0-9359-ea0542ad46e4",
+      "endStateId": "0a101e22-56d5-11f0-9359-ea0542ad46e4",
+      "workflowId": "0a101a9e-56d5-11f0-9359-ea0542ad46e4",
+      "criteriaIds": [],
+      "endProcessesIds": [
+        {
+          "persisted": true,
+          "persistedId": "0a101eea-56d5-11f0-9359-ea0542ad46e4",
+          "runtimeId": 0
+        }
+      ],
+      "active": true,
+      "automated": true,
+      "logActivity": false
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "0a102368-56d5-11f0-9359-ea0542ad46e4",
+      "name": "invalid_entity",
+      "entityClassName": "purrfect-pets.1000",
+      "creationDate": "2025-07-01T23:42:24.533+00:00",
+      "description": "",
+      "startStateId": "noneState",
+      "endStateId": "0a1023ea-56d5-11f0-9359-ea0542ad46e4",
+      "workflowId": "0a101a9e-56d5-11f0-9359-ea0542ad46e4",
+      "criteriaIds": [
+        "0a1024c6-56d5-11f0-9359-ea0542ad46e4"
+      ],
+      "endProcessesIds": [],
+      "active": true,
+      "automated": true,
+      "logActivity": false
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "0a1028a4-56d5-11f0-9359-ea0542ad46e4",
+      "name": "validate_entity",
+      "entityClassName": "purrfect-pets.1000",
+      "creationDate": "2025-07-01T23:42:24.533+00:00",
+      "description": "",
+      "startStateId": "noneState",
+      "endStateId": "0a102926-56d5-11f0-9359-ea0542ad46e4",
+      "workflowId": "0a101a9e-56d5-11f0-9359-ea0542ad46e4",
+      "criteriaIds": [
+        "0a1029f8-56d5-11f0-9359-ea0542ad46e4"
+      ],
+      "endProcessesIds": [],
+      "active": true,
+      "automated": true,
+      "logActivity": false
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "0a102de0-56d5-11f0-9359-ea0542ad46e4",
+      "name": "complete_processing",
+      "entityClassName": "purrfect-pets.1000",
+      "creationDate": "2025-07-01T23:42:24.534+00:00",
+      "description": "",
+      "startStateId": "0a101e22-56d5-11f0-9359-ea0542ad46e4",
+      "endStateId": "0a101c56-56d5-11f0-9359-ea0542ad46e4",
+      "workflowId": "0a101a9e-56d5-11f0-9359-ea0542ad46e4",
+      "criteriaIds": [],
+      "endProcessesIds": [],
+      "active": true,
+      "automated": true,
+      "logActivity": false
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "0a102e94-56d5-11f0-9359-ea0542ad46e4",
+      "name": "enrich_entity",
+      "entityClassName": "purrfect-pets.1000",
+      "creationDate": "2025-07-01T23:42:24.534+00:00",
+      "description": "",
+      "startStateId": "0a102926-56d5-11f0-9359-ea0542ad46e4",
+      "endStateId": "0a101d0a-56d5-11f0-9359-ea0542ad46e4",
+      "workflowId": "0a101a9e-56d5-11f0-9359-ea0542ad46e4",
+      "criteriaIds": [],
+      "endProcessesIds": [
+        {
+          "persisted": true,
+          "persistedId": "0a102f34-56d5-11f0-9359-ea0542ad46e4",
+          "runtimeId": 0
+        }
+      ],
+      "active": true,
+      "automated": true,
+      "logActivity": false
+    }
+  ],
+  "criterias": [
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "0a101b5c-56d5-11f0-9359-ea0542ad46e4",
+      "name": "purrfect-pets:1000:purrfect-pets:1000:dd39100a-5b3d-11b2-bae8-42ec340a0077",
+      "entityClassName": "purrfect-pets.1000",
+      "creationDate": "2025-07-01T23:42:24.533+00:00",
+      "description": "Workflow criteria",
+      "condition": {
+        "@bean": "com.cyoda.core.conditions.GroupCondition",
+        "operator": "AND",
+        "conditions": []
+      },
+      "aliasDefs": [],
+      "parameters": [],
+      "criteriaChecker": "ConditionCriteriaChecker",
+      "user": "CYODA"
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "0a1024c6-56d5-11f0-9359-ea0542ad46e4",
+      "name": "isNotValidEntity",
+      "entityClassName": "purrfect-pets.1000",
+      "creationDate": "2025-07-01T23:42:24.533+00:00",
+      "description": "",
+      "condition": {
+        "@bean": "com.cyoda.core.conditions.GroupCondition",
+        "operator": "AND",
+        "conditions": []
+      },
+      "aliasDefs": [],
+      "parameters": [
+        {
+          "persisted": true,
+          "owner": "CYODA",
+          "id": "0a102548-56d5-11f0-9359-ea0542ad46e4",
+          "name": "Tags for filtering calculation nodes (separated by ',' or ';')",
+          "creationDate": "2025-07-01T23:42:24.533+00:00",
+          "valueType": "STRING",
+          "value": {
+            "@type": "String",
+            "value": "dd39100a-5b3d-11b2-bae8-42ec340a0077"
+          }
+        },
+        {
+          "persisted": true,
+          "owner": "CYODA",
+          "id": "0a1025de-56d5-11f0-9359-ea0542ad46e4",
+          "name": "Attach entity",
+          "creationDate": "2025-07-01T23:42:24.533+00:00",
+          "valueType": "STRING",
+          "value": {
+            "@type": "String",
+            "value": "true"
+          }
+        },
+        {
+          "persisted": true,
+          "owner": "CYODA",
+          "id": "0a102674-56d5-11f0-9359-ea0542ad46e4",
+          "name": "Calculation response timeout (ms)",
+          "creationDate": "2025-07-01T23:42:24.533+00:00",
+          "valueType": "INTEGER",
+          "value": {
+            "@type": "String",
+            "value": "300000"
+          }
+        },
+        {
+          "persisted": true,
+          "owner": "CYODA",
+          "id": "0a10270a-56d5-11f0-9359-ea0542ad46e4",
+          "name": "Retry policy",
+          "creationDate": "2025-07-01T23:42:24.533+00:00",
+          "valueType": "STRING",
+          "value": {
+            "@type": "String",
+            "value": "FIXED"
+          }
+        },
+        {
+          "persisted": true,
+          "owner": "CYODA",
+          "id": "0a1027dc-56d5-11f0-9359-ea0542ad46e4",
+          "name": "Parameter 'context'",
+          "creationDate": "2025-07-01T23:42:24.533+00:00",
+          "valueType": "STRING",
+          "value": {
+            "@type": "String",
+            "value": "{\"function\": {\"name\": \"isNotValidEntity\"}, \"type\": \"function\"}"
+          }
+        }
+      ],
+      "criteriaChecker": "ExternalizedCriteriaChecker",
+      "user": "CYODA"
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "0a1029f8-56d5-11f0-9359-ea0542ad46e4",
+      "name": "isValidEntity",
+      "entityClassName": "purrfect-pets.1000",
+      "creationDate": "2025-07-01T23:42:24.534+00:00",
+      "description": "",
+      "condition": {
+        "@bean": "com.cyoda.core.conditions.GroupCondition",
+        "operator": "AND",
+        "conditions": []
+      },
+      "aliasDefs": [],
+      "parameters": [
+        {
+          "persisted": true,
+          "owner": "CYODA",
+          "id": "0a102a7a-56d5-11f0-9359-ea0542ad46e4",
+          "name": "Tags for filtering calculation nodes (separated by ',' or ';')",
+          "creationDate": "2025-07-01T23:42:24.533+00:00",
+          "valueType": "STRING",
+          "value": {
+            "@type": "String",
+            "value": "dd39100a-5b3d-11b2-bae8-42ec340a0077"
+          }
+        },
+        {
+          "persisted": true,
+          "owner": "CYODA",
+          "id": "0a102b10-56d5-11f0-9359-ea0542ad46e4",
+          "name": "Attach entity",
+          "creationDate": "2025-07-01T23:42:24.533+00:00",
+          "valueType": "STRING",
+          "value": {
+            "@type": "String",
+            "value": "true"
+          }
+        },
+        {
+          "persisted": true,
+          "owner": "CYODA",
+          "id": "0a102ba6-56d5-11f0-9359-ea0542ad46e4",
+          "name": "Calculation response timeout (ms)",
+          "creationDate": "2025-07-01T23:42:24.534+00:00",
+          "valueType": "INTEGER",
+          "value": {
+            "@type": "String",
+            "value": "300000"
+          }
+        },
+        {
+          "persisted": true,
+          "owner": "CYODA",
+          "id": "0a102c3c-56d5-11f0-9359-ea0542ad46e4",
+          "name": "Retry policy",
+          "creationDate": "2025-07-01T23:42:24.534+00:00",
+          "valueType": "STRING",
+          "value": {
+            "@type": "String",
+            "value": "FIXED"
+          }
+        },
+        {
+          "persisted": true,
+          "owner": "CYODA",
+          "id": "0a102d04-56d5-11f0-9359-ea0542ad46e4",
+          "name": "Parameter 'context'",
+          "creationDate": "2025-07-01T23:42:24.534+00:00",
+          "valueType": "STRING",
+          "value": {
+            "@type": "String",
+            "value": "{\"function\": {\"name\": \"isValidEntity\"}, \"type\": \"function\"}"
+          }
+        }
+      ],
+      "criteriaChecker": "ExternalizedCriteriaChecker",
+      "user": "CYODA"
+    }
+  ],
+  "processes": [
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": {
+        "@bean": "com.cyoda.core.model.stateMachine.dto.ProcessIdDto",
+        "persisted": true,
+        "persistedId": "0a101eea-56d5-11f0-9359-ea0542ad46e4",
+        "runtimeId": 0
+      },
+      "name": "notifyExternalSystemAsync",
+      "entityClassName": "purrfect-pets.1000",
+      "creationDate": "2025-07-01T23:42:24.533+00:00",
+      "description": "",
+      "processorClassName": "net.cyoda.saas.externalize.processor.ExternalizedProcessor",
+      "parameters": [
+        {
+          "persisted": true,
+          "owner": "CYODA",
+          "id": "0a101fb2-56d5-11f0-9359-ea0542ad46e4",
+          "name": "Tags for filtering calculation nodes (separated by ',' or ';')",
+          "creationDate": "2025-07-01T23:42:24.533+00:00",
+          "valueType": "STRING",
+          "value": {
+            "@type": "String",
+            "value": "dd39100a-5b3d-11b2-bae8-42ec340a0077"
+          }
+        },
+        {
+          "persisted": true,
+          "owner": "CYODA",
+          "id": "0a10205c-56d5-11f0-9359-ea0542ad46e4",
+          "name": "Attach entity",
+          "creationDate": "2025-07-01T23:42:24.533+00:00",
+          "valueType": "STRING",
+          "value": {
+            "@type": "String",
+            "value": "true"
+          }
+        },
+        {
+          "persisted": true,
+          "owner": "CYODA",
+          "id": "0a1020f2-56d5-11f0-9359-ea0542ad46e4",
+          "name": "Calculation response timeout (ms)",
+          "creationDate": "2025-07-01T23:42:24.533+00:00",
+          "valueType": "INTEGER",
+          "value": {
+            "@type": "String",
+            "value": "300000"
+          }
+        },
+        {
+          "persisted": true,
+          "owner": "CYODA",
+          "id": "0a102188-56d5-11f0-9359-ea0542ad46e4",
+          "name": "Retry policy",
+          "creationDate": "2025-07-01T23:42:24.533+00:00",
+          "valueType": "STRING",
+          "value": {
+            "@type": "String",
+            "value": "FIXED"
+          }
+        },
+        {
+          "persisted": true,
+          "owner": "CYODA",
+          "id": "0a102228-56d5-11f0-9359-ea0542ad46e4",
+          "name": "Parameter 'context'",
+          "creationDate": "2025-07-01T23:42:24.533+00:00",
+          "valueType": "STRING",
+          "value": {
+            "@type": "String",
+            "value": "{\"calculation_nodes_tags\": \"dd39100a-5b3d-11b2-bae8-42ec340a0077\"}"
+          }
+        }
+      ],
+      "fields": [],
+      "syncProcess": "false",
+      "newTransactionForAsync": "true",
+      "noneTransactionalForAsync": "false",
+      "isTemplate": false,
+      "criteriaIds": [],
+      "user": "CYODA"
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": {
+        "@bean": "com.cyoda.core.model.stateMachine.dto.ProcessIdDto",
+        "persisted": true,
+        "persistedId": "0a102f34-56d5-11f0-9359-ea0542ad46e4",
+        "runtimeId": 0
+      },
+      "name": "enrichEntity",
+      "entityClassName": "purrfect-pets.1000",
+      "creationDate": "2025-07-01T23:42:24.534+00:00",
+      "description": "",
+      "processorClassName": "net.cyoda.saas.externalize.processor.ExternalizedProcessor",
+      "parameters": [
+        {
+          "persisted": true,
+          "owner": "CYODA",
+          "id": "0a102fe8-56d5-11f0-9359-ea0542ad46e4",
+          "name": "Tags for filtering calculation nodes (separated by ',' or ';')",
+          "creationDate": "2025-07-01T23:42:24.534+00:00",
+          "valueType": "STRING",
+          "value": {
+            "@type": "String",
+            "value": "dd39100a-5b3d-11b2-bae8-42ec340a0077"
+          }
+        },
+        {
+          "persisted": true,
+          "owner": "CYODA",
+          "id": "0a103088-56d5-11f0-9359-ea0542ad46e4",
+          "name": "Attach entity",
+          "creationDate": "2025-07-01T23:42:24.534+00:00",
+          "valueType": "STRING",
+          "value": {
+            "@type": "String",
+            "value": "true"
+          }
+        },
+        {
+          "persisted": true,
+          "owner": "CYODA",
+          "id": "0a10311e-56d5-11f0-9359-ea0542ad46e4",
+          "name": "Calculation response timeout (ms)",
+          "creationDate": "2025-07-01T23:42:24.534+00:00",
+          "valueType": "INTEGER",
+          "value": {
+            "@type": "String",
+            "value": "300000"
+          }
+        },
+        {
+          "persisted": true,
+          "owner": "CYODA",
+          "id": "0a1031be-56d5-11f0-9359-ea0542ad46e4",
+          "name": "Retry policy",
+          "creationDate": "2025-07-01T23:42:24.534+00:00",
+          "valueType": "STRING",
+          "value": {
+            "@type": "String",
+            "value": "FIXED"
+          }
+        },
+        {
+          "persisted": true,
+          "owner": "CYODA",
+          "id": "0a10325e-56d5-11f0-9359-ea0542ad46e4",
+          "name": "Parameter 'context'",
+          "creationDate": "2025-07-01T23:42:24.534+00:00",
+          "valueType": "STRING",
+          "value": {
+            "@type": "String",
+            "value": "{\"calculation_nodes_tags\": \"dd39100a-5b3d-11b2-bae8-42ec340a0077\"}"
+          }
+        }
+      ],
+      "fields": [],
+      "syncProcess": "false",
+      "newTransactionForAsync": "true",
+      "noneTransactionalForAsync": "false",
+      "isTemplate": false,
+      "criteriaIds": [],
+      "user": "CYODA"
+    }
+  ],
+  "states": [
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "0a101c56-56d5-11f0-9359-ea0542ad46e4",
+      "name": "completed",
+      "entityClassName": "purrfect-pets.1000",
+      "creationDate": "2025-07-01T23:42:24.533+00:00",
+      "description": ""
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "0a101d0a-56d5-11f0-9359-ea0542ad46e4",
+      "name": "enriched",
+      "entityClassName": "purrfect-pets.1000",
+      "creationDate": "2025-07-01T23:42:24.533+00:00",
+      "description": ""
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "0a101e22-56d5-11f0-9359-ea0542ad46e4",
+      "name": "notified",
+      "entityClassName": "purrfect-pets.1000",
+      "creationDate": "2025-07-01T23:42:24.533+00:00",
+      "description": ""
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "noneState",
+      "name": "none",
+      "entityClassName": "purrfect-pets.1000",
+      "creationDate": "2025-07-01T23:42:24.533+00:00",
+      "description": ""
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "0a1023ea-56d5-11f0-9359-ea0542ad46e4",
+      "name": "rejected",
+      "entityClassName": "purrfect-pets.1000",
+      "creationDate": "2025-07-01T23:42:24.533+00:00",
+      "description": ""
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "0a102926-56d5-11f0-9359-ea0542ad46e4",
+      "name": "validated",
+      "entityClassName": "purrfect-pets.1000",
+      "creationDate": "2025-07-01T23:42:24.533+00:00",
+      "description": ""
+    }
+  ],
+  "processParams": [
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "0a101fb2-56d5-11f0-9359-ea0542ad46e4",
+      "name": "Tags for filtering calculation nodes (separated by ',' or ';')",
+      "creationDate": "2025-07-01T23:42:24.533+00:00",
+      "valueType": "STRING",
+      "value": {
+        "@type": "String",
+        "value": "dd39100a-5b3d-11b2-bae8-42ec340a0077"
+      }
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "0a10205c-56d5-11f0-9359-ea0542ad46e4",
+      "name": "Attach entity",
+      "creationDate": "2025-07-01T23:42:24.533+00:00",
+      "valueType": "STRING",
+      "value": {
+        "@type": "String",
+        "value": "true"
+      }
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "0a1020f2-56d5-11f0-9359-ea0542ad46e4",
+      "name": "Calculation response timeout (ms)",
+      "creationDate": "2025-07-01T23:42:24.533+00:00",
+      "valueType": "INTEGER",
+      "value": {
+        "@type": "String",
+        "value": "300000"
+      }
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "0a102188-56d5-11f0-9359-ea0542ad46e4",
+      "name": "Retry policy",
+      "creationDate": "2025-07-01T23:42:24.533+00:00",
+      "valueType": "STRING",
+      "value": {
+        "@type": "String",
+        "value": "FIXED"
+      }
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "0a102228-56d5-11f0-9359-ea0542ad46e4",
+      "name": "Parameter 'context'",
+      "creationDate": "2025-07-01T23:42:24.533+00:00",
+      "valueType": "STRING",
+      "value": {
+        "@type": "String",
+        "value": "{\"calculation_nodes_tags\": \"dd39100a-5b3d-11b2-bae8-42ec340a0077\"}"
+      }
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "0a102548-56d5-11f0-9359-ea0542ad46e4",
+      "name": "Tags for filtering calculation nodes (separated by ',' or ';')",
+      "creationDate": "2025-07-01T23:42:24.533+00:00",
+      "valueType": "STRING",
+      "value": {
+        "@type": "String",
+        "value": "dd39100a-5b3d-11b2-bae8-42ec340a0077"
+      }
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "0a1025de-56d5-11f0-9359-ea0542ad46e4",
+      "name": "Attach entity",
+      "creationDate": "2025-07-01T23:42:24.533+00:00",
+      "valueType": "STRING",
+      "value": {
+        "@type": "String",
+        "value": "true"
+      }
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "0a102674-56d5-11f0-9359-ea0542ad46e4",
+      "name": "Calculation response timeout (ms)",
+      "creationDate": "2025-07-01T23:42:24.533+00:00",
+      "valueType": "INTEGER",
+      "value": {
+        "@type": "String",
+        "value": "300000"
+      }
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "0a10270a-56d5-11f0-9359-ea0542ad46e4",
+      "name": "Retry policy",
+      "creationDate": "2025-07-01T23:42:24.533+00:00",
+      "valueType": "STRING",
+      "value": {
+        "@type": "String",
+        "value": "FIXED"
+      }
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "0a1027dc-56d5-11f0-9359-ea0542ad46e4",
+      "name": "Parameter 'context'",
+      "creationDate": "2025-07-01T23:42:24.533+00:00",
+      "valueType": "STRING",
+      "value": {
+        "@type": "String",
+        "value": "{\"function\": {\"name\": \"isNotValidEntity\"}, \"type\": \"function\"}"
+      }
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "0a102a7a-56d5-11f0-9359-ea0542ad46e4",
+      "name": "Tags for filtering calculation nodes (separated by ',' or ';')",
+      "creationDate": "2025-07-01T23:42:24.533+00:00",
+      "valueType": "STRING",
+      "value": {
+        "@type": "String",
+        "value": "dd39100a-5b3d-11b2-bae8-42ec340a0077"
+      }
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "0a102b10-56d5-11f0-9359-ea0542ad46e4",
+      "name": "Attach entity",
+      "creationDate": "2025-07-01T23:42:24.533+00:00",
+      "valueType": "STRING",
+      "value": {
+        "@type": "String",
+        "value": "true"
+      }
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "0a102ba6-56d5-11f0-9359-ea0542ad46e4",
+      "name": "Calculation response timeout (ms)",
+      "creationDate": "2025-07-01T23:42:24.534+00:00",
+      "valueType": "INTEGER",
+      "value": {
+        "@type": "String",
+        "value": "300000"
+      }
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "0a102c3c-56d5-11f0-9359-ea0542ad46e4",
+      "name": "Retry policy",
+      "creationDate": "2025-07-01T23:42:24.534+00:00",
+      "valueType": "STRING",
+      "value": {
+        "@type": "String",
+        "value": "FIXED"
+      }
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "0a102d04-56d5-11f0-9359-ea0542ad46e4",
+      "name": "Parameter 'context'",
+      "creationDate": "2025-07-01T23:42:24.534+00:00",
+      "valueType": "STRING",
+      "value": {
+        "@type": "String",
+        "value": "{\"function\": {\"name\": \"isValidEntity\"}, \"type\": \"function\"}"
+      }
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "0a102fe8-56d5-11f0-9359-ea0542ad46e4",
+      "name": "Tags for filtering calculation nodes (separated by ',' or ';')",
+      "creationDate": "2025-07-01T23:42:24.534+00:00",
+      "valueType": "STRING",
+      "value": {
+        "@type": "String",
+        "value": "dd39100a-5b3d-11b2-bae8-42ec340a0077"
+      }
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "0a103088-56d5-11f0-9359-ea0542ad46e4",
+      "name": "Attach entity",
+      "creationDate": "2025-07-01T23:42:24.534+00:00",
+      "valueType": "STRING",
+      "value": {
+        "@type": "String",
+        "value": "true"
+      }
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "0a10311e-56d5-11f0-9359-ea0542ad46e4",
+      "name": "Calculation response timeout (ms)",
+      "creationDate": "2025-07-01T23:42:24.534+00:00",
+      "valueType": "INTEGER",
+      "value": {
+        "@type": "String",
+        "value": "300000"
+      }
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "0a1031be-56d5-11f0-9359-ea0542ad46e4",
+      "name": "Retry policy",
+      "creationDate": "2025-07-01T23:42:24.534+00:00",
+      "valueType": "STRING",
+      "value": {
+        "@type": "String",
+        "value": "FIXED"
+      }
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "0a10325e-56d5-11f0-9359-ea0542ad46e4",
+      "name": "Parameter 'context'",
+      "creationDate": "2025-07-01T23:42:24.534+00:00",
+      "valueType": "STRING",
+      "value": {
+        "@type": "String",
+        "value": "{\"calculation_nodes_tags\": \"dd39100a-5b3d-11b2-bae8-42ec340a0077\"}"
+      }
+    }
+  ]
+}
