@@ -1,8 +1,13 @@
-```java
 package com.java_template.entity.prototype;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -12,12 +17,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
-import org.springframework.util.StringUtils;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
-import javax.validation.Valid;
 import java.net.URI;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -26,24 +30,17 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
+@Validated
 @RestController
 @RequestMapping("prototype")
 public class EntityControllerPrototype {
 
     private static final Logger logger = LoggerFactory.getLogger(EntityControllerPrototype.class);
-
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // In-memory storage mocks:
-    // Key: email, Value: Subscription
     private final Map<String, Subscription> subscriptions = new ConcurrentHashMap<>();
-    // Key: gameId (UUID), Value: GameScore
     private final Map<UUID, GameScore> storedGames = new ConcurrentHashMap<>();
-
-    // ============================
-    // DTOs / Entities
-    // ============================
 
     @Data
     @NoArgsConstructor
@@ -64,55 +61,33 @@ public class EntityControllerPrototype {
         private Integer homeScore;
         private Integer awayScore;
         private String status;
-        // Add other relevant info as required
     }
 
     @Data
     static class SubscribeRequest {
+        @NotBlank
+        @Email
         private String email;
     }
 
     @Data
     static class FetchScoresRequest {
-        private String date; // optional YYYY-MM-DD
+        @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}", message = "Date must be YYYY-MM-DD")
+        private String date;
     }
 
-    // ============================
-    // API Endpoints
-    // ============================
-
-    /**
-     * POST /prototype/subscribe
-     * Subscribe user email for daily notifications.
-     */
     @PostMapping("/subscribe")
     public ResponseEntity<Map<String, String>> subscribe(@RequestBody @Valid SubscribeRequest request) {
-        String email = request.getEmail();
-        if (!StringUtils.hasText(email) || !email.contains("@")) {
-            logger.warn("Invalid subscription attempt with email: {}", email);
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid email");
-        }
-        if (subscriptions.containsKey(email.toLowerCase())) {
+        String email = request.getEmail().toLowerCase();
+        if (subscriptions.containsKey(email)) {
             logger.info("Duplicate subscription attempt for email: {}", email);
-            // Idempotent - treat as success
-            return ResponseEntity.ok(Map.of(
-                    "status", "success",
-                    "message", "Subscription already exists."
-            ));
+            return ResponseEntity.ok(Map.of("status","success","message","Subscription already exists."));
         }
-        Subscription sub = new Subscription(email.toLowerCase(), OffsetDateTime.now());
-        subscriptions.put(email.toLowerCase(), sub);
+        subscriptions.put(email, new Subscription(email, OffsetDateTime.now()));
         logger.info("New subscription added: {}", email);
-        return ResponseEntity.ok(Map.of(
-                "status", "success",
-                "message", "Subscription added."
-        ));
+        return ResponseEntity.ok(Map.of("status","success","message","Subscription added."));
     }
 
-    /**
-     * GET /prototype/subscribers
-     * Return list of all subscribed emails.
-     */
     @GetMapping("/subscribers")
     public ResponseEntity<Map<String, List<String>>> getSubscribers() {
         List<String> emails = new ArrayList<>(subscriptions.keySet());
@@ -120,238 +95,135 @@ public class EntityControllerPrototype {
         return ResponseEntity.ok(Map.of("subscribers", emails));
     }
 
-    /**
-     * POST /prototype/fetch-scores
-     * Fetch NBA scores for given date (or today), save locally, send notifications.
-     * This is fire-and-forget async.
-     */
     @PostMapping("/fetch-scores")
-    public ResponseEntity<Map<String, String>> fetchScores(@RequestBody(required = false) FetchScoresRequest request) {
-        String dateStr = null;
-        if (request != null) {
-            dateStr = request.getDate();
-        }
+    public ResponseEntity<Map<String, String>> fetchScores(@RequestBody(required = false) @Valid FetchScoresRequest request) {
+        String dateStr = request != null ? request.getDate() : null;
         LocalDate date;
         try {
-            date = dateStr == null || dateStr.isBlank()
-                    ? LocalDate.now()
-                    : LocalDate.parse(dateStr);
+            date = (dateStr == null || dateStr.isBlank()) ? LocalDate.now() : LocalDate.parse(dateStr);
         } catch (Exception ex) {
-            logger.error("Invalid date format in fetchScores request: {}", dateStr);
+            logger.error("Invalid date format: {}", dateStr);
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Date must be in YYYY-MM-DD format");
         }
-
         logger.info("Triggered fetchScores for date {}", date);
-
-        // Fire-and-forget the actual fetch, store, notify process
-        CompletableFuture.runAsync(() -> fetchStoreAndNotify(date));
-
-        return ResponseEntity.ok(Map.of(
-                "status", "success",
-                "message", "Scores fetch and notification process started."
-        ));
+        CompletableFuture.runAsync(() -> fetchStoreAndNotify(date)); // TODO: adjust executor if necessary
+        return ResponseEntity.ok(Map.of("status","success","message","Scores fetch and notification process started."));
     }
 
-    /**
-     * GET /prototype/games/all
-     * Return all stored games, with optional filtering and pagination.
-     * Query params: page, size, team, dateFrom, dateTo
-     */
     @GetMapping("/games/all")
     public ResponseEntity<Map<String, Object>> getAllGames(
-            @RequestParam(required = false, defaultValue = "0") int page,
-            @RequestParam(required = false, defaultValue = "50") int size,
-            @RequestParam(required = false) String team,
-            @RequestParam(required = false) String dateFrom,
-            @RequestParam(required = false) String dateTo) {
-
-        logger.info("Fetching all games with filters page={}, size={}, team={}, dateFrom={}, dateTo={}",
-                page, size, team, dateFrom, dateTo);
-
-        LocalDate fromDate = null;
-        LocalDate toDate = null;
+        @RequestParam(defaultValue = "0") @Min(0) int page,
+        @RequestParam(defaultValue = "50") @Min(1) int size,
+        @RequestParam(required = false) @Size(min = 1) String team,
+        @RequestParam(required = false) @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}") String dateFrom,
+        @RequestParam(required = false) @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}") String dateTo
+    ) {
+        logger.info("Fetching games page={}, size={}, team={}, dateFrom={}, dateTo={}", page, size, team, dateFrom, dateTo);
+        LocalDate from = null, to = null;
         try {
-            if (dateFrom != null && !dateFrom.isBlank()) fromDate = LocalDate.parse(dateFrom);
-            if (dateTo != null && !dateTo.isBlank()) toDate = LocalDate.parse(dateTo);
+            if (dateFrom != null) from = LocalDate.parse(dateFrom);
+            if (dateTo != null) to = LocalDate.parse(dateTo);
         } catch (Exception ex) {
-            logger.error("Invalid dateFrom/dateTo format: dateFrom={}, dateTo={}", dateFrom, dateTo);
+            logger.error("Invalid dateFrom/dateTo format");
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "dateFrom and dateTo must be YYYY-MM-DD");
         }
-
         List<GameScore> filtered = new ArrayList<>();
-        for (GameScore game : storedGames.values()) {
-            boolean matches = true;
-            if (team != null && !team.isBlank()) {
-                String teamLower = team.toLowerCase();
-                if (!game.getHomeTeam().toLowerCase().contains(teamLower) &&
-                        !game.getAwayTeam().toLowerCase().contains(teamLower)) {
-                    matches = false;
-                }
-            }
-            if (fromDate != null && game.getDate().isBefore(fromDate)) matches = false;
-            if (toDate != null && game.getDate().isAfter(toDate)) matches = false;
-            if (matches) filtered.add(game);
+        for (GameScore g : storedGames.values()) {
+            boolean ok = true;
+            if (team != null && !g.getHomeTeam().toLowerCase().contains(team.toLowerCase())
+                && !g.getAwayTeam().toLowerCase().contains(team.toLowerCase())) ok = false;
+            if (from != null && g.getDate().isBefore(from)) ok = false;
+            if (to != null && g.getDate().isAfter(to)) ok = false;
+            if (ok) filtered.add(g);
         }
-
-        // Pagination
-        int fromIndex = page * size;
-        int toIndex = Math.min(fromIndex + size, filtered.size());
-        if (fromIndex > filtered.size()) {
-            fromIndex = filtered.size();
-            toIndex = filtered.size();
-        }
-        List<GameScore> pageContent = filtered.subList(fromIndex, toIndex);
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("games", pageContent);
-        response.put("pagination", Map.of(
-                "page", page,
-                "size", size,
-                "totalPages", (int) Math.ceil((double) filtered.size() / size),
-                "totalElements", filtered.size()
-        ));
-
-        return ResponseEntity.ok(response);
+        int fromIdx = page * size;
+        int toIdx = Math.min(fromIdx + size, filtered.size());
+        if (fromIdx > filtered.size()) { fromIdx = filtered.size(); toIdx = filtered.size(); }
+        List<GameScore> content = filtered.subList(fromIdx, toIdx);
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("games", content);
+        resp.put("pagination", Map.of("page", page, "size", size,
+            "totalPages", (int)Math.ceil((double)filtered.size()/size),
+            "totalElements", filtered.size()));
+        return ResponseEntity.ok(resp);
     }
 
-    /**
-     * GET /prototype/games/{date}
-     * Return all games for a specific date.
-     */
     @GetMapping("/games/{date}")
-    public ResponseEntity<Map<String, List<GameScore>>> getGamesByDate(@PathVariable String date) {
-        LocalDate localDate;
-        try {
-            localDate = LocalDate.parse(date);
-        } catch (Exception ex) {
-            logger.error("Invalid date format for getGamesByDate: {}", date);
+    public ResponseEntity<Map<String, List<GameScore>>> getGamesByDate(
+        @PathVariable @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}") String date
+    ) {
+        // @Pattern ensures correct format for PathVariable
+        LocalDate d;
+        try { d = LocalDate.parse(date); }
+        catch (Exception ex) {
+            logger.error("Invalid date format: {}", date);
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Date must be in YYYY-MM-DD format");
         }
         List<GameScore> result = new ArrayList<>();
-        for (GameScore game : storedGames.values()) {
-            if (game.getDate().equals(localDate)) {
-                result.add(game);
-            }
+        for (GameScore g : storedGames.values()) {
+            if (g.getDate().equals(d)) result.add(g);
         }
         logger.info("Returning {} games for date {}", result.size(), date);
         return ResponseEntity.ok(Map.of("games", result));
     }
 
-    // ============================
-    // Internal logic (mocked)
-    // ============================
-
-    /**
-     * Fetch scores from external API, store them, and send notifications.
-     * Runs asynchronously in fire-and-forget style.
-     */
     @Async
     void fetchStoreAndNotify(LocalDate date) {
         logger.info("Started fetchStoreAndNotify for date {}", date);
         try {
-            // Build external API URL
-            String url = "https://api.sportsdata.io/v3/nba/scores/json/ScoresBasicFinal/" + date.toString() + "?key=test";
-
-            logger.info("Calling external NBA API: {}", url);
-            String rawJson = restTemplate.getForObject(new URI(url), String.class);
-
-            JsonNode rootNode = objectMapper.readTree(rawJson);
-            if (!rootNode.isArray()) {
-                logger.warn("Unexpected JSON response format: expected array but got {}", rootNode.getNodeType());
+            String url = "https://api.sportsdata.io/v3/nba/scores/json/ScoresBasicFinal/" + date + "?key=test";
+            String raw = restTemplate.getForObject(new URI(url), String.class);
+            JsonNode arr = objectMapper.readTree(raw);
+            if (!arr.isArray()) {
+                logger.warn("Expected array JSON but got {}", arr.getNodeType());
                 return;
             }
-
-            int savedCount = 0;
-            for (JsonNode gameNode : rootNode) {
-                // Extract relevant fields with fallback to default values
-                String homeTeam = gameNode.path("HomeTeam").asText(null);
-                String awayTeam = gameNode.path("AwayTeam").asText(null);
-                Integer homeScore = gameNode.path("HomeTeamScore").isInt() ? gameNode.path("HomeTeamScore").asInt() : null;
-                Integer awayScore = gameNode.path("AwayTeamScore").isInt() ? gameNode.path("AwayTeamScore").asInt() : null;
-                String status = gameNode.path("Status").asText(null);
-
-                if (homeTeam == null || awayTeam == null) {
-                    logger.warn("Skipping game due to missing team info: {}", gameNode.toString());
-                    continue;
-                }
-
-                GameScore game = new GameScore(
-                        UUID.randomUUID(),
-                        date,
-                        homeTeam,
-                        awayTeam,
-                        homeScore,
-                        awayScore,
-                        status
-                );
-
-                storedGames.put(game.getId(), game);
-                savedCount++;
+            for (JsonNode n : arr) {
+                String home = n.path("HomeTeam").asText(null);
+                String away = n.path("AwayTeam").asText(null);
+                Integer hScore = n.path("HomeTeamScore").isInt() ? n.path("HomeTeamScore").asInt() : null;
+                Integer aScore = n.path("AwayTeamScore").isInt() ? n.path("AwayTeamScore").asInt() : null;
+                String stat = n.path("Status").asText(null);
+                if (home == null || away == null) continue;
+                GameScore gs = new GameScore(UUID.randomUUID(), date, home, away, hScore, aScore, stat);
+                storedGames.put(gs.getId(), gs);
             }
-
-            logger.info("Stored {} games for date {}", savedCount, date);
-
-            // Send notifications to subscribers
             notifySubscribers(date);
-
         } catch (Exception ex) {
-            logger.error("Error in fetchStoreAndNotify: ", ex);
+            logger.error("Error in fetchStoreAndNotify", ex);
         }
     }
 
-    /**
-     * Mock sending email notifications to all subscribers.
-     * TODO: Replace with real email sending logic.
-     */
     private void notifySubscribers(LocalDate date) {
-        // Gather scores summary
-        List<GameScore> gamesForDate = new ArrayList<>();
-        for (GameScore game : storedGames.values()) {
-            if (game.getDate().equals(date)) {
-                gamesForDate.add(game);
-            }
-        }
-
-        StringBuilder sb = new StringBuilder();
-        sb.append("Daily NBA Scores for ").append(date).append(":\n\n");
-        for (GameScore game : gamesForDate) {
-            sb.append(String.format("%s vs %s: %d - %d | Status: %s\n",
-                    game.getAwayTeam(), game.getHomeTeam(),
-                    Optional.ofNullable(game.getAwayScore()).orElse(-1),
-                    Optional.ofNullable(game.getHomeScore()).orElse(-1),
-                    Optional.ofNullable(game.getStatus()).orElse("N/A")));
-        }
-
-        String message = sb.toString();
-
-        subscriptions.values().forEach(sub -> {
-            // TODO: Replace this with real async email sending
-            logger.info("Sending email to {} with content:\n{}", sub.getEmail(), message);
-        });
-
+        StringBuilder sb = new StringBuilder("Daily NBA Scores for " + date + ":\n");
+        List<GameScore> games = new ArrayList<>();
+        for (GameScore g : storedGames.values()) if (g.getDate().equals(date)) games.add(g);
+        games.forEach(g -> sb.append(String.format("%s vs %s: %d-%d\n",
+            g.getAwayTeam(), g.getHomeTeam(),
+            Optional.ofNullable(g.getAwayScore()).orElse(-1),
+            Optional.ofNullable(g.getHomeScore()).orElse(-1))));
+        String msg = sb.toString();
+        subscriptions.keySet().forEach(email ->
+            logger.info("Sending email to {}: \n{}", email, msg) // TODO replace with real email send
+        );
         logger.info("Notifications sent to {} subscribers", subscriptions.size());
     }
-
-    // ============================
-    // Error handling
-    // ============================
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<Map<String, String>> handleResponseStatusException(ResponseStatusException ex) {
         logger.error("Handled ResponseStatusException: {}", ex.getMessage());
         return ResponseEntity.status(ex.getStatusCode()).body(Map.of(
-                "error", ex.getStatusCode().toString(),
-                "message", ex.getReason()
+            "error", ex.getStatusCode().toString(),
+            "message", ex.getReason()
         ));
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, String>> handleGenericException(Exception ex) {
-        logger.error("Unhandled exception: ", ex);
+        logger.error("Unhandled exception", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
-                "error", HttpStatus.INTERNAL_SERVER_ERROR.toString(),
-                "message", "Internal server error"
+            "error", HttpStatus.INTERNAL_SERVER_ERROR.toString(),
+            "message", "Internal server error"
         ));
     }
 }
-```
