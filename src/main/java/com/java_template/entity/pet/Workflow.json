@@ -1,0 +1,54 @@
+{
+    "description": "Purrfect Pets Entity Workflow FSM",
+    "initial_state": "none",
+    "states": {
+        "check_sync_from_petstore": {
+            "transitions": {
+                "sync_false": {
+                    "next": "finalize"
+                },
+                "sync_true": {
+                    "condition": {
+                        "function": {
+                            "name": "shouldSyncFromPetstore"
+                        },
+                        "type": "function"
+                    },
+                    "next": "process_pet_sync"
+                }
+            }
+        },
+        "finalize": {
+            "transitions": {}
+        },
+        "none": {
+            "transitions": {
+                "to_normalize_status": {
+                    "next": "normalize_status"
+                }
+            }
+        },
+        "normalize_status": {
+            "transitions": {
+                "to_check_sync_flag": {
+                    "action": {
+                        "name": "normalizeStatus"
+                    },
+                    "next": "check_sync_from_petstore"
+                }
+            }
+        },
+        "process_pet_sync": {
+            "transitions": {
+                "to_finalize": {
+                    "action": {
+                        "name": "processPetSync"
+                    },
+                    "next": "finalize"
+                }
+            }
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "purrfect_pets_workflow"
+}
