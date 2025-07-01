@@ -1,60 +1,60 @@
 {
-    "description": "NBA Score Fetch Request Workflow FSM",
-    "initial_state": "none",
-    "states": {
-        "addNewGames": {
-            "transitions": {
-                "new_games_added": {
-                    "action": {
-                        "name": "notifySubscribers"
-                    },
-                    "next": "notifySubscribers"
-                }
-            }
-        },
-        "deleteOldGames": {
-            "transitions": {
-                "old_games_deleted": {
-                    "action": {
-                        "name": "addNewGames"
-                    },
-                    "next": "addNewGames"
-                }
-            }
-        },
-        "done": {
-            "transitions": {}
-        },
-        "fetchExternalScores": {
-            "transitions": {
-                "scores_fetched": {
-                    "action": {
-                        "name": "deleteOldGames"
-                    },
-                    "next": "deleteOldGames"
-                }
-            }
-        },
-        "none": {
-            "transitions": {
-                "fetch_scores": {
-                    "action": {
-                        "name": "fetchExternalScores"
-                    },
-                    "next": "fetchExternalScores"
-                }
-            }
-        },
-        "notifySubscribers": {
-            "transitions": {
-                "notifications_sent": {
-                    "action": {
-                        "name": "completeWorkflow"
-                    },
-                    "next": "done"
-                }
-            }
+  "description": "NBA Score Fetch Request Workflow FSM",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "fetch_scores": {
+          "action": {
+            "name": "fetchExternalScores"
+          },
+          "next": "fetchExternalScores"
         }
+      }
     },
-    "workflow_name": "scoreFetchRequest_workflow"
+    "fetchExternalScores": {
+      "transitions": {
+        "scores_fetched": {
+          "action": {
+            "name": "deleteOldGames"
+          },
+          "next": "deleteOldGames"
+        }
+      }
+    },
+    "deleteOldGames": {
+      "transitions": {
+        "old_games_deleted": {
+          "action": {
+            "name": "addNewGames"
+          },
+          "next": "addNewGames"
+        }
+      }
+    },
+    "addNewGames": {
+      "transitions": {
+        "new_games_added": {
+          "action": {
+            "name": "notifySubscribers"
+          },
+          "next": "notifySubscribers"
+        }
+      }
+    },
+    "notifySubscribers": {
+      "transitions": {
+        "notifications_sent": {
+          "action": {
+            "name": "completeWorkflow"
+          },
+          "next": "done"
+        }
+      }
+    },
+    "done": {
+      "transitions": {}
+    }
+  },
+  "workflow_name": "scoreFetchRequest_workflow"
 }
