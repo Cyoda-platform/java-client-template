@@ -1,62 +1,62 @@
 {
-    "description": "Workflow for Purrfect Pets entity processing",
-    "initial_state": "none",
-    "states": {
-        "completed": {
-            "transitions": {}
+  "description": "Workflow for Purrfect Pets entity processing",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "invalid_entity": {
+          "condition": {
+            "function": {
+              "name": "isNotValidEntity"
+            },
+            "type": "function"
+          },
+          "next": "rejected"
         },
-        "enriched": {
-            "transitions": {
-                "notify_async": {
-                    "action": {
-                        "name": "notifyExternalSystemAsync"
-                    },
-                    "next": "notified"
-                }
-            }
-        },
-        "none": {
-            "transitions": {
-                "invalid_entity": {
-                    "condition": {
-                        "function": {
-                            "name": "isNotValidEntity"
-                        },
-                        "type": "function"
-                    },
-                    "next": "rejected"
-                },
-                "validate_entity": {
-                    "condition": {
-                        "function": {
-                            "name": "isValidEntity"
-                        },
-                        "type": "function"
-                    },
-                    "next": "validated"
-                }
-            }
-        },
-        "notified": {
-            "transitions": {
-                "complete_processing": {
-                    "next": "completed"
-                }
-            }
-        },
-        "rejected": {
-            "transitions": {}
-        },
-        "validated": {
-            "transitions": {
-                "enrich_entity": {
-                    "action": {
-                        "name": "enrichEntity"
-                    },
-                    "next": "enriched"
-                }
-            }
+        "validate_entity": {
+          "condition": {
+            "function": {
+              "name": "isValidEntity"
+            },
+            "type": "function"
+          },
+          "next": "validated"
         }
+      }
     },
-    "workflow_name": "processpurrfect_pets_workflow"
+    "rejected": {
+      "transitions": {}
+    },
+    "validated": {
+      "transitions": {
+        "enrich_entity": {
+          "action": {
+            "name": "enrichEntity"
+          },
+          "next": "enriched"
+        }
+      }
+    },
+    "enriched": {
+      "transitions": {
+        "notify_async": {
+          "action": {
+            "name": "notifyExternalSystemAsync"
+          },
+          "next": "notified"
+        }
+      }
+    },
+    "notified": {
+      "transitions": {
+        "complete_processing": {
+          "next": "completed"
+        }
+      }
+    },
+    "completed": {
+      "transitions": {}
+    }
+  },
+  "workflow_name": "processpurrfect_pets_workflow"
 }
