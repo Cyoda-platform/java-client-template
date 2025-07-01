@@ -1,9 +1,8 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
@@ -18,31 +17,26 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.net.URI;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
 
 @RestController
 @RequestMapping("cyoda-entity-prototype")
 @Validated
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @Data
@@ -124,22 +118,31 @@ public class CyodaEntityControllerPrototype {
 
     @PostMapping("/subscribe")
     public CompletableFuture<ResponseEntity<SubscribeResponse>> subscribe(@Valid @RequestBody SubscribeRequest request) {
+        logger.info("Received subscription request for email: {}", request.getEmail());
         ObjectNode subscriberEntity = objectMapper.createObjectNode();
         subscriberEntity.put("email", request.getEmail().toLowerCase(Locale.ROOT).trim());
         return entityService.addItem("Subscriber", ENTITY_VERSION, subscriberEntity)
-                .thenApply(uuid -> ResponseEntity.ok(new SubscribeResponse("Subscription successful", request.getEmail())));
+                .thenApply(uuid -> {
+                    logger.info("Subscription successful for email: {}", request.getEmail());
+                    return ResponseEntity.ok(new SubscribeResponse("Subscription successful", request.getEmail()));
+                });
     }
 
     @PostMapping("/fetch-and-notify")
     public CompletableFuture<ResponseEntity<FetchAndNotifyResponse>> fetchAndNotify(@Valid @RequestBody FetchAndNotifyRequest request) {
+        logger.info("Starting fetch and notify for date: {}", request.getDate());
         ObjectNode fetchRequestEntity = objectMapper.createObjectNode();
         fetchRequestEntity.put("date", request.getDate().trim());
         return entityService.addItem("FetchRequest", ENTITY_VERSION, fetchRequestEntity)
-                .thenApply(uuid -> ResponseEntity.ok(new FetchAndNotifyResponse("Data fetching and notification started for date " + request.getDate())));
+                .thenApply(uuid -> {
+                    logger.info("Fetch and notify started for date: {}", request.getDate());
+                    return ResponseEntity.ok(new FetchAndNotifyResponse("Data fetching and notification started for date " + request.getDate()));
+                });
     }
 
     @GetMapping("/subscribers")
     public CompletableFuture<ResponseEntity<SubscribersResponse>> getSubscribers() {
+        logger.info("Fetching subscribers list");
         return entityService.getItems("Subscriber", ENTITY_VERSION)
                 .thenApply(arrayNode -> {
                     List<String> emails = new ArrayList<>();
@@ -148,6 +151,7 @@ public class CyodaEntityControllerPrototype {
                             emails.add(node.get("email").asText());
                         }
                     }
+                    logger.info("Fetched {} subscribers", emails.size());
                     return ResponseEntity.ok(new SubscribersResponse(emails));
                 });
     }
@@ -156,6 +160,7 @@ public class CyodaEntityControllerPrototype {
     public CompletableFuture<ResponseEntity<GamesResponse>> getAllGames(
             @RequestParam(defaultValue = "1") @Min(1) int page,
             @RequestParam(defaultValue = "20") @Min(1) int pageSize) {
+        logger.info("Fetching all games - page: {}, pageSize: {}", page, pageSize);
         return entityService.getItems("Game", ENTITY_VERSION)
                 .thenApply(arrayNode -> {
                     List<Game> allGames = new ArrayList<>();
@@ -172,6 +177,7 @@ public class CyodaEntityControllerPrototype {
                     int toIndex = Math.min(fromIndex + pageSize, total);
                     List<Game> pagedGames = fromIndex >= toIndex ? Collections.emptyList() : allGames.subList(fromIndex, toIndex);
                     Pagination pagination = new Pagination(page, pageSize, totalPages);
+                    logger.info("Returning {} games, page {}/{}", pagedGames.size(), page, totalPages);
                     return ResponseEntity.ok(new GamesResponse(pagedGames, pagination));
                 });
     }
@@ -179,6 +185,7 @@ public class CyodaEntityControllerPrototype {
     @GetMapping("/games/{date}")
     public CompletableFuture<ResponseEntity<GamesByDateResponse>> getGamesByDate(
             @PathVariable @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}", message = "Date format must be YYYY-MM-DD") String date) {
+        logger.info("Fetching games for date: {}", date);
         SearchConditionRequest condition = SearchConditionRequest.group("AND",
                 Condition.of("$.date", "EQUALS", date));
         return entityService.getItemsByCondition("Game", ENTITY_VERSION, condition)
@@ -187,6 +194,7 @@ public class CyodaEntityControllerPrototype {
                     for (JsonNode node : arrayNode) {
                         games.add(convertNodeToGame(node));
                     }
+                    logger.info("Fetched {} games for date {}", games.size(), date);
                     return ResponseEntity.ok(new GamesByDateResponse(date, games));
                 });
     }
