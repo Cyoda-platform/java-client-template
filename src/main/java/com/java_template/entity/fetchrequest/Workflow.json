@@ -1,92 +1,92 @@
 {
-    "description": "NBA Scores Fetch & Notify FSM",
-    "initial_state": "none",
-    "states": {
-        "completed": {
-            "transitions": {}
+  "description": "NBA Scores Fetch & Notify FSM",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "invalid_fetch_request": {
+          "condition": {
+            "function": {
+              "name": "isValidFetchRequest",
+              "negate": true
+            },
+            "type": "function"
+          },
+          "next": "error"
         },
-        "error": {
-            "transitions": {}
-        },
-        "fetching": {
-            "transitions": {
-                "fetch_complete": {
-                    "condition": {
-                        "function": {
-                            "name": "isFetchSuccessful"
-                        },
-                        "type": "function"
-                    },
-                    "next": "notifying"
-                },
-                "fetch_failed": {
-                    "condition": {
-                        "function": {
-                            "name": "isFetchFailed"
-                        },
-                        "type": "function"
-                    },
-                    "next": "error"
-                }
-            }
-        },
-        "none": {
-            "transitions": {
-                "invalid_fetch_request": {
-                    "condition": {
-                        "function": {
-                            "name": "isValidFetchRequest",
-                            "negate": true
-                        },
-                        "type": "function"
-                    },
-                    "next": "error"
-                },
-                "start_fetch": {
-                    "action": {
-                        "attach_entity": "true",
-                        "calculation_nodes_tags": "nba_scores",
-                        "calculation_response_timeout_ms": "300000",
-                        "name": "fetchGamesAndNotifySubscribersAsync",
-                        "new_transaction_for_async": "true",
-                        "none_transactional_for_async": "false",
-                        "owner": "CYODA",
-                        "retry_policy": "FIXED",
-                        "sync_process": "false",
-                        "user": "CYODA"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "isValidFetchRequest"
-                        },
-                        "type": "function"
-                    },
-                    "next": "fetching"
-                }
-            }
-        },
-        "notifying": {
-            "transitions": {
-                "notify_complete": {
-                    "condition": {
-                        "function": {
-                            "name": "isNotifySuccessful"
-                        },
-                        "type": "function"
-                    },
-                    "next": "completed"
-                },
-                "notify_failed": {
-                    "condition": {
-                        "function": {
-                            "name": "isNotifyFailed"
-                        },
-                        "type": "function"
-                    },
-                    "next": "error"
-                }
-            }
+        "start_fetch": {
+          "action": {
+            "attach_entity": "true",
+            "calculation_nodes_tags": "nba_scores",
+            "calculation_response_timeout_ms": "300000",
+            "name": "fetchGamesAndNotifySubscribersAsync",
+            "new_transaction_for_async": "true",
+            "none_transactional_for_async": "false",
+            "owner": "CYODA",
+            "retry_policy": "FIXED",
+            "sync_process": "false",
+            "user": "CYODA"
+          },
+          "condition": {
+            "function": {
+              "name": "isValidFetchRequest"
+            },
+            "type": "function"
+          },
+          "next": "fetching"
         }
+      }
     },
-    "workflow_name": "nba_scores_workflow"
+    "error": {
+      "transitions": {}
+    },
+    "fetching": {
+      "transitions": {
+        "fetch_complete": {
+          "condition": {
+            "function": {
+              "name": "isFetchSuccessful"
+            },
+            "type": "function"
+          },
+          "next": "notifying"
+        },
+        "fetch_failed": {
+          "condition": {
+            "function": {
+              "name": "isFetchFailed"
+            },
+            "type": "function"
+          },
+          "next": "error"
+        }
+      }
+    },
+    "notifying": {
+      "transitions": {
+        "notify_complete": {
+          "condition": {
+            "function": {
+              "name": "isNotifySuccessful"
+            },
+            "type": "function"
+          },
+          "next": "completed"
+        },
+        "notify_failed": {
+          "condition": {
+            "function": {
+              "name": "isNotifyFailed"
+            },
+            "type": "function"
+          },
+          "next": "error"
+        }
+      }
+    },
+    "completed": {
+      "transitions": {}
+    }
+  },
+  "workflow_name": "nba_scores_workflow"
 }
