@@ -1,80 +1,80 @@
 {
-    "description": "NBA Scores fetch/store/notify workflow",
-    "initial_state": "none",
-    "states": {
-        "done": {
-            "transitions": {}
-        },
-        "fetch_scores": {
-            "transitions": {
-                "fetch_failure": {
-                    "condition": {
-                        "function": {
-                            "name": "fetchScoresFailure"
-                        },
-                        "type": "function"
-                    },
-                    "next": "done"
-                },
-                "fetch_success": {
-                    "condition": {
-                        "function": {
-                            "name": "fetchScoresSuccess"
-                        },
-                        "type": "function"
-                    },
-                    "next": "store_scores"
-                }
-            }
-        },
-        "none": {
-            "transitions": {
-                "start_fetch": {
-                    "action": {
-                        "name": "startFetchScores"
-                    },
-                    "next": "fetch_scores"
-                }
-            }
-        },
-        "notify_subscribers": {
-            "transitions": {
-                "notification_sent": {
-                    "action": {
-                        "name": "sendNotifications"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "notifySubscribersSuccess"
-                        },
-                        "type": "function"
-                    },
-                    "next": "done"
-                }
-            }
-        },
-        "store_scores": {
-            "transitions": {
-                "store_failure": {
-                    "condition": {
-                        "function": {
-                            "name": "storeScoresFailure"
-                        },
-                        "type": "function"
-                    },
-                    "next": "done"
-                },
-                "store_success": {
-                    "condition": {
-                        "function": {
-                            "name": "storeScoresSuccess"
-                        },
-                        "type": "function"
-                    },
-                    "next": "notify_subscribers"
-                }
-            }
+  "description": "NBA Scores fetch/store/notify workflow",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_fetch": {
+          "action": {
+            "name": "startFetchScores"
+          },
+          "next": "fetch_scores"
         }
+      }
     },
-    "workflow_name": "nba_scores_workflow"
+    "fetch_scores": {
+      "transitions": {
+        "fetch_failure": {
+          "condition": {
+            "function": {
+              "name": "fetchScoresFailure"
+            },
+            "type": "function"
+          },
+          "next": "done"
+        },
+        "fetch_success": {
+          "condition": {
+            "function": {
+              "name": "fetchScoresSuccess"
+            },
+            "type": "function"
+          },
+          "next": "store_scores"
+        }
+      }
+    },
+    "done": {
+      "transitions": {}
+    },
+    "store_scores": {
+      "transitions": {
+        "store_failure": {
+          "condition": {
+            "function": {
+              "name": "storeScoresFailure"
+            },
+            "type": "function"
+          },
+          "next": "done"
+        },
+        "store_success": {
+          "condition": {
+            "function": {
+              "name": "storeScoresSuccess"
+            },
+            "type": "function"
+          },
+          "next": "notify_subscribers"
+        }
+      }
+    },
+    "notify_subscribers": {
+      "transitions": {
+        "notification_sent": {
+          "action": {
+            "name": "sendNotifications"
+          },
+          "condition": {
+            "function": {
+              "name": "notifySubscribersSuccess"
+            },
+            "type": "function"
+          },
+          "next": "done"
+        }
+      }
+    }
+  },
+  "workflow_name": "nba_scores_workflow"
 }
