@@ -2,7 +2,7 @@
     "description": "Purrfect Pets Entity Workflow FSM",
     "initial_state": "none",
     "states": {
-        "check_sync_from_petstore": {
+        "check_sync_flag": {
             "transitions": {
                 "sync_false": {
                     "next": "finalize"
@@ -34,7 +34,7 @@
                     "action": {
                         "name": "normalizeStatus"
                     },
-                    "next": "check_sync_from_petstore"
+                    "next": "check_sync_flag"
                 }
             }
         },
