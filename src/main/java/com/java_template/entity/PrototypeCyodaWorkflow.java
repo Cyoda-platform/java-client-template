@@ -1,20 +1,3 @@
-Certainly! Moving asynchronous tasks and business logic into the workflow function (`process{entity_name}`) is a great approach to simplify controllers and centralize entity processing logic.
-
-Here’s the plan for the refactor:
-
-- Convert the existing `processPet(Pet)` method to take and return `ObjectNode` (the JSON tree representation of the entity) instead of the POJO.
-- Move all async logic from controller endpoints into `processPet`.
-- For example:
-  - In the sync endpoint, move the logic that fetches from Petstore API and adds pets into `processPet`.
-  - In addPet, updatePet, deletePet endpoints, remove any async logic and rely on the workflow to handle any asynchronous or secondary data management if needed.
-- The controller endpoints will become thin wrappers that simply call `entityService.addItem` or `updateItem` with the entity and the workflow function.
-- Since `processPet` cannot add/update/delete the same entityModel (`pet`), but can add other entities, you may need to handle secondary data there if required.
-
----
-
-### Updated full Java controller with workflow logic moved inside `processPet`
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -42,7 +25,6 @@ import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
 
@@ -96,7 +78,7 @@ public class CyodaEntityControllerPrototype {
 
     @Data @NoArgsConstructor @AllArgsConstructor
     static class UpdatePetRequest {
-        @NotBlank
+        @NotNull
         private UUID id;
         private String name;
         private String type;
@@ -119,29 +101,24 @@ public class CyodaEntityControllerPrototype {
 
     private final Map<String, JobStatus> syncJobs = new ConcurrentHashMap<>();
 
-    /**
-     * Workflow function applied asynchronously before persisting the Pet entity.
-     * This function can:
-     * - modify the entity state directly (entity.put(...))
-     * - perform async tasks or fire-and-forget logic
-     * - get/add entities of other models (but NOT pet itself)
-     */
+    // Workflow function applied asynchronously before persisting the Pet entity.
+    // Can modify entity, perform async tasks, add/get other entityModels but cannot add/update/delete pet itself.
     private ObjectNode processPet(ObjectNode entity) {
         try {
-            // Example: Normalize status to uppercase
-            if (entity.has("status") && !entity.get("status").isNull()) {
+            // Normalize status to uppercase if present
+            if (entity.hasNonNull("status")) {
                 String status = entity.get("status").asText();
                 entity.put("status", status.toUpperCase(Locale.ROOT));
             }
 
-            // If entity has a special field "syncFromPetstore" = true, perform sync logic here:
+            // Process syncFromPetstore flag - triggers Petstore API sync logic
             if (entity.has("syncFromPetstore") && entity.get("syncFromPetstore").asBoolean(false)) {
-                String typeFilter = entity.has("type") ? entity.get("type").asText(null) : null;
-                String statusFilter = entity.has("status") ? entity.get("status").asText(null) : "available";
+                String typeFilter = entity.hasNonNull("type") ? entity.get("type").asText() : null;
+                String statusFilter = entity.hasNonNull("status") ? entity.get("status").asText() : "available";
 
-                // Fetch pets from Petstore API
                 URI uri = new URI("https://petstore.swagger.io/v2/pet/findByStatus?status=" + statusFilter);
                 log.info("processPet: Fetching pets from Petstore API: {}", uri);
+
                 String raw = restTemplate.getForObject(uri, String.class);
                 if (raw != null) {
                     var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
@@ -150,31 +127,41 @@ public class CyodaEntityControllerPrototype {
                         for (var petNode : root) {
                             String petType = petNode.path("category").path("name").asText(null);
                             if (typeFilter != null && (petType == null || !typeFilter.equalsIgnoreCase(petType))) {
-                                continue; // filter by type if specified
+                                continue; // skip if type filter does not match
                             }
+                            // Create new pet entity node
                             ObjectNode newPet = mapper.createObjectNode();
                             newPet.put("name", petNode.path("name").asText("Unnamed"));
                             newPet.put("type", petType);
-                            newPet.put("age", (Integer) null);
+                            newPet.putNull("age");
                             newPet.put("status", statusFilter.toUpperCase(Locale.ROOT));
-                            // Add new pet entity asynchronously - different entityModel is allowed
-                            // But here pet is current entityModel, so we cannot add pet directly
-                            // Instead, we use entityService.addItem with pet model name and workflow
-                            // But we cannot call entityService.addItem here because it modifies pet entityModel
-                            // So we can do fire-and-forget async calls with another thread or external service
-                            // Since workflow cannot add/update/delete same entityModel, we skip direct add here
-                            // Instead we could add a secondary entity type like "petBackup" or similar if exists
+
+                            // Add new pet entity asynchronously
+                            // Cannot add pet inside workflow for pet entityModel - causes infinite recursion
+                            // So add to a different entityModel "petBackup" (example) or log for manual processing
+                            // If no such model exists, skip adding here and just log
+                            try {
+                                entityService.addItem("petBackup", ENTITY_VERSION, newPet, entityNode -> {
+                                    // Simple normalize status uppercase in backup pet workflow as well
+                                    if (entityNode.hasNonNull("status")) {
+                                        entityNode.put("status", entityNode.get("status").asText().toUpperCase(Locale.ROOT));
+                                    }
+                                    return entityNode;
+                                });
+                            } catch (Exception ex) {
+                                log.warn("Failed to add petBackup entity during sync: {}", ex.toString());
+                            }
                         }
                     }
                 }
-                // Remove the flag after processing to avoid repeated sync
+
+                // Remove the sync flag to avoid repeated sync
                 entity.remove("syncFromPetstore");
             }
 
             return entity;
         } catch (Exception e) {
             log.error("Error in processPet workflow: {}", e.getMessage(), e);
-            // optionally add error info to entity
             entity.put("workflowError", e.getMessage());
             return entity;
         }
@@ -182,20 +169,19 @@ public class CyodaEntityControllerPrototype {
 
     @PostMapping("/sync")
     public ResponseEntity<SyncResponse> syncPets(@RequestBody @Valid SyncRequest request) {
-        logger.info("Received sync request from source={} type={} status={}",
-                request.getSource(), request.getType(), request.getStatus());
+        log.info("Received sync request from source={} type={} status={}", request.getSource(), request.getType(), request.getStatus());
+
         if (!"petstore".equalsIgnoreCase(request.getSource())) {
-            throw new ResponseStatusException(
-                    org.springframework.http.HttpStatus.BAD_REQUEST,
-                    "Unsupported source: " + request.getSource()
-            );
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Unsupported source: " + request.getSource());
         }
+
         // Create a transient pet entity with sync flag to trigger workflow sync logic
         ObjectNode syncEntity = new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode();
         syncEntity.put("syncFromPetstore", true);
         if (request.getType() != null) syncEntity.put("type", request.getType());
         if (request.getStatus() != null) syncEntity.put("status", request.getStatus());
-        // Add this entity; workflow will perform sync from Petstore API
+
+        // Add entity; workflow will perform sync asynchronously before persistence
         CompletableFuture<UUID> idFuture = entityService.addItem("pet", ENTITY_VERSION, syncEntity, this::processPet);
         UUID id = idFuture.join();
 
@@ -207,7 +193,8 @@ public class CyodaEntityControllerPrototype {
             @RequestParam(required = false) String type,
             @RequestParam(required = false) String status
     ) {
-        logger.info("Fetching pets with filters type={} status={}", type, status);
+        log.info("Fetching pets with filters type={} status={}", type, status);
+
         SearchConditionRequest condition = null;
         if (type != null && status != null) {
             condition = SearchConditionRequest.group("AND",
@@ -220,13 +207,13 @@ public class CyodaEntityControllerPrototype {
             condition = SearchConditionRequest.group("AND",
                     Condition.of("$.status", "IEQUALS", status));
         }
-        CompletableFuture<ArrayNode> itemsFuture;
-        if (condition != null) {
-            itemsFuture = entityService.getItemsByCondition("pet", ENTITY_VERSION, condition);
-        } else {
-            itemsFuture = entityService.getItems("pet", ENTITY_VERSION);
-        }
+
+        CompletableFuture<ArrayNode> itemsFuture = (condition != null)
+                ? entityService.getItemsByCondition("pet", ENTITY_VERSION, condition)
+                : entityService.getItems("pet", ENTITY_VERSION);
+
         ArrayNode arrayNode = itemsFuture.join();
+
         List<Pet> result = new ArrayList<>();
         for (var itemNode : arrayNode) {
             ObjectNode obj = (ObjectNode) itemNode;
@@ -234,7 +221,7 @@ public class CyodaEntityControllerPrototype {
             pet.setTechnicalId(UUID.fromString(obj.path("technicalId").asText()));
             pet.setName(obj.path("name").asText(null));
             pet.setType(obj.path("type").asText(null));
-            if (obj.has("age") && !obj.get("age").isNull()) {
+            if (obj.hasNonNull("age")) {
                 pet.setAge(obj.get("age").asInt());
             }
             pet.setStatus(obj.path("status").asText(null));
@@ -245,7 +232,8 @@ public class CyodaEntityControllerPrototype {
 
     @PostMapping("/add")
     public ResponseEntity<Pet> addPet(@RequestBody @Valid AddPetRequest request) {
-        logger.info("Adding new pet: {}", request);
+        log.info("Adding new pet: {}", request);
+
         ObjectNode petNode = new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode();
         petNode.put("name", request.getName());
         petNode.put("type", request.getType());
@@ -261,16 +249,14 @@ public class CyodaEntityControllerPrototype {
 
     @PostMapping("/update")
     public ResponseEntity<Map<String, String>> updatePet(@RequestBody @Valid UpdatePetRequest request) {
-        logger.info("Updating pet: {}", request);
+        log.info("Updating pet: {}", request);
 
         CompletableFuture<ObjectNode> existingFuture = entityService.getItem("pet", ENTITY_VERSION, request.getId());
         ObjectNode existingNode = existingFuture.join();
         if (existingNode == null || existingNode.isEmpty(null)) {
-            throw new ResponseStatusException(
-                    org.springframework.http.HttpStatus.NOT_FOUND,
-                    "Pet not found with id: " + request.getId()
-            );
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Pet not found with id: " + request.getId());
         }
+
         // Update fields if provided
         if (request.getName() != null) existingNode.put("name", request.getName());
         if (request.getType() != null) existingNode.put("type", request.getType());
@@ -285,50 +271,32 @@ public class CyodaEntityControllerPrototype {
 
     @PostMapping("/delete")
     public ResponseEntity<Map<String, String>> deletePet(@RequestBody @Valid DeletePetRequest request) {
-        logger.info("Deleting pet with id: {}", request.getId());
+        log.info("Deleting pet with id: {}", request.getId());
+
         CompletableFuture<ObjectNode> existingFuture = entityService.getItem("pet", ENTITY_VERSION, request.getId());
         ObjectNode existingNode = existingFuture.join();
         if (existingNode == null || existingNode.isEmpty(null)) {
-            throw new ResponseStatusException(
-                    org.springframework.http.HttpStatus.NOT_FOUND,
-                    "Pet not found with id: " + request.getId()
-            );
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Pet not found with id: " + request.getId());
         }
-        // For delete no workflow function needed, just call deleteItem
+
         CompletableFuture<UUID> deletedItemId = entityService.deleteItem("pet", ENTITY_VERSION, request.getId());
         deletedItemId.join();
+
         return ResponseEntity.ok(Map.of("message", "Pet deleted successfully"));
     }
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<Map<String, String>> handleResponseStatusException(ResponseStatusException ex) {
-        logger.error("Handled ResponseStatusException: {}", ex.getReason(), ex);
+        log.error("Handled ResponseStatusException: {}", ex.getReason(), ex);
         return ResponseEntity.status(ex.getStatusCode())
                 .body(Map.of("error", ex.getStatusCode().toString(), "message", ex.getReason()));
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, String>> handleGeneralException(Exception ex) {
-        logger.error("Unhandled exception: {}", ex.getMessage(), ex);
+        log.error("Unhandled exception: {}", ex.getMessage(), ex);
         return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Map.of("error", org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR.toString(),
                         "message", "Internal server error"));
     }
 }
-```
-
----
-
-### Explanation of changes:
-
-- **Sync endpoint**: Instead of launching an async thread in controller, we create a dummy pet entity with a flag `"syncFromPetstore": true`. Passing this entity with the workflow function `processPet` triggers the sync logic inside the workflow function asynchronously before persistence.
-- **processPet**: Now accepts and returns `ObjectNode`. It checks the flag and performs the Petstore API fetch, filtering, etc., all asynchronously before persistence.
-- **Add/Update endpoints**: The workflow function normalizes data (e.g. status to uppercase) and could be extended to perform other asynchronous or fire-and-forget tasks.
-- **Delete endpoint**: No workflow needed, since we just delete the entity.
-- **Workflow limitation**: The workflow function does NOT add/update/delete the same entityModel (`pet`) to avoid recursion. If secondary data entities (with other models) are needed, they can be added here asynchronously via `entityService.addItem` with a different `entityModel`.
-
-This approach centralizes all async, business, and validation logic related to entity persistence inside the workflow function, keeping controllers clear and robust.
-
----
-
-If you want, I can help you refactor any other parts or show how to implement secondary entity creation inside the workflow function.
