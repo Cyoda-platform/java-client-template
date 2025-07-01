@@ -1,37 +1,37 @@
 {
-    "description": "Pet entity workflow FSM",
-    "initial_state": "none",
-    "states": {
-        "async_side_effects": {
-            "transitions": {
-                "finish": {
-                    "next": "completed"
-                }
-            }
-        },
-        "completed": {
-            "transitions": {}
-        },
-        "none": {
-            "transitions": {
-                "start_processing": {
-                    "action": {
-                        "name": "normalizeStatus"
-                    },
-                    "next": "normalizing_status"
-                }
-            }
-        },
-        "normalizing_status": {
-            "transitions": {
-                "continue_processing": {
-                    "action": {
-                        "name": "additionalAsyncSideEffects"
-                    },
-                    "next": "async_side_effects"
-                }
-            }
+  "description": "Pet entity workflow FSM",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_processing": {
+          "action": {
+            "name": "normalizeStatus"
+          },
+          "next": "normalizing_status"
         }
+      }
     },
-    "workflow_name": "pet_workflow"
+    "normalizing_status": {
+      "transitions": {
+        "continue_processing": {
+          "action": {
+            "name": "additionalAsyncSideEffects"
+          },
+          "next": "async_side_effects"
+        }
+      }
+    },
+    "async_side_effects": {
+      "transitions": {
+        "finish": {
+          "next": "completed"
+        }
+      }
+    },
+    "completed": {
+      "transitions": {}
+    }
+  },
+  "workflow_name": "pet_workflow"
 }
