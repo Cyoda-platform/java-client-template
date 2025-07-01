@@ -1,0 +1,65 @@
+{
+    "description": "NBA Scores Fetch and Notify Workflow",
+    "initial_state": "none",
+    "states": {
+        "completed": {
+            "transitions": {}
+        },
+        "error": {
+            "transitions": {}
+        },
+        "fetching": {
+            "transitions": {
+                "proceed_to_notifying": {
+                    "condition": {
+                        "function": {
+                            "name": "alwaysTrue"
+                        },
+                        "type": "function"
+                    },
+                    "next": "notifying"
+                }
+            }
+        },
+        "none": {
+            "transitions": {
+                "error_if_invalid_fetch": {
+                    "condition": {
+                        "function": {
+                            "name": "isInvalidFetchRequest"
+                        },
+                        "type": "function"
+                    },
+                    "next": "error"
+                },
+                "start_fetch_if_valid": {
+                    "action": {
+                        "name": "fetchGamesAndNotifySubscribersAsync"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "isValidFetchRequest"
+                        },
+                        "type": "function"
+                    },
+                    "next": "fetching"
+                }
+            }
+        },
+        "notifying": {
+            "transitions": {
+                "proceed_to_completed": {
+                    "condition": {
+                        "function": {
+                            "name": "alwaysTrue"
+                        },
+                        "type": "function"
+                    },
+                    "next": "completed"
+                }
+            }
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "nba_scores_workflow"
+}
