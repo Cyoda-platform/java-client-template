@@ -1,0 +1,102 @@
+{
+    "description": "NBA game scores processing workflow",
+    "initial_state": "none",
+    "states": {
+        "error": {
+            "transitions": {}
+        },
+        "fetched": {
+            "transitions": {
+                "fail_if_not_fetched": {
+                    "condition": {
+                        "function": {
+                            "name": "isFetched"
+                        },
+                        "operator": "NOT",
+                        "type": "function"
+                    },
+                    "next": "error"
+                },
+                "process_if_fetched": {
+                    "action": {
+                        "name": "processGame"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "isFetched"
+                        },
+                        "type": "function"
+                    },
+                    "next": "processed"
+                }
+            }
+        },
+        "none": {
+            "transitions": {
+                "fetch_data": {
+                    "action": {
+                        "name": "fetchGameData"
+                    },
+                    "next": "fetched"
+                }
+            }
+        },
+        "notified": {
+            "transitions": {}
+        },
+        "processed": {
+            "transitions": {
+                "fail_if_not_processed": {
+                    "condition": {
+                        "function": {
+                            "name": "isProcessed"
+                        },
+                        "operator": "NOT",
+                        "type": "function"
+                    },
+                    "next": "error"
+                },
+                "store_if_processed": {
+                    "action": {
+                        "name": "storeGameData"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "isProcessed"
+                        },
+                        "type": "function"
+                    },
+                    "next": "stored"
+                }
+            }
+        },
+        "stored": {
+            "transitions": {
+                "fail_if_not_stored": {
+                    "condition": {
+                        "function": {
+                            "name": "isStored"
+                        },
+                        "operator": "NOT",
+                        "type": "function"
+                    },
+                    "next": "error"
+                },
+                "notify_if_stored": {
+                    "action": {
+                        "name": "sendNotification"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "isStored"
+                        },
+                        "type": "function"
+                    },
+                    "next": "notified"
+                }
+            }
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "nba_scores_workflow"
+}
