@@ -1,102 +1,102 @@
 {
-    "description": "NBA Game Score Processing Workflow",
-    "initial_state": "none",
-    "states": {
-        "done": {
-            "transitions": {}
-        },
-        "error": {
-            "transitions": {}
-        },
-        "none": {
-            "transitions": {
-                "start_processing": {
-                    "next": "received"
-                }
-            }
-        },
-        "notified": {
-            "transitions": {
-                "finalize": {
-                    "next": "done"
-                }
-            }
-        },
-        "processed": {
-            "transitions": {
-                "error_on_invalid_status": {
-                    "condition": {
-                        "function": {
-                            "name": "isStatusNotUppercase"
-                        },
-                        "type": "function"
-                    },
-                    "next": "error"
-                },
-                "store_if_status_uppercase": {
-                    "action": {
-                        "name": "storeEntity"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "isStatusUppercase"
-                        },
-                        "type": "function"
-                    },
-                    "next": "stored"
-                }
-            }
-        },
-        "received": {
-            "transitions": {
-                "process_if_has_status": {
-                    "action": {
-                        "name": "processGameScore"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "hasStatusField"
-                        },
-                        "type": "function"
-                    },
-                    "next": "processed"
-                },
-                "skip_processing_if_no_status": {
-                    "condition": {
-                        "function": {
-                            "name": "hasNotStatusField"
-                        },
-                        "type": "function"
-                    },
-                    "next": "stored"
-                }
-            }
-        },
-        "stored": {
-            "transitions": {
-                "error_if_not_stored": {
-                    "condition": {
-                        "function": {
-                            "name": "isNotStored"
-                        },
-                        "type": "function"
-                    },
-                    "next": "error"
-                },
-                "notify_if_stored": {
-                    "action": {
-                        "name": "sendNotifications"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "isStored"
-                        },
-                        "type": "function"
-                    },
-                    "next": "notified"
-                }
-            }
+  "description": "NBA Game Score Processing Workflow",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_processing": {
+          "next": "received"
         }
+      }
     },
-    "workflow_name": "nba_game_score_workflow"
+    "received": {
+      "transitions": {
+        "process_if_has_status": {
+          "action": {
+            "name": "processGameScore"
+          },
+          "condition": {
+            "function": {
+              "name": "hasStatusField"
+            },
+            "type": "function"
+          },
+          "next": "processed"
+        },
+        "skip_processing_if_no_status": {
+          "condition": {
+            "function": {
+              "name": "hasNotStatusField"
+            },
+            "type": "function"
+          },
+          "next": "stored"
+        }
+      }
+    },
+    "processed": {
+      "transitions": {
+        "error_on_invalid_status": {
+          "condition": {
+            "function": {
+              "name": "isStatusNotUppercase"
+            },
+            "type": "function"
+          },
+          "next": "error"
+        },
+        "store_if_status_uppercase": {
+          "action": {
+            "name": "storeEntity"
+          },
+          "condition": {
+            "function": {
+              "name": "isStatusUppercase"
+            },
+            "type": "function"
+          },
+          "next": "stored"
+        }
+      }
+    },
+    "error": {
+      "transitions": {}
+    },
+    "stored": {
+      "transitions": {
+        "error_if_not_stored": {
+          "condition": {
+            "function": {
+              "name": "isNotStored"
+            },
+            "type": "function"
+          },
+          "next": "error"
+        },
+        "notify_if_stored": {
+          "action": {
+            "name": "sendNotifications"
+          },
+          "condition": {
+            "function": {
+              "name": "isStored"
+            },
+            "type": "function"
+          },
+          "next": "notified"
+        }
+      }
+    },
+    "notified": {
+      "transitions": {
+        "finalize": {
+          "next": "done"
+        }
+      }
+    },
+    "done": {
+      "transitions": {}
+    }
+  },
+  "workflow_name": "nba_game_score_workflow"
 }
