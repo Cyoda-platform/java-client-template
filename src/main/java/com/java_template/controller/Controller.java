@@ -1,4 +1,4 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -39,18 +39,19 @@ import static com.java_template.common.config.Config.*;
 @RestController
 @RequestMapping("/cyoda-prototype")
 @EnableAsync
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
     private final Map<String, Subscriber> subscribers = new ConcurrentHashMap<>();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate = new RestTemplate();
     private final EntityService entityService;
     private static final String API_KEY = "test"; // TODO: secure key
     private static final String NBA_API_URL_TEMPLATE = "https://api.sportsdata.io/v3/nba/scores/json/ScoresBasicFinal/%s?key=%s";
     private static final String ENTITY_NAME = "Game";
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @Data
