@@ -1,0 +1,326 @@
+package com.java_template.entity;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.java_template.common.service.EntityService;
+import com.java_template.common.util.Condition;
+import com.java_template.common.util.SearchConditionRequest;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.time.Instant;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+
+import static com.java_template.common.config.Config.*;
+
+@Slf4j
+@Validated
+@RestController
+@RequestMapping("cyodaentityprototype/pets")
+public class CyodaEntityControllerPrototype {
+
+    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+
+    private final EntityService entityService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    private final Map<String, AdoptionRequest> adoptionRequests = new ConcurrentHashMap<>();
+
+    public CyodaEntityControllerPrototype(EntityService entityService) {
+        this.entityService = entityService;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    static class Pet {
+        @com.fasterxml.jackson.annotation.JsonIgnore
+        private UUID technicalId; // from entityService
+        private Long id;
+        private String name;
+        private String type;
+        private String status;
+        private String[] photoUrls;
+        private String[] tags;
+    }
+
+    @Data
+    static class SearchRequest {
+        @jakarta.validation.constraints.Size(max = 50)
+        private String type;
+        @jakarta.validation.constraints.Size(max = 20)
+        private String status;
+        @jakarta.validation.constraints.Size(max = 100)
+        private String name;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    static class SearchResponse {
+        private Pet[] pets;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    static class AdoptionRequest {
+        private String adoptionId;
+        private UUID petTechnicalId;
+        private Long petId;
+        private String adopterName;
+        private String adopterContact;
+        private String status;
+        private String message;
+        private Instant requestedAt;
+    }
+
+    @Data
+    static class AdoptRequestBody {
+        @NotNull
+        @Positive
+        private Long petId;
+        @NotBlank
+        private String adopterName;
+        @NotBlank
+        private String adopterContact;
+    }
+
+    @PostMapping("/search")
+    public ResponseEntity<SearchResponse> searchPets(@RequestBody @Valid SearchRequest request) {
+        logger.info("Received search request: type='{}', status='{}', name='{}'",
+                request.getType(), request.getStatus(), request.getName());
+
+        // Build search conditions
+        List<Condition> conditionsList = new ArrayList<>();
+        if (request.getStatus() != null && !request.getStatus().isBlank()) {
+            conditionsList.add(Condition.of("$.status", "EQUALS", request.getStatus()));
+        }
+        if (request.getType() != null && !request.getType().isBlank()) {
+            conditionsList.add(Condition.of("$.type", "IEQUALS", request.getType()));
+        }
+        if (request.getName() != null && !request.getName().isBlank()) {
+            conditionsList.add(Condition.of("$.name", "ICONTAINS", request.getName()));
+        }
+        SearchConditionRequest conditionRequest;
+        if (conditionsList.isEmpty()) {
+            // If no filter, just get all items
+            conditionRequest = null;
+        } else {
+            conditionRequest = SearchConditionRequest.group("AND",
+                    conditionsList.toArray(new Condition[0]));
+        }
+
+        try {
+            CompletableFuture<ArrayNode> itemsFuture;
+            if (conditionRequest == null) {
+                itemsFuture = entityService.getItems("pet", ENTITY_VERSION);
+            } else {
+                itemsFuture = entityService.getItemsByCondition("pet", ENTITY_VERSION, conditionRequest);
+            }
+            ArrayNode itemsArray = itemsFuture.join();
+
+            Pet[] petsArray = new Pet[itemsArray.size()];
+            int idx = 0;
+            for (JsonNode node : itemsArray) {
+                Pet pet = mapObjectNodeToPet((ObjectNode) node);
+                if (pet != null) {
+                    petsArray[idx++] = pet;
+                }
+            }
+            logger.info("Search returned {} pets", idx);
+            return ResponseEntity.ok(new SearchResponse(petsArray));
+        } catch (Exception e) {
+            logger.error("Error during pet search", e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Error searching pets: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<Pet> getPetById(@PathVariable @NotNull @Positive Long id) {
+        logger.info("Get pet by id: {}", id);
+
+        // Build condition to find pet by id field (not technicalId)
+        SearchConditionRequest conditionRequest = SearchConditionRequest.group("AND",
+                Condition.of("$.id", "EQUALS", id));
+
+        try {
+            CompletableFuture<ArrayNode> filteredItemsFuture =
+                    entityService.getItemsByCondition("pet", ENTITY_VERSION, conditionRequest);
+            ArrayNode itemsArray = filteredItemsFuture.join();
+            if (itemsArray.size() == 0) {
+                logger.error("Pet with id {} not found", id);
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Pet not found with id " + id);
+            }
+            Pet pet = mapObjectNodeToPet((ObjectNode) itemsArray.get(0));
+            return ResponseEntity.ok(pet);
+        } catch (ResponseStatusException e) {
+            throw e;
+        } catch (Exception e) {
+            logger.error("Error retrieving pet by id", e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Error retrieving pet: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/adopt")
+    public ResponseEntity<AdoptionRequest> adoptPet(@RequestBody @Valid AdoptRequestBody request) {
+        logger.info("Adoption request received for petId={} by {}", request.getPetId(), request.getAdopterName());
+
+        // Find pet by id
+        SearchConditionRequest conditionRequest = SearchConditionRequest.group("AND",
+                Condition.of("$.id", "EQUALS", request.getPetId()));
+        ArrayNode petNodes = entityService.getItemsByCondition("pet", ENTITY_VERSION, conditionRequest).join();
+        if (petNodes.isEmpty()) {
+            logger.error("Pet with id {} not found for adoption", request.getPetId());
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                    "Pet not found with id " + request.getPetId());
+        }
+        ObjectNode petNode = (ObjectNode) petNodes.get(0);
+        Pet pet = mapObjectNodeToPet(petNode);
+
+        if (!"available".equalsIgnoreCase(pet.getStatus())) {
+            logger.info("Pet id={} is not available for adoption. Status={}", pet.getId(), pet.getStatus());
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new AdoptionRequest(
+                            null,
+                            pet.getTechnicalId(),
+                            pet.getId(),
+                            request.getAdopterName(),
+                            request.getAdopterContact(),
+                            "rejected",
+                            "Pet is not available for adoption",
+                            Instant.now()));
+        }
+
+        String adoptionId = UUID.randomUUID().toString();
+        AdoptionRequest adoptionRequest = new AdoptionRequest(
+                adoptionId,
+                pet.getTechnicalId(),
+                pet.getId(),
+                request.getAdopterName(),
+                request.getAdopterContact(),
+                "pending",
+                "Your adoption request is pending approval",
+                Instant.now());
+
+        adoptionRequests.put(adoptionId, adoptionRequest);
+        CompletableFuture.runAsync(() -> processAdoption(adoptionId));
+        logger.info("Adoption request {} stored and processing started", adoptionId);
+        return ResponseEntity.ok(adoptionRequest);
+    }
+
+    @GetMapping("/adoptions/{adoptionId}")
+    public ResponseEntity<AdoptionRequest> getAdoptionStatus(@PathVariable @NotBlank String adoptionId) {
+        logger.info("Retrieve adoption status for id: {}", adoptionId);
+        AdoptionRequest adoption = adoptionRequests.get(adoptionId);
+        if (adoption == null) {
+            logger.error("Adoption request with id {} not found", adoptionId);
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                    "Adoption request not found with id " + adoptionId);
+        }
+        return ResponseEntity.ok(adoption);
+    }
+
+    private Pet mapObjectNodeToPet(ObjectNode petNode) {
+        try {
+            UUID technicalId = UUID.fromString(petNode.path("technicalId").asText());
+            Long id = petNode.path("id").isIntegralNumber() ? petNode.path("id").longValue() : null;
+            String name = petNode.path("name").asText("");
+            String type = petNode.path("type").asText("");
+            String status = petNode.path("status").asText("");
+            String[] photoUrls = objectMapper.convertValue(petNode.path("photoUrls"), String[].class);
+            // Extract tags array of objects with "name" field, convert to String[]
+            List<String> tagNames = new ArrayList<>();
+            if (petNode.has("tags") && petNode.get("tags").isArray()) {
+                for (JsonNode tagNode : petNode.get("tags")) {
+                    String tagName = tagNode.path("name").asText(null);
+                    if (tagName != null) {
+                        tagNames.add(tagName);
+                    }
+                }
+            }
+            String[] tags = tagNames.toArray(new String[0]);
+            return new Pet(technicalId, id, name, type, status, photoUrls, tags);
+        } catch (Exception e) {
+            logger.error("Error mapping pet ObjectNode to Pet DTO", e);
+            return null;
+        }
+    }
+
+    private void processAdoption(String adoptionId) {
+        logger.info("Processing adoption asynchronously for id: {}", adoptionId);
+        try {
+            Thread.sleep(3000);
+            AdoptionRequest adoption = adoptionRequests.get(adoptionId);
+            if (adoption == null) {
+                logger.error("Adoption request not found during processing: {}", adoptionId);
+                return;
+            }
+            adoption.setStatus("approved");
+            adoption.setMessage("Your adoption request has been approved! Thank you.");
+
+            // Update pet status to sold
+            UUID petTechnicalId = adoption.getPetTechnicalId();
+            if (petTechnicalId != null) {
+                CompletableFuture<ObjectNode> petFuture = entityService.getItem("pet", ENTITY_VERSION, petTechnicalId);
+                ObjectNode petNode = petFuture.join();
+                if (petNode != null) {
+                    petNode.put("status", "sold");
+
+                    // Convert ObjectNode to Pet object
+                    Pet pet = mapObjectNodeToPet(petNode);
+                    if (pet != null) {
+                        // Update pet entity
+                        entityService.updateItem("pet", ENTITY_VERSION, petTechnicalId, pet).join();
+                    }
+                }
+            }
+            logger.info("Adoption request {} approved and pet status updated", adoptionId);
+        } catch (InterruptedException e) {
+            logger.error("Adoption processing interrupted for id: {}", adoptionId, e);
+            Thread.currentThread().interrupt();
+        } catch (Exception e) {
+            logger.error("Error processing adoption for id: {}", adoptionId, e);
+        }
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<Map<String, String>> handleResponseStatusException(ResponseStatusException ex) {
+        logger.error("Handling ResponseStatusException: {}", ex.getReason(), ex);
+        return ResponseEntity.status(ex.getStatusCode())
+                .body(Map.of(
+                        "error", ex.getStatusCode().toString(),
+                        "message", ex.getReason()
+                ));
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Map<String, String>> handleGenericException(Exception ex) {
+        logger.error("Unhandled exception occurred", ex);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of(
+                        "error", HttpStatus.INTERNAL_SERVER_ERROR.toString(),
+                        "message", "Internal server error"
+                ));
+    }
+}
