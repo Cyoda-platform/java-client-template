@@ -1,4 +1,4 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -18,23 +18,23 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
 
 @RestController
 @Validated
 @RequestMapping("cyoda/purrfect-pets")
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final Logger logger = LoggerFactory.getLogger(Controller.class);
+    private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate = new RestTemplate();
 
     private final EntityService entityService;
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     private static final String ENTITY_NAME = "purrfect-pets";
@@ -124,6 +124,7 @@ public class CyodaEntityControllerPrototype {
         String json = restTemplate.getForObject(petstoreUrl, String.class);
         JsonNode root = objectMapper.readTree(json);
         if (!root.isArray()) {
+            logger.error("Unexpected response format from external Petstore API");
             throw new IllegalStateException("Unexpected response format from external Petstore API");
         }
         List<PetInfo> filteredPets = new ArrayList<>();
@@ -150,6 +151,7 @@ public class CyodaEntityControllerPrototype {
         }
         PetSearchResponse response = new PetSearchResponse();
         response.setPets(filteredPets);
+        logger.info("Returning {} pets for search request", filteredPets.size());
         return response;
     }
 
@@ -165,7 +167,11 @@ public class CyodaEntityControllerPrototype {
             Map<String, Object> resp = new HashMap<>();
             resp.put("id", uuid.toString());
             resp.put("message", "Pet entity added successfully");
+            logger.info("Pet entity added with id {}", uuid.toString());
             return resp;
+        }).exceptionally(ex -> {
+            logger.error("Failed to add pet entity", ex);
+            throw new RuntimeException(ex);
         });
     }
 
@@ -183,7 +189,13 @@ public class CyodaEntityControllerPrototype {
                 FAVORITES_ENTITY_NAME,
                 ENTITY_VERSION,
                 favoriteNode
-        ).thenApply(uuid -> new FavoriteAddResponse(true, "Pet added to favorites"));
+        ).thenApply(uuid -> {
+            logger.info("Favorite added with id {}", uuid.toString());
+            return new FavoriteAddResponse(true, "Pet added to favorites");
+        }).exceptionally(ex -> {
+            logger.error("Failed to add favorite", ex);
+            return new FavoriteAddResponse(false, "Failed to add pet to favorites");
+        });
     }
 
     @GetMapping(value = "/favorites/{userId}", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -211,7 +223,7 @@ public class CyodaEntityControllerPrototype {
             else if (age > 10) tips.add("Senior cats benefit from a specialized diet.");
         }
         if ("dog".equals(type) || "all".equals(type)) {
-            tips.add("Daily walks are essential for your dog6s health.");
+            tips.add("Daily walks are essential for your dog's health.");
             tips.add("Keep vaccinations up to date.");
             if (age < 1) tips.add("Puppies require training and socialization.");
             else if (age > 10) tips.add("Older dogs may need joint supplements.");
