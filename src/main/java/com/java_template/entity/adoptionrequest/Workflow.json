@@ -1,0 +1,69 @@
+{
+    "description": "AdoptionRequest FSM workflow for processing adoption requests",
+    "initial_state": "none",
+    "states": {
+        "none": {
+            "transitions": {
+                "start_validation": {
+                    "action": {
+                        "name": "validatePetTechnicalId"
+                    },
+                    "next": "validatePetTechnicalId"
+                }
+            }
+        },
+        "terminal_invalidPetTechnicalId": {
+            "transitions": {}
+        },
+        "terminal_success": {
+            "transitions": {}
+        },
+        "updateAdoptionStatus": {
+            "transitions": {
+                "set_status_approved": {
+                    "action": {
+                        "name": "updateAdoptionStatus"
+                    },
+                    "next": "updatePetStatus"
+                }
+            }
+        },
+        "updatePetStatus": {
+            "transitions": {
+                "set_pet_sold": {
+                    "action": {
+                        "name": "updatePetStatus"
+                    },
+                    "next": "terminal_success"
+                }
+            }
+        },
+        "validatePetTechnicalId": {
+            "transitions": {
+                "invalid_petTechnicalId": {
+                    "condition": {
+                        "function": {
+                            "name": "validatePetTechnicalId_returns_bool_negated"
+                        },
+                        "type": "function"
+                    },
+                    "next": "terminal_invalidPetTechnicalId"
+                },
+                "valid_petTechnicalId": {
+                    "action": {
+                        "name": "updateAdoptionStatus"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "validatePetTechnicalId_returns_bool"
+                        },
+                        "type": "function"
+                    },
+                    "next": "updateAdoptionStatus"
+                }
+            }
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "adoptionrequest_workflow"
+}
