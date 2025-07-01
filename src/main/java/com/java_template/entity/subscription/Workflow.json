@@ -1,117 +1,117 @@
 {
-    "description": "FSM workflow for NBA game score processing",
-    "initial_state": "none",
-    "states": {
-        "end": {
-            "transitions": {}
-        },
-        "error": {
-            "transitions": {}
-        },
-        "none": {
-            "transitions": {
-                "to_received": {
-                    "next": "received"
-                }
-            }
-        },
-        "notified": {
-            "transitions": {
-                "to_end_if_notified": {
-                    "action": {
-                        "name": "sendNotifications"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "notificationsSent"
-                        },
-                        "type": "function"
-                    },
-                    "next": "end"
-                },
-                "to_error_if_not_notified": {
-                    "condition": {
-                        "function": {
-                            "name": "notificationsNotSent"
-                        },
-                        "type": "function"
-                    },
-                    "next": "error"
-                }
-            }
-        },
-        "processed": {
-            "transitions": {
-                "to_error_if_status_not_uppercase": {
-                    "condition": {
-                        "function": {
-                            "name": "isStatusNotUppercase"
-                        },
-                        "type": "function"
-                    },
-                    "next": "error"
-                },
-                "to_stored_if_status_uppercase": {
-                    "condition": {
-                        "function": {
-                            "name": "isStatusUppercase"
-                        },
-                        "type": "function"
-                    },
-                    "next": "stored"
-                }
-            }
-        },
-        "received": {
-            "transitions": {
-                "to_processed_if_has_status": {
-                    "action": {
-                        "name": "processGameScore"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "hasStatusField"
-                        },
-                        "type": "function"
-                    },
-                    "next": "processed"
-                },
-                "to_stored_if_no_status": {
-                    "condition": {
-                        "function": {
-                            "name": "hasNoStatusField"
-                        },
-                        "type": "function"
-                    },
-                    "next": "stored"
-                }
-            }
-        },
-        "stored": {
-            "transitions": {
-                "to_error_if_not_stored": {
-                    "condition": {
-                        "function": {
-                            "name": "isNotStored"
-                        },
-                        "type": "function"
-                    },
-                    "next": "error"
-                },
-                "to_notified_if_stored": {
-                    "action": {
-                        "name": "storeEntity"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "isStored"
-                        },
-                        "type": "function"
-                    },
-                    "next": "notified"
-                }
-            }
+  "description": "FSM workflow for NBA game score processing",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "to_received": {
+          "next": "received"
         }
+      }
     },
-    "workflow_name": "nba_game_score_workflow"
+    "received": {
+      "transitions": {
+        "to_processed_if_has_status": {
+          "action": {
+            "name": "processGameScore"
+          },
+          "condition": {
+            "function": {
+              "name": "hasStatusField"
+            },
+            "type": "function"
+          },
+          "next": "processed"
+        },
+        "to_stored_if_no_status": {
+          "condition": {
+            "function": {
+              "name": "hasNoStatusField"
+            },
+            "type": "function"
+          },
+          "next": "stored"
+        }
+      }
+    },
+    "processed": {
+      "transitions": {
+        "to_error_if_status_not_uppercase": {
+          "condition": {
+            "function": {
+              "name": "isStatusNotUppercase"
+            },
+            "type": "function"
+          },
+          "next": "error"
+        },
+        "to_stored_if_status_uppercase": {
+          "condition": {
+            "function": {
+              "name": "isStatusUppercase"
+            },
+            "type": "function"
+          },
+          "next": "stored"
+        }
+      }
+    },
+    "error": {
+      "transitions": {}
+    },
+    "stored": {
+      "transitions": {
+        "to_error_if_not_stored": {
+          "condition": {
+            "function": {
+              "name": "isNotStored"
+            },
+            "type": "function"
+          },
+          "next": "error"
+        },
+        "to_notified_if_stored": {
+          "action": {
+            "name": "storeEntity"
+          },
+          "condition": {
+            "function": {
+              "name": "isStored"
+            },
+            "type": "function"
+          },
+          "next": "notified"
+        }
+      }
+    },
+    "notified": {
+      "transitions": {
+        "to_end_if_notified": {
+          "action": {
+            "name": "sendNotifications"
+          },
+          "condition": {
+            "function": {
+              "name": "notificationsSent"
+            },
+            "type": "function"
+          },
+          "next": "end"
+        },
+        "to_error_if_not_notified": {
+          "condition": {
+            "function": {
+              "name": "notificationsNotSent"
+            },
+            "type": "function"
+          },
+          "next": "error"
+        }
+      }
+    },
+    "end": {
+      "transitions": {}
+    }
+  },
+  "workflow_name": "nba_game_score_workflow"
 }
