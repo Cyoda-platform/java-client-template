@@ -1,50 +1,3 @@
-Certainly! Based on your requirements, the main idea is to **move all asynchronous or pre-persistence logic into the workflow functions `process{entity_name}`**, which receive the entity as an `ObjectNode` (or generic JSON object), can mutate it *before* persisting, and can also interact with other entities (but **cannot** mutate the same entity type via add/update/delete).
-
----
-
-### What to move into workflow functions?
-
-- For `Subscription`:
-  - Lowercase the email before persistence.
-  - Any other validation or enrichment can be done here.
-  - The current controller logic just normalizes email — perfect for workflow.
-
-- For `GameScore`:
-  - Uppercase the status.
-  - The current controller mostly just persists fetched data.
-  - The fetching and notification logic is currently in an async method `fetchStoreAndNotify`.
-  
-- The **main candidate for moving is the async fetch/store/notify logic for `GameScore`**:
-  - This is currently triggered by an endpoint `/fetch-scores`.
-  - Instead of triggering an async method from the controller, we can move this entire fetch/store/notify flow into the `processGameScore` workflow — but it is called *per entity*, so it wouldn't make sense.
-  
-- However, since the workflow is invoked **before persisting an entity**, and the restriction is we cannot update/add/delete the same entity type inside the workflow (to avoid recursion), we cannot call `entityService.addItem("GameScore", ...)` inside `processGameScore`.
-- But importantly, the workflow function **can** fetch other entities and add/update/delete **other** entity types.
-- So, the fetching and notification logic which acts *across* entities should be moved to a **dedicated entity workflow function of a different entity, or a new entity** that triggers these actions.
-- Alternatively, since the fetch and notify operates on `GameScore` entities but does not mutate them, we can create a dedicated "FetchScoresTask" entity whose workflow function will perform the fetch/store/notify asynchronously — this is a common pattern for async workflows and deferred jobs.
-
----
-
-### Proposed refactor:
-
-- **`processSubscription`**: Move email normalization and any pre-persist business logic here.
-- **`processGameScore`**: Just sanitize/modify the entity (uppercase status), no async logic here to avoid recursion.
-- **Create a new entity `FetchScoresTask`**:
-  - When a fetch is requested, the controller adds a `FetchScoresTask` entity with parameters (e.g., date).
-  - The workflow function `processFetchScoresTask` is triggered asynchronously.
-  - This function performs the fetch/store/notify logic:
-    - Calls the external API.
-    - Adds `GameScore` entities for each fetched game, using `entityService.addItem("GameScore", ...)` with workflow `processGameScore`.
-    - Sends notifications to subscribers.
-- This approach **moves async tasks to workflow functions** and keeps controllers slim.
-
----
-
-### Now, I will provide the updated Java code reflecting this approach.
-
----
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -138,10 +91,8 @@ public class CyodaEntityControllerPrototype {
         private String date;
     }
 
-    /**
-     * Workflow function for Subscription entity.
-     * Normalize email to lowercase before persisting.
-     */
+    // Workflow function for Subscription entity.
+    // Normalize email to lowercase before persisting.
     private CompletableFuture<Object> processSubscription(Object entity) {
         ObjectNode objNode = (ObjectNode) objectMapper.valueToTree(entity);
         if (objNode.has("email") && !objNode.get("email").isNull()) {
@@ -151,10 +102,8 @@ public class CyodaEntityControllerPrototype {
         return CompletableFuture.completedFuture(objNode);
     }
 
-    /**
-     * Workflow function for GameScore entity.
-     * Uppercase status before persisting.
-     */
+    // Workflow function for GameScore entity.
+    // Uppercase status before persisting.
     private CompletableFuture<Object> processGameScore(Object entity) {
         ObjectNode objNode = (ObjectNode) objectMapper.valueToTree(entity);
         if (objNode.has("status") && !objNode.get("status").isNull()) {
@@ -164,11 +113,9 @@ public class CyodaEntityControllerPrototype {
         return CompletableFuture.completedFuture(objNode);
     }
 
-    /**
-     * Workflow function for FetchScoresTask entity.
-     * This performs the external fetch, stores GameScore entities, and notifies subscribers.
-     * This function runs asynchronously right before persisting the FetchScoresTask entity.
-     */
+    // Workflow function for FetchScoresTask entity.
+    // Performs external fetch, stores GameScore entities, and notifies subscribers.
+    // Runs asynchronously right before persisting the FetchScoresTask entity.
     private CompletableFuture<Object> processFetchScoresTask(Object entity) {
         ObjectNode taskNode = (ObjectNode) entity;
         String dateStr = taskNode.has("date") ? taskNode.get("date").asText() : null;
@@ -182,7 +129,7 @@ public class CyodaEntityControllerPrototype {
                 LocalDate date = LocalDate.parse(dateStr);
                 logger.info("Starting fetch/store/notify pipeline for date {}", date);
 
-                // 1. Fetch external scores
+                // Fetch external scores
                 String url = "https://api.sportsdata.io/v3/nba/scores/json/ScoresBasicFinal/" + date + "?key=test";
                 String raw = restTemplate.getForObject(new URI(url), String.class);
                 JsonNode arr = objectMapper.readTree(raw);
@@ -191,7 +138,7 @@ public class CyodaEntityControllerPrototype {
                     return taskNode;
                 }
 
-                // 2. For each fetched GameScore, add entity with workflow processGameScore
+                // For each fetched GameScore, add entity with workflow processGameScore
                 List<CompletableFuture<UUID>> futures = new ArrayList<>();
                 for (JsonNode n : arr) {
                     String home = n.path("HomeTeam").asText(null);
@@ -214,7 +161,7 @@ public class CyodaEntityControllerPrototype {
 
                 logger.info("Stored {} GameScore entities for date {}", futures.size(), date);
 
-                // 3. Notify subscribers with the new scores
+                // Notify subscribers with the new scores
                 notifySubscribers(date);
 
             } catch (Exception ex) {
@@ -224,9 +171,7 @@ public class CyodaEntityControllerPrototype {
         });
     }
 
-    /**
-     * Notify all subscribers with scores summary for the given date.
-     */
+    // Notify all subscribers with scores summary for the given date.
     private void notifySubscribers(LocalDate date) throws Exception {
         StringBuilder sb = new StringBuilder("Daily NBA Scores for " + date + ":\n");
 
@@ -315,10 +260,8 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.ok(Map.of("subscribers", emails));
     }
 
-    /**
-     * Replaced /fetch-scores endpoint to just add a FetchScoresTask entity.
-     * The workflow processFetchScoresTask will run asynchronously and perform the fetch/store/notify.
-     */
+    // Replaced /fetch-scores endpoint to just add a FetchScoresTask entity.
+    // The workflow processFetchScoresTask will run asynchronously and perform the fetch/store/notify.
     @PostMapping("/fetch-scores")
     public ResponseEntity<Map<String, String>> fetchScores(@RequestBody(required = false) @Valid FetchScoresRequest request) throws Exception {
         String dateStr = (request != null && request.getDate() != null && !request.getDate().isBlank())
@@ -342,8 +285,6 @@ public class CyodaEntityControllerPrototype {
                 "message", "Scores fetch and notification task created."
         ));
     }
-
-    // The rest of the endpoints (games/all, games/{date}) stay unchanged, no async logic moved here.
 
     @GetMapping("/games/all")
     public ResponseEntity<Map<String, Object>> getAllGames(
@@ -478,23 +419,3 @@ public class CyodaEntityControllerPrototype {
         ));
     }
 }
-```
-
----
-
-### Summary of the final changes:
-
-- **Moved email normalization to `processSubscription` workflow function**.
-- **Moved status uppercase normalization to `processGameScore` workflow function**.
-- **Created new entity `FetchScoresTask` and workflow function `processFetchScoresTask`**:
-  - It performs the entire async fetch/store/notify logic.
-  - The controller simply creates a `FetchScoresTask` entity to trigger this workflow.
-- **Removed all direct async tasks from controllers**.
-- **All async logic is now inside workflow functions applied pre-persistence**.
-- **Entities are passed as JSON ObjectNodes inside workflow functions and can be mutated directly**.
-- **No recursive add/update/delete on the same entity model inside workflow functions**.
-- **Controller code is now simpler and robust**.
-
----
-
-Let me know if you want me to help with unit tests or further refinements!
