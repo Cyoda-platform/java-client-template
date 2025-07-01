@@ -1,8 +1,7 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
@@ -12,55 +11,66 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.net.URI;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 
 import static com.java_template.common.config.Config.*;
 
-@Slf4j
 @Validated
 @RestController
 @RequestMapping("cyoda-prototype")
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
-    private final RestTemplate restTemplate = new RestTemplate();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
+    private final ObjectMapper objectMapper;
     private final EntityService entityService;
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     static class Subscription {
+        @NotBlank
+        @Email
         private String email;
         private OffsetDateTime subscribedAt;
+
+        public Subscription() {}
+
+        public Subscription(String email, OffsetDateTime subscribedAt) {
+            this.email = email;
+            this.subscribedAt = subscribedAt;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
+
+        public OffsetDateTime getSubscribedAt() {
+            return subscribedAt;
+        }
+
+        public void setSubscribedAt(OffsetDateTime subscribedAt) {
+            this.subscribedAt = subscribedAt;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     static class GameScore {
         private LocalDate date;
         private String homeTeam;
@@ -68,34 +78,129 @@ public class CyodaEntityControllerPrototype {
         private Integer homeScore;
         private Integer awayScore;
         private String status;
+
+        public GameScore() {}
+
+        public GameScore(LocalDate date, String homeTeam, String awayTeam, Integer homeScore, Integer awayScore, String status) {
+            this.date = date;
+            this.homeTeam = homeTeam;
+            this.awayTeam = awayTeam;
+            this.homeScore = homeScore;
+            this.awayScore = awayScore;
+            this.status = status;
+        }
+
+        public LocalDate getDate() {
+            return date;
+        }
+
+        public void setDate(LocalDate date) {
+            this.date = date;
+        }
+
+        public String getHomeTeam() {
+            return homeTeam;
+        }
+
+        public void setHomeTeam(String homeTeam) {
+            this.homeTeam = homeTeam;
+        }
+
+        public String getAwayTeam() {
+            return awayTeam;
+        }
+
+        public void setAwayTeam(String awayTeam) {
+            this.awayTeam = awayTeam;
+        }
+
+        public Integer getHomeScore() {
+            return homeScore;
+        }
+
+        public void setHomeScore(Integer homeScore) {
+            this.homeScore = homeScore;
+        }
+
+        public Integer getAwayScore() {
+            return awayScore;
+        }
+
+        public void setAwayScore(Integer awayScore) {
+            this.awayScore = awayScore;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     static class FetchScoresTask {
         @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}")
         private String date;
+
+        public FetchScoresTask() {}
+
+        public FetchScoresTask(String date) {
+            this.date = date;
+        }
+
+        public String getDate() {
+            return date;
+        }
+
+        public void setDate(String date) {
+            this.date = date;
+        }
     }
 
-    @Data
     static class SubscribeRequest {
         @NotBlank
         @Email
         private String email;
+
+        public SubscribeRequest() {}
+
+        public SubscribeRequest(String email) {
+            this.email = email;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
     }
 
-    @Data
     static class FetchScoresRequest {
         @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}", message = "Date must be YYYY-MM-DD")
         private String date;
+
+        public FetchScoresRequest() {}
+
+        public FetchScoresRequest(String date) {
+            this.date = date;
+        }
+
+        public String getDate() {
+            return date;
+        }
+
+        public void setDate(String date) {
+            this.date = date;
+        }
     }
 
     @PostMapping("/subscribe")
     public ResponseEntity<Map<String, String>> subscribe(@RequestBody @Valid SubscribeRequest request) throws Exception {
         String email = request.getEmail().toLowerCase();
 
-        // Check for duplicate subscription
         Condition cond = Condition.of("$.email", "EQUALS", email);
         SearchConditionRequest searchCond = SearchConditionRequest.group("AND", cond);
         CompletableFuture<List<UUID>> existingIdsFuture = entityService.getItemsByCondition("Subscription", ENTITY_VERSION, searchCond)
