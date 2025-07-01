@@ -1,63 +1,3 @@
-Certainly! Moving asynchronous and entity-related logic into workflow functions (`process{entity_name}`) as you described is a great pattern. It decouples business logic from controllers, centralizes data transformations and side-effects, and ensures all entity modifications are done just before persistence in a controlled way.
-
----
-
-### What we can do:
-
-- Move any asynchronous status changes or entity mutations related to a specific entity into its workflow function.
-- The workflow function receives the entity as an `ObjectNode`, can mutate it directly, can asynchronously fetch or add other entities (different entityModels), but **cannot** modify the same entityModel (to avoid infinite recursion).
-- Fire-and-forget async tasks triggered by controller calls should be moved into workflow functions.
-- Controllers become simple request/response handlers, delegating persistence + async side-effects to workflow functions.
-
----
-
-### In your current code, candidates for moving into workflow:
-
-1. **Pet entity:**
-
-   - In `processpet` workflow function:
-     - Normalize fields (e.g., lowercase status).
-     - Possibly trigger side effects like:
-       - Automatically set default values.
-       - Add related entities or perform checks.
-     - Right now, no asynchronous side-effects related to Pet entity in your controller except update of pet status in adoption process, which is related to AdoptionRequest entity, so keep minimal here.
-
-2. **AdoptionRequest entity:**
-
-   - You currently have fire-and-forget async processing in `processAdoption` method in controller:
-     - Wait 3 seconds.
-     - Update adoption status to approved.
-     - Update related pet status to sold.
-   - This whole logic should move to `processadoptionrequest` workflow function.
-   - This function will:
-     - Receive the AdoptionRequest entity as `ObjectNode`.
-     - Wait asynchronously.
-     - Update this entity's status and message fields (direct mutation).
-     - Fetch and update the related Pet entity's status to "sold".
-     - Save the Pet entity via entityService.updateItem (allowed because it's a different entityModel).
-
-3. **Controller:**
-
-   - In `/adopt` endpoint, no need to launch async tasks or update entities.
-   - Just add the AdoptionRequest entity via `entityService.addItem` passing the workflow function `processadoptionrequest`.
-   - The workflow function drives asynchronous approval and pet update.
-
----
-
-### Implementation plan:
-
-- Implement `processadoptionrequest(ObjectNode entity)` method.
-- Move logic from `processAdoption` method into it, changing it to an async workflow.
-- Update `/adopt` endpoint to call `entityService.addItem("adoptionrequest", ...)` passing `this::processadoptionrequest`.
-- Remove `processAdoption` method and async task launch from controller.
-- Modify `addPetItem` to use workflow as before.
-- Controllers become simpler, no async thread management.
-
----
-
-### Full revised code snippet with these changes applied:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -103,8 +43,6 @@ public class CyodaEntityControllerPrototype {
     public CyodaEntityControllerPrototype(EntityService entityService) {
         this.entityService = entityService;
     }
-
-    // DTOs (unchanged)...
 
     @Data
     @NoArgsConstructor
@@ -158,28 +96,19 @@ public class CyodaEntityControllerPrototype {
         private String adopterContact;
     }
 
-    /**
-     * Workflow for 'pet' entity.
-     * Normalize status to lowercase.
-     */
+    // Workflow function for 'pet' entity
     private CompletableFuture<JsonNode> processpet(JsonNode entity) {
-        if (entity.has("status") && entity.get("status").isTextual()) {
-            ((ObjectNode) entity).put("status", entity.get("status").asText().toLowerCase());
+        ObjectNode petNode = (ObjectNode) entity;
+        if (petNode.has("status") && petNode.get("status").isTextual()) {
+            petNode.put("status", petNode.get("status").asText().toLowerCase(Locale.ROOT));
         }
-        return CompletableFuture.completedFuture(entity);
+        // Additional normalization or async side-effects can be added here if needed
+        return CompletableFuture.completedFuture(petNode);
     }
 
-    /**
-     * Workflow for 'adoptionrequest' entity.
-     *
-     * This replaces the async processAdoption method.
-     * It asynchronously waits 3 seconds, then approves the adoption,
-     * updates the adoption entity's status and message,
-     * and updates the related pet entity's status to "sold".
-     */
+    // Workflow function for 'adoptionrequest' entity
     private CompletableFuture<JsonNode> processadoptionrequest(JsonNode entity) {
         ObjectNode adoptionEntity = (ObjectNode) entity;
-        // Fire async task that completes after 3 seconds and updates entities
         return CompletableFuture.supplyAsync(() -> {
             try {
                 Thread.sleep(3000L);
@@ -189,11 +118,9 @@ public class CyodaEntityControllerPrototype {
                 return adoptionEntity;
             }
 
-            // Update adoption request status and message
             adoptionEntity.put("status", "approved");
             adoptionEntity.put("message", "Your adoption request has been approved! Thank you.");
 
-            // Get petTechnicalId from adoption request
             if (!adoptionEntity.hasNonNull("petTechnicalId")) {
                 logger.warn("AdoptionRequest entity missing petTechnicalId");
                 return adoptionEntity;
@@ -207,12 +134,10 @@ public class CyodaEntityControllerPrototype {
                 return adoptionEntity;
             }
 
-            // Update related pet entity status to "sold"
             try {
                 ObjectNode petNode = entityService.getItem("pet", ENTITY_VERSION, petTechnicalId).join();
                 if (petNode != null) {
                     petNode.put("status", "sold");
-                    // Update pet entity via entityService - allowed as different entityModel
                     entityService.updateItem("pet", ENTITY_VERSION, petTechnicalId, petNode).join();
                     logger.info("Pet {} status updated to sold due to adoption approval", petTechnicalId);
                 } else {
@@ -287,16 +212,10 @@ public class CyodaEntityControllerPrototype {
         }
     }
 
-    /**
-     * Adopt pet endpoint.
-     * Creates an AdoptionRequest entity with status "pending" and adds it via entityService.addItem
-     * passing processadoptionrequest as workflow function.
-     */
     @PostMapping("/adopt")
     public ResponseEntity<AdoptionRequest> adoptPet(@RequestBody @Valid AdoptRequestBody request) {
         logger.info("Adoption request received for petId={} by {}", request.getPetId(), request.getAdopterName());
 
-        // Find pet by id
         SearchConditionRequest conditionRequest = SearchConditionRequest.group("AND",
                 Condition.of("$.id", "EQUALS", request.getPetId()));
         ArrayNode petNodes = entityService.getItemsByCondition("pet", ENTITY_VERSION, conditionRequest).join();
@@ -319,7 +238,6 @@ public class CyodaEntityControllerPrototype {
                             Instant.now()));
         }
 
-        // Create AdoptionRequest entity node
         ObjectNode adoptionNode = objectMapper.createObjectNode();
         String adoptionId = UUID.randomUUID().toString();
         adoptionNode.put("adoptionId", adoptionId);
@@ -331,14 +249,12 @@ public class CyodaEntityControllerPrototype {
         adoptionNode.put("message", "Your adoption request is pending approval");
         adoptionNode.put("requestedAt", Instant.now().toString());
 
-        // Add adoptionrequest entity with workflow function processadoptionrequest
-        CompletableFuture<UUID> addFuture = entityService.addItem(
+        entityService.addItem(
                 "adoptionrequest",
                 ENTITY_VERSION,
                 adoptionNode,
                 this::processadoptionrequest);
 
-        // Return immediately with AdoptionRequest DTO (status=pending)
         AdoptionRequest adoptionRequest = new AdoptionRequest(
                 adoptionId,
                 pet.getTechnicalId(),
@@ -356,7 +272,6 @@ public class CyodaEntityControllerPrototype {
     public ResponseEntity<AdoptionRequest> getAdoptionStatus(@PathVariable @NotBlank String adoptionId) {
         logger.info("Retrieve adoption status for id: {}", adoptionId);
 
-        // Search adoptionrequest by adoptionId
         SearchConditionRequest conditionRequest = SearchConditionRequest.group("AND",
                 Condition.of("$.adoptionId", "EQUALS", adoptionId));
         ArrayNode adoptionNodes = entityService.getItemsByCondition("adoptionrequest", ENTITY_VERSION, conditionRequest).join();
@@ -378,9 +293,6 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.ok(adoptionRequest);
     }
 
-    /**
-     * Convenience method to add Pet item with workflow function.
-     */
     public CompletableFuture<UUID> addPetItem(Pet pet) {
         JsonNode petNode = objectMapper.valueToTree(pet);
         return entityService.addItem(
@@ -436,19 +348,3 @@ public class CyodaEntityControllerPrototype {
                 ));
     }
 }
-```
-
----
-
-### Summary of changes:
-
-- **`processadoptionrequest`** workflow function replaces the entire async adoption approval and pet update logic.
-- Controllers no longer spawn threads or run async tasks manually.
-- Controller `/adopt` endpoint just adds adoption request entity with workflow function.
-- Pet entity workflow `processpet` remains to normalize status field.
-- Error handling and mapping remain the same.
-- This approach centralizes business logic related to entity state changes in the workflow functions, making controllers simpler and code more robust.
-
----
-
-If you want me to apply this pattern for any other entities or further refactor, just ask!
