@@ -1,0 +1,31 @@
+{
+    "description": "NBA Game Score Processing FSM",
+    "initial_state": "none",
+    "states": {
+        "done": {
+            "transitions": {}
+        },
+        "none": {
+            "transitions": {
+                "start_processing": {
+                    "action": {
+                        "name": "processGame"
+                    },
+                    "next": "normalize_scores"
+                }
+            }
+        },
+        "normalize_scores": {
+            "transitions": {
+                "normalize": {
+                    "action": {
+                        "name": "normalizeScores"
+                    },
+                    "next": "done"
+                }
+            }
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "game_workflow"
+}
