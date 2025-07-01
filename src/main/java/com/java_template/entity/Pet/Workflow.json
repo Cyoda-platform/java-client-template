@@ -1,0 +1,90 @@
+{
+    "description": "Purrfect Pets entity processing workflow",
+    "initial_state": "none",
+    "states": {
+        "add_metadata_state": {
+            "transitions": {
+                "mark_processed": {
+                    "action": {
+                        "name": "addPetMetadata"
+                    },
+                    "next": "processed_state"
+                }
+            }
+        },
+        "async_notify_state": {
+            "transitions": {
+                "add_metadata": {
+                    "action": {
+                        "name": "asyncNotifyPetProcessed"
+                    },
+                    "next": "add_metadata_state"
+                }
+            }
+        },
+        "check_already_processed": {
+            "transitions": {
+                "already_processed_false": {
+                    "condition": {
+                        "function": {
+                            "name": "isNotAlreadyProcessed"
+                        },
+                        "type": "function"
+                    },
+                    "next": "process_pet"
+                },
+                "already_processed_true": {
+                    "condition": {
+                        "function": {
+                            "name": "isAlreadyProcessed"
+                        },
+                        "type": "function"
+                    },
+                    "next": "processed_state"
+                }
+            }
+        },
+        "enforce_status_state": {
+            "transitions": {
+                "async_notify": {
+                    "action": {
+                        "name": "enforceDefaultStatus"
+                    },
+                    "next": "async_notify_state"
+                }
+            }
+        },
+        "none": {
+            "transitions": {
+                "start_processing": {
+                    "next": "check_already_processed"
+                }
+            }
+        },
+        "process_pet": {
+            "transitions": {
+                "prefix_name": {
+                    "action": {
+                        "name": "prefixProcessedName"
+                    },
+                    "next": "update_fun_fact"
+                }
+            }
+        },
+        "processed_state": {
+            "transitions": {}
+        },
+        "update_fun_fact": {
+            "transitions": {
+                "enforce_status": {
+                    "action": {
+                        "name": "updateFunFact"
+                    },
+                    "next": "enforce_status_state"
+                }
+            }
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "pet_processing_workflow"
+}
