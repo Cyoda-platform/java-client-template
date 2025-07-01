@@ -1,8 +1,55 @@
+Certainly! Based on your requirements, the main idea is to **move all asynchronous or pre-persistence logic into the workflow functions `process{entity_name}`**, which receive the entity as an `ObjectNode` (or generic JSON object), can mutate it *before* persisting, and can also interact with other entities (but **cannot** mutate the same entity type via add/update/delete).
+
+---
+
+### What to move into workflow functions?
+
+- For `Subscription`:
+  - Lowercase the email before persistence.
+  - Any other validation or enrichment can be done here.
+  - The current controller logic just normalizes email — perfect for workflow.
+
+- For `GameScore`:
+  - Uppercase the status.
+  - The current controller mostly just persists fetched data.
+  - The fetching and notification logic is currently in an async method `fetchStoreAndNotify`.
+  
+- The **main candidate for moving is the async fetch/store/notify logic for `GameScore`**:
+  - This is currently triggered by an endpoint `/fetch-scores`.
+  - Instead of triggering an async method from the controller, we can move this entire fetch/store/notify flow into the `processGameScore` workflow — but it is called *per entity*, so it wouldn't make sense.
+  
+- However, since the workflow is invoked **before persisting an entity**, and the restriction is we cannot update/add/delete the same entity type inside the workflow (to avoid recursion), we cannot call `entityService.addItem("GameScore", ...)` inside `processGameScore`.
+- But importantly, the workflow function **can** fetch other entities and add/update/delete **other** entity types.
+- So, the fetching and notification logic which acts *across* entities should be moved to a **dedicated entity workflow function of a different entity, or a new entity** that triggers these actions.
+- Alternatively, since the fetch and notify operates on `GameScore` entities but does not mutate them, we can create a dedicated "FetchScoresTask" entity whose workflow function will perform the fetch/store/notify asynchronously — this is a common pattern for async workflows and deferred jobs.
+
+---
+
+### Proposed refactor:
+
+- **`processSubscription`**: Move email normalization and any pre-persist business logic here.
+- **`processGameScore`**: Just sanitize/modify the entity (uppercase status), no async logic here to avoid recursion.
+- **Create a new entity `FetchScoresTask`**:
+  - When a fetch is requested, the controller adds a `FetchScoresTask` entity with parameters (e.g., date).
+  - The workflow function `processFetchScoresTask` is triggered asynchronously.
+  - This function performs the fetch/store/notify logic:
+    - Calls the external API.
+    - Adds `GameScore` entities for each fetched game, using `entityService.addItem("GameScore", ...)` with workflow `processGameScore`.
+    - Sends notifications to subscribers.
+- This approach **moves async tasks to workflow functions** and keeps controllers slim.
+
+---
+
+### Now, I will provide the updated Java code reflecting this approach.
+
+---
+
 ```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
@@ -20,7 +67,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
@@ -31,7 +77,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.java_template.common.config.Config.*;
 
@@ -63,14 +109,20 @@ public class CyodaEntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     static class GameScore {
-        @com.fasterxml.jackson.annotation.JsonIgnore
-        private UUID technicalId;
         private LocalDate date;
         private String homeTeam;
         private String awayTeam;
         private Integer homeScore;
         private Integer awayScore;
         private String status;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    static class FetchScoresTask {
+        @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}")
+        private String date;
     }
 
     @Data
@@ -88,36 +140,135 @@ public class CyodaEntityControllerPrototype {
 
     /**
      * Workflow function for Subscription entity.
-     * This function receives the Subscription entity, can modify it asynchronously,
-     * and returns it (or a modified version) to be persisted.
+     * Normalize email to lowercase before persisting.
      */
     private CompletableFuture<Object> processSubscription(Object entity) {
-        // Example: Cast to Subscription, could modify it if needed asynchronously
-        Subscription subscription = (Subscription) entity;
-        // For example, ensure email is lowercase before persisting
-        subscription.setEmail(subscription.getEmail().toLowerCase());
-        // Return completed future with possibly modified entity
-        return CompletableFuture.completedFuture(subscription);
+        ObjectNode objNode = (ObjectNode) objectMapper.valueToTree(entity);
+        if (objNode.has("email") && !objNode.get("email").isNull()) {
+            String email = objNode.get("email").asText();
+            objNode.put("email", email.toLowerCase());
+        }
+        return CompletableFuture.completedFuture(objNode);
     }
 
     /**
      * Workflow function for GameScore entity.
-     * This function receives the GameScore entity, can modify it asynchronously,
-     * and returns it (or a modified version) to be persisted.
+     * Uppercase status before persisting.
      */
     private CompletableFuture<Object> processGameScore(Object entity) {
-        GameScore gameScore = (GameScore) entity;
-        // Example modification: ensure status is uppercase
-        if (gameScore.getStatus() != null) {
-            gameScore.setStatus(gameScore.getStatus().toUpperCase());
+        ObjectNode objNode = (ObjectNode) objectMapper.valueToTree(entity);
+        if (objNode.has("status") && !objNode.get("status").isNull()) {
+            String status = objNode.get("status").asText();
+            objNode.put("status", status.toUpperCase());
         }
-        return CompletableFuture.completedFuture(gameScore);
+        return CompletableFuture.completedFuture(objNode);
     }
+
+    /**
+     * Workflow function for FetchScoresTask entity.
+     * This performs the external fetch, stores GameScore entities, and notifies subscribers.
+     * This function runs asynchronously right before persisting the FetchScoresTask entity.
+     */
+    private CompletableFuture<Object> processFetchScoresTask(Object entity) {
+        ObjectNode taskNode = (ObjectNode) entity;
+        String dateStr = taskNode.has("date") ? taskNode.get("date").asText() : null;
+        if (dateStr == null || dateStr.isBlank()) {
+            logger.warn("FetchScoresTask missing valid date, skipping fetch");
+            return CompletableFuture.completedFuture(taskNode);
+        }
+
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                LocalDate date = LocalDate.parse(dateStr);
+                logger.info("Starting fetch/store/notify pipeline for date {}", date);
+
+                // 1. Fetch external scores
+                String url = "https://api.sportsdata.io/v3/nba/scores/json/ScoresBasicFinal/" + date + "?key=test";
+                String raw = restTemplate.getForObject(new URI(url), String.class);
+                JsonNode arr = objectMapper.readTree(raw);
+                if (!arr.isArray()) {
+                    logger.warn("Expected array JSON but got {}", arr.getNodeType());
+                    return taskNode;
+                }
+
+                // 2. For each fetched GameScore, add entity with workflow processGameScore
+                List<CompletableFuture<UUID>> futures = new ArrayList<>();
+                for (JsonNode n : arr) {
+                    String home = n.path("HomeTeam").asText(null);
+                    String away = n.path("AwayTeam").asText(null);
+                    Integer hScore = n.path("HomeTeamScore").isInt() ? n.path("HomeTeamScore").asInt() : null;
+                    Integer aScore = n.path("AwayTeamScore").isInt() ? n.path("AwayTeamScore").asInt() : null;
+                    String stat = n.path("Status").asText(null);
+                    if (home == null || away == null) continue;
+
+                    GameScore gs = new GameScore(date, home, away, hScore, aScore, stat);
+                    CompletableFuture<UUID> f = entityService.addItem(
+                            "GameScore",
+                            ENTITY_VERSION,
+                            gs,
+                            this::processGameScore
+                    );
+                    futures.add(f);
+                }
+                CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+                logger.info("Stored {} GameScore entities for date {}", futures.size(), date);
+
+                // 3. Notify subscribers with the new scores
+                notifySubscribers(date);
+
+            } catch (Exception ex) {
+                logger.error("Error in processFetchScoresTask workflow", ex);
+            }
+            return taskNode;
+        });
+    }
+
+    /**
+     * Notify all subscribers with scores summary for the given date.
+     */
+    private void notifySubscribers(LocalDate date) throws Exception {
+        StringBuilder sb = new StringBuilder("Daily NBA Scores for " + date + ":\n");
+
+        Condition cond = Condition.of("$.date", "EQUALS", date.toString());
+        SearchConditionRequest searchCond = SearchConditionRequest.group("AND", cond);
+        CompletableFuture<com.fasterxml.jackson.databind.node.ArrayNode> arrFuture =
+                entityService.getItemsByCondition("GameScore", ENTITY_VERSION, searchCond);
+        com.fasterxml.jackson.databind.node.ArrayNode arr = arrFuture.get();
+
+        List<GameScore> games = new ArrayList<>();
+        for (JsonNode node : arr) {
+            GameScore gs = objectMapper.treeToValue(node, GameScore.class);
+            games.add(gs);
+        }
+
+        games.forEach(g -> sb.append(String.format("%s vs %s: %d-%d\n",
+                g.getAwayTeam(), g.getHomeTeam(),
+                Optional.ofNullable(g.getAwayScore()).orElse(-1),
+                Optional.ofNullable(g.getHomeScore()).orElse(-1))));
+
+        String msg = sb.toString();
+
+        CompletableFuture<com.fasterxml.jackson.databind.node.ArrayNode> subsFuture =
+                entityService.getItems("Subscription", ENTITY_VERSION);
+        com.fasterxml.jackson.databind.node.ArrayNode subsArr = subsFuture.get();
+
+        for (JsonNode subNode : subsArr) {
+            if (subNode.has("email")) {
+                String email = subNode.get("email").asText();
+                logger.info("Sending email to {}: \n{}", email, msg); // TODO: Replace with actual email send
+            }
+        }
+        logger.info("Notifications sent to subscribers");
+    }
+
+    // ========== CONTROLLER ENDPOINTS ==========
 
     @PostMapping("/subscribe")
     public ResponseEntity<Map<String, String>> subscribe(@RequestBody @Valid SubscribeRequest request) throws Exception {
         String email = request.getEmail().toLowerCase();
-        // check existing subscription with condition
+
+        // Check for duplicate subscription
         Condition cond = Condition.of("$.email", "EQUALS", email);
         SearchConditionRequest searchCond = SearchConditionRequest.group("AND", cond);
         CompletableFuture<List<UUID>> existingIdsFuture = entityService.getItemsByCondition("Subscription", ENTITY_VERSION, searchCond)
@@ -131,12 +282,13 @@ public class CyodaEntityControllerPrototype {
                     return ids;
                 });
         List<UUID> existingIds = existingIdsFuture.get();
+
         if (!existingIds.isEmpty()) {
             logger.info("Duplicate subscription attempt for email: {}", email);
-            return ResponseEntity.ok(Map.of("status","success","message","Subscription already exists."));
+            return ResponseEntity.ok(Map.of("status", "success", "message", "Subscription already exists."));
         }
+
         Subscription sub = new Subscription(email, OffsetDateTime.now());
-        // Use new entityService.addItem with workflow function processSubscription
         CompletableFuture<UUID> idFuture = entityService.addItem(
                 "Subscription",
                 ENTITY_VERSION,
@@ -145,13 +297,14 @@ public class CyodaEntityControllerPrototype {
         );
         UUID id = idFuture.get();
         logger.info("New subscription added: {}", email);
-        return ResponseEntity.ok(Map.of("status","success","message","Subscription added."));
+        return ResponseEntity.ok(Map.of("status", "success", "message", "Subscription added."));
     }
 
     @GetMapping("/subscribers")
     public ResponseEntity<Map<String, List<String>>> getSubscribers() throws Exception {
         CompletableFuture<com.fasterxml.jackson.databind.node.ArrayNode> arrFuture = entityService.getItems("Subscription", ENTITY_VERSION);
         com.fasterxml.jackson.databind.node.ArrayNode arr = arrFuture.get();
+
         List<String> emails = new ArrayList<>();
         for (JsonNode node : arr) {
             if (node.has("email")) {
@@ -162,28 +315,43 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.ok(Map.of("subscribers", emails));
     }
 
+    /**
+     * Replaced /fetch-scores endpoint to just add a FetchScoresTask entity.
+     * The workflow processFetchScoresTask will run asynchronously and perform the fetch/store/notify.
+     */
     @PostMapping("/fetch-scores")
-    public ResponseEntity<Map<String, String>> fetchScores(@RequestBody(required = false) @Valid FetchScoresRequest request) {
-        String dateStr = request != null ? request.getDate() : null;
-        LocalDate date;
-        try {
-            date = (dateStr == null || dateStr.isBlank()) ? LocalDate.now() : LocalDate.parse(dateStr);
-        } catch (Exception ex) {
-            logger.error("Invalid date format: {}", dateStr);
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Date must be in YYYY-MM-DD format");
-        }
-        logger.info("Triggered fetchScores for date {}", date);
-        CompletableFuture.runAsync(() -> fetchStoreAndNotify(date));
-        return ResponseEntity.ok(Map.of("status","success","message","Scores fetch and notification process started."));
+    public ResponseEntity<Map<String, String>> fetchScores(@RequestBody(required = false) @Valid FetchScoresRequest request) throws Exception {
+        String dateStr = (request != null && request.getDate() != null && !request.getDate().isBlank())
+                ? request.getDate()
+                : LocalDate.now().toString();
+
+        FetchScoresTask task = new FetchScoresTask(dateStr);
+
+        CompletableFuture<UUID> taskIdFuture = entityService.addItem(
+                "FetchScoresTask",
+                ENTITY_VERSION,
+                task,
+                this::processFetchScoresTask
+        );
+
+        UUID taskId = taskIdFuture.get();
+        logger.info("FetchScoresTask created with ID {} for date {}", taskId, dateStr);
+
+        return ResponseEntity.ok(Map.of(
+                "status", "success",
+                "message", "Scores fetch and notification task created."
+        ));
     }
+
+    // The rest of the endpoints (games/all, games/{date}) stay unchanged, no async logic moved here.
 
     @GetMapping("/games/all")
     public ResponseEntity<Map<String, Object>> getAllGames(
-        @RequestParam(defaultValue = "0") @Min(0) int page,
-        @RequestParam(defaultValue = "50") @Min(1) int size,
-        @RequestParam(required = false) @Size(min = 1) String team,
-        @RequestParam(required = false) @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}") String dateFrom,
-        @RequestParam(required = false) @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}") String dateTo
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "50") @Min(1) int size,
+            @RequestParam(required = false) @Size(min = 1) String team,
+            @RequestParam(required = false) @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}") String dateFrom,
+            @RequestParam(required = false) @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}") String dateTo
     ) throws Exception {
         logger.info("Fetching games page={}, size={}, team={}, dateFrom={}, dateTo={}", page, size, team, dateFrom, dateTo);
         LocalDate from = null, to = null;
@@ -209,18 +377,23 @@ public class CyodaEntityControllerPrototype {
             com.fasterxml.jackson.databind.node.ArrayNode arr = arrFuture.get();
             List<GameScore> filtered = new ArrayList<>();
             for (JsonNode node : arr) {
-                GameScore gs = objectMapper.treeToValue(node, GameScore.class);
-                filtered.add(gs);
+                filtered.add(objectMapper.treeToValue(node, GameScore.class));
             }
             int fromIdx = page * size;
             int toIdx = Math.min(fromIdx + size, filtered.size());
-            if (fromIdx > filtered.size()) { fromIdx = filtered.size(); toIdx = filtered.size(); }
+            if (fromIdx > filtered.size()) {
+                fromIdx = filtered.size();
+                toIdx = filtered.size();
+            }
             List<GameScore> content = filtered.subList(fromIdx, toIdx);
             Map<String, Object> resp = new HashMap<>();
             resp.put("games", content);
-            resp.put("pagination", Map.of("page", page, "size", size,
-                "totalPages", (int)Math.ceil((double)filtered.size()/size),
-                "totalElements", filtered.size()));
+            resp.put("pagination", Map.of(
+                    "page", page,
+                    "size", size,
+                    "totalPages", (int) Math.ceil((double) filtered.size() / size),
+                    "totalElements", filtered.size()
+            ));
             return ResponseEntity.ok(resp);
         } else {
             List<Condition> conds = new ArrayList<>();
@@ -241,29 +414,35 @@ public class CyodaEntityControllerPrototype {
             com.fasterxml.jackson.databind.node.ArrayNode arr = arrFuture.get();
             List<GameScore> filtered = new ArrayList<>();
             for (JsonNode node : arr) {
-                GameScore gs = objectMapper.treeToValue(node, GameScore.class);
-                filtered.add(gs);
+                filtered.add(objectMapper.treeToValue(node, GameScore.class));
             }
             int fromIdx = page * size;
             int toIdx = Math.min(fromIdx + size, filtered.size());
-            if (fromIdx > filtered.size()) { fromIdx = filtered.size(); toIdx = filtered.size(); }
+            if (fromIdx > filtered.size()) {
+                fromIdx = filtered.size();
+                toIdx = filtered.size();
+            }
             List<GameScore> content = filtered.subList(fromIdx, toIdx);
             Map<String, Object> resp = new HashMap<>();
             resp.put("games", content);
-            resp.put("pagination", Map.of("page", page, "size", size,
-                "totalPages", (int)Math.ceil((double)filtered.size()/size),
-                "totalElements", filtered.size()));
+            resp.put("pagination", Map.of(
+                    "page", page,
+                    "size", size,
+                    "totalPages", (int) Math.ceil((double) filtered.size() / size),
+                    "totalElements", filtered.size()
+            ));
             return ResponseEntity.ok(resp);
         }
     }
 
     @GetMapping("/games/{date}")
     public ResponseEntity<Map<String, List<GameScore>>> getGamesByDate(
-        @PathVariable @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}") String date
+            @PathVariable @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}") String date
     ) throws Exception {
         LocalDate d;
-        try { d = LocalDate.parse(date); }
-        catch (Exception ex) {
+        try {
+            d = LocalDate.parse(date);
+        } catch (Exception ex) {
             logger.error("Invalid date format: {}", date);
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Date must be in YYYY-MM-DD format");
         }
@@ -273,90 +452,20 @@ public class CyodaEntityControllerPrototype {
         com.fasterxml.jackson.databind.node.ArrayNode arr = arrFuture.get();
         List<GameScore> result = new ArrayList<>();
         for (JsonNode node : arr) {
-            GameScore gs = objectMapper.treeToValue(node, GameScore.class);
-            result.add(gs);
+            result.add(objectMapper.treeToValue(node, GameScore.class));
         }
         logger.info("Returning {} games for date {}", result.size(), date);
         return ResponseEntity.ok(Map.of("games", result));
     }
 
-    @Async
-    void fetchStoreAndNotify(LocalDate date) {
-        logger.info("Started fetchStoreAndNotify for date {}", date);
-        try {
-            String url = "https://api.sportsdata.io/v3/nba/scores/json/ScoresBasicFinal/" + date + "?key=test";
-            String raw = restTemplate.getForObject(new URI(url), String.class);
-            JsonNode arr = objectMapper.readTree(raw);
-            if (!arr.isArray()) {
-                logger.warn("Expected array JSON but got {}", arr.getNodeType());
-                return;
-            }
-            List<GameScore> toStore = new ArrayList<>();
-            for (JsonNode n : arr) {
-                String home = n.path("HomeTeam").asText(null);
-                String away = n.path("AwayTeam").asText(null);
-                Integer hScore = n.path("HomeTeamScore").isInt() ? n.path("HomeTeamScore").asInt() : null;
-                Integer aScore = n.path("AwayTeamScore").isInt() ? n.path("AwayTeamScore").asInt() : null;
-                String stat = n.path("Status").asText(null);
-                if (home == null || away == null) continue;
-                GameScore gs = new GameScore(null, date, home, away, hScore, aScore, stat);
-                toStore.add(gs);
-            }
-            if (!toStore.isEmpty()) {
-                // Use new addItems with workflow function processGameScore applied to each entity
-                List<CompletableFuture<UUID>> futures = new ArrayList<>();
-                for (GameScore gs : toStore) {
-                    CompletableFuture<UUID> future = entityService.addItem(
-                            "GameScore",
-                            ENTITY_VERSION,
-                            gs,
-                            this::processGameScore
-                    );
-                    futures.add(future);
-                }
-                // Wait for all to complete
-                CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get();
-            }
-            notifySubscribers(date);
-        } catch (Exception ex) {
-            logger.error("Error in fetchStoreAndNotify", ex);
-        }
-    }
-
-    private void notifySubscribers(LocalDate date) throws Exception {
-        StringBuilder sb = new StringBuilder("Daily NBA Scores for " + date + ":\n");
-        Condition cond = Condition.of("$.date", "EQUALS", date.toString());
-        SearchConditionRequest searchCond = SearchConditionRequest.group("AND", cond);
-        CompletableFuture<com.fasterxml.jackson.databind.node.ArrayNode> arrFuture = entityService.getItemsByCondition("GameScore", ENTITY_VERSION, searchCond);
-        com.fasterxml.jackson.databind.node.ArrayNode arr = arrFuture.get();
-        List<GameScore> games = new ArrayList<>();
-        for (JsonNode node : arr) {
-            GameScore g = objectMapper.treeToValue(node, GameScore.class);
-            games.add(g);
-        }
-        games.forEach(g -> sb.append(String.format("%s vs %s: %d-%d\n",
-            g.getAwayTeam(), g.getHomeTeam(),
-            Optional.ofNullable(g.getAwayScore()).orElse(-1),
-            Optional.ofNullable(g.getHomeScore()).orElse(-1))));
-        String msg = sb.toString();
-
-        CompletableFuture<com.fasterxml.jackson.databind.node.ArrayNode> subsFuture = entityService.getItems("Subscription", ENTITY_VERSION);
-        com.fasterxml.jackson.databind.node.ArrayNode subsArr = subsFuture.get();
-        for (JsonNode subNode : subsArr) {
-            if (subNode.has("email")) {
-                String email = subNode.get("email").asText();
-                logger.info("Sending email to {}: \n{}", email, msg); // TODO replace with real email send
-            }
-        }
-        logger.info("Notifications sent to subscribers");
-    }
+    // ========== EXCEPTION HANDLERS ==========
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<Map<String, String>> handleResponseStatusException(ResponseStatusException ex) {
         logger.error("Handled ResponseStatusException: {}", ex.getMessage());
         return ResponseEntity.status(ex.getStatusCode()).body(Map.of(
-            "error", ex.getStatusCode().toString(),
-            "message", ex.getReason()
+                "error", ex.getStatusCode().toString(),
+                "message", ex.getReason()
         ));
     }
 
@@ -364,8 +473,8 @@ public class CyodaEntityControllerPrototype {
     public ResponseEntity<Map<String, String>> handleGenericException(Exception ex) {
         logger.error("Unhandled exception", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
-            "error", HttpStatus.INTERNAL_SERVER_ERROR.toString(),
-            "message", "Internal server error"
+                "error", HttpStatus.INTERNAL_SERVER_ERROR.toString(),
+                "message", "Internal server error"
         ));
     }
 }
@@ -373,16 +482,19 @@ public class CyodaEntityControllerPrototype {
 
 ---
 
-### Explanation of changes:
+### Summary of the final changes:
 
-- Added two new private workflow functions `processSubscription` and `processGameScore` with the required `process{entityName}` naming convention:
-  - These take the entity as `Object`, cast it to the appropriate class, optionally modify it, and return a `CompletableFuture` with the entity.
-  - This matches the expected workflow function signature for the new `entityService.addItem` API.
+- **Moved email normalization to `processSubscription` workflow function**.
+- **Moved status uppercase normalization to `processGameScore` workflow function**.
+- **Created new entity `FetchScoresTask` and workflow function `processFetchScoresTask`**:
+  - It performs the entire async fetch/store/notify logic.
+  - The controller simply creates a `FetchScoresTask` entity to trigger this workflow.
+- **Removed all direct async tasks from controllers**.
+- **All async logic is now inside workflow functions applied pre-persistence**.
+- **Entities are passed as JSON ObjectNodes inside workflow functions and can be mutated directly**.
+- **No recursive add/update/delete on the same entity model inside workflow functions**.
+- **Controller code is now simpler and robust**.
 
-- Updated all calls to `entityService.addItem` to pass the respective workflow function as the last argument.
+---
 
-- In the `fetchStoreAndNotify` method, instead of a bulk addItems call (which might not support workflow), I added individual `addItem` calls on each `GameScore` entity with the `processGameScore` workflow function, and waited for all futures to complete.
-
-- No other logic was changed.
-
-This fully integrates the new workflow-function argument to `entityService.addItem` with appropriate `process{EntityName}` methods.
+Let me know if you want me to help with unit tests or further refinements!
