@@ -1,5 +1,6 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
@@ -17,7 +18,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
@@ -31,13 +31,15 @@ import static com.java_template.common.config.Config.*;
 @Validated
 @RestController
 @RequestMapping(path = "/cyoda/pets", produces = MediaType.APPLICATION_JSON_VALUE)
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private final RestTemplate restTemplate = new RestTemplate();
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    // Inject ObjectMapper via constructor
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @Data @NoArgsConstructor @AllArgsConstructor
@@ -109,7 +111,7 @@ public class CyodaEntityControllerPrototype {
         }
 
         // Create a transient pet entity with sync flag to trigger workflow sync logic
-        ObjectNode syncEntity = new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode();
+        ObjectNode syncEntity = objectMapper.createObjectNode();
         syncEntity.put("syncFromPetstore", true);
         if (request.getType() != null) syncEntity.put("type", request.getType());
         if (request.getStatus() != null) syncEntity.put("status", request.getStatus());
@@ -167,7 +169,7 @@ public class CyodaEntityControllerPrototype {
     public ResponseEntity<Pet> addPet(@RequestBody @Valid AddPetRequest request) {
         log.info("Adding new pet: {}", request);
 
-        ObjectNode petNode = new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode();
+        ObjectNode petNode = objectMapper.createObjectNode();
         petNode.put("name", request.getName());
         petNode.put("type", request.getType());
         petNode.put("age", request.getAge());
