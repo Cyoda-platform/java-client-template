@@ -1,64 +1,64 @@
 {
-    "description": "NBA Scores Fetch and Notify Workflow",
-    "initial_state": "none",
-    "states": {
-        "completed": {
-            "transitions": {}
+  "description": "NBA Scores Fetch and Notify Workflow",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "invalid_fetch_request": {
+          "condition": {
+            "function": {
+              "name": "isInvalidFetchRequest"
+            },
+            "type": "function"
+          },
+          "next": "error"
         },
-        "error": {
-            "transitions": {}
-        },
-        "fetching": {
-            "transitions": {
-                "to_notifying": {
-                    "condition": {
-                        "function": {
-                            "name": "alwaysTrue"
-                        },
-                        "type": "function"
-                    },
-                    "next": "notifying"
-                }
-            }
-        },
-        "none": {
-            "transitions": {
-                "invalid_fetch_request": {
-                    "condition": {
-                        "function": {
-                            "name": "isInvalidFetchRequest"
-                        },
-                        "type": "function"
-                    },
-                    "next": "error"
-                },
-                "to_fetching": {
-                    "action": {
-                        "name": "fetchGamesAndNotifySubscribersAsync"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "isValidFetchRequest"
-                        },
-                        "type": "function"
-                    },
-                    "next": "fetching"
-                }
-            }
-        },
-        "notifying": {
-            "transitions": {
-                "to_completed": {
-                    "condition": {
-                        "function": {
-                            "name": "alwaysTrue"
-                        },
-                        "type": "function"
-                    },
-                    "next": "completed"
-                }
-            }
+        "to_fetching": {
+          "action": {
+            "name": "fetchGamesAndNotifySubscribersAsync"
+          },
+          "condition": {
+            "function": {
+              "name": "isValidFetchRequest"
+            },
+            "type": "function"
+          },
+          "next": "fetching"
         }
+      }
     },
-    "workflow_name": "nba_scores_workflow"
+    "error": {
+      "transitions": {}
+    },
+    "fetching": {
+      "transitions": {
+        "to_notifying": {
+          "condition": {
+            "function": {
+              "name": "alwaysTrue"
+            },
+            "type": "function"
+          },
+          "next": "notifying"
+        }
+      }
+    },
+    "notifying": {
+      "transitions": {
+        "to_completed": {
+          "condition": {
+            "function": {
+              "name": "alwaysTrue"
+            },
+            "type": "function"
+          },
+          "next": "completed"
+        }
+      }
+    },
+    "completed": {
+      "transitions": {}
+    }
+  },
+  "workflow_name": "nba_scores_workflow"
 }
