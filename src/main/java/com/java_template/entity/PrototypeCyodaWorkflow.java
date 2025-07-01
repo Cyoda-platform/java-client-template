@@ -1,39 +1,3 @@
-Certainly! To follow the new recommended best practice, we should move all async and supplementary logic from the controller endpoints into dedicated `process{entity_name}` workflow functions. This will simplify the controllers, improve separation of concerns, and leverage the workflow mechanism for async and pre-persistence logic.
-
----
-
-### Key points in the refactoring:
-
-- **Move all async tasks (fetching external data, notifications, enrichment, etc.) into workflow functions**.
-- The workflow function receives the entity data as an `ObjectNode`. We can modify it directly (`put`, `set`, etc.).
-- Inside the workflow function, we **can** call `entityService` methods for different entityModels but **cannot** add/update/delete the same entityModel to avoid infinite recursion.
-- The workflow is applied **before** the entity is persisted, so any modifications are saved automatically.
-- Controllers only handle request/response, validation, and call `entityService.addItem` with the workflow.
-
----
-
-### Refactoring plan for your code:
-
-1. **Game entity: processGame(Object entityData)**
-   - Move the logic of uppercasing names into this function.
-   - Move the notification logic here (send emails to all subscribers).
-   - Move external API fetching out of the controller — instead, the external data should be added as entities via another service or an external process; however, the current "fetch and notify" controller triggers this flow, so we will refactor accordingly.
-
-2. **Subscriber entity: processSubscriber(Object entityData)**
-   - If subscribers are stored as entities (instead of in-memory map), we can move subscribe-related logic here.
-
-3. **Fetching external data and adding Game entities**
-   - Since external fetching is async and adds multiple Game entities, and we cannot add/update/delete Game entities inside `processGame` (would cause recursion), we need a separate entityModel or a service outside this flow to add these Game entities.
-   - Alternatively, create a new entityModel like `ExternalGameRaw` or `GameFetchRequest` that triggers the fetch + add flow in its workflow.
-   - The controller then only adds this "fetch request" entity, which triggers fetching and adding Games inside the workflow.
-   
----
-
-### Given the above, here is the updated code illustrating these ideas.
-
----
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -63,7 +27,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
@@ -82,56 +45,74 @@ public class CyodaEntityControllerPrototype {
         this.entityService = entityService;
     }
 
-    // --- Data classes ---
-
-    @Data @NoArgsConstructor @AllArgsConstructor
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class SubscribeRequest {
-        @NotBlank @Email
+        @NotBlank
+        @Email
         private String email;
     }
 
-    @Data @NoArgsConstructor @AllArgsConstructor
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class SubscribeResponse {
         private String message;
         private String email;
     }
 
-    @Data @NoArgsConstructor @AllArgsConstructor
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class FetchAndNotifyRequest {
-        @NotBlank @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}", message = "Date format must be YYYY-MM-DD")
+        @NotBlank
+        @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}", message = "Date format must be YYYY-MM-DD")
         private String date;
     }
 
-    @Data @NoArgsConstructor @AllArgsConstructor
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class FetchAndNotifyResponse {
         private String message;
     }
 
-    @Data @NoArgsConstructor @AllArgsConstructor
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class SubscribersResponse {
         private List<String> subscribers;
     }
 
-    @Data @NoArgsConstructor @AllArgsConstructor
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class GamesResponse {
         private List<Game> games;
         private Pagination pagination;
     }
 
-    @Data @NoArgsConstructor @AllArgsConstructor
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class GamesByDateResponse {
         private String date;
         private List<Game> games;
     }
 
-    @Data @NoArgsConstructor @AllArgsConstructor
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class Pagination {
         private int page;
         private int pageSize;
         private int totalPages;
     }
 
-    @Data @NoArgsConstructor @AllArgsConstructor
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class Game {
         private Integer gameId;
         private String date;
@@ -141,38 +122,22 @@ public class CyodaEntityControllerPrototype {
         private Integer awayScore;
     }
 
-    // --- Controller endpoints simplified ---
-
-    /**
-     * Subscribe endpoint.
-     * Now creates a Subscriber entity with workflow processSubscriber that handles duplicate check etc.
-     */
     @PostMapping("/subscribe")
     public CompletableFuture<ResponseEntity<SubscribeResponse>> subscribe(@Valid @RequestBody SubscribeRequest request) {
         ObjectNode subscriberEntity = objectMapper.createObjectNode();
         subscriberEntity.put("email", request.getEmail().toLowerCase(Locale.ROOT).trim());
-        // Add the subscriber with workflow to handle async duplicate check or other logic
         return entityService.addItem("Subscriber", ENTITY_VERSION, subscriberEntity, this::processSubscriber)
                 .thenApply(uuid -> ResponseEntity.ok(new SubscribeResponse("Subscription successful", request.getEmail())));
     }
 
-    /**
-     * Fetch and notify endpoint.
-     * Now creates a FetchRequest entity that triggers fetch + add games + notify in the workflow.
-     * Controller just adds the FetchRequest entity with workflow.
-     */
     @PostMapping("/fetch-and-notify")
     public CompletableFuture<ResponseEntity<FetchAndNotifyResponse>> fetchAndNotify(@Valid @RequestBody FetchAndNotifyRequest request) {
         ObjectNode fetchRequestEntity = objectMapper.createObjectNode();
         fetchRequestEntity.put("date", request.getDate().trim());
-        // Add a FetchRequest entity with workflow processFetchRequest that fetches games and adds them + notifies subscribers
         return entityService.addItem("FetchRequest", ENTITY_VERSION, fetchRequestEntity, this::processFetchRequest)
                 .thenApply(uuid -> ResponseEntity.ok(new FetchAndNotifyResponse("Data fetching and notification started for date " + request.getDate())));
     }
 
-    /**
-     * List subscribers - now simply fetch all Subscriber entities.
-     */
     @GetMapping("/subscribers")
     public CompletableFuture<ResponseEntity<SubscribersResponse>> getSubscribers() {
         return entityService.getItems("Subscriber", ENTITY_VERSION)
@@ -187,9 +152,6 @@ public class CyodaEntityControllerPrototype {
                 });
     }
 
-    /**
-     * List all games with pagination.
-     */
     @GetMapping("/games/all")
     public CompletableFuture<ResponseEntity<GamesResponse>> getAllGames(
             @RequestParam(defaultValue = "1") @Min(1) int page,
@@ -203,20 +165,17 @@ public class CyodaEntityControllerPrototype {
                     allGames.sort(Comparator.comparing(Game::getDate, Comparator.reverseOrder()));
                     int total = allGames.size();
                     int totalPages = (int) Math.ceil((double) total / pageSize);
-                    if (page > totalPages) {
+                    if (page > totalPages && totalPages > 0) {
                         page = 1;
                     }
                     int fromIndex = (page - 1) * pageSize;
                     int toIndex = Math.min(fromIndex + pageSize, total);
-                    List<Game> pagedGames = allGames.subList(fromIndex, toIndex);
+                    List<Game> pagedGames = fromIndex >= toIndex ? Collections.emptyList() : allGames.subList(fromIndex, toIndex);
                     Pagination pagination = new Pagination(page, pageSize, totalPages);
                     return ResponseEntity.ok(new GamesResponse(pagedGames, pagination));
                 });
     }
 
-    /**
-     * Get games by date.
-     */
     @GetMapping("/games/{date}")
     public CompletableFuture<ResponseEntity<GamesByDateResponse>> getGamesByDate(
             @PathVariable @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}", message = "Date format must be YYYY-MM-DD") String date) {
@@ -232,32 +191,18 @@ public class CyodaEntityControllerPrototype {
                 });
     }
 
-    // --- Workflow functions ---
-
-    /**
-     * Workflow for Game entity.
-     * Modify entity state before persistence.
-     */
     private Object processGame(Object entityData) {
         if (!(entityData instanceof ObjectNode)) return entityData;
         ObjectNode gameNode = (ObjectNode) entityData;
-        // Uppercase team names if present
         if (gameNode.has("homeTeam")) {
             gameNode.put("homeTeam", gameNode.get("homeTeam").asText().toUpperCase(Locale.ROOT));
         }
         if (gameNode.has("awayTeam")) {
             gameNode.put("awayTeam", gameNode.get("awayTeam").asText().toUpperCase(Locale.ROOT));
         }
-        // Could add more processing here if needed
-        // Notifications are moved to FetchRequest workflow (because we cannot add Game inside processGame)
         return gameNode;
     }
 
-    /**
-     * Workflow for Subscriber entity.
-     * Here we can check for duplicate email asynchronously before persistence.
-     * If duplicate found, throw exception to abort add.
-     */
     private Object processSubscriber(Object entityData) {
         if (!(entityData instanceof ObjectNode)) return entityData;
         ObjectNode subscriberNode = (ObjectNode) entityData;
@@ -266,7 +211,6 @@ public class CyodaEntityControllerPrototype {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is required");
         }
         try {
-            // Query existing subscribers with this email
             SearchConditionRequest condition = SearchConditionRequest.group("AND",
                     Condition.of("$.email", "EQUALS", email));
             CompletableFuture<ArrayNode> existingFuture = entityService.getItemsByCondition("Subscriber", ENTITY_VERSION, condition);
@@ -278,22 +222,11 @@ public class CyodaEntityControllerPrototype {
             if (e instanceof ResponseStatusException) throw (ResponseStatusException) e;
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error checking subscription", e);
         }
-        // All good, proceed with persistence
         subscriberNode.put("email", email);
         subscriberNode.put("subscribedAt", Instant.now().toString());
         return subscriberNode;
     }
 
-    /**
-     * Workflow for FetchRequest entity.
-     * This function asynchronously fetches external game data for the requested date,
-     * adds Game entities (with processGame workflow),
-     * and notifies all Subscribers asynchronously.
-     * 
-     * Important:
-     * - We do NOT modify FetchRequest entity here (it is just a trigger).
-     * - We use entityService.addItems to add multiple Game entities with processGame workflow.
-     */
     private Object processFetchRequest(Object entityData) {
         if (!(entityData instanceof ObjectNode)) return entityData;
         ObjectNode fetchRequestNode = (ObjectNode) entityData;
@@ -301,8 +234,6 @@ public class CyodaEntityControllerPrototype {
         if (date == null || date.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Date is required for fetch request");
         }
-
-        // Run async task (fire and forget)
         CompletableFuture.runAsync(() -> {
             try {
                 fetchGamesAndNotifySubscribers(date);
@@ -310,42 +241,27 @@ public class CyodaEntityControllerPrototype {
                 logger.error("Error in fetchGamesAndNotifySubscribers for date {}: {}", date, e.getMessage(), e);
             }
         });
-
-        // Return entity unchanged
         return entityData;
     }
 
-    // --- Helper methods ---
-
-    /**
-     * Fetch external NBA game data for the date,
-     * add Game entities with processGame workflow,
-     * and notify Subscribers.
-     */
     private void fetchGamesAndNotifySubscribers(String date) throws Exception {
         logger.info("Starting fetchGamesAndNotifySubscribers for date {}", date);
-
-        // External API URL and key - adjust accordingly
-        final String EXTERNAL_API_KEY = "test"; // TODO: secure config
+        final String EXTERNAL_API_KEY = "test";
         final String EXTERNAL_API_URL_TEMPLATE = "https://api.sportsdata.io/v3/nba/scores/json/ScoresBasicFinal/%s?key=%s";
-
         String url = String.format(EXTERNAL_API_URL_TEMPLATE,
                 URLEncoder.encode(date, StandardCharsets.UTF_8),
                 URLEncoder.encode(EXTERNAL_API_KEY, StandardCharsets.UTF_8));
-
         RestTemplate restTemplate = new RestTemplate();
         String rawJson = restTemplate.getForObject(URI.create(url), String.class);
         if (rawJson == null) {
             logger.warn("No data received from external API for date {}", date);
             return;
         }
-
         JsonNode rootNode = objectMapper.readTree(rawJson);
         if (!rootNode.isArray()) {
             logger.warn("Unexpected external API response format for date {}", date);
             return;
         }
-
         List<ObjectNode> gameEntities = new ArrayList<>();
         for (JsonNode gameNode : rootNode) {
             ObjectNode gameEntity = objectMapper.createObjectNode();
@@ -361,20 +277,11 @@ public class CyodaEntityControllerPrototype {
             }
             gameEntities.add(gameEntity);
         }
-
-        // Add all Game entities with processGame workflow
         entityService.addItems("Game", ENTITY_VERSION, gameEntities, this::processGame).get();
-
         logger.info("Added {} Game entities for date {}", gameEntities.size(), date);
-
-        // Notify all subscribers asynchronously
         notifyAllSubscribers(date, gameEntities);
     }
 
-    /**
-     * Send notifications to all subscribers.
-     * This is done asynchronously - ideally integrate with real email service.
-     */
     private void notifyAllSubscribers(String date, List<ObjectNode> games) {
         entityService.getItems("Subscriber", ENTITY_VERSION).thenAccept(subscribersArray -> {
             if (subscribersArray.isEmpty()) {
@@ -405,8 +312,6 @@ public class CyodaEntityControllerPrototype {
         });
     }
 
-    // --- Utility ---
-
     private Game convertNodeToGame(JsonNode node) {
         Integer gameId = node.has("gameId") && node.get("gameId").isInt() ? node.get("gameId").asInt() : null;
         String date = node.has("date") ? node.get("date").asText() : null;
@@ -417,24 +322,21 @@ public class CyodaEntityControllerPrototype {
         return new Game(gameId, date, homeTeam, awayTeam, homeScore, awayScore);
     }
 
-    // --- Exception handlers omitted for brevity (can be same as before) ---
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<Map<String, String>> handleResponseStatusException(ResponseStatusException ex) {
+        logger.error("API error: {}", ex.getMessage());
+        Map<String, String> error = new HashMap<>();
+        error.put("error", ex.getStatusCode().toString());
+        error.put("message", ex.getReason());
+        return ResponseEntity.status(ex.getStatusCode()).body(error);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Map<String, String>> handleGenericException(Exception ex) {
+        logger.error("Unexpected error: {}", ex.getMessage(), ex);
+        Map<String, String> error = new HashMap<>();
+        error.put("error", HttpStatus.INTERNAL_SERVER_ERROR.toString());
+        error.put("message", "Internal server error");
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+    }
 }
-```
-
----
-
-### Summary:
-
-- **`subscribe` endpoint**: just creates a `Subscriber` entity with `processSubscriber` workflow that does duplicate check and timestamps.
-- **`fetch-and-notify` endpoint**: creates a `FetchRequest` entity with `processFetchRequest` workflow that fetches external data, adds `Game` entities with `processGame` workflow, and sends notifications asynchronously.
-- **`processGame` workflow**: does simple transformation (uppercase team names).
-- **`processSubscriber` workflow**: checks for duplicate subscriptions asynchronously before save.
-- **`processFetchRequest` workflow**: runs async fetch and notify task, does NOT mutate the `FetchRequest` entity.
-- Controllers are streamlined, no async logic inside them.
-- All async and entity-related logic is inside workflow functions, executed before persistence.
-
----
-
-This approach fully embraces your new architecture and makes the system more robust, maintainable, and testable. The controllers are clean and focused on request/response only.
-
-If you want, I can also provide exception handlers and other minor improvements for completeness.
