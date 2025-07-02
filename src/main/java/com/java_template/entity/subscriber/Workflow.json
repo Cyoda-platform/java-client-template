@@ -1,106 +1,106 @@
 {
-    "description": "Weekly Cat Fact Subscription FSM workflow",
-    "initial_state": "none",
-    "states": {
-        "check_email_sending": {
-            "transitions": {
-                "send_emails": {
-                    "condition": {
-                        "function": {
-                            "name": "emailsNotSentYet"
-                        },
-                        "type": "function"
-                    },
-                    "next": "email_sending"
-                },
-                "skip_email_sending": {
-                    "condition": {
-                        "function": {
-                            "name": "alwaysFalse"
-                        },
-                        "type": "function"
-                    },
-                    "next": "end"
-                }
-            }
+  "description": "Weekly Cat Fact Subscription FSM workflow",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "check_subscriber_subscription": {
+          "condition": {
+            "function": {
+              "name": "hasNoSubscribedAt"
+            },
+            "type": "function"
+          },
+          "next": "process_subscriber"
         },
-        "check_fact_presence": {
-            "transitions": {
-                "fact_missing": {
-                    "condition": {
-                        "function": {
-                            "name": "alwaysFalse"
-                        },
-                        "type": "function"
-                    },
-                    "next": "end"
-                },
-                "fact_present": {
-                    "condition": {
-                        "function": {
-                            "name": "factIsPresent"
-                        },
-                        "type": "function"
-                    },
-                    "next": "check_email_sending"
-                }
-            }
-        },
-        "email_sending": {
-            "transitions": {
-                "emails_sent": {
-                    "action": {
-                        "name": "sendFactEmails"
-                    },
-                    "next": "end"
-                }
-            }
-        },
-        "end": {
-            "transitions": {}
-        },
-        "fact_ingestion": {
-            "transitions": {
-                "fetch_fact": {
-                    "action": {
-                        "name": "fetchCatFact"
-                    },
-                    "next": "check_fact_presence"
-                }
-            }
-        },
-        "none": {
-            "transitions": {
-                "check_subscriber_subscription": {
-                    "condition": {
-                        "function": {
-                            "name": "hasNoSubscribedAt"
-                        },
-                        "type": "function"
-                    },
-                    "next": "process_subscriber"
-                },
-                "skip_subscriber_processing": {
-                    "condition": {
-                        "function": {
-                            "name": "alwaysTrue"
-                        },
-                        "type": "function"
-                    },
-                    "next": "fact_ingestion"
-                }
-            }
-        },
-        "process_subscriber": {
-            "transitions": {
-                "subscriber_processed": {
-                    "action": {
-                        "name": "processSubscriber"
-                    },
-                    "next": "fact_ingestion"
-                }
-            }
+        "skip_subscriber_processing": {
+          "condition": {
+            "function": {
+              "name": "alwaysTrue"
+            },
+            "type": "function"
+          },
+          "next": "fact_ingestion"
         }
+      }
     },
-    "workflow_name": "weekly_cat_fact_workflow"
+    "process_subscriber": {
+      "transitions": {
+        "subscriber_processed": {
+          "action": {
+            "name": "processSubscriber"
+          },
+          "next": "fact_ingestion"
+        }
+      }
+    },
+    "fact_ingestion": {
+      "transitions": {
+        "fetch_fact": {
+          "action": {
+            "name": "fetchCatFact"
+          },
+          "next": "check_fact_presence"
+        }
+      }
+    },
+    "check_fact_presence": {
+      "transitions": {
+        "fact_missing": {
+          "condition": {
+            "function": {
+              "name": "alwaysFalse"
+            },
+            "type": "function"
+          },
+          "next": "end"
+        },
+        "fact_present": {
+          "condition": {
+            "function": {
+              "name": "factIsPresent"
+            },
+            "type": "function"
+          },
+          "next": "check_email_sending"
+        }
+      }
+    },
+    "end": {
+      "transitions": {}
+    },
+    "check_email_sending": {
+      "transitions": {
+        "send_emails": {
+          "condition": {
+            "function": {
+              "name": "emailsNotSentYet"
+            },
+            "type": "function"
+          },
+          "next": "email_sending"
+        },
+        "skip_email_sending": {
+          "condition": {
+            "function": {
+              "name": "alwaysFalse"
+            },
+            "type": "function"
+          },
+          "next": "end"
+        }
+      }
+    },
+    "email_sending": {
+      "transitions": {
+        "emails_sent": {
+          "action": {
+            "name": "sendFactEmails"
+          },
+          "next": "end"
+        }
+      }
+    }
+  },
+  "workflow_name": "weekly_cat_fact_workflow"
 }
