@@ -1,4 +1,4 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -10,43 +10,38 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.net.URI;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 import static com.java_template.common.config.Config.*;
 
-@Slf4j
-@Validated
 @RestController
+@Validated
 @RequestMapping(path = "/cyoda/weather", produces = MediaType.APPLICATION_JSON_VALUE)
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    private final RestTemplate restTemplate = new RestTemplate();
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
+    private final ObjectMapper objectMapper;
     private final EntityService entityService;
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @PostMapping("/fetch")
     public CompletableFuture<ResponseEntity<FetchResponse>> fetchWeatherData(@RequestBody @Valid FetchRequest request) {
-        log.info("Received weather fetch request: {}", request);
+        logger.info("Received weather fetch request: {}", request);
 
         ObjectNode jobNode = objectMapper.createObjectNode();
         jobNode.put("status", "processing");
@@ -66,23 +61,25 @@ public class CyodaEntityControllerPrototype {
                         jobNode
                 )
                 .thenApply(technicalId -> {
-                    log.info("Created WeatherJob with technicalId={}", technicalId);
+                    logger.info("Created WeatherJob with technicalId={}", technicalId);
                     return ResponseEntity.accepted().body(new FetchResponse(technicalId.toString(), "processing"));
                 });
     }
 
     @GetMapping("/result/{requestId}")
     public CompletableFuture<ResponseEntity<WeatherResult>> getWeatherResult(@PathVariable @NotBlank String requestId) {
-        log.info("Fetching weather result for requestId={}", requestId);
+        logger.info("Fetching weather result for requestId={}", requestId);
         UUID technicalId;
         try {
             technicalId = UUID.fromString(requestId);
         } catch (IllegalArgumentException e) {
+            logger.error("Invalid requestId format: {}", requestId, e);
             throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid requestId format");
         }
         return entityService.getItem("WeatherResult", ENTITY_VERSION, technicalId)
                 .thenApply(objectNode -> {
                     if (objectNode == null || objectNode.isEmpty()) {
+                        logger.error("Weather data not found for requestId={}", requestId);
                         throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Weather data not found");
                     }
                     WeatherResult result = objectMapper.convertValue(objectNode, WeatherResult.class);
@@ -125,23 +122,22 @@ public class CyodaEntityControllerPrototype {
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<ErrorResponse> handleResponseStatusException(ResponseStatusException ex) {
-        log.error("Handled error: {} - {}", ex.getStatusCode(), ex.getReason());
+        logger.error("Handled error: {} - {}", ex.getStatusCode(), ex.getReason());
         return new ResponseEntity<>(new ErrorResponse(ex.getStatusCode().toString(), ex.getReason()),
                 ex.getStatusCode());
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
-        log.error("Unexpected error", ex);
+        logger.error("Unexpected error", ex);
         return new ResponseEntity<>(new ErrorResponse(
                 org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR.toString(),
                 "Internal server error"),
                 org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
+    // DTO classes
+
     public static class FetchRequest {
         @NotNull
         @Min(-90)
@@ -161,19 +157,87 @@ public class CyodaEntityControllerPrototype {
         @Min(1)
         @Max(16)
         private Integer forecastDays;
+
+        public FetchRequest() {}
+
+        public FetchRequest(Double latitude, Double longitude, String[] parameters, Integer forecastDays) {
+            this.latitude = latitude;
+            this.longitude = longitude;
+            this.parameters = parameters;
+            this.forecastDays = forecastDays;
+        }
+
+        public Double getLatitude() {
+            return latitude;
+        }
+
+        public void setLatitude(Double latitude) {
+            this.latitude = latitude;
+        }
+
+        public Double getLongitude() {
+            return longitude;
+        }
+
+        public void setLongitude(Double longitude) {
+            this.longitude = longitude;
+        }
+
+        public String[] getParameters() {
+            return parameters;
+        }
+
+        public void setParameters(String[] parameters) {
+            this.parameters = parameters;
+        }
+
+        public Integer getForecastDays() {
+            return forecastDays;
+        }
+
+        public void setForecastDays(Integer forecastDays) {
+            this.forecastDays = forecastDays;
+        }
+
+        @Override
+        public String toString() {
+            return "FetchRequest{" +
+                    "latitude=" + latitude +
+                    ", longitude=" + longitude +
+                    ", parameters=" + java.util.Arrays.toString(parameters) +
+                    ", forecastDays=" + forecastDays +
+                    '}';
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class FetchResponse {
         private String requestId;
         private String status;
+
+        public FetchResponse() {}
+
+        public FetchResponse(String requestId, String status) {
+            this.requestId = requestId;
+            this.status = status;
+        }
+
+        public String getRequestId() {
+            return requestId;
+        }
+
+        public void setRequestId(String requestId) {
+            this.requestId = requestId;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class WeatherResult {
         private String technicalId;
         private String requestId;
@@ -182,13 +246,101 @@ public class CyodaEntityControllerPrototype {
         private JsonNode parameters;
         private Integer forecastDays;
         private String timestamp;
+
+        public WeatherResult() {}
+
+        public WeatherResult(String technicalId, String requestId, Double latitude, Double longitude, JsonNode parameters, Integer forecastDays, String timestamp) {
+            this.technicalId = technicalId;
+            this.requestId = requestId;
+            this.latitude = latitude;
+            this.longitude = longitude;
+            this.parameters = parameters;
+            this.forecastDays = forecastDays;
+            this.timestamp = timestamp;
+        }
+
+        public String getTechnicalId() {
+            return technicalId;
+        }
+
+        public void setTechnicalId(String technicalId) {
+            this.technicalId = technicalId;
+        }
+
+        public String getRequestId() {
+            return requestId;
+        }
+
+        public void setRequestId(String requestId) {
+            this.requestId = requestId;
+        }
+
+        public Double getLatitude() {
+            return latitude;
+        }
+
+        public void setLatitude(Double latitude) {
+            this.latitude = latitude;
+        }
+
+        public Double getLongitude() {
+            return longitude;
+        }
+
+        public void setLongitude(Double longitude) {
+            this.longitude = longitude;
+        }
+
+        public JsonNode getParameters() {
+            return parameters;
+        }
+
+        public void setParameters(JsonNode parameters) {
+            this.parameters = parameters;
+        }
+
+        public Integer getForecastDays() {
+            return forecastDays;
+        }
+
+        public void setForecastDays(Integer forecastDays) {
+            this.forecastDays = forecastDays;
+        }
+
+        public String getTimestamp() {
+            return timestamp;
+        }
+
+        public void setTimestamp(String timestamp) {
+            this.timestamp = timestamp;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class ErrorResponse {
         private String error;
         private String message;
+
+        public ErrorResponse() {}
+
+        public ErrorResponse(String error, String message) {
+            this.error = error;
+            this.message = message;
+        }
+
+        public String getError() {
+            return error;
+        }
+
+        public void setError(String error) {
+            this.error = error;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public void setMessage(String message) {
+            this.message = message;
+        }
     }
 }
