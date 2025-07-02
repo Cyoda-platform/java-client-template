@@ -28,22 +28,14 @@ public class Controller {
     private final EntityService entityService;
     private final ObjectMapper objectMapper;
 
-    // Inject ObjectMapper via constructor
     public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
         this.objectMapper = objectMapper;
     }
 
     @PostMapping
-    public CompletableFuture<ResponseEntity<IdResponse>> saveItem(@Valid @RequestBody ItemRequest request) {
+    public CompletableFuture<ResponseEntity<IdResponse>> saveItem(@Valid @RequestBody ObjectNode data) {
         logger.info("Received POST request to save item");
-        ObjectNode data;
-        try {
-            data = (ObjectNode) objectMapper.readTree(request.getRawJson());
-        } catch (Exception e) {
-            logger.error("Invalid JSON format", e);
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid JSON format");
-        }
 
         CompletableFuture<UUID> idFuture = entityService.addItem(
                 "cyoda", com.java_template.common.config.Config.ENTITY_VERSION,
@@ -102,28 +94,6 @@ public class Controller {
                 Instant.now().toString()
         );
         return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
-    }
-
-    // DTO classes
-
-    public static class ItemRequest {
-        @NotBlank
-        private String rawJson;
-
-        public ItemRequest() {
-        }
-
-        public ItemRequest(String rawJson) {
-            this.rawJson = rawJson;
-        }
-
-        public String getRawJson() {
-            return rawJson;
-        }
-
-        public void setRawJson(String rawJson) {
-            this.rawJson = rawJson;
-        }
     }
 
     public static class IdResponse {
