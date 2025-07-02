@@ -1,0 +1,49 @@
+{
+    "description": "WeatherJob entity finite state machine workflow",
+    "initial_state": "none",
+    "states": {
+        "completed": {
+            "transitions": {}
+        },
+        "failed": {
+            "transitions": {}
+        },
+        "none": {
+            "transitions": {
+                "start_processing_if_ready": {
+                    "condition": {
+                        "function": {
+                            "name": "isReadyToProcess"
+                        },
+                        "type": "function"
+                    },
+                    "next": "processing"
+                }
+            }
+        },
+        "processing": {
+            "transitions": {
+                "complete_if_successful": {
+                    "condition": {
+                        "function": {
+                            "name": "isProcessSuccessful"
+                        },
+                        "type": "function"
+                    },
+                    "next": "completed"
+                },
+                "fail_if_failed": {
+                    "condition": {
+                        "function": {
+                            "name": "isProcessFailed"
+                        },
+                        "type": "function"
+                    },
+                    "next": "failed"
+                }
+            }
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "weather_job_workflow"
+}
