@@ -1,9 +1,9 @@
 from quart import Blueprint, request, jsonify
 import logging
+import time
 from common.config.config import ENTITY_VERSION
 from app_init.app_init import entity_service
 from app_init.app_init import BeanFactory
-import asyncio
 
 factory = BeanFactory(config={'CHAT_REPOSITORY': 'cyoda'})
 entity_service = factory.get_services()['entity_service']
@@ -14,14 +14,12 @@ logger.setLevel(logging.INFO)
 
 bp = Blueprint('cyoda_entity_prototype', __name__, url_prefix='/cyoda/items')
 
-
 async def process_cyoda(entity):
-    # Add processed timestamp
-    import time
+    # Add processed timestamp in ISO 8601 UTC format
     entity['processed_timestamp'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
 
-    # Example asynchronous enrichment: fetch supplementary entities count from a different entity_model
     try:
+        # Fetch supplementary entities from a different entity_model asynchronously
         supplementary_items = await entity_service.get_items(
             token=cyoda_auth_service,
             entity_model="supplementary_model",
@@ -31,15 +29,17 @@ async def process_cyoda(entity):
         entity['supplementary_count'] = count
     except Exception as e:
         logger.error(f"Failed to enrich entity in process_cyoda workflow: {e}")
-        # Continue without failing workflow
+        # Do not fail the workflow, just log and continue
 
-    # You can add other async enrichment or fire-and-forget logic here
+    # Additional async enrichment or fire-and-forget tasks can be added here safely
+
     return entity
-
 
 @bp.route('', methods=['POST'])
 async def create_item():
     data = await request.get_json()
+    if not data:
+        return jsonify({"error": "Missing JSON body"}), 400
     try:
         tech_id = await entity_service.add_item(
             token=cyoda_auth_service,
@@ -50,12 +50,13 @@ async def create_item():
         )
         return jsonify({"id": str(tech_id)}), 201
     except Exception as e:
-        logger.exception(e)
-        raise
-
+        logger.exception("Error in create_item")
+        return jsonify({"error": "Internal server error"}), 500
 
 @bp.route('/<string:technical_id>', methods=['GET'])
 async def get_item(technical_id: str):
+    if not technical_id:
+        return jsonify({"error": "Missing technical_id"}), 400
     try:
         item = await entity_service.get_item(
             token=cyoda_auth_service,
@@ -67,9 +68,8 @@ async def get_item(technical_id: str):
             return jsonify({"error": "Item not found"}), 404
         return jsonify(item)
     except Exception as e:
-        logger.exception(e)
-        raise
-
+        logger.exception("Error in get_item")
+        return jsonify({"error": "Internal server error"}), 500
 
 @bp.route('', methods=['GET'])
 async def get_all_items():
@@ -77,17 +77,18 @@ async def get_all_items():
         items = await entity_service.get_items(
             token=cyoda_auth_service,
             entity_model="cyoda",
-            entity_version=ENTITY_VERSION,
+            entity_version=ENTITY_VERSION
         )
         return jsonify(items)
     except Exception as e:
-        logger.exception(e)
-        raise
-
+        logger.exception("Error in get_all_items")
+        return jsonify({"error": "Internal server error"}), 500
 
 @bp.route('/search', methods=['POST'])
 async def search_items():
     condition = await request.get_json()
+    if not condition:
+        return jsonify({"error": "Missing search condition JSON"}), 400
     try:
         items = await entity_service.get_items_by_condition(
             token=cyoda_auth_service,
@@ -97,13 +98,16 @@ async def search_items():
         )
         return jsonify(items)
     except Exception as e:
-        logger.exception(e)
-        raise
-
+        logger.exception("Error in search_items")
+        return jsonify({"error": "Internal server error"}), 500
 
 @bp.route('/<string:technical_id>', methods=['PUT'])
 async def update_item(technical_id: str):
+    if not technical_id:
+        return jsonify({"error": "Missing technical_id"}), 400
     data = await request.get_json()
+    if not data:
+        return jsonify({"error": "Missing JSON body"}), 400
     try:
         updated_id = await entity_service.update_item(
             token=cyoda_auth_service,
@@ -115,12 +119,13 @@ async def update_item(technical_id: str):
         )
         return jsonify({"id": str(updated_id)})
     except Exception as e:
-        logger.exception(e)
-        raise
-
+        logger.exception("Error in update_item")
+        return jsonify({"error": "Internal server error"}), 500
 
 @bp.route('/<string:technical_id>', methods=['DELETE'])
 async def delete_item(technical_id: str):
+    if not technical_id:
+        return jsonify({"error": "Missing technical_id"}), 400
     try:
         deleted_id = await entity_service.delete_item(
             token=cyoda_auth_service,
@@ -131,5 +136,5 @@ async def delete_item(technical_id: str):
         )
         return jsonify({"id": str(deleted_id)})
     except Exception as e:
-        logger.exception(e)
-        raise
+        logger.exception("Error in delete_item")
+        return jsonify({"error": "Internal server error"}), 500
