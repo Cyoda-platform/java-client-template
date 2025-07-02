@@ -3,7 +3,6 @@ import logging
 from common.config.config import ENTITY_VERSION
 from app_init.app_init import entity_service
 from app_init.app_init import BeanFactory
-from common.util.condition import Condition, SearchConditionRequest  # assuming these exist for condition construction
 import asyncio
 
 factory = BeanFactory(config={'CHAT_REPOSITORY': 'cyoda'})
@@ -17,17 +16,30 @@ bp = Blueprint('cyoda_entity_prototype', __name__, url_prefix='/cyoda/items')
 
 
 async def process_cyoda(entity):
-    # Example workflow function: add a processed timestamp
-    entity['processed_timestamp'] = asyncio.get_event_loop().time()  # or use other timestamp method
-    # You can perform other async tasks here, e.g. fetching related entities, enriching entity data
-    # Do NOT add/update/delete entity of 'cyoda' here to prevent infinite recursion
+    # Add processed timestamp
+    import time
+    entity['processed_timestamp'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+
+    # Example asynchronous enrichment: fetch supplementary entities count from a different entity_model
+    try:
+        supplementary_items = await entity_service.get_items(
+            token=cyoda_auth_service,
+            entity_model="supplementary_model",
+            entity_version=ENTITY_VERSION
+        )
+        count = len(supplementary_items) if supplementary_items else 0
+        entity['supplementary_count'] = count
+    except Exception as e:
+        logger.error(f"Failed to enrich entity in process_cyoda workflow: {e}")
+        # Continue without failing workflow
+
+    # You can add other async enrichment or fire-and-forget logic here
     return entity
 
 
 @bp.route('', methods=['POST'])
 async def create_item():
     data = await request.get_json()
-    # data validation and business logic can be preserved here
     try:
         tech_id = await entity_service.add_item(
             token=cyoda_auth_service,
@@ -76,9 +88,7 @@ async def get_all_items():
 @bp.route('/search', methods=['POST'])
 async def search_items():
     condition = await request.get_json()
-    # condition expected as dict compliant with SearchConditionRequest format
     try:
-        # pass condition as is since entity_service expects it in that format
         items = await entity_service.get_items_by_condition(
             token=cyoda_auth_service,
             entity_model="cyoda",
