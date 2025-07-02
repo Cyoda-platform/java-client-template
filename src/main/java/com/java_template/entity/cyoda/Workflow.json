@@ -29,6 +29,5 @@
             }
         }
     },
-    "version": "1.0",
     "workflow_name": "hn_item_processing_workflow"
 }
