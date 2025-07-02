@@ -1,0 +1,17 @@
+{
+    "entities": [
+        {
+            "entity_data_example": {
+                "attributes": {
+                    "example_field": "example_value"
+                },
+                "created_at": "string (ISO 8601 datetime)",
+                "description": "string",
+                "id": "string (uuid)",
+                "name": "string",
+                "updated_at": "string (ISO 8601 datetime)"
+            },
+            "entity_name": "cyoda_item"
+        }
+    ]
+}
