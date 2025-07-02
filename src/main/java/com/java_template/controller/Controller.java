@@ -1,4 +1,4 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -11,9 +11,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -30,84 +27,275 @@ import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
 
 @RestController
 @RequestMapping("/cyoda/api")
 @Validated
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate = new RestTemplate();
 
     // AtomicInteger for thread-safe counting
     private final AtomicInteger totalEmailsSent = new AtomicInteger(0);
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
+    // DTOs
+
     public static class SignupRequest {
         @NotBlank
         @Email
         private String email;
         @Size(max = 100)
         private String name;
+
+        public SignupRequest() {
+        }
+
+        public SignupRequest(String email, String name) {
+            this.email = email;
+            this.name = name;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class SignupResponse {
         private String userId;
         private String message;
+
+        public SignupResponse() {
+        }
+
+        public SignupResponse(String userId, String message) {
+            this.userId = userId;
+            this.message = message;
+        }
+
+        public String getUserId() {
+            return userId;
+        }
+
+        public void setUserId(String userId) {
+            this.userId = userId;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public void setMessage(String message) {
+            this.message = message;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class WeeklyFactSendResponse {
         private String factId;
         private String factText;
         private int recipientsCount;
         private String message;
+
+        public WeeklyFactSendResponse() {
+        }
+
+        public WeeklyFactSendResponse(String factId, String factText, int recipientsCount, String message) {
+            this.factId = factId;
+            this.factText = factText;
+            this.recipientsCount = recipientsCount;
+            this.message = message;
+        }
+
+        public String getFactId() {
+            return factId;
+        }
+
+        public void setFactId(String factId) {
+            this.factId = factId;
+        }
+
+        public String getFactText() {
+            return factText;
+        }
+
+        public void setFactText(String factText) {
+            this.factText = factText;
+        }
+
+        public int getRecipientsCount() {
+            return recipientsCount;
+        }
+
+        public void setRecipientsCount(int recipientsCount) {
+            this.recipientsCount = recipientsCount;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public void setMessage(String message) {
+            this.message = message;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class Subscriber {
         private String userId;
         private String email;
         private String name;
         private Instant subscribedAt;
+
+        public Subscriber() {
+        }
+
+        public Subscriber(String userId, String email, String name, Instant subscribedAt) {
+            this.userId = userId;
+            this.email = email;
+            this.name = name;
+            this.subscribedAt = subscribedAt;
+        }
+
+        public String getUserId() {
+            return userId;
+        }
+
+        public void setUserId(String userId) {
+            this.userId = userId;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public Instant getSubscribedAt() {
+            return subscribedAt;
+        }
+
+        public void setSubscribedAt(Instant subscribedAt) {
+            this.subscribedAt = subscribedAt;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class CatFact {
         private String factId;
         private String factText;
         private Instant sentAt;
         private int recipientsCount;
+
+        public CatFact() {
+        }
+
+        public CatFact(String factId, String factText, Instant sentAt, int recipientsCount) {
+            this.factId = factId;
+            this.factText = factText;
+            this.sentAt = sentAt;
+            this.recipientsCount = recipientsCount;
+        }
+
+        public String getFactId() {
+            return factId;
+        }
+
+        public void setFactId(String factId) {
+            this.factId = factId;
+        }
+
+        public String getFactText() {
+            return factText;
+        }
+
+        public void setFactText(String factText) {
+            this.factText = factText;
+        }
+
+        public Instant getSentAt() {
+            return sentAt;
+        }
+
+        public void setSentAt(Instant sentAt) {
+            this.sentAt = sentAt;
+        }
+
+        public int getRecipientsCount() {
+            return recipientsCount;
+        }
+
+        public void setRecipientsCount(int recipientsCount) {
+            this.recipientsCount = recipientsCount;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class ReportSummary {
         private int totalSubscribers;
         private int totalEmailsSent;
         private Instant lastFactSentAt;
+
+        public ReportSummary() {
+        }
+
+        public ReportSummary(int totalSubscribers, int totalEmailsSent, Instant lastFactSentAt) {
+            this.totalSubscribers = totalSubscribers;
+            this.totalEmailsSent = totalEmailsSent;
+            this.lastFactSentAt = lastFactSentAt;
+        }
+
+        public int getTotalSubscribers() {
+            return totalSubscribers;
+        }
+
+        public void setTotalSubscribers(int totalSubscribers) {
+            this.totalSubscribers = totalSubscribers;
+        }
+
+        public int getTotalEmailsSent() {
+            return totalEmailsSent;
+        }
+
+        public void setTotalEmailsSent(int totalEmailsSent) {
+            this.totalEmailsSent = totalEmailsSent;
+        }
+
+        public Instant getLastFactSentAt() {
+            return lastFactSentAt;
+        }
+
+        public void setLastFactSentAt(Instant lastFactSentAt) {
+            this.lastFactSentAt = lastFactSentAt;
+        }
     }
 
     private static final String ENTITY_MODEL_SUBSCRIBER = "Subscriber";
