@@ -1,0 +1,92 @@
+{
+    "description": "Weekly Cat Fact Subscription FSM workflow",
+    "initial_state": "none",
+    "states": {
+        "fact_fetching": {
+            "transitions": {
+                "fact_fetched_invalid": {
+                    "action": {
+                        "name": "fetchCatFact"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "isFactValid",
+                            "negate": true
+                        },
+                        "type": "function"
+                    },
+                    "next": "terminal_error"
+                },
+                "fact_fetched_valid": {
+                    "action": {
+                        "name": "fetchCatFact"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "isFactValid"
+                        },
+                        "type": "function"
+                    },
+                    "next": "subscribers_loading"
+                }
+            }
+        },
+        "none": {
+            "transitions": {
+                "start_fetch_fact": {
+                    "next": "fact_fetching"
+                }
+            }
+        },
+        "sending_emails": {
+            "transitions": {
+                "emails_sent": {
+                    "action": {
+                        "name": "sendEmailsAsync"
+                    },
+                    "next": "terminal_success"
+                }
+            }
+        },
+        "subscribers_loading": {
+            "transitions": {
+                "no_subscribers": {
+                    "action": {
+                        "name": "loadSubscribersCount"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "hasSubscribers",
+                            "negate": true
+                        },
+                        "type": "function"
+                    },
+                    "next": "terminal_no_subscribers"
+                },
+                "subscribers_present": {
+                    "action": {
+                        "name": "loadSubscribersCount"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "hasSubscribers"
+                        },
+                        "type": "function"
+                    },
+                    "next": "sending_emails"
+                }
+            }
+        },
+        "terminal_error": {
+            "transitions": {}
+        },
+        "terminal_no_subscribers": {
+            "transitions": {}
+        },
+        "terminal_success": {
+            "transitions": {}
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "weekly_cat_fact_workflow"
+}
