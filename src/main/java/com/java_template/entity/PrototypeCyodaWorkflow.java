@@ -1,8 +1,45 @@
+Certainly! The goal is to move all asynchronous or background logic from the controller endpoint into the workflow function `process{EntityName}` which is invoked asynchronously before persisting the entity. This keeps controllers lean and moves logic closer to the entity lifecycle, making the codebase more robust and maintainable.
+
+---
+
+### What we can move:
+
+- The async task that fetches weather data from the external API and updates the WeatherResult entity.
+- Updating the WeatherJob status after the fetch completes (success or failure).
+- Any logic that mutates the entity state before persistence.
+
+---
+
+### Constraints:
+
+- The workflow function takes only the entity (an `ObjectNode` representing the entity data).
+- It returns a `CompletableFuture<ObjectNode>`.
+- Within the workflow function, you **cannot** modify or update the same entityModel (no `entityService.addItem/updateItem/deleteItem` on the same entity).
+- You **can** read or write other entities of different entityModel.
+- You can modify the passed entity node directly (e.g. `entity.put(...)`), and this will be persisted.
+- The workflow is asynchronous, so you can perform async calls inside.
+
+---
+
+### Approach:
+
+- Convert the entity parameter to `ObjectNode` in `processWeatherJob`.
+- Move the external API call and creating/updating the `WeatherResult` entity inside `processWeatherJob`.
+- Update the `status` field on the `WeatherJob` entity node (passed entity).
+- Use `entityService` to add/update other entities (like `WeatherResult`) but **not** `WeatherJob`.
+- Remove async fetch and update logic from the controller.
+- The controller will just call `addItem` with the workflow function and immediately return accepted.
+
+---
+
+### Here is the fully updated Java code with the workflow function implementing all async logic:
+
 ```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -16,7 +53,6 @@ import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -25,7 +61,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.net.URI;
 import java.time.Instant;
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -49,30 +84,98 @@ public class CyodaEntityControllerPrototype {
 
     /**
      * Workflow function for WeatherJob entity.
-     * This function can modify the entity before persistence asynchronously.
+     * This function asynchronously fetches weather data,
+     * creates/updates WeatherResult entity,
+     * and updates the status of the WeatherJob entity node.
+     *
+     * @param entityObjNode entity as ObjectNode, representing WeatherJob entity data
+     * @return CompletableFuture<ObjectNode> with possibly updated WeatherJob entity
      */
-    protected CompletableFuture<WeatherJob> processWeatherJob(WeatherJob job) {
-        // Example: you could modify the job or add logic here.
-        // For now, just return the entity as-is asynchronously.
-        return CompletableFuture.completedFuture(job);
+    protected CompletableFuture<ObjectNode> processWeatherJob(ObjectNode entityObjNode) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                log.info("Workflow: processWeatherJob started for entity: {}", entityObjNode);
+
+                // Extract necessary fields from entity node
+                Double latitude = entityObjNode.hasNonNull("latitude") ? entityObjNode.get("latitude").asDouble() : null;
+                Double longitude = entityObjNode.hasNonNull("longitude") ? entityObjNode.get("longitude").asDouble() : null;
+                int forecastDays = entityObjNode.hasNonNull("forecastDays") ? entityObjNode.get("forecastDays").asInt() : 1;
+                JsonNode parametersNode = entityObjNode.get("parameters");
+                String[] parameters;
+                if (parametersNode != null && parametersNode.isArray()) {
+                    parameters = new String[parametersNode.size()];
+                    for (int i = 0; i < parametersNode.size(); i++) {
+                        parameters[i] = parametersNode.get(i).asText();
+                    }
+                } else {
+                    parameters = new String[0];
+                }
+
+                // Build Open-Meteo API URL
+                String url = buildOpenMeteoUrl(latitude, longitude, parameters, forecastDays);
+                log.info("Workflow: Calling Open-Meteo API: {}", url);
+
+                // Call external weather API
+                String response = restTemplate.getForObject(URI.create(url), String.class);
+
+                if (!StringUtils.hasText(response)) {
+                    throw new IllegalStateException("Empty response from Open-Meteo API");
+                }
+
+                JsonNode weatherData = objectMapper.readTree(response);
+
+                // Prepare WeatherResult entity as ObjectNode
+                ObjectNode weatherResultNode = objectMapper.createObjectNode();
+                UUID technicalId = UUID.randomUUID(); // New ID for WeatherResult
+
+                weatherResultNode.put("technicalId", technicalId.toString());
+                weatherResultNode.put("requestId", entityObjNode.hasNonNull("requestId") ? entityObjNode.get("requestId").asText() : technicalId.toString());
+                weatherResultNode.put("latitude", latitude);
+                weatherResultNode.put("longitude", longitude);
+                weatherResultNode.set("parameters", weatherData);
+                weatherResultNode.put("forecastDays", forecastDays);
+                weatherResultNode.put("timestamp", Instant.now().toString());
+
+                // Persist WeatherResult entity (different entityModel)
+                entityService.addItem("WeatherResult", ENTITY_VERSION, weatherResultNode).join();
+
+                // Update status in current WeatherJob entity node to 'completed'
+                entityObjNode.put("status", "completed");
+                entityObjNode.put("updatedAt", Instant.now().toString());
+
+                log.info("Workflow: processWeatherJob completed successfully");
+
+            } catch (Exception ex) {
+                log.error("Workflow: processWeatherJob failed", ex);
+
+                // Update status in current WeatherJob entity node to 'failed'
+                entityObjNode.put("status", "failed");
+                entityObjNode.put("updatedAt", Instant.now().toString());
+            }
+
+            // Return possibly updated WeatherJob entity node to be persisted
+            return entityObjNode;
+        });
     }
 
     @PostMapping("/fetch")
     public CompletableFuture<ResponseEntity<FetchResponse>> fetchWeatherData(@RequestBody @Valid FetchRequest request) {
         log.info("Received weather fetch request: {}", request);
-        WeatherJob job = new WeatherJob();
-        job.setStatus("processing");
-        job.setRequestedAt(Instant.now());
-        job.setLatitude(request.getLatitude());
-        job.setLongitude(request.getLongitude());
-        job.setParameters(request.getParameters());
-        job.setForecastDays(request.getForecastDays());
 
-        // Pass the workflow function processWeatherJob as parameter to addItem
+        // Prepare initial WeatherJob entity as ObjectNode
+        ObjectNode jobNode = objectMapper.createObjectNode();
+        jobNode.put("status", "processing");
+        jobNode.put("requestedAt", Instant.now().toString());
+        jobNode.put("latitude", request.getLatitude());
+        jobNode.put("longitude", request.getLongitude());
+        jobNode.putArray("parameters").addAll(objectMapper.valueToTree(request.getParameters()));
+        jobNode.put("forecastDays", request.getForecastDays());
+
+        // Pass workflow function processWeatherJob as parameter to addItem
         return entityService.addItem(
                         "WeatherJob",
                         ENTITY_VERSION,
-                        job,
+                        jobNode,
                         this::processWeatherJob
                 )
                 .thenApply(technicalId -> {
@@ -95,48 +198,9 @@ public class CyodaEntityControllerPrototype {
                 });
     }
 
-    @Async
-    protected CompletableFuture<Void> fetchAndStoreWeatherDataAsync(UUID requestId, FetchRequest request) {
-        return CompletableFuture.runAsync(() -> {
-            try {
-                log.info("Starting async fetch for requestId={}", requestId);
-                String url = buildOpenMeteoUrl(request);
-                log.info("Calling Open-Meteo API: {}", url);
-                String response = restTemplate.getForObject(URI.create(url), String.class);
-                if (!StringUtils.hasText(response)) {
-                    throw new IllegalStateException("Empty response from Open-Meteo API");
-                }
-                JsonNode rootNode = objectMapper.readTree(response);
-                WeatherResult weatherResult = new WeatherResult();
-                weatherResult.setTechnicalId(requestId);
-                weatherResult.setRequestId(requestId.toString());
-                weatherResult.setLatitude(request.getLatitude());
-                weatherResult.setLongitude(request.getLongitude());
-                weatherResult.setParameters(rootNode);
-                weatherResult.setForecastDays(request.getForecastDays());
-                weatherResult.setTimestamp(Instant.now());
-
-                entityService.updateItem("WeatherResult", ENTITY_VERSION, requestId, weatherResult).join();
-
-                WeatherJob job = new WeatherJob();
-                job.setStatus("completed");
-                job.setRequestedAt(Instant.now());
-                entityService.updateItem("WeatherJob", ENTITY_VERSION, requestId, job).join();
-
-                log.info("Completed async fetch for requestId={}", requestId);
-            } catch (Exception e) {
-                log.error("Error fetching weather data for requestId={}", requestId, e);
-                WeatherJob job = new WeatherJob();
-                job.setStatus("failed");
-                job.setRequestedAt(Instant.now());
-                entityService.updateItem("WeatherJob", ENTITY_VERSION, requestId, job).join();
-            }
-        });
-    }
-
-    private String buildOpenMeteoUrl(FetchRequest request) {
+    private String buildOpenMeteoUrl(Double latitude, Double longitude, String[] parameters, int forecastDays) {
         StringBuilder dailyParams = new StringBuilder();
-        for (String param : request.getParameters()) {
+        for (String param : parameters) {
             switch (param.toLowerCase()) {
                 case "temperature":
                     appendParam(dailyParams, "temperature_2m_max");
@@ -145,18 +209,19 @@ public class CyodaEntityControllerPrototype {
                     appendParam(dailyParams, "precipitation_sum");
                     break;
                 default:
+                    // Ignore unknown params
             }
         }
-        if (dailyParams.isEmpty()) {
+        if (dailyParams.length() == 0) {
             dailyParams.append("temperature_2m_max");
         }
-        int days = request.getForecastDays();
+
         return String.format(
                 "https://api.open-meteo.com/v1/forecast?latitude=%s&longitude=%s&daily=%s&timezone=auto&forecast_days=%d",
-                request.getLatitude(),
-                request.getLongitude(),
+                latitude,
+                longitude,
                 dailyParams,
-                days
+                forecastDays
         );
     }
 
@@ -216,27 +281,14 @@ public class CyodaEntityControllerPrototype {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class WeatherJob {
-        private String status;
-        private Instant requestedAt;
-        private Double latitude;
-        private Double longitude;
-        private String[] parameters;
-        private Integer forecastDays;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class WeatherResult {
-        @com.fasterxml.jackson.annotation.JsonIgnore
-        private UUID technicalId;
+        private String technicalId;
         private String requestId;
         private Double latitude;
         private Double longitude;
         private JsonNode parameters;
         private Integer forecastDays;
-        private Instant timestamp;
+        private String timestamp;
     }
 
     @Data
@@ -248,22 +300,19 @@ public class CyodaEntityControllerPrototype {
     }
 }
 ```
+
 ---
 
-### Explanation of changes:
+### Summary of changes:
 
-- Added a new protected method:
-  ```java
-  protected CompletableFuture<WeatherJob> processWeatherJob(WeatherJob job)
-  ```
-  This method implements the required workflow function `process{EntityName}` (in this case `processWeatherJob`) that takes the entity and asynchronously returns it.
+- The async weather fetching and result entity creation is moved from controller to `processWeatherJob`.
+- `processWeatherJob` is the workflow function passed to `entityService.addItem`.
+- `processWeatherJob` accepts the `WeatherJob` entity as `ObjectNode`, modifies it to update status (`processing` -> `completed` or `failed`), and persists a new `WeatherResult` entity.
+- Controller now just calls `addItem` with the workflow function and returns immediately.
+- Removed all async fetch/update logic from controller.
+- Used only `entityService.addItem` on different entityModel (`WeatherResult`) inside workflow function.
+- Updated entity state (`status`, `updatedAt`) inside the workflow function directly on the passed entity node.
 
-- Updated the `fetchWeatherData` method to call:
-  ```java
-  entityService.addItem("WeatherJob", ENTITY_VERSION, job, this::processWeatherJob)
-  ```
-  passing the workflow function as the last parameter.
+---
 
-- No other logic was changed.
-
-This satisfies the new contract of `entityService.addItem` expecting the workflow function as a new argument, which will be applied asynchronously before persisting the entity.
+This fully leverages the new workflow mechanism, cleans up the controller, and moves all async tasks and entity state management into the process workflow function as required.
