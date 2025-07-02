@@ -3,6 +3,7 @@ package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
@@ -18,7 +19,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -115,25 +115,73 @@ public class CyodaEntityControllerPrototype {
     /**
      * Workflow function for Subscriber entity.
      * This function is applied to Subscriber entities before persistence.
-     * Here it returns the entity as is but you can modify entity state or add related entities.
+     * It verifies and enriches the entity.
+     * Here: no async task needed, just example direct mutation.
      */
-    private Function<Object, Object> processSubscriber = entity -> {
-        // Cast to Subscriber to work with fields if needed
-        Subscriber subscriber = (Subscriber) entity;
-        // Example: you could modify subscriber here if needed
-        // For now, return as is
-        return subscriber;
+    private Function<ObjectNode, CompletableFuture<ObjectNode>> processSubscriber = (ObjectNode entity) -> {
+        logger.info("processSubscriber workflow started for entity: {}", entity);
+        // Example: ensure subscribedAt is set if missing
+        if (!entity.hasNonNull("subscribedAt")) {
+            entity.put("subscribedAt", Instant.now().toString());
+        }
+        // Could add secondary entities here if needed via entityService (different models)
+        return CompletableFuture.completedFuture(entity);
     };
 
     /**
      * Workflow function for CatFact entity.
      * This function is applied to CatFact entities before persistence.
-     * Here it returns the entity as is but you can modify entity state or add related entities.
+     * It fetches cat fact asynchronously, sets fields, and triggers sending emails.
+     * This replaces the async tasks and HTTP call in the controller.
+     * It can get and add entities of other entityModels (except CatFact itself).
      */
-    private Function<Object, Object> processCatFact = entity -> {
-        CatFact catFact = (CatFact) entity;
-        // Example: modify catFact or add related entities if needed
-        return catFact;
+    private Function<ObjectNode, CompletableFuture<ObjectNode>> processCatFact = (ObjectNode entity) -> {
+        logger.info("processCatFact workflow started");
+        // Retrieve cat fact text from external API
+        CompletableFuture<ObjectNode> future = CompletableFuture.supplyAsync(() -> {
+            try {
+                String catFactApiUrl = "https://catfact.ninja/fact";
+                String rawJson = restTemplate.getForObject(catFactApiUrl, String.class);
+                JsonNode factJson = objectMapper.readTree(rawJson);
+                String factText = factJson.path("fact").asText(null);
+                if (factText == null || factText.isEmpty()) {
+                    throw new RuntimeException("Cat fact API returned empty fact");
+                }
+                // Set factId, factText, sentAt in entity
+                entity.put("factId", UUID.randomUUID().toString());
+                entity.put("factText", factText);
+                entity.put("sentAt", Instant.now().toString());
+
+                // Get subscribers count asynchronously
+                CompletableFuture<com.fasterxml.jackson.databind.node.ArrayNode> subsFuture =
+                        entityService.getItems(ENTITY_MODEL_SUBSCRIBER, ENTITY_VERSION);
+                com.fasterxml.jackson.databind.node.ArrayNode subsArray = subsFuture.join();
+                int recipientsCount = subsArray != null ? subsArray.size() : 0;
+                entity.put("recipientsCount", recipientsCount);
+
+                // Fire-and-forget async email sending
+                CompletableFuture.runAsync(() -> {
+                    logger.info("Sending emails to {} subscribers", recipientsCount);
+                    // TODO: implement real email sending logic here
+                    try {
+                        Thread.sleep(1000L); // simulate delay
+                    } catch (InterruptedException ignored) {
+                    }
+                    logger.info("Email sending completed for factId={}", entity.get("factId").asText());
+                });
+
+                // Update totalEmailsSent counter in controller instance (thread-safe update)
+                synchronized (this) {
+                    totalEmailsSent += recipientsCount;
+                }
+
+                return entity;
+            } catch (Exception e) {
+                logger.error("Error in processCatFact workflow", e);
+                throw new RuntimeException(e);
+            }
+        });
+        return future;
     };
 
     @PostMapping(value = "/users/signup", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
@@ -157,13 +205,18 @@ public class CyodaEntityControllerPrototype {
         }
 
         String userId = UUID.randomUUID().toString();
-        Subscriber newSubscriber = new Subscriber(userId, request.getEmail(), request.getName(), Instant.now());
+        // Create ObjectNode representing Subscriber to use with workflow
+        ObjectNode subscriberNode = objectMapper.createObjectNode();
+        subscriberNode.put("userId", userId);
+        subscriberNode.put("email", request.getEmail());
+        subscriberNode.put("name", request.getName());
+        // subscribedAt will be set in workflow if missing
 
-        // Add workflow function processSubscriber as new parameter
+        // Add subscriber with workflow processSubscriber
         CompletableFuture<java.util.UUID> addFuture = entityService.addItem(
                 ENTITY_MODEL_SUBSCRIBER,
                 ENTITY_VERSION,
-                newSubscriber,
+                subscriberNode,
                 processSubscriber
         );
         addFuture.join(); // wait for completion
@@ -175,56 +228,41 @@ public class CyodaEntityControllerPrototype {
 
     @PostMapping(value = "/facts/sendWeekly", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<WeeklyFactSendResponse> sendWeeklyCatFact() {
-        logger.info("Triggering weekly cat fact retrieval");
-        String catFactApiUrl = "https://catfact.ninja/fact";
-        JsonNode factJson;
-        try {
-            String rawJson = restTemplate.getForObject(catFactApiUrl, String.class);
-            factJson = objectMapper.readTree(rawJson);
-        } catch (Exception e) {
-            logger.error("Failed to fetch cat fact", e);
-            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Failed to retrieve cat fact");
-        }
-        String factText = factJson.path("fact").asText(null);
-        if (factText == null || factText.isEmpty()) {
-            logger.error("No fact text in API response");
-            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Cat fact API returned no fact");
-        }
+        logger.info("Triggering weekly cat fact creation");
 
-        // Get all subscribers count from entity service
-        CompletableFuture<com.fasterxml.jackson.databind.node.ArrayNode> subsFuture =
-                entityService.getItems(ENTITY_MODEL_SUBSCRIBER, ENTITY_VERSION);
-        com.fasterxml.jackson.databind.node.ArrayNode subsArray = subsFuture.join();
+        // Create empty ObjectNode for CatFact entity; fields will be set in workflow
+        ObjectNode catFactNode = objectMapper.createObjectNode();
 
-        int recipientsCount = subsArray != null ? subsArray.size() : 0;
-        String factId = UUID.randomUUID().toString();
-        CatFact catFact = new CatFact(factId, factText, Instant.now(), recipientsCount);
-
-        // Add workflow function processCatFact as new parameter
+        // Add CatFact entity with workflow processCatFact
         CompletableFuture<java.util.UUID> addCatFactFuture = entityService.addItem(
                 ENTITY_MODEL_CATFACT,
                 ENTITY_VERSION,
-                catFact,
+                catFactNode,
                 processCatFact
         );
-        addCatFactFuture.join();
 
-        CompletableFuture.runAsync(() -> sendEmails(catFact)); // fire-and-forget
+        java.util.UUID catFactId = addCatFactFuture.join();
 
-        totalEmailsSent += recipientsCount;
-        logger.info("Weekly cat fact sent: factId={}, recipientsCount={}", factId, recipientsCount);
-        return ResponseEntity.ok(new WeeklyFactSendResponse(factId, factText, recipientsCount, "Weekly cat fact sent successfully."));
-    }
+        // We need to retrieve the persisted entity to get fields factText, recipientsCount
+        CompletableFuture<com.fasterxml.jackson.databind.node.ArrayNode> factsFuture =
+                entityService.getItemsByCondition(
+                        ENTITY_MODEL_CATFACT,
+                        ENTITY_VERSION,
+                        SearchConditionRequest.group("AND",
+                                Condition.of("$.factId", "EQUALS", catFactId.toString()))
+                );
+        com.fasterxml.jackson.databind.node.ArrayNode factsArray = factsFuture.join();
 
-    @Async
-    void sendEmails(CatFact catFact) {
-        logger.info("Sending emails to {} subscribers", catFact.getRecipientsCount());
-        // TODO: Replace with real email sending implementation
-        try {
-            Thread.sleep(1000L);
-        } catch (InterruptedException ignored) {
+        if (factsArray == null || factsArray.size() == 0) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to retrieve stored cat fact");
         }
-        logger.info("Email sending completed for factId={}", catFact.getFactId());
+        ObjectNode storedFact = (ObjectNode) factsArray.get(0);
+
+        String factText = storedFact.path("factText").asText(null);
+        int recipientsCount = storedFact.path("recipientsCount").asInt(0);
+
+        logger.info("Weekly cat fact created and emails triggered: factId={}, recipientsCount={}", catFactId, recipientsCount);
+        return ResponseEntity.ok(new WeeklyFactSendResponse(catFactId.toString(), factText, recipientsCount, "Weekly cat fact sent successfully."));
     }
 
     @GetMapping(value = "/users", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -327,14 +365,17 @@ public class CyodaEntityControllerPrototype {
 ```
 ---
 
-### Explanation of Changes:
+### Summary of Changes:
 
-- Added two workflow functions `processSubscriber` and `processCatFact` as private `Function<Object, Object>` fields.
-- Each workflow function accepts an entity object, potentially modifies it, and returns it. Currently, they return the entity unchanged.
-- Updated `entityService.addItem(...)` calls in `signupUser` and `sendWeeklyCatFact` methods to include the workflow function as the last argument.
-- The new signature usage is:  
-  ```java
-  entityService.addItem(entityModel, entityVersion, entity, workflowFunction);
-  ```
-  
-This satisfies the requirement that the workflow function with prefix 'process{EntityName}' is passed and applied before persistence.
+- **Moved HTTP call to catfact API, email sending async task, entity state setting, and subscriber count retrieval** fully inside the `processCatFact` workflow function.
+- Workflow functions now have signature `Function<ObjectNode, CompletableFuture<ObjectNode>>` supporting async.
+- The `processCatFact` function:
+  - Calls the cat fact API.
+  - Sets `factId`, `factText`, `sentAt`, and `recipientsCount` fields inside the entity (which is an `ObjectNode`).
+  - Fires off the email sending asynchronously (fire-and-forget).
+  - Updates `totalEmailsSent` safely.
+- The controller `sendWeeklyCatFact` method now only creates an empty entity, calls `entityService.addItem` with the workflow, then fetches the persisted entity to return response.
+- `processSubscriber` function sets `subscribedAt` timestamp if missing.
+- Removed async logic and HTTP calls from controllers; controllers are now thin and free from business/async logic.
+- Used direct mutation of entities inside workflow as per requirements.
+- This design makes the code more robust, reusable, and testable, strictly following the instructions provided.
