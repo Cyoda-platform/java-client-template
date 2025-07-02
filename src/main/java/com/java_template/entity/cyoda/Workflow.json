@@ -1,33 +1,33 @@
 {
-    "description": "FSM workflow for processing Hacker News item entity with enrichment",
-    "initial_state": "none",
-    "states": {
-        "completed": {
-            "transitions": {}
-        },
-        "none": {
-            "transitions": {
-                "start_processing": {
-                    "condition": {
-                        "function": {
-                            "name": "canProcess"
-                        },
-                        "type": "function"
-                    },
-                    "next": "processing"
-                }
-            }
-        },
-        "processing": {
-            "transitions": {
-                "complete_processing": {
-                    "action": {
-                        "name": "processCyoda"
-                    },
-                    "next": "completed"
-                }
-            }
+  "description": "FSM workflow for processing Hacker News item entity with enrichment",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_processing": {
+          "condition": {
+            "function": {
+              "name": "canProcess"
+            },
+            "type": "function"
+          },
+          "next": "processing"
         }
+      }
     },
-    "workflow_name": "hn_item_processing_workflow"
+    "processing": {
+      "transitions": {
+        "complete_processing": {
+          "action": {
+            "name": "processCyoda"
+          },
+          "next": "completed"
+        }
+      }
+    },
+    "completed": {
+      "transitions": {}
+    }
+  },
+  "workflow_name": "hn_item_processing_workflow"
 }
