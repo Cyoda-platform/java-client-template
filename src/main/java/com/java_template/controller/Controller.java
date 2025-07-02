@@ -1,14 +1,10 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -22,20 +18,20 @@ import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-import static com.java_template.common.config.Config.*;
-
-@Slf4j
 @Validated
 @RestController
 @RequestMapping("/cyoda/items")
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    // Inject ObjectMapper via constructor
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @PostMapping
@@ -43,15 +39,14 @@ public class CyodaEntityControllerPrototype {
         logger.info("Received POST request to save item");
         ObjectNode data;
         try {
-            data = (ObjectNode) entityService.getObjectMapper().readTree(request.getRawJson());
+            data = (ObjectNode) objectMapper.readTree(request.getRawJson());
         } catch (Exception e) {
             logger.error("Invalid JSON format", e);
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid JSON format");
         }
 
-        // Add item without workflow function
         CompletableFuture<UUID> idFuture = entityService.addItem(
-                "cyoda", ENTITY_VERSION,
+                "cyoda", com.java_template.common.config.Config.ENTITY_VERSION,
                 data
         );
 
@@ -72,7 +67,7 @@ public class CyodaEntityControllerPrototype {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid UUID format");
         }
         CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
-                "cyoda", ENTITY_VERSION, technicalId
+                "cyoda", com.java_template.common.config.Config.ENTITY_VERSION, technicalId
         );
         return itemFuture.thenApply(item -> {
             if (item == null || item.isEmpty()) {
@@ -109,27 +104,83 @@ public class CyodaEntityControllerPrototype {
         return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    static class ItemRequest {
+    // DTO classes
+
+    public static class ItemRequest {
         @NotBlank
         private String rawJson;
+
+        public ItemRequest() {
+        }
+
+        public ItemRequest(String rawJson) {
+            this.rawJson = rawJson;
+        }
+
+        public String getRawJson() {
+            return rawJson;
+        }
+
+        public void setRawJson(String rawJson) {
+            this.rawJson = rawJson;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    static class IdResponse {
+    public static class IdResponse {
         private String id;
+
+        public IdResponse() {
+        }
+
+        public IdResponse(String id) {
+            this.id = id;
+        }
+
+        public String getId() {
+            return id;
+        }
+
+        public void setId(String id) {
+            this.id = id;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    static class ErrorResponse {
+    public static class ErrorResponse {
         private String error;
         private String message;
         private String timestamp;
+
+        public ErrorResponse() {
+        }
+
+        public ErrorResponse(String error, String message, String timestamp) {
+            this.error = error;
+            this.message = message;
+            this.timestamp = timestamp;
+        }
+
+        public String getError() {
+            return error;
+        }
+
+        public void setError(String error) {
+            this.error = error;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public void setMessage(String message) {
+            this.message = message;
+        }
+
+        public String getTimestamp() {
+            return timestamp;
+        }
+
+        public void setTimestamp(String timestamp) {
+            this.timestamp = timestamp;
+        }
     }
 }
