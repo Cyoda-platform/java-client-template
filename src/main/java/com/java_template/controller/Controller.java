@@ -1,4 +1,4 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -11,9 +11,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -31,9 +28,9 @@ import static com.java_template.common.config.Config.*;
 @RestController
 @RequestMapping("cyoda/pets")
 @Validated
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
     private final ObjectMapper objectMapper;
@@ -41,7 +38,8 @@ public class CyodaEntityControllerPrototype {
     private static final String EXTERNAL_PETSTORE_BASE = "https://petstore.swagger.io/v2/pet";
     private static final String ENTITY_NAME = "pet";
 
-    public CyodaEntityControllerPrototype(EntityService entityService, ObjectMapper objectMapper, RestTemplate restTemplate) {
+    // ObjectMapper injected via constructor
+    public Controller(EntityService entityService, ObjectMapper objectMapper, RestTemplate restTemplate) {
         this.entityService = entityService;
         this.objectMapper = objectMapper;
         this.restTemplate = restTemplate;
@@ -146,8 +144,10 @@ public class CyodaEntityControllerPrototype {
     public CompletableFuture<ResponseEntity<Map<String, String>>> updatePet(@RequestBody @Valid Pet updateRequest) {
         logger.info("Updating pet: {}", updateRequest);
 
-        if (updateRequest.getTechnicalId() == null)
+        if (updateRequest.getTechnicalId() == null) {
+            logger.error("Pet technicalId is missing for update");
             throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Pet technicalId is required");
+        }
 
         ObjectNode entityNode = objectMapper.valueToTree(updateRequest);
 
@@ -175,6 +175,7 @@ public class CyodaEntityControllerPrototype {
         return entityService.getItem(ENTITY_NAME, ENTITY_VERSION, technicalId)
                 .thenApply(objNode -> {
                     if (objNode == null || objNode.isEmpty()) {
+                        logger.error("Pet not found with technicalId {}", technicalId);
                         throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Pet not found with technicalId " + technicalId);
                     }
                     try {
@@ -182,6 +183,7 @@ public class CyodaEntityControllerPrototype {
                         pet.setTechnicalId(technicalId);
                         return ResponseEntity.ok(pet);
                     } catch (Exception e) {
+                        logger.error("Error mapping pet data for technicalId {}: {}", technicalId, e.getMessage());
                         throw new ResponseStatusException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, "Error mapping pet data: " + e.getMessage());
                     }
                 });
