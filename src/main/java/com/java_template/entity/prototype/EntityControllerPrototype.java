@@ -1,8 +1,11 @@
-```java
 package com.java_template.entity.prototype;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -11,30 +14,25 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
+@Validated
 @RestController
 @RequestMapping("/prototype/pets")
 public class EntityControllerPrototype {
 
     private final Logger logger = LoggerFactory.getLogger(EntityControllerPrototype.class);
-
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
-
-    // In-memory pet store: id -> Pet
     private final Map<Long, Pet> petStore = new ConcurrentHashMap<>();
-    private long petIdSequence = 1000; // simple id sequence for local pets
-
-    // --- DTOs and Models ---
+    private long petIdSequence = 1000;
 
     @Data
     @NoArgsConstructor
@@ -50,16 +48,11 @@ public class EntityControllerPrototype {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class SyncFilter {
-        private String status; // available, pending, sold
-        private List<String> tags;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class SyncRequest {
-        private SyncFilter filter;
+        @Pattern(regexp = "available|pending|sold", message = "Status must be available, pending, or sold")
+        private String status;
+        @Size(min = 1, message = "At least one tag if tags provided")
+        private List<@NotBlank String> tags;
     }
 
     @Data
@@ -73,9 +66,13 @@ public class EntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class AddPetRequest {
+        @NotBlank(message = "Name is required")
         private String name;
+        @NotBlank(message = "Status is required")
+        @Pattern(regexp = "available|pending|sold", message = "Status must be available, pending, or sold")
         private String status;
-        private List<String> tags;
+        private List<@NotBlank String> tags;
+        @NotBlank(message = "Category is required")
         private String category;
     }
 
@@ -95,6 +92,8 @@ public class EntityControllerPrototype {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class UpdateStatusRequest {
+        @NotBlank(message = "Status is required")
+        @Pattern(regexp = "available|pending|sold", message = "Status must be available, pending, or sold")
         private String status;
     }
 
@@ -107,180 +106,99 @@ public class EntityControllerPrototype {
         private String message;
     }
 
-    // --- Endpoints ---
-
-    /**
-     * POST /prototype/pets/sync
-     * Fetches pets from external Petstore API with optional filtering,
-     * stores them locally, and returns the synced pets list.
-     */
     @PostMapping("/sync")
-    public ResponseEntity<PetsResponse> syncPetsFromExternal(@RequestBody(required = false) SyncRequest request) {
-        logger.info("Received sync request with filter: {}", request);
-
-        String externalApiUrl = "https://petstore.swagger.io/v2/pet/findByStatus";
-
-        // Determine status filter parameter
-        String statusParam = "available";
-        if (request != null && request.getFilter() != null && request.getFilter().getStatus() != null) {
-            statusParam = request.getFilter().getStatus();
-        }
-
-        String urlWithParams = externalApiUrl + "?status=" + statusParam;
-
+    public ResponseEntity<PetsResponse> syncPetsFromExternal(@RequestBody @Valid SyncRequest request) {
+        logger.info("Received sync request: {}", request);
+        String url = "https://petstore.swagger.io/v2/pet/findByStatus?status=" + 
+            (request.getStatus() != null ? request.getStatus() : "available");
         try {
-            // Fetch pets JSON array from external API
-            String rawResponse = restTemplate.getForObject(urlWithParams, String.class);
-            JsonNode rootNode = objectMapper.readTree(rawResponse);
-
-            if (!rootNode.isArray()) {
-                logger.error("Unexpected response format from external Petstore API: expected array");
+            String raw = restTemplate.getForObject(url, String.class);
+            JsonNode root = objectMapper.readTree(raw);
+            if (!root.isArray()) {
+                logger.error("Expected array from external API");
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Invalid external API response format");
             }
-
-            List<Pet> syncedPets = new ArrayList<>();
-
-            for (JsonNode petNode : rootNode) {
-                // Extract fields with fallbacks
-                Long id = petNode.hasNonNull("id") ? petNode.get("id").asLong() : null;
-                String name = petNode.hasNonNull("name") ? petNode.get("name").asText() : "Unnamed";
-                String status = petNode.hasNonNull("status") ? petNode.get("status").asText() : "unknown";
-
-                // Extract tags names if present
-                List<String> tagsList = new ArrayList<>();
-                if (petNode.has("tags") && petNode.get("tags").isArray()) {
-                    for (JsonNode tagNode : petNode.get("tags")) {
-                        if (tagNode.hasNonNull("name")) {
-                            tagsList.add(tagNode.get("name").asText());
-                        }
+            List<Pet> synced = new ArrayList<>();
+            for (JsonNode node : root) {
+                Long id = node.hasNonNull("id") ? node.get("id").asLong() : null;
+                String name = node.path("name").asText("Unnamed");
+                String status = node.path("status").asText("unknown");
+                List<String> tags = new ArrayList<>();
+                if (node.has("tags") && node.get("tags").isArray()) {
+                    for (JsonNode t : node.get("tags")) {
+                        t.path("name").asText(null);
+                        if (t.hasNonNull("name")) tags.add(t.get("name").asText());
                     }
                 }
-
-                // Extract category name if present
-                String category = null;
-                if (petNode.has("category") && petNode.get("category").hasNonNull("name")) {
-                    category = petNode.get("category").get("name").asText();
-                }
-
-                // Filter by tags if provided in request
-                if (request != null && request.getFilter() != null && request.getFilter().getTags() != null
-                        && !request.getFilter().getTags().isEmpty()) {
-                    boolean matchesTag = false;
-                    for (String tagFilter : request.getFilter().getTags()) {
-                        if (tagsList.contains(tagFilter)) {
-                            matchesTag = true;
-                            break;
-                        }
+                String category = node.path("category").path("name").asText(null);
+                if (request.getTags() != null && !request.getTags().isEmpty()) {
+                    boolean match = false;
+                    for (String tf : request.getTags()) {
+                        if (tags.contains(tf)) { match = true; break; }
                     }
-                    if (!matchesTag) {
-                        continue; // skip pet if no matching tags
-                    }
+                    if (!match) continue;
                 }
-
-                Pet pet = new Pet(id, name, status, tagsList, category);
-                if (pet.getId() != null) {
-                    petStore.put(pet.getId(), pet);
-                } else {
-                    // Assign a local id if external id missing
-                    pet.setId(generateNextPetId());
-                    petStore.put(pet.getId(), pet);
-                }
-                syncedPets.add(pet);
+                Pet pet = new Pet(id != null ? id : generateNextPetId(), name, status, tags, category);
+                petStore.put(pet.getId(), pet);
+                synced.add(pet);
             }
-
-            logger.info("Synced {} pets from external Petstore API", syncedPets.size());
-
-            return ResponseEntity.ok(new PetsResponse(syncedPets));
-
+            logger.info("Synced {} pets", synced.size());
+            return ResponseEntity.ok(new PetsResponse(synced));
         } catch (Exception e) {
-            logger.error("Error syncing pets from external API", e);
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to sync from external Petstore API");
+            logger.error("Sync error", e);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to sync external API");
         }
     }
 
-    /**
-     * GET /prototype/pets
-     * Returns all locally stored pets.
-     */
     @GetMapping
     public ResponseEntity<PetsResponse> getAllPets() {
-        logger.info("Retrieving all local pets, count={}", petStore.size());
+        logger.info("Retrieving all pets, count={}", petStore.size());
         return ResponseEntity.ok(new PetsResponse(new ArrayList<>(petStore.values())));
     }
 
-    /**
-     * POST /prototype/pets
-     * Adds a new pet locally.
-     */
     @PostMapping
-    public ResponseEntity<AddPetResponse> addNewPet(@RequestBody AddPetRequest request) {
-        if (request.getName() == null || request.getName().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pet name is required");
-        }
-        if (request.getStatus() == null || request.getStatus().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pet status is required");
-        }
-        Long newId = generateNextPetId();
-        Pet pet = new Pet(newId, request.getName(), request.getStatus(),
-                request.getTags() != null ? request.getTags() : Collections.emptyList(),
-                request.getCategory());
-
-        petStore.put(newId, pet);
-
-        logger.info("Added new pet with id {}", newId);
-        return ResponseEntity.status(HttpStatus.CREATED).body(
-                new AddPetResponse(pet.getId(), pet.getName(), pet.getStatus(), pet.getTags(), pet.getCategory(),
-                        "Pet added successfully"));
+    public ResponseEntity<AddPetResponse> addNewPet(@RequestBody @Valid AddPetRequest request) {
+        Long id = generateNextPetId();
+        Pet pet = new Pet(id, request.getName(), request.getStatus(), 
+            request.getTags() != null ? request.getTags() : Collections.emptyList(), request.getCategory());
+        petStore.put(id, pet);
+        logger.info("Added pet id={}", id);
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(new AddPetResponse(id, pet.getName(), pet.getStatus(), pet.getTags(), pet.getCategory(), "Pet added successfully"));
     }
 
-    /**
-     * POST /prototype/pets/{id}/status
-     * Updates the status of an existing pet.
-     */
     @PostMapping("/{id}/status")
-    public ResponseEntity<UpdateStatusResponse> updatePetStatus(@PathVariable("id") Long id,
-                                                                @RequestBody UpdateStatusRequest request) {
-        if (request.getStatus() == null || request.getStatus().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status is required");
-        }
-
+    public ResponseEntity<UpdateStatusResponse> updatePetStatus(
+            @PathVariable Long id, @RequestBody @Valid UpdateStatusRequest request) {
         Pet pet = petStore.get(id);
         if (pet == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pet with id " + id + " not found");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pet not found");
         }
-
         pet.setStatus(request.getStatus());
         petStore.put(id, pet);
-
-        logger.info("Updated pet id {} status to {}", id, request.getStatus());
+        logger.info("Updated pet id={} to status={}", id, request.getStatus());
         return ResponseEntity.ok(new UpdateStatusResponse(id, request.getStatus(), "Pet status updated"));
     }
-
-    // --- Helpers ---
 
     private synchronized Long generateNextPetId() {
         return ++petIdSequence;
     }
 
-    // --- Basic Error Handling ---
-
     @ExceptionHandler(ResponseStatusException.class)
-    public ResponseEntity<Map<String, Object>> handleResponseStatusException(ResponseStatusException ex) {
-        Map<String, Object> error = new HashMap<>();
-        error.put("error", ex.getStatusCode().toString());
-        error.put("message", ex.getReason() != null ? ex.getReason() : "Unexpected error");
-        logger.error("Handled ResponseStatusException: {}", error);
-        return ResponseEntity.status(ex.getStatusCode()).body(error);
+    public ResponseEntity<Map<String, Object>> handleStatusException(ResponseStatusException ex) {
+        Map<String, Object> err = new HashMap<>();
+        err.put("error", ex.getStatusCode().toString());
+        err.put("message", ex.getReason() != null ? ex.getReason() : "Error");
+        logger.error("Handled status exception: {}", err);
+        return ResponseEntity.status(ex.getStatusCode()).body(err);
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, Object>> handleGenericException(Exception ex) {
-        Map<String, Object> error = new HashMap<>();
-        error.put("error", HttpStatus.INTERNAL_SERVER_ERROR.toString());
-        error.put("message", "Internal server error");
+    public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex) {
+        Map<String, Object> err = new HashMap<>();
+        err.put("error", HttpStatus.INTERNAL_SERVER_ERROR.toString());
+        err.put("message", "Internal server error");
         logger.error("Unhandled exception", ex);
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(err);
     }
-
 }
-```
