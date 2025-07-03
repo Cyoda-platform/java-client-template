@@ -1,15 +1,3 @@
-Certainly! Moving asynchronous logic, including external API calls and any entity state adjustments, into the workflow function (`process{entity_name}`) is indeed the right approach. This keeps controller methods clean, focused on request validation and response, and centralizes all entity-related processing in one place.
-
-Below is the updated Java code where:
-
-- The external async calls on add and update are moved inside `processpet`.
-- `processpet` now accepts and returns an `ObjectNode` (entity data object) as described.
-- All entity modifications and async side effects occur in `processpet`.
-- The controller methods only call `entityService.addItem` / `updateItem` with the workflow function and return the result.
-
----
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -105,18 +93,15 @@ public class CyodaEntityControllerPrototype {
 
     /**
      * Workflow function applied before persisting pet entity.
-     * 
      * This function asynchronously processes the entity ObjectNode:
      * - Fires external async calls for add or update based on presence of technicalId
      * - Can modify entity state if needed
-     * 
      * @param entity ObjectNode representing pet entity data
      * @return CompletableFuture<ObjectNode> processed entity to persist
      */
     public CompletableFuture<ObjectNode> processpet(ObjectNode entity) {
         logger.info("Executing workflow processpet for entity before persistence");
 
-        // Extract technicalId to determine if add or update
         UUID technicalId = null;
         if (entity.hasNonNull("technicalId")) {
             try {
@@ -129,11 +114,10 @@ public class CyodaEntityControllerPrototype {
             }
         }
 
-        // Fire external async call in fire-and-forget style
         CompletableFuture.runAsync(() -> {
             try {
                 ObjectNode ps = objectMapper.createObjectNode();
-                ps.put("id", 0); // external id unknown or zero
+                ps.put("id", 0);
                 var cat = ps.putObject("category");
                 String petType = entity.hasNonNull("type") ? entity.get("type").asText() : "unknown";
                 cat.put("id", 0);
@@ -150,11 +134,9 @@ public class CyodaEntityControllerPrototype {
                 ps.put("status", status);
 
                 if (technicalId == null) {
-                    // It's an add operation
                     restTemplate.postForEntity(EXTERNAL_PETSTORE_BASE, ps.toString(), String.class);
                     logger.info("External addPet API called asynchronously for pet name '{}'", petName);
                 } else {
-                    // It's an update operation
                     restTemplate.put(EXTERNAL_PETSTORE_BASE, ps.toString());
                     logger.info("External updatePet API called asynchronously for technicalId {}", technicalId);
                 }
@@ -163,13 +145,10 @@ public class CyodaEntityControllerPrototype {
             }
         });
 
-        // Here you can modify the entity ObjectNode if needed before persistence
-        // For example, set a default status if missing
         if (!entity.hasNonNull("status") || entity.get("status").asText().isEmpty()) {
             entity.put("status", "available");
         }
 
-        // Return completed future with the (possibly modified) entity
         return CompletableFuture.completedFuture(entity);
     }
 
@@ -211,10 +190,8 @@ public class CyodaEntityControllerPrototype {
     public CompletableFuture<ResponseEntity<Map<String, Object>>> addPet(@RequestBody @Valid Pet newPet) {
         logger.info("Adding new pet: {}", newPet);
 
-        // Convert Pet to ObjectNode for entityService
         ObjectNode entityNode = objectMapper.valueToTree(newPet);
 
-        // Pass workflow function processpet
         return entityService.addItem(
                 ENTITY_NAME,
                 ENTITY_VERSION,
@@ -237,7 +214,6 @@ public class CyodaEntityControllerPrototype {
 
         ObjectNode entityNode = objectMapper.valueToTree(updateRequest);
 
-        // updateItem does not support workflow function; so external update logic moved to processpet on add
         return entityService.updateItem(
                         ENTITY_NAME,
                         ENTITY_VERSION,
@@ -274,20 +250,3 @@ public class CyodaEntityControllerPrototype {
                 });
     }
 }
-```
-
----
-
-### Summary of what was moved to `processpet` workflow function:
-
-- The fire-and-forget asynchronous calls to external Petstore API for both add and update.
-- The entity state defaulting logic (e.g., setting default status if missing).
-- The controller methods for add and update are simplified:
-  - `addPet` now converts input DTO to `ObjectNode` and calls `addItem` with the workflow function.
-  - `updatePet` calls `updateItem` as before (assuming `updateItem` does not support workflow function).
-- No async fire-and-forget calls remain in the controller.
-- `processpet` is the single async place where entity transformation and side effects happen before persistence.
-
----
-
-**This structure makes the code more maintainable, testable, and compliant with your requirement to move async side effects and entity state logic into the workflow function.**
