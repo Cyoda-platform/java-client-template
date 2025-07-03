@@ -1,64 +1,64 @@
 {
-    "description": "FSM Workflow for Weather Forecast Entity",
-    "initial_state": "none",
-    "states": {
-        "completed": {
-            "transitions": {}
+  "description": "FSM Workflow for Weather Forecast Entity",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "fail_invalid_input": {
+          "condition": {
+            "function": {
+              "name": "isNotValidInput"
+            },
+            "type": "function"
+          },
+          "next": "failed"
         },
-        "failed": {
-            "transitions": {}
-        },
-        "none": {
-            "transitions": {
-                "fail_invalid_input": {
-                    "condition": {
-                        "function": {
-                            "name": "isNotValidInput"
-                        },
-                        "type": "function"
-                    },
-                    "next": "failed"
-                },
-                "validate_input": {
-                    "condition": {
-                        "function": {
-                            "name": "isValidInput"
-                        },
-                        "type": "function"
-                    },
-                    "next": "validation"
-                }
-            }
-        },
-        "processing": {
-            "transitions": {
-                "check_failure": {
-                    "condition": {
-                        "function": {
-                            "name": "isNotFetchSuccessful"
-                        },
-                        "type": "function"
-                    },
-                    "next": "failed"
-                },
-                "check_success": {
-                    "condition": {
-                        "function": {
-                            "name": "isFetchSuccessful"
-                        },
-                        "type": "function"
-                    },
-                    "next": "completed"
-                }
-            }
-        },
-        "validation": {
-            "transitions": {
-                "start_processing": {
-                    "next": "processing"
-                }
-            }
+        "validate_input": {
+          "condition": {
+            "function": {
+              "name": "isValidInput"
+            },
+            "type": "function"
+          },
+          "next": "validation"
         }
+      }
     },
-    "workflow_name": "weather_forecast_workflow"
+    "failed": {
+      "transitions": {}
+    },
+    "validation": {
+      "transitions": {
+        "start_processing": {
+          "next": "processing"
+        }
+      }
+    },
+    "processing": {
+      "transitions": {
+        "check_failure": {
+          "condition": {
+            "function": {
+              "name": "isNotFetchSuccessful"
+            },
+            "type": "function"
+          },
+          "next": "failed"
+        },
+        "check_success": {
+          "condition": {
+            "function": {
+              "name": "isFetchSuccessful"
+            },
+            "type": "function"
+          },
+          "next": "completed"
+        }
+      }
+    },
+    "completed": {
+      "transitions": {}
+    }
+  },
+  "workflow_name": "weather_forecast_workflow"
 }
