@@ -1,0 +1,46 @@
+{
+    "description": "FSM workflow for prototype entity processing",
+    "initial_state": "none",
+    "states": {
+        "error": {
+            "transitions": {}
+        },
+        "none": {
+            "transitions": {
+                "start_processing": {
+                    "action": {
+                        "name": "enrichEntity"
+                    },
+                    "next": "processing"
+                }
+            }
+        },
+        "processed": {
+            "transitions": {}
+        },
+        "processing": {
+            "transitions": {
+                "to_error": {
+                    "condition": {
+                        "function": {
+                            "name": "conditionProcessingFailed"
+                        },
+                        "type": "function"
+                    },
+                    "next": "error"
+                },
+                "to_processed": {
+                    "condition": {
+                        "function": {
+                            "name": "conditionIsProcessed"
+                        },
+                        "type": "function"
+                    },
+                    "next": "processed"
+                }
+            }
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "prototype_entity_workflow"
+}
