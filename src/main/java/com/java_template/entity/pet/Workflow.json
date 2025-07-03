@@ -1,113 +1,113 @@
 {
-    "description": "Pet entity workflow FSM for status defaulting, tag normalization, and category enrichment",
-    "initial_state": "none",
-    "states": {
-        "enrich_category": {
-            "transitions": {
-                "to_ready": {
-                    "next": "ready"
-                }
+  "description": "Pet entity workflow FSM for status defaulting, tag normalization, and category enrichment",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "to_enrich_category": {
+          "condition": {
+            "function": {
+              "name": "needsCategoryEnrichment"
             },
-            "transitions_action": {
-                "enrich_category_action": {
-                    "action": {
-                        "name": "enrichCategory"
-                    }
-                }
-            }
+            "type": "function"
+          },
+          "next": "enrich_category"
         },
-        "none": {
-            "transitions": {
-                "to_enrich_category": {
-                    "condition": {
-                        "function": {
-                            "name": "needsCategoryEnrichment"
-                        },
-                        "type": "function"
-                    },
-                    "next": "enrich_category"
-                },
-                "to_normalize_tags": {
-                    "condition": {
-                        "function": {
-                            "name": "needsTagNormalization"
-                        },
-                        "type": "function"
-                    },
-                    "next": "normalize_tags"
-                },
-                "to_ready": {
-                    "next": "ready"
-                },
-                "to_validate_status": {
-                    "condition": {
-                        "function": {
-                            "name": "needsStatusDefault"
-                        },
-                        "type": "function"
-                    },
-                    "next": "validate_status"
-                }
-            }
-        },
-        "normalize_tags": {
-            "transitions": {
-                "to_enrich_category": {
-                    "condition": {
-                        "function": {
-                            "name": "needsCategoryEnrichment"
-                        },
-                        "type": "function"
-                    },
-                    "next": "enrich_category"
-                },
-                "to_ready": {
-                    "next": "ready"
-                }
+        "to_normalize_tags": {
+          "condition": {
+            "function": {
+              "name": "needsTagNormalization"
             },
-            "transitions_action": {
-                "normalize_tags_action": {
-                    "action": {
-                        "name": "normalizeTags"
-                    }
-                }
-            }
+            "type": "function"
+          },
+          "next": "normalize_tags"
         },
-        "ready": {
-            "transitions": {}
+        "to_ready": {
+          "next": "ready"
         },
-        "validate_status": {
-            "transitions": {
-                "to_enrich_category": {
-                    "condition": {
-                        "function": {
-                            "name": "needsCategoryEnrichment"
-                        },
-                        "type": "function"
-                    },
-                    "next": "enrich_category"
-                },
-                "to_normalize_tags": {
-                    "condition": {
-                        "function": {
-                            "name": "needsTagNormalization"
-                        },
-                        "type": "function"
-                    },
-                    "next": "normalize_tags"
-                },
-                "to_ready": {
-                    "next": "ready"
-                }
+        "to_validate_status": {
+          "condition": {
+            "function": {
+              "name": "needsStatusDefault"
             },
-            "transitions_action": {
-                "validate_status_action": {
-                    "action": {
-                        "name": "validateAndDefaultStatus"
-                    }
-                }
-            }
+            "type": "function"
+          },
+          "next": "validate_status"
         }
+      }
     },
-    "workflow_name": "pet_entity_workflow"
+    "enrich_category": {
+      "transitions": {
+        "to_ready": {
+          "next": "ready"
+        }
+      },
+      "transitions_action": {
+        "enrich_category_action": {
+          "action": {
+            "name": "enrichCategory"
+          }
+        }
+      }
+    },
+    "ready": {
+      "transitions": {}
+    },
+    "normalize_tags": {
+      "transitions": {
+        "to_enrich_category": {
+          "condition": {
+            "function": {
+              "name": "needsCategoryEnrichment"
+            },
+            "type": "function"
+          },
+          "next": "enrich_category"
+        },
+        "to_ready": {
+          "next": "ready"
+        }
+      },
+      "transitions_action": {
+        "normalize_tags_action": {
+          "action": {
+            "name": "normalizeTags"
+          }
+        }
+      }
+    },
+    "validate_status": {
+      "transitions": {
+        "to_enrich_category": {
+          "condition": {
+            "function": {
+              "name": "needsCategoryEnrichment"
+            },
+            "type": "function"
+          },
+          "next": "enrich_category"
+        },
+        "to_normalize_tags": {
+          "condition": {
+            "function": {
+              "name": "needsTagNormalization"
+            },
+            "type": "function"
+          },
+          "next": "normalize_tags"
+        },
+        "to_ready": {
+          "next": "ready"
+        }
+      },
+      "transitions_action": {
+        "validate_status_action": {
+          "action": {
+            "name": "validateAndDefaultStatus"
+          }
+        }
+      }
+    }
+  },
+  "workflow_name": "pet_entity_workflow"
 }
