@@ -1,0 +1,62 @@
+{
+    "description": "FSM for entity processing workflow with async enrichment and validation",
+    "initial_state": "none",
+    "states": {
+        "error": {
+            "transitions": {}
+        },
+        "none": {
+            "transitions": {
+                "start_processing": {
+                    "next": "processing"
+                }
+            }
+        },
+        "persisted": {
+            "transitions": {
+                "read_entity": {
+                    "next": "persisted"
+                }
+            }
+        },
+        "processing": {
+            "transitions": {
+                "process_failed": {
+                    "condition": {
+                        "function": {
+                            "name": "processFailed"
+                        },
+                        "type": "function"
+                    },
+                    "next": "error"
+                },
+                "process_with_valid_related_id": {
+                    "action": {
+                        "name": "processEntity"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "hasValidRelatedId"
+                        },
+                        "type": "function"
+                    },
+                    "next": "persisted"
+                },
+                "process_without_valid_related_id": {
+                    "action": {
+                        "name": "processEntity"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "notHasValidRelatedId"
+                        },
+                        "type": "function"
+                    },
+                    "next": "persisted"
+                }
+            }
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "entity_processing_workflow"
+}
