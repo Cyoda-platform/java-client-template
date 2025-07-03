@@ -1,52 +1,7 @@
-Certainly! The idea is to move all asynchronous or "pre-persistence" logic from controller endpoints into the workflow function `processpet`. This function will be invoked automatically by `entityService.addItem` before the entity is persisted. This improves separation of concerns, keeps controllers thin, and ensures all async or state-modifying logic happens consistently in one place.
-
----
-
-### What to move into `processpet`:
-
-- Setting default status if missing
-- Filtering/validating tags in sync (this is a bit tricky because filtering logic is needed before deciding to add item)
-- Any async calls or "fire and forget" tasks related to entity processing before save
-- Possibly enrichment or data fixes
-
----
-
-### What **cannot** be moved:
-
-- Controller-specific validation or request parsing
-- Deciding whether to add the entity at all (because workflow function runs only if addItem is called)
-- Calls to `entityService.addItem`/`updateItem`/`deleteItem` on the **same** entity (would cause recursion)
-- Filtering lists before adding (since workflow runs per entity)
-
----
-
-### How to handle filtering on sync:
-
-Since workflow runs per entity, the *filtering* of entities by tags or status in the sync endpoint **cannot** be done in workflow without adding all entities and then deleting unwanted ones (which is not allowed). So the filtering must remain in controller before calling `addItem`.
-
----
-
-### What async tasks remain?
-
-Currently, only the call to external API is async in controller. This cannot be moved to workflow because workflow runs per entity, and we get data from external API once in controller to generate entities.
-
----
-
-### Summary of changes:
-
-- Move any entity state modifications (e.g. defaulting missing fields, enriching data) to `processpet`
-- Remove async logic from controller that can be moved
-- Keep filtering in controller
-- Controller only calls `entityService.addItem` with `processpet` workflow
-
----
-
-### Updated Java code with moved logic and comments:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
@@ -85,6 +40,8 @@ public class CyodaEntityControllerPrototype {
     private final EntityService entityService;
 
     private static final String ENTITY_NAME = "pet";
+
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public CyodaEntityControllerPrototype(EntityService entityService) {
         this.entityService = entityService;
@@ -162,23 +119,20 @@ public class CyodaEntityControllerPrototype {
         private String message;
     }
 
-    /**
-     * processpet workflow function is applied asynchronously before persisting.
-     * This function receives the entity as an ObjectNode, can modify its state,
-     * add/get secondary entities (different entityModel), but cannot modify the current entityModel via add/update/delete.
-     */
+    // Workflow function to process pet entity asynchronously before persistence.
+    // Modifies the entity ObjectNode directly.
     private final Function<Object, Object> processpet = entity -> {
         if (!(entity instanceof ObjectNode)) {
-            return entity; // just return as is if not ObjectNode
+            return entity;
         }
         ObjectNode petNode = (ObjectNode) entity;
 
-        // 1. Default status to "available" if missing or empty
+        // Default status to "available" if missing or empty
         if (!petNode.hasNonNull("status") || petNode.get("status").asText().isBlank()) {
             petNode.put("status", "available");
         }
 
-        // 2. Normalize tags: remove duplicates, trim whitespace
+        // Normalize tags: trim and remove duplicates
         if (petNode.has("tags") && petNode.get("tags").isArray()) {
             Set<String> uniqueTags = new LinkedHashSet<>();
             petNode.withArray("tags").forEach(tagNode -> {
@@ -186,40 +140,29 @@ public class CyodaEntityControllerPrototype {
                     uniqueTags.add(tagNode.asText().trim());
                 }
             });
-            // Replace with normalized tags array
             var tagsArrayNode = petNode.putArray("tags");
             uniqueTags.forEach(tagsArrayNode::add);
         }
 
-        // 3. Example async enrichment: Suppose we want to add supplementary data entities
-        // (e.g. fetch category details from another entityModel)
-        // We can do so here by calling entityService.getItems or getItem with different entityModel.
-        // Example (commented out, implement if needed):
-        /*
+        // Example: Enrich categoryDescription if category exists by fetching from different entityModel "category"
         try {
-            String categoryName = petNode.hasNonNull("category") ? petNode.get("category").asText() : null;
-            if (categoryName != null) {
+            if (petNode.hasNonNull("category")) {
+                String categoryName = petNode.get("category").asText();
                 CompletableFuture<ArrayNode> categoryFuture = entityService.getItems("category", ENTITY_VERSION);
                 ArrayNode categories = categoryFuture.get();
-                // find matching category details and add it as supplementary data
                 for (JsonNode catNode : categories) {
                     if (categoryName.equalsIgnoreCase(catNode.path("name").asText())) {
-                        // Add supplementary raw data entity of different model if needed
-                        // entityService.addItem("categoryDetails", ENTITY_VERSION, catNode, null);
-                        // or modify petNode with enriched info
+                        // Add enriched field to current pet entity
                         petNode.put("categoryDescription", catNode.path("description").asText(""));
                         break;
                     }
                 }
             }
         } catch (Exception e) {
-            // Log but do not fail the workflow
-            // logger.warn("Category enrichment failed", e);
+            logger.warn("Category enrichment in workflow failed: {}", e.getMessage());
         }
-        */
 
-        // 4. Any other pre-persistence async logic can be added here, e.g. send notification events (fire and forget),
-        // but should not modify current entityModel via add/update/delete.
+        // Additional async or enrichment logic can be added here as needed
 
         return petNode;
     };
@@ -233,7 +176,7 @@ public class CyodaEntityControllerPrototype {
         if (raw == null) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Invalid external API response format");
         }
-        var root = new com.fasterxml.jackson.databind.ObjectMapper().readTree(raw);
+        var root = objectMapper.readTree(raw);
         if (!root.isArray()) {
             logger.error("Expected array from external API");
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Invalid external API response format");
@@ -264,7 +207,7 @@ public class CyodaEntityControllerPrototype {
 
             Pet pet = new Pet(null, name, status, tags, category);
 
-            // Pass workflow function processpet here to apply async processing before persistence
+            // Add item with workflow function to process entity before persistence
             CompletableFuture<UUID> idFuture = entityService.addItem(ENTITY_NAME, ENTITY_VERSION, pet, processpet);
             UUID technicalId = idFuture.get();
             pet.setTechnicalId(technicalId);
@@ -292,7 +235,6 @@ public class CyodaEntityControllerPrototype {
         Pet pet = new Pet(null, request.getName(), request.getStatus(),
                 request.getTags() != null ? request.getTags() : Collections.emptyList(), request.getCategory());
 
-        // Pass workflow function processpet here to apply async processing before persistence
         CompletableFuture<UUID> idFuture = entityService.addItem(ENTITY_NAME, ENTITY_VERSION, pet, processpet);
         UUID technicalId = idFuture.get();
         pet.setTechnicalId(technicalId);
@@ -309,10 +251,10 @@ public class CyodaEntityControllerPrototype {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pet not found");
         }
 
-        // Update status in node
+        // Update status directly on entity ObjectNode
         currentNode.put("status", request.getStatus());
 
-        // Update entity directly, no workflow needed on update for now (no async logic here)
+        // Update entity without workflow (workflow on update may be added if needed)
         CompletableFuture<UUID> updatedItemId = entityService.updateItem(ENTITY_NAME, ENTITY_VERSION, id, currentNode);
         UUID updatedId = updatedItemId.get();
         logger.info("Updated pet id={} to status={}", updatedId, request.getStatus());
@@ -320,7 +262,14 @@ public class CyodaEntityControllerPrototype {
     }
 
     private Pet convertNodeToPet(JsonNode node) {
-        UUID technicalId = node.hasNonNull("technicalId") ? UUID.fromString(node.get("technicalId").asText()) : null;
+        UUID technicalId = null;
+        if (node.hasNonNull("technicalId")) {
+            try {
+                technicalId = UUID.fromString(node.get("technicalId").asText());
+            } catch (IllegalArgumentException ignored) {
+                // Ignore invalid UUID formats
+            }
+        }
         String name = node.hasNonNull("name") ? node.get("name").asText() : null;
         String status = node.hasNonNull("status") ? node.get("status").asText() : null;
         List<String> tags = new ArrayList<>();
@@ -355,26 +304,3 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(err);
     }
 }
-```
-
----
-
-### Explanation:
-
-- **Workflow function `processpet`** now:
-  - Defaults missing `status` to `"available"`.
-  - Normalizes tags (removes duplicates, trims whitespace).
-  - Contains placeholder for async enrichment (commented out example).
-  - Can be extended to run async side effects (e.g. fire and forget notifications) but must not modify current entity via `add/update/delete`.
-
-- **Sync endpoint** still filters entities by tags/status because filtering cannot happen inside workflow.
-
-- **Add endpoint** just passes entity + workflow function to `addItem`.
-
-- **Update status endpoint** updates the entity directly, no workflow applied (could be added similarly if needed).
-
-- The controller is now slimmed down with all entity state modifications moved inside the workflow function.
-
----
-
-This refactoring complies with the requirements and best practices you described, moving all possible async/pre-persist logic into the workflow functions and keeping controller code focused on request/response handling and filtering.
