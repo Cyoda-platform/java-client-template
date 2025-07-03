@@ -1,28 +1,3 @@
-Certainly! Moving async logic from the controller into the `process{entity_name}` workflow function is a very good design choice. This approach keeps controllers clean and focuses all entity-related async processing inside workflows, which are executed right before persisting the entity.
-
----
-
-### What to move:
-- The async call to OpenMeteo API and the subsequent update of the entity status (`"completed"` or `"failed"`).
-- The logic of fetching, processing, and updating entities other than the current one.
-- The controller will just create an initial "processing" entity, pass it to the workflow function, and return the accepted response with the job id immediately.
-
----
-
-### Important notes:
-- The workflow function receives an `ObjectNode` entity (JSON tree), not a POJO.
-- We **cannot** update or add entities of the same entityModel inside the workflow (would cause infinite recursion).
-- We **can** update/add entities of **different** entityModels inside workflow.
-- The workflow function returns a `CompletableFuture<ObjectNode>` asynchronously.
-- The workflow function can perform fire-and-forget async tasks and mutate the entity directly.
-- We will move the external API call and the update of the `"WeatherForecastResult"` entity **outside** of updateItem calls on the same entity, but we **can** add a related secondary entity or log entity if needed.
-- Since we cannot update the same entity inside the workflow, we will rely on the fact that the entity's state can be mutated before persistence — so we place the final state directly into the entity.
-
----
-
-### Updated code:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -48,7 +23,6 @@ import java.net.URISyntaxException;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
 
@@ -68,21 +42,10 @@ public class CyodaEntityControllerPrototype {
         this.entityService = entityService;
     }
 
-    /**
-     * Workflow function to process WeatherForecastResult entity before persistence.
-     * This will:
-     * - Call OpenMeteo API asynchronously
-     * - Update the entity state accordingly (status, timestamp, forecast data)
-     *
-     * This function:
-     * - Receives the entity as ObjectNode
-     * - Mutates it before persistence
-     * - Returns CompletableFuture<ObjectNode>
-     */
+    // Workflow function to process WeatherForecastResult entity asynchronously before persistence
     private CompletableFuture<ObjectNode> processWeatherForecastResult(ObjectNode entity) {
         logger.info("Workflow processWeatherForecastResult started for entity: {}", entity);
 
-        // Extract request parameters from entity
         double latitude = entity.path("latitude").asDouble(Double.NaN);
         double longitude = entity.path("longitude").asDouble(Double.NaN);
         JsonNode paramsNode = entity.path("parameters");
@@ -92,7 +55,6 @@ public class CyodaEntityControllerPrototype {
         if (Double.isNaN(latitude) || Double.isNaN(longitude)
                 || paramsNode == null || !paramsNode.isArray()
                 || startDate == null || endDate == null) {
-            // Invalid entity data, mark failed and complete immediately
             entity.put("status", "failed");
             entity.put("timestamp", Instant.now().toString());
             logger.error("Invalid WeatherForecastResult entity data in workflow: {}", entity);
@@ -124,7 +86,6 @@ public class CyodaEntityControllerPrototype {
             return CompletableFuture.completedFuture(entity);
         }
 
-        // Perform async API call to OpenMeteo
         return CompletableFuture.supplyAsync(() -> {
             try {
                 logger.info("Calling external API from workflow: {}", uri);
@@ -134,7 +95,6 @@ public class CyodaEntityControllerPrototype {
                 }
                 JsonNode forecastJson = objectMapper.readTree(jsonResponse);
 
-                // Update the entity with new state
                 entity.put("status", "completed");
                 entity.put("timestamp", Instant.now().toString());
                 entity.set("forecast", forecastJson);
@@ -145,35 +105,28 @@ public class CyodaEntityControllerPrototype {
                 logger.error("Error during async API call in workflow", e);
                 entity.put("status", "failed");
                 entity.put("timestamp", Instant.now().toString());
-                // forecast node can be removed or set null on failure
                 entity.remove("forecast");
                 return entity;
             }
         });
     }
 
-    /**
-     * Controller method just prepares initial entity and calls addItem with workflow.
-     */
     @PostMapping(path = "/forecast", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public CompletableFuture<ResponseEntity<WeatherForecastResponse>> fetchForecast(@RequestBody @Valid WeatherForecastRequest request) {
         logger.info("Received forecast request lat={} lon={} params={} start={} end={}",
                 request.getLatitude(), request.getLongitude(), String.join(",", request.getParameters()),
                 request.getStartDate(), request.getEndDate());
 
-        // Create initial entity as ObjectNode
         ObjectNode initialEntity = objectMapper.createObjectNode();
         initialEntity.put("status", "processing");
         initialEntity.put("timestamp", Instant.now().toString());
 
-        // Copy request parameters into entity so workflow can use them
         initialEntity.put("latitude", request.getLatitude());
         initialEntity.put("longitude", request.getLongitude());
         initialEntity.put("startDate", request.getStartDate());
         initialEntity.put("endDate", request.getEndDate());
         initialEntity.putArray("parameters").addAll(objectMapper.valueToTree(request.getParameters()));
 
-        // Add initial entity with workflow processing
         return entityService.addItem(
                 "WeatherForecastResult",
                 ENTITY_VERSION,
@@ -187,7 +140,13 @@ public class CyodaEntityControllerPrototype {
 
     @GetMapping(path = "/forecast/{locationId}", produces = MediaType.APPLICATION_JSON_VALUE)
     public CompletableFuture<ResponseEntity<WeatherForecastResult>> getForecast(@PathVariable("locationId") @NotBlank String locationId) {
-        UUID technicalId = UUID.fromString(locationId);
+        UUID technicalId;
+        try {
+            technicalId = UUID.fromString(locationId);
+        } catch (IllegalArgumentException ex) {
+            logger.error("Invalid UUID format for locationId {}", locationId);
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid locationId format");
+        }
         logger.info("Retrieving forecast for locationId {}", locationId);
         return entityService.getItem("WeatherForecastResult", ENTITY_VERSION, technicalId)
                 .thenApply(objectNode -> {
@@ -211,8 +170,6 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.status(ex.getStatusCode())
                 .body(new ErrorResponse(ex.getStatusCode().toString(), ex.getReason()));
     }
-
-    // --- DTOs ---
 
     @Data
     @NoArgsConstructor
@@ -263,31 +220,3 @@ public class CyodaEntityControllerPrototype {
         private String message;
     }
 }
-```
-
----
-
-### Summary of changes:
-
-1. **All async logic moved into `processWeatherForecastResult` workflow function:**
-   - Calls the external OpenMeteo API asynchronously.
-   - Updates the entity's `status`, `timestamp`, and `forecast` fields directly on the `ObjectNode`.
-   - Handles error cases by setting `status = "failed"` and clearing forecast.
-2. **Controller `fetchForecast` just creates the initial entity with request parameters + `"processing"` state.**
-   - Calls `entityService.addItem` passing the workflow function.
-   - Returns accepted response immediately with the job ID.
-3. **Removed any async handling and update calls from the controller.**
-4. **Workflow function signature changed to use `ObjectNode` and return `CompletableFuture<ObjectNode>`.**
-
----
-
-### Benefits:
-- Controller stays clean and focused on request validation and response.
-- All async side effects and entity mutations happen inside workflow.
-- No risk of infinite recursion since we never call `addItem/updateItem` on the same entity inside the workflow.
-- The entity state fully reflects the current status before persistence.
-- Easily extendable if more async processing or secondary entities are needed.
-
----
-
-If you want me to refactor other async logic or add other workflows, just ask!
