@@ -1,20 +1,29 @@
-```java
 package com.java_template.entity.prototype;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
-import javax.validation.Valid;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Instant;
@@ -23,74 +32,55 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
-@Slf4j
 @RestController
+@Validated
 @RequestMapping("prototype/weather")
 public class EntityControllerPrototype {
+
+    private static final Logger logger = LoggerFactory.getLogger(EntityControllerPrototype.class);
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // Mock storage for fetched forecasts keyed by locationId
     private final Map<String, WeatherForecastResult> entityJobs = new ConcurrentHashMap<>();
 
-    /**
-     * POST /prototype/weather/forecast
-     * Fetch weather forecast data from external API and store internally.
-     */
     @PostMapping(path = "/forecast", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<WeatherForecastResponse> fetchForecast(@Valid @RequestBody WeatherForecastRequest request) {
-        logger.info("Received forecast request for lat={}, lon={}, params={}, start_date={}, end_date={}",
-                request.getLatitude(), request.getLongitude(), request.getParameters(), request.getStartDate(), request.getEndDate());
+    public ResponseEntity<WeatherForecastResponse> fetchForecast(@RequestBody @Valid WeatherForecastRequest request) {
+        logger.info("Received forecast request lat={} lon={} params={} start={} end={}",
+                request.getLatitude(), request.getLongitude(), String.join(",", request.getParameters()),
+                request.getStartDate(), request.getEndDate());
 
         String jobId = UUID.randomUUID().toString();
-        Instant requestedAt = Instant.now();
+        entityJobs.put(jobId, new WeatherForecastResult("processing", Instant.now(), null));
 
-        // Mark job as processing (fire-and-forget)
-        entityJobs.put(jobId, new WeatherForecastResult("processing", requestedAt, null));
-
-        // Fire-and-forget async fetch and process
         CompletableFuture.runAsync(() -> {
             try {
                 JsonNode forecastJson = callOpenMeteoApi(request);
-                WeatherForecastResult result = new WeatherForecastResult("completed", Instant.now(), forecastJson);
-                entityJobs.put(jobId, result);
-                logger.info("Successfully fetched and stored forecast data for jobId {}", jobId);
+                entityJobs.put(jobId, new WeatherForecastResult("completed", Instant.now(), forecastJson));
+                logger.info("Completed forecast fetch for jobId {}", jobId);
             } catch (Exception e) {
-                logger.error("Error fetching forecast data for jobId {}: {}", jobId, e.getMessage(), e);
+                logger.error("Error in async fetch for jobId {}: {}", jobId, e.getMessage(), e);
                 entityJobs.put(jobId, new WeatherForecastResult("failed", Instant.now(), null));
             }
         });
-        // TODO: Consider persistence or event publishing for real workflow
 
-        WeatherForecastResponse response = new WeatherForecastResponse("success", jobId);
-        return ResponseEntity.accepted().body(response);
+        return ResponseEntity.accepted().body(new WeatherForecastResponse("success", jobId));
     }
 
-    /**
-     * GET /prototype/weather/forecast/{locationId}
-     * Retrieve cached/stored forecast result by locationId (jobId).
-     */
     @GetMapping(path = "/forecast/{locationId}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<WeatherForecastResult> getForecast(@PathVariable("locationId") String locationId) {
-        logger.info("Fetching stored forecast for locationId {}", locationId);
+    public ResponseEntity<WeatherForecastResult> getForecast(@PathVariable("locationId") @NotBlank String locationId) {
+        logger.info("Retrieving forecast for locationId {}", locationId);
         WeatherForecastResult result = entityJobs.get(locationId);
         if (result == null) {
-            logger.error("Forecast not found for locationId {}", locationId);
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Forecast data not found");
+            logger.error("No forecast found for locationId {}", locationId);
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Forecast not found");
         }
         return ResponseEntity.ok(result);
     }
 
-    /**
-     * Calls the Open-Meteo API using RestTemplate and returns the raw JSON response as JsonNode.
-     */
     private JsonNode callOpenMeteoApi(WeatherForecastRequest request) throws URISyntaxException {
         String baseUrl = "https://api.open-meteo.com/v1/forecast";
-
         String parametersCsv = String.join(",", request.getParameters());
-
-        // Build URI with query parameters
         String uriStr = String.format("%s?latitude=%s&longitude=%s&daily=%s&start_date=%s&end_date=%s&timezone=auto",
                 baseUrl,
                 request.getLatitude(),
@@ -98,79 +88,75 @@ public class EntityControllerPrototype {
                 parametersCsv,
                 request.getStartDate(),
                 request.getEndDate());
-
         URI uri = new URI(uriStr);
-
-        logger.info("Calling external Open-Meteo API: {}", uri);
-
+        logger.info("Calling external API: {}", uri);
         String jsonResponse = restTemplate.getForObject(uri, String.class);
         if (jsonResponse == null || jsonResponse.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Empty response from external API");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_GATEWAY, "Empty response");
         }
-
         try {
             return objectMapper.readTree(jsonResponse);
         } catch (Exception e) {
-            logger.error("Failed to parse JSON response from external API: {}", e.getMessage(), e);
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Invalid JSON response from external API");
+            logger.error("Invalid JSON from external API: {}", e.getMessage(), e);
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_GATEWAY, "Invalid JSON");
         }
     }
 
-    /**
-     * Minimal error handling for ResponseStatusException.
-     */
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<ErrorResponse> handleResponseStatusException(ResponseStatusException ex) {
-        logger.error("Handling error: status={}, message={}", ex.getStatusCode(), ex.getReason());
+        logger.error("Error: status={} message={}", ex.getStatusCode(), ex.getReason());
         return ResponseEntity.status(ex.getStatusCode())
                 .body(new ErrorResponse(ex.getStatusCode().toString(), ex.getReason()));
     }
 
-    /**
-     * Generic error response model.
-     */
+    // DTOs and result models
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    static class WeatherForecastRequest {
+        @Min(-90)
+        @Max(90)
+        private double latitude;
+
+        @Min(-180)
+        @Max(180)
+        private double longitude;
+
+        @NotNull
+        @Size(min = 1)
+        private String[] parameters;
+
+        @NotBlank
+        @Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}$")
+        private String startDate;
+
+        @NotBlank
+        @Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}$")
+        private String endDate;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    static class WeatherForecastResponse {
+        private String status;
+        private String locationId;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    static class WeatherForecastResult {
+        private String status;
+        private Instant timestamp;
+        private JsonNode forecast;
+    }
+
     @Data
     @AllArgsConstructor
     static class ErrorResponse {
         private String error;
         private String message;
     }
-
-    /**
-     * Request DTO for POST /forecast
-     */
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    static class WeatherForecastRequest {
-        private Double latitude;
-        private Double longitude;
-        private String[] parameters;
-        private String startDate; // ISO Date yyyy-MM-dd
-        private String endDate;   // ISO Date yyyy-MM-dd
-    }
-
-    /**
-     * Response DTO for POST /forecast to return jobId for async retrieval.
-     */
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    static class WeatherForecastResponse {
-        private String status;
-        private String locationId; // jobId to use for GET retrieval
-    }
-
-    /**
-     * Stored forecast result with status and raw JSON data.
-     */
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    static class WeatherForecastResult {
-        private String status; // e.g. processing, completed, failed
-        private Instant timestamp;
-        private JsonNode forecast; // raw JSON data from external API
-    }
 }
-```
