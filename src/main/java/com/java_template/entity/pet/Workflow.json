@@ -1,70 +1,70 @@
 {
-    "description": "Pet entity FSM workflow managing add or update with external API sync",
-    "initial_state": "none",
-    "states": {
-        "end": {
-            "transitions": {}
-        },
-        "new_pet_processing": {
-            "transitions": {
-                "transition_call_add_api": {
-                    "action": {
-                        "name": "callExternalAddPetApi"
-                    },
-                    "next": "set_default_status"
-                }
-            }
-        },
-        "none": {
-            "transitions": {
-                "transition_to_prepare_payload": {
-                    "next": "prepare_payload"
-                }
-            }
-        },
-        "prepare_payload": {
-            "transitions": {
-                "transition_check_existing_pet": {
-                    "condition": {
-                        "function": {
-                            "name": "isNewPet"
-                        },
-                        "negate": true,
-                        "type": "function"
-                    },
-                    "next": "update_pet_processing"
-                },
-                "transition_check_new_pet": {
-                    "condition": {
-                        "function": {
-                            "name": "isNewPet"
-                        },
-                        "type": "function"
-                    },
-                    "next": "new_pet_processing"
-                }
-            }
-        },
-        "set_default_status": {
-            "transitions": {
-                "transition_to_end": {
-                    "action": {
-                        "name": "setDefaultStatusIfMissing"
-                    },
-                    "next": "end"
-                }
-            }
-        },
-        "update_pet_processing": {
-            "transitions": {
-                "transition_call_update_api": {
-                    "action": {
-                        "name": "callExternalUpdatePetApi"
-                    },
-                    "next": "set_default_status"
-                }
-            }
+  "description": "Pet entity FSM workflow managing add or update with external API sync",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "transition_to_prepare_payload": {
+          "next": "prepare_payload"
         }
+      }
     },
-    "workflow_name": "pet_entity_workflow"
+    "prepare_payload": {
+      "transitions": {
+        "transition_check_existing_pet": {
+          "condition": {
+            "function": {
+              "name": "isNewPet"
+            },
+            "negate": true,
+            "type": "function"
+          },
+          "next": "update_pet_processing"
+        },
+        "transition_check_new_pet": {
+          "condition": {
+            "function": {
+              "name": "isNewPet"
+            },
+            "type": "function"
+          },
+          "next": "new_pet_processing"
+        }
+      }
+    },
+    "update_pet_processing": {
+      "transitions": {
+        "transition_call_update_api": {
+          "action": {
+            "name": "callExternalUpdatePetApi"
+          },
+          "next": "set_default_status"
+        }
+      }
+    },
+    "set_default_status": {
+      "transitions": {
+        "transition_to_end": {
+          "action": {
+            "name": "setDefaultStatusIfMissing"
+          },
+          "next": "end"
+        }
+      }
+    },
+    "end": {
+      "transitions": {}
+    },
+    "new_pet_processing": {
+      "transitions": {
+        "transition_call_add_api": {
+          "action": {
+            "name": "callExternalAddPetApi"
+          },
+          "next": "set_default_status"
+        }
+      }
+    }
+  },
+  "workflow_name": "pet_entity_workflow"
 }
