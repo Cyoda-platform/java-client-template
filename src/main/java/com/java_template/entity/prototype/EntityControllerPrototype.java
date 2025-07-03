@@ -1,14 +1,17 @@
-```java
 package com.java_template.entity.prototype;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.MethodArgumentNotValidException;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -19,6 +22,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
+@Validated
 @RestController
 @RequestMapping("/prototype/items")
 public class EntityControllerPrototype {
@@ -31,24 +35,23 @@ public class EntityControllerPrototype {
         log.info("EntityControllerPrototype initialized");
     }
 
-    /**
-     * POST /prototype/items
-     * Accepts raw JSON Hacker News item, stores it as-is, generates an ID, returns the ID.
-     */
     @PostMapping(consumes = "application/json", produces = "application/json")
-    public ResponseEntity<IdResponse> storeItem(@RequestBody JsonNode itemJson) {
+    public ResponseEntity<IdResponse> storeItem(@RequestBody @Valid ItemRequest request) {
+        JsonNode itemJson;
+        try {
+            itemJson = objectMapper.readTree(request.getRawJson());
+        } catch (Exception e) {
+            log.error("Invalid JSON provided", e);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid JSON format");
+        }
         String id = UUID.randomUUID().toString();
         storedItems.put(id, itemJson);
         log.info("Stored item with ID: {}", id);
         return ResponseEntity.status(HttpStatus.CREATED).body(new IdResponse(id));
     }
 
-    /**
-     * GET /prototype/items/{id}
-     * Retrieves stored JSON by ID or returns 404.
-     */
-    @GetMapping(value = "/{id}", produces = "application/json")
-    public ResponseEntity<JsonNode> getItemById(@PathVariable String id) {
+    @GetMapping("/{id}")
+    public ResponseEntity<JsonNode> getItemById(@PathVariable @NotBlank String id) {
         JsonNode item = storedItems.get(id);
         if (item == null) {
             log.warn("Item not found for ID: {}", id);
@@ -58,18 +61,34 @@ public class EntityControllerPrototype {
         return ResponseEntity.ok(item);
     }
 
-    /**
-     * Minimal error handling to return consistent error JSON format.
-     */
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<ErrorResponse> handleResponseStatusException(ResponseStatusException ex) {
         log.error("Error: {} - {}", ex.getStatusCode(), ex.getReason());
         ErrorResponse error = new ErrorResponse(
-                ex.getStatusCode().toString(),
-                ex.getReason(),
-                Instant.now().toString()
+            ex.getStatusCode().toString(),
+            ex.getReason(),
+            Instant.now().toString()
         );
         return ResponseEntity.status(ex.getStatusCode()).body(error);
+    }
+
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ErrorResponse handleValidationException(MethodArgumentNotValidException ex) {
+        String message = ex.getBindingResult().getFieldErrors().stream()
+            .map(err -> err.getField() + ": " + err.getDefaultMessage())
+            .findFirst()
+            .orElse("Validation error");
+        log.error("Validation error: {}", message);
+        return new ErrorResponse(HttpStatus.BAD_REQUEST.toString(), message, Instant.now().toString());
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    static class ItemRequest {
+        @NotBlank
+        private String rawJson;
     }
 
     @Data
@@ -88,4 +107,3 @@ public class EntityControllerPrototype {
         private String timestamp;
     }
 }
-```
