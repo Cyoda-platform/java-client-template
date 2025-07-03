@@ -1,4 +1,4 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -30,20 +30,21 @@ import static com.java_template.common.config.Config.*;
 @RestController
 @RequestMapping("/cyoda/pets")
 @Validated
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final RestTemplate restTemplate = new RestTemplate();
 
     private final EntityService entityService;
 
+    private final ObjectMapper objectMapper;
+
     private static final String ENTITY_NAME = "pet";
 
-    private static final ObjectMapper objectMapper = new ObjectMapper();
-
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @Data
