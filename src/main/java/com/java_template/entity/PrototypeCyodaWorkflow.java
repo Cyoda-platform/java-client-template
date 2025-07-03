@@ -1,32 +1,3 @@
-Absolutely, moving asynchronous logic and entity state modifications out of the controller and into the dedicated workflow function `processPrototype` is the right design. This cleanly separates concerns:
-
-- The controller handles request validation, response formatting, and error handling.
-- The workflow function encapsulates all asynchronous business logic and entity pre-processing before persistence.
-
----
-
-### What we can move to `processPrototype`:
-
-1. **Entity mutation**: any enrichment, timestamping, or state changes.
-2. **Async tasks** related to the entity, e.g.:
-   - Fetching related entities (of *different* models only).
-   - Adding supplementary entities (of *different* models only).
-   - Fire-and-forget async operations relevant before persisting.
-
----
-
-### What stays in controller:
-
-- Parsing and validating input JSON.
-- Calling `entityService.addItem` with workflow.
-- Handling HTTP request/response lifecycle.
-- Error handling.
-
----
-
-### Updated code: moved async and entity mutation logic into `processPrototype`
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -70,30 +41,54 @@ public class CyodaEntityControllerPrototype {
     /**
      * Workflow function applied asynchronously before persisting the entity.
      * All async tasks and entity state mutations moved here.
+     * This example adds timestamp, fetches supplementary "metadata" entity,
+     * enriches entity with metadata if available, and performs fire-and-forget async notification.
      */
     private CompletableFuture<ObjectNode> processPrototype(ObjectNode entity) {
-        // Example mutation: add processed timestamp
+        // Add processed timestamp
         entity.put("processedTimestamp", Instant.now().toString());
 
-        // Example async task: fetch supplementary entity of a different model (e.g. "metadata")
-        // and enrich current entity. This is allowed.
-        return entityService.getItem("metadata", ENTITY_VERSION, UUID.fromString("00000000-0000-0000-0000-000000000000"))
-                .thenApply(metadata -> {
-                    if (metadata != null && !metadata.isEmpty(null)) {
-                        entity.set("metadata", metadata);
-                    }
-                    return entity;
+        // Defensive: Ensure entity has an id for potential async operations
+        UUID entityId = null;
+        try {
+            if (entity.hasNonNull("id")) {
+                entityId = UUID.fromString(entity.get("id").asText());
+            }
+        } catch (IllegalArgumentException ignored) {
+            // No valid UUID id in entity, ignore
+        }
+
+        // Fetch supplementary entity "metadata" (different model) asynchronously
+        CompletableFuture<ObjectNode> metadataFuture = entityService.getItem("metadata", ENTITY_VERSION, UUID.fromString("00000000-0000-0000-0000-000000000000"))
+                .exceptionally(ex -> {
+                    logger.warn("Failed to fetch metadata entity in workflow", ex);
+                    return null;
                 });
 
-        /*
-         * You can also:
-         * - Add supplementary entities with entityService.addItem("otherModel", ...)
-         * - Perform fire-and-forget async operations here (e.g. sending notifications)
-         *
-         * Remember:
-         * - Do NOT add/update/delete entities of the same entityModel ("prototype") here.
-         * - This function MUST return the mutated entity to be persisted.
-         */
+        // Fire-and-forget async task example: send notification (simulate)
+        CompletableFuture<Void> notificationFuture = CompletableFuture.runAsync(() -> {
+            try {
+                // Simulated async notification logic
+                logger.info("Sending notification for prototype entity asynchronously");
+                // For example, call external service or message queue here
+            } catch (Exception e) {
+                logger.error("Error during async notification in workflow", e);
+            }
+        });
+
+        // Compose all async operations
+        return metadataFuture.thenCompose(metadata -> {
+            if (metadata != null && !metadata.isEmpty(null)) {
+                entity.set("metadata", metadata);
+            }
+            // Wait for notification fire-and-forget to complete but do not block persistence on it
+            return notificationFuture.handle((v, ex) -> {
+                if (ex != null) {
+                    logger.error("Notification future completed exceptionally", ex);
+                }
+                return entity; // return mutated entity for persistence
+            });
+        });
     }
 
     @PostMapping(consumes = "application/json", produces = "application/json")
@@ -116,6 +111,10 @@ public class CyodaEntityControllerPrototype {
                 .thenApply(id -> {
                     logger.info("Stored item with technicalId: {}", id);
                     return ResponseEntity.status(HttpStatus.CREATED).body(new IdResponse(id.toString()));
+                })
+                .exceptionally(ex -> {
+                    logger.error("Failed to store item", ex);
+                    throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to store item");
                 });
     }
 
@@ -136,6 +135,10 @@ public class CyodaEntityControllerPrototype {
                     }
                     logger.info("Retrieved item with technicalId: {}", id);
                     return ResponseEntity.ok(item);
+                })
+                .exceptionally(ex -> {
+                    logger.error("Error retrieving item by id", ex);
+                    throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to retrieve item");
                 });
     }
 
@@ -185,21 +188,3 @@ public class CyodaEntityControllerPrototype {
         private String timestamp;
     }
 }
-```
-
----
-
-### Summary
-
-- `processPrototype` now handles **all entity mutation and async tasks** before persistence.
-- The controller method is now very lean: just reads JSON, calls `addItem` with workflow, returns response.
-- This approach is **robust, maintainable, and the recommended best practice**.
-- You can extend `processPrototype` to:
-  - Fetch/add supplementary entities (different models).
-  - Perform async fire-and-forget operations.
-  - Mutate entity state freely.
-- You **cannot** mutate the primary entity outside `processPrototype` or call `addItem/updateItem/deleteItem` on the same model inside the workflow (to avoid recursion).
-
----
-
-If you want, I can help you further refactor or add examples of supplementary entity handling and async fire-and-forget tasks inside the workflow.
