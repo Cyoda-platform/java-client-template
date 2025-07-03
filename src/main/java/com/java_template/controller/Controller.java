@@ -1,12 +1,10 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -16,7 +14,6 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -25,14 +22,16 @@ import static com.java_template.common.config.Config.*;
 @Validated
 @RestController
 @RequestMapping(path = "/cyoda/items", produces = MediaType.APPLICATION_JSON_VALUE)
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -104,18 +103,52 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.status(ex.getStatusCode()).body(errorResponse);
     }
 
-    @Data
-    @AllArgsConstructor
-    @NoArgsConstructor
-    private static class IdResponse {
+    // Inner classes for responses
+    public static class IdResponse {
         private String id;
+
+        public IdResponse() {
+        }
+
+        public IdResponse(String id) {
+            this.id = id;
+        }
+
+        public String getId() {
+            return id;
+        }
+
+        public void setId(String id) {
+            this.id = id;
+        }
     }
 
-    @Data
-    @AllArgsConstructor
-    @NoArgsConstructor
-    private static class ErrorResponse {
+    public static class ErrorResponse {
         private String error;
         private String message;
+
+        public ErrorResponse() {
+        }
+
+        public ErrorResponse(String error, String message) {
+            this.error = error;
+            this.message = message;
+        }
+
+        public String getError() {
+            return error;
+        }
+
+        public void setError(String error) {
+            this.error = error;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public void setMessage(String message) {
+            this.message = message;
+        }
     }
 }
