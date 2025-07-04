@@ -1,8 +1,9 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
@@ -11,9 +12,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -33,14 +31,17 @@ import static com.java_template.common.config.Config.*;
 @RestController
 @RequestMapping(path = "/cyoda/entity/pets", produces = MediaType.APPLICATION_JSON_VALUE)
 @Validated
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
     private static final String ENTITY_NAME = "pet";
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    // Inject ObjectMapper and EntityService via constructor
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @PostMapping("/search")
@@ -103,7 +104,7 @@ public class CyodaEntityControllerPrototype {
     public ResponseEntity<CreatePetResponse> addPet(@RequestBody @Valid CreatePetRequest request) throws ExecutionException, InterruptedException {
         logger.info("Received addPet request: name='{}', type='{}', status='{}'", request.getName(), request.getType(), request.getStatus());
 
-        ObjectNode petNode = entityService.getObjectMapper().createObjectNode();
+        ObjectNode petNode = objectMapper.createObjectNode();
         petNode.put("name", request.getName());
         petNode.put("type", request.getType());
         petNode.put("status", request.getStatus());
@@ -124,6 +125,7 @@ public class CyodaEntityControllerPrototype {
         CompletableFuture<ObjectNode> itemFuture = entityService.getItem(ENTITY_NAME, ENTITY_VERSION, id);
         ObjectNode existingItem = itemFuture.get();
         if (existingItem == null || existingItem.isEmpty()) {
+            logger.error("Pet not found for technicalId={}", id);
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pet not found");
         }
 
@@ -143,11 +145,13 @@ public class CyodaEntityControllerPrototype {
         CompletableFuture<ObjectNode> itemFuture = entityService.getItem(ENTITY_NAME, ENTITY_VERSION, id);
         ObjectNode item = itemFuture.get();
         if (item == null || item.isEmpty()) {
+            logger.error("Pet not found for technicalId={}", id);
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pet not found");
         }
 
         Pet pet = mapObjectNodeToPet(item);
         if (pet == null) {
+            logger.error("Failed to map ObjectNode to Pet for technicalId={}", id);
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pet not found");
         }
 
@@ -189,7 +193,7 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.status(ex.getStatusCode()).body(errorBody);
     }
 
-    @Data
+    @lombok.Data
     public static class PetsQuery {
         @Size(max = 50)
         private String type;
@@ -197,7 +201,7 @@ public class CyodaEntityControllerPrototype {
         private String status;
     }
 
-    @Data
+    @lombok.Data
     public static class SearchPetsRequest {
         @Size(max = 50)
         private String type;
@@ -205,13 +209,13 @@ public class CyodaEntityControllerPrototype {
         private String status;
     }
 
-    @Data
-    @AllArgsConstructor
+    @lombok.Data
+    @lombok.AllArgsConstructor
     public static class SearchPetsResponse {
         private List<Pet> pets;
     }
 
-    @Data
+    @lombok.Data
     public static class CreatePetRequest {
         @NotBlank
         @Size(max = 100)
@@ -227,8 +231,8 @@ public class CyodaEntityControllerPrototype {
         private List<@NotBlank String> photoUrls;
     }
 
-    @Data
-    @AllArgsConstructor
+    @lombok.Data
+    @lombok.AllArgsConstructor
     public static class CreatePetResponse {
         @NotNull
         private UUID id;
@@ -236,23 +240,23 @@ public class CyodaEntityControllerPrototype {
         private String message;
     }
 
-    @Data
+    @lombok.Data
     public static class FavoriteRequest {
         @NotNull
         private Boolean favorite;
     }
 
-    @Data
-    @AllArgsConstructor
+    @lombok.Data
+    @lombok.AllArgsConstructor
     public static class FavoriteResponse {
         private UUID id;
         private Boolean favorite;
         private String message;
     }
 
-    @Data
-    @AllArgsConstructor
-    @NoArgsConstructor
+    @lombok.Data
+    @lombok.AllArgsConstructor
+    @lombok.NoArgsConstructor
     public static class Pet {
         private UUID id; // mapped from technicalId
         private String name;
