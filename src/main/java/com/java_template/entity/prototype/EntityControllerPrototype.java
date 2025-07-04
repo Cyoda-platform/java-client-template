@@ -1,26 +1,28 @@
-```java
 package com.java_template.entity.prototype;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.*;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.server.ResponseStatusException;
 
-import javax.validation.constraints.Email;
-import javax.validation.constraints.NotBlank;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
+@Validated
 @RestController
 @RequestMapping("prototype")
 public class EntityControllerPrototype {
@@ -31,68 +33,82 @@ public class EntityControllerPrototype {
 
     private final Map<String, Subscriber> subscribers = new ConcurrentHashMap<>();
     private final Map<LocalDate, List<Game>> gamesByDate = new ConcurrentHashMap<>();
-
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final RestTemplate restTemplate = new RestTemplate();
 
-    // --- DTOs ---
+    // DTOs
 
-    @Data
     public static class SubscribeRequest {
         @NotBlank
         @Email
         private String email;
+        public String getEmail() { return email; }
+        public void setEmail(String email) { this.email = email; }
     }
 
-    @Data
-    @AllArgsConstructor
-    @NoArgsConstructor
+    public static class FetchScoresRequest {
+        @NotBlank
+        @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}")
+        private String date;
+        public String getDate() { return date; }
+        public void setDate(String date) { this.date = date; }
+    }
+
     public static class Subscriber {
         private String email;
         private LocalDate subscribedAt;
+        public Subscriber(String email, LocalDate subscribedAt) {
+            this.email = email;
+            this.subscribedAt = subscribedAt;
+        }
+        public String getEmail() { return email; }
+        public LocalDate getSubscribedAt() { return subscribedAt; }
     }
 
-    @Data
-    @AllArgsConstructor
-    @NoArgsConstructor
     public static class Game {
         private LocalDate date;
         private String homeTeam;
         private String awayTeam;
         private Integer homeScore;
         private Integer awayScore;
-        // Additional fields can be added as needed
+        public Game(LocalDate date, String homeTeam, String awayTeam, Integer homeScore, Integer awayScore) {
+            this.date = date;
+            this.homeTeam = homeTeam;
+            this.awayTeam = awayTeam;
+            this.homeScore = homeScore;
+            this.awayScore = awayScore;
+        }
+        public LocalDate getDate() { return date; }
+        public String getHomeTeam() { return homeTeam; }
+        public String getAwayTeam() { return awayTeam; }
+        public Integer getHomeScore() { return homeScore; }
+        public Integer getAwayScore() { return awayScore; }
     }
 
-    @Data
-    public static class FetchScoresRequest {
-        @NotBlank
-        private String date;  // YYYY-MM-DD
-    }
-
-    @Data
-    @AllArgsConstructor
     public static class FetchScoresResponse {
         private String date;
         private int gamesFetched;
         private int subscribersNotified;
+        public FetchScoresResponse(String date, int gamesFetched, int subscribersNotified) {
+            this.date = date;
+            this.gamesFetched = gamesFetched;
+            this.subscribersNotified = subscribersNotified;
+        }
+        public String getDate() { return date; }
+        public int getGamesFetched() { return gamesFetched; }
+        public int getSubscribersNotified() { return subscribersNotified; }
     }
 
-    // --- Endpoints ---
-
     @PostMapping("/subscribe")
-    public ResponseEntity<?> subscribe(@RequestBody SubscribeRequest request) {
+    public ResponseEntity<Void> subscribe(@RequestBody @Valid SubscribeRequest request) {
         logger.info("Subscribe request received for email: {}", request.getEmail());
-        if (request.getEmail() == null || request.getEmail().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email must not be blank");
-        }
-        if (subscribers.containsKey(request.getEmail().toLowerCase(Locale.ROOT))) {
-            logger.info("Email {} is already subscribed", request.getEmail());
+        String email = request.getEmail().toLowerCase(Locale.ROOT);
+        if (subscribers.containsKey(email)) {
+            logger.error("Email {} is already subscribed", email);
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email already subscribed");
         }
-        Subscriber sub = new Subscriber(request.getEmail().toLowerCase(Locale.ROOT), LocalDate.now());
-        subscribers.put(sub.getEmail(), sub);
-        logger.info("Subscribed new email: {}", sub.getEmail());
+        subscribers.put(email, new Subscriber(email, LocalDate.now()));
+        logger.info("Subscribed new email: {}", email);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
@@ -103,7 +119,7 @@ public class EntityControllerPrototype {
     }
 
     @PostMapping("/fetch-scores")
-    public ResponseEntity<FetchScoresResponse> fetchScores(@RequestBody FetchScoresRequest request) {
+    public ResponseEntity<FetchScoresResponse> fetchScores(@RequestBody @Valid FetchScoresRequest request) {
         logger.info("Fetch scores request for date: {}", request.getDate());
         LocalDate requestedDate;
         try {
@@ -112,9 +128,7 @@ public class EntityControllerPrototype {
             logger.error("Invalid date format: {}", request.getDate());
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid date format, expected YYYY-MM-DD");
         }
-
-        CompletableFuture.runAsync(() -> fetchAndNotify(requestedDate)); // Fire-and-forget
-        // Return immediately with processing status
+        CompletableFuture.runAsync(() -> fetchAndNotify(requestedDate)); // async fire-and-forget
         return ResponseEntity.ok(new FetchScoresResponse(request.getDate(), -1, subscribers.size()));
     }
 
@@ -127,7 +141,7 @@ public class EntityControllerPrototype {
     }
 
     @GetMapping("/games/{date}")
-    public List<Game> getGamesByDate(@PathVariable String date) {
+    public List<Game> getGamesByDate(@PathVariable @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}") String date) {
         logger.info("Fetching games for date: {}", date);
         LocalDate queryDate;
         try {
@@ -139,12 +153,12 @@ public class EntityControllerPrototype {
         return gamesByDate.getOrDefault(queryDate, Collections.emptyList());
     }
 
-    // --- Internal Logic ---
+    // Internal methods
 
     private void fetchAndNotify(LocalDate date) {
         logger.info("Starting fetch and notify for date: {}", date);
         try {
-            String url = String.format(EXTERNAL_API_URL_TEMPLATE, date.toString());
+            String url = String.format(EXTERNAL_API_URL_TEMPLATE, date);
             String jsonResponse = restTemplate.getForObject(url, String.class);
             if (jsonResponse == null) {
                 logger.error("Empty response from external API for date: {}", date);
@@ -152,32 +166,24 @@ public class EntityControllerPrototype {
             }
             JsonNode root = objectMapper.readTree(jsonResponse);
             if (!root.isArray()) {
-                logger.error("Unexpected JSON structure received from external API for date: {}", date);
+                logger.error("Unexpected JSON structure from external API for date: {}", date);
                 return;
             }
             List<Game> fetchedGames = new ArrayList<>();
             for (JsonNode gameNode : root) {
-                // Extract fields with null checks and fallback values
                 String homeTeam = safeGetText(gameNode, "HomeTeam");
                 String awayTeam = safeGetText(gameNode, "AwayTeam");
                 Integer homeScore = safeGetInt(gameNode, "HomeTeamScore");
                 Integer awayScore = safeGetInt(gameNode, "AwayTeamScore");
-
                 if (homeTeam == null || awayTeam == null) {
                     logger.warn("Skipping game with incomplete team info: {}", gameNode.toString());
                     continue;
                 }
-
-                Game game = new Game(date, homeTeam, awayTeam, homeScore, awayScore);
-                fetchedGames.add(game);
+                fetchedGames.add(new Game(date, homeTeam, awayTeam, homeScore, awayScore));
             }
-            // Store fetched games (replace existing for the date)
             gamesByDate.put(date, fetchedGames);
             logger.info("Stored {} games for date {}", fetchedGames.size(), date);
-
-            // Send notifications (mocked)
             sendEmailNotifications(date, fetchedGames);
-
         } catch (Exception ex) {
             logger.error("Error during fetch and notify process for date {}: {}", date, ex.getMessage(), ex);
         }
@@ -195,22 +201,13 @@ public class EntityControllerPrototype {
 
     private void sendEmailNotifications(LocalDate date, List<Game> games) {
         logger.info("Preparing to send email notifications to {} subscribers for date {}", subscribers.size(), date);
-        // TODO: Replace this mock with real async email sending logic
         subscribers.keySet().forEach(email -> {
-            logger.info("Sending email to {} with {} games summary for {}", email, games.size(), date);
-            // Simulate sending email - fire and forget
             CompletableFuture.runAsync(() -> {
+                logger.info("Sending email to {} with {} games summary for {}", email, games.size(), date);
                 // TODO: Implement real email sending here
-                try {
-                    Thread.sleep(50); // simulate delay
-                } catch (InterruptedException ignored) {
-                }
-                logger.info("Email sent to {}", email);
             });
         });
     }
-
-    // --- Minimal Exception Handling ---
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<Map<String, String>> handleResponseStatusException(ResponseStatusException ex) {
@@ -230,4 +227,3 @@ public class EntityControllerPrototype {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
     }
 }
-```
