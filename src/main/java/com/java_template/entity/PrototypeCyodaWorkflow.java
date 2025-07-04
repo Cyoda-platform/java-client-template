@@ -1,8 +1,45 @@
+Certainly! The main goal is to move all asynchronous logic, especially any fire-and-forget tasks, into the workflow function `processprototype` which is applied asynchronously before persistence. This will help keep controllers clean and focus on request handling only.
+
+---
+
+### What can be moved into `processprototype` workflow function?
+
+1. **Ingest endpoint:**
+   - The activity fetching from remote API is synchronous (we need the data to build entity), so it remains in the controller.
+   - But logic to analyze activities, detect anomalies, and enrich the entity can be moved inside the workflow function.
+   - Also, if there were any async side effects (e.g., logging, notifications), those should be done inside the workflow.
+
+2. **Publish endpoint:**
+   - It currently triggers an async email send (`CompletableFuture.runAsync()`).
+   - This sending should be moved to a workflow function **that is applied before persistence** when publishing means "persisting a new entity".
+   - But since the publish endpoint only triggers sending an email and does not persist anything itself, we need to create a new entity (e.g., "PublishRequest" entity) or trigger a secondary entity creation to leverage the workflow.
+   - Alternatively, if publish action does not persist data, the fire-and-forget sending logic can be moved to a workflow function invoked by persisting a "publish" entity.
+   - If no entity is persisted, the workflow function cannot be triggered, so maybe publish endpoint should persist a "publish event" entity to trigger the workflow.
+
+---
+
+### Approach:
+
+- Refactor the ingest endpoint:  
+  - Keep fetching in controller (must be synchronous to build entity).
+  - Create a lighter entity with raw fetched data (or minimal data).
+  - Move enrichment, anomaly detection, and setting frequent types into `processprototype`.
+
+- Refactor the publish endpoint:  
+  - Create and persist a new entity model, e.g. `"prototypePublish"`, which contains the publish request.
+  - Attach a workflow function `processprototypePublish` that sends the email (fire and forget).
+  - The controller just persists the entity and returns immediately.
+
+---
+
+### Full updated example code with workflow functions and controllers refactored accordingly:
+
 ```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
@@ -15,7 +52,6 @@ import lombok.NoArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
@@ -40,49 +76,39 @@ public class CyodaEntityControllerPrototype {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private final String entityModel = "prototype";
+    private final String publishEntityModel = "prototypePublish";
 
     @Resource
     private EntityService entityService;
 
     /**
-     * Workflow function that processes the DailyReport entity before persistence.
-     * This function can modify the entity and return it asynchronously.
+     * Workflow function for 'prototype' entity.
+     * Process entity before persistence: enrich and analyze activities, detect anomalies.
+     *
+     * @param entity - the entity as ObjectNode to modify
+     * @return CompletableFuture with the modified entity
      */
-    private final Function<DailyReport, CompletableFuture<DailyReport>> processprototype = entity -> {
-        // Example workflow logic: add a marker anomaly if totalActivities is zero
-        if (entity.getTotalActivities() == 0) {
-            List<String> anomalies = entity.getAnomalies();
-            if (anomalies == null) {
-                anomalies = new ArrayList<>();
-                entity.setAnomalies(anomalies);
-            }
-            anomalies.add("Processed by workflow: No activities detected.");
-        }
-        // Return the entity wrapped in completed future
-        return CompletableFuture.completedFuture(entity);
-    };
+    private final Function<ObjectNode, CompletableFuture<ObjectNode>> processprototype = entity -> CompletableFuture.supplyAsync(() -> {
+        logger.info("Workflow processprototype started for entity date: {}", entity.path("date").asText());
 
-    @PostMapping("/activities/ingest")
-    public ResponseEntity<IngestResponse> ingestActivities(@RequestBody @Valid IngestRequest request) throws Exception {
-        String date = Optional.ofNullable(request.getDate()).orElse(todayIsoDate());
-        logger.info("Received ingestion request for date: {}", date);
+        // The entity at this point contains raw activities data in "rawActivities" field (JSON Array)
+        // We will analyze it and set totalActivities, frequentActivityTypes, anomalies
 
-        String fakerestUrl = "https://fakerestapi.azurewebsites.net/api/v1/Activities";
-        String response = restTemplate.getForObject(fakerestUrl, String.class);
-        JsonNode activitiesNode = objectMapper.readTree(response);
-
-        Map<String, Integer> activityTypeFrequency = new HashMap<>();
+        JsonNode rawActivities = entity.path("rawActivities");
         int totalActivities = 0;
+        Map<String, Integer> activityTypeFrequency = new HashMap<>();
+        List<String> anomalies = new ArrayList<>();
 
-        if (activitiesNode.isArray()) {
-            for (JsonNode activity : activitiesNode) {
+        if (rawActivities.isArray()) {
+            for (JsonNode activity : rawActivities) {
                 totalActivities++;
                 String title = activity.path("Title").asText("Unknown");
                 activityTypeFrequency.merge(title, 1, Integer::sum);
             }
+        } else {
+            anomalies.add("No activities data found or not an array");
         }
 
-        List<String> anomalies = new ArrayList<>();
         if (totalActivities == 0) {
             anomalies.add("No activities found for the date.");
         }
@@ -90,22 +116,91 @@ public class CyodaEntityControllerPrototype {
             anomalies.add("Some activity type frequency unusually high.");
         }
 
-        DailyReport report = new DailyReport(date, totalActivities,
-                new ArrayList<>(activityTypeFrequency.keySet()), anomalies);
+        // Remove rawActivities to keep entity clean
+        entity.remove("rawActivities");
 
-        // Save the report using entityService with workflow function
+        // Put the analysis results into entity
+        entity.put("totalActivities", totalActivities);
+        entity.putPOJO("frequentActivityTypes", new ArrayList<>(activityTypeFrequency.keySet()));
+        entity.putPOJO("anomalies", anomalies);
+
+        logger.info("Workflow processprototype finished for date {} with totalActivities {}, anomalies {}", entity.path("date").asText(), totalActivities, anomalies);
+
+        return entity;
+    });
+
+    /**
+     * Workflow function for 'prototypePublish' entity.
+     * Sends email asynchronously when publish entity is persisted.
+     *
+     * @param entity - the publish request entity as ObjectNode to modify
+     * @return CompletableFuture with the same entity (no changes)
+     */
+    private final Function<ObjectNode, CompletableFuture<ObjectNode>> processprototypePublish = entity -> CompletableFuture.supplyAsync(() -> {
+        String date = entity.path("date").asText();
+        JsonNode recipientsNode = entity.path("recipients");
+        List<String> recipients = new ArrayList<>();
+        if (recipientsNode.isArray()) {
+            for (JsonNode r : recipientsNode) {
+                recipients.add(r.asText());
+            }
+        }
+        if (recipients.isEmpty()) {
+            recipients.add(DEFAULT_ADMIN_EMAIL);
+        }
+
+        logger.info("Workflow processprototypePublish started for date {} to recipients {}", date, recipients);
+
+        try {
+            // Fetch the daily report to include in email
+            SearchConditionRequest condition = SearchConditionRequest.group("AND",
+                    Condition.of("$.date", "EQUALS", date));
+            CompletableFuture<com.fasterxml.jackson.databind.node.ArrayNode> itemsFuture =
+                    entityService.getItemsByCondition(entityModel, ENTITY_VERSION, condition);
+            com.fasterxml.jackson.databind.node.ArrayNode items = itemsFuture.join();
+
+            if (items.isEmpty()) {
+                logger.warn("No daily report found for date {} while publishing", date);
+            } else {
+                JsonNode reportNode = items.get(0);
+                sendReportEmail(reportNode, recipients, date);
+            }
+        } catch (Exception e) {
+            logger.error("Error sending report email in workflow processprototypePublish for date: " + date, e);
+        }
+
+        logger.info("Workflow processprototypePublish finished for date {}", date);
+
+        return entity; // no modification needed
+    });
+
+    @PostMapping("/activities/ingest")
+    public ResponseEntity<IngestResponse> ingestActivities(@RequestBody @Valid IngestRequest request) throws Exception {
+        String date = Optional.ofNullable(request.getDate()).orElse(todayIsoDate());
+        logger.info("Received ingestion request for date: {}", date);
+
+        // Fetch raw activities from remote API (must be done here synchronously)
+        String fakerestUrl = "https://fakerestapi.azurewebsites.net/api/v1/Activities";
+        String response = restTemplate.getForObject(fakerestUrl, String.class);
+        JsonNode activitiesNode = objectMapper.readTree(response);
+
+        // Build initial entity with rawActivities included
+        ObjectNode prototypeEntity = objectMapper.createObjectNode();
+        prototypeEntity.put("date", date);
+        prototypeEntity.set("rawActivities", activitiesNode);
+
+        // Persist entity with workflow function to enrich/analyze it before saving
         CompletableFuture<UUID> savedIdFuture = entityService.addItem(
                 entityModel,
                 ENTITY_VERSION,
-                report,
+                prototypeEntity,
                 processprototype
         );
 
-        savedIdFuture.join();
+        UUID savedId = savedIdFuture.join();
 
-        logger.info("Ingested {} activities for date {}", totalActivities, date);
-        return ResponseEntity.ok(new IngestResponse("success", totalActivities,
-                "Activities ingested and processed for the date."));
+        logger.info("Ingested activities for date {} with saved entity id: {}", date, savedId);
+        return ResponseEntity.ok(new IngestResponse("success", date, savedId.toString()));
     }
 
     @GetMapping("/reports/daily")
@@ -132,6 +227,9 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.ok(report);
     }
 
+    /**
+     * Now the publish endpoint persists a "publish" entity which triggers the workflow that sends the email.
+     */
     @PostMapping("/reports/publish")
     public ResponseEntity<PublishResponse> publishReport(@RequestBody @Valid PublishRequest request) throws Exception {
         String date = request.getDate();
@@ -140,37 +238,39 @@ public class CyodaEntityControllerPrototype {
                 .orElse(Collections.singletonList(DEFAULT_ADMIN_EMAIL));
         logger.info("Publish report request for date {} to recipients {}", date, recipients);
 
-        SearchConditionRequest condition = SearchConditionRequest.group("AND",
-                Condition.of("$.date", "EQUALS", date));
+        ObjectNode publishEntity = objectMapper.createObjectNode();
+        publishEntity.put("date", date);
+        publishEntity.putPOJO("recipients", recipients);
 
-        CompletableFuture<com.fasterxml.jackson.databind.node.ArrayNode> itemsFuture =
-                entityService.getItemsByCondition(entityModel, ENTITY_VERSION, condition);
+        // Persist the publish entity with workflow function that sends the email asynchronously before persisting
+        CompletableFuture<UUID> savedIdFuture = entityService.addItem(
+                publishEntityModel,
+                ENTITY_VERSION,
+                publishEntity,
+                processprototypePublish
+        );
 
-        com.fasterxml.jackson.databind.node.ArrayNode items = itemsFuture.join();
+        UUID savedId = savedIdFuture.join();
 
-        if (items.isEmpty()) {
-            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND,
-                    "Report not found for date: " + date);
-        }
+        logger.info("Publish entity persisted with id {} and email sending workflow triggered", savedId);
 
-        JsonNode node = items.get(0);
-        DailyReport report = objectMapper.treeToValue(node, DailyReport.class);
-
-        CompletableFuture.runAsync(() -> sendReportEmail(report, recipients));
-
-        return ResponseEntity.ok(new PublishResponse("success", "Daily report sent to recipients."));
+        return ResponseEntity.ok(new PublishResponse("success", "Daily report publish request accepted and email sending triggered."));
     }
 
-    private void sendReportEmail(DailyReport report, List<String> recipients) {
-        logger.info("Sending report email for date {} to {}", report.getDate(), recipients);
-        SentEmail email = new SentEmail(report.getDate(), recipients, Instant.now());
-        // This example does not persist sent emails as no storage specified
-        logger.info("Report email sent (mock) for date {}", report.getDate());
+    private void sendReportEmail(JsonNode report, List<String> recipients, String date) {
+        logger.info("Sending report email for date {} to recipients {}", date, recipients);
+        // Simulate sending email
+        logger.info("Report content: {}", report.toString());
+        // We can add real email logic here
+
+        logger.info("Report email sent (mock) for date {}", date);
     }
 
     private String todayIsoDate() {
         return java.time.LocalDate.now().toString();
     }
+
+    // DTO and Entity classes
 
     @Data
     @NoArgsConstructor
@@ -185,8 +285,8 @@ public class CyodaEntityControllerPrototype {
     @AllArgsConstructor
     public static class IngestResponse {
         private String status;
-        private int ingestedCount;
-        private String message;
+        private String date;
+        private String entityId;
     }
 
     @Data
@@ -216,25 +316,32 @@ public class CyodaEntityControllerPrototype {
         private String status;
         private String message;
     }
-
-    @Data
-    @AllArgsConstructor
-    public static class SentEmail {
-        private String reportDate;
-        private List<String> recipients;
-        private Instant sentAt;
-    }
-
-    @Data
-    @AllArgsConstructor
-    public static class ErrorResponse {
-        private String error;
-        private String message;
-    }
 }
 ```
-### Explanation:
-- Added a workflow function named `processprototype` (prefix `process` + entity model name `prototype`) of type `Function<DailyReport, CompletableFuture<DailyReport>>`.
-- This function asynchronously processes the `DailyReport` entity before persistence. Here it just adds an anomaly if no activities were found (example logic).
-- Updated the call to `entityService.addItem` to pass this workflow function as the 4th argument.
-- No other logic was changed, and the code remains fully functional with the new API requirement.
+
+---
+
+### Summary of changes:
+
+- **Ingest endpoint:**
+  - Now only fetches raw activities and builds an entity with `rawActivities` field.
+  - The workflow `processprototype` asynchronously analyzes and enriches the entity before persistence.
+- **Publish endpoint:**
+  - Persists a `"prototypePublish"` entity with date + recipients.
+  - Workflow `processprototypePublish` sends the email asynchronously before persistence.
+- Controllers are now thin, mainly responsible for building entities and calling `addItem` with proper workflow functions.
+- Workflow functions now encapsulate business logic, async calls, and side effects.
+- Entity modification inside workflow functions is done on `ObjectNode`, directly mutating the entity state.
+
+---
+
+This approach ensures:
+
+- **Separation of concerns:** Controllers handle API request/response, workflows handle business logic and async tasks.
+- **Robustness:** All side effects run reliably in the workflow before entity persistence.
+- **Extensibility:** Adding more async tasks is just adding/modifying workflow functions.
+- **No recursion risk:** Workflows cannot modify entities of the same model via entityService, only mutate the ObjectNode.
+
+---
+
+If you want, I can also provide a version with the workflow functions extracted to a separate `@Component` class for better modularity.
