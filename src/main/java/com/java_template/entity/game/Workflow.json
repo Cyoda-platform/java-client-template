@@ -1,0 +1,158 @@
+{
+    "description": "NBA Scores Fetch and Notify Workflow",
+    "initial_state": "none",
+    "states": {
+        "add_new_games_state": {
+            "transitions": {
+                "add_games_action": {
+                    "action": {
+                        "name": "addNewGames"
+                    },
+                    "next": "check_subscribers_state"
+                }
+            }
+        },
+        "check_external_response_state": {
+            "transitions": {
+                "invalid_response": {
+                    "condition": {
+                        "function": {
+                            "name": "not_externalApiResponseIsArray"
+                        },
+                        "type": "function"
+                    },
+                    "next": "fail_invalid_response"
+                },
+                "valid_response": {
+                    "condition": {
+                        "function": {
+                            "name": "externalApiResponseIsArray"
+                        },
+                        "type": "function"
+                    },
+                    "next": "delete_existing_games_state"
+                }
+            }
+        },
+        "check_subscribers_state": {
+            "transitions": {
+                "no_subscribers": {
+                    "condition": {
+                        "function": {
+                            "name": "not_subscribersExist"
+                        },
+                        "type": "function"
+                    },
+                    "next": "complete_state"
+                },
+                "subscribers_exist": {
+                    "condition": {
+                        "function": {
+                            "name": "subscribersExist"
+                        },
+                        "type": "function"
+                    },
+                    "next": "send_notifications_state"
+                }
+            }
+        },
+        "complete_state": {
+            "transitions": {
+                "check_errors": {
+                    "condition": {
+                        "function": {
+                            "name": "noErrors"
+                        },
+                        "type": "function"
+                    },
+                    "next": "success_state"
+                },
+                "error_found": {
+                    "condition": {
+                        "function": {
+                            "name": "not_noErrors"
+                        },
+                        "type": "function"
+                    },
+                    "next": "fail_state"
+                }
+            }
+        },
+        "delete_existing_games_state": {
+            "transitions": {
+                "delete_games_action": {
+                    "action": {
+                        "name": "deleteExistingGames"
+                    },
+                    "next": "add_new_games_state"
+                }
+            }
+        },
+        "fail_invalid_date": {
+            "transitions": {}
+        },
+        "fail_invalid_response": {
+            "transitions": {}
+        },
+        "fail_state": {
+            "transitions": {}
+        },
+        "fetch_external_scores_state": {
+            "transitions": {
+                "fetch_scores_action": {
+                    "action": {
+                        "name": "fetchExternalScores"
+                    },
+                    "next": "check_external_response_state"
+                }
+            }
+        },
+        "none": {
+            "transitions": {
+                "validate_date": {
+                    "action": {
+                        "name": "validateFetchScoresEntity"
+                    },
+                    "next": "validate_date_state"
+                }
+            }
+        },
+        "send_notifications_state": {
+            "transitions": {
+                "send_notifications_action": {
+                    "action": {
+                        "name": "sendEmailNotifications"
+                    },
+                    "next": "complete_state"
+                }
+            }
+        },
+        "success_state": {
+            "transitions": {}
+        },
+        "validate_date_state": {
+            "transitions": {
+                "invalid_date": {
+                    "condition": {
+                        "function": {
+                            "name": "not_hasValidDate"
+                        },
+                        "type": "function"
+                    },
+                    "next": "fail_invalid_date"
+                },
+                "valid_date": {
+                    "condition": {
+                        "function": {
+                            "name": "hasValidDate"
+                        },
+                        "type": "function"
+                    },
+                    "next": "fetch_external_scores_state"
+                }
+            }
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "fetch_scores_workflow"
+}
