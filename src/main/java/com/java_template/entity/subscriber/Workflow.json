@@ -1,92 +1,92 @@
 {
-    "description": "Subscriber entity FSM workflow for normalization, validation, persistence",
-    "initial_state": "none",
-    "states": {
-        "active": {
-            "transitions": {}
-        },
-        "error_duplicate_email": {
-            "transitions": {}
-        },
-        "none": {
-            "transitions": {
-                "check_has_email": {
-                    "condition": {
-                        "function": {
-                            "name": "hasEmail"
-                        },
-                        "type": "function"
-                    },
-                    "next": "normalize_email"
-                }
-            }
-        },
-        "normalize_email": {
-            "transitions": {
-                "check_email_unique": {
-                    "action": {
-                        "name": "normalizeEmail"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "hasEmail"
-                        },
-                        "type": "function"
-                    },
-                    "next": "validate_email_unique"
-                },
-                "check_missing_subscribed_at": {
-                    "action": {
-                        "name": "normalizeEmail"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "missingSubscribedAt"
-                        },
-                        "type": "function"
-                    },
-                    "next": "set_subscribed_at"
-                }
-            }
-        },
-        "set_subscribed_at": {
-            "transitions": {
-                "check_email_unique_after_set_date": {
-                    "action": {
-                        "name": "setSubscribedAt"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "hasEmail"
-                        },
-                        "type": "function"
-                    },
-                    "next": "validate_email_unique"
-                }
-            }
-        },
-        "validate_email_unique": {
-            "transitions": {
-                "error_duplicate_email": {
-                    "condition": {
-                        "function": {
-                            "name": "isEmailUnique"
-                        },
-                        "type": "function"
-                    },
-                    "next": "error_duplicate_email"
-                },
-                "persist_if_unique": {
-                    "condition": {
-                        "function": {
-                            "name": "isEmailUnique"
-                        },
-                        "type": "function"
-                    },
-                    "next": "active"
-                }
-            }
+  "description": "Subscriber entity FSM workflow for normalization, validation, persistence",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "check_has_email": {
+          "condition": {
+            "function": {
+              "name": "hasEmail"
+            },
+            "type": "function"
+          },
+          "next": "normalize_email"
         }
+      }
     },
-    "workflow_name": "subscriber_workflow"
+    "normalize_email": {
+      "transitions": {
+        "check_email_unique": {
+          "action": {
+            "name": "normalizeEmail"
+          },
+          "condition": {
+            "function": {
+              "name": "hasEmail"
+            },
+            "type": "function"
+          },
+          "next": "validate_email_unique"
+        },
+        "check_missing_subscribed_at": {
+          "action": {
+            "name": "normalizeEmail"
+          },
+          "condition": {
+            "function": {
+              "name": "missingSubscribedAt"
+            },
+            "type": "function"
+          },
+          "next": "set_subscribed_at"
+        }
+      }
+    },
+    "validate_email_unique": {
+      "transitions": {
+        "error_duplicate_email": {
+          "condition": {
+            "function": {
+              "name": "isEmailUnique"
+            },
+            "type": "function"
+          },
+          "next": "error_duplicate_email"
+        },
+        "persist_if_unique": {
+          "condition": {
+            "function": {
+              "name": "isEmailUnique"
+            },
+            "type": "function"
+          },
+          "next": "active"
+        }
+      }
+    },
+    "error_duplicate_email": {
+      "transitions": {}
+    },
+    "active": {
+      "transitions": {}
+    },
+    "set_subscribed_at": {
+      "transitions": {
+        "check_email_unique_after_set_date": {
+          "action": {
+            "name": "setSubscribedAt"
+          },
+          "condition": {
+            "function": {
+              "name": "hasEmail"
+            },
+            "type": "function"
+          },
+          "next": "validate_email_unique"
+        }
+      }
+    }
+  },
+  "workflow_name": "subscriber_workflow"
 }
