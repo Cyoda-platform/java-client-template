@@ -1,28 +1,3 @@
-Certainly! Moving logic into the workflow functions is a great approach to keep controllers lean and robust. Since the workflow function is asynchronous and can perform additional entity-related processing, including adding/getting other entities (but not modifying the current entity via add/update/delete), we can move:
-
-- For **Subscriber** entity: normalize email (already done in workflow).
-
-- For **Game** entity: trim fields (already done).
-
-- The main async task is the **fetch-and-notify** logic triggered on `/fetch-scores`: it fetches external data, deletes old games for that date, adds new games, and sends email notifications.
-
-We can move the entire fetch, delete/add games, and notify logic into the **processFetchScores** workflow function applied to a "FetchScores" entity (which we can create just for this workflow).
-
-### How the new flow will be:
-
-- Controller `/fetch-scores` endpoint only creates a "FetchScores" entity with the requested date, calls `entityService.addItem("FetchScores", ENTITY_VERSION, fetchScoresEntity, processFetchScores)`.
-
-- The `processFetchScores(ObjectNode entity)` workflow function asynchronously does the fetch, deletes old games, adds new games, and sends notifications.
-
-- Since the workflow function gets the entity as `ObjectNode`, we can modify it to add status or counts if needed.
-
-- This way, the controller just triggers the workflow and returns immediately.
-
----
-
-# Full updated Java code with these changes
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -59,7 +34,7 @@ import static com.java_template.common.config.Config.*;
 public class CyodaEntityControllerPrototype {
 
     private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
-    private static final String EXTERNAL_API_KEY = "test"; // TODO: Replace with secure config
+    private static final String EXTERNAL_API_KEY = "test"; // TODO: Replace with secure config or env variable
     private static final String EXTERNAL_API_URL_TEMPLATE = "https://api.sportsdata.io/v3/nba/scores/json/ScoresBasicFinal/%s?key=" + EXTERNAL_API_KEY;
 
     private final EntityService entityService;
@@ -115,26 +90,17 @@ public class CyodaEntityControllerPrototype {
 
     // Workflow functions
 
-    /**
-     * Workflow function to process Subscriber entities before persistence.
-     * Normalize email to lowercase.
-     */
     private CompletableFuture<ObjectNode> processSubscriber(ObjectNode subscriberEntity) {
         JsonNode emailNode = subscriberEntity.get("email");
         if (emailNode != null && !emailNode.isNull()) {
             subscriberEntity.put("email", emailNode.asText().toLowerCase(Locale.ROOT));
         }
-        // Add subscribedAt field if missing
         if (subscriberEntity.get("subscribedAt") == null) {
             subscriberEntity.put("subscribedAt", LocalDate.now().toString());
         }
         return CompletableFuture.completedFuture(subscriberEntity);
     }
 
-    /**
-     * Workflow function to process Game entities before persistence.
-     * Trim team names.
-     */
     private CompletableFuture<ObjectNode> processGame(ObjectNode gameEntity) {
         JsonNode homeTeamNode = gameEntity.get("homeTeam");
         if (homeTeamNode != null && !homeTeamNode.isNull()) {
@@ -147,15 +113,6 @@ public class CyodaEntityControllerPrototype {
         return CompletableFuture.completedFuture(gameEntity);
     }
 
-    /**
-     * Workflow function to process FetchScores entities asynchronously:
-     * - fetches external scores,
-     * - deletes old Game entities for the date,
-     * - adds new Game entities,
-     * - sends notifications to subscribers.
-     *
-     * This function is the main async task moved from controller.
-     */
     private CompletableFuture<ObjectNode> processFetchScores(ObjectNode fetchScoresEntity) {
         return CompletableFuture.supplyAsync(() -> {
             String dateStr = fetchScoresEntity.hasNonNull("date") ? fetchScoresEntity.get("date").asText() : null;
@@ -183,7 +140,6 @@ public class CyodaEntityControllerPrototype {
                     throw new RuntimeException("Unexpected JSON structure from external API for date: " + dateStr);
                 }
 
-                // Parse games from external API response
                 List<ObjectNode> gamesToAdd = new ArrayList<>();
                 for (JsonNode gameNode : root) {
                     String homeTeam = safeGetText(gameNode, "HomeTeam");
@@ -206,7 +162,6 @@ public class CyodaEntityControllerPrototype {
                 logger.info("Fetched {} games from external API for date {}", gamesToAdd.size(), date);
 
                 // 2) Delete existing games for this date
-                List<CompletableFuture<Void>> deleteFutures = new ArrayList<>();
                 List<JsonNode> existingGames = entityService.getItemsByCondition(
                         "Game",
                         ENTITY_VERSION,
@@ -214,6 +169,7 @@ public class CyodaEntityControllerPrototype {
                                 com.java_template.common.util.Condition.of("$.date", "EQUALS", dateStr))
                 ).join();
 
+                List<CompletableFuture<Void>> deleteFutures = new ArrayList<>();
                 for (JsonNode existingGameNode : existingGames) {
                     JsonNode technicalIdNode = existingGameNode.get("technicalId");
                     if (technicalIdNode != null && !technicalIdNode.isNull()) {
@@ -227,7 +183,7 @@ public class CyodaEntityControllerPrototype {
                 CompletableFuture.allOf(deleteFutures.toArray(new CompletableFuture[0])).join();
                 logger.info("Deleted {} existing games for date {}", deleteFutures.size(), date);
 
-                // 3) Add new games using workflow processGame
+                // 3) Add new games with workflow
                 List<CompletableFuture<UUID>> addFutures = gamesToAdd.stream()
                         .map(gameEntity -> entityService.addItem("Game", ENTITY_VERSION, gameEntity, this::processGame))
                         .collect(Collectors.toList());
@@ -235,7 +191,6 @@ public class CyodaEntityControllerPrototype {
                 logger.info("Added {} new games for date {}", gamesToAdd.size(), date);
 
                 // 4) Send notifications asynchronously
-                // Get subscriber emails
                 List<JsonNode> subscribers = entityService.getItems("Subscriber", ENTITY_VERSION).join();
                 int subscriberCount = subscribers.size();
 
@@ -243,7 +198,6 @@ public class CyodaEntityControllerPrototype {
                     JsonNode emailNode = subscriberNode.get("email");
                     if (emailNode != null && !emailNode.isNull()) {
                         String email = emailNode.asText();
-                        // Fire-and-forget notification
                         CompletableFuture.runAsync(() -> {
                             logger.info("Sending email to {} with {} games summary for {}", email, gamesToAdd.size(), date);
                             // TODO: Implement real email sending here
@@ -252,20 +206,16 @@ public class CyodaEntityControllerPrototype {
                 }
                 logger.info("Sent notifications to {} subscribers for date {}", subscriberCount, date);
 
-                // Update the fetchScoresEntity with results info (optional)
                 fetchScoresEntity.put("gamesFetched", gamesToAdd.size());
                 fetchScoresEntity.put("subscribersNotified", subscriberCount);
 
             } catch (Exception e) {
                 logger.error("Error in processFetchScores workflow for date {}: {}", date, e.getMessage(), e);
-                // Optionally, annotate entity with error state
                 fetchScoresEntity.put("error", e.getMessage());
             }
             return fetchScoresEntity;
         });
     }
-
-    // Utility methods
 
     private String safeGetText(JsonNode node, String field) {
         JsonNode f = node.get(field);
@@ -277,14 +227,11 @@ public class CyodaEntityControllerPrototype {
         return (f != null && !f.isNull() && f.isInt()) ? f.asInt() : null;
     }
 
-    // Controllers
-
     @PostMapping("/subscribe")
     public CompletableFuture<ResponseEntity<Void>> subscribe(@RequestBody @Valid SubscribeRequest request) {
         logger.info("Subscribe request received for email: {}", request.getEmail());
         String email = request.getEmail().toLowerCase(Locale.ROOT);
 
-        // Check if subscriber with this email already exists
         return entityService.getItemsByCondition(
                 "Subscriber",
                 ENTITY_VERSION,
@@ -326,7 +273,6 @@ public class CyodaEntityControllerPrototype {
     public CompletableFuture<ResponseEntity<FetchScoresResponse>> fetchScores(@RequestBody @Valid FetchScoresRequest request) {
         logger.info("Fetch scores request for date: {}", request.getDate());
 
-        // Validate date format upfront
         LocalDate date;
         try {
             date = LocalDate.parse(request.getDate());
@@ -338,12 +284,8 @@ public class CyodaEntityControllerPrototype {
         ObjectNode fetchScoresEntity = objectMapper.createObjectNode();
         fetchScoresEntity.put("date", date.toString());
 
-        // Add FetchScores entity with workflow function that does all async processing
         return entityService.addItem("FetchScores", ENTITY_VERSION, fetchScoresEntity, this::processFetchScores)
-                .thenApply(id -> {
-                    // Immediately return accepted response, processing is async in workflow
-                    return ResponseEntity.accepted().body(new FetchScoresResponse(date.toString(), -1, -1));
-                });
+                .thenApply(id -> ResponseEntity.accepted().body(new FetchScoresResponse(date.toString(), -1, -1)));
     }
 
     @GetMapping("/games/all")
@@ -393,8 +335,6 @@ public class CyodaEntityControllerPrototype {
         });
     }
 
-    // Error handlers
-
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<Map<String, String>> handleResponseStatusException(ResponseStatusException ex) {
         Map<String, String> error = new LinkedHashMap<>();
@@ -413,34 +353,3 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
     }
 }
-```
-
----
-
-### Summary of main changes:
-
-1. Created a new entity model `"FetchScores"` to represent a fetch request.
-
-2. The `/fetch-scores` endpoint simply creates a "FetchScores" entity with the date and calls `entityService.addItem` with the workflow `processFetchScores`.
-
-3. The `processFetchScores` workflow function runs asynchronously, does all the heavy lifting:
-
-   - Fetches external scores
-
-   - Deletes existing games for the date
-
-   - Adds new Game entities with the workflow `processGame`
-
-   - Sends notifications to subscribers asynchronously
-
-   - Updates the fetchScores entity with summary info or error info if desired
-
-4. The Subscriber and Game workflows remain as before but now return `CompletableFuture<ObjectNode>` as required for async workflow functions.
-
-5. Controller methods are now clean and simple, delegating async logic to workflows.
-
----
-
-This design fully utilizes the new workflow function capability to handle complex async tasks and entity processing, keeping controllers minimal and robust.
-
-If you want me to provide additional tests or details, just ask!
