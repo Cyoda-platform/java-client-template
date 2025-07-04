@@ -1,4 +1,4 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -8,9 +8,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -24,71 +21,110 @@ import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 
 import static com.java_template.common.config.Config.*;
 
 @Validated
 @RestController
 @RequestMapping("cyoda-prototype")
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
     private static final String EXTERNAL_API_KEY = "test"; // TODO: Replace with secure config or env variable
     private static final String EXTERNAL_API_URL_TEMPLATE = "https://api.sportsdata.io/v3/nba/scores/json/ScoresBasicFinal/%s?key=" + EXTERNAL_API_KEY;
 
     private final EntityService entityService;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate = new RestTemplate();
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    // Inject ObjectMapper via constructor
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     // DTOs
 
-    @Data
     public static class SubscribeRequest {
         @NotBlank
         @Email
         private String email;
+
+        public String getEmail() { return email; }
+        public void setEmail(String email) { this.email = email; }
     }
 
-    @Data
     public static class FetchScoresRequest {
         @NotBlank
         @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}")
         private String date;
+
+        public String getDate() { return date; }
+        public void setDate(String date) { this.date = date; }
     }
 
-    @Data
-    @AllArgsConstructor
-    @NoArgsConstructor
     public static class Subscriber {
         private String email;
         private LocalDate subscribedAt;
+
+        public Subscriber() {}
+        public Subscriber(String email, LocalDate subscribedAt) {
+            this.email = email;
+            this.subscribedAt = subscribedAt;
+        }
+
+        public String getEmail() { return email; }
+        public void setEmail(String email) { this.email = email; }
+        public LocalDate getSubscribedAt() { return subscribedAt; }
+        public void setSubscribedAt(LocalDate subscribedAt) { this.subscribedAt = subscribedAt; }
     }
 
-    @Data
-    @AllArgsConstructor
-    @NoArgsConstructor
     public static class Game {
         private LocalDate date;
         private String homeTeam;
         private String awayTeam;
         private Integer homeScore;
         private Integer awayScore;
+
+        public Game() {}
+        public Game(LocalDate date, String homeTeam, String awayTeam, Integer homeScore, Integer awayScore) {
+            this.date = date;
+            this.homeTeam = homeTeam;
+            this.awayTeam = awayTeam;
+            this.homeScore = homeScore;
+            this.awayScore = awayScore;
+        }
+
+        public LocalDate getDate() { return date; }
+        public void setDate(LocalDate date) { this.date = date; }
+        public String getHomeTeam() { return homeTeam; }
+        public void setHomeTeam(String homeTeam) { this.homeTeam = homeTeam; }
+        public String getAwayTeam() { return awayTeam; }
+        public void setAwayTeam(String awayTeam) { this.awayTeam = awayTeam; }
+        public Integer getHomeScore() { return homeScore; }
+        public void setHomeScore(Integer homeScore) { this.homeScore = homeScore; }
+        public Integer getAwayScore() { return awayScore; }
+        public void setAwayScore(Integer awayScore) { this.awayScore = awayScore; }
     }
 
-    @Data
-    @AllArgsConstructor
     public static class FetchScoresResponse {
         private String date;
         private int gamesFetched;
         private int subscribersNotified;
-    }
 
-    // Workflow functions removed in this version
+        public FetchScoresResponse(String date, int gamesFetched, int subscribersNotified) {
+            this.date = date;
+            this.gamesFetched = gamesFetched;
+            this.subscribersNotified = subscribersNotified;
+        }
+
+        public String getDate() { return date; }
+        public void setDate(String date) { this.date = date; }
+        public int getGamesFetched() { return gamesFetched; }
+        public void setGamesFetched(int gamesFetched) { this.gamesFetched = gamesFetched; }
+        public int getSubscribersNotified() { return subscribersNotified; }
+        public void setSubscribersNotified(int subscribersNotified) { this.subscribersNotified = subscribersNotified; }
+    }
 
     private String safeGetText(JsonNode node, String field) {
         JsonNode f = node.get(field);
