@@ -1,0 +1,63 @@
+{
+    "description": "Workflow for fetching pets data from external API and storing it",
+    "initial_state": "none",
+    "states": {
+        "end_invalid_request": {
+            "transitions": {}
+        },
+        "end_success": {
+            "transitions": {}
+        },
+        "fetch_pets": {
+            "transitions": {
+                "fetch_complete": {
+                    "action": {
+                        "name": "processPetFetchRequest"
+                    },
+                    "next": "post_fetch_processing"
+                }
+            }
+        },
+        "none": {
+            "transitions": {
+                "validate_fetch_request": {
+                    "action": {
+                        "name": "noop"
+                    },
+                    "next": "validate_fetch_request"
+                }
+            }
+        },
+        "post_fetch_processing": {
+            "transitions": {
+                "success": {
+                    "next": "end_success"
+                }
+            }
+        },
+        "validate_fetch_request": {
+            "transitions": {
+                "invalid_request": {
+                    "condition": {
+                        "function": {
+                            "name": "isFetchRequestValid"
+                        },
+                        "type": "function"
+                    },
+                    "next": "end_invalid_request"
+                },
+                "valid_request": {
+                    "condition": {
+                        "function": {
+                            "name": "isFetchRequestValid"
+                        },
+                        "type": "function"
+                    },
+                    "next": "fetch_pets"
+                }
+            }
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "pet_fetch_workflow"
+}
