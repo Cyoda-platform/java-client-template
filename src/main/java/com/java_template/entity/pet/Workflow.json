@@ -1,0 +1,53 @@
+{
+    "description": "Purrfect Pets processing workflow",
+    "initial_state": "none",
+    "states": {
+        "completed": {
+            "transitions": {}
+        },
+        "enrich_category": {
+            "transitions": {
+                "enrich_and_complete": {
+                    "action": {
+                        "name": "enrichPetWithCategory"
+                    },
+                    "next": "completed"
+                }
+            }
+        },
+        "initialized": {
+            "transitions": {
+                "check_pet_type_exists": {
+                    "condition": {
+                        "function": {
+                            "name": "hasPetType"
+                        },
+                        "type": "function"
+                    },
+                    "next": "enrich_category"
+                },
+                "skip_category_enrich": {
+                    "condition": {
+                        "function": {
+                            "name": "hasNotPetType"
+                        },
+                        "type": "function"
+                    },
+                    "next": "completed"
+                }
+            }
+        },
+        "none": {
+            "transitions": {
+                "init_pet": {
+                    "action": {
+                        "name": "initializePet"
+                    },
+                    "next": "initialized"
+                }
+            }
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "processPet_workflow"
+}
