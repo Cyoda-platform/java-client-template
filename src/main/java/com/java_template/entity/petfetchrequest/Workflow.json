@@ -1,62 +1,62 @@
 {
-    "description": "Workflow for fetching pets data from external API and storing it",
-    "initial_state": "none",
-    "states": {
-        "end_invalid_request": {
-            "transitions": {}
-        },
-        "end_success": {
-            "transitions": {}
-        },
-        "fetch_pets": {
-            "transitions": {
-                "fetch_complete": {
-                    "action": {
-                        "name": "processPetFetchRequest"
-                    },
-                    "next": "post_fetch_processing"
-                }
-            }
-        },
-        "none": {
-            "transitions": {
-                "validate_fetch_request": {
-                    "action": {
-                        "name": "noop"
-                    },
-                    "next": "validate_fetch_request"
-                }
-            }
-        },
-        "post_fetch_processing": {
-            "transitions": {
-                "success": {
-                    "next": "end_success"
-                }
-            }
-        },
+  "description": "Workflow for fetching pets data from external API and storing it",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
         "validate_fetch_request": {
-            "transitions": {
-                "invalid_request": {
-                    "condition": {
-                        "function": {
-                            "name": "isFetchRequestValid"
-                        },
-                        "type": "function"
-                    },
-                    "next": "end_invalid_request"
-                },
-                "valid_request": {
-                    "condition": {
-                        "function": {
-                            "name": "isFetchRequestValid"
-                        },
-                        "type": "function"
-                    },
-                    "next": "fetch_pets"
-                }
-            }
+          "action": {
+            "name": "noop"
+          },
+          "next": "validate_fetch_request"
         }
+      }
     },
-    "workflow_name": "pet_fetch_workflow"
+    "validate_fetch_request": {
+      "transitions": {
+        "invalid_request": {
+          "condition": {
+            "function": {
+              "name": "isFetchRequestValid"
+            },
+            "type": "function"
+          },
+          "next": "end_invalid_request"
+        },
+        "valid_request": {
+          "condition": {
+            "function": {
+              "name": "isFetchRequestValid"
+            },
+            "type": "function"
+          },
+          "next": "fetch_pets"
+        }
+      }
+    },
+    "end_invalid_request": {
+      "transitions": {}
+    },
+    "fetch_pets": {
+      "transitions": {
+        "fetch_complete": {
+          "action": {
+            "name": "processPetFetchRequest"
+          },
+          "next": "post_fetch_processing"
+        }
+      }
+    },
+    "post_fetch_processing": {
+      "transitions": {
+        "success": {
+          "next": "end_success"
+        }
+      }
+    },
+    "end_success": {
+      "transitions": {}
+    }
+  },
+  "workflow_name": "pet_fetch_workflow"
 }
