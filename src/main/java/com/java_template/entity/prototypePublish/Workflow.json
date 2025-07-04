@@ -1,61 +1,61 @@
 {
-    "description": "Activity Tracker Publish Workflow FSM",
-    "initial_state": "none",
-    "states": {
-        "failed": {
-            "transitions": {}
-        },
-        "none": {
-            "transitions": {
-                "check_date_present": {
-                    "condition": {
-                        "function": {
-                            "name": "isDatePresent"
-                        },
-                        "type": "function"
-                    },
-                    "next": "ready_to_publish"
-                }
-            }
-        },
-        "published": {
-            "transitions": {}
-        },
-        "publishing": {
-            "transitions": {
-                "report_exists": {
-                    "action": {
-                        "name": "fetchReportAndSendEmail"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "hasReportForDate"
-                        },
-                        "type": "function"
-                    },
-                    "next": "published"
-                },
-                "report_missing": {
-                    "condition": {
-                        "function": {
-                            "name": "notHasReportForDate"
-                        },
-                        "type": "function"
-                    },
-                    "next": "failed"
-                }
-            }
-        },
-        "ready_to_publish": {
-            "transitions": {
-                "prepare_recipients_and_publish": {
-                    "action": {
-                        "name": "prepareRecipients"
-                    },
-                    "next": "publishing"
-                }
-            }
+  "description": "Activity Tracker Publish Workflow FSM",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "check_date_present": {
+          "condition": {
+            "function": {
+              "name": "isDatePresent"
+            },
+            "type": "function"
+          },
+          "next": "ready_to_publish"
         }
+      }
     },
-    "workflow_name": "processprototypePublish_workflow"
+    "ready_to_publish": {
+      "transitions": {
+        "prepare_recipients_and_publish": {
+          "action": {
+            "name": "prepareRecipients"
+          },
+          "next": "publishing"
+        }
+      }
+    },
+    "publishing": {
+      "transitions": {
+        "report_exists": {
+          "action": {
+            "name": "fetchReportAndSendEmail"
+          },
+          "condition": {
+            "function": {
+              "name": "hasReportForDate"
+            },
+            "type": "function"
+          },
+          "next": "published"
+        },
+        "report_missing": {
+          "condition": {
+            "function": {
+              "name": "notHasReportForDate"
+            },
+            "type": "function"
+          },
+          "next": "failed"
+        }
+      }
+    },
+    "published": {
+      "transitions": {}
+    },
+    "failed": {
+      "transitions": {}
+    }
+  },
+  "workflow_name": "processprototypePublish_workflow"
 }
