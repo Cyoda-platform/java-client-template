@@ -1,4 +1,4 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -10,7 +10,6 @@ import com.java_template.common.util.SearchConditionRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.Data;
-import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -30,13 +29,17 @@ import static com.java_template.common.config.Config.*;
 @RestController
 @RequestMapping("/cyoda-entity-prototype")
 @Validated
-@RequiredArgsConstructor
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
+
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
+        this.entityService = entityService;
+        this.objectMapper = objectMapper;
+    }
 
     private static final String ENTITY_PET = "pet";
     private static final String ENTITY_PET_FETCH_REQUEST = "petFetchRequest";
@@ -100,6 +103,7 @@ public class CyodaEntityControllerPrototype {
                     resp.put("message", "Data fetch started successfully");
                     resp.put("entityId", id.toString());
                     resp.put("requestedAt", Instant.now().toString());
+                    logger.info("Fetch request accepted with id {}", id);
                     return ResponseEntity.accepted().body(resp);
                 });
     }
@@ -135,6 +139,7 @@ public class CyodaEntityControllerPrototype {
                 Pet pet = jsonNodeToPet(node);
                 if (pet != null) results.add(pet);
             }
+            logger.info("Search returned {} pets", results.size());
             return ResponseEntity.ok(results);
         });
     }
@@ -146,9 +151,11 @@ public class CyodaEntityControllerPrototype {
         return entityService.getItemsByCondition(ENTITY_PET, ENTITY_VERSION, search)
                 .thenApply(items -> {
                     if (items.isEmpty()) {
+                        logger.error("Pet with id {} not found", petId);
                         throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pet not found");
                     }
                     Pet pet = jsonNodeToPet(items.get(0));
+                    logger.info("Pet with id {} retrieved", petId);
                     return ResponseEntity.ok(pet);
                 });
     }
@@ -164,6 +171,7 @@ public class CyodaEntityControllerPrototype {
                             categories.add(catNode.asText());
                         }
                     }
+                    logger.info("Retrieved {} categories", categories.size());
                     return ResponseEntity.ok(categories);
                 });
     }
@@ -193,7 +201,7 @@ public class CyodaEntityControllerPrototype {
                     return;
                 }
 
-                JsonNode root = new ObjectMapper().readTree(raw);
+                JsonNode root = objectMapper.readTree(raw);
                 if (!root.isArray()) {
                     logger.warn("[Workflow] Expected JSON array for pets");
                     return;
