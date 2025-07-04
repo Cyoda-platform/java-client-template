@@ -1,145 +1,145 @@
 {
-    "description": "Activity Tracker FSM Workflow",
-    "initial_state": "none",
-    "states": {
-        "analyze_activities": {
-            "transitions": {
-                "analysis_failure_transition": {
-                    "condition": {
-                        "function": {
-                            "name": "analysisSuccess"
-                        },
-                        "type": "function"
-                    },
-                    "next": "error_state"
-                },
-                "analysis_success_transition": {
-                    "action": {
-                        "name": "analyzeActivities"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "analysisSuccess"
-                        },
-                        "type": "function"
-                    },
-                    "next": "generate_report"
-                }
-            }
-        },
-        "completed": {
-            "transitions": {}
-        },
-        "error_state": {
-            "transitions": {}
-        },
-        "fetch_activities": {
-            "transitions": {
-                "fetch_failure_transition": {
-                    "condition": {
-                        "function": {
-                            "name": "fetchSuccess"
-                        },
-                        "type": "function"
-                    },
-                    "next": "error_state"
-                },
-                "fetch_success_transition": {
-                    "action": {
-                        "name": "fetchActivities"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "fetchSuccess"
-                        },
-                        "type": "function"
-                    },
-                    "next": "analyze_activities"
-                }
-            }
-        },
-        "generate_report": {
-            "transitions": {
-                "report_generated_transition": {
-                    "action": {
-                        "name": "generateReportNode"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "reportGenerated"
-                        },
-                        "type": "function"
-                    },
-                    "next": "send_report"
-                },
-                "report_generation_failure_transition": {
-                    "condition": {
-                        "function": {
-                            "name": "reportGenerated"
-                        },
-                        "type": "function"
-                    },
-                    "next": "error_state"
-                }
-            }
-        },
-        "none": {
-            "transitions": {
-                "validate_request": {
-                    "action": {
-                        "name": "isValidRequest"
-                    },
-                    "next": "validate_request_state"
-                }
-            }
-        },
-        "send_report": {
-            "transitions": {
-                "send_failure_transition": {
-                    "condition": {
-                        "function": {
-                            "name": "sendSuccess"
-                        },
-                        "type": "function"
-                    },
-                    "next": "error_state"
-                },
-                "send_success_transition": {
-                    "action": {
-                        "name": "processSendReportEntity"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "sendSuccess"
-                        },
-                        "type": "function"
-                    },
-                    "next": "completed"
-                }
-            }
-        },
-        "validate_request_state": {
-            "transitions": {
-                "invalid_request": {
-                    "condition": {
-                        "function": {
-                            "name": "isValidRequest"
-                        },
-                        "type": "function"
-                    },
-                    "next": "error_state"
-                },
-                "valid_request": {
-                    "condition": {
-                        "function": {
-                            "name": "isValidRequest"
-                        },
-                        "type": "function"
-                    },
-                    "next": "fetch_activities"
-                }
-            }
+  "description": "Activity Tracker FSM Workflow",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "validate_request": {
+          "action": {
+            "name": "isValidRequest"
+          },
+          "next": "validate_request_state"
         }
+      }
     },
-    "workflow_name": "activity_tracker_workflow"
+    "validate_request_state": {
+      "transitions": {
+        "invalid_request": {
+          "condition": {
+            "function": {
+              "name": "isValidRequest"
+            },
+            "type": "function"
+          },
+          "next": "error_state"
+        },
+        "valid_request": {
+          "condition": {
+            "function": {
+              "name": "isValidRequest"
+            },
+            "type": "function"
+          },
+          "next": "fetch_activities"
+        }
+      }
+    },
+    "error_state": {
+      "transitions": {}
+    },
+    "fetch_activities": {
+      "transitions": {
+        "fetch_failure_transition": {
+          "condition": {
+            "function": {
+              "name": "fetchSuccess"
+            },
+            "type": "function"
+          },
+          "next": "error_state"
+        },
+        "fetch_success_transition": {
+          "action": {
+            "name": "fetchActivities"
+          },
+          "condition": {
+            "function": {
+              "name": "fetchSuccess"
+            },
+            "type": "function"
+          },
+          "next": "analyze_activities"
+        }
+      }
+    },
+    "analyze_activities": {
+      "transitions": {
+        "analysis_failure_transition": {
+          "condition": {
+            "function": {
+              "name": "analysisSuccess"
+            },
+            "type": "function"
+          },
+          "next": "error_state"
+        },
+        "analysis_success_transition": {
+          "action": {
+            "name": "analyzeActivities"
+          },
+          "condition": {
+            "function": {
+              "name": "analysisSuccess"
+            },
+            "type": "function"
+          },
+          "next": "generate_report"
+        }
+      }
+    },
+    "generate_report": {
+      "transitions": {
+        "report_generated_transition": {
+          "action": {
+            "name": "generateReportNode"
+          },
+          "condition": {
+            "function": {
+              "name": "reportGenerated"
+            },
+            "type": "function"
+          },
+          "next": "send_report"
+        },
+        "report_generation_failure_transition": {
+          "condition": {
+            "function": {
+              "name": "reportGenerated"
+            },
+            "type": "function"
+          },
+          "next": "error_state"
+        }
+      }
+    },
+    "send_report": {
+      "transitions": {
+        "send_failure_transition": {
+          "condition": {
+            "function": {
+              "name": "sendSuccess"
+            },
+            "type": "function"
+          },
+          "next": "error_state"
+        },
+        "send_success_transition": {
+          "action": {
+            "name": "processSendReportEntity"
+          },
+          "condition": {
+            "function": {
+              "name": "sendSuccess"
+            },
+            "type": "function"
+          },
+          "next": "completed"
+        }
+      }
+    },
+    "completed": {
+      "transitions": {}
+    }
+  },
+  "workflow_name": "activity_tracker_workflow"
 }
