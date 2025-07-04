@@ -1,61 +1,61 @@
 {
-    "description": "Activity Tracker FSM workflow managing ingestion, processing, reporting, and publishing",
-    "initial_state": "none",
-    "states": {
-        "ingested": {
-            "transitions": {
-                "process_if_needed": {
-                    "action": {
-                        "name": "analyzeActivities"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "needsProcessing"
-                        },
-                        "type": "function"
-                    },
-                    "next": "processed"
-                },
-                "skip_processing": {
-                    "condition": {
-                        "function": {
-                            "name": "isReportReady"
-                        },
-                        "type": "function"
-                    },
-                    "next": "processed"
-                }
-            }
-        },
-        "none": {
-            "transitions": {
-                "start_ingestion": {
-                    "next": "ingested"
-                }
-            }
-        },
-        "processed": {
-            "transitions": {
-                "publish_if_ready": {
-                    "action": {
-                        "name": "sendReportEmail"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "isReportReady"
-                        },
-                        "type": "function"
-                    },
-                    "next": "published"
-                },
-                "wait_for_publish": {
-                    "next": "processed"
-                }
-            }
-        },
-        "published": {
-            "transitions": {}
+  "description": "Activity Tracker FSM workflow managing ingestion, processing, reporting, and publishing",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_ingestion": {
+          "next": "ingested"
         }
+      }
     },
-    "workflow_name": "activity_tracker_workflow"
+    "ingested": {
+      "transitions": {
+        "process_if_needed": {
+          "action": {
+            "name": "analyzeActivities"
+          },
+          "condition": {
+            "function": {
+              "name": "needsProcessing"
+            },
+            "type": "function"
+          },
+          "next": "processed"
+        },
+        "skip_processing": {
+          "condition": {
+            "function": {
+              "name": "isReportReady"
+            },
+            "type": "function"
+          },
+          "next": "processed"
+        }
+      }
+    },
+    "processed": {
+      "transitions": {
+        "publish_if_ready": {
+          "action": {
+            "name": "sendReportEmail"
+          },
+          "condition": {
+            "function": {
+              "name": "isReportReady"
+            },
+            "type": "function"
+          },
+          "next": "published"
+        },
+        "wait_for_publish": {
+          "next": "processed"
+        }
+      }
+    },
+    "published": {
+      "transitions": {}
+    }
+  },
+  "workflow_name": "activity_tracker_workflow"
 }
