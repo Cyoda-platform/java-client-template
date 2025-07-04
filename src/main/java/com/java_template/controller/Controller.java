@@ -1,4 +1,4 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -9,9 +9,6 @@ import com.java_template.common.util.SearchConditionRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -21,28 +18,30 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import javax.annotation.Resource;
-import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
 
 @RestController
 @RequestMapping("/cyoda-prototype")
 @Validated
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final RestTemplate restTemplate = new RestTemplate();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
     private final String entityModel = "prototype";
     private final String publishEntityModel = "prototypePublish";
 
     @Resource
     private EntityService entityService;
+
+    public Controller(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
 
     @PostMapping("/activities/ingest")
     public ResponseEntity<IngestResponse> ingestActivities(@RequestBody @Valid IngestRequest request) throws Exception {
@@ -83,6 +82,7 @@ public class CyodaEntityControllerPrototype {
         com.fasterxml.jackson.databind.node.ArrayNode items = itemsFuture.join();
 
         if (items.isEmpty()) {
+            logger.error("Report not found for date: {}", date);
             throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND,
                     "Report not found for date: " + date);
         }
@@ -128,48 +128,168 @@ public class CyodaEntityControllerPrototype {
         return java.time.LocalDate.now().toString();
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
+    // DTO classes
+
     public static class IngestRequest {
         @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}", message = "Date must be YYYY-MM-DD")
         private String date;
+
+        public IngestRequest() {}
+
+        public IngestRequest(String date) {
+            this.date = date;
+        }
+
+        public String getDate() {
+            return date;
+        }
+
+        public void setDate(String date) {
+            this.date = date;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class IngestResponse {
         private String status;
         private String date;
         private String entityId;
+
+        public IngestResponse() {}
+
+        public IngestResponse(String status, String date, String entityId) {
+            this.status = status;
+            this.date = date;
+            this.entityId = entityId;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
+
+        public String getDate() {
+            return date;
+        }
+
+        public void setDate(String date) {
+            this.date = date;
+        }
+
+        public String getEntityId() {
+            return entityId;
+        }
+
+        public void setEntityId(String entityId) {
+            this.entityId = entityId;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class DailyReport {
         private String date;
         private int totalActivities;
         private List<String> frequentActivityTypes;
         private List<String> anomalies;
+
+        public DailyReport() {}
+
+        public DailyReport(String date, int totalActivities, List<String> frequentActivityTypes, List<String> anomalies) {
+            this.date = date;
+            this.totalActivities = totalActivities;
+            this.frequentActivityTypes = frequentActivityTypes;
+            this.anomalies = anomalies;
+        }
+
+        public String getDate() {
+            return date;
+        }
+
+        public void setDate(String date) {
+            this.date = date;
+        }
+
+        public int getTotalActivities() {
+            return totalActivities;
+        }
+
+        public void setTotalActivities(int totalActivities) {
+            this.totalActivities = totalActivities;
+        }
+
+        public List<String> getFrequentActivityTypes() {
+            return frequentActivityTypes;
+        }
+
+        public void setFrequentActivityTypes(List<String> frequentActivityTypes) {
+            this.frequentActivityTypes = frequentActivityTypes;
+        }
+
+        public List<String> getAnomalies() {
+            return anomalies;
+        }
+
+        public void setAnomalies(List<String> anomalies) {
+            this.anomalies = anomalies;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class PublishRequest {
         @NotBlank
         @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}", message = "Date must be YYYY-MM-DD")
         private String date;
         private List<@NotBlank String> recipients;
+
+        public PublishRequest() {}
+
+        public PublishRequest(String date, List<String> recipients) {
+            this.date = date;
+            this.recipients = recipients;
+        }
+
+        public String getDate() {
+            return date;
+        }
+
+        public void setDate(String date) {
+            this.date = date;
+        }
+
+        public List<String> getRecipients() {
+            return recipients;
+        }
+
+        public void setRecipients(List<String> recipients) {
+            this.recipients = recipients;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class PublishResponse {
         private String status;
         private String message;
+
+        public PublishResponse() {}
+
+        public PublishResponse(String status, String message) {
+            this.status = status;
+            this.message = message;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public void setMessage(String message) {
+            this.message = message;
+        }
     }
 }
