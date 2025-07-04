@@ -1,145 +1,145 @@
 {
-    "description": "Activity Tracker Application FSM workflow",
-    "initial_state": "none",
-    "states": {
-        "analyze_activities": {
-            "transitions": {
-                "analysis_fail": {
-                    "condition": {
-                        "function": {
-                            "name": "notAnalysisSuccess"
-                        },
-                        "type": "function"
-                    },
-                    "next": "end_error"
-                },
-                "analysis_success": {
-                    "action": {
-                        "name": "analyzeActivities"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "analysisSuccess"
-                        },
-                        "type": "function"
-                    },
-                    "next": "generate_report"
-                }
-            }
-        },
-        "end_error": {
-            "transitions": {}
-        },
-        "end_success": {
-            "transitions": {}
-        },
-        "fetch_activities": {
-            "transitions": {
-                "fetch_fail": {
-                    "condition": {
-                        "function": {
-                            "name": "notFetchSuccess"
-                        },
-                        "type": "function"
-                    },
-                    "next": "end_error"
-                },
-                "fetch_success": {
-                    "action": {
-                        "name": "fetchActivities"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "fetchSuccess"
-                        },
-                        "type": "function"
-                    },
-                    "next": "analyze_activities"
-                }
-            }
-        },
-        "generate_report": {
-            "transitions": {
-                "report_generated": {
-                    "action": {
-                        "name": "generateReportNode"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "reportGenerated"
-                        },
-                        "type": "function"
-                    },
-                    "next": "send_report"
-                },
-                "report_not_generated": {
-                    "condition": {
-                        "function": {
-                            "name": "notReportGenerated"
-                        },
-                        "type": "function"
-                    },
-                    "next": "end_error"
-                }
-            }
-        },
-        "none": {
-            "transitions": {
-                "validate_request": {
-                    "action": {
-                        "name": "isValidRequest"
-                    },
-                    "next": "validate_request_state"
-                }
-            }
-        },
-        "send_report": {
-            "transitions": {
-                "send_fail": {
-                    "condition": {
-                        "function": {
-                            "name": "notSendSuccess"
-                        },
-                        "type": "function"
-                    },
-                    "next": "end_error"
-                },
-                "send_success": {
-                    "action": {
-                        "name": "processSendReportEntity"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "sendSuccess"
-                        },
-                        "type": "function"
-                    },
-                    "next": "end_success"
-                }
-            }
-        },
-        "validate_request_state": {
-            "transitions": {
-                "invalid_request": {
-                    "condition": {
-                        "function": {
-                            "name": "notValidRequest"
-                        },
-                        "type": "function"
-                    },
-                    "next": "end_error"
-                },
-                "valid_request": {
-                    "condition": {
-                        "function": {
-                            "name": "isValidRequest"
-                        },
-                        "type": "function"
-                    },
-                    "next": "fetch_activities"
-                }
-            }
+  "description": "Activity Tracker Application FSM workflow",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "validate_request": {
+          "action": {
+            "name": "isValidRequest"
+          },
+          "next": "validate_request_state"
         }
+      }
     },
-    "workflow_name": "activity_tracker_workflow"
+    "validate_request_state": {
+      "transitions": {
+        "invalid_request": {
+          "condition": {
+            "function": {
+              "name": "notValidRequest"
+            },
+            "type": "function"
+          },
+          "next": "end_error"
+        },
+        "valid_request": {
+          "condition": {
+            "function": {
+              "name": "isValidRequest"
+            },
+            "type": "function"
+          },
+          "next": "fetch_activities"
+        }
+      }
+    },
+    "end_error": {
+      "transitions": {}
+    },
+    "fetch_activities": {
+      "transitions": {
+        "fetch_fail": {
+          "condition": {
+            "function": {
+              "name": "notFetchSuccess"
+            },
+            "type": "function"
+          },
+          "next": "end_error"
+        },
+        "fetch_success": {
+          "action": {
+            "name": "fetchActivities"
+          },
+          "condition": {
+            "function": {
+              "name": "fetchSuccess"
+            },
+            "type": "function"
+          },
+          "next": "analyze_activities"
+        }
+      }
+    },
+    "analyze_activities": {
+      "transitions": {
+        "analysis_fail": {
+          "condition": {
+            "function": {
+              "name": "notAnalysisSuccess"
+            },
+            "type": "function"
+          },
+          "next": "end_error"
+        },
+        "analysis_success": {
+          "action": {
+            "name": "analyzeActivities"
+          },
+          "condition": {
+            "function": {
+              "name": "analysisSuccess"
+            },
+            "type": "function"
+          },
+          "next": "generate_report"
+        }
+      }
+    },
+    "generate_report": {
+      "transitions": {
+        "report_generated": {
+          "action": {
+            "name": "generateReportNode"
+          },
+          "condition": {
+            "function": {
+              "name": "reportGenerated"
+            },
+            "type": "function"
+          },
+          "next": "send_report"
+        },
+        "report_not_generated": {
+          "condition": {
+            "function": {
+              "name": "notReportGenerated"
+            },
+            "type": "function"
+          },
+          "next": "end_error"
+        }
+      }
+    },
+    "send_report": {
+      "transitions": {
+        "send_fail": {
+          "condition": {
+            "function": {
+              "name": "notSendSuccess"
+            },
+            "type": "function"
+          },
+          "next": "end_error"
+        },
+        "send_success": {
+          "action": {
+            "name": "processSendReportEntity"
+          },
+          "condition": {
+            "function": {
+              "name": "sendSuccess"
+            },
+            "type": "function"
+          },
+          "next": "end_success"
+        }
+      }
+    },
+    "end_success": {
+      "transitions": {}
+    }
+  },
+  "workflow_name": "activity_tracker_workflow"
 }
