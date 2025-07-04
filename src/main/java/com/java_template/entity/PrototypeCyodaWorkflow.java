@@ -1,41 +1,3 @@
-Certainly! The idea is to move all asynchronous and pre-persistence logic from the controller methods into the workflow functions `process{EntityName}`. This approach cleans controllers, centralizes side effects and transformations, and leverages the new workflow feature.
-
----
-
-### What to move to workflow functions?
-
-- **Fetching and storing pets** from remote URL (previously done inside `fetchAndStorePets`)  
-  This is a fire-and-forget async task triggered by the controller, so it should be moved into the workflow function `processPetFetch`.
-
-- **Modifying entity state before persistence** — if any transformations or enrichment are needed.
-
-- **Fetching and adding secondary entities** (like categories, tags) if relevant.
-
----
-
-### What remains in controller?
-
-- Validation of inputs  
-- Calling entityService with the workflow function passed  
-- Returning immediate responses (e.g. accepted for fire-and-forget)
-
----
-
-### Approach
-
-We will:
-
-1. Create a new entityModel `"petFetchRequest"` with a controller endpoint to accept fetch instructions (instead of immediate async fetch in controller).  
-2. The workflow `processPetFetchRequest` will perform the fetch, parse, and add pet entities asynchronously.  
-3. The controller will only insert the `petFetchRequest` entity — this triggers the workflow.  
-4. The existing `processPet` workflow remains for `pet` entities to transform them before persistence if needed.  
-5. Remove async methods from controller and replace with simple addItem calls with corresponding workflow function.
-
----
-
-### Updated code with workflows and minimal controller
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -62,7 +24,6 @@ import java.net.URI;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 
 import static com.java_template.common.config.Config.*;
 
@@ -120,11 +81,6 @@ public class CyodaEntityControllerPrototype {
 
     // ===================== CONTROLLER ENDPOINTS =====================
 
-    /**
-     * Accepts a fetch request entity and persists it.
-     * The workflow function 'processPetFetchRequest' will asynchronously perform the fetch,
-     * parse pets and add them as 'pet' entities.
-     */
     @PostMapping("/pets/fetch")
     public CompletableFuture<ResponseEntity<Map<String, Object>>> fetchPets(@RequestBody @Valid FetchRequest request) {
 
@@ -149,9 +105,6 @@ public class CyodaEntityControllerPrototype {
                 });
     }
 
-    /**
-     * Search pets with optional filters.
-     */
     @PostMapping("/pets/search")
     public CompletableFuture<ResponseEntity<List<Pet>>> searchPets(@RequestBody @Valid SearchRequest request) {
         List<Condition> conditions = new ArrayList<>();
@@ -187,9 +140,6 @@ public class CyodaEntityControllerPrototype {
         });
     }
 
-    /**
-     * Get pet by id.
-     */
     @GetMapping("/pets/{petId}")
     public CompletableFuture<ResponseEntity<Pet>> getPetById(@PathVariable @NotNull @Positive Long petId) {
         Condition cond = Condition.of("$.id", "EQUALS", petId);
@@ -204,9 +154,6 @@ public class CyodaEntityControllerPrototype {
                 });
     }
 
-    /**
-     * Get all distinct categories from pet entities.
-     */
     @GetMapping("/categories")
     public CompletableFuture<ResponseEntity<Set<String>>> getCategories() {
         return entityService.getItems(ENTITY_PET, ENTITY_VERSION)
@@ -225,12 +172,6 @@ public class CyodaEntityControllerPrototype {
 
     // ===================== WORKFLOW FUNCTIONS =====================
 
-    /**
-     * Workflow function for 'petFetchRequest' entity.
-     * It asynchronously performs the fetch of pets from sourceUrl,
-     * parses them and adds each pet entity with the 'processPet' workflow.
-     * This function returns the original entity unchanged.
-     */
     private CompletableFuture<ObjectNode> processPetFetchRequest(ObjectNode fetchRequestEntity) {
         String sourceUrl = fetchRequestEntity.path("sourceUrl").asText(null);
         String status = fetchRequestEntity.path("status").asText(null);
@@ -240,7 +181,6 @@ public class CyodaEntityControllerPrototype {
             return CompletableFuture.completedFuture(fetchRequestEntity);
         }
 
-        // Fire off async fetch and add pets
         return CompletableFuture.runAsync(() -> {
             try {
                 URI uri = new URI(sourceUrl + "?status=" + status);
@@ -267,7 +207,6 @@ public class CyodaEntityControllerPrototype {
                 }
 
                 if (!petsToAdd.isEmpty()) {
-                    // Add pets entities with workflow processPet to process each pet before persistence
                     entityService.addItems(ENTITY_PET, ENTITY_VERSION, petsToAdd, this::processPet).get();
                     logger.info("[Workflow] Added {} pets from fetch", petsToAdd.size());
                 }
@@ -275,24 +214,15 @@ public class CyodaEntityControllerPrototype {
             } catch (Exception e) {
                 logger.error("[Workflow] Error fetching pets", e);
             }
-        }).thenApply(v -> fetchRequestEntity); // Return original entity unchanged
+        }).thenApply(v -> fetchRequestEntity);
     }
 
-    /**
-     * Workflow function for 'pet' entity.
-     * You can modify the pet entity here before persistence, e.g. normalize data, add timestamps, etc.
-     * This example does minimal processing: just returns entity as is.
-     */
     private CompletableFuture<ObjectNode> processPet(ObjectNode petEntity) {
-        // Example: normalize status to lowercase if present
         JsonNode statusNode = petEntity.get("status");
         if (statusNode != null && statusNode.isTextual()) {
             petEntity.put("status", statusNode.asText().toLowerCase());
         }
-        // Add a lastModified timestamp
         petEntity.put("lastModified", Instant.now().toString());
-
-        // Return asynchronously
         return CompletableFuture.completedFuture(petEntity);
     }
 
@@ -336,7 +266,6 @@ public class CyodaEntityControllerPrototype {
             petNode.put("id", node.path("id").asLong());
             petNode.put("name", node.path("name").asText(""));
             petNode.put("status", node.path("status").asText(""));
-            // category can be object or string
             JsonNode catNode = node.path("category");
             if (catNode.isObject()) {
                 petNode.put("category", catNode.path("name").asText(""));
@@ -344,7 +273,6 @@ public class CyodaEntityControllerPrototype {
                 petNode.put("category", catNode.asText());
             }
 
-            // tags as array of strings (extract name if object)
             ArrayNode tagsArray = objectMapper.createArrayNode();
             JsonNode tagsNode = node.path("tags");
             if (tagsNode.isArray()) {
@@ -359,7 +287,6 @@ public class CyodaEntityControllerPrototype {
             }
             petNode.set("tags", tagsArray);
 
-            // photoUrls as array of strings
             ArrayNode photosArray = objectMapper.createArrayNode();
             JsonNode photosNode = node.path("photoUrls");
             if (photosNode.isArray()) {
@@ -397,19 +324,3 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(err);
     }
 }
-```
-
----
-
-### Summary of changes:
-
-- Added a new entity model `petFetchRequest` with a controller endpoint `/pets/fetch` that just persists the fetch request entity.
-- Created workflow function `processPetFetchRequest` that triggers asynchronously on `petFetchRequest` entities, performs the HTTP fetch, parses pet entities, and adds them with workflow `processPet`.
-- `processPet` workflow function modifies pets before persistence (normalizes status, adds timestamp).
-- Removed all async logic from controller; controllers become simple validators and callers of `entityService.addItem` with workflow functions.
-- This design fully embraces the workflow pattern, making code modular, robust, and easier to maintain.
-- The controller now returns immediately with accepted response; all heavy lifting is done inside workflows asynchronously.
-
----
-
-If you want me to also provide the interface changes or definitions for `addItems` / `addItem` accepting workflow, or the DTOs for `petFetchRequest` entity, just ask!
