@@ -216,6 +216,19 @@ public class EntityControllerPrototype {
     }
 
     @Data
+    public static class CreatePetResponse {
+        @NotNull
+        private Long id;
+        @NotBlank
+        private String message;
+
+        public CreatePetResponse(Long id, String message) {
+            this.id = id;
+            this.message = message;
+        }
+    }
+
+    @Data
     public static class FavoriteRequest {
         @NotNull
         private Boolean favorite;
