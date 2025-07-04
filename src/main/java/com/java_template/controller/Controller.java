@@ -1,4 +1,4 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -11,10 +11,6 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Pattern;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -30,23 +26,23 @@ import java.util.concurrent.CompletableFuture;
 
 import static com.java_template.common.config.Config.*;
 
-@Slf4j
 @RestController
 @RequestMapping("/cyoda-prototype")
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final RestTemplate restTemplate = new RestTemplate();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
     private final EntityService entityService;
 
     private final Map<String, JobStatus> entityJobs = new HashMap<>();
 
     private static final String FAKERES_API_ACTIVITIES_URL = "https://fakerestapi.azurewebsites.net/api/v1/Activities";
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     /**
@@ -185,79 +181,266 @@ public class CyodaEntityControllerPrototype {
         return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    private static class FetchRequest {
+    // DTOs and helper classes
+
+    // Fetch request DTO
+    public static class FetchRequest {
         @NotBlank
         @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}")
         private String date;
+
+        public FetchRequest() {}
+
+        public FetchRequest(String date) {
+            this.date = date;
+        }
+
+        public String getDate() {
+            return date;
+        }
+
+        public void setDate(String date) {
+            this.date = date;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    private static class FetchResponse {
+    // Fetch response DTO
+    public static class FetchResponse {
         private String status;
         private String message;
+
+        public FetchResponse() {}
+
+        public FetchResponse(String status, String message) {
+            this.status = status;
+            this.message = message;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public void setMessage(String message) {
+            this.message = message;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    private static class SendReportRequest {
+    // Send report request DTO
+    public static class SendReportRequest {
         @NotBlank
         @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}")
         private String date;
+
         @NotEmpty
         private List<@Email String> adminEmails;
+
+        public SendReportRequest() {}
+
+        public SendReportRequest(String date, List<String> adminEmails) {
+            this.date = date;
+            this.adminEmails = adminEmails;
+        }
+
+        public String getDate() {
+            return date;
+        }
+
+        public void setDate(String date) {
+            this.date = date;
+        }
+
+        public List<String> getAdminEmails() {
+            return adminEmails;
+        }
+
+        public void setAdminEmails(List<String> adminEmails) {
+            this.adminEmails = adminEmails;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    private static class SendReportResponse {
+    // Send report response DTO
+    public static class SendReportResponse {
         private String status;
         private String message;
+
+        public SendReportResponse() {}
+
+        public SendReportResponse(String status, String message) {
+            this.status = status;
+            this.message = message;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public void setMessage(String message) {
+            this.message = message;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    private static class ErrorResponse {
+    // Error response DTO
+    public static class ErrorResponse {
         private String error;
         private String message;
+
+        public ErrorResponse() {}
+
+        public ErrorResponse(String error, String message) {
+            this.error = error;
+            this.message = message;
+        }
+
+        public String getError() {
+            return error;
+        }
+
+        public void setError(String error) {
+            this.error = error;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public void setMessage(String message) {
+            this.message = message;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    private static class JobStatus {
+    // Job status class
+    public static class JobStatus {
         private String status;
         private Instant timestamp;
+
+        public JobStatus() {}
+
+        public JobStatus(String status, Instant timestamp) {
+            this.status = status;
+            this.timestamp = timestamp;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
+
+        public Instant getTimestamp() {
+            return timestamp;
+        }
+
+        public void setTimestamp(Instant timestamp) {
+            this.timestamp = timestamp;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    private static class DailyReportResponse {
+    // Daily report response DTO
+    public static class DailyReportResponse {
         private String date;
         private List<UserReport> reports;
+
+        public DailyReportResponse() {}
+
+        public DailyReportResponse(String date, List<UserReport> reports) {
+            this.date = date;
+            this.reports = reports;
+        }
+
+        public String getDate() {
+            return date;
+        }
+
+        public void setDate(String date) {
+            this.date = date;
+        }
+
+        public List<UserReport> getReports() {
+            return reports;
+        }
+
+        public void setReports(List<UserReport> reports) {
+            this.reports = reports;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    private static class UserActivitySummary {
+    // User activity summary class
+    public static class UserActivitySummary {
         private int totalActivities = 0;
         private Map<String, Integer> activityTypes = new HashMap<>();
         private List<String> anomalies = new ArrayList<>();
+
+        public UserActivitySummary() {}
+
+        public int getTotalActivities() {
+            return totalActivities;
+        }
+
+        public void setTotalActivities(int totalActivities) {
+            this.totalActivities = totalActivities;
+        }
+
+        public Map<String, Integer> getActivityTypes() {
+            return activityTypes;
+        }
+
+        public void setActivityTypes(Map<String, Integer> activityTypes) {
+            this.activityTypes = activityTypes;
+        }
+
+        public List<String> getAnomalies() {
+            return anomalies;
+        }
+
+        public void setAnomalies(List<String> anomalies) {
+            this.anomalies = anomalies;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    private static class UserReport {
+    // User report class
+    public static class UserReport {
         private int userId;
         private UserActivitySummary activitySummary;
+
+        public UserReport() {}
+
+        public UserReport(int userId, UserActivitySummary activitySummary) {
+            this.userId = userId;
+            this.activitySummary = activitySummary;
+        }
+
+        public int getUserId() {
+            return userId;
+        }
+
+        public void setUserId(int userId) {
+            this.userId = userId;
+        }
+
+        public UserActivitySummary getActivitySummary() {
+            return activitySummary;
+        }
+
+        public void setActivitySummary(UserActivitySummary activitySummary) {
+            this.activitySummary = activitySummary;
+        }
     }
 }
