@@ -1,31 +1,3 @@
-Certainly! Moving asynchronous or complex business logic into the workflow functions (`process{entity_name}`) is a great architectural improvement. It keeps controllers lean and focuses them on API concerns, while the workflow functions encapsulate domain logic and side effects. This also better aligns with the new `entityService.addItem` contract and its async workflow support.
-
----
-
-### What will be moved/changed?
-
-1. **Data enrichment and anomaly detection logic** will move from the controller into the workflow function `processDailyReportEntity`.
-2. **Any asynchronous task like sending emails or fetching external data** should also be moved out of controllers if they relate to entity processing.
-3. The controller will:
-   - Validate and receive data
-   - Call `entityService.addItem(s)` with the appropriate workflow function
-   - Return immediately or respond based on futures/promises
-
----
-
-### Important notes:
-
-- The entity passed to workflow is an `ObjectNode` (Jackson JSON object), so we mutate it with `put`, `set`, `remove`, etc.
-- We **cannot** call `entityService.addItem/updateItem/deleteItem` on the same entity model inside the workflow (to avoid recursion).
-- We **can** get/add entities of **different** entity models inside the workflow.
-- The workflow function supports async/await (returns a `CompletableFuture<ObjectNode>`).
-- We will convert POJOs to/from `ObjectNode` as needed in the workflow.
-
----
-
-### Updated code:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -80,26 +52,20 @@ public class CyodaEntityControllerPrototype {
 
     /**
      * Workflow function for DailyReportEntity.
-     * This function enriches the entity with anomalies and other logic,
-     * fetches supplementary data if needed, asynchronously.
-     * 
-     * @param entityNode The ObjectNode representing the DailyReportEntity.
-     * @return CompletableFuture<ObjectNode> with possibly mutated entityNode.
+     * Enriches entity with anomalies, supplementary data asynchronously.
+     * @param entityNode ObjectNode representing DailyReportEntity
+     * @return CompletableFuture<ObjectNode> with mutated entity
      */
     private CompletableFuture<ObjectNode> processDailyReportEntity(ObjectNode entityNode) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                // Extract fields for readability
                 String date = entityNode.path("date").asText(null);
                 int userId = entityNode.path("userId").asInt(-1);
                 ObjectNode activitySummary = (ObjectNode) entityNode.get("activitySummary");
-
                 if (activitySummary == null) {
                     activitySummary = objectMapper.createObjectNode();
                     entityNode.set("activitySummary", activitySummary);
                 }
-
-                // Parse existing fields or init
                 int totalActivities = activitySummary.path("totalActivities").asInt(0);
                 ObjectNode activityTypesNode = activitySummary.with("activityTypes");
                 ArrayNode anomaliesNode = (ArrayNode) activitySummary.get("anomalies");
@@ -107,37 +73,25 @@ public class CyodaEntityControllerPrototype {
                     anomaliesNode = objectMapper.createArrayNode();
                     activitySummary.set("anomalies", anomaliesNode);
                 }
-
-                // Example anomaly detection logic moved here:
                 // Add anomaly if totalActivities is zero
                 if (totalActivities == 0) {
                     if (!containsString(anomaliesNode, "No activities recorded")) {
                         anomaliesNode.add("No activities recorded");
                     }
                 }
-
                 // Add anomaly if unusually high activities
                 if (totalActivities > 10) {
                     if (!containsString(anomaliesNode, "Unusually high activity count")) {
                         anomaliesNode.add("Unusually high activity count");
                     }
                 }
-
-                // Supplementary data fetch example:
-                // Suppose we want to fetch user profile data from another entity model 'UserProfileEntity'
-                // and add user name to the report entity.
+                // Fetch supplementary UserProfileEntity data and add userName field if available
                 if (userId >= 0) {
                     SearchConditionRequest cond = SearchConditionRequest.group("AND",
                             Condition.of("$.userId", "EQUALS", userId));
-
-                    // We can fetch supplementary entities here synchronously (blocking) or asynchronously.
-                    // Because workflow supports async, we can do async:
                     CompletableFuture<ArrayNode> userProfileFuture =
                             entityService.getItemsByCondition("UserProfileEntity", ENTITY_VERSION, cond);
-
-                    // Wait for result (blocking here inside supplyAsync is acceptable)
                     ArrayNode profiles = userProfileFuture.join();
-
                     if (profiles != null && !profiles.isEmpty()) {
                         JsonNode userProfile = profiles.get(0);
                         String userName = userProfile.path("name").asText(null);
@@ -146,11 +100,9 @@ public class CyodaEntityControllerPrototype {
                         }
                     }
                 }
-
                 return entityNode;
             } catch (Exception ex) {
                 logger.error("Error in processDailyReportEntity workflow: {}", ex.getMessage(), ex);
-                // In case of error, return entity as is
                 return entityNode;
             }
         });
@@ -166,11 +118,37 @@ public class CyodaEntityControllerPrototype {
     }
 
     /**
-     * Endpoint receives activities fetch request.
-     * It fetches raw activities from external API,
-     * aggregates them per user,
-     * converts to DailyReportEntity objects,
-     * and calls entityService.addItems with workflow function that enriches and persists.
+     * Workflow function for SendReportEntity.
+     * Simulates sending email asynchronously before persisting entity.
+     * Since sending email is side-effect, this is fire-and-forget style.
+     * @param entityNode ObjectNode representing SendReportEntity
+     * @return CompletableFuture<ObjectNode> with unchanged entityNode
+     */
+    private CompletableFuture<ObjectNode> processSendReportEntity(ObjectNode entityNode) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                String date = entityNode.path("date").asText(null);
+                JsonNode adminsNode = entityNode.get("adminEmails");
+                List<String> adminEmails = new ArrayList<>();
+                if (adminsNode != null && adminsNode.isArray()) {
+                    for (JsonNode emailNode : adminsNode) {
+                        adminEmails.add(emailNode.asText());
+                    }
+                }
+                // Simulate sending email - can replace with real email logic here
+                logger.info("Sending report email for date {} to admins: {}", date, String.join(", ", adminEmails));
+                // No change to entityNode required, just side-effect
+            } catch (Exception e) {
+                logger.error("Error sending report email in workflow: {}", e.getMessage(), e);
+            }
+            return entityNode;
+        });
+    }
+
+    /**
+     * POST /activities/fetch
+     * Fetches activities from external API, aggregates per user,
+     * creates DailyReportEntity objects, calls addItems with workflow function.
      */
     @PostMapping("/activities/fetch")
     public ResponseEntity<FetchResponse> fetchAndProcessActivities(@RequestBody @Valid FetchRequest request) {
@@ -185,7 +163,6 @@ public class CyodaEntityControllerPrototype {
                 URI uri = URI.create(FAKERES_API_ACTIVITIES_URL);
                 String jsonResponse = restTemplate.getForObject(uri, String.class);
                 JsonNode activitiesNode = objectMapper.readTree(jsonResponse);
-
                 Map<Integer, UserActivitySummary> userSummaries = new HashMap<>();
                 if (activitiesNode.isArray()) {
                     for (JsonNode activity : activitiesNode) {
@@ -202,33 +179,24 @@ public class CyodaEntityControllerPrototype {
                 } else {
                     logger.warn("Unexpected response format: expected array");
                 }
-
-                // Now create ObjectNode list representing DailyReportEntity and feed to entityService
                 List<ObjectNode> reportNodes = new ArrayList<>();
                 for (Map.Entry<Integer, UserActivitySummary> entry : userSummaries.entrySet()) {
                     ObjectNode reportNode = objectMapper.createObjectNode();
                     reportNode.put("date", request.getDate());
                     reportNode.put("userId", entry.getKey());
-
                     ObjectNode activitySummaryNode = objectMapper.createObjectNode();
                     activitySummaryNode.put("totalActivities", entry.getValue().totalActivities);
-
                     ObjectNode activityTypesNode = objectMapper.createObjectNode();
                     entry.getValue().activityTypes.forEach(activityTypesNode::put);
                     activitySummaryNode.set("activityTypes", activityTypesNode);
-
                     ArrayNode anomaliesArray = objectMapper.createArrayNode();
                     entry.getValue().anomalies.forEach(anomaliesArray::add);
                     activitySummaryNode.set("anomalies", anomaliesArray);
-
                     reportNode.set("activitySummary", activitySummaryNode);
-
                     reportNodes.add(reportNode);
                 }
-
-                // Pass the list to entityService with workflow function
+                // Add items with workflow for enrichment and supplementary data fetch
                 entityService.addItems("DailyReportEntity", ENTITY_VERSION, reportNodes, this::processDailyReportEntity);
-
                 entityJobs.put(jobId, new JobStatus("completed", Instant.now()));
                 logger.info("Completed processing for date {}", request.getDate());
             } catch (Exception e) {
@@ -242,25 +210,20 @@ public class CyodaEntityControllerPrototype {
     }
 
     /**
-     * Fetch report entities by date.
-     * The controller remains lean, just queries the entityService.
+     * GET /reports/daily/{date}
+     * Reads DailyReportEntity for given date.
      */
     @GetMapping("/reports/daily/{date}")
     public ResponseEntity<DailyReportResponse> getDailyReport(
             @PathVariable @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}") String date) {
         logger.info("Received request for report date {}", date);
-
-        // Create search condition for date equals requested date
         SearchConditionRequest condition = SearchConditionRequest.group("AND",
                 Condition.of("$.date", "EQUALS", date));
-
         CompletableFuture<ArrayNode> itemsFuture = entityService.getItemsByCondition("DailyReportEntity", ENTITY_VERSION, condition);
         ArrayNode items = itemsFuture.join();
-
         if (items == null || items.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found for date: " + date);
         }
-
         List<UserReport> userReports = new ArrayList<>();
         for (JsonNode node : items) {
             int userId = node.path("userId").asInt();
@@ -273,37 +236,37 @@ public class CyodaEntityControllerPrototype {
             }
             userReports.add(new UserReport(userId, summary));
         }
-
         DailyReportResponse response = new DailyReportResponse(date, userReports);
         return ResponseEntity.ok(response);
     }
 
     /**
-     * Send report to admins.
-     * The actual send logic (e.g. email) should be done in a workflow function if it relates to entity persistence.
-     * Here we just simulate send since no entity update is required.
+     * POST /reports/send
+     * Persists SendReportEntity with workflow to simulate sending email asynchronously.
      */
     @PostMapping("/reports/send")
     public ResponseEntity<SendReportResponse> sendReport(@RequestBody @Valid SendReportRequest request) {
         logger.info("Received send request for date {} to {}", request.getDate(), request.getAdminEmails());
-
-        // Check if report exists by querying entityService
         SearchConditionRequest condition = SearchConditionRequest.group("AND",
                 Condition.of("$.date", "EQUALS", request.getDate()));
-
         CompletableFuture<ArrayNode> itemsFuture = entityService.getItemsByCondition("DailyReportEntity", ENTITY_VERSION, condition);
         ArrayNode items = itemsFuture.join();
         if (items == null || items.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found for date: " + request.getDate());
         }
-
-        // Simulate sending email - could be moved to a workflow function if we had a "SendReportEntity" to persist
-        logger.info("Simulating email send for date {} to {}", request.getDate(), request.getAdminEmails());
-
+        // Build ObjectNode for SendReportEntity
+        ObjectNode sendReportNode = objectMapper.createObjectNode();
+        sendReportNode.put("date", request.getDate());
+        ArrayNode adminEmailsNode = objectMapper.createArrayNode();
+        request.getAdminEmails().forEach(adminEmailsNode::add);
+        sendReportNode.set("adminEmails", adminEmailsNode);
+        // Add item with workflow that sends email asynchronously
+        CompletableFuture<UUID> idFuture = entityService.addItem("SendReportEntity", ENTITY_VERSION, sendReportNode, this::processSendReportEntity);
+        UUID id = idFuture.join();
+        logger.info("SendReportEntity persisted with id {}", id);
         return ResponseEntity.ok(new SendReportResponse("success",
                 "Report for " + request.getDate() + " sent to " + String.join(", ", request.getAdminEmails())));
     }
-
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<ErrorResponse> handleResponseStatusException(ResponseStatusException ex) {
@@ -318,8 +281,6 @@ public class CyodaEntityControllerPrototype {
         ErrorResponse error = new ErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR.toString(), "Internal server error");
         return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
     }
-
-    // DTOs and utility classes remain same except removed workflow logic from controllers
 
     @Data
     @NoArgsConstructor
@@ -396,25 +357,4 @@ public class CyodaEntityControllerPrototype {
         private int userId;
         private UserActivitySummary activitySummary;
     }
-
 }
-```
-
----
-
-### Summary of changes:
-- The main async processing in `/activities/fetch` stays in the controller **only** to fetch raw activities from external API and aggregate them into raw report entities.
-- The enrichment, anomaly detection, adding supplementary data (e.g. user profile name), and any other async logic moved into `processDailyReportEntity(ObjectNode entity)` workflow function.
-- The workflow function is async and returns a `CompletableFuture<ObjectNode>`.
-- The controller calls `entityService.addItems` passing the workflow function.
-- Controllers remain thin and mostly delegate domain logic to workflow functions.
-- Email sending simulation remains in controller; you could create a separate entity and workflow if you want to persist/send asynchronously.
-
----
-
-This approach improves separation of concerns, testability, and aligns perfectly with the new entityService workflow pattern.  
-If you want me to help move **email sending** or other async tasks into workflows as well, just ask!
-
----
-
-If you want, I can also provide unit tests or more example workflows for other entities.
