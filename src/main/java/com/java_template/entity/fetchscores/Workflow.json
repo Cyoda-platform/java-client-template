@@ -1,141 +1,141 @@
 {
-    "description": "NBA Scores Fetch and Notify Workflow",
-    "initial_state": "none",
-    "states": {
-        "add_new_games_state": {
-            "transitions": {
-                "add_done": {
-                    "action": {
-                        "name": "addNewGames"
-                    },
-                    "next": "check_subscribers_state"
-                }
-            }
-        },
-        "check_subscribers_state": {
-            "transitions": {
-                "no_subscribers": {
-                    "condition": {
-                        "function": {
-                            "name": "not_subscribersExist"
-                        },
-                        "type": "function"
-                    },
-                    "next": "complete_state"
-                },
-                "subscribers_exist": {
-                    "condition": {
-                        "function": {
-                            "name": "subscribersExist"
-                        },
-                        "type": "function"
-                    },
-                    "next": "send_notifications_state"
-                }
-            }
-        },
-        "complete_state": {
-            "transitions": {
-                "check_no_errors": {
-                    "condition": {
-                        "function": {
-                            "name": "noErrors"
-                        },
-                        "type": "function"
-                    },
-                    "next": "end_state"
-                },
-                "error_found": {
-                    "condition": {
-                        "function": {
-                            "name": "not_noErrors"
-                        },
-                        "type": "function"
-                    },
-                    "next": "error_state"
-                }
-            }
-        },
-        "delete_existing_games_state": {
-            "transitions": {
-                "delete_done": {
-                    "action": {
-                        "name": "deleteExistingGames"
-                    },
-                    "next": "add_new_games_state"
-                }
-            }
-        },
-        "end_state": {
-            "transitions": {}
-        },
-        "error_state": {
-            "transitions": {}
-        },
-        "fetch_external_scores_state": {
-            "transitions": {
-                "response_is_array": {
-                    "action": {
-                        "name": "fetchExternalScores"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "externalApiResponseIsArray"
-                        },
-                        "type": "function"
-                    },
-                    "next": "delete_existing_games_state"
-                },
-                "response_not_array": {
-                    "condition": {
-                        "function": {
-                            "name": "not_externalApiResponseIsArray"
-                        },
-                        "type": "function"
-                    },
-                    "next": "error_state"
-                }
-            }
-        },
-        "none": {
-            "transitions": {
-                "validate_date": {
-                    "next": "validate_date_state"
-                }
-            }
-        },
-        "send_notifications_state": {
-            "transitions": {
-                "notifications_sent": {
-                    "action": {
-                        "name": "sendEmailNotifications"
-                    },
-                    "next": "complete_state"
-                }
-            }
-        },
-        "validate_date_state": {
-            "transitions": {
-                "date_invalid": {
-                    "condition": {
-                        "function": {
-                            "name": "not_hasValidDate"
-                        },
-                        "type": "function"
-                    },
-                    "next": "error_state"
-                },
-                "date_valid": {
-                    "condition": {
-                        "function": {
-                            "name": "hasValidDate"
-                        },
-                        "type": "function"
-                    },
-                    "next": "fetch_external_scores_state"
-                }
-            }
+  "description": "NBA Scores Fetch and Notify Workflow",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "validate_date": {
+          "next": "validate_date_state"
         }
+      }
     },
-    "workflow_name": "nba_scores_workflow"
+    "validate_date_state": {
+      "transitions": {
+        "date_invalid": {
+          "condition": {
+            "function": {
+              "name": "not_hasValidDate"
+            },
+            "type": "function"
+          },
+          "next": "error_state"
+        },
+        "date_valid": {
+          "condition": {
+            "function": {
+              "name": "hasValidDate"
+            },
+            "type": "function"
+          },
+          "next": "fetch_external_scores_state"
+        }
+      }
+    },
+    "error_state": {
+      "transitions": {}
+    },
+    "fetch_external_scores_state": {
+      "transitions": {
+        "response_is_array": {
+          "action": {
+            "name": "fetchExternalScores"
+          },
+          "condition": {
+            "function": {
+              "name": "externalApiResponseIsArray"
+            },
+            "type": "function"
+          },
+          "next": "delete_existing_games_state"
+        },
+        "response_not_array": {
+          "condition": {
+            "function": {
+              "name": "not_externalApiResponseIsArray"
+            },
+            "type": "function"
+          },
+          "next": "error_state"
+        }
+      }
+    },
+    "delete_existing_games_state": {
+      "transitions": {
+        "delete_done": {
+          "action": {
+            "name": "deleteExistingGames"
+          },
+          "next": "add_new_games_state"
+        }
+      }
+    },
+    "add_new_games_state": {
+      "transitions": {
+        "add_done": {
+          "action": {
+            "name": "addNewGames"
+          },
+          "next": "check_subscribers_state"
+        }
+      }
+    },
+    "check_subscribers_state": {
+      "transitions": {
+        "no_subscribers": {
+          "condition": {
+            "function": {
+              "name": "not_subscribersExist"
+            },
+            "type": "function"
+          },
+          "next": "complete_state"
+        },
+        "subscribers_exist": {
+          "condition": {
+            "function": {
+              "name": "subscribersExist"
+            },
+            "type": "function"
+          },
+          "next": "send_notifications_state"
+        }
+      }
+    },
+    "complete_state": {
+      "transitions": {
+        "check_no_errors": {
+          "condition": {
+            "function": {
+              "name": "noErrors"
+            },
+            "type": "function"
+          },
+          "next": "end_state"
+        },
+        "error_found": {
+          "condition": {
+            "function": {
+              "name": "not_noErrors"
+            },
+            "type": "function"
+          },
+          "next": "error_state"
+        }
+      }
+    },
+    "end_state": {
+      "transitions": {}
+    },
+    "send_notifications_state": {
+      "transitions": {
+        "notifications_sent": {
+          "action": {
+            "name": "sendEmailNotifications"
+          },
+          "next": "complete_state"
+        }
+      }
+    }
+  },
+  "workflow_name": "nba_scores_workflow"
 }
