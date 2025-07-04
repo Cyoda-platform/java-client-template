@@ -1,0 +1,46 @@
+{
+    "description": "Pet entity processing workflow for normalizing status and adding timestamp",
+    "initial_state": "none",
+    "states": {
+        "final": {
+            "transitions": {}
+        },
+        "none": {
+            "transitions": {
+                "pet_received_status_absent": {
+                    "condition": {
+                        "function": {
+                            "name": "alwaysTrue"
+                        },
+                        "type": "function"
+                    },
+                    "next": "processed"
+                },
+                "pet_received_status_present": {
+                    "action": {
+                        "name": "normalizeStatus"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "isStatusPresent"
+                        },
+                        "type": "function"
+                    },
+                    "next": "processed"
+                }
+            }
+        },
+        "processed": {
+            "transitions": {
+                "add_last_modified": {
+                    "action": {
+                        "name": "addLastModifiedTimestamp"
+                    },
+                    "next": "final"
+                }
+            }
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "pet_processing_workflow"
+}
