@@ -1,0 +1,44 @@
+{
+    "hn-item": {
+        "author": "author_name",
+        "comments": [
+            {
+                "author": "commenter_name",
+                "created_at": "2023-10-05T12:30:00Z",
+                "id": "comment-001",
+                "text": "This is a sample comment."
+            },
+            {
+                "author": "another_commenter_name",
+                "created_at": "2023-10-05T12:45:00Z",
+                "id": "comment-002",
+                "text": "Another comment on this item."
+            }
+        ],
+        "created_at": "2023-10-05T12:00:00Z",
+        "id": "hn-item-001",
+        "score": 100,
+        "title": "Sample HN Item Title",
+        "url": "https://example.com/sample-hn-item",
+        "workflow": {
+            "name": "hn-item-workflow",
+            "steps": [
+                {
+                    "name": "fetch_item_details",
+                    "next": "process_comments",
+                    "type": "action"
+                },
+                {
+                    "name": "process_comments",
+                    "next": "notify_users",
+                    "type": "action"
+                },
+                {
+                    "name": "notify_users",
+                    "next": null,
+                    "type": "action"
+                }
+            ]
+        }
+    }
+}
