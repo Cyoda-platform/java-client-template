@@ -1,20 +1,3 @@
-Certainly! Moving asynchronous or entity state modification logic from the controller endpoint into the workflow function (`process{entity_name}`) is the correct design approach. It keeps controllers clean and delegates all entity processing, enrichment, and async tasks to the workflow function which runs **before persistence**.
-
----
-
-### What we will do:
-
-- Move any async logic to the workflow function.
-- Move any entity state modifications (e.g. adding/updating fields) to the workflow.
-- Keep the controller minimal — just parse input, call addItem with workflow, and return the result.
-- If the controller had any async side effects or enrichment, move those into the workflow.
-- The workflow function itself returns a `CompletableFuture<ObjectNode>` with the (possibly mutated) entity to persist.
-
----
-
-### Example: Improved version of your controller and workflow function
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -55,36 +38,51 @@ public class CyodaEntityControllerPrototype {
     /**
      * Workflow function that performs asynchronous processing and entity state changes before persisting.
      * This is the recommended place for any async enrichment, side effects or secondary entity operations.
-     * 
+     *
      * @param entity the entity data to process and modify if needed
      * @return a CompletableFuture of the processed entity to persist
      */
     private CompletableFuture<ObjectNode> processPrototype(ObjectNode entity) {
-        // Example async task: enrich entity with a timestamp
-        entity.put("processedTimestamp", System.currentTimeMillis());
+        // Defensive null check (should not happen)
+        if (entity == null) {
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Entity is null"));
+        }
 
-        // TODO: Add any other asynchronous logic here, e.g.:
-        // - Fetch supplementary data (via entityService.getItem or other async APIs)
-        // - Add secondary entities of other models (never "prototype" itself!)
-        // - Modify or compute extra fields on the entity
+        try {
+            // Add or modify fields directly on the entity before persistence
+            entity.put("processedTimestamp", System.currentTimeMillis());
 
-        // Example: Simulate async call to fetch supplementary data (fake example)
-        CompletableFuture<ObjectNode> supplementaryDataFuture = entityService.getItem("supplementaryModel", ENTITY_VERSION, UUID.randomUUID());
+            // Example: If you want to add a supplementary entity of a different model,
+            // you can do it here asynchronously.
 
-        return supplementaryDataFuture.thenApply(supplementaryData -> {
-            if (supplementaryData != null) {
-                // Add supplementary data as nested property or merge fields
-                entity.set("supplementaryData", supplementaryData);
-            }
-            // Return the modified entity to be persisted
-            return entity;
-        })
-        // If you have no async tasks, just return completedFuture(entity);
-        .exceptionally(ex -> {
-            logger.error("Error during workflow processing", ex);
-            // Decide how to handle errors: either fail or ignore and persist entity as-is
-            return entity;
-        });
+            // WARNING: Do NOT call addItem/updateItem/deleteItem on "prototype" entityModel here,
+            // to prevent infinite recursion.
+
+            UUID supplementaryId = UUID.randomUUID(); // fake id for example
+
+            // Fetch supplementary data asynchronously, for example from another entityModel "supplementaryModel"
+            CompletableFuture<ObjectNode> supplementaryDataFuture = entityService.getItem(
+                    "supplementaryModel",
+                    ENTITY_VERSION,
+                    supplementaryId
+            );
+
+            // When supplementary data arrives, merge or add to the main entity
+            return supplementaryDataFuture.handle((supplementaryData, ex) -> {
+                if (ex != null) {
+                    logger.warn("Failed to fetch supplementary data for entity {}, continuing without it", supplementaryId, ex);
+                } else if (supplementaryData != null) {
+                    // Add supplementary data as nested property or merge fields
+                    entity.set("supplementaryData", supplementaryData);
+                }
+                // Return the modified entity regardless of supplementary data success or failure
+                return entity;
+            });
+
+        } catch (Exception e) {
+            logger.error("Exception in processPrototype workflow", e);
+            return CompletableFuture.failedFuture(e);
+        }
     }
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -100,6 +98,11 @@ public class CyodaEntityControllerPrototype {
             throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid JSON");
         }
 
+        // Validate that data is not empty or null (basic sanity check)
+        if (data.isEmpty(null)) {
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Empty entity data");
+        }
+
         // Pass the workflow function to addItem
         CompletableFuture<UUID> idFuture = entityService.addItem(
                 "prototype",
@@ -108,7 +111,14 @@ public class CyodaEntityControllerPrototype {
                 this::processPrototype
         );
 
-        UUID technicalId = idFuture.join();
+        UUID technicalId;
+        try {
+            technicalId = idFuture.join();
+        } catch (Exception e) {
+            logger.error("Failed to persist entity", e);
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, "Failed to persist entity");
+        }
+
         logger.info("Item stored with technicalId {}", technicalId);
         return ResponseEntity.ok(new IdResponse(technicalId.toString()));
     }
@@ -122,9 +132,17 @@ public class CyodaEntityControllerPrototype {
                 ENTITY_VERSION,
                 UUID.fromString(id)
         );
-        ObjectNode item = itemFuture.join();
+
+        ObjectNode item;
+        try {
+            item = itemFuture.join();
+        } catch (Exception e) {
+            logger.error("Failed to retrieve entity with id {}", id, e);
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, "Failed to retrieve entity");
+        }
+
         if (item == null) {
-            logger.error("Item with id {} not found", id);
+            logger.warn("Item with id {} not found", id);
             throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Item not found");
         }
         return ResponseEntity.ok(item);
@@ -161,18 +179,3 @@ public class CyodaEntityControllerPrototype {
         private String message;
     }
 }
-```
-
----
-
-### Summary
-
-- **All async code and entity mutation moved to `processPrototype` workflow function.**
-- The controller is now just a thin wrapper: parse input, call `addItem` with workflow, return ID.
-- In workflow, you can enrich the entity, call other entityService methods for different models, add derived fields, etc.
-- **Never modify the same entityModel ("prototype") via add/update/delete in the workflow to avoid infinite recursion!**
-- The workflow function supports full async handling and returns a CompletableFuture of the modified entity to persist.
-
----
-
-This approach makes your codebase more maintainable, robust, and scalable. It also clearly separates concerns: controllers handle HTTP, workflows handle business logic and async enrichment on entities before persistence.
