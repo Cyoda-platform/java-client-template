@@ -1,5 +1,6 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import jakarta.validation.Valid;
@@ -25,14 +26,16 @@ import static com.java_template.common.config.Config.*;
 @Validated
 @RestController
 @RequestMapping(path = "/cyoda/prototype/items", produces = MediaType.APPLICATION_JSON_VALUE)
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -42,13 +45,14 @@ public class CyodaEntityControllerPrototype {
 
         ObjectNode data;
         try {
-            data = (ObjectNode) entityService.getObjectMapper().readTree(request.getItemJson());
+            data = (ObjectNode) objectMapper.readTree(request.getItemJson());
         } catch (Exception e) {
             logger.error("Invalid JSON format", e);
             throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid JSON");
         }
 
         if (data.isEmpty(null)) {
+            logger.error("Empty entity data");
             throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Empty entity data");
         }
 
