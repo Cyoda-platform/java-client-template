@@ -1,80 +1,80 @@
 {
-    "description": "FSM for processing Hacker News item with validation, enrichment, and supplementary data fetch",
-    "initial_state": "none",
-    "states": {
-        "complete": {
-            "transitions": {}
+  "description": "FSM for processing Hacker News item with validation, enrichment, and supplementary data fetch",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "invalid_entity": {
+          "condition": {
+            "function": {
+              "name": "not_validateEntity"
+            },
+            "type": "function"
+          },
+          "next": "error"
         },
-        "enriched": {
-            "transitions": {
-                "fetch_supplementary_data": {
-                    "action": {
-                        "attach_entity": "true",
-                        "calculation_nodes_tags": "prototype_workflow",
-                        "calculation_response_timeout_ms": "300000",
-                        "name": "fetchSupplementaryData",
-                        "new_transaction_for_async": "true",
-                        "none_transactional_for_async": "false",
-                        "owner": "CYODA",
-                        "retry_policy": "FIXED",
-                        "sync_process": "false",
-                        "user": "CYODA"
-                    },
-                    "next": "merged"
-                }
-            }
-        },
-        "error": {
-            "transitions": {}
-        },
-        "merged": {
-            "transitions": {
-                "complete": {
-                    "next": "complete"
-                }
-            }
-        },
-        "none": {
-            "transitions": {
-                "invalid_entity": {
-                    "condition": {
-                        "function": {
-                            "name": "not_validateEntity"
-                        },
-                        "type": "function"
-                    },
-                    "next": "error"
-                },
-                "validate_entity": {
-                    "condition": {
-                        "function": {
-                            "name": "validateEntity"
-                        },
-                        "type": "function"
-                    },
-                    "next": "validated"
-                }
-            }
-        },
-        "validated": {
-            "transitions": {
-                "enrich_entity": {
-                    "action": {
-                        "attach_entity": "true",
-                        "calculation_nodes_tags": "prototype_workflow",
-                        "calculation_response_timeout_ms": "300000",
-                        "name": "enrichEntity",
-                        "new_transaction_for_async": "true",
-                        "none_transactional_for_async": "false",
-                        "owner": "CYODA",
-                        "retry_policy": "FIXED",
-                        "sync_process": "false",
-                        "user": "CYODA"
-                    },
-                    "next": "enriched"
-                }
-            }
+        "validate_entity": {
+          "condition": {
+            "function": {
+              "name": "validateEntity"
+            },
+            "type": "function"
+          },
+          "next": "validated"
         }
+      }
     },
-    "workflow_name": "process_hackernews_item"
+    "error": {
+      "transitions": {}
+    },
+    "validated": {
+      "transitions": {
+        "enrich_entity": {
+          "action": {
+            "attach_entity": "true",
+            "calculation_nodes_tags": "prototype_workflow",
+            "calculation_response_timeout_ms": "300000",
+            "name": "enrichEntity",
+            "new_transaction_for_async": "true",
+            "none_transactional_for_async": "false",
+            "owner": "CYODA",
+            "retry_policy": "FIXED",
+            "sync_process": "false",
+            "user": "CYODA"
+          },
+          "next": "enriched"
+        }
+      }
+    },
+    "enriched": {
+      "transitions": {
+        "fetch_supplementary_data": {
+          "action": {
+            "attach_entity": "true",
+            "calculation_nodes_tags": "prototype_workflow",
+            "calculation_response_timeout_ms": "300000",
+            "name": "fetchSupplementaryData",
+            "new_transaction_for_async": "true",
+            "none_transactional_for_async": "false",
+            "owner": "CYODA",
+            "retry_policy": "FIXED",
+            "sync_process": "false",
+            "user": "CYODA"
+          },
+          "next": "merged"
+        }
+      }
+    },
+    "merged": {
+      "transitions": {
+        "complete": {
+          "next": "complete"
+        }
+      }
+    },
+    "complete": {
+      "transitions": {}
+    }
+  },
+  "workflow_name": "process_hackernews_item"
 }
