@@ -4,12 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Size;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -39,17 +34,8 @@ public class Controller {
     }
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<IdResponse> saveItem(
-            @RequestBody @Valid SaveItemRequest request) {
+    public ResponseEntity<IdResponse> saveItem(@RequestBody @Valid ObjectNode data) {
         logger.info("POST /cyoda/prototype/items - received save request");
-
-        ObjectNode data;
-        try {
-            data = (ObjectNode) objectMapper.readTree(request.getItemJson());
-        } catch (Exception e) {
-            logger.error("Invalid JSON format", e);
-            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid JSON");
-        }
 
         if (data.isEmpty(null)) {
             logger.error("Empty entity data");
@@ -104,15 +90,6 @@ public class Controller {
         logger.error("Error occurred: status={}, message={}", ex.getStatusCode(), ex.getReason());
         return ResponseEntity.status(ex.getStatusCode())
                 .body(new ErrorResponse(ex.getStatusCode().toString(), ex.getReason()));
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    static class SaveItemRequest {
-        @NotBlank
-        @Size(max = 10000)
-        private String itemJson;
     }
 
     @Data
