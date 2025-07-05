@@ -1,0 +1,63 @@
+{
+    "description": "FSM for processing Hacker News item with validation, enrichment, and supplementary data fetch",
+    "initial_state": "none",
+    "states": {
+        "complete": {
+            "transitions": {}
+        },
+        "enriched": {
+            "transitions": {
+                "fetch_supplementary_data": {
+                    "action": {
+                        "name": "fetchSupplementaryData"
+                    },
+                    "next": "merged"
+                }
+            }
+        },
+        "error": {
+            "transitions": {}
+        },
+        "merged": {
+            "transitions": {
+                "complete": {
+                    "next": "complete"
+                }
+            }
+        },
+        "none": {
+            "transitions": {
+                "invalid_entity": {
+                    "condition": {
+                        "function": {
+                            "name": "not_validateEntity"
+                        },
+                        "type": "function"
+                    },
+                    "next": "error"
+                },
+                "validate_entity": {
+                    "condition": {
+                        "function": {
+                            "name": "validateEntity"
+                        },
+                        "type": "function"
+                    },
+                    "next": "validated"
+                }
+            }
+        },
+        "validated": {
+            "transitions": {
+                "enrich_entity": {
+                    "action": {
+                        "name": "enrichEntity"
+                    },
+                    "next": "enriched"
+                }
+            }
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "process_hackernews_item"
+}
