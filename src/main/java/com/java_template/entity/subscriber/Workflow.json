@@ -1,82 +1,82 @@
 {
-    "description": "Subscriber registration workflow with validation and duplicate check",
-    "initial_state": "none",
-    "states": {
-        "check_duplicate": {
-            "transitions": {
-                "duplicate_found": {
-                    "condition": {
-                        "function": {
-                            "name": "isDuplicateEmail"
-                        },
-                        "type": "function"
-                    },
-                    "next": "error_conflict"
-                },
-                "no_duplicate": {
-                    "condition": {
-                        "function": {
-                            "name": "isDuplicateEmail",
-                            "negate": true
-                        },
-                        "type": "function"
-                    },
-                    "next": "set_subscribed_at"
-                }
-            }
+  "description": "Subscriber registration workflow with validation and duplicate check",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "check_email_valid": {
+          "condition": {
+            "function": {
+              "name": "isEmailValid"
+            },
+            "type": "function"
+          },
+          "next": "validate_email"
         },
-        "error_bad_request": {
-            "transitions": {}
-        },
-        "error_conflict": {
-            "transitions": {}
-        },
-        "none": {
-            "transitions": {
-                "check_email_valid": {
-                    "condition": {
-                        "function": {
-                            "name": "isEmailValid"
-                        },
-                        "type": "function"
-                    },
-                    "next": "validate_email"
-                },
-                "email_invalid": {
-                    "condition": {
-                        "function": {
-                            "name": "isEmailValid",
-                            "negate": true
-                        },
-                        "type": "function"
-                    },
-                    "next": "error_bad_request"
-                }
-            }
-        },
-        "set_subscribed_at": {
-            "transitions": {
-                "finalize_subscription": {
-                    "action": {
-                        "name": "setSubscribedAtIfMissing"
-                    },
-                    "next": "subscription_complete"
-                }
-            }
-        },
-        "subscription_complete": {
-            "transitions": {}
-        },
-        "validate_email": {
-            "transitions": {
-                "check_duplicate_email": {
-                    "action": {
-                        "name": "normalizeEmail"
-                    },
-                    "next": "check_duplicate"
-                }
-            }
+        "email_invalid": {
+          "condition": {
+            "function": {
+              "name": "isEmailValid",
+              "negate": true
+            },
+            "type": "function"
+          },
+          "next": "error_bad_request"
         }
+      }
     },
-    "workflow_name": "subscriber_registration_workflow"
+    "validate_email": {
+      "transitions": {
+        "check_duplicate_email": {
+          "action": {
+            "name": "normalizeEmail"
+          },
+          "next": "check_duplicate"
+        }
+      }
+    },
+    "check_duplicate": {
+      "transitions": {
+        "duplicate_found": {
+          "condition": {
+            "function": {
+              "name": "isDuplicateEmail"
+            },
+            "type": "function"
+          },
+          "next": "error_conflict"
+        },
+        "no_duplicate": {
+          "condition": {
+            "function": {
+              "name": "isDuplicateEmail",
+              "negate": true
+            },
+            "type": "function"
+          },
+          "next": "set_subscribed_at"
+        }
+      }
+    },
+    "error_conflict": {
+      "transitions": {}
+    },
+    "set_subscribed_at": {
+      "transitions": {
+        "finalize_subscription": {
+          "action": {
+            "name": "setSubscribedAtIfMissing"
+          },
+          "next": "subscription_complete"
+        }
+      }
+    },
+    "subscription_complete": {
+      "transitions": {}
+    },
+    "error_bad_request": {
+      "transitions": {}
+    }
+  },
+  "workflow_name": "subscriber_registration_workflow"
 }
