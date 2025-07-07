@@ -74,6 +74,5 @@
             }
         }
     },
-    "version": "1.0",
     "workflow_name": "processPet_workflow"
 }
