@@ -1,0 +1,74 @@
+{
+    "description": "Weekly Cat Fact Subscription FSM",
+    "initial_state": "none",
+    "states": {
+        "completed": {
+            "transitions": {}
+        },
+        "failed": {
+            "transitions": {}
+        },
+        "fetch_fact": {
+            "transitions": {
+                "fact_fetched_fail": {
+                    "condition": {
+                        "function": {
+                            "name": "isFactFetchedUnsuccessfully"
+                        },
+                        "type": "function"
+                    },
+                    "next": "failed"
+                },
+                "fact_fetched_success": {
+                    "action": {
+                        "name": "fetchCatFact"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "isFactFetchedSuccessfully"
+                        },
+                        "type": "function"
+                    },
+                    "next": "send_emails"
+                }
+            }
+        },
+        "none": {
+            "transitions": {
+                "start_fetch_fact": {
+                    "action": {
+                        "name": "triggerFetchCatFact"
+                    },
+                    "next": "fetch_fact"
+                }
+            }
+        },
+        "send_emails": {
+            "transitions": {
+                "emails_sent_fail": {
+                    "condition": {
+                        "function": {
+                            "name": "areEmailsSentUnsuccessfully"
+                        },
+                        "type": "function"
+                    },
+                    "next": "failed"
+                },
+                "emails_sent_success": {
+                    "action": {
+                        "name": "sendEmailsToSubscribers"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "areEmailsSentSuccessfully"
+                        },
+                        "type": "function"
+                    },
+                    "next": "completed"
+                }
+            }
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "weekly_cat_fact_workflow"
+}
