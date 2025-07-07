@@ -69,6 +69,5 @@
             }
         }
     },
-    "version": "1.0",
     "workflow_name": "weekly_cat_fact_workflow"
 }
