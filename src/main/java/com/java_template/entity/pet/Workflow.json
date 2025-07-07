@@ -1,0 +1,70 @@
+{
+    "description": "Pet entity FSM workflow with status normalization and adoption side effects",
+    "initial_state": "none",
+    "states": {
+        "adopted_status_check": {
+            "transitions": {
+                "adopted_false": {
+                    "next": "end"
+                },
+                "adopted_true": {
+                    "condition": {
+                        "function": {
+                            "name": "isAdoptedStatus"
+                        },
+                        "type": "function"
+                    },
+                    "next": "trigger_adoption_side_effects"
+                }
+            }
+        },
+        "end": {
+            "transitions": {}
+        },
+        "none": {
+            "transitions": {
+                "to_status_present_check": {
+                    "next": "status_present_check"
+                }
+            }
+        },
+        "normalize_status": {
+            "transitions": {
+                "to_adopted_status_check": {
+                    "action": {
+                        "name": "normalizeStatus"
+                    },
+                    "next": "adopted_status_check"
+                }
+            }
+        },
+        "status_present_check": {
+            "transitions": {
+                "status_present_false": {
+                    "next": "end"
+                },
+                "status_present_true": {
+                    "condition": {
+                        "function": {
+                            "name": "isStatusPresent"
+                        },
+                        "type": "function"
+                    },
+                    "next": "normalize_status"
+                }
+            }
+        },
+        "trigger_adoption_side_effects": {
+            "transitions": {
+                "to_end": {
+                    "action": {
+                        "name": "triggerAdoptionSideEffects"
+                    },
+                    "next": "end"
+                }
+            }
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "pet_workflow"
+}
