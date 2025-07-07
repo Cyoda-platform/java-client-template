@@ -13,7 +13,6 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
-import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -31,15 +30,19 @@ import static com.java_template.common.config.Config.*;
 @Validated
 @RestController
 @RequestMapping(path = "/cyoda/pets")
-@RequiredArgsConstructor
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
     private static final String ENTITY_NAME = "pet";
+
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
+        this.entityService = entityService;
+        this.objectMapper = objectMapper;
+    }
 
     @Data
     public static class Pet {
@@ -94,6 +97,7 @@ public class CyodaEntityControllerPrototype {
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public CompletableFuture<UUID> addPet(@RequestBody @Valid Pet pet) {
         ObjectNode petNode = objectMapper.valueToTree(pet);
+        logger.info("Adding pet: name={}, type={}, status={}", pet.getName(), pet.getType(), pet.getStatus());
         return entityService.addItem(
                 ENTITY_NAME,
                 ENTITY_VERSION,
