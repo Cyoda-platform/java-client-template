@@ -1,21 +1,8 @@
-Certainly! Moving logic from controllers into the workflow functions (`process{entity_name}`) improves separation of concerns, reduces controller complexity, and leverages the workflow's ability to run async logic before persistence.
-
-We will:
-
-- Move any async or entity state mutation logic to the respective `process{entity_name}` workflow function and invoke it from controller via `addItem` or `updateItem` as needed.
-- Modify the workflow functions to accept `ObjectNode` (Jackson JSON tree) because entity data is passed as an `ObjectNode` and must be mutated directly.
-- Move adoption status update and any async side effects into `processpet` workflow.
-- Controllers become thin, just forwarding requests and calling `entityService` with workflow functions.
-
----
-
-### Updated code (only relevant parts shown, full class below):
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
@@ -50,30 +37,41 @@ public class CyodaEntityControllerPrototype {
     private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
+
     private static final String ENTITY_NAME = "pet";
 
     /**
      * Workflow function applied to the entity asynchronously before persistence.
      * ObjectNode entity can be mutated directly.
      * You can get/add entities of different entityModel but cannot modify same entityModel.
+     * Returns CompletableFuture<ObjectNode> for async processing.
      */
     private final Function<ObjectNode, CompletableFuture<ObjectNode>> processpet = entity -> {
-        // Example: normalize status to lowercase
-        if (entity.has("status") && !entity.get("status").isNull()) {
-            String status = entity.get("status").asText();
-            entity.put("status", status.toLowerCase());
-        }
+        try {
+            // Normalize status to lowercase if present
+            if (entity.has("status") && !entity.get("status").isNull()) {
+                String status = entity.get("status").asText();
+                entity.put("status", status.toLowerCase());
+            }
 
-        // If it's adoption workflow (status changed to "adopted") - perform async side effects here
-        if ("adopted".equals(entity.get("status").asText(null))) {
-            // Fire and forget example: notify systems asynchronously (just logging here)
-            CompletableFuture.runAsync(() -> {
-                logger.info("Adoption workflow triggered for pet with technicalId={}", entity.get("technicalId").asText(null));
-                // TODO: invoke external async notifications, event publishing etc.
-            });
+            // Async side effects for adoption
+            if ("adopted".equals(entity.get("status").asText(null))) {
+                String technicalId = entity.has("technicalId") ? entity.get("technicalId").asText() : "unknown";
+                CompletableFuture.runAsync(() -> {
+                    logger.info("Adoption workflow triggered for pet with technicalId={}", technicalId);
+                    // TODO: Add notification, audit log, event publishing etc.
+                });
+            }
+
+            // Return mutated entity
+            return CompletableFuture.completedFuture(entity);
+        } catch (Exception e) {
+            logger.error("Error in processpet workflow function", e);
+            CompletableFuture<ObjectNode> failedFuture = new CompletableFuture<>();
+            failedFuture.completeExceptionally(e);
+            return failedFuture;
         }
-        // Return entity to persist it
-        return CompletableFuture.completedFuture(entity);
     };
 
     @PostMapping("/fetch")
@@ -113,8 +111,8 @@ public class CyodaEntityControllerPrototype {
     }
 
     /**
-     * Adopt pet endpoint - simplified: fetch entity then update status via workflow function.
-     * We do not update the entity directly here but submit modified entity with updated status to updateItem with workflow.
+     * Adopt pet endpoint - fetch entity then update status via workflow function.
+     * Update entity with workflow to handle async side effects and validation.
      */
     @PostMapping("/adopt")
     public ResponseEntity<AdoptResponse> adoptPet(@RequestBody @Valid AdoptRequest adoptRequest) throws ExecutionException, InterruptedException {
@@ -130,12 +128,17 @@ public class CyodaEntityControllerPrototype {
         }
         ObjectNode petNode = (ObjectNode) foundItems.get(0);
 
-        // Update status to "adopted" before persistence
         petNode.put("status", "adopted");
 
-        UUID technicalId = UUID.fromString(petNode.get("technicalId").asText());
+        UUID technicalId;
+        try {
+            technicalId = UUID.fromString(petNode.get("technicalId").asText());
+        } catch (Exception e) {
+            logger.error("Invalid technicalId format: {}", petNode.get("technicalId").asText(), e);
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid pet technicalId");
+        }
 
-        // Pass modified entity to updateItem with workflow function to handle async tasks and validation
+        // Call updateItem with workflow function - processpet handles async side effects
         CompletableFuture<UUID> updatedIdFuture = entityService.updateItem(ENTITY_NAME, ENTITY_VERSION, technicalId, petNode, processpet);
         updatedIdFuture.get();
 
@@ -144,13 +147,13 @@ public class CyodaEntityControllerPrototype {
     }
 
     /**
-     * Add new pet example using workflow function
+     * Add new pet endpoint using workflow function.
+     * This demonstrates adding new entity with pre-persist logic.
      */
     @PostMapping("/add")
     public ResponseEntity<AddPetResponse> addPet(@RequestBody @Valid Pet pet) throws ExecutionException, InterruptedException {
         logger.info("Adding new pet with name={}", pet.getName());
 
-        // Convert Pet to ObjectNode (assume helper method exists)
         ObjectNode entityNode = petToObjectNode(pet);
 
         CompletableFuture<UUID> addFuture = entityService.addItem(ENTITY_NAME, ENTITY_VERSION, entityNode, processpet);
@@ -160,36 +163,34 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.ok(new AddPetResponse(id));
     }
 
-
-    // Helper methods for JSON conversions
+    // Helper methods
 
     private List<Pet> jsonNodeToPetList(ArrayNode arrayNode) {
+        if (arrayNode == null) return List.of();
         return arrayNode.findValues(null).stream()
-                .map(node -> {
-                    if (node.isObject())
-                        return jsonNodeToPet((ObjectNode) node);
-                    else
-                        return null;
-                })
-                .filter(pet -> pet != null)
+                .filter(node -> node.isObject())
+                .map(node -> jsonNodeToPet((ObjectNode) node))
                 .collect(Collectors.toList());
     }
 
     private Pet jsonNodeToPet(ObjectNode node) {
         Pet pet = new Pet();
-        if (node.has("technicalId")) pet.setTechnicalId(UUID.fromString(node.get("technicalId").asText()));
-        if (node.has("name")) pet.setName(node.get("name").asText(null));
-        if (node.has("status")) pet.setStatus(node.get("status").asText(null));
-        if (node.has("type")) pet.setType(node.get("type").asText(null));
-        if (node.has("photoUrls") && node.get("photoUrls").isArray()) {
+        try {
+            if (node.hasNonNull("technicalId")) pet.setTechnicalId(UUID.fromString(node.get("technicalId").asText()));
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid technicalId found in entity: {}", node.get("technicalId").asText());
+        }
+        if (node.hasNonNull("name")) pet.setName(node.get("name").asText());
+        if (node.hasNonNull("status")) pet.setStatus(node.get("status").asText());
+        if (node.hasNonNull("type")) pet.setType(node.get("type").asText());
+        if (node.hasNonNull("photoUrls") && node.get("photoUrls").isArray()) {
             pet.setPhotoUrls(node.findValuesAsText("photoUrls"));
         }
         return pet;
     }
 
     private ObjectNode petToObjectNode(Pet pet) {
-        // Convert Pet POJO to ObjectNode using Jackson ObjectMapper
-        return entityService.getObjectMapper().valueToTree(pet);
+        return objectMapper.valueToTree(pet);
     }
 
     // DTOs
@@ -198,6 +199,7 @@ public class CyodaEntityControllerPrototype {
     public static class FetchRequest {
         @Size(max = 30)
         private String type;
+
         @Pattern(regexp = "available|pending|sold", flags = Pattern.Flag.CASE_INSENSITIVE)
         private String status;
     }
@@ -211,20 +213,27 @@ public class CyodaEntityControllerPrototype {
     @Data
     public static class PetsResponse {
         private List<Pet> pets;
-        public PetsResponse(List<Pet> pets) { this.pets = pets; }
+        public PetsResponse(List<Pet> pets) {
+            this.pets = pets;
+        }
     }
 
     @Data
     public static class AdoptResponse {
         private boolean success;
         private String message;
-        public AdoptResponse(boolean success, String message) { this.success = success; this.message = message; }
+        public AdoptResponse(boolean success, String message) {
+            this.success = success;
+            this.message = message;
+        }
     }
 
     @Data
     public static class AddPetResponse {
         private UUID technicalId;
-        public AddPetResponse(UUID technicalId) { this.technicalId = technicalId; }
+        public AddPetResponse(UUID technicalId) {
+            this.technicalId = technicalId;
+        }
     }
 
     @Data
@@ -235,29 +244,4 @@ public class CyodaEntityControllerPrototype {
         private String type;
         private List<String> photoUrls;
     }
-
 }
-```
-
----
-
-### Summary of improvements:
-
-- **`processpet` workflow function** now:
-  - Normalizes the pet's `status` field.
-  - Detects adoption by `status == "adopted"` and triggers async notifications or side effects.
-- **`adoptPet` controller** now:
-  - Fetches pet entity as `ObjectNode`.
-  - Updates the status field in the entity directly.
-  - Calls `entityService.updateItem` with the updated entity and workflow function `processpet`.
-  - All async side effects moved into `processpet` (fire-and-forget notifications etc.).
-- **`addPet` controller**:
-  - Converts POJO to `ObjectNode`.
-  - Calls `entityService.addItem` with workflow function.
-- Controllers are now thin, focusing on request validation and forwarding.
-- All mutation and async side effects moved into `processpet` workflow function as required.
-- The workflow function returns a `CompletableFuture<ObjectNode>`, enabling async processing before persistence.
-
----
-
-If you want me to move any other async logic or create additional workflow functions for other entity models, just ask!
