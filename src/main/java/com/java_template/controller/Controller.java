@@ -42,7 +42,7 @@ public class Controller {
     }
 
     private static final String ENTITY_PET = "pet";
-    private static final String ENTITY_PET_FETCH_REQUEST = "petFetchRequest";
+    private static final String ENTITY_PET_FETCH_REQUEST = "petfetchrequest";
 
     // --- DTOs ---
 
