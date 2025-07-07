@@ -1,0 +1,79 @@
+{
+    "description": "PurrfectPets entity workflow FSM",
+    "initial_state": "none",
+    "states": {
+        "add_createdAt": {
+            "transitions": {
+                "to_check_name_normalization": {
+                    "action": {
+                        "name": "addCreatedAtIfMissing"
+                    },
+                    "next": "check_name_normalization"
+                }
+            }
+        },
+        "check_name_normalization": {
+            "transitions": {
+                "normalize_name": {
+                    "condition": {
+                        "function": {
+                            "name": "isNameNotNormalized"
+                        },
+                        "type": "function"
+                    },
+                    "next": "enrich_default_tags"
+                },
+                "skip_normalization": {
+                    "next": "enrich_default_tags"
+                }
+            }
+        },
+        "check_status_pending": {
+            "transitions": {
+                "add_status_reason": {
+                    "condition": {
+                        "function": {
+                            "name": "isStatusPending"
+                        },
+                        "type": "function"
+                    },
+                    "next": "complete"
+                },
+                "remove_status_reason": {
+                    "next": "complete"
+                }
+            }
+        },
+        "complete": {
+            "transitions": {}
+        },
+        "enrich_default_tags": {
+            "transitions": {
+                "fetch_and_merge_tags": {
+                    "action": {
+                        "name": "enrichWithDefaultTags"
+                    },
+                    "next": "check_status_pending"
+                }
+            }
+        },
+        "none": {
+            "transitions": {
+                "check_createdAt_missing": {
+                    "condition": {
+                        "function": {
+                            "name": "isCreatedAtMissing"
+                        },
+                        "type": "function"
+                    },
+                    "next": "add_createdAt"
+                },
+                "skip_createdAt": {
+                    "next": "check_name_normalization"
+                }
+            }
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "processPet_workflow"
+}
