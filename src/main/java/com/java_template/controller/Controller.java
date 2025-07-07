@@ -1,8 +1,8 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
@@ -10,8 +10,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
-import lombok.Data;
-import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -25,20 +23,24 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/cyoda/pets")
 @Validated
-@RequiredArgsConstructor
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
     private final ObjectMapper objectMapper;
 
     private static final String ENTITY_NAME = "pet";
+
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
+        this.entityService = entityService;
+        this.objectMapper = objectMapper;
+    }
 
     @PostMapping("/fetch")
     public ResponseEntity<PetsResponse> fetchPets(@RequestBody @Valid FetchRequest fetchRequest) throws ExecutionException, InterruptedException {
@@ -148,53 +150,146 @@ public class CyodaEntityControllerPrototype {
         return objectMapper.valueToTree(pet);
     }
 
-    @Data
     public static class FetchRequest {
         @Size(max = 30)
         private String type;
 
         @Pattern(regexp = "available|pending|sold", flags = Pattern.Flag.CASE_INSENSITIVE)
         private String status;
+
+        public String getType() {
+            return type;
+        }
+
+        public void setType(String type) {
+            this.type = type;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
     }
 
-    @Data
     public static class AdoptRequest {
         @NotNull
         private UUID petId;
+
+        public UUID getPetId() {
+            return petId;
+        }
+
+        public void setPetId(UUID petId) {
+            this.petId = petId;
+        }
     }
 
-    @Data
     public static class PetsResponse {
         private List<Pet> pets;
+
         public PetsResponse(List<Pet> pets) {
+            this.pets = pets;
+        }
+
+        public List<Pet> getPets() {
+            return pets;
+        }
+
+        public void setPets(List<Pet> pets) {
             this.pets = pets;
         }
     }
 
-    @Data
     public static class AdoptResponse {
         private boolean success;
         private String message;
+
         public AdoptResponse(boolean success, String message) {
             this.success = success;
             this.message = message;
         }
+
+        public boolean isSuccess() {
+            return success;
+        }
+
+        public void setSuccess(boolean success) {
+            this.success = success;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public void setMessage(String message) {
+            this.message = message;
+        }
     }
 
-    @Data
     public static class AddPetResponse {
         private UUID technicalId;
+
         public AddPetResponse(UUID technicalId) {
+            this.technicalId = technicalId;
+        }
+
+        public UUID getTechnicalId() {
+            return technicalId;
+        }
+
+        public void setTechnicalId(UUID technicalId) {
             this.technicalId = technicalId;
         }
     }
 
-    @Data
     public static class Pet {
         private UUID technicalId;
         private String name;
         private String status;
         private String type;
         private List<String> photoUrls;
+
+        public UUID getTechnicalId() {
+            return technicalId;
+        }
+
+        public void setTechnicalId(UUID technicalId) {
+            this.technicalId = technicalId;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
+
+        public String getType() {
+            return type;
+        }
+
+        public void setType(String type) {
+            this.type = type;
+        }
+
+        public List<String> getPhotoUrls() {
+            return photoUrls;
+        }
+
+        public void setPhotoUrls(List<String> photoUrls) {
+            this.photoUrls = photoUrls;
+        }
     }
 }
