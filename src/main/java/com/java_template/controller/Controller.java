@@ -176,64 +176,6 @@ public class Controller {
                 });
     }
 
-
-    // ===================== WORKFLOW FUNCTIONS =====================
-
-    private CompletableFuture<ObjectNode> processPetFetchRequest(ObjectNode fetchRequestEntity) {
-        String sourceUrl = fetchRequestEntity.path("sourceUrl").asText(null);
-        String status = fetchRequestEntity.path("status").asText(null);
-
-        if (sourceUrl == null || status == null) {
-            logger.warn("Invalid fetchRequestEntity missing sourceUrl or status");
-            return CompletableFuture.completedFuture(fetchRequestEntity);
-        }
-
-        return CompletableFuture.runAsync(() -> {
-            try {
-                URI uri = new URI(sourceUrl + "?status=" + status);
-                logger.info("[Workflow] Fetching pets from {}", uri);
-
-                RestTemplate restTemplate = new RestTemplate();
-                String raw = restTemplate.getForObject(uri, String.class);
-
-                if (raw == null) {
-                    logger.warn("[Workflow] No data fetched from source");
-                    return;
-                }
-
-                JsonNode root = objectMapper.readTree(raw);
-                if (!root.isArray()) {
-                    logger.warn("[Workflow] Expected JSON array for pets");
-                    return;
-                }
-
-                List<ObjectNode> petsToAdd = new ArrayList<>();
-                for (JsonNode node : root) {
-                    ObjectNode petNode = petJsonNodeToObjectNode(node);
-                    if (petNode != null) petsToAdd.add(petNode);
-                }
-
-                if (!petsToAdd.isEmpty()) {
-                    entityService.addItems(ENTITY_PET, ENTITY_VERSION, petsToAdd, this::processPet).get();
-                    logger.info("[Workflow] Added {} pets from fetch", petsToAdd.size());
-                }
-
-            } catch (Exception e) {
-                logger.error("[Workflow] Error fetching pets", e);
-            }
-        }).thenApply(v -> fetchRequestEntity);
-    }
-
-    private CompletableFuture<ObjectNode> processPet(ObjectNode petEntity) {
-        JsonNode statusNode = petEntity.get("status");
-        if (statusNode != null && statusNode.isTextual()) {
-            petEntity.put("status", statusNode.asText().toLowerCase());
-        }
-        petEntity.put("lastModified", Instant.now().toString());
-        return CompletableFuture.completedFuture(petEntity);
-    }
-
-
     // ===================== UTILITIES =====================
 
     private Pet jsonNodeToPet(JsonNode node) {

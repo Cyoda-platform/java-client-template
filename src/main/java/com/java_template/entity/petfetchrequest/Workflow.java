@@ -2,9 +2,11 @@ package com.java_template.entity.petfetchrequest;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.java_template.common.workflow.AbstractWorkflowHandler;
+import com.java_template.common.workflow.WorkflowMethod;
+import com.java_template.common.workflow.entity.PetFetchRequestEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
@@ -16,33 +18,48 @@ import java.util.concurrent.CompletableFuture;
 import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @Component("petfetchrequest")
-public class Workflow {
-
-    private static final Logger logger = LoggerFactory.getLogger(Workflow.class);
+public class Workflow extends AbstractWorkflowHandler<PetFetchRequestEntity> {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
-    // noop action - does nothing, returns entity unchanged
-    public CompletableFuture<ObjectNode> noop(ObjectNode entity) {
+    @Override
+    public String getEntityType() {
+        return "petfetchrequest";
+    }
+
+    @Override
+    public PetFetchRequestEntity createEntity(Object data) {
+        if (data instanceof ObjectNode) {
+            return new PetFetchRequestEntity((ObjectNode) data);
+        }
+        throw new IllegalArgumentException("Expected ObjectNode for PetFetchRequest entity creation");
+    }
+
+    @Override
+    protected Class<PetFetchRequestEntity> getEntityClass() {
+        return PetFetchRequestEntity.class;
+    }
+
+    // Workflow methods - automatically discovered via @WorkflowMethod annotation
+    @WorkflowMethod(description = "No-operation method that returns entity unchanged")
+    public CompletableFuture<PetFetchRequestEntity> noop(PetFetchRequestEntity entity) {
         return CompletableFuture.completedFuture(entity);
     }
 
-    // condition function: returns true if fetchRequest has both sourceUrl and status non-null/non-empty
-    public CompletableFuture<ObjectNode> isFetchRequestValid(ObjectNode fetchRequestEntity) {
-        boolean valid = fetchRequestEntity.hasNonNull("sourceUrl") && !fetchRequestEntity.get("sourceUrl").asText().isEmpty()
-                && fetchRequestEntity.hasNonNull("status") && !fetchRequestEntity.get("status").asText().isEmpty();
-        fetchRequestEntity.put("valid", valid);
-        return CompletableFuture.completedFuture(fetchRequestEntity);
+    @WorkflowMethod(description = "Validates the fetch request and sets the valid flag")
+    public CompletableFuture<PetFetchRequestEntity> isFetchRequestValid(PetFetchRequestEntity entity) {
+        entity.validateRequest();
+        return CompletableFuture.completedFuture(entity);
     }
 
-    // action function for fetching pets from external API, parsing and storing them asynchronously
-    public CompletableFuture<ObjectNode> processPetFetchRequest(ObjectNode fetchRequestEntity) {
-        String sourceUrl = fetchRequestEntity.path("sourceUrl").asText(null);
-        String status = fetchRequestEntity.path("status").asText(null);
+    @WorkflowMethod(description = "Processes the pet fetch request by calling external API and storing results")
+    public CompletableFuture<PetFetchRequestEntity> processPetFetchRequest(PetFetchRequestEntity entity) {
+        String sourceUrl = entity.getSourceUrl();
+        String status = entity.getStatus();
 
-        if (sourceUrl == null || status == null) {
+        if (!entity.isValid()) {
             logger.warn("Invalid fetchRequestEntity missing sourceUrl or status");
-            return CompletableFuture.completedFuture(fetchRequestEntity);
+            return CompletableFuture.completedFuture(entity);
         }
 
         return CompletableFuture.runAsync(() -> {
@@ -78,7 +95,7 @@ public class Workflow {
             } catch (Exception e) {
                 logger.error("[Workflow] Error fetching pets", e);
             }
-        }).thenApply(v -> fetchRequestEntity);
+        }).thenApply(v -> entity);
     }
 
     // helper to convert JsonNode pet data to ObjectNode
@@ -97,16 +114,47 @@ public class Workflow {
             }
             // tags as JSON array of strings
             if (petNode.has("tags") && petNode.get("tags").isArray()) {
-                pet.putArray("tags").addAll(mapper.convertValue(petNode.get("tags").findValues("name"), mapper.getNodeFactory().arrayNode().getNodeType()));
+                ArrayNode tagsArray = mapper.createArrayNode();
+                for (JsonNode tag : petNode.get("tags")) {
+                    if (tag.isObject()) {
+                        String tagName = tag.path("name").asText(null);
+                        if (tagName != null) tagsArray.add(tagName);
+                    } else if (tag.isTextual()) {
+                        tagsArray.add(tag.asText());
+                    }
+                }
+                pet.set("tags", tagsArray);
             }
             // photoUrls as JSON array of strings
             if (petNode.has("photoUrls") && petNode.get("photoUrls").isArray()) {
-                pet.putArray("photoUrls").addAll(mapper.convertValue(petNode.get("photoUrls"), mapper.getNodeFactory().arrayNode().getNodeType()));
+                ArrayNode photosArray = mapper.createArrayNode();
+                for (JsonNode photoUrl : petNode.get("photoUrls")) {
+                    if (photoUrl.isTextual()) {
+                        photosArray.add(photoUrl.asText());
+                    }
+                }
+                pet.set("photoUrls", photosArray);
             }
             return pet;
         } catch (Exception e) {
             logger.error("Error converting pet JsonNode to ObjectNode", e);
             return null;
         }
+    }
+
+    // Legacy methods for backward compatibility with existing registrar
+    public CompletableFuture<ObjectNode> noop(ObjectNode entity) {
+        PetFetchRequestEntity fetchEntity = new PetFetchRequestEntity(entity);
+        return noop(fetchEntity).thenApply(PetFetchRequestEntity::toObjectNode);
+    }
+
+    public CompletableFuture<ObjectNode> isFetchRequestValid(ObjectNode fetchRequestEntity) {
+        PetFetchRequestEntity entity = new PetFetchRequestEntity(fetchRequestEntity);
+        return isFetchRequestValid(entity).thenApply(PetFetchRequestEntity::toObjectNode);
+    }
+
+    public CompletableFuture<ObjectNode> processPetFetchRequest(ObjectNode fetchRequestEntity) {
+        PetFetchRequestEntity entity = new PetFetchRequestEntity(fetchRequestEntity);
+        return processPetFetchRequest(entity).thenApply(PetFetchRequestEntity::toObjectNode);
     }
 }

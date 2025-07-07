@@ -1,4 +1,4 @@
-package com.java_template.entity.prototype;
+package com.java_template.prototype;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

@@ -1,4 +1,4 @@
-package com.java_template.entity.prototype;
+package com.java_template.prototype;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -81,7 +81,7 @@ public class EntityControllerPrototype {
     }
 
     @Async
-    private void fetchAndStorePets(String sourceUrl, String status) {
+    public void fetchAndStorePets(String sourceUrl, String status) {
         try {
             URI uri = new URI(sourceUrl + "?status=" + status);
             logger.info("Fetching from {}", uri);
