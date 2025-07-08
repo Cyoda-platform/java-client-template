@@ -1,4 +1,4 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -7,9 +7,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -27,7 +24,6 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 
 import java.net.URI;
-import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -37,10 +33,10 @@ import static com.java_template.common.config.Config.*;
 @Validated
 @RestController
 @RequestMapping("cyoda-entity-prototype")
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
+    private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate = new RestTemplate();
     private final EntityService entityService;
 
@@ -48,34 +44,66 @@ public class CyodaEntityControllerPrototype {
     private static final String EXTERNAL_API_TEMPLATE =
             "https://api.sportsdata.io/v3/nba/scores/json/ScoresBasicFinal/%s?key=test";
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     static class SubscribeRequest {
         @Email
         @NotBlank
         private String email;
+
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     static class FetchScoresRequest {
         @NotNull
         @Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}$", message = "Date must be in YYYY-MM-DD format")
         private String date;
+
+        public String getDate() {
+            return date;
+        }
+
+        public void setDate(String date) {
+            this.date = date;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     static class ApiResponse {
         private String status;
         private String message;
+
+        public ApiResponse() {
+        }
+
+        public ApiResponse(String status, String message) {
+            this.status = status;
+            this.message = message;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public void setMessage(String message) {
+            this.message = message;
+        }
     }
 
     @PostMapping("/fetch-scores")
