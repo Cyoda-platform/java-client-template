@@ -1,79 +1,76 @@
-```json
 {
-  "version": "1.0",
-  "description": "FSM workflow to validate, hash password, store, authenticate, and notify user data",
-  "initial_state": "none",
-  "workflow_name": "user_data_processing_workflow",
-  "states": {
-    "none": {
-      "transitions": {
-        "start_validation": {
-          "next": "validate"
-        }
-      }
-    },
-    "validate": {
-      "transitions": {
-        "validation_passed": {
-          "next": "hash_password",
-          "action": {
-            "name": "validateUserData"
-          }
+    "description": "FSM workflow to validate, hash password, store, authenticate, and notify user data",
+    "initial_state": "none",
+    "states": {
+        "authenticate": {
+            "transitions": {
+                "authenticate_user": {
+                    "action": {
+                        "name": "authenticateUser"
+                    },
+                    "next": "notify"
+                }
+            }
         },
-        "validation_failed": {
-          "next": "end_error",
-          "action": {
-            "name": "handleValidationError"
-          }
+        "end_error": {
+            "transitions": {}
+        },
+        "end_success": {
+            "transitions": {}
+        },
+        "hash_password": {
+            "transitions": {
+                "hash_complete": {
+                    "action": {
+                        "name": "hashUserPassword"
+                    },
+                    "next": "store"
+                }
+            }
+        },
+        "none": {
+            "transitions": {
+                "start_validation": {
+                    "next": "validate"
+                }
+            }
+        },
+        "notify": {
+            "transitions": {
+                "send_notification": {
+                    "action": {
+                        "name": "notifyUser"
+                    },
+                    "next": "end_success"
+                }
+            }
+        },
+        "store": {
+            "transitions": {
+                "store_data": {
+                    "action": {
+                        "name": "storeUserData"
+                    },
+                    "next": "authenticate"
+                }
+            }
+        },
+        "validate": {
+            "transitions": {
+                "validation_failed": {
+                    "action": {
+                        "name": "handleValidationError"
+                    },
+                    "next": "end_error"
+                },
+                "validation_passed": {
+                    "action": {
+                        "name": "validateUserData"
+                    },
+                    "next": "hash_password"
+                }
+            }
         }
-      }
     },
-    "hash_password": {
-      "transitions": {
-        "hash_complete": {
-          "next": "store",
-          "action": {
-            "name": "hashUserPassword"
-          }
-        }
-      }
-    },
-    "store": {
-      "transitions": {
-        "store_data": {
-          "next": "authenticate",
-          "action": {
-            "name": "storeUserData"
-          }
-        }
-      }
-    },
-    "authenticate": {
-      "transitions": {
-        "authenticate_user": {
-          "next": "notify",
-          "action": {
-            "name": "authenticateUser"
-          }
-        }
-      }
-    },
-    "notify": {
-      "transitions": {
-        "send_notification": {
-          "next": "end_success",
-          "action": {
-            "name": "notifyUser"
-          }
-        }
-      }
-    },
-    "end_success": {
-      "transitions": {}
-    },
-    "end_error": {
-      "transitions": {}
-    }
-  }
+    "workflow_name": "user_data_processing_workflow"
 }
-```
