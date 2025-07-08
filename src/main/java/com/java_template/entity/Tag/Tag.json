@@ -1,4 +1,28 @@
 {
-    "id": 1,
-    "name": "playful"
+    "Tag": [
+        {
+            "id": 1,
+            "name": "playful"
+        },
+        {
+            "id": 2,
+            "name": "cute"
+        },
+        {
+            "id": 3,
+            "name": "friendly"
+        },
+        {
+            "id": 4,
+            "name": "loyal"
+        },
+        {
+            "id": 5,
+            "name": "chirpy"
+        },
+        {
+            "id": 6,
+            "name": "small"
+        }
+    ]
 }
