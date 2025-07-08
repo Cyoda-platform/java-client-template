@@ -1,136 +1,136 @@
 {
-    "description": "NBA Scores and Subscriber Notification FSM Workflow",
-    "initial_state": "none",
-    "states": {
-        "check_subscribers": {
-            "transitions": {
-                "has_subscribers": {
-                    "condition": {
-                        "function": {
-                            "name": "hasSubscribers"
-                        },
-                        "type": "function"
-                    },
-                    "next": "send_notifications"
-                },
-                "no_subscribers": {
-                    "next": "end_no_notifications"
-                }
-            }
+  "description": "NBA Scores and Subscriber Notification FSM Workflow",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_score_fetch": {
+          "condition": {
+            "function": {
+              "name": "isScoreFetchEvent"
+            },
+            "type": "function"
+          },
+          "next": "fetch_scores"
         },
-        "email_validation_check": {
-            "transitions": {
-                "invalid_email": {
-                    "next": "end_invalid_subscription"
-                },
-                "valid_email": {
-                    "condition": {
-                        "function": {
-                            "name": "isValidEmail"
-                        },
-                        "type": "function"
-                    },
-                    "next": "persist_subscriber"
-                }
-            }
-        },
-        "end_fetch_error": {
-            "transitions": {}
-        },
-        "end_invalid_subscription": {
-            "transitions": {}
-        },
-        "end_no_notifications": {
-            "transitions": {}
-        },
-        "end_notifications_success": {
-            "transitions": {}
-        },
-        "end_subscription_success": {
-            "transitions": {}
-        },
-        "fetch_scores": {
-            "transitions": {
-                "fetch_and_parse": {
-                    "action": {
-                        "name": "fetchNbaScores"
-                    },
-                    "next": "validate_scores"
-                }
-            }
-        },
-        "none": {
-            "transitions": {
-                "start_score_fetch": {
-                    "condition": {
-                        "function": {
-                            "name": "isScoreFetchEvent"
-                        },
-                        "type": "function"
-                    },
-                    "next": "fetch_scores"
-                },
-                "start_subscription_processing": {
-                    "condition": {
-                        "function": {
-                            "name": "isSubscriptionEvent"
-                        },
-                        "type": "function"
-                    },
-                    "next": "process_subscriber"
-                }
-            }
-        },
-        "persist_scores": {
-            "transitions": {
-                "persist_done": {
-                    "next": "check_subscribers"
-                }
-            }
-        },
-        "persist_subscriber": {
-            "transitions": {
-                "persist_done": {
-                    "next": "end_subscription_success"
-                }
-            }
-        },
-        "process_subscriber": {
-            "transitions": {
-                "validate_email": {
-                    "action": {
-                        "name": "processSubscriber"
-                    },
-                    "next": "email_validation_check"
-                }
-            }
-        },
-        "send_notifications": {
-            "transitions": {
-                "notifications_sent": {
-                    "action": {
-                        "name": "sendNotifications"
-                    },
-                    "next": "end_notifications_success"
-                }
-            }
-        },
-        "validate_scores": {
-            "transitions": {
-                "scores_invalid": {
-                    "next": "end_fetch_error"
-                },
-                "scores_valid": {
-                    "condition": {
-                        "function": {
-                            "name": "isFetchedDataValid"
-                        },
-                        "type": "function"
-                    },
-                    "next": "persist_scores"
-                }
-            }
+        "start_subscription_processing": {
+          "condition": {
+            "function": {
+              "name": "isSubscriptionEvent"
+            },
+            "type": "function"
+          },
+          "next": "process_subscriber"
         }
+      }
     },
-    "workflow_name": "nba_scores_notification_workflow"
+    "fetch_scores": {
+      "transitions": {
+        "fetch_and_parse": {
+          "action": {
+            "name": "fetchNbaScores"
+          },
+          "next": "validate_scores"
+        }
+      }
+    },
+    "validate_scores": {
+      "transitions": {
+        "scores_invalid": {
+          "next": "end_fetch_error"
+        },
+        "scores_valid": {
+          "condition": {
+            "function": {
+              "name": "isFetchedDataValid"
+            },
+            "type": "function"
+          },
+          "next": "persist_scores"
+        }
+      }
+    },
+    "end_fetch_error": {
+      "transitions": {}
+    },
+    "persist_scores": {
+      "transitions": {
+        "persist_done": {
+          "next": "check_subscribers"
+        }
+      }
+    },
+    "check_subscribers": {
+      "transitions": {
+        "has_subscribers": {
+          "condition": {
+            "function": {
+              "name": "hasSubscribers"
+            },
+            "type": "function"
+          },
+          "next": "send_notifications"
+        },
+        "no_subscribers": {
+          "next": "end_no_notifications"
+        }
+      }
+    },
+    "send_notifications": {
+      "transitions": {
+        "notifications_sent": {
+          "action": {
+            "name": "sendNotifications"
+          },
+          "next": "end_notifications_success"
+        }
+      }
+    },
+    "end_notifications_success": {
+      "transitions": {}
+    },
+    "end_no_notifications": {
+      "transitions": {}
+    },
+    "process_subscriber": {
+      "transitions": {
+        "validate_email": {
+          "action": {
+            "name": "processSubscriber"
+          },
+          "next": "email_validation_check"
+        }
+      }
+    },
+    "email_validation_check": {
+      "transitions": {
+        "invalid_email": {
+          "next": "end_invalid_subscription"
+        },
+        "valid_email": {
+          "condition": {
+            "function": {
+              "name": "isValidEmail"
+            },
+            "type": "function"
+          },
+          "next": "persist_subscriber"
+        }
+      }
+    },
+    "end_invalid_subscription": {
+      "transitions": {}
+    },
+    "persist_subscriber": {
+      "transitions": {
+        "persist_done": {
+          "next": "end_subscription_success"
+        }
+      }
+    },
+    "end_subscription_success": {
+      "transitions": {}
+    }
+  },
+  "workflow_name": "nba_scores_notification_workflow"
 }
