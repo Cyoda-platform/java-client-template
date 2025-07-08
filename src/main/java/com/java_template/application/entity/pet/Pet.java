@@ -1,4 +1,4 @@
-package com.java_template.entity.pet;
+package com.java_template.application.entity.pet;
 
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.ModelKey;

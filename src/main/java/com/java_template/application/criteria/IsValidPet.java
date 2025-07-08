@@ -1,9 +1,9 @@
-package com.java_template.criteria;
+package com.java_template.application.criteria;
 
 import com.java_template.common.workflow.CriteriaChecker;
 import com.java_template.common.workflow.ModelKey;
-import com.java_template.entity.pet.Pet;
-import com.java_template.serializer.CriteriaRequestSerializer;
+import com.java_template.application.entity.pet.Pet;
+import com.java_template.application.serializer.CriteriaRequestSerializer;
 import org.cyoda.cloud.api.event.EntityCriteriaCalculationRequest;
 import org.cyoda.cloud.api.event.EntityCriteriaCalculationResponse;
 import org.slf4j.Logger;

@@ -1,9 +1,9 @@
-package com.java_template.processor;
+package com.java_template.application.processor;
 
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.ModelKey;
-import com.java_template.entity.pet.Pet;
-import com.java_template.serializer.ProcessorRequestSerializer;
+import com.java_template.application.entity.pet.Pet;
+import com.java_template.application.serializer.ProcessorRequestSerializer;
 import org.cyoda.cloud.api.event.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;

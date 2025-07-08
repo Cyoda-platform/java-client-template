@@ -1,4 +1,4 @@
-package com.java_template.entity.petfetchrequest;
+package com.java_template.application.entity.petfetchrequest;
 
 
 import com.java_template.common.workflow.CyodaEntity;
