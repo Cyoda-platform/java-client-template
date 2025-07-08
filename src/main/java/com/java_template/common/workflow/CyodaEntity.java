@@ -7,22 +7,11 @@ package com.java_template.common.workflow;
 public interface CyodaEntity {
 
     /**
-     * Gets the entity type identifier.
-     * @return the entity type as a string
+     * Gets the model key for this entity, containing both model name and version.
+     * This is used for processor selection and entity identification.
+     * @return the ModelKey containing model name and version
      */
-    String getEntityType();
-
-    /**
-     * Gets the entity class.
-     * @return the Class object for this entity type
-     */
-    Class<? extends CyodaEntity> getClazz();
-
-    /**
-     * Gets the entity name (simple class name).
-     * @return the simple class name
-     */
-    String getName();
+    ModelKey getModelKey();
 
     /**
      * Validates the entity data.

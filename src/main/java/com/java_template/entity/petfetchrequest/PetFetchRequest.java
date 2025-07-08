@@ -2,6 +2,7 @@ package com.java_template.entity.petfetchrequest;
 
 
 import com.java_template.common.workflow.CyodaEntity;
+import com.java_template.common.workflow.ModelKey;
 import lombok.Data;
 
 /**
@@ -20,18 +21,8 @@ public class PetFetchRequest implements CyodaEntity {
     }
 
     @Override
-    public String getEntityType() {
-        return "petfetchrequest";
-    }
-
-    @Override
-    public Class<? extends CyodaEntity> getClazz() {
-        return PetFetchRequest.class;
-    }
-
-    @Override
-    public String getName() {
-        return PetFetchRequest.class.getSimpleName();
+    public ModelKey getModelKey() {
+        return new ModelKey("petfetchrequest", "1.0");
     }
 
     @Override

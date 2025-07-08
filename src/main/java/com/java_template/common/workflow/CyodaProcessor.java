@@ -1,26 +1,51 @@
 package com.java_template.common.workflow;
 
+import org.cyoda.cloud.api.event.EntityProcessorCalculationRequest;
+import org.cyoda.cloud.api.event.EntityProcessorCalculationResponse;
+
 import java.util.concurrent.CompletableFuture;
 
 /**
  * Interface for Cyoda workflow processors.
  * Each workflow method should be implemented as a separate processor class.
- * Processors work directly with CyodaEntity types for type safety and cleaner code.
- *
- * @param <T> the specific CyodaEntity type this processor handles
+ * Processors handle ObjectNode payload and decide internally how to process it,
+ * allowing flexibility in entity handling and conversion strategies.
+
+ * CyodaProcessor components handle EntityProcessorCalculationRequest events
+ * from the CyodaCalculationMemberClient and are responsible for entity transformation
+ * and business logic processing.
  */
-public interface CyodaProcessor<T extends CyodaEntity> {
+public interface CyodaProcessor {
 
     /**
-     * Processes the given entity.
-     * @param entity the entity to process
-     * @return CompletableFuture containing the processed entity
+     * Processes the given EntityProcessorCalculationRequest.
+     * The processor can decide internally how to handle the request:
+     * - Use serializers/marshallers to convert to ObjectNode or entity types
+     * - Work directly with the request object
+     * - Use adapters for data conversion
+
+     * This gives processors complete control over data marshalling and processing approach.
+     *
+     * @param request the EntityProcessorCalculationRequest to process
+     * @return CompletableFuture containing the EntityProcessorCalculationResponse
      */
-    CompletableFuture<T> process(T entity);
+    CompletableFuture<EntityProcessorCalculationResponse> process(EntityProcessorCalculationRequest request);
 
     /**
-     * Gets the entity type class that this processor handles.
-     * @return the Class object for the entity type
+     * Checks if this processor supports the given model key.
+     * Used to filter processors based on entity name and version
+     * from event metadata before selecting by processor name.
+     *
+     * @param modelKey the model key containing entity name and version
+     * @return true if this processor supports the given model key, false otherwise
      */
-    Class<T> getEntityType();
+    boolean supports(ModelKey modelKey);
+
+    /**
+     * Gets the processor name for identification and logging.
+     * This should typically match the Spring bean name.
+     *
+     * @return the processor name
+     */
+    String getName();
 }

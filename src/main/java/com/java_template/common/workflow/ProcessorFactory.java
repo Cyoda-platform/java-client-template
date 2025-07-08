@@ -4,87 +4,69 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Factory for managing CyodaProcessor beans.
  * Automatically discovers and registers all CyodaProcessor beans on construction.
- * Handles generic processors and their entity type resolution.
+ * Processors are decoupled from specific entity types and handle ObjectNode payloads.
+ * Supports filtering processors by ModelKey (entity name + version) for sophisticated selection.
  */
 @Component
 public class ProcessorFactory {
 
     private static final Logger logger = LoggerFactory.getLogger(ProcessorFactory.class);
 
-    private final Map<String, CyodaProcessor<? extends CyodaEntity>> processors = new ConcurrentHashMap<>();
-    private final Map<String, Class<? extends CyodaEntity>> processorEntityTypes = new ConcurrentHashMap<>();
+    private final Map<String, List<CyodaProcessor>> processorsByName = new ConcurrentHashMap<>();
 
     /**
      * Constructor that automatically discovers and registers all CyodaProcessor beans.
+     *
      * @param processorBeans Map of all CyodaProcessor beans from Spring context
      */
-    @SuppressWarnings("unchecked")
     public ProcessorFactory(Map<String, CyodaProcessor> processorBeans) {
         logger.info("Initializing ProcessorFactory with {} processor beans", processorBeans.size());
 
         for (Map.Entry<String, CyodaProcessor> entry : processorBeans.entrySet()) {
-            String beanName = entry.getKey();
-            CyodaProcessor<? extends CyodaEntity> processor = entry.getValue();
-
-            processors.put(beanName, processor);
-
-            // Store the entity type for this processor
-            Class<? extends CyodaEntity> entityType = processor.getEntityType();
-            processorEntityTypes.put(beanName, entityType);
-
-            logger.debug("Registered processor: {} for entity type: {}", beanName, entityType.getSimpleName());
+            CyodaProcessor processor = entry.getValue();
+            String processorName = processor.getName();
+            processorsByName.computeIfAbsent(processorName, k -> new ArrayList<>()).add(processor);
         }
 
-        logger.info("ProcessorFactory initialized with {} processors: {}",
-                   processors.size(), processors.keySet());
+        logger.info("ProcessorFactory initialized with {} unique processor names", processorsByName.size());
     }
 
-    /**
-     * Gets a processor by name.
-     * @param processorName the name of the processor (bean name)
-     * @return the processor, or null if not found
-     */
-    public CyodaProcessor<? extends CyodaEntity> getProcessor(String processorName) {
-        return processors.get(processorName);
-    }
 
     /**
-     * Gets the entity type for a processor.
-     * @param processorName the name of the processor (bean name)
-     * @return the entity type class, or null if processor not found
-     */
-    public Class<? extends CyodaEntity> getEntityType(String processorName) {
-        return processorEntityTypes.get(processorName);
-    }
-
-    /**
-     * Checks if a processor exists.
+     * Gets a processor by name, only if it supports the given ModelKey.
+     * Returns the first supporting processor if multiple exist.
+     *
      * @param processorName the name of the processor
-     * @return true if the processor exists, false otherwise
+     * @param modelKey      the model key that must be supported
+     * @return supporting processor or null if none found
      */
-    public boolean hasProcessor(String processorName) {
-        return processors.containsKey(processorName);
+    public CyodaProcessor getProcessorForModel(String processorName, ModelKey modelKey) {
+        List<CyodaProcessor> candidateProcessors = processorsByName.get(processorName);
+
+        if (candidateProcessors == null || candidateProcessors.isEmpty()) {
+            logger.debug("No processors found for name '{}'", processorName);
+            return null;
+        }
+
+        for (CyodaProcessor processor : candidateProcessors) {
+            if (processor.supports(modelKey)) {
+                logger.debug("Selected processor '{}' (class: {}) for ModelKey {}",
+                        processorName, processor.getClass().getSimpleName(), modelKey);
+                return processor;
+            }
+        }
+
+        logger.debug("No processor named '{}' supports ModelKey {}. Found {} processors with this name.",
+                processorName, modelKey, candidateProcessors.size());
+        return null;
     }
 
-    /**
-     * Gets all registered processor names.
-     * @return array of processor names
-     */
-    public String[] getRegisteredProcessors() {
-        return processors.keySet().toArray(new String[0]);
-    }
-
-    /**
-     * Gets the number of registered processors.
-     * @return number of processors
-     */
-    public int getProcessorCount() {
-        return processors.size();
-    }
 }

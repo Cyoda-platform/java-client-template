@@ -1,6 +1,7 @@
 package com.java_template.entity.pet;
 
 import com.java_template.common.workflow.CyodaEntity;
+import com.java_template.common.workflow.ModelKey;
 import lombok.Data;
 
 import java.time.Instant;
@@ -26,18 +27,8 @@ public class Pet implements CyodaEntity {
 
     
     @Override
-    public String getEntityType() {
-        return "pet";
-    }
-
-    @Override
-    public Class<? extends CyodaEntity> getClazz() {
-        return Pet.class;
-    }
-
-    @Override
-    public String getName() {
-        return Pet.class.getSimpleName();
+    public ModelKey getModelKey() {
+        return new ModelKey("pet", "1.0");
     }
 
     @Override

@@ -6,7 +6,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.java_template.common.util.JsonUtils;
-import com.java_template.common.workflow.WorkflowProcessor;
+import com.java_template.common.grpc.client.EventHandlingStrategy;
 import io.cloudevents.core.builder.CloudEventBuilder;
 import io.cloudevents.core.data.PojoCloudEventData;
 import io.cloudevents.core.format.EventFormat;
@@ -32,6 +32,7 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.net.URI;
 import java.util.List;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
@@ -49,7 +50,7 @@ public class CyodaCalculationMemberClient implements DisposableBean, Initializin
     private StreamObserver<CloudEvent> cloudEventStreamObserver;
     private EventFormat eventFormat;
     private final ObjectMapper objectMapper;
-    private final WorkflowProcessor workflowProcessor;
+    private final List<EventHandlingStrategy> eventHandlingStrategies;
     private final JsonUtils jsonUtils;
 
     private static final List<String> TAGS = List.of(GRPC_PROCESSOR_TAG);
@@ -68,9 +69,9 @@ public class CyodaCalculationMemberClient implements DisposableBean, Initializin
     private static final int MAX_RETRIES = 5;
     private int retryCount = 0;
 
-    public CyodaCalculationMemberClient(ObjectMapper objectMapper, WorkflowProcessor workflowProcessor, Authentication authentication, JsonUtils jsonUtils) {
+    public CyodaCalculationMemberClient(ObjectMapper objectMapper, List<EventHandlingStrategy> eventHandlingStrategies, Authentication authentication, JsonUtils jsonUtils) {
         this.objectMapper = objectMapper;
-        this.workflowProcessor = workflowProcessor;
+        this.eventHandlingStrategies = eventHandlingStrategies;
         this.token = authentication.getAccessToken();
         this.jsonUtils = jsonUtils;
 
@@ -184,66 +185,78 @@ public class CyodaCalculationMemberClient implements DisposableBean, Initializin
     private void handleCloudEvent(CloudEvent cloudEvent) {
         CompletableFuture.runAsync(() -> {
             try {
-                switch (cloudEvent.getType()) {
-                    case CALC_REQ_EVENT_TYPE:
-                        logger.info("[IN] Received event {}: \n{}", CALC_REQ_EVENT_TYPE, cloudEvent.getTextData());
-                        EntityProcessorCalculationRequest request = objectMapper.readValue(cloudEvent.getTextData(), EntityProcessorCalculationRequest.class);
-                        EntityProcessorCalculationResponse response = objectMapper.readValue(cloudEvent.getTextData(), EntityProcessorCalculationResponse.class);
-                        String processorName = request.getProcessorName();
-                        ObjectNode payloadData = (ObjectNode) request.getPayload().getData();
-                        logger.info("Processing {}: {}", CALC_REQ_EVENT_TYPE, processorName);
-                        CompletableFuture<ObjectNode> futureResult = workflowProcessor.processEvent(processorName, payloadData);
-                        futureResult.thenAccept(result -> {
-                            try {
-                                boolean success = result.path("success").asBoolean(true);
-                                result.remove("success");
-                                response.setSuccess(success);
-                                response.getPayload().setData(jsonUtils.getJsonNode(result));
-                                sendEvent(response);
-                            } catch (InvalidProtocolBufferException e) {
-                                throw new RuntimeException(e);
-                            }
-                        });
-                        break;
-                    case CRIT_CALC_REQ_EVENT_TYPE:
-                        logger.info("[IN] Received event {}: \n{}", CRIT_CALC_REQ_EVENT_TYPE, cloudEvent.getTextData());
-                        EntityCriteriaCalculationRequest req = objectMapper.readValue(cloudEvent.getTextData(), EntityCriteriaCalculationRequest.class);
-                        EntityCriteriaCalculationResponse res = objectMapper.readValue(cloudEvent.getTextData(), EntityCriteriaCalculationResponse.class);
-                        String criteriaName = req.getCriteriaName();
-                        ObjectNode payload = (ObjectNode) req.getPayload().getData();
-                        logger.info("Processing {}: {}", CRIT_CALC_REQ_EVENT_TYPE, criteriaName);
-                        CompletableFuture<ObjectNode> future = workflowProcessor.processEvent(criteriaName, payload);
-                        future.thenAccept(result -> {
-                            try {
-                                boolean success = result.path("success").asBoolean(false);
-                                result.remove("success");
-                                res.setSuccess(success);
-                                res.setMatches(success);
-                                sendEvent(res);
-                            } catch (InvalidProtocolBufferException e) {
-                                throw new RuntimeException(e);
-                            }
-                        });
-                        break;
-                    case EVENT_ACK_TYPE:
-                        logger.debug("[IN] Received event {}: \n{}", EVENT_ACK_TYPE, cloudEvent.getTextData());
-                        break;
-                    case GREET_EVENT_TYPE:
-                        logger.info("[IN] Received event {}: \n{}", GREET_EVENT_TYPE, cloudEvent.getTextData());
-                        break;
-                    case KEEP_ALIVE_EVENT_TYPE:
-                        logger.info("[IN] Received event {}", KEEP_ALIVE_EVENT_TYPE);
-                        EventAckResponse eventAckResponse = objectMapper.readValue(cloudEvent.getTextData(), EventAckResponse.class);
-                        eventAckResponse.setSourceEventId(eventAckResponse.getId());
-                        sendEvent(eventAckResponse);
-                        break;
-                    default:
-                        logger.info("[IN] Received unhandled event type {}: \n{}", cloudEvent.getType(), cloudEvent.getTextData());
-                }
-            } catch (IOException e) {
+                // Find the appropriate strategy for this event type
+                eventHandlingStrategies.stream()
+                    .filter(strategy -> strategy.supports(cloudEvent.getType()))
+                    .findFirst()
+                    .ifPresentOrElse(
+                        strategy -> {
+                            logger.debug("Using strategy '{}' for event type '{}'",
+                                       strategy.getStrategyName(), cloudEvent.getType());
+
+                            // Handle the event and send the response
+                            strategy.handleEvent(cloudEvent)
+                                .thenAccept(response -> {
+                                    if (response != null) {
+                                        try {
+                                            sendEvent((BaseEvent) response);
+                                        } catch (InvalidProtocolBufferException e) {
+                                            logger.error("Error sending response from strategy '{}'", strategy.getStrategyName(), e);
+                                        }
+                                    }
+                                })
+                                .exceptionally(throwable -> {
+                                    logger.error("Error in strategy '{}' for event type '{}'",
+                                               strategy.getStrategyName(), cloudEvent.getType(), throwable);
+
+                                    // Create and send error response based on event type
+                                    try {
+                                        Object errorResponse = createErrorResponse(cloudEvent, throwable.getMessage());
+                                        if (errorResponse != null) {
+                                            sendEvent((BaseEvent) errorResponse);
+                                        }
+                                    } catch (Exception e) {
+                                        logger.error("Failed to create/send error response", e);
+                                    }
+
+                                    return null;
+                                });
+                        },
+                        () -> {
+                            // Handle other event types that don't need strategies
+                            handleOtherEvents(cloudEvent);
+                        }
+                    );
+            } catch (Exception e) {
                 logger.error("Error processing event: {}", cloudEvent, e);
             }
         });
+    }
+
+    /**
+     * Handles event types that don't require specific strategies.
+     */
+    private void handleOtherEvents(CloudEvent cloudEvent) {
+        try {
+            switch (cloudEvent.getType()) {
+                case EVENT_ACK_TYPE:
+                    logger.debug("[IN] Received event {}: \n{}", EVENT_ACK_TYPE, cloudEvent.getTextData());
+                    break;
+                case GREET_EVENT_TYPE:
+                    logger.info("[IN] Received event {}: \n{}", GREET_EVENT_TYPE, cloudEvent.getTextData());
+                    break;
+                case KEEP_ALIVE_EVENT_TYPE:
+                    logger.info("[IN] Received event {}", KEEP_ALIVE_EVENT_TYPE);
+                    EventAckResponse eventAckResponse = objectMapper.readValue(cloudEvent.getTextData(), EventAckResponse.class);
+                    eventAckResponse.setSourceEventId(eventAckResponse.getId());
+                    sendEvent(eventAckResponse);
+                    break;
+                default:
+                    logger.info("[IN] Received unhandled event type {}: \n{}", cloudEvent.getType(), cloudEvent.getTextData());
+            }
+        } catch (IOException e) {
+            logger.error("Error processing event: {}", cloudEvent, e);
+        }
     }
 
     public void sendEvent(BaseEvent event) throws InvalidProtocolBufferException {
@@ -280,6 +293,44 @@ public class CyodaCalculationMemberClient implements DisposableBean, Initializin
         // For high-concurrency production environments, consider using event queue or stream pooling.
         synchronized (observer) {
             observer.onNext(cloudEvent);
+        }
+    }
+
+    /**
+     * Creates an appropriate error response based on the event type.
+     * This centralizes error response creation logic in the calculation member client.
+     *
+     * @param cloudEvent the original CloudEvent that caused the error
+     * @param errorMessage the error message to include
+     * @return the appropriate error response object, or null if event type is unknown
+     */
+    private Object createErrorResponse(CloudEvent cloudEvent, String errorMessage) {
+        try {
+            String eventType = cloudEvent.getType();
+
+            if (CALC_REQ_EVENT_TYPE.equals(eventType)) {
+                // Create EntityProcessorCalculationResponse error
+                EntityProcessorCalculationResponse errorResponse = objectMapper.readValue(cloudEvent.getTextData(), EntityProcessorCalculationResponse.class);
+                errorResponse.setSuccess(false);
+                logger.debug("Created processor error response: {}", errorMessage);
+                return errorResponse;
+
+            } else if (CRIT_CALC_REQ_EVENT_TYPE.equals(eventType)) {
+                // Create EntityCriteriaCalculationResponse error
+                EntityCriteriaCalculationResponse errorResponse = objectMapper.readValue(cloudEvent.getTextData(), EntityCriteriaCalculationResponse.class);
+                errorResponse.setSuccess(false);
+                errorResponse.setMatches(false);
+                logger.debug("Created criteria error response: {}", errorMessage);
+                return errorResponse;
+
+            } else {
+                logger.warn("Unknown event type for error response creation: {}", eventType);
+                return null;
+            }
+
+        } catch (Exception e) {
+            logger.error("Failed to create error response for event type: {}", cloudEvent.getType(), e);
+            return null;
         }
     }
 }
