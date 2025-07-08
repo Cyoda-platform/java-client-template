@@ -1,28 +1,25 @@
 {
-    "properties": {
-        "pet": {
-            "category": {
+    "Pet": {
+        "category": {
+            "id": 2,
+            "name": "Cat"
+        },
+        "id": 1,
+        "name": "Fluffy",
+        "photoUrls": [
+            "http://example.com/photos/fluffy1.jpg",
+            "http://example.com/photos/fluffy2.jpg"
+        ],
+        "status": "available",
+        "tags": [
+            {
                 "id": 1,
-                "name": "cat"
+                "name": "playful"
             },
-            "id": 1,
-            "name": "Whiskers",
-            "photoUrls": [
-                "http://example.com/images/whiskers.jpg",
-                "http://example.com/images/whiskers2.jpg"
-            ],
-            "status": "available",
-            "tags": [
-                {
-                    "id": 101,
-                    "name": "friendly"
-                },
-                {
-                    "id": 102,
-                    "name": "playful"
-                }
-            ]
-        }
-    },
-    "type": "object"
+            {
+                "id": 2,
+                "name": "cute"
+            }
+        ]
+    }
 }
