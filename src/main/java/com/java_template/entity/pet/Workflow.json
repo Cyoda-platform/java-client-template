@@ -1,70 +1,79 @@
+```json
 {
-  "description": "Pet entity FSM workflow managing add or update with external API sync",
+  "version": "1.0",
+  "description": "FSM workflow to validate, enrich, store, notify, and cache pet data",
   "initial_state": "none",
+  "workflow_name": "pet_data_processing_workflow",
   "states": {
     "none": {
       "transitions": {
-        "transition_to_prepare_payload": {
-          "next": "prepare_payload"
+        "start_validation": {
+          "next": "validate"
         }
       }
     },
-    "prepare_payload": {
+    "validate": {
       "transitions": {
-        "transition_check_existing_pet": {
-          "condition": {
-            "function": {
-              "name": "isNewPet"
-            },
-            "negate": true,
-            "type": "function"
-          },
-          "next": "update_pet_processing"
+        "validation_passed": {
+          "next": "enrich",
+          "action": {
+            "name": "validatePetData"
+          }
         },
-        "transition_check_new_pet": {
-          "condition": {
-            "function": {
-              "name": "isNewPet"
-            },
-            "type": "function"
-          },
-          "next": "new_pet_processing"
-        }
-      }
-    },
-    "update_pet_processing": {
-      "transitions": {
-        "transition_call_update_api": {
+        "validation_failed": {
+          "next": "end_error",
           "action": {
-            "name": "callExternalUpdatePetApi"
-          },
-          "next": "set_default_status"
+            "name": "handleValidationError"
+          }
         }
       }
     },
-    "set_default_status": {
+    "enrich": {
       "transitions": {
-        "transition_to_end": {
+        "enrich_data": {
+          "next": "store",
           "action": {
-            "name": "setDefaultStatusIfMissing"
-          },
-          "next": "end"
+            "name": "enrichPetData"
+          }
         }
       }
     },
-    "end": {
+    "store": {
+      "transitions": {
+        "store_data": {
+          "next": "notify",
+          "action": {
+            "name": "storePetData"
+          }
+        }
+      }
+    },
+    "notify": {
+      "transitions": {
+        "send_notification": {
+          "next": "cache",
+          "action": {
+            "name": "notifyUsers"
+          }
+        }
+      }
+    },
+    "cache": {
+      "transitions": {
+        "update_cache": {
+          "next": "end_success",
+          "action": {
+            "name": "updatePetCache"
+          }
+        }
+      }
+    },
+    "end_success": {
       "transitions": {}
     },
-    "new_pet_processing": {
-      "transitions": {
-        "transition_call_add_api": {
-          "action": {
-            "name": "callExternalAddPetApi"
-          },
-          "next": "set_default_status"
-        }
-      }
+    "end_error": {
+      "transitions": {}
     }
-  },
-  "workflow_name": "pet_entity_workflow"
+  }
 }
+```
