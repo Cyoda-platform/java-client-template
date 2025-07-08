@@ -53,6 +53,19 @@ public class EntityControllerPrototype {
         return ResponseEntity.ok(new SubscriptionResponse("Subscription successful", email));
     }
 
+    @DeleteMapping("/subscribe")
+    public ResponseEntity<SubscriptionResponse> unsubscribe(@RequestParam @NotBlank @Email String email) {
+        String cleanedEmail = email.toLowerCase(Locale.ROOT).trim();
+        if (!subscribers.containsKey(cleanedEmail)) {
+            log.info("Unsubscribe attempt for non-existing email: {}", cleanedEmail);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new SubscriptionResponse("Email not found in subscription list", cleanedEmail));
+        }
+        subscribers.remove(cleanedEmail);
+        log.info("Subscriber removed: {}", cleanedEmail);
+        return ResponseEntity.ok(new SubscriptionResponse("Unsubscription successful", cleanedEmail));
+    }
+
     @GetMapping("/subscribers")
     public ResponseEntity<SubscribersResponse> getSubscribers() {
         List<String> emails = new ArrayList<>(subscribers.keySet());
