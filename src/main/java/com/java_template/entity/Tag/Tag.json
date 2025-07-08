@@ -1,0 +1,27 @@
+{
+    "properties": {
+        "tags": [
+            {
+                "id": 1,
+                "name": "friendly"
+            },
+            {
+                "id": 2,
+                "name": "playful"
+            },
+            {
+                "id": 3,
+                "name": "energetic"
+            },
+            {
+                "id": 4,
+                "name": "cuddly"
+            },
+            {
+                "id": 5,
+                "name": "shelter-rescue"
+            }
+        ]
+    },
+    "type": "object"
+}
