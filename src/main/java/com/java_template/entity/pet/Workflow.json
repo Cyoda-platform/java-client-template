@@ -1,79 +1,76 @@
-```json
 {
-  "version": "1.0",
-  "description": "FSM workflow to validate, enrich, store, notify, and cache pet data",
-  "initial_state": "none",
-  "workflow_name": "pet_data_processing_workflow",
-  "states": {
-    "none": {
-      "transitions": {
-        "start_validation": {
-          "next": "validate"
-        }
-      }
-    },
-    "validate": {
-      "transitions": {
-        "validation_passed": {
-          "next": "enrich",
-          "action": {
-            "name": "validatePetData"
-          }
+    "description": "FSM workflow to validate, enrich, store, notify, and cache pet data",
+    "initial_state": "none",
+    "states": {
+        "cache": {
+            "transitions": {
+                "update_cache": {
+                    "action": {
+                        "name": "updatePetCache"
+                    },
+                    "next": "end_success"
+                }
+            }
         },
-        "validation_failed": {
-          "next": "end_error",
-          "action": {
-            "name": "handleValidationError"
-          }
+        "end_error": {
+            "transitions": {}
+        },
+        "end_success": {
+            "transitions": {}
+        },
+        "enrich": {
+            "transitions": {
+                "enrich_data": {
+                    "action": {
+                        "name": "enrichPetData"
+                    },
+                    "next": "store"
+                }
+            }
+        },
+        "none": {
+            "transitions": {
+                "start_validation": {
+                    "next": "validate"
+                }
+            }
+        },
+        "notify": {
+            "transitions": {
+                "send_notification": {
+                    "action": {
+                        "name": "notifyUsers"
+                    },
+                    "next": "cache"
+                }
+            }
+        },
+        "store": {
+            "transitions": {
+                "store_data": {
+                    "action": {
+                        "name": "storePetData"
+                    },
+                    "next": "notify"
+                }
+            }
+        },
+        "validate": {
+            "transitions": {
+                "validation_failed": {
+                    "action": {
+                        "name": "handleValidationError"
+                    },
+                    "next": "end_error"
+                },
+                "validation_passed": {
+                    "action": {
+                        "name": "validatePetData"
+                    },
+                    "next": "enrich"
+                }
+            }
         }
-      }
     },
-    "enrich": {
-      "transitions": {
-        "enrich_data": {
-          "next": "store",
-          "action": {
-            "name": "enrichPetData"
-          }
-        }
-      }
-    },
-    "store": {
-      "transitions": {
-        "store_data": {
-          "next": "notify",
-          "action": {
-            "name": "storePetData"
-          }
-        }
-      }
-    },
-    "notify": {
-      "transitions": {
-        "send_notification": {
-          "next": "cache",
-          "action": {
-            "name": "notifyUsers"
-          }
-        }
-      }
-    },
-    "cache": {
-      "transitions": {
-        "update_cache": {
-          "next": "end_success",
-          "action": {
-            "name": "updatePetCache"
-          }
-        }
-      }
-    },
-    "end_success": {
-      "transitions": {}
-    },
-    "end_error": {
-      "transitions": {}
-    }
-  }
+    "workflow_name": "pet_data_processing_workflow"
 }
-```
