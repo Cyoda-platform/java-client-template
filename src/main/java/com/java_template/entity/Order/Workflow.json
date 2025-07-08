@@ -1,0 +1,112 @@
+```json
+{
+  "version": "1.0",
+  "description": "FSM workflow for processing an Order: Validate, Process Payment, Update Inventory, Store, and Notify",
+  "initial_state": "none",
+  "workflow_name": "order_processing_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_validation": {
+          "next": "validate_order",
+          "action": {
+            "name": "validateOrder"
+          }
+        }
+      }
+    },
+    "validate_order": {
+      "transitions": {
+        "validation_success": {
+          "next": "process_payment",
+          "condition": {
+            "type": "function",
+            "function": {
+              "name": "isValidationSuccessful"
+            }
+          },
+          "action": {
+            "name": "onValidationSuccess"
+          }
+        },
+        "validation_failure": {
+          "next": "end_failure",
+          "condition": {
+            "type": "function",
+            "function": {
+              "name": "isValidationFailed"
+            }
+          },
+          "action": {
+            "name": "onValidationFailure"
+          }
+        }
+      }
+    },
+    "process_payment": {
+      "transitions": {
+        "payment_success": {
+          "next": "update_inventory",
+          "condition": {
+            "type": "function",
+            "function": {
+              "name": "isPaymentSuccessful"
+            }
+          },
+          "action": {
+            "name": "processPayment"
+          }
+        },
+        "payment_failure": {
+          "next": "end_failure",
+          "condition": {
+            "type": "function",
+            "function": {
+              "name": "isPaymentFailed"
+            }
+          },
+          "action": {
+            "name": "handlePaymentFailure"
+          }
+        }
+      }
+    },
+    "update_inventory": {
+      "transitions": {
+        "inventory_updated": {
+          "next": "store_order",
+          "action": {
+            "name": "updateInventory"
+          }
+        }
+      }
+    },
+    "store_order": {
+      "transitions": {
+        "order_stored": {
+          "next": "notify_user",
+          "action": {
+            "name": "storeOrder"
+          }
+        }
+      }
+    },
+    "notify_user": {
+      "transitions": {
+        "notification_sent": {
+          "next": "end_success",
+          "action": {
+            "name": "notifyUser"
+          }
+        }
+      }
+    },
+    "end_success": {
+      "transitions": {}
+    },
+    "end_failure": {
+      "transitions": {}
+    }
+  }
+}
+```
