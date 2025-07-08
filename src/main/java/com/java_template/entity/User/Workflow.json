@@ -1,76 +1,76 @@
 {
-    "description": "FSM workflow to validate, hash password, store, authenticate, and notify user data",
-    "initial_state": "none",
-    "states": {
-        "authenticate": {
-            "transitions": {
-                "authenticate_user": {
-                    "action": {
-                        "name": "authenticateUser"
-                    },
-                    "next": "notify"
-                }
-            }
-        },
-        "end_error": {
-            "transitions": {}
-        },
-        "end_success": {
-            "transitions": {}
-        },
-        "hash_password": {
-            "transitions": {
-                "hash_complete": {
-                    "action": {
-                        "name": "hashUserPassword"
-                    },
-                    "next": "store"
-                }
-            }
-        },
-        "none": {
-            "transitions": {
-                "start_validation": {
-                    "next": "validate"
-                }
-            }
-        },
-        "notify": {
-            "transitions": {
-                "send_notification": {
-                    "action": {
-                        "name": "notifyUser"
-                    },
-                    "next": "end_success"
-                }
-            }
-        },
-        "store": {
-            "transitions": {
-                "store_data": {
-                    "action": {
-                        "name": "storeUserData"
-                    },
-                    "next": "authenticate"
-                }
-            }
-        },
-        "validate": {
-            "transitions": {
-                "validation_failed": {
-                    "action": {
-                        "name": "handleValidationError"
-                    },
-                    "next": "end_error"
-                },
-                "validation_passed": {
-                    "action": {
-                        "name": "validateUserData"
-                    },
-                    "next": "hash_password"
-                }
-            }
+  "description": "FSM workflow to validate, hash password, store, authenticate, and notify user data",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_validation": {
+          "next": "validate"
         }
+      }
     },
-    "workflow_name": "user_data_processing_workflow"
+    "validate": {
+      "transitions": {
+        "validation_failed": {
+          "action": {
+            "name": "handleValidationError"
+          },
+          "next": "end_error"
+        },
+        "validation_passed": {
+          "action": {
+            "name": "validateUserData"
+          },
+          "next": "hash_password"
+        }
+      }
+    },
+    "end_error": {
+      "transitions": {}
+    },
+    "hash_password": {
+      "transitions": {
+        "hash_complete": {
+          "action": {
+            "name": "hashUserPassword"
+          },
+          "next": "store"
+        }
+      }
+    },
+    "store": {
+      "transitions": {
+        "store_data": {
+          "action": {
+            "name": "storeUserData"
+          },
+          "next": "authenticate"
+        }
+      }
+    },
+    "authenticate": {
+      "transitions": {
+        "authenticate_user": {
+          "action": {
+            "name": "authenticateUser"
+          },
+          "next": "notify"
+        }
+      }
+    },
+    "notify": {
+      "transitions": {
+        "send_notification": {
+          "action": {
+            "name": "notifyUser"
+          },
+          "next": "end_success"
+        }
+      }
+    },
+    "end_success": {
+      "transitions": {}
+    }
+  },
+  "workflow_name": "user_data_processing_workflow"
 }
