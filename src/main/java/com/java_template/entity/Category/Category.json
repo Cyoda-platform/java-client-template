@@ -1,24 +1,4 @@
 {
-    "Category": [
-        {
-            "id": 1,
-            "name": "Dogs"
-        },
-        {
-            "id": 2,
-            "name": "Cats"
-        },
-        {
-            "id": 3,
-            "name": "Birds"
-        },
-        {
-            "id": 4,
-            "name": "Reptiles"
-        },
-        {
-            "id": 5,
-            "name": "Small Animals"
-        }
-    ]
+    "id": 1,
+    "name": "Dog"
 }
