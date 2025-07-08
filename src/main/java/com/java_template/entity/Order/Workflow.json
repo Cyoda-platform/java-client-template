@@ -1,112 +1,109 @@
-```json
 {
-  "version": "1.0",
-  "description": "FSM workflow for processing an Order: Validate, Process Payment, Update Inventory, Store, and Notify",
-  "initial_state": "none",
-  "workflow_name": "order_processing_workflow",
-  "states": {
-    "none": {
-      "transitions": {
-        "start_validation": {
-          "next": "validate_order",
-          "action": {
-            "name": "validateOrder"
-          }
-        }
-      }
-    },
-    "validate_order": {
-      "transitions": {
-        "validation_success": {
-          "next": "process_payment",
-          "condition": {
-            "type": "function",
-            "function": {
-              "name": "isValidationSuccessful"
-            }
-          },
-          "action": {
-            "name": "onValidationSuccess"
-          }
+    "description": "FSM workflow for processing an Order: Validate, Process Payment, Update Inventory, Store, and Notify",
+    "initial_state": "none",
+    "states": {
+        "end_failure": {
+            "transitions": {}
         },
-        "validation_failure": {
-          "next": "end_failure",
-          "condition": {
-            "type": "function",
-            "function": {
-              "name": "isValidationFailed"
-            }
-          },
-          "action": {
-            "name": "onValidationFailure"
-          }
-        }
-      }
-    },
-    "process_payment": {
-      "transitions": {
-        "payment_success": {
-          "next": "update_inventory",
-          "condition": {
-            "type": "function",
-            "function": {
-              "name": "isPaymentSuccessful"
-            }
-          },
-          "action": {
-            "name": "processPayment"
-          }
+        "end_success": {
+            "transitions": {}
         },
-        "payment_failure": {
-          "next": "end_failure",
-          "condition": {
-            "type": "function",
-            "function": {
-              "name": "isPaymentFailed"
+        "none": {
+            "transitions": {
+                "start_validation": {
+                    "action": {
+                        "name": "validateOrder"
+                    },
+                    "next": "validate_order"
+                }
             }
-          },
-          "action": {
-            "name": "handlePaymentFailure"
-          }
+        },
+        "notify_user": {
+            "transitions": {
+                "notification_sent": {
+                    "action": {
+                        "name": "notifyUser"
+                    },
+                    "next": "end_success"
+                }
+            }
+        },
+        "process_payment": {
+            "transitions": {
+                "payment_failure": {
+                    "action": {
+                        "name": "handlePaymentFailure"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "isPaymentFailed"
+                        },
+                        "type": "function"
+                    },
+                    "next": "end_failure"
+                },
+                "payment_success": {
+                    "action": {
+                        "name": "processPayment"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "isPaymentSuccessful"
+                        },
+                        "type": "function"
+                    },
+                    "next": "update_inventory"
+                }
+            }
+        },
+        "store_order": {
+            "transitions": {
+                "order_stored": {
+                    "action": {
+                        "name": "storeOrder"
+                    },
+                    "next": "notify_user"
+                }
+            }
+        },
+        "update_inventory": {
+            "transitions": {
+                "inventory_updated": {
+                    "action": {
+                        "name": "updateInventory"
+                    },
+                    "next": "store_order"
+                }
+            }
+        },
+        "validate_order": {
+            "transitions": {
+                "validation_failure": {
+                    "action": {
+                        "name": "onValidationFailure"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "isValidationFailed"
+                        },
+                        "type": "function"
+                    },
+                    "next": "end_failure"
+                },
+                "validation_success": {
+                    "action": {
+                        "name": "onValidationSuccess"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "isValidationSuccessful"
+                        },
+                        "type": "function"
+                    },
+                    "next": "process_payment"
+                }
+            }
         }
-      }
     },
-    "update_inventory": {
-      "transitions": {
-        "inventory_updated": {
-          "next": "store_order",
-          "action": {
-            "name": "updateInventory"
-          }
-        }
-      }
-    },
-    "store_order": {
-      "transitions": {
-        "order_stored": {
-          "next": "notify_user",
-          "action": {
-            "name": "storeOrder"
-          }
-        }
-      }
-    },
-    "notify_user": {
-      "transitions": {
-        "notification_sent": {
-          "next": "end_success",
-          "action": {
-            "name": "notifyUser"
-          }
-        }
-      }
-    },
-    "end_success": {
-      "transitions": {}
-    },
-    "end_failure": {
-      "transitions": {}
-    }
-  }
+    "workflow_name": "order_processing_workflow"
 }
-```
