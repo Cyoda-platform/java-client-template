@@ -1,89 +1,86 @@
-```json
 {
-  "version": "1.0",
-  "description": "FSM for Validate, Store, and Cache Category data",
-  "initial_state": "none",
-  "workflow_name": "category_data_processing",
-  "states": {
-    "none": {
-      "transitions": {
-        "start_validation": {
-          "next": "validate_category",
-          "action": {
-            "name": "validateCategory"
-          }
-        }
-      }
-    },
-    "validate_category": {
-      "transitions": {
-        "validation_success": {
-          "next": "store_category",
-          "condition": {
-            "type": "function",
-            "function": {
-              "name": "isValidationSuccessful"
+    "description": "FSM for Validate, Store, and Cache Category data",
+    "initial_state": "none",
+    "states": {
+        "cache_category": {
+            "transitions": {
+                "cache_success": {
+                    "action": {
+                        "name": "cacheCategory"
+                    },
+                    "next": "end"
+                }
             }
-          },
-          "action": {
-            "name": "onValidationSuccess"
-          }
         },
-        "validation_failure": {
-          "next": "end",
-          "condition": {
-            "type": "function",
-            "function": {
-              "name": "isValidationFailed"
-            }
-          },
-          "action": {
-            "name": "handleValidationFailure"
-          }
-        }
-      }
-    },
-    "store_category": {
-      "transitions": {
-        "store_success": {
-          "next": "cache_category",
-          "condition": {
-            "type": "function",
-            "function": {
-              "name": "isStoreSuccessful"
-            }
-          },
-          "action": {
-            "name": "storeCategory"
-          }
+        "end": {
+            "transitions": {}
         },
-        "store_failure": {
-          "next": "end",
-          "condition": {
-            "type": "function",
-            "function": {
-              "name": "isStoreFailed"
+        "none": {
+            "transitions": {
+                "start_validation": {
+                    "action": {
+                        "name": "validateCategory"
+                    },
+                    "next": "validate_category"
+                }
             }
-          },
-          "action": {
-            "name": "handleStoreFailure"
-          }
+        },
+        "store_category": {
+            "transitions": {
+                "store_failure": {
+                    "action": {
+                        "name": "handleStoreFailure"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "isStoreFailed"
+                        },
+                        "type": "function"
+                    },
+                    "next": "end"
+                },
+                "store_success": {
+                    "action": {
+                        "name": "storeCategory"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "isStoreSuccessful"
+                        },
+                        "type": "function"
+                    },
+                    "next": "cache_category"
+                }
+            }
+        },
+        "validate_category": {
+            "transitions": {
+                "validation_failure": {
+                    "action": {
+                        "name": "handleValidationFailure"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "isValidationFailed"
+                        },
+                        "type": "function"
+                    },
+                    "next": "end"
+                },
+                "validation_success": {
+                    "action": {
+                        "name": "onValidationSuccess"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "isValidationSuccessful"
+                        },
+                        "type": "function"
+                    },
+                    "next": "store_category"
+                }
+            }
         }
-      }
     },
-    "cache_category": {
-      "transitions": {
-        "cache_success": {
-          "next": "end",
-          "action": {
-            "name": "cacheCategory"
-          }
-        }
-      }
-    },
-    "end": {
-      "transitions": {}
-    }
-  }
+    "workflow_name": "category_data_processing"
 }
-```
