@@ -1,109 +1,109 @@
 {
-    "description": "NBA game scores processing workflow",
-    "initial_state": "none",
-    "states": {
-        "error": {
-            "transitions": {}
-        },
-        "fetched": {
-            "transitions": {
-                "store_games": {
-                    "action": {
-                        "name": "storeGames"
-                    },
-                    "next": "storing"
-                }
-            }
-        },
-        "fetching": {
-            "transitions": {
-                "fetch_failure": {
-                    "condition": {
-                        "function": {
-                            "name": "fetchFailed"
-                        },
-                        "type": "function"
-                    },
-                    "next": "error"
-                },
-                "fetch_success": {
-                    "condition": {
-                        "function": {
-                            "name": "fetchSucceeded"
-                        },
-                        "type": "function"
-                    },
-                    "next": "fetched"
-                }
-            }
-        },
-        "none": {
-            "transitions": {
-                "start_fetch": {
-                    "action": {
-                        "name": "fetchGames"
-                    },
-                    "next": "fetching"
-                }
-            }
-        },
-        "notified": {
-            "transitions": {}
-        },
-        "notifying": {
-            "transitions": {
-                "notify_failure": {
-                    "condition": {
-                        "function": {
-                            "name": "notifyFailed"
-                        },
-                        "type": "function"
-                    },
-                    "next": "error"
-                },
-                "notify_success": {
-                    "condition": {
-                        "function": {
-                            "name": "notifySucceeded"
-                        },
-                        "type": "function"
-                    },
-                    "next": "notified"
-                }
-            }
-        },
-        "stored": {
-            "transitions": {
-                "notify_subscribers": {
-                    "action": {
-                        "name": "notifySubscribers"
-                    },
-                    "next": "notifying"
-                }
-            }
-        },
-        "storing": {
-            "transitions": {
-                "store_failure": {
-                    "condition": {
-                        "function": {
-                            "name": "storeFailed"
-                        },
-                        "type": "function"
-                    },
-                    "next": "error"
-                },
-                "store_success": {
-                    "condition": {
-                        "function": {
-                            "name": "storeSucceeded"
-                        },
-                        "type": "function"
-                    },
-                    "next": "stored"
-                }
-            }
+  "description": "NBA game scores processing workflow",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_fetch": {
+          "action": {
+            "name": "fetchGames"
+          },
+          "next": "fetching"
         }
+      }
     },
-    "workflow_name": "nba_scores_workflow"
+    "fetching": {
+      "transitions": {
+        "fetch_failure": {
+          "condition": {
+            "function": {
+              "name": "fetchFailed"
+            },
+            "type": "function"
+          },
+          "next": "error"
+        },
+        "fetch_success": {
+          "condition": {
+            "function": {
+              "name": "fetchSucceeded"
+            },
+            "type": "function"
+          },
+          "next": "fetched"
+        }
+      }
+    },
+    "error": {
+      "transitions": {}
+    },
+    "fetched": {
+      "transitions": {
+        "store_games": {
+          "action": {
+            "name": "storeGames"
+          },
+          "next": "storing"
+        }
+      }
+    },
+    "storing": {
+      "transitions": {
+        "store_failure": {
+          "condition": {
+            "function": {
+              "name": "storeFailed"
+            },
+            "type": "function"
+          },
+          "next": "error"
+        },
+        "store_success": {
+          "condition": {
+            "function": {
+              "name": "storeSucceeded"
+            },
+            "type": "function"
+          },
+          "next": "stored"
+        }
+      }
+    },
+    "stored": {
+      "transitions": {
+        "notify_subscribers": {
+          "action": {
+            "name": "notifySubscribers"
+          },
+          "next": "notifying"
+        }
+      }
+    },
+    "notifying": {
+      "transitions": {
+        "notify_failure": {
+          "condition": {
+            "function": {
+              "name": "notifyFailed"
+            },
+            "type": "function"
+          },
+          "next": "error"
+        },
+        "notify_success": {
+          "condition": {
+            "function": {
+              "name": "notifySucceeded"
+            },
+            "type": "function"
+          },
+          "next": "notified"
+        }
+      }
+    },
+    "notified": {
+      "transitions": {}
+    }
+  },
+  "workflow_name": "nba_scores_workflow"
 }
