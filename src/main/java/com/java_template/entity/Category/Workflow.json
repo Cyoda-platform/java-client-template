@@ -1,0 +1,89 @@
+```json
+{
+  "version": "1.0",
+  "description": "FSM for Validate, Store, and Cache Category data",
+  "initial_state": "none",
+  "workflow_name": "category_data_processing",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_validation": {
+          "next": "validate_category",
+          "action": {
+            "name": "validateCategory"
+          }
+        }
+      }
+    },
+    "validate_category": {
+      "transitions": {
+        "validation_success": {
+          "next": "store_category",
+          "condition": {
+            "type": "function",
+            "function": {
+              "name": "isValidationSuccessful"
+            }
+          },
+          "action": {
+            "name": "onValidationSuccess"
+          }
+        },
+        "validation_failure": {
+          "next": "end",
+          "condition": {
+            "type": "function",
+            "function": {
+              "name": "isValidationFailed"
+            }
+          },
+          "action": {
+            "name": "handleValidationFailure"
+          }
+        }
+      }
+    },
+    "store_category": {
+      "transitions": {
+        "store_success": {
+          "next": "cache_category",
+          "condition": {
+            "type": "function",
+            "function": {
+              "name": "isStoreSuccessful"
+            }
+          },
+          "action": {
+            "name": "storeCategory"
+          }
+        },
+        "store_failure": {
+          "next": "end",
+          "condition": {
+            "type": "function",
+            "function": {
+              "name": "isStoreFailed"
+            }
+          },
+          "action": {
+            "name": "handleStoreFailure"
+          }
+        }
+      }
+    },
+    "cache_category": {
+      "transitions": {
+        "cache_success": {
+          "next": "end",
+          "action": {
+            "name": "cacheCategory"
+          }
+        }
+      }
+    },
+    "end": {
+      "transitions": {}
+    }
+  }
+}
+```
