@@ -1,16 +1,13 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -22,34 +19,33 @@ import org.springframework.web.server.ResponseStatusException;
 
 import javax.annotation.PostConstruct;
 import java.net.URI;
-import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
 
 @RestController
 @RequestMapping("cyoda-prototype")
 @Validated
-@Slf4j
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
     private final RestTemplate restTemplate = new RestTemplate();
+    private final ObjectMapper objectMapper;
 
     private static final String ENTITY_NAME_SUBSCRIBER = "Subscriber";
     private static final String ENTITY_NAME_GAME = "Game";
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @PostConstruct
     public void init() {
-        logger.info("CyodaEntityControllerPrototype initialized");
+        logger.info("Controller initialized");
     }
 
     @PostMapping("/subscribe")
@@ -65,7 +61,7 @@ public class CyodaEntityControllerPrototype {
                                 ResponseEntity.ok(new SubscriptionResponse("Email already subscribed", email))
                         );
                     } else {
-                        ObjectNode subscriberNode = com.fasterxml.jackson.databind.json.JsonMapper.builder().build().createObjectNode();
+                        ObjectNode subscriberNode = objectMapper.createObjectNode();
                         subscriberNode.put("email", email);
                         return entityService.addItem(ENTITY_NAME_SUBSCRIBER, ENTITY_VERSION, subscriberNode);
                     }
@@ -132,7 +128,7 @@ public class CyodaEntityControllerPrototype {
                 }
                 JsonNode rootNode;
                 try {
-                    rootNode = com.fasterxml.jackson.databind.json.JsonMapper.builder().build().readTree(response);
+                    rootNode = objectMapper.readTree(response);
                 } catch (Exception ex) {
                     logger.error("Failed to parse external API response", ex);
                     return CompletableFuture.completedFuture(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -144,7 +140,7 @@ public class CyodaEntityControllerPrototype {
                 }
                 List<CompletableFuture<UUID>> addFutures = new ArrayList<>();
                 for (JsonNode node : rootNode) {
-                    ObjectNode gameNode = com.fasterxml.jackson.databind.json.JsonMapper.builder().build().createObjectNode();
+                    ObjectNode gameNode = objectMapper.createObjectNode();
                     gameNode.put("gameId", node.path("GameID").asText("unknown"));
                     gameNode.put("date", date);
                     gameNode.put("homeTeam", node.path("HomeTeam").asText("unknown"));
@@ -231,52 +227,138 @@ public class CyodaEntityControllerPrototype {
         return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    static class SubscriptionRequest {
+    // DTO and internal classes
+
+    public static class SubscriptionRequest {
         @NotBlank
         @Email
         private String email;
+
+        public SubscriptionRequest() {
+        }
+
+        public SubscriptionRequest(String email) {
+            this.email = email;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    static class SubscriptionResponse {
+    public static class SubscriptionResponse {
         private String message;
         private String email;
+
+        public SubscriptionResponse() {
+        }
+
+        public SubscriptionResponse(String message, String email) {
+            this.message = message;
+            this.email = email;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public void setMessage(String message) {
+            this.message = message;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    static class SubscribersResponse {
+    public static class SubscribersResponse {
         private List<String> subscribers;
+
+        public SubscribersResponse() {
+        }
+
+        public SubscribersResponse(List<String> subscribers) {
+            this.subscribers = subscribers;
+        }
+
+        public List<String> getSubscribers() {
+            return subscribers;
+        }
+
+        public void setSubscribers(List<String> subscribers) {
+            this.subscribers = subscribers;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    static class GameFetchRequest {
+    public static class GameFetchRequest {
         @NotBlank
         @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}")
         private String date;
+
+        public GameFetchRequest() {
+        }
+
+        public GameFetchRequest(String date) {
+            this.date = date;
+        }
+
+        public String getDate() {
+            return date;
+        }
+
+        public void setDate(String date) {
+            this.date = date;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    static class GameFetchResponse {
+    public static class GameFetchResponse {
         private String message;
         private String date;
         private Integer gamesCount;
+
+        public GameFetchResponse() {
+        }
+
+        public GameFetchResponse(String message, String date, Integer gamesCount) {
+            this.message = message;
+            this.date = date;
+            this.gamesCount = gamesCount;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public void setMessage(String message) {
+            this.message = message;
+        }
+
+        public String getDate() {
+            return date;
+        }
+
+        public void setDate(String date) {
+            this.date = date;
+        }
+
+        public Integer getGamesCount() {
+            return gamesCount;
+        }
+
+        public void setGamesCount(Integer gamesCount) {
+            this.gamesCount = gamesCount;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    static class Game {
+    public static class Game {
         private String gameId;
         private String date;
         private String homeTeam;
@@ -284,15 +366,123 @@ public class CyodaEntityControllerPrototype {
         private int homeScore;
         private int awayScore;
         private String status;
+
+        public Game() {
+        }
+
+        public Game(String gameId, String date, String homeTeam, String awayTeam, int homeScore, int awayScore, String status) {
+            this.gameId = gameId;
+            this.date = date;
+            this.homeTeam = homeTeam;
+            this.awayTeam = awayTeam;
+            this.homeScore = homeScore;
+            this.awayScore = awayScore;
+            this.status = status;
+        }
+
+        public String getGameId() {
+            return gameId;
+        }
+
+        public void setGameId(String gameId) {
+            this.gameId = gameId;
+        }
+
+        public String getDate() {
+            return date;
+        }
+
+        public void setDate(String date) {
+            this.date = date;
+        }
+
+        public String getHomeTeam() {
+            return homeTeam;
+        }
+
+        public void setHomeTeam(String homeTeam) {
+            this.homeTeam = homeTeam;
+        }
+
+        public String getAwayTeam() {
+            return awayTeam;
+        }
+
+        public void setAwayTeam(String awayTeam) {
+            this.awayTeam = awayTeam;
+        }
+
+        public int getHomeScore() {
+            return homeScore;
+        }
+
+        public void setHomeScore(int homeScore) {
+            this.homeScore = homeScore;
+        }
+
+        public int getAwayScore() {
+            return awayScore;
+        }
+
+        public void setAwayScore(int awayScore) {
+            this.awayScore = awayScore;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    static class GamesResponse {
+    public static class GamesResponse {
         private List<Game> games;
         private int page;
         private int size;
         private int total;
+
+        public GamesResponse() {
+        }
+
+        public GamesResponse(List<Game> games, int page, int size, int total) {
+            this.games = games;
+            this.page = page;
+            this.size = size;
+            this.total = total;
+        }
+
+        public List<Game> getGames() {
+            return games;
+        }
+
+        public void setGames(List<Game> games) {
+            this.games = games;
+        }
+
+        public int getPage() {
+            return page;
+        }
+
+        public void setPage(int page) {
+            this.page = page;
+        }
+
+        public int getSize() {
+            return size;
+        }
+
+        public void setSize(int size) {
+            this.size = size;
+        }
+
+        public int getTotal() {
+            return total;
+        }
+
+        public void setTotal(int total) {
+            this.total = total;
+        }
     }
 }
