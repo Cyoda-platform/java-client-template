@@ -25,13 +25,12 @@ public class ProcessorFactory {
     /**
      * Constructor that automatically discovers and registers all CyodaProcessor beans.
      *
-     * @param processorBeans Map of all CyodaProcessor beans from Spring context
+     * @param processorBeans List of all CyodaProcessor beans from Spring context
      */
-    public ProcessorFactory(Map<String, CyodaProcessor> processorBeans) {
+    public ProcessorFactory(List<CyodaProcessor> processorBeans) {
         logger.info("Initializing ProcessorFactory with {} processor beans", processorBeans.size());
 
-        for (Map.Entry<String, CyodaProcessor> entry : processorBeans.entrySet()) {
-            CyodaProcessor processor = entry.getValue();
+        for (CyodaProcessor processor : processorBeans) {
             String processorName = processor.getName();
             processorsByName.computeIfAbsent(processorName, k -> new ArrayList<>()).add(processor);
         }

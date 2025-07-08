@@ -24,14 +24,12 @@ public class CriteriaFactory {
     /**
      * Constructor that automatically discovers and registers all CriteriaChecker beans.
      *
-     * @param criteriaBeans Map of all CriteriaChecker beans from Spring context
+     * @param criteriaBeans List of all CriteriaChecker beans from Spring context
      */
-    public CriteriaFactory(Map<String, CriteriaChecker> criteriaBeans) {
+    public CriteriaFactory(List<CriteriaChecker> criteriaBeans) {
         logger.info("Initializing CriteriaFactory with {} criteria beans", criteriaBeans.size());
 
-        for (Map.Entry<String, CriteriaChecker> entry : criteriaBeans.entrySet()) {
-
-            CriteriaChecker criteriaChecker = entry.getValue();
+        for (CriteriaChecker criteriaChecker : criteriaBeans) {
             String criteriaName = criteriaChecker.getName();
             // Register by criteria name (allowing multiple checkers with same name)
             criteriaByName.computeIfAbsent(criteriaName, k -> new ArrayList<>()).add(criteriaChecker);
