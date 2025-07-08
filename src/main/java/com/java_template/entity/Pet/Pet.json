@@ -1,25 +1,43 @@
 {
-    "Pet": {
-        "category": {
-            "id": 2,
-            "name": "Cat"
+    "Pet": [
+        {
+            "category": "Cat",
+            "id": 1,
+            "name": "Fluffy",
+            "photoUrls": [
+                "http://example.com/images/fluffy.jpg"
+            ],
+            "status": "available",
+            "tags": [
+                "playful",
+                "cute"
+            ]
         },
-        "id": 1,
-        "name": "Fluffy",
-        "photoUrls": [
-            "http://example.com/photos/fluffy1.jpg",
-            "http://example.com/photos/fluffy2.jpg"
-        ],
-        "status": "available",
-        "tags": [
-            {
-                "id": 1,
-                "name": "playful"
-            },
-            {
-                "id": 2,
-                "name": "cute"
-            }
-        ]
-    }
+        {
+            "category": "Dog",
+            "id": 2,
+            "name": "Rex",
+            "photoUrls": [
+                "http://example.com/images/rex.jpg"
+            ],
+            "status": "available",
+            "tags": [
+                "friendly",
+                "loyal"
+            ]
+        },
+        {
+            "category": "Bird",
+            "id": 3,
+            "name": "Tweety",
+            "photoUrls": [
+                "http://example.com/images/tweety.jpg"
+            ],
+            "status": "sold",
+            "tags": [
+                "chirpy",
+                "small"
+            ]
+        }
+    ]
 }
