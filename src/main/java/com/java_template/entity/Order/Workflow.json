@@ -1,109 +1,109 @@
 {
-    "description": "FSM workflow for processing an Order: Validate, Process Payment, Update Inventory, Store, and Notify",
-    "initial_state": "none",
-    "states": {
-        "end_failure": {
-            "transitions": {}
-        },
-        "end_success": {
-            "transitions": {}
-        },
-        "none": {
-            "transitions": {
-                "start_validation": {
-                    "action": {
-                        "name": "validateOrder"
-                    },
-                    "next": "validate_order"
-                }
-            }
-        },
-        "notify_user": {
-            "transitions": {
-                "notification_sent": {
-                    "action": {
-                        "name": "notifyUser"
-                    },
-                    "next": "end_success"
-                }
-            }
-        },
-        "process_payment": {
-            "transitions": {
-                "payment_failure": {
-                    "action": {
-                        "name": "handlePaymentFailure"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "isPaymentFailed"
-                        },
-                        "type": "function"
-                    },
-                    "next": "end_failure"
-                },
-                "payment_success": {
-                    "action": {
-                        "name": "processPayment"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "isPaymentSuccessful"
-                        },
-                        "type": "function"
-                    },
-                    "next": "update_inventory"
-                }
-            }
-        },
-        "store_order": {
-            "transitions": {
-                "order_stored": {
-                    "action": {
-                        "name": "storeOrder"
-                    },
-                    "next": "notify_user"
-                }
-            }
-        },
-        "update_inventory": {
-            "transitions": {
-                "inventory_updated": {
-                    "action": {
-                        "name": "updateInventory"
-                    },
-                    "next": "store_order"
-                }
-            }
-        },
-        "validate_order": {
-            "transitions": {
-                "validation_failure": {
-                    "action": {
-                        "name": "onValidationFailure"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "isValidationFailed"
-                        },
-                        "type": "function"
-                    },
-                    "next": "end_failure"
-                },
-                "validation_success": {
-                    "action": {
-                        "name": "onValidationSuccess"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "isValidationSuccessful"
-                        },
-                        "type": "function"
-                    },
-                    "next": "process_payment"
-                }
-            }
+  "description": "FSM workflow for processing an Order: Validate, Process Payment, Update Inventory, Store, and Notify",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_validation": {
+          "action": {
+            "name": "validateOrder"
+          },
+          "next": "validate_order"
         }
+      }
     },
-    "workflow_name": "order_processing_workflow"
+    "validate_order": {
+      "transitions": {
+        "validation_failure": {
+          "action": {
+            "name": "onValidationFailure"
+          },
+          "condition": {
+            "function": {
+              "name": "isValidationFailed"
+            },
+            "type": "function"
+          },
+          "next": "end_failure"
+        },
+        "validation_success": {
+          "action": {
+            "name": "onValidationSuccess"
+          },
+          "condition": {
+            "function": {
+              "name": "isValidationSuccessful"
+            },
+            "type": "function"
+          },
+          "next": "process_payment"
+        }
+      }
+    },
+    "end_failure": {
+      "transitions": {}
+    },
+    "process_payment": {
+      "transitions": {
+        "payment_failure": {
+          "action": {
+            "name": "handlePaymentFailure"
+          },
+          "condition": {
+            "function": {
+              "name": "isPaymentFailed"
+            },
+            "type": "function"
+          },
+          "next": "end_failure"
+        },
+        "payment_success": {
+          "action": {
+            "name": "processPayment"
+          },
+          "condition": {
+            "function": {
+              "name": "isPaymentSuccessful"
+            },
+            "type": "function"
+          },
+          "next": "update_inventory"
+        }
+      }
+    },
+    "update_inventory": {
+      "transitions": {
+        "inventory_updated": {
+          "action": {
+            "name": "updateInventory"
+          },
+          "next": "store_order"
+        }
+      }
+    },
+    "store_order": {
+      "transitions": {
+        "order_stored": {
+          "action": {
+            "name": "storeOrder"
+          },
+          "next": "notify_user"
+        }
+      }
+    },
+    "notify_user": {
+      "transitions": {
+        "notification_sent": {
+          "action": {
+            "name": "notifyUser"
+          },
+          "next": "end_success"
+        }
+      }
+    },
+    "end_success": {
+      "transitions": {}
+    }
+  },
+  "workflow_name": "order_processing_workflow"
 }
