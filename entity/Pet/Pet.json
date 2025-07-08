@@ -1,19 +1,16 @@
 {
-    "category": {
-        "id": 2,
-        "name": "Cat"
-    },
-    "id": 1,
-    "name": "Whiskers",
+    "category": "cat",
+    "id": 101,
+    "name": "Fluffy",
     "photoUrls": [
-        "https://example.com/photos/whiskers1.jpg",
-        "https://example.com/photos/whiskers2.jpg"
+        "http://example.com/images/fluffy1.jpg",
+        "http://example.com/images/fluffy2.jpg"
     ],
     "status": "available",
     "tags": [
         {
             "id": 1,
-            "name": "friendly"
+            "name": "cute"
         },
         {
             "id": 2,
