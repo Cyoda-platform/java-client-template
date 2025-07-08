@@ -1,0 +1,28 @@
+{
+    "properties": {
+        "pet": {
+            "category": {
+                "id": 1,
+                "name": "cat"
+            },
+            "id": 1,
+            "name": "Whiskers",
+            "photoUrls": [
+                "http://example.com/images/whiskers.jpg",
+                "http://example.com/images/whiskers2.jpg"
+            ],
+            "status": "available",
+            "tags": [
+                {
+                    "id": 101,
+                    "name": "friendly"
+                },
+                {
+                    "id": 102,
+                    "name": "playful"
+                }
+            ]
+        }
+    },
+    "type": "object"
+}
