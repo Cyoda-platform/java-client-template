@@ -1,0 +1,134 @@
+{
+    "description": "NBA Score Fetch and Subscriber Notification Workflow",
+    "initial_state": "none",
+    "states": {
+        "check_subscriber_count": {
+            "transitions": {
+                "has_subscribers": {
+                    "condition": {
+                        "function": {
+                            "name": "hasSubscribers"
+                        },
+                        "type": "function"
+                    },
+                    "next": "send_notifications"
+                },
+                "no_subscribers": {
+                    "next": "end_fetch_success"
+                }
+            }
+        },
+        "end_fetch_error": {
+            "transitions": {}
+        },
+        "end_fetch_success": {
+            "transitions": {}
+        },
+        "end_invalid_subscription": {
+            "transitions": {}
+        },
+        "end_subscription_success": {
+            "transitions": {}
+        },
+        "fetch_scores": {
+            "transitions": {
+                "fetch_external_scores": {
+                    "action": {
+                        "name": "fetchNbaScores"
+                    },
+                    "next": "validate_scores"
+                }
+            }
+        },
+        "none": {
+            "transitions": {
+                "start_score_fetch_processing": {
+                    "condition": {
+                        "function": {
+                            "name": "isScoreFetchEvent"
+                        },
+                        "type": "function"
+                    },
+                    "next": "fetch_scores"
+                },
+                "start_subscription_processing": {
+                    "condition": {
+                        "function": {
+                            "name": "isSubscriptionEvent"
+                        },
+                        "type": "function"
+                    },
+                    "next": "process_subscriber"
+                }
+            }
+        },
+        "persist_scores": {
+            "transitions": {
+                "check_subscribers": {
+                    "next": "check_subscriber_count"
+                }
+            }
+        },
+        "persist_subscriber": {
+            "transitions": {
+                "complete_subscription": {
+                    "next": "end_subscription_success"
+                }
+            }
+        },
+        "process_subscriber": {
+            "transitions": {
+                "normalize_email": {
+                    "action": {
+                        "name": "processSubscriber"
+                    },
+                    "next": "validate_email"
+                }
+            }
+        },
+        "send_notifications": {
+            "transitions": {
+                "notifications_sent": {
+                    "action": {
+                        "name": "sendNotifications"
+                    },
+                    "next": "end_fetch_success"
+                }
+            }
+        },
+        "validate_email": {
+            "transitions": {
+                "email_invalid": {
+                    "next": "end_invalid_subscription"
+                },
+                "email_valid": {
+                    "condition": {
+                        "function": {
+                            "name": "isValidEmail"
+                        },
+                        "type": "function"
+                    },
+                    "next": "persist_subscriber"
+                }
+            }
+        },
+        "validate_scores": {
+            "transitions": {
+                "scores_invalid": {
+                    "next": "end_fetch_error"
+                },
+                "scores_valid": {
+                    "condition": {
+                        "function": {
+                            "name": "isFetchedDataValid"
+                        },
+                        "type": "function"
+                    },
+                    "next": "persist_scores"
+                }
+            }
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "nba_score_notification_workflow"
+}
