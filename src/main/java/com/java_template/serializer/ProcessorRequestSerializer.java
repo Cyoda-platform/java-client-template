@@ -112,45 +112,4 @@ public class ProcessorRequestSerializer extends BaseRequestSerializer<EntityProc
             return createErrorResponse(request, "Failed to convert entity to response: " + e.getMessage());
         }
     }
-
-
-    /**
-     * Sets the result data in the response from ObjectNode.
-     * @param response the response to update
-     * @param result the ObjectNode result to set
-     * @param success whether the processing was successful
-     */
-    public void setResponseData(EntityProcessorCalculationResponse response, ObjectNode result, boolean success) {
-        try {
-            response.setSuccess(success);
-            response.getPayload().setData(jsonUtils.getJsonNode(result));
-        } catch (Exception e) {
-            logger.error("Error setting response data", e);
-            response.setSuccess(false);
-        }
-    }
-
-
-
-    /**
-     * Convenience method to process ObjectNode and create response.
-     * Handles success flag extraction from result.
-     * 
-     * @param request the original request
-     * @param result the processing result
-     * @return EntityProcessorCalculationResponse
-     */
-    public EntityProcessorCalculationResponse createSuccessResponse(EntityProcessorCalculationRequest request, ObjectNode result) {
-        EntityProcessorCalculationResponse response = createResponse(request);
-        
-        // Check if result contains success flag
-        boolean success = result.path("success").asBoolean(true);
-        result.remove("success"); // Remove success flag from payload
-        
-        setResponseData(response, result, success);
-        return response;
-    }
-
-
-
 }
