@@ -161,6 +161,19 @@ public class EntityControllerPrototype {
         return ResponseEntity.ok(new ApiResponse("success", "Email subscribed successfully."));
     }
 
+    @DeleteMapping("/subscribe")
+    public ResponseEntity<ApiResponse> deleteSubscription(@RequestParam @Email @NotBlank String email) {
+        String key = email.toLowerCase();
+        if (subscribers.remove(key) != null) {
+            logger.info("Unsubscribed {}", email);
+            return ResponseEntity.ok(new ApiResponse("success", "Email unsubscribed successfully."));
+        } else {
+            logger.info("Attempt to unsubscribe non-existing email {}", email);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiResponse("error", "Email not found in subscribers."));
+        }
+    }
+
     @GetMapping("/subscribers")
     public ResponseEntity<Collection<String>> getSubscribers() {
         return ResponseEntity.ok(subscribers.keySet());
