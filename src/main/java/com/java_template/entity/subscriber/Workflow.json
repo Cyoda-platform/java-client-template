@@ -1,0 +1,105 @@
+{
+    "description": "NBA Scores Notification System FSM Workflow",
+    "initial_state": "none",
+    "states": {
+        "error_invalid_email": {
+            "transitions": {}
+        },
+        "none": {
+            "transitions": {
+                "invalid_subscribe_transition": {
+                    "condition": {
+                        "function": {
+                            "name": "isEmailInvalid"
+                        },
+                        "type": "function"
+                    },
+                    "next": "error_invalid_email"
+                },
+                "subscribe_transition": {
+                    "action": {
+                        "name": "processSubscriber"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "isEmailValid"
+                        },
+                        "type": "function"
+                    },
+                    "next": "subscribed"
+                }
+            }
+        },
+        "notified": {
+            "transitions": {
+                "reset_transition": {
+                    "condition": {
+                        "function": {
+                            "name": "dailyScheduleTrigger"
+                        },
+                        "type": "function"
+                    },
+                    "next": "subscribed"
+                }
+            }
+        },
+        "scores_fetched": {
+            "transitions": {
+                "no_subscribers_transition": {
+                    "condition": {
+                        "function": {
+                            "name": "noSubscribers"
+                        },
+                        "type": "function"
+                    },
+                    "next": "subscribed"
+                },
+                "notify_subscribers_transition": {
+                    "action": {
+                        "name": "sendDailyNotifications"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "hasSubscribers"
+                        },
+                        "type": "function"
+                    },
+                    "next": "notified"
+                }
+            }
+        },
+        "subscribed": {
+            "transitions": {
+                "fetch_scores_transition": {
+                    "action": {
+                        "name": "fetchAndStoreScores"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "hasScoresToFetch"
+                        },
+                        "type": "function"
+                    },
+                    "next": "scores_fetched"
+                },
+                "unsubscribe_transition": {
+                    "action": {
+                        "name": "processUnsubscribe"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "wantsToUnsubscribe"
+                        },
+                        "type": "function"
+                    },
+                    "next": "unsubscribed"
+                }
+            }
+        },
+        "unsubscribed": {
+            "transitions": {}
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "nba_scores_workflow"
+}
