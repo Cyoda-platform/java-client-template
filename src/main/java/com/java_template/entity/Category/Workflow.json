@@ -1,86 +1,86 @@
 {
-    "description": "FSM for Validate, Store, and Cache Category data",
-    "initial_state": "none",
-    "states": {
-        "cache_category": {
-            "transitions": {
-                "cache_success": {
-                    "action": {
-                        "name": "cacheCategory"
-                    },
-                    "next": "end"
-                }
-            }
-        },
-        "end": {
-            "transitions": {}
-        },
-        "none": {
-            "transitions": {
-                "start_validation": {
-                    "action": {
-                        "name": "validateCategory"
-                    },
-                    "next": "validate_category"
-                }
-            }
-        },
-        "store_category": {
-            "transitions": {
-                "store_failure": {
-                    "action": {
-                        "name": "handleStoreFailure"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "isStoreFailed"
-                        },
-                        "type": "function"
-                    },
-                    "next": "end"
-                },
-                "store_success": {
-                    "action": {
-                        "name": "storeCategory"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "isStoreSuccessful"
-                        },
-                        "type": "function"
-                    },
-                    "next": "cache_category"
-                }
-            }
-        },
-        "validate_category": {
-            "transitions": {
-                "validation_failure": {
-                    "action": {
-                        "name": "handleValidationFailure"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "isValidationFailed"
-                        },
-                        "type": "function"
-                    },
-                    "next": "end"
-                },
-                "validation_success": {
-                    "action": {
-                        "name": "onValidationSuccess"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "isValidationSuccessful"
-                        },
-                        "type": "function"
-                    },
-                    "next": "store_category"
-                }
-            }
+  "description": "FSM for Validate, Store, and Cache Category data",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_validation": {
+          "action": {
+            "name": "validateCategory"
+          },
+          "next": "validate_category"
         }
+      }
     },
-    "workflow_name": "category_data_processing"
+    "validate_category": {
+      "transitions": {
+        "validation_failure": {
+          "action": {
+            "name": "handleValidationFailure"
+          },
+          "condition": {
+            "function": {
+              "name": "isValidationFailed"
+            },
+            "type": "function"
+          },
+          "next": "end"
+        },
+        "validation_success": {
+          "action": {
+            "name": "onValidationSuccess"
+          },
+          "condition": {
+            "function": {
+              "name": "isValidationSuccessful"
+            },
+            "type": "function"
+          },
+          "next": "store_category"
+        }
+      }
+    },
+    "end": {
+      "transitions": {}
+    },
+    "store_category": {
+      "transitions": {
+        "store_failure": {
+          "action": {
+            "name": "handleStoreFailure"
+          },
+          "condition": {
+            "function": {
+              "name": "isStoreFailed"
+            },
+            "type": "function"
+          },
+          "next": "end"
+        },
+        "store_success": {
+          "action": {
+            "name": "storeCategory"
+          },
+          "condition": {
+            "function": {
+              "name": "isStoreSuccessful"
+            },
+            "type": "function"
+          },
+          "next": "cache_category"
+        }
+      }
+    },
+    "cache_category": {
+      "transitions": {
+        "cache_success": {
+          "action": {
+            "name": "cacheCategory"
+          },
+          "next": "end"
+        }
+      }
+    }
+  },
+  "workflow_name": "category_data_processing"
 }
