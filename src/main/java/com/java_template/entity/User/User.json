@@ -1,0 +1,34 @@
+{
+    "User": [
+        {
+            "email": "emily.smith@example.com",
+            "firstName": "Emily",
+            "id": 1,
+            "lastName": "Smith",
+            "password": "hashed_password_123",
+            "phone": "123-456-7890",
+            "userStatus": 1,
+            "username": "purrfect_adopter"
+        },
+        {
+            "email": "james.johnson@example.com",
+            "firstName": "James",
+            "id": 2,
+            "lastName": "Johnson",
+            "password": "hashed_password_456",
+            "phone": "987-654-3210",
+            "userStatus": 1,
+            "username": "cat_lover92"
+        },
+        {
+            "email": "sophia.williams@example.com",
+            "firstName": "Sophia",
+            "id": 3,
+            "lastName": "Williams",
+            "password": "hashed_password_789",
+            "phone": "555-123-4567",
+            "userStatus": 0,
+            "username": "dog_fanatic"
+        }
+    ]
+}
