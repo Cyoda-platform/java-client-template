@@ -1,76 +1,76 @@
 {
-    "description": "FSM workflow to validate, enrich, store, notify, and cache pet data",
-    "initial_state": "none",
-    "states": {
-        "cache": {
-            "transitions": {
-                "update_cache": {
-                    "action": {
-                        "name": "updatePetCache"
-                    },
-                    "next": "end_success"
-                }
-            }
-        },
-        "end_error": {
-            "transitions": {}
-        },
-        "end_success": {
-            "transitions": {}
-        },
-        "enrich": {
-            "transitions": {
-                "enrich_data": {
-                    "action": {
-                        "name": "enrichPetData"
-                    },
-                    "next": "store"
-                }
-            }
-        },
-        "none": {
-            "transitions": {
-                "start_validation": {
-                    "next": "validate"
-                }
-            }
-        },
-        "notify": {
-            "transitions": {
-                "send_notification": {
-                    "action": {
-                        "name": "notifyUsers"
-                    },
-                    "next": "cache"
-                }
-            }
-        },
-        "store": {
-            "transitions": {
-                "store_data": {
-                    "action": {
-                        "name": "storePetData"
-                    },
-                    "next": "notify"
-                }
-            }
-        },
-        "validate": {
-            "transitions": {
-                "validation_failed": {
-                    "action": {
-                        "name": "handleValidationError"
-                    },
-                    "next": "end_error"
-                },
-                "validation_passed": {
-                    "action": {
-                        "name": "validatePetData"
-                    },
-                    "next": "enrich"
-                }
-            }
+  "description": "FSM workflow to validate, enrich, store, notify, and cache pet data",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_validation": {
+          "next": "validate"
         }
+      }
     },
-    "workflow_name": "pet_data_processing_workflow"
+    "validate": {
+      "transitions": {
+        "validation_failed": {
+          "action": {
+            "name": "handleValidationError"
+          },
+          "next": "end_error"
+        },
+        "validation_passed": {
+          "action": {
+            "name": "validatePetData"
+          },
+          "next": "enrich"
+        }
+      }
+    },
+    "end_error": {
+      "transitions": {}
+    },
+    "enrich": {
+      "transitions": {
+        "enrich_data": {
+          "action": {
+            "name": "enrichPetData"
+          },
+          "next": "store"
+        }
+      }
+    },
+    "store": {
+      "transitions": {
+        "store_data": {
+          "action": {
+            "name": "storePetData"
+          },
+          "next": "notify"
+        }
+      }
+    },
+    "notify": {
+      "transitions": {
+        "send_notification": {
+          "action": {
+            "name": "notifyUsers"
+          },
+          "next": "cache"
+        }
+      }
+    },
+    "cache": {
+      "transitions": {
+        "update_cache": {
+          "action": {
+            "name": "updatePetCache"
+          },
+          "next": "end_success"
+        }
+      }
+    },
+    "end_success": {
+      "transitions": {}
+    }
+  },
+  "workflow_name": "pet_data_processing_workflow"
 }
