@@ -1,10 +1,5 @@
 {
-    "email": "john.doe@example.com",
-    "firstName": "John",
+    "email": "petlover123@example.com",
     "id": 1,
-    "lastName": "Doe",
-    "password": "hashed_password",
-    "phone": "123-456-7890",
-    "userStatus": 1,
-    "username": "john_doe"
+    "username": "petlover123"
 }
