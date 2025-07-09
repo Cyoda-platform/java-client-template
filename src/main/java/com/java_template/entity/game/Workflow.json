@@ -1,101 +1,101 @@
 {
-    "description": "NBA Game Scores Workflow FSM",
-    "initial_state": "none",
-    "states": {
-        "error": {
-            "transitions": {}
-        },
-        "fetching": {
-            "transitions": {
-                "fetch_failure": {
-                    "action": {
-                        "name": "logFetchFailure"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "isFetchSuccessful"
-                        },
-                        "negate": true,
-                        "type": "function"
-                    },
-                    "next": "error"
-                },
-                "fetch_success": {
-                    "action": {
-                        "name": "storeGames"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "isFetchSuccessful"
-                        },
-                        "type": "function"
-                    },
-                    "next": "stored"
-                }
-            }
-        },
-        "none": {
-            "transitions": {
-                "fetch_attempt": {
-                    "next": "fetching"
-                }
-            }
-        },
-        "notified": {
-            "transitions": {}
-        },
-        "notifying": {
-            "transitions": {
-                "notify_failure": {
-                    "action": {
-                        "name": "logNotifyFailure"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "isNotificationSent"
-                        },
-                        "negate": true,
-                        "type": "function"
-                    },
-                    "next": "error"
-                },
-                "notify_success": {
-                    "action": {
-                        "name": "sendNotificationsForGame"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "isNotificationSent"
-                        },
-                        "type": "function"
-                    },
-                    "next": "notified"
-                }
-            }
-        },
-        "stored": {
-            "transitions": {
-                "notify_attempt": {
-                    "condition": {
-                        "function": {
-                            "name": "hasSubscribers"
-                        },
-                        "type": "function"
-                    },
-                    "next": "notifying"
-                },
-                "notify_skip": {
-                    "condition": {
-                        "function": {
-                            "name": "hasSubscribers"
-                        },
-                        "negate": true,
-                        "type": "function"
-                    },
-                    "next": "notified"
-                }
-            }
+  "description": "NBA Game Scores Workflow FSM",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "fetch_attempt": {
+          "next": "fetching"
         }
+      }
     },
-    "workflow_name": "nba_game_scores_workflow"
+    "fetching": {
+      "transitions": {
+        "fetch_failure": {
+          "action": {
+            "name": "logFetchFailure"
+          },
+          "condition": {
+            "function": {
+              "name": "isFetchSuccessful"
+            },
+            "negate": true,
+            "type": "function"
+          },
+          "next": "error"
+        },
+        "fetch_success": {
+          "action": {
+            "name": "storeGames"
+          },
+          "condition": {
+            "function": {
+              "name": "isFetchSuccessful"
+            },
+            "type": "function"
+          },
+          "next": "stored"
+        }
+      }
+    },
+    "error": {
+      "transitions": {}
+    },
+    "stored": {
+      "transitions": {
+        "notify_attempt": {
+          "condition": {
+            "function": {
+              "name": "hasSubscribers"
+            },
+            "type": "function"
+          },
+          "next": "notifying"
+        },
+        "notify_skip": {
+          "condition": {
+            "function": {
+              "name": "hasSubscribers"
+            },
+            "negate": true,
+            "type": "function"
+          },
+          "next": "notified"
+        }
+      }
+    },
+    "notifying": {
+      "transitions": {
+        "notify_failure": {
+          "action": {
+            "name": "logNotifyFailure"
+          },
+          "condition": {
+            "function": {
+              "name": "isNotificationSent"
+            },
+            "negate": true,
+            "type": "function"
+          },
+          "next": "error"
+        },
+        "notify_success": {
+          "action": {
+            "name": "sendNotificationsForGame"
+          },
+          "condition": {
+            "function": {
+              "name": "isNotificationSent"
+            },
+            "type": "function"
+          },
+          "next": "notified"
+        }
+      }
+    },
+    "notified": {
+      "transitions": {}
+    }
+  },
+  "workflow_name": "nba_game_scores_workflow"
 }
