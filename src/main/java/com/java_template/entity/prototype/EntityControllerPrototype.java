@@ -131,6 +131,19 @@ public class EntityControllerPrototype {
                 .body(new SubscribeResponse("Subscription successful", email));
     }
 
+    @DeleteMapping("/subscribe")
+    public ResponseEntity<SubscribeResponse> deleteSubscription(@Valid @RequestBody SubscribeRequest request) {
+        String email = request.getEmail().toLowerCase(Locale.ROOT);
+        if (!subscribers.containsKey(email)) {
+            log.info("Delete subscription attempt for non-existing email: {}", email);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new SubscribeResponse("Email not found in subscribers", email));
+        }
+        subscribers.remove(email);
+        log.info("Subscriber removed: {}", email);
+        return ResponseEntity.ok(new SubscribeResponse("Subscription deleted", email));
+    }
+
     @GetMapping("/subscribers")
     public SubscribersResponse getSubscribers() {
         log.info("Retrieving all subscribers, count={}", subscribers.size());
