@@ -1,96 +1,96 @@
 {
-    "description": "Pet entity workflow for Purrfect Pets app",
-    "initial_state": "none",
-    "states": {
-        "adding": {
-            "transitions": {
-                "pet_added": {
-                    "action": {
-                        "name": "addPet"
-                    },
-                    "next": "search_results"
-                }
-            }
+  "description": "Pet entity workflow for Purrfect Pets app",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_add": {
+          "action": {
+            "name": "startAdd"
+          },
+          "next": "adding"
         },
-        "deleting": {
-            "transitions": {
-                "pet_deleted": {
-                    "action": {
-                        "name": "deletePet"
-                    },
-                    "next": "search_results"
-                }
-            }
-        },
-        "none": {
-            "transitions": {
-                "start_add": {
-                    "action": {
-                        "name": "startAdd"
-                    },
-                    "next": "adding"
-                },
-                "start_search": {
-                    "action": {
-                        "name": "startSearch"
-                    },
-                    "next": "searching"
-                }
-            }
-        },
-        "pet_selected": {
-            "transitions": {
-                "delete_pet": {
-                    "next": "deleting"
-                },
-                "retrieve_pet_details": {
-                    "action": {
-                        "name": "getPetDetails"
-                    },
-                    "next": "retrieving_details"
-                },
-                "update_pet": {
-                    "next": "updating"
-                }
-            }
-        },
-        "retrieving_details": {
-            "transitions": {
-                "details_retrieved": {
-                    "next": "search_results"
-                }
-            }
-        },
-        "search_results": {
-            "transitions": {
-                "add_new_pet": {
-                    "next": "adding"
-                },
-                "select_pet": {
-                    "next": "pet_selected"
-                }
-            }
-        },
-        "searching": {
-            "transitions": {
-                "search_complete": {
-                    "action": {
-                        "name": "fetchAndFilterPets"
-                    },
-                    "next": "search_results"
-                }
-            }
-        },
-        "updating": {
-            "transitions": {
-                "pet_updated": {
-                    "action": {
-                        "name": "updatePet"
-                    },
-                    "next": "search_results"
-                }
-            }
+        "start_search": {
+          "action": {
+            "name": "startSearch"
+          },
+          "next": "searching"
         }
+      }
     },
-    "workflow_name": "pet_workflow"
+    "adding": {
+      "transitions": {
+        "pet_added": {
+          "action": {
+            "name": "addPet"
+          },
+          "next": "search_results"
+        }
+      }
+    },
+    "search_results": {
+      "transitions": {
+        "add_new_pet": {
+          "next": "adding"
+        },
+        "select_pet": {
+          "next": "pet_selected"
+        }
+      }
+    },
+    "pet_selected": {
+      "transitions": {
+        "delete_pet": {
+          "next": "deleting"
+        },
+        "retrieve_pet_details": {
+          "action": {
+            "name": "getPetDetails"
+          },
+          "next": "retrieving_details"
+        },
+        "update_pet": {
+          "next": "updating"
+        }
+      }
+    },
+    "deleting": {
+      "transitions": {
+        "pet_deleted": {
+          "action": {
+            "name": "deletePet"
+          },
+          "next": "search_results"
+        }
+      }
+    },
+    "retrieving_details": {
+      "transitions": {
+        "details_retrieved": {
+          "next": "search_results"
+        }
+      }
+    },
+    "updating": {
+      "transitions": {
+        "pet_updated": {
+          "action": {
+            "name": "updatePet"
+          },
+          "next": "search_results"
+        }
+      }
+    },
+    "searching": {
+      "transitions": {
+        "search_complete": {
+          "action": {
+            "name": "fetchAndFilterPets"
+          },
+          "next": "search_results"
+        }
+      }
+    }
+  },
+  "workflow_name": "pet_workflow"
 }
