@@ -1,81 +1,81 @@
 {
-    "description": "AdoptionRequest entity FSM workflow for Purrfect Pets app",
-    "initial_state": "none",
-    "states": {
-        "approved": {
-            "transitions": {
-                "complete_adoption": {
-                    "action": {
-                        "name": "completeAdoption"
-                    },
-                    "next": "completed"
-                }
-            }
-        },
-        "closed": {
-            "transitions": {}
-        },
-        "completed": {
-            "transitions": {}
-        },
-        "none": {
-            "transitions": {
-                "submit_request": {
-                    "action": {
-                        "name": "submitRequest"
-                    },
-                    "next": "pending"
-                }
-            }
-        },
-        "pending": {
-            "transitions": {
-                "review_request": {
-                    "action": {
-                        "name": "reviewRequest"
-                    },
-                    "next": "review"
-                }
-            }
-        },
-        "rejected": {
-            "transitions": {
-                "close_request": {
-                    "action": {
-                        "name": "closeRequest"
-                    },
-                    "next": "closed"
-                }
-            }
-        },
-        "review": {
-            "transitions": {
-                "approve_request": {
-                    "action": {
-                        "name": "approveRequest"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "isApproved"
-                        },
-                        "type": "function"
-                    },
-                    "next": "approved"
-                },
-                "reject_request": {
-                    "action": {
-                        "name": "rejectRequest"
-                    },
-                    "condition": {
-                        "function": {
-                            "name": "isRejected"
-                        },
-                        "type": "function"
-                    },
-                    "next": "rejected"
-                }
-            }
+  "description": "AdoptionRequest entity FSM workflow for Purrfect Pets app",
+  "initial_state": "none",
+  "states": {
+    "none": {
+      "transitions": {
+        "submit_request": {
+          "action": {
+            "name": "submitRequest"
+          },
+          "next": "pending"
         }
+      }
     },
-    "workflow_name": "adoption_request_workflow"
+    "pending": {
+      "transitions": {
+        "review_request": {
+          "action": {
+            "name": "reviewRequest"
+          },
+          "next": "review"
+        }
+      }
+    },
+    "review": {
+      "transitions": {
+        "approve_request": {
+          "action": {
+            "name": "approveRequest"
+          },
+          "condition": {
+            "function": {
+              "name": "isApproved"
+            },
+            "type": "function"
+          },
+          "next": "approved"
+        },
+        "reject_request": {
+          "action": {
+            "name": "rejectRequest"
+          },
+          "condition": {
+            "function": {
+              "name": "isRejected"
+            },
+            "type": "function"
+          },
+          "next": "rejected"
+        }
+      }
+    },
+    "approved": {
+      "transitions": {
+        "complete_adoption": {
+          "action": {
+            "name": "completeAdoption"
+          },
+          "next": "completed"
+        }
+      }
+    },
+    "completed": {
+      "transitions": {}
+    },
+    "rejected": {
+      "transitions": {
+        "close_request": {
+          "action": {
+            "name": "closeRequest"
+          },
+          "next": "closed"
+        }
+      }
+    },
+    "closed": {
+      "transitions": {}
+    }
+  },
+  "workflow_name": "adoption_request_workflow"
 }
