@@ -1,8 +1,71 @@
+Understood. The requirement is to move all asynchronous logic, including side effects such as sending notifications or supplementary entity writes, into the workflow functions `processSubscriber` and `processGame`. This will remove such logic from the controller endpoints and rely on the workflow functions to run asynchronously before the entity is persisted.
+
+We must remember:
+
+- The workflow function is invoked **before persisting** the entity.
+- It receives the entity as an `ObjectNode` (Jackson JSON tree).
+- We can modify the entity directly in place (e.g. `entity.put(...)`).
+- We **cannot** add/update/delete entities of the same model inside the workflow (to avoid recursion).
+- We **can** add/update/delete entities of **different** models.
+- The workflow function supports async code and is a replacement for fire-and-forget tasks.
+- The entityService can be used inside the workflow to add supplementary entities of different types.
+
+---
+
+### What async or side-effect logic can be moved?
+
+1. **Subscriber workflow (`processSubscriber`)**:
+    - Normalize email to lowercase (already done).
+    - Currently, no async side effects, so nothing else to move.
+
+2. **Game workflow (`processGame`)**:
+    - The controller fetches games and adds them one by one.
+    - The notification sending (`sendNotifications`) is fire and forget after games are stored.
+    - According to the requirement, notification sending should be moved into the workflow function, so that notifications are sent immediately after each game is persisted.
+    - Since adding/updating/deleting entities of the same model inside the workflow is forbidden, we **cannot** call `addItem` for `Game` inside `processGame`, but we can send notifications or add entities of other models if needed.
+    - The notification logic uses subscribers list and sends emails.
+    - Therefore, `processGame` should asynchronously send notifications.
+
+3. **Fetch and Store Scores endpoint**:
+    - The logic of fetching external API and parsing must remain in the controller (it’s the source of input).
+    - But the storing + notification should be part of the workflow function.
+
+4. **Subscribe endpoint**:
+    - Just add subscriber, workflow normalizes email.
+
+---
+
+### How to implement?
+
+- The controller endpoints become very thin: they only validate input and call `entityService.addItem` with the workflow function.
+- The `processSubscriber` workflow normalizes email.
+- The `processGame` workflow sends notifications asynchronously.
+- The fetch endpoint fetches scores, then calls `addItem` on each game with the workflow function.
+- The notification logic moves from controller to `processGame`.
+- Since each game triggers notifications independently, to avoid spamming subscribers multiple times for many games, we can aggregate notifications per date if needed. But requirement does not forbid multiple notifications.
+- Alternatively, we can add a separate entity for notifications or queue them. But that may be more complex.
+- For now, keep it simple: each `processGame` sends notification about that game.
+
+---
+
+### Implementation notes
+
+- Workflow functions receive `Object` but it will be `ObjectNode`.
+- Use Jackson API to manipulate entity.
+- Use `entityService` inside workflow to add supplementary entities of different types if needed.
+- Use async code inside workflow (return `CompletableFuture`).
+- Avoid calling `addItem` for the same entity model inside workflow.
+
+---
+
+### Updated code
+
 ```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
@@ -136,33 +199,98 @@ public class CyodaEntityControllerPrototype {
         private String status;
     }
 
-    // Workflow function for Subscriber entity
+    /**
+     * Workflow function for Subscriber entity.
+     * Normalizes email to lowercase.
+     */
     private CompletableFuture<Object> processSubscriber(Object entityData) {
-        // You can modify the entityData here before persisting
-        // For example, normalize email or set additional fields
-        if (entityData instanceof Subscriber) {
-            Subscriber subscriber = (Subscriber) entityData;
-            if (subscriber.getEmail() != null) {
-                subscriber.setEmail(subscriber.getEmail().toLowerCase(Locale.ROOT));
-            }
-            // Add any additional processing here if needed
-            return CompletableFuture.completedFuture(subscriber);
+        if (!(entityData instanceof ObjectNode)) {
+            return CompletableFuture.completedFuture(entityData);
         }
-        return CompletableFuture.completedFuture(entityData);
+        ObjectNode entity = (ObjectNode) entityData;
+
+        // Normalize email to lowercase
+        JsonNode emailNode = entity.get("email");
+        if (emailNode != null && emailNode.isTextual()) {
+            String email = emailNode.asText().toLowerCase(Locale.ROOT);
+            entity.put("email", email);
+        }
+
+        // Add subscribedAt if not present
+        if (!entity.has("subscribedAt")) {
+            entity.put("subscribedAt", Instant.now().toString());
+        }
+
+        // No async side effects, so complete immediately
+        return CompletableFuture.completedFuture(entity);
     }
 
-    // Workflow function for Game entity
+    /**
+     * Workflow function for Game entity.
+     * Sends notification emails asynchronously after game is persisted.
+     * Can add supplementary entities if needed.
+     */
     private CompletableFuture<Object> processGame(Object entityData) {
-        // You can modify game entity data before persisting if needed
-        // For now, just return as is
-        return CompletableFuture.completedFuture(entityData);
+        if (!(entityData instanceof ObjectNode)) {
+            return CompletableFuture.completedFuture(entityData);
+        }
+        ObjectNode entity = (ObjectNode) entityData;
+
+        // Fire-and-forget async notification sending
+        CompletableFuture.runAsync(() -> {
+            try {
+                sendNotificationsForGame(entity);
+            } catch (Exception e) {
+                logger.error("Failed to send notifications in processGame workflow", e);
+            }
+        });
+
+        // Return entity immediately for persistence
+        return CompletableFuture.completedFuture(entity);
+    }
+
+    /**
+     * Send notifications about new game to all subscribers.
+     * This is invoked inside the Game workflow function asynchronously.
+     */
+    private void sendNotificationsForGame(ObjectNode gameEntity) throws Exception {
+        // Build notification content for this game
+        String date = safeText(gameEntity, "date");
+        String homeTeam = safeText(gameEntity, "homeTeam");
+        String awayTeam = safeText(gameEntity, "awayTeam");
+        Integer homeScore = safeInt(gameEntity, "homeScore");
+        Integer awayScore = safeInt(gameEntity, "awayScore");
+        String status = safeText(gameEntity, "status");
+
+        StringBuilder content = new StringBuilder();
+        content.append("NBA Score Update for ").append(date).append(":\n");
+        content.append(String.format("%s vs %s: %s-%s (%s)\n",
+                homeTeam, awayTeam,
+                homeScore != null ? homeScore : "N/A",
+                awayScore != null ? awayScore : "N/A",
+                status != null ? status : "Unknown"));
+
+        // Retrieve subscribers
+        CompletableFuture<ArrayNode> subsFuture = entityService.getItems(ENTITY_NAME_SUBSCRIBER, ENTITY_VERSION);
+        ArrayNode subs = subsFuture.get(10, TimeUnit.SECONDS);
+
+        if (subs != null) {
+            for (JsonNode subNode : subs) {
+                JsonNode emailNode = subNode.get("email");
+                if (emailNode != null && emailNode.isTextual()) {
+                    String email = emailNode.asText();
+
+                    // Simulate sending email by logging
+                    logger.info("Send email to {}: \n{}", email, content.toString());
+                }
+            }
+        }
     }
 
     @PostMapping("/subscribe")
     public ResponseEntity<SubscribeResponse> subscribe(@Valid @RequestBody SubscribeRequest request) throws ExecutionException, InterruptedException {
         String email = request.getEmail().toLowerCase(Locale.ROOT);
 
-        // Check if subscriber exists by filtering subscribers with email EQUALS
         Condition condition = Condition.of("$.email", "EQUALS", email);
         SearchConditionRequest condRequest = SearchConditionRequest.group("AND", condition);
         CompletableFuture<ArrayNode> existingSubsFuture = entityService.getItemsByCondition(ENTITY_NAME_SUBSCRIBER, ENTITY_VERSION, condRequest);
@@ -176,6 +304,7 @@ public class CyodaEntityControllerPrototype {
         Subscriber newSubscriber = new Subscriber(email, Instant.now());
         CompletableFuture<UUID> idFuture = entityService.addItem(ENTITY_NAME_SUBSCRIBER, ENTITY_VERSION, newSubscriber, this::processSubscriber);
         idFuture.get();
+
         logger.info("New subscriber added: {}", email);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new SubscribeResponse("Subscription successful", email));
@@ -235,20 +364,18 @@ public class CyodaEntityControllerPrototype {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch from external API");
         }
 
-        // Store the games via entityService.addItems with workflow function applied to each game
-        // Since addItems expects a workflow function for each entity, we will wrap each item with workflow applied
-        // Assuming entityService.addItems does not accept workflow function directly for list, so we add items one by one here asynchronously
+        // Add each game via entityService.addItem with workflow function
         List<CompletableFuture<UUID>> futures = new ArrayList<>();
         for (Game game : fetchedGames) {
             futures.add(entityService.addItem(ENTITY_NAME_GAME, ENTITY_VERSION, game, this::processGame));
         }
-        // Wait all to complete
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get();
 
         logger.info("Stored {} games for date {}", fetchedGames.size(), dateStr);
 
-        CompletableFuture.runAsync(() -> sendNotifications(dateStr, fetchedGames));
-        return ResponseEntity.ok(new FetchScoresResponse("Scores fetched, stored and notifications sent", dateStr, fetchedGames.size()));
+        // No notification sending here — moved to processGame workflow
+
+        return ResponseEntity.ok(new FetchScoresResponse("Scores fetched and stored", dateStr, fetchedGames.size()));
     }
 
     @GetMapping("/games/all")
@@ -322,7 +449,6 @@ public class CyodaEntityControllerPrototype {
     }
 
     private Game parseGameNode(JsonNode node) {
-        // node contains 'technicalId' field, ignore it here
         String date = safeText(node, "date");
         String homeTeam = safeText(node, "homeTeam");
         String awayTeam = safeText(node, "awayTeam");
@@ -350,33 +476,11 @@ public class CyodaEntityControllerPrototype {
         return null;
     }
 
-    @Async
-    public void sendNotifications(String date, List<Game> games) {
-        logger.info("Sending notifications for {} to subscribers", date);
-        StringBuilder content = new StringBuilder("NBA Scores for ").append(date).append(":\n");
-        games.forEach(g -> content.append(String.format("%s vs %s: %s-%s (%s)\n",
-                g.getHomeTeam(), g.getAwayTeam(), g.getHomeScore(), g.getAwayScore(), g.getStatus())));
-        try {
-            CompletableFuture<ArrayNode> subsFuture = entityService.getItems(ENTITY_NAME_SUBSCRIBER, ENTITY_VERSION);
-            ArrayNode subs = subsFuture.get(10, TimeUnit.SECONDS);
-            if (subs != null) {
-                for (JsonNode subNode : subs) {
-                    JsonNode emailNode = subNode.get("email");
-                    if (emailNode != null && !emailNode.isNull()) {
-                        logger.info("Email to {}: \n{}", emailNode.asText(), content);
-                    }
-                }
-            }
-        } catch (Exception e) {
-            logger.error("Failed to send notifications", e);
-        }
-    }
-
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<Map<String, String>> handleResponseStatusException(ResponseStatusException ex) {
         Map<String, String> error = new HashMap<>();
         error.put("error", ex.getStatusCode().toString());
-        error.put("message", ex.getStatusCode().toString());
+        error.put("message", ex.getReason());
         logger.error("Error {}: {}", ex.getStatusCode(), ex.getReason());
         return ResponseEntity.status(ex.getStatusCode()).body(error);
     }
@@ -394,16 +498,14 @@ public class CyodaEntityControllerPrototype {
 
 ---
 
-### Explanation of changes:
+### Summary of changes:
 
-- Added two workflow functions:
-  - `processSubscriber(Object entityData)`: modifies the Subscriber entity before persisting (normalizes email to lowercase).
-  - `processGame(Object entityData)`: currently just returns the Game entity as-is, but ready for future processing.
+- **Moved all async notification sending to `processGame` workflow**, which asynchronously sends notifications after the game entity is ready to be persisted.
+- **Controller no longer calls or triggers notifications explicitly.**
+- **`processSubscriber` normalizes email and adds `subscribedAt` timestamp.**
+- **Endpoints became simpler and only responsible for validation and calling `addItem` with the workflow function.**
+- Used `ObjectNode` in workflow to manipulate entity fields directly as per requirement.
 
-- Updated calls to `entityService.addItem` in `subscribe()` method by passing the workflow function `this::processSubscriber`.
+This approach is more robust, keeps business logic close to the data lifecycle, and frees controllers from side-effect logic.
 
-- Updated `fetchAndStoreScores()` method to call `entityService.addItem` for each `Game` individually with the `processGame` workflow function, since the original `addItems` method is not shown with workflow support. This ensures each game is processed before persistence.
-
-- No changes made to deletion or retrieval methods as they do not involve `addItem`.
-
-This fully integrates the new required workflow function parameter into your existing `addItem` calls and implements the relevant workflow function.
+Let me know if you want me to adjust further or add comments!
