@@ -1,8 +1,7 @@
-package com.java_template.entity;
+package com.java_template.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
@@ -12,10 +11,6 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -29,21 +24,19 @@ import java.net.URI;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ExecutionException;
 
 import static com.java_template.common.config.Config.*;
 
-@Slf4j
 @Validated
 @RestController
 @RequestMapping("/cyodaEntityPrototype")
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate = new RestTemplate();
 
     private static final String API_KEY = "test"; // TODO: Replace with secure config
@@ -52,80 +45,226 @@ public class CyodaEntityControllerPrototype {
     private static final String ENTITY_NAME_SUBSCRIBER = "Subscriber";
     private static final String ENTITY_NAME_GAME = "Game";
 
-    public CyodaEntityControllerPrototype(EntityService entityService) {
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class SubscribeRequest {
         @NotBlank
         @Email
         private String email;
+
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class SubscribeResponse {
         private String message;
         private String email;
+
+        public SubscribeResponse() {}
+
+        public SubscribeResponse(String message, String email) {
+            this.message = message;
+            this.email = email;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public void setMessage(String message) {
+            this.message = message;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class SubscribersResponse {
         private List<String> subscribers;
+
+        public SubscribersResponse() {}
+
+        public SubscribersResponse(List<String> subscribers) {
+            this.subscribers = subscribers;
+        }
+
+        public List<String> getSubscribers() {
+            return subscribers;
+        }
+
+        public void setSubscribers(List<String> subscribers) {
+            this.subscribers = subscribers;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class FetchScoresRequest {
         @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}", message = "date must be in YYYY-MM-DD format")
         private String date;
+
+        public String getDate() {
+            return date;
+        }
+
+        public void setDate(String date) {
+            this.date = date;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class FetchScoresResponse {
         private String message;
         private String date;
         private int gamesCount;
+
+        public FetchScoresResponse() {}
+
+        public FetchScoresResponse(String message, String date, int gamesCount) {
+            this.message = message;
+            this.date = date;
+            this.gamesCount = gamesCount;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public void setMessage(String message) {
+            this.message = message;
+        }
+
+        public String getDate() {
+            return date;
+        }
+
+        public void setDate(String date) {
+            this.date = date;
+        }
+
+        public int getGamesCount() {
+            return gamesCount;
+        }
+
+        public void setGamesCount(int gamesCount) {
+            this.gamesCount = gamesCount;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class GamesResponse {
         private int page;
         private int size;
         private long totalGames;
         private List<Game> games;
+
+        public GamesResponse() {}
+
+        public GamesResponse(int page, int size, long totalGames, List<Game> games) {
+            this.page = page;
+            this.size = size;
+            this.totalGames = totalGames;
+            this.games = games;
+        }
+
+        public int getPage() {
+            return page;
+        }
+
+        public void setPage(int page) {
+            this.page = page;
+        }
+
+        public int getSize() {
+            return size;
+        }
+
+        public void setSize(int size) {
+            this.size = size;
+        }
+
+        public long getTotalGames() {
+            return totalGames;
+        }
+
+        public void setTotalGames(long totalGames) {
+            this.totalGames = totalGames;
+        }
+
+        public List<Game> getGames() {
+            return games;
+        }
+
+        public void setGames(List<Game> games) {
+            this.games = games;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class GamesByDateResponse {
         private String date;
         private List<Game> games;
+
+        public GamesByDateResponse() {}
+
+        public GamesByDateResponse(String date, List<Game> games) {
+            this.date = date;
+            this.games = games;
+        }
+
+        public String getDate() {
+            return date;
+        }
+
+        public void setDate(String date) {
+            this.date = date;
+        }
+
+        public List<Game> getGames() {
+            return games;
+        }
+
+        public void setGames(List<Game> games) {
+            this.games = games;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class Subscriber {
         private String email;
         private Instant subscribedAt;
+
+        public Subscriber() {}
+
+        public Subscriber(String email, Instant subscribedAt) {
+            this.email = email;
+            this.subscribedAt = subscribedAt;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
+
+        public Instant getSubscribedAt() {
+            return subscribedAt;
+        }
+
+        public void setSubscribedAt(Instant subscribedAt) {
+            this.subscribedAt = subscribedAt;
+        }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class Game {
         private String date;
         private String homeTeam;
@@ -133,6 +272,65 @@ public class CyodaEntityControllerPrototype {
         private Integer homeScore;
         private Integer awayScore;
         private String status;
+
+        public Game() {}
+
+        public Game(String date, String homeTeam, String awayTeam, Integer homeScore, Integer awayScore, String status) {
+            this.date = date;
+            this.homeTeam = homeTeam;
+            this.awayTeam = awayTeam;
+            this.homeScore = homeScore;
+            this.awayScore = awayScore;
+            this.status = status;
+        }
+
+        public String getDate() {
+            return date;
+        }
+
+        public void setDate(String date) {
+            this.date = date;
+        }
+
+        public String getHomeTeam() {
+            return homeTeam;
+        }
+
+        public void setHomeTeam(String homeTeam) {
+            this.homeTeam = homeTeam;
+        }
+
+        public String getAwayTeam() {
+            return awayTeam;
+        }
+
+        public void setAwayTeam(String awayTeam) {
+            this.awayTeam = awayTeam;
+        }
+
+        public Integer getHomeScore() {
+            return homeScore;
+        }
+
+        public void setHomeScore(Integer homeScore) {
+            this.homeScore = homeScore;
+        }
+
+        public Integer getAwayScore() {
+            return awayScore;
+        }
+
+        public void setAwayScore(Integer awayScore) {
+            this.awayScore = awayScore;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
     }
 
     @PostMapping("/subscribe")
