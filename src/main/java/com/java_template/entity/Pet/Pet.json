@@ -1,43 +1,7 @@
 {
-    "Pet": [
-        {
-            "category": "Cat",
-            "id": 1,
-            "name": "Fluffy",
-            "photoUrls": [
-                "http://example.com/images/fluffy.jpg"
-            ],
-            "status": "available",
-            "tags": [
-                "playful",
-                "cute"
-            ]
-        },
-        {
-            "category": "Dog",
-            "id": 2,
-            "name": "Rex",
-            "photoUrls": [
-                "http://example.com/images/rex.jpg"
-            ],
-            "status": "available",
-            "tags": [
-                "friendly",
-                "loyal"
-            ]
-        },
-        {
-            "category": "Bird",
-            "id": 3,
-            "name": "Tweety",
-            "photoUrls": [
-                "http://example.com/images/tweety.jpg"
-            ],
-            "status": "sold",
-            "tags": [
-                "chirpy",
-                "small"
-            ]
-        }
-    ]
+    "category": "Siamese",
+    "id": 1,
+    "name": "Whiskers",
+    "status": "available",
+    "type": "cat"
 }
