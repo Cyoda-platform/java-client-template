@@ -1,0 +1,93 @@
+{
+    "description": "Subscriber and GameScoreFetch FSM workflow",
+    "initial_state": "none",
+    "states": {
+        "end": {
+            "transitions": {}
+        },
+        "fetch_scores": {
+            "transitions": {
+                "scores_fetched": {
+                    "action": {
+                        "name": "fetchScoresFromExternalApi"
+                    },
+                    "next": "store_scores"
+                }
+            }
+        },
+        "none": {
+            "transitions": {
+                "start_fetch_scores": {
+                    "condition": {
+                        "function": {
+                            "name": "isValidFetchRequest"
+                        },
+                        "type": "function"
+                    },
+                    "next": "fetch_scores"
+                },
+                "start_subscribe": {
+                    "condition": {
+                        "function": {
+                            "name": "isValidSubscriber"
+                        },
+                        "type": "function"
+                    },
+                    "next": "normalize_email"
+                }
+            }
+        },
+        "normalize_email": {
+            "transitions": {
+                "email_normalized": {
+                    "action": {
+                        "name": "normalizeEmail"
+                    },
+                    "next": "set_subscribed_at"
+                }
+            }
+        },
+        "notify_subscribers": {
+            "transitions": {
+                "notifications_sent": {
+                    "action": {
+                        "name": "sendNotifications"
+                    },
+                    "next": "end"
+                }
+            }
+        },
+        "set_subscribed_at": {
+            "transitions": {
+                "subscribed_at_set": {
+                    "action": {
+                        "name": "setSubscribedAtIfMissing"
+                    },
+                    "next": "subscription_completed"
+                }
+            }
+        },
+        "store_scores": {
+            "transitions": {
+                "scores_stored": {
+                    "action": {
+                        "name": "storeFetchedScores"
+                    },
+                    "next": "notify_subscribers"
+                }
+            }
+        },
+        "subscription_completed": {
+            "transitions": {
+                "send_subscription_notification": {
+                    "action": {
+                        "name": "sendSubscriptionNotification"
+                    },
+                    "next": "end"
+                }
+            }
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "nba_scores_workflow"
+}
