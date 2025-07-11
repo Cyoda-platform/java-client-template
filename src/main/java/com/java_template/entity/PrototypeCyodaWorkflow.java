@@ -1,0 +1,215 @@
+```java
+package com.java_template.entity;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.java_template.common.service.EntityService;
+import com.java_template.common.util.Condition;
+import com.java_template.common.util.SearchConditionRequest;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Pattern;
+import lombok.Data;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.net.URI;
+import java.time.Instant;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
+
+import static com.java_template.common.config.Config.*;
+
+@Slf4j
+@Validated
+@RestController
+@RequestMapping(path = "/cyoda/entity/report")
+@RequiredArgsConstructor
+public class CyodaEntityControllerPrototype {
+
+    private final EntityService entityService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final RestTemplate restTemplate = new RestTemplate();
+
+    private static final String ENTITY_NAME = "ReportEntity";
+
+    /**
+     * Workflow function to process ReportEntity before persistence.
+     * This function takes the entity data as input and returns the (possibly modified) entity data.
+     */
+    private CompletableFuture<JsonNode> processReportEntity(JsonNode entityData) {
+        // Here you can modify the entityData if needed before it is persisted.
+        // For this example, we just return it as is.
+        return CompletableFuture.completedFuture(entityData);
+    }
+
+    @PostMapping("/generate")
+    public CompletableFuture<ResponseEntity<GenerateReportResponse>> generateReport(@RequestBody @Valid GenerateReportRequest request) {
+        log.info("Received report generation request: dataUrl={}, subscribersCount={}, reportType={}",
+                request.getDataUrl(), request.getSubscribers().size(), request.getReportType());
+
+        // Create entity data object
+        ObjectNode data = objectMapper.createObjectNode();
+        data.put("dataUrl", request.getDataUrl());
+        data.put("reportType", request.getReportType());
+        ArrayNode subs = objectMapper.createArrayNode();
+        request.getSubscribers().forEach(subs::add);
+        data.set("subscribers", subs);
+        data.put("status", "processing");
+        data.put("requestedAt", Instant.now().toString());
+
+        // Add item to external service with workflow function
+        return entityService.addItem(ENTITY_NAME, ENTITY_VERSION, data, this::processReportEntity)
+                .thenApply(id -> {
+                    String jobId = id.toString();
+                    GenerateReportResponse response = new GenerateReportResponse("processing", "Report generation started", jobId);
+                    // Fire-and-forget processing asynchronously
+                    CompletableFuture.runAsync(() -> processReportJob(id, request));
+                    return ResponseEntity.accepted().body(response);
+                });
+    }
+
+    @GetMapping("/{reportId}")
+    public CompletableFuture<ResponseEntity<ReportStatusResponse>> getReportStatus(@PathVariable @NotBlank String reportId) {
+        UUID technicalId;
+        try {
+            technicalId = UUID.fromString(reportId);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid report ID format");
+        }
+        log.info("Fetching report status for reportId={}", reportId);
+
+        return entityService.getItem(ENTITY_NAME, ENTITY_VERSION, technicalId)
+                .thenApply(item -> {
+                    if (item == null || item.isEmpty()) {
+                        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Report ID not found");
+                    }
+                    ReportStatusResponse response = new ReportStatusResponse();
+                    response.setReportId(reportId);
+                    response.setGeneratedAt(item.path("requestedAt").asText(null));
+                    response.setStatus(item.path("status").asText(null));
+                    if (item.has("reportSummary") && !item.path("reportSummary").isNull()) {
+                        response.setReportSummary(objectMapper.convertValue(item.get("reportSummary"), Map.class));
+                    }
+                    return ResponseEntity.ok(response);
+                });
+    }
+
+    private void processReportJob(UUID technicalId, GenerateReportRequest request) {
+        try {
+            log.info("[{}] Downloading CSV from {}", technicalId, request.getDataUrl());
+            String csvData = restTemplate.getForObject(URI.create(request.getDataUrl()), String.class);
+            log.info("[{}] CSV downloaded, length={}", technicalId, csvData != null ? csvData.length() : 0);
+
+            Map<String, Object> analysisResult = analyzeCsvData(csvData == null ? "" : csvData, request.getReportType());
+
+            // Update the entity with results
+            ObjectNode updateNode = objectMapper.createObjectNode();
+            updateNode.put("dataUrl", request.getDataUrl());
+            updateNode.put("reportType", request.getReportType());
+            ArrayNode subs = objectMapper.createArrayNode();
+            request.getSubscribers().forEach(subs::add);
+            updateNode.set("subscribers", subs);
+            updateNode.put("status", "completed");
+            updateNode.put("requestedAt", Instant.now().toString());
+            updateNode.set("reportSummary", objectMapper.valueToTree(analysisResult));
+
+            entityService.updateItem(ENTITY_NAME, ENTITY_VERSION, technicalId, updateNode).join();
+
+            CompletableFuture.runAsync(() -> sendReportEmail(technicalId.toString(), request.getSubscribers(), analysisResult));
+
+            log.info("[{}] Report processing completed", technicalId);
+        } catch (Exception ex) {
+            log.error("[{}] Error processing report: {}", technicalId, ex.getMessage(), ex);
+            // Update status to failed
+            ObjectNode failedNode = objectMapper.createObjectNode();
+            failedNode.put("status", "failed");
+            failedNode.put("requestedAt", Instant.now().toString());
+            entityService.updateItem(ENTITY_NAME, ENTITY_VERSION, technicalId, failedNode).join();
+        }
+    }
+
+    private Map<String, Object> analyzeCsvData(String csvData, String reportType) {
+        Map<String, Object> result = new HashMap<>();
+        String[] lines = csvData.split("\\r?\\n");
+        result.put("totalRows", Math.max(0, lines.length - 1));
+        result.put("reportType", reportType);
+        result.put("generatedAt", Instant.now().toString());
+        result.put("sampleData", lines.length > 1 ? lines[1] : "No data");
+        return result;
+    }
+
+    private void sendReportEmail(String jobId, List<String> subscribers, Map<String, Object> analysisResult) {
+        log.info("[{}] Sending report to {} subscribers: {}", jobId, subscribers.size(), analysisResult);
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException ignored) {
+        }
+        log.info("[{}] Email sent", jobId);
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<Map<String, String>> handleResponseStatusException(ResponseStatusException ex) {
+        Map<String, String> error = new HashMap<>();
+        error.put("error", ex.getStatusCode().toString());
+        error.put("message", ex.getReason());
+        log.error("Handled ResponseStatusException: {} - {}", ex.getStatusCode(), ex.getReason());
+        return ResponseEntity.status(ex.getStatusCode()).body(error);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Map<String, String>> handleGenericException(Exception ex) {
+        Map<String, String> error = new HashMap<>();
+        error.put("error", HttpStatus.INTERNAL_SERVER_ERROR.toString());
+        error.put("message", "Internal server error");
+        log.error("Unhandled exception: {}", ex.getMessage(), ex);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+    }
+
+    @Data
+    public static class GenerateReportRequest {
+        @NotBlank
+        @Pattern(regexp = "https?://.+", message = "dataUrl must start with http:// or https://")
+        private String dataUrl;
+
+        @NotBlank
+        private String reportType;
+
+        @NotEmpty
+        private List<@Email(message = "Invalid email address") String> subscribers;
+    }
+
+    @Data
+    public static class GenerateReportResponse {
+        private final String status;
+        private final String message;
+        private final String reportId;
+    }
+
+    @Data
+    public static class ReportStatusResponse {
+        private String reportId;
+        private String generatedAt;
+        private String status;
+        private Map<String, Object> reportSummary;
+    }
+}
+```
+---
+
+### Explanation of changes:
+- Added a new method `processReportEntity` which implements the required workflow function for the entity named `ReportEntity`. It takes a `JsonNode` entity data and returns a `CompletableFuture<JsonNode>`.
+- Updated the call to `entityService.addItem` in `generateReport()` to pass the workflow function: `this::processReportEntity`.
+- The workflow function currently just returns the entity data as is, but you can modify it if needed before persistence.
+- No other logic was changed.
