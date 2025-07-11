@@ -1,0 +1,70 @@
+{
+    "description": "FSM for report processing entity",
+    "initial_state": "none",
+    "states": {
+        "completed": {
+            "transitions": {}
+        },
+        "failed": {
+            "transitions": {}
+        },
+        "finalized": {
+            "transitions": {}
+        },
+        "none": {
+            "transitions": {
+                "skip_if_finalized": {
+                    "condition": {
+                        "function": {
+                            "name": "isFinalized"
+                        },
+                        "type": "function"
+                    },
+                    "next": "finalized"
+                },
+                "start_processing_if_not_finalized": {
+                    "action": {
+                        "name": "markProcessingStarted"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "isNotFinalized"
+                        },
+                        "type": "function"
+                    },
+                    "next": "processing"
+                }
+            }
+        },
+        "processing": {
+            "transitions": {
+                "complete_if_valid_data": {
+                    "action": {
+                        "name": "downloadAnalyzeAndComplete"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "hasValidRequiredFields"
+                        },
+                        "type": "function"
+                    },
+                    "next": "completed"
+                },
+                "fail_if_invalid_data": {
+                    "action": {
+                        "name": "markFailedMissingFields"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "lacksValidRequiredFields"
+                        },
+                        "type": "function"
+                    },
+                    "next": "failed"
+                }
+            }
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "report_processing_workflow"
+}
