@@ -6,8 +6,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -46,12 +44,72 @@ public class CyodaEntityControllerPrototype {
 
     /**
      * Workflow function to process ReportEntity before persistence.
-     * This function takes the entity data as input and returns the (possibly modified) entity data.
+     * This function takes the entity data as input and returns the (possibly modified) entity data asynchronously.
+     * This function moves all asynchronous processing and updates the entity state accordingly.
      */
     private CompletableFuture<JsonNode> processReportEntity(JsonNode entityData) {
-        // Here you can modify the entityData if needed before it is persisted.
-        // For this example, we just return it as is.
-        return CompletableFuture.completedFuture(entityData);
+        ObjectNode entity = (ObjectNode) entityData;
+
+        // If status is already completed or failed, no re-processing is needed
+        String status = entity.path("status").asText("");
+        if ("completed".equals(status) || "failed".equals(status)) {
+            log.info("[processReportEntity] Entity already finalized with status '{}', skipping processing", status);
+            return CompletableFuture.completedFuture(entity);
+        }
+        // Mark processing started if not already
+        if (!"processing".equals(status)) {
+            entity.put("status", "processing");
+            entity.put("requestedAt", Instant.now().toString());
+        }
+
+        // Extract fields needed for processing
+        String dataUrl = entity.path("dataUrl").asText(null);
+        String reportType = entity.path("reportType").asText(null);
+        ArrayNode subscribersNode = (ArrayNode) entity.path("subscribers");
+
+        // Defensive: if no dataUrl or reportType, mark as failed
+        if (dataUrl == null || reportType == null) {
+            log.error("[processReportEntity] Missing required fields dataUrl or reportType");
+            entity.put("status", "failed");
+            entity.put("statusMessage", "Missing dataUrl or reportType");
+            return CompletableFuture.completedFuture(entity);
+        }
+
+        // Extract subscribers list
+        List<String> subscribers = new ArrayList<>();
+        if (subscribersNode != null) {
+            subscribersNode.forEach(n -> subscribers.add(n.asText()));
+        }
+
+        // Async processing chain
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                log.info("[processReportEntity] Downloading CSV from {}", dataUrl);
+                String csvData = restTemplate.getForObject(URI.create(dataUrl), String.class);
+                log.info("[processReportEntity] CSV downloaded, length={}", csvData != null ? csvData.length() : 0);
+                return csvData == null ? "" : csvData;
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to download CSV: " + e.getMessage(), e);
+            }
+        }).thenApplyAsync(csvData -> {
+            // Analyze CSV data
+            Map<String, Object> analysisResult = analyzeCsvData(csvData, reportType);
+            // Store result in entity
+            entity.put("status", "completed");
+            entity.put("requestedAt", Instant.now().toString());
+            entity.set("reportSummary", objectMapper.valueToTree(analysisResult));
+            return entity;
+        }).thenApplyAsync(e -> {
+            // Send emails asynchronously - fire and forget
+            CompletableFuture.runAsync(() -> sendReportEmail(entity.path("id").asText(null), subscribers, e.path("reportSummary")));
+            return e;
+        }).exceptionally(ex -> {
+            log.error("[processReportEntity] Error processing report: {}", ex.getMessage(), ex);
+            entity.put("status", "failed");
+            entity.put("statusMessage", ex.getMessage());
+            entity.put("requestedAt", Instant.now().toString());
+            return entity;
+        });
     }
 
     @PostMapping("/generate")
@@ -59,23 +117,20 @@ public class CyodaEntityControllerPrototype {
         log.info("Received report generation request: dataUrl={}, subscribersCount={}, reportType={}",
                 request.getDataUrl(), request.getSubscribers().size(), request.getReportType());
 
-        // Create entity data object
+        // Build entity data object
         ObjectNode data = objectMapper.createObjectNode();
         data.put("dataUrl", request.getDataUrl());
         data.put("reportType", request.getReportType());
         ArrayNode subs = objectMapper.createArrayNode();
         request.getSubscribers().forEach(subs::add);
         data.set("subscribers", subs);
-        data.put("status", "processing");
-        data.put("requestedAt", Instant.now().toString());
+        // Initial status will be set and processing started in workflow function
 
         // Add item to external service with workflow function
         return entityService.addItem(ENTITY_NAME, ENTITY_VERSION, data, this::processReportEntity)
                 .thenApply(id -> {
                     String jobId = id.toString();
                     GenerateReportResponse response = new GenerateReportResponse("processing", "Report generation started", jobId);
-                    // Fire-and-forget processing asynchronously
-                    CompletableFuture.runAsync(() -> processReportJob(id, request));
                     return ResponseEntity.accepted().body(response);
                 });
     }
@@ -106,40 +161,6 @@ public class CyodaEntityControllerPrototype {
                 });
     }
 
-    private void processReportJob(UUID technicalId, GenerateReportRequest request) {
-        try {
-            log.info("[{}] Downloading CSV from {}", technicalId, request.getDataUrl());
-            String csvData = restTemplate.getForObject(URI.create(request.getDataUrl()), String.class);
-            log.info("[{}] CSV downloaded, length={}", technicalId, csvData != null ? csvData.length() : 0);
-
-            Map<String, Object> analysisResult = analyzeCsvData(csvData == null ? "" : csvData, request.getReportType());
-
-            // Update the entity with results
-            ObjectNode updateNode = objectMapper.createObjectNode();
-            updateNode.put("dataUrl", request.getDataUrl());
-            updateNode.put("reportType", request.getReportType());
-            ArrayNode subs = objectMapper.createArrayNode();
-            request.getSubscribers().forEach(subs::add);
-            updateNode.set("subscribers", subs);
-            updateNode.put("status", "completed");
-            updateNode.put("requestedAt", Instant.now().toString());
-            updateNode.set("reportSummary", objectMapper.valueToTree(analysisResult));
-
-            entityService.updateItem(ENTITY_NAME, ENTITY_VERSION, technicalId, updateNode).join();
-
-            CompletableFuture.runAsync(() -> sendReportEmail(technicalId.toString(), request.getSubscribers(), analysisResult));
-
-            log.info("[{}] Report processing completed", technicalId);
-        } catch (Exception ex) {
-            log.error("[{}] Error processing report: {}", technicalId, ex.getMessage(), ex);
-            // Update status to failed
-            ObjectNode failedNode = objectMapper.createObjectNode();
-            failedNode.put("status", "failed");
-            failedNode.put("requestedAt", Instant.now().toString());
-            entityService.updateItem(ENTITY_NAME, ENTITY_VERSION, technicalId, failedNode).join();
-        }
-    }
-
     private Map<String, Object> analyzeCsvData(String csvData, String reportType) {
         Map<String, Object> result = new HashMap<>();
         String[] lines = csvData.split("\\r?\\n");
@@ -150,13 +171,13 @@ public class CyodaEntityControllerPrototype {
         return result;
     }
 
-    private void sendReportEmail(String jobId, List<String> subscribers, Map<String, Object> analysisResult) {
-        log.info("[{}] Sending report to {} subscribers: {}", jobId, subscribers.size(), analysisResult);
+    private void sendReportEmail(String jobId, List<String> subscribers, JsonNode reportSummary) {
+        log.info("[sendReportEmail][{}] Sending report to {} subscribers: {}", jobId, subscribers.size(), reportSummary);
         try {
             Thread.sleep(1000);
         } catch (InterruptedException ignored) {
         }
-        log.info("[{}] Email sent", jobId);
+        log.info("[sendReportEmail][{}] Email sent", jobId);
     }
 
     @ExceptionHandler(ResponseStatusException.class)
@@ -208,8 +229,18 @@ public class CyodaEntityControllerPrototype {
 ```
 ---
 
-### Explanation of changes:
-- Added a new method `processReportEntity` which implements the required workflow function for the entity named `ReportEntity`. It takes a `JsonNode` entity data and returns a `CompletableFuture<JsonNode>`.
-- Updated the call to `entityService.addItem` in `generateReport()` to pass the workflow function: `this::processReportEntity`.
-- The workflow function currently just returns the entity data as is, but you can modify it if needed before persistence.
-- No other logic was changed.
+### Summary of changes:
+- **All asynchronous processing moved into the workflow function `processReportEntity`** which runs *before* persisting the entity.
+- The workflow function:
+  - Validates required fields.
+  - Downloads CSV data asynchronously.
+  - Analyzes data.
+  - Updates the entity's status, report summary, timestamps.
+  - Sends emails asynchronously as fire-and-forget.
+  - Handles exceptions and marks entity as failed if needed.
+- The controller endpoint `generateReport` simply prepares the initial entity data and calls `addItem` with the workflow function.
+- Removed all async processing and fire-and-forget from the controller.
+- `getReportStatus` endpoint unchanged.
+- This improves separation of concerns and ensures all processing logic is kept within the workflow, making the controller slim and robust.
+
+This approach aligns with your design requirements and best practices for async workflows before entity persistence.
