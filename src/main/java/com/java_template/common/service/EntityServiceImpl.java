@@ -47,7 +47,7 @@ public class EntityServiceImpl implements EntityService {
      * @return result of repository call
      */
     private <T> CompletableFuture<T> executeWithTokenRetryInternal(TokenRepositoryCall<T> repositoryCall, int attempt) {
-        String token = auth.getAccessToken();
+        String token = auth.getAccessToken().getTokenValue();
         return repositoryCall.call(token).handle((result, ex) -> {
             if (ex == null) {
                 return CompletableFuture.completedFuture(result);
@@ -175,7 +175,7 @@ public class EntityServiceImpl implements EntityService {
     @Override
     public CompletableFuture<ArrayNode> addItemAndReturnTransactionInfo(String entityModel, String entityVersion, Object entity) {
         return executeWithTokenRetry(token -> {
-            Meta meta = repository.getMeta(auth.getAccessToken(), entityModel, entityVersion);
+            Meta meta = repository.getMeta(auth.getAccessToken().getTokenValue(), entityModel, entityVersion);
             return repository.save(meta, entity);
         });
     }
