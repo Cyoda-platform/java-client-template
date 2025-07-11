@@ -1,4 +1,3 @@
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -25,7 +24,6 @@ import java.net.URI;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
 
@@ -68,17 +66,22 @@ public class CyodaEntityControllerPrototype {
         ArrayNode subscribersNode = (ArrayNode) entity.path("subscribers");
 
         // Defensive: if no dataUrl or reportType, mark as failed
-        if (dataUrl == null || reportType == null) {
+        if (dataUrl == null || dataUrl.isBlank() || reportType == null || reportType.isBlank()) {
             log.error("[processReportEntity] Missing required fields dataUrl or reportType");
             entity.put("status", "failed");
             entity.put("statusMessage", "Missing dataUrl or reportType");
+            entity.put("requestedAt", Instant.now().toString());
             return CompletableFuture.completedFuture(entity);
         }
 
-        // Extract subscribers list
+        // Extract subscribers list safely
         List<String> subscribers = new ArrayList<>();
         if (subscribersNode != null) {
-            subscribersNode.forEach(n -> subscribers.add(n.asText()));
+            subscribersNode.forEach(n -> {
+                if (n != null && !n.isNull() && n.isTextual()) {
+                    subscribers.add(n.asText());
+                }
+            });
         }
 
         // Async processing chain
@@ -101,12 +104,12 @@ public class CyodaEntityControllerPrototype {
             return entity;
         }).thenApplyAsync(e -> {
             // Send emails asynchronously - fire and forget
-            CompletableFuture.runAsync(() -> sendReportEmail(entity.path("id").asText(null), subscribers, e.path("reportSummary")));
+            CompletableFuture.runAsync(() -> sendReportEmail(e.path("id").asText(null), subscribers, e.path("reportSummary")));
             return e;
         }).exceptionally(ex -> {
             log.error("[processReportEntity] Error processing report: {}", ex.getMessage(), ex);
             entity.put("status", "failed");
-            entity.put("statusMessage", ex.getMessage());
+            entity.put("statusMessage", ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage());
             entity.put("requestedAt", Instant.now().toString());
             return entity;
         });
@@ -163,19 +166,30 @@ public class CyodaEntityControllerPrototype {
 
     private Map<String, Object> analyzeCsvData(String csvData, String reportType) {
         Map<String, Object> result = new HashMap<>();
-        String[] lines = csvData.split("\\r?\\n");
-        result.put("totalRows", Math.max(0, lines.length - 1));
-        result.put("reportType", reportType);
-        result.put("generatedAt", Instant.now().toString());
-        result.put("sampleData", lines.length > 1 ? lines[1] : "No data");
+        try {
+            String[] lines = csvData.split("\\r?\\n");
+            result.put("totalRows", Math.max(0, lines.length - 1));
+            result.put("reportType", reportType);
+            result.put("generatedAt", Instant.now().toString());
+            result.put("sampleData", lines.length > 1 ? lines[1] : "No data");
+        } catch (Exception e) {
+            log.error("Error analyzing CSV data: {}", e.getMessage(), e);
+            result.put("error", "CSV analysis failed");
+        }
         return result;
     }
 
     private void sendReportEmail(String jobId, List<String> subscribers, JsonNode reportSummary) {
+        if (subscribers == null || subscribers.isEmpty()) {
+            log.warn("[sendReportEmail][{}] No subscribers to notify", jobId);
+            return;
+        }
         log.info("[sendReportEmail][{}] Sending report to {} subscribers: {}", jobId, subscribers.size(), reportSummary);
         try {
+            // Simulate sending email with delay
             Thread.sleep(1000);
         } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt();
         }
         log.info("[sendReportEmail][{}] Email sent", jobId);
     }
@@ -226,21 +240,3 @@ public class CyodaEntityControllerPrototype {
         private Map<String, Object> reportSummary;
     }
 }
-```
----
-
-### Summary of changes:
-- **All asynchronous processing moved into the workflow function `processReportEntity`** which runs *before* persisting the entity.
-- The workflow function:
-  - Validates required fields.
-  - Downloads CSV data asynchronously.
-  - Analyzes data.
-  - Updates the entity's status, report summary, timestamps.
-  - Sends emails asynchronously as fire-and-forget.
-  - Handles exceptions and marks entity as failed if needed.
-- The controller endpoint `generateReport` simply prepares the initial entity data and calls `addItem` with the workflow function.
-- Removed all async processing and fire-and-forget from the controller.
-- `getReportStatus` endpoint unchanged.
-- This improves separation of concerns and ensures all processing logic is kept within the workflow, making the controller slim and robust.
-
-This approach aligns with your design requirements and best practices for async workflows before entity persistence.
