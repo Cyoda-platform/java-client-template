@@ -3,59 +3,66 @@ package com.java_template.entity.prototype;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 @RequestMapping(path = "/prototype/pets")
+@Validated
 public class EntityControllerPrototype {
 
     private static final Logger logger = LoggerFactory.getLogger(EntityControllerPrototype.class);
     private static final String PETSTORE_API_BASE = "https://petstore.swagger.io/v2";
-
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
-
-    // In-memory storage for local pets
     private final Map<String, Pet> localPets = new ConcurrentHashMap<>();
 
-    // === Models ===
     @Data
     public static class Pet {
         private String id;
-        @NotBlank
+        @NotBlank @Size(max = 100)
         private String name;
-        @NotBlank
+        @NotBlank @Size(max = 50)
         private String type;
+        @NotNull @Min(0)
         private Integer age;
-        @NotBlank
-        private String status; // "available" or "adopted"
+        @NotBlank @Pattern(regexp = "available|adopted")
+        private String status;
     }
 
     @Data
     public static class SearchCriteria {
+        @Size(max = 50)
         private String type;
+        @Size(max = 50)
         private String status;
+        @Size(max = 100)
         private String name;
     }
 
     @Data
     public static class UpdatePetRequest {
+        @Size(max = 100)
         private String name;
+        @Size(max = 50)
         private String type;
+        @Min(0)
         private Integer age;
+        @Pattern(regexp = "available|adopted")
         private String status;
     }
 
@@ -65,44 +72,24 @@ public class EntityControllerPrototype {
         private String message;
     }
 
-    // === Endpoint Implementations ===
-
-    /**
-     * GET /prototype/pets
-     * List all pets from local storage
-     */
     @GetMapping
     public Collection<Pet> listPets() {
-        logger.info("Listing all local pets, count={}", localPets.size());
+        logger.info("GET /prototype/pets - listPets count={}", localPets.size());
         return localPets.values();
     }
 
-    /**
-     * POST /prototype/pets/search
-     * Search pets by criteria, combining local and external Petstore API data
-     */
     @PostMapping("/search")
-    public List<Pet> searchPets(@RequestBody SearchCriteria criteria) {
-        logger.info("Search pets with criteria: type={}, status={}, name={}", criteria.getType(), criteria.getStatus(), criteria.getName());
-
+    public List<Pet> searchPets(@RequestBody @Valid SearchCriteria criteria) {
+        logger.info("POST /prototype/pets/search - criteria={}", criteria);
         List<Pet> results = new ArrayList<>();
-
-        // Search local pets
         localPets.values().stream()
-                .filter(pet -> matchesCriteria(pet, criteria))
+                .filter(p -> matchesCriteria(p, criteria))
                 .forEach(results::add);
-
-        // Query Petstore API external data
         try {
-            // Build Petstore API URL with query params if applicable - 
-            // Petstore API does not support direct search, so we'll fetch all available pets by status if possible
-            // For demo, only fetch by status = available or skip if no status given
-
-            String url = PETSTORE_API_BASE + "/pet/findByStatus?status=available"; // default to available
-            if (criteria.getStatus() != null && !criteria.getStatus().isBlank()) {
-                url = PETSTORE_API_BASE + "/pet/findByStatus?status=" + criteria.getStatus();
-            }
-            logger.info("Fetching external pets from Petstore API: {}", url);
+            String statusParam = criteria.getStatus() != null && !criteria.getStatus().isBlank()
+                    ? criteria.getStatus() : "available";
+            String url = PETSTORE_API_BASE + "/pet/findByStatus?status=" + statusParam;
+            logger.info("Fetching external pets: {}", url);
             String response = restTemplate.getForObject(url, String.class);
             JsonNode root = objectMapper.readTree(response);
             if (root.isArray()) {
@@ -110,121 +97,83 @@ public class EntityControllerPrototype {
                     Pet extPet = new Pet();
                     extPet.setId(node.path("id").asText());
                     extPet.setName(node.path("name").asText());
-                    JsonNode categoryNode = node.path("category");
-                    if (!categoryNode.isMissingNode()) {
-                        extPet.setType(categoryNode.path("name").asText("unknown"));
-                    } else {
-                        extPet.setType("unknown");
-                    }
-                    // Age not provided by Petstore API, set as null
+                    JsonNode cat = node.path("category");
+                    extPet.setType(cat.isMissingNode() ? "unknown" : cat.path("name").asText("unknown"));
                     extPet.setAge(null);
-                    extPet.setStatus(criteria.getStatus() != null ? criteria.getStatus() : "available");
-
+                    extPet.setStatus(statusParam);
                     if (matchesCriteria(extPet, criteria)) {
                         results.add(extPet);
                     }
                 }
-            } else {
-                logger.warn("Unexpected format from Petstore API: root is not an array");
             }
         } catch (Exception e) {
-            logger.error("Error fetching data from Petstore API", e);
-            // Continue with local results only on failure
+            logger.error("Error fetching external data", e);
         }
-
         return results;
     }
 
-    private boolean matchesCriteria(Pet pet, SearchCriteria criteria) {
-        if (criteria.getType() != null && !criteria.getType().isBlank()
-                && !criteria.getType().equalsIgnoreCase(pet.getType())) {
-            return false;
-        }
-        if (criteria.getStatus() != null && !criteria.getStatus().isBlank()
-                && !criteria.getStatus().equalsIgnoreCase(pet.getStatus())) {
-            return false;
-        }
-        if (criteria.getName() != null && !criteria.getName().isBlank()
-                && !pet.getName().toLowerCase().contains(criteria.getName().toLowerCase())) {
-            return false;
-        }
-        return true;
-    }
-
-    /**
-     * POST /prototype/pets
-     * Add new pet to local storage
-     */
     @PostMapping
-    public MessageResponse addPet(@Valid @RequestBody Pet pet) {
-        String newId = UUID.randomUUID().toString();
-        pet.setId(newId);
-        localPets.put(newId, pet);
-        logger.info("Added new pet with id={}", newId);
+    public MessageResponse addPet(@RequestBody @Valid Pet pet) {
+        String id = UUID.randomUUID().toString();
+        pet.setId(id);
+        localPets.put(id, pet);
+        logger.info("POST /prototype/pets - added pet id={}", id);
         MessageResponse resp = new MessageResponse();
-        resp.setId(newId);
+        resp.setId(id);
         resp.setMessage("Pet added successfully");
         return resp;
     }
 
-    /**
-     * POST /prototype/pets/{id}
-     * Update pet info in local storage
-     */
-    @PostMapping("/{id}")
-    public MessageResponse updatePet(@PathVariable String id, @RequestBody UpdatePetRequest update) {
+    @PutMapping("/{id}")
+    public MessageResponse updatePet(@PathVariable String id, @RequestBody @Valid UpdatePetRequest update) {
         Pet existing = localPets.get(id);
         if (existing == null) {
-            logger.error("Pet id={} not found for update", id);
+            logger.error("PUT /prototype/pets/{}/ - pet not found", id);
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pet not found");
         }
-        if (update.getName() != null) {
-            existing.setName(update.getName());
-        }
-        if (update.getType() != null) {
-            existing.setType(update.getType());
-        }
-        if (update.getAge() != null) {
-            existing.setAge(update.getAge());
-        }
-        if (update.getStatus() != null) {
-            existing.setStatus(update.getStatus());
-        }
-        logger.info("Updated pet id={}", id);
+        if (update.getName() != null) existing.setName(update.getName());
+        if (update.getType() != null) existing.setType(update.getType());
+        if (update.getAge() != null) existing.setAge(update.getAge());
+        if (update.getStatus() != null) existing.setStatus(update.getStatus());
+        logger.info("PUT /prototype/pets/{}/ - updated", id);
         MessageResponse resp = new MessageResponse();
         resp.setId(id);
         resp.setMessage("Pet updated successfully");
         return resp;
     }
 
-    /**
-     * POST /prototype/pets/{id}/adopt
-     * Mark a pet as adopted
-     */
     @PostMapping("/{id}/adopt")
     public MessageResponse adoptPet(@PathVariable String id) {
         Pet existing = localPets.get(id);
         if (existing == null) {
-            logger.error("Pet id={} not found for adoption", id);
+            logger.error("POST /prototype/pets/{}/adopt - pet not found", id);
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pet not found");
         }
         existing.setStatus("adopted");
-        logger.info("Pet id={} marked as adopted", id);
+        logger.info("POST /prototype/pets/{}/adopt - adopted", id);
         MessageResponse resp = new MessageResponse();
         resp.setId(id);
         resp.setMessage("Pet adopted successfully");
         return resp;
     }
 
-    // === Basic error handler for validation errors ===
-    @ExceptionHandler(org.springframework.web.bind.MethodArgumentNotValidException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public Map<String, String> handleValidationExceptions(org.springframework.web.bind.MethodArgumentNotValidException ex) {
-        Map<String, String> errors = new HashMap<>();
-        ex.getBindingResult().getFieldErrors().forEach(error ->
-                errors.put(error.getField(), error.getDefaultMessage()));
-        logger.error("Validation failed: {}", errors);
-        return errors;
+    private boolean matchesCriteria(Pet pet, SearchCriteria c) {
+        if (c.getType() != null && !c.getType().isBlank() && !c.getType().equalsIgnoreCase(pet.getType()))
+            return false;
+        if (c.getStatus() != null && !c.getStatus().isBlank() && !c.getStatus().equalsIgnoreCase(pet.getStatus()))
+            return false;
+        if (c.getName() != null && !c.getName().isBlank() && !pet.getName().toLowerCase().contains(c.getName().toLowerCase()))
+            return false;
+        return true;
     }
 
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Map<String, String> handleValidationExceptions(MethodArgumentNotValidException ex) {
+        Map<String, String> errors = new HashMap<>();
+        ex.getBindingResult().getFieldErrors().forEach(err ->
+                errors.put(err.getField(), err.getDefaultMessage()));
+        logger.error("Validation error: {}", errors);
+        return errors;
+    }
 }
