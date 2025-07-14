@@ -1,0 +1,15 @@
+{
+    "entity_models": [
+        {
+            "entity_model_name": "example",
+            "workflow_function": {
+                "code_with_necessary_imports_and_constants": "import java.util.UUID;\nimport java.util.concurrent.CompletableFuture;",
+                "content": "private Data processExample(Data data) {\n    // Sample processing\n    data.setProcessed(true);\n    return data;\n}",
+                "name": "processExample"
+            }
+        }
+    ],
+    "file_without_workflow": {
+        "code": "import java.util.UUID;\nimport com.java_template.common.service.EntityService;\nimport java.util.concurrent.CompletableFuture;\n\npublic class MyService {\n    private final EntityService entityService;\n\n    public MyService(EntityService entityService) {\n        this.entityService = entityService;\n    }\n\n    public CompletableFuture<UUID> createEntity(Data data) {\n        return entityService.addItem(\n            entityModel = \"example\",\n            entityVersion = ENTITY_VERSION,\n            entity = data\n        );\n    }\n}"
+    }
+}
