@@ -1,19 +1,22 @@
-import java.util.UUID;
-import com.java_template.common.service.EntityService;
-import java.util.concurrent.CompletableFuture;
+package com.example.demo.controller;
 
-public class MyService {
-    private final EntityService entityService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.web.bind.annotation.RestController;
 
-    public MyService(EntityService entityService) {
-        this.entityService = entityService;
+@RestController
+public class Controller {
+
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
+    private final ObjectMapper objectMapper;
+
+    // Constructor injection for ObjectMapper
+    public Controller(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+        logger.info("Controller initialized with ObjectMapper");
     }
 
-    public CompletableFuture<UUID> createEntity(Data data) {
-        return entityService.addItem(
-            entityModel = "example",
-            entityVersion = ENTITY_VERSION,
-            entity = data
-        );
-    }
+    // Add your handler methods here, using objectMapper as needed
+
 }
