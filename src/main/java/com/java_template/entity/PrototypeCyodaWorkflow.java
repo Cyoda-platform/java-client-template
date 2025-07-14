@@ -1,156 +1,159 @@
-Certainly! Moving asynchronous logic and any complex entity processing from the controller or endpoint layer into the workflow function (e.g. `process{EntityName}`) is a very good and clean architectural approach. This keeps your controllers slim and focused on request/response handling, while the workflow function encapsulates all entity-specific preparation, enrichment, async processing, and side effects before persistence.
-
----
-
-### Key benefits of this approach:
-- **Separation of concerns:** Controllers only handle HTTP and validation; business logic lives in workflow functions.
-- **Robustness:** Workflow functions run atomically before persistence, ensuring entity consistency.
-- **Async support:** Workflow functions support asynchronous code with `CompletableFuture`.
-- **Data integrity:** You can modify entity state safely before it is persisted.
-- **Extensibility:** You can fetch/add supplementary entities of different types within the workflow.
-- **Avoid recursion:** You **cannot** call add/update/delete on the same entityModel inside the workflow, preventing infinite loops.
-
----
-
-### How to implement:
-
-1. Identify all async/processing code inside your endpoint methods related to the entity.
-2. Move that logic into a method named `process{EntityName}` which:
-   - Accepts the `ObjectNode entity` as input
-   - Returns `CompletableFuture<ObjectNode>`
-   - Modifies the entity state directly via `put(...)` or similar
-   - Performs async tasks (fetching related data, fire-and-forget tasks, enrichment)
-   - Adds secondary entities (different entityModel) if needed via `entityService.addItem(...)`
-3. Update your controller to pass `this::process{EntityName}` as the workflow parameter when calling `entityService.addItem`
-
----
-
-### Example Refactoring for a `User` entity
-
----
-
-```java
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
-public class UserController {
+public class Application {
 
     private static final int ENTITY_VERSION = 1;
 
     private final EntityService entityService;
 
-    public UserController(EntityService entityService) {
+    public Application(EntityService entityService) {
         this.entityService = entityService;
     }
 
-    /**
-     * Workflow function to process User entity asynchronously before persistence.
-     * Modify entity state, perform async enrichment, add related entities.
-     */
+    // Public API method to add a User entity
+    public CompletableFuture<UUID> addUser(ObjectNode userData) {
+        // Validate userData here if needed (omitted for brevity)
+        // Pass workflow function to entityService.addItem
+        return entityService.addItem("User", ENTITY_VERSION, userData, this::processUser);
+    }
+
+    // Workflow function for User entity; modifies entity, performs async enrichment, logging, supplementary entities
     private CompletableFuture<ObjectNode> processUser(ObjectNode entity) {
-        // Example: mark entity as processed
+        // Defensive null checks
+        if (entity == null) {
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Entity data cannot be null"));
+        }
+
+        // Mark entity as processed with timestamp
         entity.put("processedAt", System.currentTimeMillis());
 
-        // Example async enrichment - pretend we fetch user profile asynchronously
-        CompletableFuture<ObjectNode> enrichmentFuture = fetchUserProfile(entity.get("userId").asText())
+        // Example: async enrichment - fetch user profile data and attach
+        CompletableFuture<ObjectNode> enrichmentFuture = fetchUserProfile(getStringSafe(entity, "userId"))
             .thenApply(profileData -> {
-                // Add profile data into the entity
-                entity.set("profile", profileData);
+                if (profileData != null) {
+                    entity.set("profile", profileData);
+                }
                 return entity;
             });
 
-        // Example fire-and-forget: log audit event asynchronously (do not block)
+        // Fire-and-forget audit logging (non-blocking)
         enrichmentFuture.thenAcceptAsync(e -> logAuditEvent(e));
 
-        // Example: add supplementary entity of different model (e.g. UserAuditLog)
-        CompletableFuture<Void> supplementaryEntityFuture = entityService.addItem(
+        // Create supplementary UserAuditLog entity asynchronously with its own workflow
+        CompletableFuture<Void> supplementaryEntityFuture =
+            entityService.addItem(
                 "UserAuditLog",
                 ENTITY_VERSION,
                 createAuditLog(entity),
-                this::processUserAuditLog // workflow for audit log entity
+                this::processUserAuditLog
             ).thenAccept(id -> {
-                // Log or track supplementary entity addition
+                // Optional: log supplementary entity creation
                 System.out.println("UserAuditLog created with id: " + id);
+            }).exceptionally(ex -> {
+                // Prevent exceptions from breaking main flow, log error
+                System.err.println("Failed to create UserAuditLog: " + ex.getMessage());
+                return null;
             });
 
-        // Combine all futures to complete only when enrichment and supplementary entity creation done
+        // Return combined future completing when enrichment and supplementary entity creation done
         return CompletableFuture.allOf(enrichmentFuture, supplementaryEntityFuture)
                 .thenApply(v -> entity);
     }
 
-    /**
-     * Example workflow for UserAuditLog entity
-     */
+    // Workflow function for UserAuditLog entity; modifies audit log entity before persistence
     private CompletableFuture<ObjectNode> processUserAuditLog(ObjectNode auditLogEntity) {
-        // Add timestamp or modify audit log entity
+        if (auditLogEntity == null) {
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Audit log entity cannot be null"));
+        }
         auditLogEntity.put("loggedAt", System.currentTimeMillis());
         return CompletableFuture.completedFuture(auditLogEntity);
     }
 
-    /**
-     * Endpoint method simplified: only validates and calls addItem with workflow.
-     */
-    public CompletableFuture<UUID> addUser(ObjectNode userData) {
-        // Validate userData here (omitted for brevity)
-
-        // Pass workflow function to addItem
-        return entityService.addItem("User", ENTITY_VERSION, userData, this::processUser);
-    }
-
-    // --- Helper async methods ---
-
+    // Helper async method simulating fetching user profile data
     private CompletableFuture<ObjectNode> fetchUserProfile(String userId) {
-        // Simulate async fetch of user profile data
+        if (userId == null || userId.isBlank()) {
+            return CompletableFuture.completedFuture(null);
+        }
         ObjectNode profile = JsonNodeFactory.instance.objectNode();
-        profile.put("nickname", "example_nick");
+        profile.put("nickname", "user_" + userId);
         profile.put("preferences", "dark_mode");
         return CompletableFuture.completedFuture(profile);
     }
 
+    // Fire-and-forget asynchronous audit event logger
     private void logAuditEvent(ObjectNode entity) {
-        // Fire-and-forget async logging
+        // In real scenario, dispatch to async logging system, here just print
         System.out.println("Audit event logged for entity: " + entity);
     }
 
+    // Create UserAuditLog entity data from User entity data
     private ObjectNode createAuditLog(ObjectNode userEntity) {
         ObjectNode auditLog = JsonNodeFactory.instance.objectNode();
-        auditLog.put("userId", userEntity.get("userId").asText());
+        auditLog.put("userId", getStringSafe(userEntity, "userId"));
         auditLog.put("action", "CREATE_USER");
         auditLog.put("timestamp", System.currentTimeMillis());
         return auditLog;
     }
 
-    // --- EntityService interface for reference ---
+    // Safe getter for String fields from ObjectNode
+    private String getStringSafe(ObjectNode node, String fieldName) {
+        if (node != null && node.has(fieldName) && node.get(fieldName).isTextual()) {
+            return node.get(fieldName).asText();
+        }
+        return null;
+    }
 
+    // Interface definition for EntityService
     public interface EntityService {
-        CompletableFuture<UUID> addItem(String entityModel,
-                                       int entityVersion,
-                                       ObjectNode entity,
-                                       Function<ObjectNode, CompletableFuture<ObjectNode>> workflow);
+        CompletableFuture<UUID> addItem(
+                String entityModel,
+                int entityVersion,
+                ObjectNode entity,
+                Function<ObjectNode, CompletableFuture<ObjectNode>> workflow);
+    }
+
+    // Example main method to demonstrate usage
+    public static void main(String[] args) {
+        // Dummy EntityService implementation for demonstration
+        EntityService service = new EntityService() {
+            @Override
+            public CompletableFuture<UUID> addItem(String entityModel, int entityVersion, ObjectNode entity, Function<ObjectNode, CompletableFuture<ObjectNode>> workflow) {
+                if (entity == null) {
+                    return CompletableFuture.failedFuture(new IllegalArgumentException("Entity cannot be null"));
+                }
+                // Apply workflow function before persistence
+                return workflow.apply(entity).thenCompose(processedEntity -> {
+                    // Simulate persistence logic here
+                    System.out.println("Persisting entityModel: " + entityModel + " with data: " + processedEntity);
+                    // Return dummy UUID
+                    return CompletableFuture.completedFuture(UUID.randomUUID());
+                });
+            }
+        };
+
+        Application app = new Application(service);
+
+        // Create sample user data
+        ObjectNode userData = JsonNodeFactory.instance.objectNode();
+        userData.put("userId", "12345");
+        userData.put("name", "John Doe");
+
+        // Call addUser with workflow processing
+        app.addUser(userData).thenAccept(uuid -> {
+            System.out.println("User persisted with UUID: " + uuid);
+        }).exceptionally(ex -> {
+            System.err.println("Failed to add user: " + ex.getMessage());
+            return null;
+        });
+
+        // Sleep main thread briefly to allow async tasks to complete in this demo
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException ignored) {
+        }
     }
 }
-```
-
----
-
-### Summary of changes:
-- All async enrichments, fire-and-forget logging, and supplementary entity creations were moved inside `processUser`.
-- The controller endpoint `addUser` just passes the validated data and the workflow function.
-- `processUser` modifies the entity state directly (e.g. `put("processedAt", ...)`) before persistence.
-- Supplementary entities like audit logs are created within the workflow with their own workflow functions.
-- Async tasks are combined with `CompletableFuture.allOf` to ensure completion before persisting the main entity.
-
----
-
-### Your next steps:
-- Review your existing endpoints and identify async logic and side effects related to entities.
-- Move them into corresponding `process{EntityName}` workflow functions.
-- Refactor `entityService.addItem` calls to pass these workflow functions.
-- Test thoroughly to verify entity state changes and side effects are correctly applied.
-
----
-
-If you want, I can help refactor your specific endpoint code with this pattern — just provide your current endpoint code snippet!
