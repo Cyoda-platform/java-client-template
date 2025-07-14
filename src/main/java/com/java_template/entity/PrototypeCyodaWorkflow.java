@@ -1,32 +1,36 @@
-Certainly! Moving asynchronous logic and entity state modification from your endpoint/controller into the `process{entity_name}` workflow function is indeed the right approach. This makes the controller leaner, focuses all entity-related business logic and async tasks in one place, and uses the new workflow mechanism as intended.
-
----
-
-### Key points to apply:
-
-- Keep controllers responsible only for receiving requests, validation, and invoking `entityService.addItem` with the workflow function.
-- Move all async logic related to the entity state modification, enrichment, or side effects into the workflow function.
-- The workflow function:
-  - Receives an `ObjectNode` (JSON tree) representing the entity.
-  - Modifies the entity directly (`entity.put(...)` etc.).
-  - Can asynchronously get/add supplementary entities of **different** entity models via `entityService`.
-  - Cannot add/update/delete the same entity model (to avoid recursion).
-  - Returns a CompletableFuture of the modified entity.
-- Fire-and-forget async calls should also be moved here if they operate on the entity or related entities.
-
----
-
-### Example Refactor (Java + Jackson `ObjectNode`)
-
-```java
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
-public class EntityController {
+public class Application {
+
+    public static void main(String[] args) {
+        ObjectMapper objectMapper = new ObjectMapper();
+        EntityService entityService = new EntityServiceImpl(objectMapper);
+
+        EntityController controller = new EntityController(entityService, objectMapper);
+
+        // Example entity data creation
+        ObjectNode customerData = objectMapper.createObjectNode();
+        customerData.put("id", UUID.randomUUID().toString());
+        customerData.put("name", "John Doe");
+        customerData.put("email", "john.doe@example.com");
+        customerData.put("externalId", "ext-12345");
+
+        // Call createCustomer endpoint
+        controller.createCustomer(customerData)
+                .thenAccept(uuid -> System.out.println("Customer persisted with UUID: " + uuid))
+                .exceptionally(ex -> {
+                    ex.printStackTrace();
+                    return null;
+                });
+    }
+}
+
+class EntityController {
 
     private static final int ENTITY_VERSION = 1;
     private final EntityService entityService;
@@ -37,11 +41,14 @@ public class EntityController {
         this.objectMapper = objectMapper;
     }
 
-    // Endpoint method (simplified)
     public CompletableFuture<UUID> createCustomer(ObjectNode customerData) {
-        // Validation can remain here or be moved to workflow if needed
+        // Basic validation example (could be more complex or moved to workflow)
+        if (!customerData.hasNonNull("email")) {
+            CompletableFuture<UUID> failedFuture = new CompletableFuture<>();
+            failedFuture.completeExceptionally(new IllegalArgumentException("Email is required"));
+            return failedFuture;
+        }
 
-        // Call addItem with workflow function
         return entityService.addItem(
                 "Customer",
                 ENTITY_VERSION,
@@ -50,87 +57,126 @@ public class EntityController {
         );
     }
 
-    /**
-     * Workflow function invoked asynchronously before persistence.
-     * Modify entity state here, perform async tasks, add/get supplementary entities.
-     *
-     * @param entity JSON entity data as ObjectNode
-     * @return CompletableFuture of modified entity
-     */
     private CompletableFuture<ObjectNode> processCustomer(ObjectNode entity) {
-        // Example: Set default status if missing
+        // Prevent infinite recursion: do NOT call add/update/delete on "Customer" here
+
+        // Set default status if missing
         if (!entity.has("status")) {
             entity.put("status", "NEW");
         }
 
-        // Example: Enrich entity with some external async data
-        return fetchExternalDataAsync(entity.get("externalId").asText())
-            .thenCompose(externalData -> {
-                // Add external data into entity
-                entity.set("externalDetails", externalData);
+        // Validate email format (simple check)
+        String email = entity.hasNonNull("email") ? entity.get("email").asText() : "";
+        if (!email.contains("@")) {
+            CompletableFuture<ObjectNode> failed = new CompletableFuture<>();
+            failed.completeExceptionally(new IllegalArgumentException("Invalid email format"));
+            return failed;
+        }
 
-                // Example async side effect (fire & forget)
-                CompletableFuture<Void> fireAndForget = sendWelcomeEmailAsync(entity);
+        // Async fetch external data and enrich entity
+        String externalId = entity.hasNonNull("externalId") ? entity.get("externalId").asText() : null;
 
-                // Add a supplementary entity (different model)
-                ObjectNode auditRecord = objectMapper.createObjectNode();
-                auditRecord.put("customerId", entity.get("id").asText());
-                auditRecord.put("action", "CREATE");
-                CompletableFuture<UUID> auditAddFuture = entityService.addItem(
-                        "AuditRecord",
-                        ENTITY_VERSION,
-                        auditRecord,
-                        Function.identity() // no workflow for audit, or define one if needed
-                );
+        CompletableFuture<ObjectNode> externalDataFuture = externalId != null
+                ? fetchExternalDataAsync(externalId)
+                : CompletableFuture.completedFuture(objectMapper.createObjectNode());
 
-                // Combine all futures and return the modified entity after all done
-                return CompletableFuture.allOf(fireAndForget, auditAddFuture)
-                        .thenApply(v -> entity);
-            });
+        return externalDataFuture.thenCompose(externalData -> {
+            // Add external data to entity
+            entity.set("externalDetails", externalData);
+
+            // Fire-and-forget async side effect wrapped in CompletableFuture
+            CompletableFuture<Void> emailFuture = sendWelcomeEmailAsync(entity);
+
+            // Add audit record entity (different entity model)
+            ObjectNode auditRecord = objectMapper.createObjectNode();
+            auditRecord.put("customerId", entity.get("id").asText());
+            auditRecord.put("action", "CREATE");
+            auditRecord.put("timestamp", System.currentTimeMillis());
+
+            CompletableFuture<UUID> auditAddFuture = entityService.addItem(
+                    "AuditRecord",
+                    ENTITY_VERSION,
+                    auditRecord,
+                    Function.identity() // no workflow for audit record
+            );
+
+            // Combine all futures and return modified entity when all complete
+            return CompletableFuture.allOf(emailFuture, auditAddFuture)
+                    .thenApply(v -> entity);
+        });
     }
 
-    // Async method that fetches external data (stub)
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     private CompletableFuture<ObjectNode> fetchExternalDataAsync(String externalId) {
+        // Simulate async external service call with dummy data
         ObjectNode dummyData = objectMapper.createObjectNode();
-        dummyData.put("info", "Details for " + externalId);
+        dummyData.put("info", "External info for " + externalId);
         return CompletableFuture.completedFuture(dummyData);
     }
 
-    // Async fire-and-forget side effect (stub)
     private CompletableFuture<Void> sendWelcomeEmailAsync(ObjectNode entity) {
-        // simulate async email sending
-        System.out.println("Sending welcome email to " + entity.get("email").asText());
-        return CompletableFuture.completedFuture(null);
-    }
-
-    // EntityService interface (simplified)
-    interface EntityService {
-        <T> CompletableFuture<UUID> addItem(String entityModel, int entityVersion, T entity, Function<T, CompletableFuture<T>> workflow);
+        // Simulate async email sending with delay
+        return CompletableFuture.runAsync(() -> {
+            try {
+                Thread.sleep(100); // simulate delay
+                System.out.println("Welcome email sent to " + entity.get("email").asText());
+            } catch (InterruptedException ignored) {
+            }
+        });
     }
 }
-```
 
----
+interface EntityService {
+    <T> CompletableFuture<UUID> addItem(String entityModel, int entityVersion, T entity, Function<T, CompletableFuture<T>> workflow);
+}
 
-### What changed compared to a typical controller?
+// Simulated implementation of EntityService
+class EntityServiceImpl implements EntityService {
 
-- The controller endpoint **only** calls `addItem` and passes the workflow function.
-- **All async logic** (external data fetching, sending emails, creating audit records) moved inside `processCustomer`.
-- `processCustomer` directly modifies the entity (`ObjectNode`) and returns it asynchronously.
-- Fire-and-forget async calls are included in the workflow and awaited before completing.
-- Additional entities of different models (e.g., `"AuditRecord"`) are added in the workflow.
-- No `add/update/delete` calls on the `"Customer"` entity inside `processCustomer` (to avoid recursion).
+    private final ObjectMapper objectMapper;
 
----
+    public EntityServiceImpl(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
 
-### Benefits
+    @Override
+    public <T> CompletableFuture<UUID> addItem(String entityModel, int entityVersion, T entity, Function<T, CompletableFuture<T>> workflow) {
+        // Validate inputs
+        if (entityModel == null || entityModel.isEmpty()) {
+            CompletableFuture<UUID> failed = new CompletableFuture<>();
+            failed.completeExceptionally(new IllegalArgumentException("entityModel is required"));
+            return failed;
+        }
+        if (entity == null) {
+            CompletableFuture<UUID> failed = new CompletableFuture<>();
+            failed.completeExceptionally(new IllegalArgumentException("entity is required"));
+            return failed;
+        }
+        if (workflow == null) {
+            CompletableFuture<UUID> failed = new CompletableFuture<>();
+            failed.completeExceptionally(new IllegalArgumentException("workflow function is required"));
+            return failed;
+        }
 
-- Controller code is very clean and focused.
-- Workflow function centralizes all entity-related async logic and state mutation.
-- Async tasks related to entity enrichment or side effects are guaranteed to complete before persistence.
-- Easier to maintain and test entity logic in one place.
-- Avoids infinite recursion or unexpected side effects by respecting the limitation on entity model operations.
+        // Apply workflow function asynchronously
+        return workflow.apply(entity)
+                .thenCompose(modifiedEntity -> {
+                    // Persist the modified entity
+                    return persistEntity(entityModel, entityVersion, modifiedEntity);
+                });
+    }
 
----
-
-If you provide your current controller + async logic code snippet, I can help refactor it fully into the workflow function. Otherwise, this pattern and example should guide you to do so effectively!
+    private <T> CompletableFuture<UUID> persistEntity(String entityModel, int entityVersion, T entity) {
+        // Simulated persistence logic; in real code replace with DB call or similar
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                Thread.sleep(50); // simulate I/O delay
+            } catch (InterruptedException ignored) {
+            }
+            UUID generatedId = UUID.randomUUID();
+            System.out.println("Persisted entity [" + entityModel + "] version " + entityVersion + " with ID: " + generatedId);
+            return generatedId;
+        });
+    }
+}
