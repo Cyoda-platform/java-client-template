@@ -1,0 +1,85 @@
+{
+    "description": "Pet entity processing FSM",
+    "initial_state": "none",
+    "states": {
+        "complete": {
+            "transitions": {}
+        },
+        "computeNameCategory": {
+            "transitions": {
+                "compute_name_category_action": {
+                    "action": {
+                        "name": "computeNameCategory"
+                    },
+                    "next": "complete"
+                }
+            }
+        },
+        "none": {
+            "transitions": {
+                "check_description": {
+                    "condition": {
+                        "function": {
+                            "name": "needsDescriptionFix"
+                        },
+                        "type": "function"
+                    },
+                    "next": "validateDescription"
+                },
+                "skip_description": {
+                    "condition": {
+                        "function": {
+                            "name": "negateNeedsDescriptionFix"
+                        },
+                        "type": "function"
+                    },
+                    "next": "normalizeStatus"
+                }
+            }
+        },
+        "normalizeStatus": {
+            "transitions": {
+                "check_status_normalization": {
+                    "condition": {
+                        "function": {
+                            "name": "needsStatusNormalization"
+                        },
+                        "type": "function"
+                    },
+                    "next": "normalizeStatusState"
+                },
+                "skip_normalization": {
+                    "condition": {
+                        "function": {
+                            "name": "negateNeedsStatusNormalization"
+                        },
+                        "type": "function"
+                    },
+                    "next": "computeNameCategory"
+                }
+            }
+        },
+        "normalizeStatusState": {
+            "transitions": {
+                "normalize_status_action": {
+                    "action": {
+                        "name": "normalizeStatus"
+                    },
+                    "next": "computeNameCategory"
+                }
+            }
+        },
+        "validateDescription": {
+            "transitions": {
+                "fix_description": {
+                    "action": {
+                        "name": "fixDescription"
+                    },
+                    "next": "normalizeStatus"
+                }
+            }
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "pet_processing_workflow"
+}
