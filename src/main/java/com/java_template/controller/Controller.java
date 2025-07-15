@@ -3,14 +3,13 @@ package com.java_template.entity;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
-import lombok.Data;
-import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -28,15 +27,19 @@ import static com.java_template.common.config.Config.*;
 @RestController
 @Validated
 @RequestMapping(path = "/pets")
-@RequiredArgsConstructor
-public class CyodaEntityControllerPrototype {
+public class Controller {
 
-    private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
     private static final String ENTITY_NAME = "pets";
+
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
+        this.entityService = entityService;
+        this.objectMapper = objectMapper;
+    }
 
     @PostMapping(path = "/fetch", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public FetchResponse fetchPets(@RequestBody @Valid FetchRequest fetchRequest) throws ExecutionException, InterruptedException {
@@ -185,33 +188,73 @@ public class CyodaEntityControllerPrototype {
         }
     }
 
-    @Data
     public static class FetchRequest {
         @NotBlank
         @Pattern(regexp = "available|pending|sold", message = "Status must be available, pending, or sold")
         private String status;
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
     }
 
-    @Data
     public static class FetchResponse {
         private final String message;
         private final int count;
+
+        public FetchResponse(String message, int count) {
+            this.message = message;
+            this.count = count;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public int getCount() {
+            return count;
+        }
     }
 
-    @Data
     public static class MatchRequest {
         @NotBlank
         private String preferredCategory;
         @NotBlank
         private String preferredStatus;
+
+        public String getPreferredCategory() {
+            return preferredCategory;
+        }
+
+        public void setPreferredCategory(String preferredCategory) {
+            this.preferredCategory = preferredCategory;
+        }
+
+        public String getPreferredStatus() {
+            return preferredStatus;
+        }
+
+        public void setPreferredStatus(String preferredStatus) {
+            this.preferredStatus = preferredStatus;
+        }
     }
 
-    @Data
     public static class MatchResponse {
         private final List<Pet> matches;
+
+        public MatchResponse(List<Pet> matches) {
+            this.matches = matches;
+        }
+
+        public List<Pet> getMatches() {
+            return matches;
+        }
     }
 
-    @Data
     public static class Pet {
         @com.fasterxml.jackson.annotation.JsonIgnore
         private Long id;
@@ -219,5 +262,45 @@ public class CyodaEntityControllerPrototype {
         private String category;
         private String status;
         private String description;
+
+        public Long getId() {
+            return id;
+        }
+
+        public void setId(Long id) {
+            this.id = id;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getCategory() {
+            return category;
+        }
+
+        public void setCategory(String category) {
+            this.category = category;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+        public void setDescription(String description) {
+            this.description = description;
+        }
     }
 }
