@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cyoda.com/cloud/event/common/condition/QueryCondition.json",
+  "title": "QueryCondition",
+  "type": "object",
+  "existingJavaType": "org.cyoda.cloud.api.event.common.condition.QueryCondition",
+  "properties": {
+    "type": {
+      "type": "string",
+      "description": "Type of the condition, see inherited types (e.g. 'group' or 'simple')."
+    }
+  },
+  "required": [
+    "type"
+  ]
+}

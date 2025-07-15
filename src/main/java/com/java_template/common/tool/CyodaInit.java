@@ -40,7 +40,7 @@ public class CyodaInit {
 
     public CompletableFuture<Void> initCyoda() {
         logger.info("🔄 Starting workflow import into Cyoda...");
-        String token = authentication.getAccessToken();
+        String token = authentication.getAccessToken().getTokenValue();
         return initEntitiesSchema(WORKFLOW_DTO_DIR, token)
                 .thenRun(() -> logger.info("✅ Workflow import process completed."))
                 .exceptionally(ex -> {
@@ -126,12 +126,12 @@ public class CyodaInit {
         try {
             String dtoContent = Files.readString(file);
             JsonNode dtoJson = new ObjectMapper().readTree(dtoContent);
-            String dtoWorkflowName = dtoJson.path("workflow").get(0).path("name").asText();
+            String dtoWorkflowName = dtoJson.path("workflow").get(0).path("operationName").asText();
 
             List<CompletableFuture<Void>> deactivationFutures = new ArrayList<>();
 
             for (JsonNode workflow : workflows) {
-                String name = workflow.path("name").asText();
+                String name = workflow.path("operationName").asText();
                 boolean active = workflow.path("active").asBoolean();
                 if (active && dtoWorkflowName.equals(name)) {
                     ((ObjectNode) workflow).put("active", false);

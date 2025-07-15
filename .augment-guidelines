@@ -1,0 +1,3 @@
+This is a gradle project.
+
+When catching exceptions, you either log and handle the exception or throw it without logging. Never do both.

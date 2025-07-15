@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cyoda.com/cloud/event/search/EntityMetadata.json",
+  "title": "EntityMetadata",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "ID of the entity.",
+      "format": "uuid"
+    },
+    "modelKey": {
+      "$ref": "../common/ModelSpec.json",
+      "description": "Model of the entity."
+    },
+    "state": {
+      "type": "string",
+      "description": "The state of the entity."
+    },
+    "creationDate": {
+      "type": "string",
+      "format": "date-time",
+      "description": "The creation date of the entity."
+    },
+    "transitionForLatestSave": {
+      "type": "string",
+      "description": "The transition applied of the entity when last saved."
+    }
+  },
+  "required": [
+    "id",
+    "state",
+    "creationDate"
+  ]
+}

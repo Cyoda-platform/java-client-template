@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cyoda.com/cloud/event/common/condition/GroupCondition.json",
+  "extends": {
+    "$ref": "./QueryCondition.json"
+  },
+  "allOf": [
+    {
+      "$ref": "./QueryCondition.json"
+    }
+  ],
+  "title": "GroupCondition",
+  "description": "Condition with a type 'group'",
+  "type": "object",
+  "properties": {
+    "type": {
+      "type": "string",
+      "default" : "group"
+    },
+    "conditions": {
+      "type": "array",
+      "items": {
+        "$ref": "./QueryCondition.json"
+      }
+    },
+    "operator": {
+      "type": "string",
+      "enum": [
+        "AND",
+        "OR",
+        "NOT"
+      ]
+    }
+  },
+  "required": [
+    "conditions",
+    "operator"
+  ]
+}
