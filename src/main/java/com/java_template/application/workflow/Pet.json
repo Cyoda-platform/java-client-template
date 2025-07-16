@@ -1,0 +1,43 @@
+{
+  "version": "1.0",
+  "description": "Pet entity business workflow",
+  "initial_state": "none",
+  "workflow_name": "petWorkflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "create_pet": {
+          "next": "created",
+          "processors": [
+            {
+              "name": "PetCreationProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "created": {
+      "transitions": {
+        "approve_pet": {
+          "next": "approved",
+          "criteria": [
+            {
+              "type": "function",
+              "function": {
+                "name": "PetApprovalCriterion"
+              }
+            }
+          ],
+          "processors": [
+            {
+              "name": "PetApprovalProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "approved": {
+      "transitions": {}
+    }
+  }
+}
