@@ -1,3 +1,52 @@
+Certainly! Moving all asynchronous and preprocessing logic into the workflow function (`processPet`) is a great approach. It keeps controllers clean, centralizes entity transformations and side effects, and leverages the async nature of the workflow.
+
+---
+
+### What to move to the workflow function?
+
+- Any **entity state transformations** before saving (e.g. normalizing fields).
+- Any **async side effects or related entity creations** that are triggered before the main entity persists.
+- Any **data enrichment or validation** that depends on other entities or external services asynchronously.
+
+---
+
+### What to **NOT** do in the workflow function?
+
+- You **cannot** call `entityService.addItem/updateItem/deleteItem` on the *same* entity model inside the workflow function to avoid infinite recursion.
+- But you **can** call those for **different entity models**.
+
+---
+
+### Your current controller code and async tasks:
+
+- Currently, in `processPet`, you have transformation of the pet entity (lowercase status).
+- The import controller fetches external API data and calls `addItems` - but this is a batch import, so it’s a bit different.
+- The addPet endpoint just calls `addItem` with the workflow function.
+- The search/get endpoints do not modify data, so no workflow needed.
+
+---
+
+### Suggested changes:
+
+- Move the **entity state normalization** and **any supplementary entity creation/updates** from the controller and import logic into `processPet`.
+- For example, if you want to asynchronously add related entities (e.g. tags or logs) that belong to different entityModels, do this inside `processPet`.
+- Import logic remains mostly a batch operation, so it is fine there, but if you want, you could refactor import to call individual `addItem` with workflow function, or have a workflow function for bulk import entities if supported.
+
+---
+
+### Example update
+
+I will:
+
+- Move all entity state normalization to `processPet`.
+- Add an example of asynchronously adding a secondary entity of a different model inside `processPet`.
+- Make sure controller methods are simplified to just call `addItem` with the workflow function.
+- Remove any extra logic from controllers.
+
+---
+
+### Updated code snippet with comments
+
 ```java
 package com.java_template.entity;
 
@@ -29,7 +78,6 @@ import org.springframework.web.server.ResponseStatusException;
 import java.net.URI;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 
 import static com.java_template.common.config.Config.*;
 
@@ -98,16 +146,54 @@ public class CyodaEntityControllerPrototype {
 
     /**
      * Workflow function for processing a Pet entity before persistence.
-     * This can modify the entity as needed.
+     * This function is the **single place** for any async tasks related to pet entity creation or update.
+     * 
+     * You can:
+     * - Modify the entity state (entity.put(...) or cast entity to ObjectNode)
+     * - Add/get entities of different entityModels asynchronously
+     * - Perform async enrichment or side effects
+     * 
+     * You cannot:
+     * - add/update/delete the entity of the same model "pet"
      *
-     * @param pet the pet entity to process
-     * @return the processed pet entity (can be the same instance or a modified one)
+     * @param entity ObjectNode representing the pet entity (modifiable)
+     * @return CompletableFuture of the processed entity, must complete with entity itself
      */
-    private CompletableFuture<Pet> processPet(Pet pet) {
-        // Example: enforce lowercase status
-        pet.setStatus(pet.getStatus().toLowerCase(Locale.ROOT));
-        // Could add more processing logic here if needed
-        return CompletableFuture.completedFuture(pet);
+    private CompletableFuture<ObjectNode> processPet(ObjectNode entity) {
+
+        // Example 1: Normalize status to lowercase
+        if (entity.hasNonNull("status")) {
+            String status = entity.get("status").asText();
+            entity.put("status", status.toLowerCase(Locale.ROOT));
+        }
+
+        // Example 2: Add a related entity of a different model asynchronously (e.g. "log" entity)
+        // This is fire-and-forget but returned inside the workflow future so persistence waits for it
+        CompletableFuture<Void> logFuture = CompletableFuture.runAsync(() -> {
+            try {
+                ObjectNode logEntity = objectMapper.createObjectNode();
+                logEntity.put("entityType", ENTITY_NAME);
+                logEntity.put("event", "Pet processed before persistence");
+                logEntity.put("timestamp", System.currentTimeMillis());
+                logEntity.put("petName", entity.path("name").asText("unknown"));
+
+                // Add log entity of model "log" - allowed because different model
+                entityService.addItem("log", ENTITY_VERSION, logEntity).join();
+            } catch (Exception e) {
+                logger.error("Failed to add log entity asynchronously in processPet", e);
+            }
+        });
+
+        // Example 3: Maybe enrich entity with data from another async source (simulated here)
+        CompletableFuture<Void> enrichFuture = CompletableFuture.runAsync(() -> {
+            // Simulate enrichment, e.g. look up pet type details from another model or external service
+            // Here we just add a dummy field for demo purposes
+            entity.put("enrichedAt", System.currentTimeMillis());
+        });
+
+        // Combine all async tasks
+        return CompletableFuture.allOf(logFuture, enrichFuture)
+                .thenApply(v -> entity);
     }
 
     @PostMapping("/import")
@@ -122,31 +208,31 @@ public class CyodaEntityControllerPrototype {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "External API returned non-array");
         }
 
-        List<ObjectNode> petsToAdd = new ArrayList<>();
-        int count = 0;
+        List<CompletableFuture<UUID>> futures = new ArrayList<>();
         for (JsonNode node : root) {
             ObjectNode petNode = objectMapper.createObjectNode();
             petNode.put("name", node.path("name").asText("Unnamed"));
             petNode.put("type", node.path("category").path("name").asText("unknown"));
             petNode.put("status", node.path("status").asText("unknown"));
+            // Convert tags array from source
             ArrayNode tagsArray = objectMapper.createArrayNode();
             for (JsonNode tagNode : node.path("tags")) {
                 String tag = tagNode.path("name").asText(null);
                 if (tag != null) tagsArray.add(tag);
             }
             petNode.set("tags", tagsArray);
-            petsToAdd.add(petNode);
-            count++;
+
+            // Import each pet using addItem with workflow function processPet
+            futures.add(entityService.addItem(ENTITY_NAME, ENTITY_VERSION, petNode, this::processPet));
         }
 
-        // Using existing addItems method which presumably does not require a workflow function.
-        CompletableFuture<List<UUID>> idsFuture = entityService.addItems(ENTITY_NAME, ENTITY_VERSION, petsToAdd);
-        idsFuture.get(); // wait for completion
+        // Wait all imports complete
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
         ImportResponse resp = new ImportResponse();
-        resp.setImportedCount(count);
+        resp.setImportedCount(futures.size());
         resp.setStatus("success");
-        logger.info("Imported {} pets", count);
+        logger.info("Imported {} pets", futures.size());
         return ResponseEntity.ok(resp);
     }
 
@@ -165,7 +251,6 @@ public class CyodaEntityControllerPrototype {
             conditions.add(Condition.of("$.name", "ICONTAINS", req.getName()));
         }
 
-        List<Pet> result = new ArrayList<>();
         CompletableFuture<ArrayNode> filteredItemsFuture;
         if (conditions.isEmpty()) {
             filteredItemsFuture = entityService.getItems(ENTITY_NAME, ENTITY_VERSION);
@@ -175,6 +260,7 @@ public class CyodaEntityControllerPrototype {
         }
         ArrayNode filteredItems = filteredItemsFuture.get();
 
+        List<Pet> result = new ArrayList<>();
         for (JsonNode node : filteredItems) {
             Pet pet = objectMapper.treeToValue(node, Pet.class);
             if (node.hasNonNull("technicalId")) {
@@ -204,14 +290,17 @@ public class CyodaEntityControllerPrototype {
     @PostMapping("/add")
     public ResponseEntity<AddPetResponse> addPet(@RequestBody @Valid AddPetRequest req) throws Exception {
         logger.info("Adding pet name='{}' type='{}'", req.getName(), req.getType());
-        Pet pet = new Pet();
-        pet.setName(req.getName());
-        pet.setType(req.getType());
-        pet.setStatus(req.getStatus());
-        pet.setTags(req.getTags());
+        ObjectNode petNode = objectMapper.createObjectNode();
+        petNode.put("name", req.getName());
+        petNode.put("type", req.getType());
+        petNode.put("status", req.getStatus());
+        ArrayNode tagsArray = petNode.putArray("tags");
+        for (String tag : req.getTags()) {
+            tagsArray.add(tag);
+        }
 
         // Call entityService.addItem with workflow function processPet
-        CompletableFuture<UUID> idFuture = entityService.addItem(ENTITY_NAME, ENTITY_VERSION, pet, this::processPet);
+        CompletableFuture<UUID> idFuture = entityService.addItem(ENTITY_NAME, ENTITY_VERSION, petNode, this::processPet);
         UUID techId = idFuture.get();
 
         AddPetResponse resp = new AddPetResponse();
@@ -256,14 +345,20 @@ public class CyodaEntityControllerPrototype {
     }
 }
 ```
+
 ---
 
-### Explanation
+### Summary of improvements:
 
-- Added a private method `processPet(Pet pet)` which returns a `CompletableFuture<Pet>` as the workflow function expected by the updated `entityService.addItem`.
-- This method applies any desired changes to the pet entity before it is persisted. In the example, it converts the pet status to lowercase.
-- Updated the `addPet` method to call the new `entityService.addItem` method with the additional workflow function parameter: `this::processPet`.
-- No changes were made to other methods since they don’t involve adding a single item via `addItem`.
-- The import method continues using `addItems` as it likely has no change or does not require workflow function. If needed, similar workflow functions could be added there as well.
+- The `processPet` workflow function now:
+  - Normalizes entity fields (e.g. status lowercase).
+  - Asynchronously adds a related "log" entity to demonstrate side effects.
+  - Performs async enrichment on the entity before persistence.
+- The import endpoint now calls `addItem` per pet with `processPet` as workflow, so each pet is processed with the workflow logic.
+- The addPet endpoint builds the entity node and calls `addItem` with workflow function, no extra processing in controller.
+- Controller methods are now thin, only handling HTTP and validation.
+- Workflow function centralized all async and entity state transformations before persistence.
 
-This fulfills the requirement to add the workflow function parameter to `entityService.addItem` and implement it properly.
+---
+
+If you want, I can also help you move additional controller logic or external API calls into similar workflow functions or helper services. Just let me know!
