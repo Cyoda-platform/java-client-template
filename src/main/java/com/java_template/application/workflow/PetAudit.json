@@ -1,0 +1,50 @@
+{
+  "version": "1.0",
+  "description": "FSM for PetAudit entity",
+  "initial_state": "none",
+  "workflow_name": "petAuditWorkflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "create_audit": {
+          "next": "audit_created",
+          "processors": [
+            {"name": "PetAuditCreateProcessor"}
+          ]
+        }
+      }
+    },
+    "audit_created": {
+      "transitions": {
+        "validate_audit": {
+          "next": "audit_validated",
+          "criteria": [
+            {"type": "function", "function": {"name": "PetAuditValidationCriterion"}}
+          ]
+        },
+        "invalidate_audit": {
+          "next": "audit_invalid",
+          "criteria": [
+            {"type": "function", "function": {"name": "PetAuditInvalidCriterion"}}
+          ]
+        }
+      }
+    },
+    "audit_validated": {
+      "transitions": {
+        "finalize_audit": {
+          "next": "audit_finalized",
+          "processors": [
+            {"name": "PetAuditFinalizeProcessor"}
+          ]
+        }
+      }
+    },
+    "audit_invalid": {
+      "transitions": {}
+    },
+    "audit_finalized": {
+      "transitions": {}
+    }
+  }
+}
