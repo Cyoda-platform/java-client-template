@@ -1,27 +1,27 @@
-```java
 package com.java_template.prototype;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
-import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import lombok.Setter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.server.ResponseStatusException;
 
-import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
+@Validated
 @RequestMapping(path = "/prototype/pets")
 @RequiredArgsConstructor
 public class EntityControllerPrototype {
@@ -31,30 +31,29 @@ public class EntityControllerPrototype {
     private final Map<Long, Pet> petStore = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final RestTemplate restTemplate = new RestTemplate();
-
-    // Simulating auto-increment ID generation
     private long idSequence = 1;
-
-    // External Petstore API base (using Swagger Petstore public API)
     private static final String EXTERNAL_PETSTORE_API = "https://petstore3.swagger.io/api/v3/pet";
-
-    // ========== DTOs ==========
 
     @Data
     public static class Pet {
         private Long id;
         @NotBlank
         private String name;
+        @NotBlank
         private String category;
-        private List<String> tags = new ArrayList<>();
-        private String status; // available | pending | sold
+        @Size(max = 5)
+        private List<@NotBlank String> tags = new ArrayList<>();
+        @NotBlank
+        @Pattern(regexp = "available|pending|sold")
+        private String status;
     }
 
     @Data
     public static class PetSearchRequest {
         private String category;
         private String status;
-        private List<String> tags = new ArrayList<>();
+        @Size(max = 5)
+        private List<@NotBlank String> tags = new ArrayList<>();
     }
 
     @Data
@@ -64,6 +63,7 @@ public class EntityControllerPrototype {
 
     @Data
     public static class FunFactResponse {
+        @NotBlank
         private String fact;
     }
 
@@ -73,187 +73,134 @@ public class EntityControllerPrototype {
         private Pet pet;
     }
 
-    // ========== Endpoints ==========
-
-    /**
-     * Add new or update existing pet.
-     * This POST endpoint enriches/validates pet data by calling the external Petstore API.
-     */
     @PostMapping
-    public ResponseEntity<AddOrUpdatePetResponse> addOrUpdatePet(@Valid @RequestBody Pet petRequest) {
-        logger.info("Received add/update pet request: {}", petRequest);
-
+    public ResponseEntity<AddOrUpdatePetResponse> addOrUpdatePet(@RequestBody @Valid Pet petRequest) {
+        logger.info("POST /prototype/pets request: {}", petRequest);
         try {
-            // If petRequest.id is null -> add new, else update existing
             Pet petToSave;
             if (petRequest.getId() == null) {
                 petToSave = new Pet();
                 petToSave.setId(generateId());
             } else {
-                petToSave = petStore.get(petRequest.getId());
-                if (petToSave == null) {
-                    logger.info("Pet with id {} not found, will create new.", petRequest.getId());
-                    petToSave = new Pet();
-                    petToSave.setId(petRequest.getId());
-                }
+                petToSave = petStore.getOrDefault(petRequest.getId(), new Pet());
+                petToSave.setId(petRequest.getId());
             }
-
-            // Copy fields
             petToSave.setName(petRequest.getName());
             petToSave.setCategory(petRequest.getCategory());
-            petToSave.setTags(petRequest.getTags() != null ? petRequest.getTags() : new ArrayList<>());
+            petToSave.setTags(petRequest.getTags());
             petToSave.setStatus(petRequest.getStatus());
 
-            // Enrich/validate using external Petstore API (mock partial enrich by fetching external pet)
-            // TODO: Improve enrichment/validation logic with real external API calls or business logic
-
-            // Example: try to GET pet by ID at external API to validate if ID exists (only if ID provided)
             if (petRequest.getId() != null) {
                 try {
                     String url = EXTERNAL_PETSTORE_API + "/" + petRequest.getId();
-                    String externalResponse = restTemplate.getForObject(url, String.class);
-                    JsonNode jsonNode = objectMapper.readTree(externalResponse);
-                    logger.info("External API validation success for pet id {}: {}", petRequest.getId(), jsonNode);
-                    // Could add more validation or enrichment from jsonNode here
+                    String ext = restTemplate.getForObject(url, String.class);
+                    JsonNode node = objectMapper.readTree(ext);
+                    logger.info("Validated external pet id {}: {}", petRequest.getId(), node);
                 } catch (Exception ex) {
-                    logger.warn("Could not validate pet id {} on external API: {}", petRequest.getId(), ex.getMessage());
+                    logger.warn("External validation failed for id {}: {}", petRequest.getId(), ex.getMessage());
                 }
             }
 
             petStore.put(petToSave.getId(), petToSave);
-
-            AddOrUpdatePetResponse response = new AddOrUpdatePetResponse();
-            response.setSuccess(true);
-            response.setPet(petToSave);
-
-            return ResponseEntity.ok(response);
-
+            AddOrUpdatePetResponse resp = new AddOrUpdatePetResponse();
+            resp.setSuccess(true);
+            resp.setPet(petToSave);
+            return ResponseEntity.ok(resp);
         } catch (Exception e) {
             logger.error("Error in addOrUpdatePet", e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
-                    "Internal error while adding/updating pet", e);
+                                              "Internal error while adding/updating pet", e);
         }
     }
 
-    /**
-     * Get pet info by ID (only from internal store).
-     */
     @GetMapping("/{id}")
-    public ResponseEntity<Pet> getPetById(@PathVariable Long id) {
-        logger.info("Received get pet by id: {}", id);
-
-        Pet pet = petStore.get(id);
-        if (pet == null) {
-            logger.error("Pet with id {} not found", id);
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pet not found");
+    public ResponseEntity<Pet> getPetById(@PathVariable @NotBlank String id) {
+        logger.info("GET /prototype/pets/{} request", id);
+        try {
+            Long petId = Long.valueOf(id);
+            Pet pet = petStore.get(petId);
+            if (pet == null) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pet not found");
+            }
+            return ResponseEntity.ok(pet);
+        } catch (NumberFormatException e) {
+            logger.error("Invalid id format: {}", id);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid pet ID format");
         }
-        return ResponseEntity.ok(pet);
     }
 
-    /**
-     * Search pets using criteria.
-     * POST endpoint calls external API to enrich results.
-     */
     @PostMapping("/search")
-    public ResponseEntity<PetSearchResponse> searchPets(@RequestBody PetSearchRequest searchRequest) {
-        logger.info("Received search pets request: {}", searchRequest);
-
+    public ResponseEntity<PetSearchResponse> searchPets(@RequestBody @Valid PetSearchRequest searchRequest) {
+        logger.info("POST /prototype/pets/search request: {}", searchRequest);
         try {
-            List<Pet> filteredPets = new ArrayList<>();
-
-            // Basic filter on local store
-            for (Pet pet : petStore.values()) {
-                if (matchesSearch(pet, searchRequest)) {
-                    filteredPets.add(pet);
+            List<Pet> filtered = new ArrayList<>();
+            for (Pet p : petStore.values()) {
+                if (matchesSearch(p, searchRequest)) {
+                    filtered.add(p);
                 }
             }
-
-            // Enrich results with external Petstore API data (TODO: improve with real integration)
-            // For demo, fetch all pets from external API (mocked with GET /pet/findByStatus?status=available)
             try {
-                String url = "https://petstore3.swagger.io/api/v3/pet/findByStatus?status=available";
-                String externalResponse = restTemplate.getForObject(url, String.class);
-                JsonNode rootNode = objectMapper.readTree(externalResponse);
-                if (rootNode.isArray()) {
-                    for (JsonNode node : rootNode) {
+                String url = EXTERNAL_PETSTORE_API + "/findByStatus?status=available";
+                String ext = restTemplate.getForObject(url, String.class);
+                JsonNode arr = objectMapper.readTree(ext);
+                if (arr.isArray()) {
+                    for (JsonNode node : arr) {
                         Pet extPet = jsonNodeToPet(node);
                         if (matchesSearch(extPet, searchRequest)) {
-                            filteredPets.add(extPet);
+                            filtered.add(extPet);
                         }
                     }
                 }
             } catch (Exception ex) {
-                logger.warn("External API pet search failed: {}", ex.getMessage());
+                logger.warn("External search enrich failed: {}", ex.getMessage());
             }
-
-            PetSearchResponse response = new PetSearchResponse();
-            response.setResults(filteredPets);
-
-            return ResponseEntity.ok(response);
+            PetSearchResponse resp = new PetSearchResponse();
+            resp.setResults(filtered);
+            return ResponseEntity.ok(resp);
         } catch (Exception e) {
             logger.error("Error in searchPets", e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
-                    "Internal error while searching pets", e);
+                                              "Internal error while searching pets", e);
         }
     }
 
-    /**
-     * Fun feature: return random pet fact.
-     * POST endpoint - simulates external API call.
-     */
     @PostMapping("/fun/fact")
     public ResponseEntity<FunFactResponse> randomPetFact() {
-        logger.info("Received request for random pet fact");
-
+        logger.info("POST /prototype/pets/fun/fact request");
         try {
-            // TODO: Replace with real external API or database of pet facts
             List<String> facts = List.of(
-                    "Cats sleep for 70% of their lives.",
-                    "Dogs have three eyelids.",
-                    "Goldfish can distinguish music genres.",
-                    "Rabbits can't vomit."
+                "Cats sleep for 70% of their lives.",
+                "Dogs have three eyelids.",
+                "Goldfish can distinguish music genres.",
+                "Rabbits can't vomit."
             );
-
-            Random rand = new Random();
-            String fact = facts.get(rand.nextInt(facts.size()));
-
-            FunFactResponse response = new FunFactResponse();
-            response.setFact(fact);
-
-            return ResponseEntity.ok(response);
+            String fact = facts.get(new Random().nextInt(facts.size()));
+            FunFactResponse resp = new FunFactResponse();
+            resp.setFact(fact);
+            return ResponseEntity.ok(resp);
         } catch (Exception e) {
             logger.error("Error in randomPetFact", e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
-                    "Internal error while retrieving pet fact", e);
+                                              "Internal error while retrieving pet fact", e);
         }
     }
-
-    // ========== Helpers ==========
 
     private synchronized long generateId() {
         return idSequence++;
     }
 
     private boolean matchesSearch(Pet pet, PetSearchRequest req) {
-        if (req.getCategory() != null && (pet.getCategory() == null ||
-                !pet.getCategory().equalsIgnoreCase(req.getCategory()))) {
+        if (req.getCategory() != null && !pet.getCategory().equalsIgnoreCase(req.getCategory())) {
             return false;
         }
-        if (req.getStatus() != null && (pet.getStatus() == null ||
-                !pet.getStatus().equalsIgnoreCase(req.getStatus()))) {
+        if (req.getStatus() != null && !pet.getStatus().equalsIgnoreCase(req.getStatus())) {
             return false;
         }
         if (req.getTags() != null && !req.getTags().isEmpty()) {
-            // Check if pet tags contain all requested tags (case insensitive)
             for (String tag : req.getTags()) {
-                boolean found = false;
-                for (String petTag : pet.getTags()) {
-                    if (petTag.equalsIgnoreCase(tag)) {
-                        found = true;
-                        break;
-                    }
+                if (pet.getTags().stream().noneMatch(t -> t.equalsIgnoreCase(tag))) {
+                    return false;
                 }
-                if (!found) return false;
             }
         }
         return true;
@@ -262,45 +209,38 @@ public class EntityControllerPrototype {
     private Pet jsonNodeToPet(JsonNode node) {
         Pet pet = new Pet();
         pet.setId(node.has("id") && !node.get("id").isNull() ? node.get("id").asLong() : null);
-        pet.setName(node.has("name") && !node.get("name").isNull() ? node.get("name").asText() : null);
-
+        pet.setName(node.path("name").asText(null));
         if (node.has("category") && node.get("category").has("name")) {
             pet.setCategory(node.get("category").get("name").asText());
         }
-
         List<String> tags = new ArrayList<>();
         if (node.has("tags") && node.get("tags").isArray()) {
-            for (JsonNode tagNode : node.get("tags")) {
-                if (tagNode.has("name")) {
-                    tags.add(tagNode.get("name").asText());
+            for (JsonNode t : node.get("tags")) {
+                if (t.has("name")) {
+                    tags.add(t.get("name").asText());
                 }
             }
         }
         pet.setTags(tags);
-
-        pet.setStatus(node.has("status") && !node.get("status").isNull() ? node.get("status").asText() : null);
-
+        pet.setStatus(node.path("status").asText(null));
         return pet;
     }
 
-    // ========== Minimal error handling ==========
-
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<Map<String, String>> handleResponseStatusException(ResponseStatusException ex) {
-        Map<String, String> error = new HashMap<>();
-        error.put("error", ex.getStatusCode().toString());
-        error.put("message", ex.getReason());
-        logger.error("Handled ResponseStatusException: {} - {}", ex.getStatusCode(), ex.getReason());
-        return new ResponseEntity<>(error, ex.getStatusCode());
+        Map<String, String> err = new HashMap<>();
+        err.put("error", ex.getStatusCode().toString());
+        err.put("message", ex.getReason());
+        logger.error("Handled error {}: {}", ex.getStatusCode(), ex.getReason());
+        return new ResponseEntity<>(err, ex.getStatusCode());
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, String>> handleGenericException(Exception ex) {
-        Map<String, String> error = new HashMap<>();
-        error.put("error", HttpStatus.INTERNAL_SERVER_ERROR.toString());
-        error.put("message", "Unexpected error occurred");
+    public ResponseEntity<Map<String, String>> handleException(Exception ex) {
+        Map<String, String> err = new HashMap<>();
+        err.put("error", HttpStatus.INTERNAL_SERVER_ERROR.toString());
+        err.put("message", "Unexpected error occurred");
         logger.error("Unhandled exception: ", ex);
-        return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
+        return new ResponseEntity<>(err, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }
-```
