@@ -1,0 +1,50 @@
+{
+  "version": "1.0",
+  "description": "FSM for Pet entity",
+  "initial_state": "none",
+  "workflow_name": "petWorkflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "create_pet": {
+          "next": "pet_created",
+          "processors": [
+            {"name": "PetCreateProcessor"}
+          ]
+        }
+      }
+    },
+    "pet_created": {
+      "transitions": {
+        "update_pet": {
+          "next": "pet_updated",
+          "processors": [
+            {"name": "PetUpdateProcessor"}
+          ]
+        },
+        "delete_pet": {
+          "next": "pet_deleted",
+          "processors": [
+            {"name": "PetDeleteProcessor"}
+          ]
+        }
+      }
+    },
+    "pet_updated": {
+      "transitions": {
+        "archive_pet": {
+          "next": "pet_archived",
+          "processors": [
+            {"name": "PetArchiveProcessor"}
+          ]
+        }
+      }
+    },
+    "pet_deleted": {
+      "transitions": {}
+    },
+    "pet_archived": {
+      "transitions": {}
+    }
+  }
+}
