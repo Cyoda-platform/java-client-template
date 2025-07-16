@@ -1,16 +1,17 @@
 import logging
-from quart import Quart, request, jsonify
+from datetime import datetime
+from quart import Blueprint, request, jsonify
 from app_init.app_init import BeanFactory
 from common.config.config import ENTITY_VERSION
-
-factory = BeanFactory(config={'CHAT_REPOSITORY': 'cyoda'})
-entity_service = factory.get_services()['entity_service']
-cyoda_auth_service = factory.get_services()["cyoda_auth_service"]
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-app = Quart(__name__)
+routes_bp = Blueprint('routes', __name__)
+
+factory = BeanFactory(config={'CHAT_REPOSITORY': 'cyoda'})
+entity_service = factory.get_services()['entity_service']
+cyoda_auth_service = factory.get_services()["cyoda_auth_service"]
 
 entity_name = "prototype"  # entity name in underscore lowercase
 
@@ -26,15 +27,13 @@ async def process_prototype(entity):
      - add/update/delete entity of the same entity_model (to avoid recursion)
     """
 
-    import datetime
-
     # Validate required fields or set defaults
     if 'name' not in entity or not isinstance(entity['name'], str) or not entity['name'].strip():
         raise ValueError("Entity must have a non-empty 'name' field of type string")
 
     # Example: Mark entity as processed and add timestamp
     entity['processed'] = True
-    entity['processed_at'] = datetime.datetime.utcnow().isoformat()
+    entity['processed_at'] = datetime.utcnow().isoformat()
 
     # Example: fetch supplementary data and add it to entity
     related_id = entity.get('related_id')
@@ -56,7 +55,7 @@ async def process_prototype(entity):
         supplementary_entity = {
             'source_prototype_id': entity.get('id', None),
             'info': 'Supplementary info generated in workflow',
-            'created_at': datetime.datetime.utcnow().isoformat()
+            'created_at': datetime.utcnow().isoformat()
         }
         # This is fire-and-forget, but we await to ensure completion before persist
         await entity_service.add_item(
@@ -72,7 +71,7 @@ async def process_prototype(entity):
     return entity
 
 
-@app.route('/prototype', methods=['POST'])
+@routes_bp.route('/prototype', methods=['POST'])
 async def create_prototype():
     try:
         data = await request.get_json()
@@ -94,7 +93,7 @@ async def create_prototype():
         return jsonify({'error': 'Failed to create prototype'}), 500
 
 
-@app.route('/prototype/<string:id>', methods=['GET'])
+@routes_bp.route('/prototype/<string:id>', methods=['GET'])
 async def get_prototype(id):
     try:
         item = await entity_service.get_item(
@@ -111,7 +110,7 @@ async def get_prototype(id):
         return jsonify({'error': 'Failed to retrieve prototype'}), 500
 
 
-@app.route('/prototype', methods=['GET'])
+@routes_bp.route('/prototype', methods=['GET'])
 async def list_prototypes():
     try:
         items = await entity_service.get_items(
@@ -130,17 +129,16 @@ async def process_prototype_update(entity):
     Workflow function for update pre-persistence logic.
     This is optional and can be used if entity_service.update_item supports a workflow argument.
     """
-    import datetime
 
     # Example: Add/update a field indicating last update timestamp
-    entity['last_updated_at'] = datetime.datetime.utcnow().isoformat()
+    entity['last_updated_at'] = datetime.utcnow().isoformat()
 
     # Additional update-related async logic can be added here
 
     return entity
 
 
-@app.route('/prototype/<string:id>', methods=['PUT'])
+@routes_bp.route('/prototype/<string:id>', methods=['PUT'])
 async def update_prototype(id):
     try:
         data = await request.get_json()
@@ -183,7 +181,7 @@ async def update_prototype(id):
         return jsonify({'error': 'Failed to update prototype'}), 500
 
 
-@app.route('/prototype/<string:id>', methods=['DELETE'])
+@routes_bp.route('/prototype/<string:id>', methods=['DELETE'])
 async def delete_prototype(id):
     try:
         await entity_service.delete_item(
@@ -199,7 +197,7 @@ async def delete_prototype(id):
         return jsonify({'error': 'Failed to delete prototype'}), 500
 
 
-@app.route('/prototype/search', methods=['POST'])
+@routes_bp.route('/prototype/search', methods=['POST'])
 async def search_prototypes():
     try:
         condition = await request.get_json()
