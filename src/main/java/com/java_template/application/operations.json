@@ -1,0 +1,12 @@
+{
+  "processors": [
+    "CreatePetProcessor",
+    "ApprovePetProcessor",
+    "RejectPetProcessor",
+    "AdoptPetProcessor"
+  ],
+  "criteria": [
+    "PetApprovalCriterion",
+    "PetRejectionCriterion"
+  ]
+}
