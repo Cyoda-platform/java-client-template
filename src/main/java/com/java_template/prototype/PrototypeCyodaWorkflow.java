@@ -1,49 +1,3 @@
-Certainly! Moving asynchronous and persistence-related logic into the workflow function (`processPet`) helps keep controller methods clean and focused on request handling, delegating business logic and side-effects into the workflow function which runs right before persistence.
-
----
-
-### What we can move into `processPet`:
-
-- **Normalization and default value setting**  
-- **Fetching external data or enrichment** (like the REST call done in `"fetch"` action)  
-- **Any secondary entity creation or retrieval** (asynchronously)  
-- **Async fire-and-forget tasks related to the entity**  
-
----
-
-### What we **cannot** move:
-
-- `entityService.addItem/updateItem/deleteItem` for the *same* entity model (pet) inside the workflow — that causes infinite recursion.  
-- Returning HTTP responses / throwing HTTP exceptions. Those belong in the controller.  
-- Entity lookup by ID before update (controller responsibility to get the `technicalId` and existing entity).  
-
----
-
-### Approach
-
-- Convert the `"fetch"` action to a simple controller call that creates a minimal Pet entity with just an ID or empty fields, then call `addItem` with `processPet` workflow which will do the external fetch + enrichment asynchronously before persistence.  
-- Move all entity field normalization and validation to the workflow.  
-- For `"add"` action, just create the Pet entity from request, and let `processPet` finalize/normalize/set defaults etc.  
-- For `"update"` action, keep the existing fetching logic in controller to find the `technicalId` and existing entity, then call `updateItem` (no workflow here because updateItem may not yet have workflow support; if it does, can consider it).  
-- For any async side effects, place them inside workflow function.  
-
----
-
-### Updated Code snippet - key points & full code below
-
-1. **`processPet` as `Function<ObjectNode, CompletableFuture<ObjectNode>>`** (using ObjectNode because workflow receives `ObjectNode` as entity)  
-2. Moves the external REST fetch invoked previously in `"fetch"` to `processPet` if the pet has no name or category (meaning it is a placeholder needing enrichment)  
-3. Normalizes fields, sets defaults inside `processPet`  
-4. In controller, `"fetch"` action creates Pet entity with minimal info (or empty ObjectNode) and calls addItem with workflow  
-5. `"add"` action creates Pet entity with request data and calls addItem with workflow  
-6. `"update"` action keeps the find-and-update logic as is (no workflow)  
-7. Controller methods become light and focused on request validation and response formation  
-
----
-
-### Full updated Java code:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -93,7 +47,7 @@ public class CyodaEntityControllerPrototype {
         @Pattern(regexp = "fetch|add|update", flags = Pattern.Flag.CASE_INSENSITIVE)
         public String action;
         @Min(1)
-        public Long id; // required for update
+        public Long id; // required for update and optionally for fetch
         @Size(min = 1, max = 100)
         public String name; // required for add/update
         @Size(min = 1, max = 50)
@@ -129,32 +83,47 @@ public class CyodaEntityControllerPrototype {
     private final Function<Object, CompletableFuture<Object>> processPet = (entity) -> {
         ObjectNode petNode = (ObjectNode) entity;
 
-        // If pet has no name or category, treat as needing enrichment (e.g. fetch from external)
+        // Defensive: if entity is null or not ObjectNode, fail fast
+        if (petNode == null) {
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Entity object is null"));
+        }
+
+        // Enrich pet entity if missing core fields name or category by external API call
         if (!petNode.hasNonNull("name") || !petNode.hasNonNull("category")) {
             try {
-                // For example, fetch from external API by ID or default 1
-                Long id = petNode.hasNonNull("id") ? petNode.get("id").asLong() : 1L;
+                Long id = (petNode.hasNonNull("id") && petNode.get("id").canConvertToLong())
+                        ? petNode.get("id").asLong()
+                        : 1L;
                 String externalUrl = "https://petstore.swagger.io/v2/pet/" + id;
                 String resp = restTemplate.getForObject(externalUrl, String.class);
                 if (resp != null) {
                     JsonNode root = objectMapper.readTree(resp);
-                    // Update fields from external source
                     if (root.hasNonNull("name")) petNode.put("name", root.get("name").asText());
                     if (root.has("category") && root.get("category").hasNonNull("name")) {
                         petNode.put("category", root.get("category").get("name").asText());
                     }
                     if (root.hasNonNull("status")) petNode.put("status", root.get("status").asText());
+                    if (root.hasNonNull("id") && !petNode.hasNonNull("id")) {
+                        petNode.put("id", root.get("id").asLong());
+                    }
                 }
             } catch (Exception ex) {
-                logger.warn("Failed to enrich pet entity from external source", ex);
-                // We tolerate failure here, keep what we have
+                logger.warn("Failed to enrich pet entity from external source: {}", ex.getMessage());
+                // Swallow exception to allow persistence with partial data
             }
         }
 
-        // Normalize status to lowercase if present
+        // Normalize status to lowercase if present and valid
         if (petNode.hasNonNull("status")) {
             String status = petNode.get("status").asText().toLowerCase(Locale.ROOT);
-            petNode.put("status", status);
+            if (status.equals("available") || status.equals("pending") || status.equals("sold")) {
+                petNode.put("status", status);
+            } else {
+                // Invalid status value, fix or remove
+                petNode.put("status", "available"); // default safe value
+            }
+        } else {
+            petNode.put("status", "available"); // default if missing
         }
 
         // Set default category if missing or empty
@@ -162,17 +131,33 @@ public class CyodaEntityControllerPrototype {
             petNode.put("category", "unknown");
         }
 
-        // Example: async fire-and-forget task
-        // E.g. log to external system or trigger notification
-        // (Just simulate with CompletableFuture.runAsync)
+        // Ensure name is non-null and trimmed, else assign "Unnamed"
+        if (!petNode.hasNonNull("name") || petNode.get("name").asText().trim().isEmpty()) {
+            petNode.put("name", "Unnamed");
+        } else {
+            petNode.put("name", petNode.get("name").asText().trim());
+        }
+
+        // Example: async fire-and-forget task: log external system or metrics
         CompletableFuture.runAsync(() -> {
-            logger.info("Async side-effect: pet processed before persistence: id={}, name={}",
+            logger.info("Async side-effect: Pet processed before persistence: id={}, name={}",
                     petNode.path("id").asText("N/A"), petNode.path("name").asText("N/A"));
-            // Add any async notification or logging here
+            // Insert any additional async logic here, e.g. metrics, notifications, etc.
         });
 
         return CompletableFuture.completedFuture(petNode);
     };
+
+    /**
+     * Workflow function for update operation.
+     * Updates can also benefit from normalization and async side-effects.
+     * This can be added if entityService.updateItem supports workflow.
+     * For now, updateItem does not support workflow, so logic remains in controller.
+     */
+    // private final Function<Object, CompletableFuture<Object>> processPetUpdate = (entity) -> {
+    //     // Similar normalization as processPet can be done here if needed
+    //     return CompletableFuture.completedFuture(entity);
+    // };
 
     @PostMapping
     public ResponseEntity<?> postPets(@Valid @RequestBody PetRequest request) throws ExecutionException, InterruptedException {
@@ -180,19 +165,19 @@ public class CyodaEntityControllerPrototype {
         logger.info("POST /entity/pets action={}", action);
         switch (action) {
             case "fetch": {
-                // Create minimal pet entity with id to trigger enrichment in workflow
+                // Defensive: allow fetch with id or default id=1
                 ObjectNode petNode = objectMapper.createObjectNode();
-                if (request.id != null) {
+                if (request.id != null && request.id > 0) {
                     petNode.put("id", request.id);
                 } else {
-                    petNode.put("id", 1L); // default id
+                    petNode.put("id", 1L);
                 }
+
                 // Add item with workflow that enriches entity before persistence
                 CompletableFuture<UUID> idFuture = entityService.addItem(ENTITY_NAME, ENTITY_VERSION, petNode, this::processPet);
                 UUID technicalId = idFuture.get();
                 petNode.put("technicalId", technicalId.toString());
 
-                // Convert to POJO for response
                 Pet pet = objectMapper.convertValue(petNode, Pet.class);
 
                 logger.info("Fetched and persisted pet {}", pet);
@@ -206,7 +191,7 @@ public class CyodaEntityControllerPrototype {
                 petNode.put("name", request.name);
                 petNode.put("category", request.category);
                 petNode.put("status", request.status);
-                // ID might be assigned in workflow or persistence layer
+
                 CompletableFuture<UUID> idFuture = entityService.addItem(ENTITY_NAME, ENTITY_VERSION, petNode, this::processPet);
                 UUID technicalId = idFuture.get();
                 petNode.put("technicalId", technicalId.toString());
@@ -217,10 +202,11 @@ public class CyodaEntityControllerPrototype {
                 return ResponseEntity.ok(Map.of("success", true, "pet", pet, "message", "Pet added"));
             }
             case "update": {
-                if (request.id == null || request.name == null || request.category == null || request.status == null) {
-                    throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Missing fields for update");
+                if (request.id == null || request.id < 1 || request.name == null || request.category == null || request.status == null) {
+                    throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Missing or invalid fields for update");
                 }
-                // Find pet by id (mapped from technicalId)
+
+                // Find pet by id to get technicalId
                 SearchConditionRequest condition = SearchConditionRequest.group("AND",
                         Condition.of("$.id", "EQUALS", request.id));
                 CompletableFuture<ArrayNode> filteredItemsFuture = entityService.getItemsByCondition(ENTITY_NAME, ENTITY_VERSION, condition);
@@ -229,12 +215,26 @@ public class CyodaEntityControllerPrototype {
                     throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Pet not found");
                 }
                 ObjectNode storedPetNode = (ObjectNode) filteredItems.get(0);
-                UUID technicalId = UUID.fromString(storedPetNode.get("technicalId").asText());
-                storedPetNode.put("name", request.name);
-                storedPetNode.put("category", request.category);
-                storedPetNode.put("status", request.status);
+                if (!storedPetNode.hasNonNull("technicalId")) {
+                    throw new ResponseStatusException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, "Stored entity missing technicalId");
+                }
+                UUID technicalId;
+                try {
+                    technicalId = UUID.fromString(storedPetNode.get("technicalId").asText());
+                } catch (IllegalArgumentException e) {
+                    throw new ResponseStatusException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, "Invalid technicalId format");
+                }
 
-                // No workflow on update (or if supported, can be added)
+                // Update fields with trimmed, normalized values
+                storedPetNode.put("name", request.name.trim());
+                storedPetNode.put("category", request.category.trim());
+                String status = request.status.toLowerCase(Locale.ROOT);
+                if (!status.equals("available") && !status.equals("pending") && !status.equals("sold")) {
+                    status = "available"; // fallback default
+                }
+                storedPetNode.put("status", status);
+
+                // Update synchronously (entityService.updateItem currently no workflow support)
                 CompletableFuture<UUID> updatedItemId = entityService.updateItem(ENTITY_NAME, ENTITY_VERSION, technicalId, storedPetNode);
                 updatedItemId.get();
 
@@ -307,19 +307,3 @@ public class CyodaEntityControllerPrototype {
         return ResponseEntity.status(ex.getStatusCode()).body(Map.of("error", ex.getStatusCode().toString(), "message", ex.getReason()));
     }
 }
-```
-
----
-
-### Summary
-
-- The `"fetch"` action now creates a minimal entity and relies on `processPet` workflow to asynchronously fetch and enrich the entity before persistence.
-- The `"add"` action directly creates the entity from request data and passes it to `addItem` with `processPet` workflow that normalizes/validates/enriches asynchronously.
-- The `"update"` action remains synchronous in controller, finds the entity by id, updates fields, and calls `updateItem` without workflow (update workflow may be implemented similarly later if needed).
-- All async enrichment, normalization, fire-and-forget side effects moved into `processPet`.
-- Controller methods are simpler, focused on request parsing and response, no async logic or external calls.
-- The workflow function receives and modifies the entity as an `ObjectNode` directly, following your guidelines.
-
----
-
-If you want, I can help refactor update workflow similarly or cover additional async tasks in workflow functions. Just ask!
