@@ -1,0 +1,43 @@
+{
+  "version": "1.0",
+  "description": "Workflow FSM for Log entity",
+  "initial_state": "none",
+  "workflow_name": "logWorkflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "create_log": {
+          "next": "created"
+        }
+      }
+    },
+    "created": {
+      "transitions": {
+        "process_log": {
+          "next": "processed",
+          "processors": [
+            {
+              "name": "LogProcessingProcessor"
+            }
+          ]
+        },
+        "discard_log": {
+          "next": "discarded"
+        }
+      }
+    },
+    "processed": {
+      "transitions": {
+        "archive_log": {
+          "next": "archived"
+        }
+      }
+    },
+    "discarded": {
+      "transitions": {}
+    },
+    "archived": {
+      "transitions": {}
+    }
+  }
+}
