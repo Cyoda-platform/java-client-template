@@ -1,4 +1,3 @@
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -50,50 +49,34 @@ public class CyodaEntityControllerPrototype {
      * Cannot add/update/delete entities of the same model (pets).
      */
     private CompletableFuture<ObjectNode> processPets(ObjectNode petEntity) {
-        // Example: enrich pet with external data if source=external and id is present
-        // Also demonstrates how to modify/add fields before saving
-
         return CompletableFuture.supplyAsync(() -> {
             try {
-                // Check if petEntity has "source" field and "id"
                 if (petEntity.has("source") && "external".equalsIgnoreCase(petEntity.get("source").asText())
                         && petEntity.has("id") && petEntity.get("id").canConvertToLong()) {
                     long petId = petEntity.get("id").asLong();
 
-                    // Fetch external data (fire and forget would be replaced by this async call)
                     String url = EXTERNAL_PETSTORE_BASE + "/" + petId;
                     logger.info("Workflow fetching external pet details for id {}", petId);
                     String json = restTemplate.getForObject(url, String.class);
                     if (json != null) {
                         JsonNode externalNode = objectMapper.readTree(json);
 
-                        // Add/overwrite fields from external source
                         petEntity.put("name", externalNode.path("name").asText(petEntity.path("name").asText("")));
                         petEntity.put("status", externalNode.path("status").asText(petEntity.path("status").asText("")));
                         JsonNode cat = externalNode.path("category");
                         if (!cat.isMissingNode()) {
                             petEntity.put("type", cat.path("name").asText(petEntity.path("type").asText("unknown")));
                         }
-
-                        // Potentially add supplementary entities of other models here
-                        // e.g. entityService.addItem("categories", ENTITY_VERSION, catNode, someOtherWorkflow);
-                        // But NOT pets model itself.
-
-                        // Remove the source field as it's just metadata for processing
                         petEntity.remove("source");
                     }
                 } else {
-                    // For internal or other sources, we could do some default processing or validation here
-                    // For example, default age to 0 if missing
                     if (!petEntity.has("age") || petEntity.get("age").isNull()) {
                         petEntity.put("age", 0);
                     }
-                    // Remove source if present
                     petEntity.remove("source");
                 }
             } catch (Exception ex) {
                 logger.error("Error in processPets workflow", ex);
-                // Possibly handle error by setting an error field or just log and continue
             }
             return petEntity;
         });
@@ -102,7 +85,6 @@ public class CyodaEntityControllerPrototype {
     @PostMapping
     public ResponseEntity<PetResponse> addOrUpdatePet(@RequestBody @Valid AddOrUpdatePetRequest request) throws ExecutionException, InterruptedException {
         logger.info("addOrUpdatePet source={}", request.getSource());
-
         try {
             if ("external".equalsIgnoreCase(request.getSource())) {
                 if (request.getPetId() == null) {
@@ -110,38 +92,28 @@ public class CyodaEntityControllerPrototype {
                 }
                 long petId = request.getPetId();
 
-                // Build a minimal ObjectNode with metadata for workflow
                 ObjectNode petEntity = objectMapper.createObjectNode();
                 petEntity.put("id", petId);
                 petEntity.put("source", "external");
 
-                // Search for existing entity by petId
                 SearchConditionRequest condition = SearchConditionRequest.group("AND",
                         Condition.of("$.id", "EQUALS", petId));
                 CompletableFuture<ArrayNode> existingItemsFuture = entityService.getItemsByCondition(ENTITY_NAME, ENTITY_VERSION, condition);
                 ArrayNode existingItems = existingItemsFuture.get();
 
                 if (existingItems.size() > 0) {
-                    // Update existing entity
                     ObjectNode existingNode = (ObjectNode) existingItems.get(0);
                     UUID technicalId = UUID.fromString(existingNode.get("technicalId").asText());
 
-                    // Merge existing data with petEntity to preserve fields if needed
-                    // but we rely on workflow to enrich data
-
-                    // UpdateItem does NOT accept workflow function - keep as is
                     CompletableFuture<UUID> updatedIdFuture = entityService.updateItem(ENTITY_NAME, ENTITY_VERSION, technicalId, petEntity);
                     updatedIdFuture.get();
 
-                    // Return the updated pet (map existingNode + petEntity to Pet)
                     Pet updatedPet = mapNodeToPet(existingNode.deepCopy().setAll(petEntity));
                     return ResponseEntity.ok(new PetResponse(true, updatedPet));
                 } else {
-                    // Add new entity with workflow
                     CompletableFuture<UUID> addedIdFuture = entityService.addItem(ENTITY_NAME, ENTITY_VERSION, petEntity, this::processPets);
                     UUID technicalId = addedIdFuture.get();
 
-                    // After add, fetch back the saved entity to return full data
                     SearchConditionRequest cond = SearchConditionRequest.group("AND",
                             Condition.of("$.technicalId", "EQUALS", technicalId.toString()));
                     ArrayNode savedEntities = entityService.getItemsByCondition(ENTITY_NAME, ENTITY_VERSION, cond).get();
@@ -174,7 +146,6 @@ public class CyodaEntityControllerPrototype {
                     petEntity.put("status", request.getStatus());
                 }
 
-                // Search for existing entity by petId if present
                 UUID technicalId = null;
                 if (request.getPetId() != null) {
                     SearchConditionRequest condition = SearchConditionRequest.group("AND",
@@ -184,22 +155,18 @@ public class CyodaEntityControllerPrototype {
                         ObjectNode existingNode = (ObjectNode) existingItems.get(0);
                         technicalId = UUID.fromString(existingNode.get("technicalId").asText());
 
-                        // Update entity (updateItem no workflow)
                         CompletableFuture<UUID> updatedIdFuture = entityService.updateItem(ENTITY_NAME, ENTITY_VERSION, technicalId, petEntity);
                         updatedIdFuture.get();
 
-                        // Return updated entity
                         Pet updatedPet = mapNodeToPet(existingNode.deepCopy().setAll(petEntity));
                         logger.info("Stored internal pet id={}", request.getPetId());
                         return ResponseEntity.ok(new PetResponse(true, updatedPet));
                     }
                 }
 
-                // Add new entity with workflow
                 CompletableFuture<UUID> addedIdFuture = entityService.addItem(ENTITY_NAME, ENTITY_VERSION, petEntity, this::processPets);
                 addedIdFuture.get();
 
-                // Fetch saved entity by unique fields (id) or fallback to last inserted etc.
                 if (petEntity.has("id")) {
                     SearchConditionRequest cond = SearchConditionRequest.group("AND",
                             Condition.of("$.id", "EQUALS", petEntity.get("id").asLong()));
@@ -211,7 +178,6 @@ public class CyodaEntityControllerPrototype {
                     }
                 }
 
-                // If no id or not found - return input data as fallback
                 Pet pet = new Pet(
                         petEntity.has("id") ? petEntity.get("id").asLong() : 0,
                         petEntity.path("name").asText(""),
@@ -358,19 +324,3 @@ public class CyodaEntityControllerPrototype {
     }
 
 }
-```
----
-
-### Summary of improvements:
-- Moved the **external pet data fetching and enrichment** logic into the `processPets` workflow function.
-- Moved default value setting (e.g., default age) and source field removal into `processPets`.
-- The controller now only constructs minimal `ObjectNode` entities and decides whether to add or update.
-- The actual enrichment/modification of the entity happens asynchronously inside the workflow function before persistence.
-- This removes all async fetches and enrichment logic from the controller, making it leaner and more robust.
-- The workflow function handles any async tasks or fire-and-forget logic relevant to the pet entity.
-- Controller handles only input validation, existence checks, and calling entityService methods with proper workflow.
-- Updated calls to `entityService.addItem` always pass `this::processPets` as the workflow function.
-- `updateItem` calls remain unchanged since workflow is only for addItem.
-- Kept use of `ObjectNode` for workflow as required (not POJOs).
-
-This approach fully leverages the workflow function for all asynchronous and enrichment logic, decoupling it from controller implementation.
