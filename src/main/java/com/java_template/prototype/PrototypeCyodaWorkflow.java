@@ -1,33 +1,3 @@
-Certainly! The idea is to move all asynchronous or processing logic that happens before persisting an entity into the `processPet` workflow function (or similarly named for other entities). This will keep controllers slim and focus on request/response handling, while the workflow function handles data enrichment, validation, fetching supplementary entities, or any async tasks needed before persistence.
-
----
-
-### What we currently do in controller async before `addItems`:
-- Filtering by tags
-- Adding/modifying pet description
-- Caching categories (currently just a local set, no side effect)
-- Possibly calling external services or adding supplementary entities (not done yet, but could be)
-
----
-
-### What can be moved into `processPet` workflow function:
-- Setting default/fallback values (like description)
-- Fetching or adding related supplementary entities (e.g., categories, tags)
-- Any async enrichment or validation before persistence
-
----
-
-### Important:
-- The workflow function receives an `ObjectNode` (entity) instead of POJO, so we should work with Jackson `ObjectNode` API.
-- We cannot add/update/delete the same entity model inside workflow (would cause recursion).
-- We can call `entityService` methods for **different** entity models.
-- The workflow is asynchronous and returns `CompletableFuture<ObjectNode>`.
-
----
-
-### Updated controller code with minimal logic in controller and most logic moved to workflow function.
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -77,49 +47,81 @@ public class CyodaEntityControllerPrototype {
     private CompletableFuture<ObjectNode> processPet(ObjectNode petNode) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                // Add default description if missing or empty
-                if (!petNode.hasNonNull("description") || petNode.get("description").asText().isEmpty()) {
+                // Ensure description field exists and is not empty
+                if (!petNode.hasNonNull("description") || petNode.get("description").asText().trim().isEmpty()) {
                     petNode.put("description", "Processed description");
                 }
 
-                // Example: Add supplementary entity - Category
+                // Add supplementary Category entity if category exists
                 if (petNode.hasNonNull("category")) {
-                    String categoryName = petNode.get("category").asText();
-                    // Create a supplementary category entity node
-                    ObjectNode categoryEntity = objectMapper.createObjectNode();
-                    categoryEntity.put("name", categoryName);
-                    // Add category entity asynchronously (different entity model)
-                    // We do fire-and-forget here, no need to wait, to avoid blocking
-                    entityService.addItem("Category", ENTITY_VERSION, categoryEntity, this::processCategory)
-                            .exceptionally(ex -> {
-                                logger.error("Failed to add category entity asynchronously", ex);
-                                return null;
-                            });
+                    String categoryName = petNode.get("category").asText().trim();
+                    if (!categoryName.isEmpty()) {
+                        ObjectNode categoryEntity = objectMapper.createObjectNode();
+                        categoryEntity.put("name", categoryName);
+
+                        // Fire-and-forget adding category entity asynchronously with its own workflow
+                        entityService.addItem("Category", ENTITY_VERSION, categoryEntity, this::processCategory)
+                                .exceptionally(ex -> {
+                                    logger.error("Failed to add category entity asynchronously", ex);
+                                    return null;
+                                });
+                    }
                 }
 
-                // Similarly, you can add more supplementary entities here (e.g., tags)
+                // Process tags to add supplementary Tag entities if any
+                if (petNode.hasNonNull("tags") && petNode.get("tags").isArray()) {
+                    for (JsonNode tagNode : petNode.get("tags")) {
+                        if (tagNode.hasNonNull("name")) {
+                            String tagName = tagNode.get("name").asText().trim();
+                            if (!tagName.isEmpty()) {
+                                ObjectNode tagEntity = objectMapper.createObjectNode();
+                                tagEntity.put("name", tagName);
 
-                // Possibly modify other fields or enrich data here
+                                // Add tag entity fire-and-forget with its workflow
+                                entityService.addItem("Tag", ENTITY_VERSION, tagEntity, this::processTag)
+                                        .exceptionally(ex -> {
+                                            logger.error("Failed to add tag entity asynchronously", ex);
+                                            return null;
+                                        });
+                            }
+                        }
+                    }
+                }
 
-                return petNode; // modified entity will be persisted
+                // Potential for further enrichment or async calls here
+
+                return petNode;
             } catch (Exception ex) {
                 logger.error("Error in processPet workflow", ex);
-                // In case of error, return entity as is or consider throwing RuntimeException to fail persistence
+                // Returning entity as is on error to avoid failing persistence unnecessarily
                 return petNode;
             }
         });
     }
 
     /**
-     * Example workflow function for Category entity to be used when adding supplementary category entities.
+     * Workflow for Category entity.
+     * Add default description if missing.
      */
     private CompletableFuture<ObjectNode> processCategory(ObjectNode categoryNode) {
         return CompletableFuture.supplyAsync(() -> {
-            // You can enrich category entity here if needed
-            if (!categoryNode.hasNonNull("description")) {
+            if (!categoryNode.hasNonNull("description") || categoryNode.get("description").asText().trim().isEmpty()) {
                 categoryNode.put("description", "Category created by Pet processing workflow");
             }
             return categoryNode;
+        });
+    }
+
+    /**
+     * Workflow for Tag entity.
+     * Add default description if missing.
+     */
+    private CompletableFuture<ObjectNode> processTag(ObjectNode tagNode) {
+        return CompletableFuture.supplyAsync(() -> {
+            if (!tagNode.hasNonNull("description") || tagNode.get("description").asText().trim().isEmpty()) {
+                tagNode.put("description", "Tag created by Pet processing workflow");
+            }
+            return tagNode;
         });
     }
 
@@ -154,6 +156,12 @@ public class CyodaEntityControllerPrototype {
                 filteredPets.add(petNode);
             }
 
+            // Defensive check: If no pets after filtering, return success with zero count
+            if (filteredPets.isEmpty()) {
+                logger.info("No pets matched status={} and tags={}", request.getStatus(), request.getTags());
+                return ResponseEntity.ok(new FetchResponse("No pets matched given criteria", 0));
+            }
+
             // Add filtered pets with workflow processing
             CompletableFuture<List<UUID>> idsFuture = entityService.addItems(
                     ENTITY_NAME,
@@ -168,8 +176,12 @@ public class CyodaEntityControllerPrototype {
             return ResponseEntity.ok(new FetchResponse("Pets fetched and stored successfully", count));
         } catch (ResponseStatusException ex) {
             throw ex;
-        } catch (InterruptedException | ExecutionException ex) {
-            logger.error("Fetch error", ex);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            logger.error("Fetch interrupted", ex);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Operation interrupted");
+        } catch (ExecutionException ex) {
+            logger.error("Fetch execution error", ex);
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch pets");
         } catch (Exception ex) {
             logger.error("Fetch error", ex);
@@ -194,7 +206,11 @@ public class CyodaEntityControllerPrototype {
             }
             logger.info("Returning {} pets", pets.size());
             return ResponseEntity.ok(pets);
-        } catch (InterruptedException | ExecutionException ex) {
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            logger.error("Get pets interrupted", ex);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Operation interrupted");
+        } catch (ExecutionException ex) {
             logger.error("Error retrieving pets", ex);
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to retrieve pets");
         }
@@ -212,7 +228,11 @@ public class CyodaEntityControllerPrototype {
             ObjectNode node = itemFuture.get();
             if (node == null || node.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pet not found");
             return ResponseEntity.ok(node);
-        } catch (InterruptedException | ExecutionException ex) {
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            logger.error("Get pet details interrupted", ex);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Operation interrupted");
+        } catch (ExecutionException ex) {
             logger.error("Details fetch error", ex);
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch pet details");
         }
@@ -251,30 +271,3 @@ public class CyodaEntityControllerPrototype {
         private final String message;
     }
 }
-```
-
----
-
-### Summary of changes:
-- **`processPet(ObjectNode petNode)`**:
-  - Sets default description if missing.
-  - Adds supplementary Category entity asynchronously (**different entity model**).
-  - Can be extended for other async enrichment or supplementary data.
-- Controller `fetchPets` now only filters entities and directly passes `ObjectNode`s to `entityService.addItems` with `processPet` workflow.
-- Removed any entity POJO conversion in controller; work fully with Jackson `ObjectNode` inside workflow.
-- `processCategory` workflow added as example supplementary workflow for categories.
-- `getPets` and `getPetDetails` return raw `ObjectNode`s directly.
-- Controller methods are now slim and only handle HTTP concerns.
-
----
-
-### Why is this the right approach?
-- Keeps controllers clean, focused on HTTP validation and orchestration.
-- All business logic, async enrichment, and entity state changes happen inside workflow functions.
-- Workflow supports async, so any external calls or fire-and-forget tasks fit perfectly here.
-- Avoid recursion by not modifying current entity model inside workflow with add/update/delete.
-- Makes codebase easier to maintain, test, and extend.
-
----
-
-Let me know if you want me to implement workflows for other entities or more complex async workflows!
