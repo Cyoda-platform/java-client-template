@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "description": "Workflow FSM for Pet entity with validation and processing",
+  "initial_state": "none",
+  "workflow_name": "pet_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_processing": {
+          "next": "validated",
+          "processors": [
+            {
+              "name": "PetProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "validated": {
+      "transitions": {
+        "complete": {
+          "next": "completed"
+        }
+      }
+    },
+    "completed": {
+      "transitions": {}
+    }
+  }
+}
