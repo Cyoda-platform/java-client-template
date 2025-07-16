@@ -1,0 +1,43 @@
+{
+  "version": "1.0",
+  "description": "Workflow for Pet entity",
+  "initial_state": "none",
+  "workflow_name": "petWorkflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "add_pet": {
+          "next": "adopted",
+          "processors": [
+            {
+              "name": "PetAddProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "adopted": {
+      "transitions": {
+        "mark_as_adopted": {
+          "next": "adopted_confirmed",
+          "processors": [
+            {
+              "name": "PetAdoptedProcessor"
+            }
+          ],
+          "criteria": [
+            {
+              "type": "function",
+              "function": {
+                "name": "PetAdoptionValidation"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "adopted_confirmed": {
+      "transitions": {}
+    }
+  }
+}
