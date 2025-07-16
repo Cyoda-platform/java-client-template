@@ -1,0 +1,62 @@
+{
+  "version": "1.0",
+  "description": "Workflow FSM for AdoptionRequest entity",
+  "initial_state": "none",
+  "workflow_name": "adoptionRequestWorkflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "submitRequest": {
+          "next": "submitted",
+          "processors": [
+            {
+              "name": "AdoptionRequestSubmissionProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "submitted": {
+      "transitions": {
+        "approveRequest": {
+          "next": "approved",
+          "processors": [
+            {
+              "name": "AdoptionRequestApprovalProcessor"
+            }
+          ],
+          "criteria": [
+            {
+              "type": "function",
+              "function": {
+                "name": "AdoptionRequestEligibilityCriterion"
+              }
+            }
+          ]
+        },
+        "rejectRequest": {
+          "next": "rejected",
+          "processors": [
+            {
+              "name": "AdoptionRequestRejectionProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "approved": {
+      "transitions": {
+        "finalizeAdoption": {
+          "next": "completed",
+          "processors": [
+            {
+              "name": "AdoptionFinalizationProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "rejected": {},
+    "completed": {}
+  }
+}
