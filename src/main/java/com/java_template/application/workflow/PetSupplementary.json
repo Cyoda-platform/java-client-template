@@ -1,0 +1,47 @@
+{
+  "version": "1.0",
+  "description": "Workflow for PetSupplementary entity",
+  "initial_state": "none",
+  "workflow_name": "petSupplementaryWorkflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "begin_supplementary_processing": {
+          "next": "state_processing",
+          "processors": [
+            {
+              "name": "PetSupplementaryProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "state_processing": {
+      "transitions": {
+        "supplementary_validation": {
+          "next": "state_validated",
+          "processors": [
+            {
+              "name": "PetSupplementaryProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "state_validated": {
+      "transitions": {
+        "complete_supplementary_process": {
+          "next": "state_completed",
+          "processors": [
+            {
+              "name": "PetSupplementaryProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "state_completed": {
+      "transitions": {}
+    }
+  }
+}
