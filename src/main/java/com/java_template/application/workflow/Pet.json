@@ -1,0 +1,38 @@
+{
+  "version": "1.0",
+  "description": "Workflow for Pet entity handling basic validation and processing",
+  "initial_state": "none",
+  "workflow_name": "pet_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_validation": {
+          "next": "validation",
+          "processors": [
+            {
+              "name": "PetProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "validation": {
+      "transitions": {
+        "validate_pet": {
+          "next": "completed",
+          "criteria": [
+            {
+              "type": "function",
+              "function": {
+                "name": "PetValidationCriterion"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "completed": {
+      "transitions": {}
+    }
+  }
+}
