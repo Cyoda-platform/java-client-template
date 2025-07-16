@@ -1,0 +1,63 @@
+{
+  "version": "1.0",
+  "description": "Workflow FSM for Pet entity",
+  "initial_state": "none",
+  "workflow_name": "petWorkflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "add_pet": {
+          "next": "available",
+          "processors": [
+            {
+              "name": "AddPetProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "available": {
+      "transitions": {
+        "mark_pending": {
+          "next": "pending",
+          "processors": [
+            {
+              "name": "MarkPendingProcessor"
+            }
+          ]
+        },
+        "mark_sold": {
+          "next": "sold",
+          "processors": [
+            {
+              "name": "MarkSoldProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "pending": {
+      "transitions": {
+        "mark_available": {
+          "next": "available",
+          "processors": [
+            {
+              "name": "MarkAvailableProcessor"
+            }
+          ]
+        },
+        "mark_sold": {
+          "next": "sold",
+          "processors": [
+            {
+              "name": "MarkSoldProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "sold": {
+      "transitions": {}
+    }
+  }
+}
