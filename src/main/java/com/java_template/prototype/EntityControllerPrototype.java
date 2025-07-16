@@ -1,11 +1,12 @@
-```java
 package com.java_template.prototype;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,36 +18,28 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.net.URI;
-import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
+@Validated
 @RestController
 @RequestMapping(path = "/prototype")
-@Validated
 public class EntityControllerPrototype {
 
     private static final Logger logger = LoggerFactory.getLogger(EntityControllerPrototype.class);
-
     private final Map<String, Pet> petStore = new ConcurrentHashMap<>();
     private final Map<String, AdoptionRequest> adoptionStore = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final RestTemplate restTemplate = new RestTemplate();
-
-    // TODO: Replace this with real external Petstore API base URL if needed
     private static final String PETSTORE_API_BASE = "https://petstore.swagger.io/v2";
 
-    // --- 1. Add or Update Pet Data (POST) ---
     @PostMapping("/pets")
-    public ResponseEntity<AddUpdatePetResponse> addOrUpdatePet(@RequestBody @Validated PetRequest petRequest) {
+    public ResponseEntity<AddUpdatePetResponse> addOrUpdatePet(@RequestBody @Valid PetRequest petRequest) {
         logger.info("Received request to add/update pet: {}", petRequest);
-
-        // Sync with external Petstore API (mocked with actual Petstore POST or PUT)
         try {
             JsonNode petstoreResponse = syncPetWithExternalApi(petRequest);
-            // Simulate storing the pet locally
             String petId = petRequest.getPetId();
             if (petId == null || petId.isBlank()) {
                 petId = UUID.randomUUID().toString();
@@ -54,7 +47,6 @@ public class EntityControllerPrototype {
             Pet pet = new Pet(petId, petRequest.getName(), petRequest.getCategory(), petRequest.getStatus());
             petStore.put(petId, pet);
             logger.info("Pet stored locally with ID: {}", petId);
-
             return ResponseEntity.ok(new AddUpdatePetResponse(petId, "Pet added/updated successfully"));
         } catch (Exception e) {
             logger.error("Failed to sync pet with external API: {}", e.getMessage(), e);
@@ -63,49 +55,40 @@ public class EntityControllerPrototype {
     }
 
     private JsonNode syncPetWithExternalApi(PetRequest petRequest) throws Exception {
-        // Petstore API expects POST /pet to add new pet, PUT /pet to update existing pet
-        // Here we do POST if no petId, PUT if petId present
         String url = PETSTORE_API_BASE + "/pet";
         Map<String, Object> petPayload = new HashMap<>();
-        petPayload.put("id", petRequest.getPetId() != null ? Long.parseLongOrNull(petRequest.getPetId()) : null);
+        Long idVal = LongParse.parseLongOrNull(petRequest.getPetId());
+        petPayload.put("id", idVal);
         petPayload.put("name", petRequest.getName());
         Map<String, Object> categoryMap = new HashMap<>();
         categoryMap.put("name", petRequest.getCategory());
         petPayload.put("category", categoryMap);
         petPayload.put("status", petRequest.getStatus());
-
-        // Remove null fields for POST
-        if (petRequest.getPetId() == null || petRequest.getPetId().isBlank()) {
+        if (idVal == null) {
             petPayload.remove("id");
         }
-
         ResponseEntity<String> response;
-        if (petRequest.getPetId() == null || petRequest.getPetId().isBlank()) {
+        if (idVal == null) {
             response = restTemplate.postForEntity(new URI(url), petPayload, String.class);
         } else {
             restTemplate.put(new URI(url), petPayload);
-            response = ResponseEntity.ok("{}"); // PUT returns no body
+            response = ResponseEntity.ok("{}");
         }
-
         if (!response.getStatusCode().is2xxSuccessful()) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Petstore API returned error");
         }
-
         return response.getBody() != null ? objectMapper.readTree(response.getBody()) : objectMapper.createObjectNode();
     }
 
-    // --- 2. Retrieve Pets (GET) ---
     @GetMapping("/pets")
     public ResponseEntity<List<Pet>> getPets() {
         logger.info("Retrieving all pets, count: {}", petStore.size());
         return ResponseEntity.ok(new ArrayList<>(petStore.values()));
     }
 
-    // --- 3. Pet Adoption Request (POST) ---
     @PostMapping("/adopt")
-    public ResponseEntity<AdoptionResponse> submitAdoptionRequest(@RequestBody @Validated AdoptionRequest adoptionRequest) {
+    public ResponseEntity<AdoptionResponse> submitAdoptionRequest(@RequestBody @Valid AdoptionRequest adoptionRequest) {
         logger.info("Received adoption request: {}", adoptionRequest);
-
         Pet pet = petStore.get(adoptionRequest.getPetId());
         if (pet == null) {
             logger.error("Pet not found: {}", adoptionRequest.getPetId());
@@ -115,27 +98,21 @@ public class EntityControllerPrototype {
             logger.error("Pet not available for adoption: {} status={}", pet.getPetId(), pet.getStatus());
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Pet is not available for adoption");
         }
-
         String adoptionId = UUID.randomUUID().toString();
-        AdoptionRequest storedRequest = new AdoptionRequest(adoptionId, adoptionRequest.getPetId(), adoptionRequest.getUserId(), "pending");
-        adoptionStore.put(adoptionId, storedRequest);
-
-        // Fire-and-forget async approval simulation
-        CompletableFuture.runAsync(() -> processAdoptionRequest(adoptionId));
-
+        adoptionRequest.setAdoptionId(adoptionId);
+        adoptionRequest.setStatus("pending");
+        adoptionStore.put(adoptionId, adoptionRequest);
+        CompletableFuture.runAsync(() -> processAdoptionRequest(adoptionId)); // fire-and-forget prototype
         return ResponseEntity.ok(new AdoptionResponse(adoptionId, "pending", "Adoption request submitted"));
     }
 
-    // Simulated processing of adoption request
     private void processAdoptionRequest(String adoptionId) {
         logger.info("Processing adoption request async: {}", adoptionId);
         try {
-            Thread.sleep(3000); // Simulate processing delay
+            Thread.sleep(3000);
             AdoptionRequest request = adoptionStore.get(adoptionId);
             if (request != null) {
-                // Simple logic: approve all for prototype
                 request.setStatus("approved");
-                // Update pet status to sold
                 Pet pet = petStore.get(request.getPetId());
                 if (pet != null) {
                     pet.setStatus("sold");
@@ -145,16 +122,13 @@ public class EntityControllerPrototype {
             }
         } catch (InterruptedException e) {
             logger.error("Error processing adoption request: {}", e.getMessage(), e);
-            // On error, mark as denied
             AdoptionRequest request = adoptionStore.get(adoptionId);
             if (request != null) {
                 request.setStatus("denied");
             }
         }
-        // TODO: Persist changes if backing persistence added
     }
 
-    // --- 4. Retrieve Adoption Status (GET) ---
     @GetMapping("/adopt/{adoptionId}")
     public ResponseEntity<AdoptionRequest> getAdoptionStatus(@PathVariable("adoptionId") String adoptionId) {
         AdoptionRequest request = adoptionStore.get(adoptionId);
@@ -166,34 +140,17 @@ public class EntityControllerPrototype {
         return ResponseEntity.ok(request);
     }
 
-    // --- 5. Pet Care Tips Request (POST) ---
     @PostMapping("/pet-care-tips")
-    public ResponseEntity<PetCareTipsResponse> getPetCareTips(@RequestBody @Validated PetCareTipsRequest request) {
+    public ResponseEntity<PetCareTipsResponse> getPetCareTips(@RequestBody @Valid PetCareTipsRequest request) {
         logger.info("Received pet care tips request for category: {}", request.getCategory());
-
-        // TODO: Replace with real care tips source or external API call
         List<String> tips = switch (request.getCategory().toLowerCase(Locale.ROOT)) {
-            case "dog" -> List.of(
-                    "Walk your dog daily",
-                    "Provide fresh water",
-                    "Regular vet checkups"
-            );
-            case "cat" -> List.of(
-                    "Provide scratching posts",
-                    "Keep litter box clean",
-                    "Feed balanced diet"
-            );
-            default -> List.of(
-                    "Ensure proper habitat",
-                    "Feed appropriate food",
-                    "Regular health checks"
-            );
+            case "dog" -> List.of("Walk your dog daily", "Provide fresh water", "Regular vet checkups");
+            case "cat" -> List.of("Provide scratching posts", "Keep litter box clean", "Feed balanced diet");
+            default -> List.of("Ensure proper habitat", "Feed appropriate food", "Regular health checks");
         };
-
         return ResponseEntity.ok(new PetCareTipsResponse(request.getCategory(), tips));
     }
 
-    // --- Exception Handler ---
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<Map<String, String>> handleResponseStatusException(ResponseStatusException ex) {
         logger.error("Error: {} - {}", ex.getStatusCode(), ex.getReason());
@@ -203,7 +160,6 @@ public class EntityControllerPrototype {
         return ResponseEntity.status(ex.getStatusCode()).body(errorBody);
     }
 
-    // --- Helper to parse Long or return null ---
     private static class LongParse {
         static Long parseLongOrNull(String val) {
             try {
@@ -215,19 +171,17 @@ public class EntityControllerPrototype {
         }
     }
 
-    // --- Data classes ---
-
     @Data
     public static class PetRequest {
         private String petId;
 
-        @NotBlank
+        @NotBlank @Size(min = 1, max = 100)
         private String name;
 
-        @NotBlank
+        @NotBlank @Size(min = 1, max = 50)
         private String category;
 
-        @NotBlank
+        @NotBlank @Pattern(regexp = "available|pending|sold")
         private String status;
     }
 
@@ -247,17 +201,15 @@ public class EntityControllerPrototype {
 
     @Data
     public static class AdoptionRequest {
-        private final String adoptionId;
-        private final String petId;
-        private final String userId;
-        private String status;
+        private String adoptionId;
 
-        public AdoptionRequest(String adoptionId, String petId, String userId, String status) {
-            this.adoptionId = adoptionId;
-            this.petId = petId;
-            this.userId = userId;
-            this.status = status;
-        }
+        @NotBlank
+        private String petId;
+
+        @NotBlank
+        private String userId;
+
+        private String status;
     }
 
     @Data
@@ -269,7 +221,7 @@ public class EntityControllerPrototype {
 
     @Data
     public static class PetCareTipsRequest {
-        @NotBlank
+        @NotBlank @Size(min = 1, max = 50)
         private String category;
     }
 
@@ -279,4 +231,3 @@ public class EntityControllerPrototype {
         private final List<String> tips;
     }
 }
-```
