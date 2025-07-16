@@ -1,30 +1,3 @@
-You're absolutely right. Moving asynchronous or data transformation logic into the workflow function `process_{entity_name}` makes the controller endpoints cleaner, more maintainable, and more robust. This approach leverages the newly introduced workflow feature to handle all asynchronous pre-persistence operations and validations, freeing the controller from such responsibilities.
-
----
-
-### What can be moved?
-
-- Any asynchronous operations related to the entity that happen **before** persistence.
-- Any state mutations on the entity.
-- Any supplementary entity creation or data fetching for entities **other** than the current one.
-- Any "fire and forget" async tasks related to the entity.
-
----
-
-### What **cannot** be moved?
-
-- Direct updates, deletes, or additions to the **same** entity model (to avoid recursion).
-- Post-persistence logic (e.g., after the entity is saved).
-
----
-
-### Updated code
-
-I moved all relevant async logic inside the workflow function `process_prototype`. Since the example code you provided didn't have explicit async tasks besides the add_item call, I will illustrate a few examples of what could be moved or done in the workflow function (e.g., adding processed flags, fetching supplementary data, or triggering async side effects).
-
----
-
-```python
 import logging
 from quart import Quart, request, jsonify
 from app_init.app_init import BeanFactory
@@ -55,39 +28,46 @@ async def process_prototype(entity):
 
     import datetime
 
+    # Validate required fields or set defaults
+    if 'name' not in entity or not isinstance(entity['name'], str) or not entity['name'].strip():
+        raise ValueError("Entity must have a non-empty 'name' field of type string")
+
     # Example: Mark entity as processed and add timestamp
     entity['processed'] = True
     entity['processed_at'] = datetime.datetime.utcnow().isoformat()
 
     # Example: fetch supplementary data and add it to entity
-    # (Assuming entity has 'related_id' and we want to fetch related entity)
     related_id = entity.get('related_id')
     if related_id:
-        related_entity = await entity_service.get_item(
-            token=cyoda_auth_service,
-            entity_model='related_entity',  # different entity_model
-            entity_version=ENTITY_VERSION,
-            technical_id=related_id
-        )
-        if related_entity:
-            entity['related_entity_data'] = related_entity
+        try:
+            related_entity = await entity_service.get_item(
+                token=cyoda_auth_service,
+                entity_model='related_entity',  # different entity_model
+                entity_version=ENTITY_VERSION,
+                technical_id=related_id
+            )
+            if related_entity:
+                entity['related_entity_data'] = related_entity
+        except Exception as e:
+            logger.warning(f"Failed to fetch related_entity {related_id}: {e}")
 
     # Example: Add a supplementary entity asynchronously (different model)
-    supplementary_entity = {
-        'source_prototype_id': entity.get('id', 'temp_id'),
-        'info': 'Supplementary info generated in workflow',
-        'created_at': datetime.datetime.utcnow().isoformat()
-    }
-    # This is fire-and-forget, but await to ensure completion before persist
-    await entity_service.add_item(
-        token=cyoda_auth_service,
-        entity_model='supplementary_info',
-        entity_version=ENTITY_VERSION,
-        entity=supplementary_entity,
-        workflow=None  # No workflow to avoid recursion
-    )
-
-    # You can add more async or sync logic here
+    try:
+        supplementary_entity = {
+            'source_prototype_id': entity.get('id', None),
+            'info': 'Supplementary info generated in workflow',
+            'created_at': datetime.datetime.utcnow().isoformat()
+        }
+        # This is fire-and-forget, but we await to ensure completion before persist
+        await entity_service.add_item(
+            token=cyoda_auth_service,
+            entity_model='supplementary_info',
+            entity_version=ENTITY_VERSION,
+            entity=supplementary_entity,
+            workflow=None  # No workflow to avoid recursion
+        )
+    except Exception as e:
+        logger.warning(f"Failed to add supplementary_info entity: {e}")
 
     return entity
 
@@ -96,7 +76,9 @@ async def process_prototype(entity):
 async def create_prototype():
     try:
         data = await request.get_json()
-        # No validation or async logic here - moved to workflow
+        if not isinstance(data, dict):
+            return jsonify({'error': 'Invalid JSON payload'}), 400
+
         id = await entity_service.add_item(
             token=cyoda_auth_service,
             entity_model=entity_name,
@@ -105,6 +87,9 @@ async def create_prototype():
             workflow=process_prototype  # Workflow handles all async pre-persist logic
         )
         return jsonify({'id': id}), 201
+    except ValueError as ve:
+        logger.warning(f"Validation error on create_prototype: {ve}")
+        return jsonify({'error': str(ve)}), 400
     except Exception as e:
         logger.exception(e)
         return jsonify({'error': 'Failed to create prototype'}), 500
@@ -141,19 +126,59 @@ async def list_prototypes():
         return jsonify({'error': 'Failed to retrieve prototypes'}), 500
 
 
+async def process_prototype_update(entity):
+    """
+    Workflow function for update pre-persistence logic.
+    This is optional and can be used if entity_service.update_item supports a workflow argument.
+    """
+    import datetime
+
+    # Example: Add/update a field indicating last update timestamp
+    entity['last_updated_at'] = datetime.datetime.utcnow().isoformat()
+
+    # Additional update-related async logic can be added here
+
+    return entity
+
+
 @app.route('/prototype/<string:id>', methods=['PUT'])
 async def update_prototype(id):
     try:
         data = await request.get_json()
-        # Validation or async logic can be moved into a process_prototype_update workflow if needed
-        await entity_service.update_item(
-            token=cyoda_auth_service,
-            entity_model=entity_name,
-            entity_version=ENTITY_VERSION,
-            entity=data,
-            technical_id=id,
-            meta={}
-        )
+        if not isinstance(data, dict):
+            return jsonify({'error': 'Invalid JSON payload'}), 400
+
+        # Validate required fields or sanitize data as needed
+        if 'name' in data and (not isinstance(data['name'], str) or not data['name'].strip()):
+            return jsonify({'error': "'name' must be a non-empty string"}), 400
+
+        # If update_item supports workflow arg, pass process_prototype_update, else omit
+        # Assuming update_item signature: update_item(..., workflow=None)
+        # If not supported, remove workflow arg below.
+
+        # Check if update_item supports workflow param by inspection or documentation.
+        # Here we assume it does for consistency.
+        try:
+            await entity_service.update_item(
+                token=cyoda_auth_service,
+                entity_model=entity_name,
+                entity_version=ENTITY_VERSION,
+                entity=data,
+                technical_id=id,
+                meta={},
+                workflow=process_prototype_update
+            )
+        except TypeError:
+            # fallback if workflow not supported
+            await entity_service.update_item(
+                token=cyoda_auth_service,
+                entity_model=entity_name,
+                entity_version=ENTITY_VERSION,
+                entity=data,
+                technical_id=id,
+                meta={}
+            )
+
         return jsonify({'message': 'Prototype updated'}), 200
     except Exception as e:
         logger.exception(e)
@@ -180,6 +205,9 @@ async def delete_prototype(id):
 async def search_prototypes():
     try:
         condition = await request.get_json()
+        if not isinstance(condition, dict):
+            return jsonify({'error': 'Invalid JSON payload'}), 400
+
         items = await entity_service.get_items_by_condition(
             token=cyoda_auth_service,
             entity_model=entity_name,
@@ -190,25 +218,3 @@ async def search_prototypes():
     except Exception as e:
         logger.exception(e)
         return jsonify({'error': 'Failed to search prototypes'}), 500
-```
-
----
-
-### Summary of the refactor:
-
-- **`process_prototype`** handles:
-  - Marking the entity as processed with a timestamp.
-  - Fetching supplementary related entities.
-  - Adding supplementary entities related to the current entity.
-  - Any other async pre-persistence logic you need.
-
-- Controller endpoints are now "thin" and only responsible for:
-  - Receiving requests
-  - Passing data to services
-  - Returning responses
-
-- You can similarly add workflows like `process_prototype_update` (if your `update_item` supports a workflow arg) for update pre-persist logic.
-
----
-
-If you want, I can also help you refactor update workflows or add validation inside the workflow function!
