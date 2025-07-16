@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "description": "Tag entity workflow with simple add and activate transition",
+  "initial_state": "none",
+  "workflow_name": "tagWorkflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "add_tag": {
+          "next": "added"
+        }
+      }
+    },
+    "added": {
+      "transitions": {
+        "activate_tag": {
+          "next": "active",
+          "processors": [
+            {
+              "name": "TagActivationProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "active": {
+      "transitions": {}
+    }
+  }
+}
