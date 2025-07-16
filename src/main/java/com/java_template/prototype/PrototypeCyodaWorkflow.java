@@ -1,40 +1,3 @@
-Certainly! Moving all asynchronous or side-effect logic to the workflow function `processPet` is indeed the right approach. This will keep the controller slim, focused on HTTP interaction, and delegate all business logic, enrichment, and async tasks to the workflow function executed just before persistence.
-
----
-
-### What can be moved to `processPet`?
-
-- The external API validation call for an existing pet (currently done in controller before update).
-- Any enrichment or modification of the entity before saving.
-- Any async tasks such as fetching supplementary data or adding secondary entities.
-- Any other logic that involves asynchronous processing or external side effects.
-
----
-
-### What must remain in the controller?
-
-- Validation of input (via annotations).
-- Basic request mapping and extracting request data.
-- Converting between JSON nodes and domain objects as necessary.
-- Calling `entityService.addItem` or `updateItem` with the workflow function.
-- Handling exceptions and returning proper HTTP responses.
-
----
-
-### Approach:
-
-- Change the workflow function `processPet` to accept an `ObjectNode` (the entity JSON node).
-- Move the external API validation and enrichment into this function.
-- If needed, add secondary entities of different models inside the workflow.
-- Modify the `entity` node directly inside workflow to persist changes.
-- Change the controller to pass the entity as `ObjectNode`, and no longer do external API calls or enrichment there.
-- Return the `UUID` from `addItem` or `updateItem` calls as before.
-
----
-
-### Updated full code with these changes:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -118,12 +81,10 @@ public class CyodaEntityControllerPrototype {
         private Pet pet;
     }
 
-    /**
-     * Workflow function applied asynchronously before persistence.
-     * Entity is an ObjectNode that can be modified directly.
-     * You can add/get other entities (different entityModel).
-     * Cannot add/update/delete current entityModel inside workflow to avoid recursion.
-     */
+    // Workflow function applied asynchronously before persistence.
+    // Entity is an ObjectNode that can be modified directly.
+    // You can add/get other entities (different entityModel).
+    // Cannot add/update/delete current entityModel inside workflow to avoid recursion.
     private CompletableFuture<ObjectNode> processPet(ObjectNode entity) {
         logger.info("Starting workflow processPet for entity: {}", entity);
 
@@ -135,8 +96,7 @@ public class CyodaEntityControllerPrototype {
                 String ext = restTemplate.getForObject(url, String.class);
                 JsonNode node = objectMapper.readTree(ext);
                 logger.info("External pet validation succeeded for id {}: {}", idStr, node);
-                // Optionally enrich entity with data from external source here
-                // For example, update category or tags based on external data
+                // Enrich entity with data from external source
                 if (node.has("category") && node.get("category").has("name")) {
                     entity.put("category", node.get("category").get("name").asText());
                 }
@@ -149,30 +109,27 @@ public class CyodaEntityControllerPrototype {
                     }
                     entity.set("tags", tagsNode);
                 }
-                // Possibly modify status or other fields depending on business logic
             } catch (Exception ex) {
                 logger.warn("External validation failed for id {}: {}", entity.get("technicalId").asText(), ex.getMessage());
-                // Decide if you want to throw here or just log and continue
+                // Do not block persistence on external validation failure
             }
         }
 
-        // Example: add secondary entity of a different model as part of workflow
-        // e.g. a "PetAudit" entity that logs changes
+        // Add secondary entity of different model as part of workflow (e.g. audit record)
         try {
             ObjectNode auditEntity = objectMapper.createObjectNode();
             auditEntity.put("petName", entity.path("name").asText());
             auditEntity.put("timestamp", System.currentTimeMillis());
             auditEntity.put("status", entity.path("status").asText());
-            // Add audit entity asynchronously, but different model, so it's safe
+            // Add audit entity asynchronously; different model so allowed
             entityService.addItem("PetAudit", ENTITY_VERSION, auditEntity);
         } catch (Exception ex) {
             logger.warn("Failed to add PetAudit entity: {}", ex.getMessage());
             // Continue without blocking persistence of main entity
         }
 
-        // You can add other async logic here, e.g., update caches, fire-and-forget calls, etc.
+        // Additional async tasks or enrichment can be added here if needed
 
-        // Return the (possibly modified) entity node
         return CompletableFuture.completedFuture(entity);
     }
 
@@ -186,7 +143,7 @@ public class CyodaEntityControllerPrototype {
         UUID technicalId = petRequest.getTechnicalId();
 
         if (technicalId != null) {
-            // Update existing entity - no workflow applied on update as per original code
+            // Update existing entity - no workflow applied on update per specification
             CompletableFuture<UUID> updatedFuture = entityService.updateItem(ENTITY_NAME, ENTITY_VERSION, technicalId, entityNode);
             UUID updatedId = updatedFuture.get();
             petRequest.setTechnicalId(updatedId);
@@ -251,8 +208,7 @@ public class CyodaEntityControllerPrototype {
             }
         }
 
-        // External enrichment moved to workflow is not possible here because these are search results
-        // We need to keep enrichment here for external pets from petstore API
+        // External enrichment remains in controller for external pets from petstore API
         try {
             String url = "https://petstore3.swagger.io/api/v3/pet/findByStatus?status=available";
             String ext = restTemplate.getForObject(url, String.class);
@@ -339,21 +295,3 @@ public class CyodaEntityControllerPrototype {
         return new ResponseEntity<>(err, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }
-```
-
----
-
-### Summary of changes:
-
-- The `processPet(ObjectNode entity)` workflow method now:
-  - Performs external API validation (if `technicalId` exists).
-  - Enriches the entity with data from external source.
-  - Adds a secondary entity `PetAudit` as an example async side-effect.
-  - All modifications are done directly on the `ObjectNode` entity.
-- Controller no longer performs external API calls or enrichment on add/update.
-- Controller converts the POJO to `ObjectNode` and passes it to `entityService`.
-- Search external API enrichment remains in controller because those pets are external and not persisted.
-- Controller remains clean and focused on HTTP + validation.
-- Workflow function handles all async and enrichment logic before persistence.
-
-This approach respects your constraints and best practices, making the codebase more maintainable, robust, and scalable.
