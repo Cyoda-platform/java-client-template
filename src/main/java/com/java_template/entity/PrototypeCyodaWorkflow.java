@@ -1,33 +1,7 @@
-Certainly! Moving asynchronous and business logic into the workflow function (`processOrder`) is a great design improvement. It keeps controllers thin, isolates domain logic, and leverages the lifecycle hooks provided by your framework.
-
-Since the workflow function now receives an `ObjectNode` (the JSON representation of the entity), all manipulations will be done via this `ObjectNode`. We must convert our previous `Order` POJO usage to use `ObjectNode` inside `processOrder`.
-
----
-
-### What to move into `processOrder` workflow function?
-
-- **Payment validation** (previously synchronous in controller) — can be done async inside workflow.
-- **Setting default statuses**
-- **Setting estimated delivery time (ETA)**
-- Any **fire-and-forget async tasks** (e.g. sending notifications, logging analytics, etc.) — you can add CompletableFuture calls here.
-- Any other state enrichment or calls to other entities.
-
----
-
-### What remains in controller?
-
-- Input validation (basic)
-- Transforming request into basic ObjectNode or POJO before sending to `addItem`
-- Converting response (id) to HTTP response
-
----
-
-### Updated complete Java code with all async logic moved into `processOrder`
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import jakarta.validation.Valid;
@@ -48,7 +22,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
 
@@ -81,42 +54,38 @@ public class CyodaEntityControllerPrototype {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid payment method");
         }
 
-        // Prepare entity as ObjectNode
         ObjectNode entity = entityService.getObjectMapper().createObjectNode();
         entity.put("customerId", request.getCustomerId());
         entity.put("pizzaSize", request.getPizzaSize());
-        entity.putArray("toppings").addAll(request.getToppings().stream()
-                .map(entityService.getObjectMapper()::convertValue).toList());
+        ArrayNode toppingsArray = entity.putArray("toppings");
+        request.getToppings().forEach(toppingsArray::add);
         entity.put("deliveryAddress", request.getDeliveryAddress());
         entity.put("scheduledTime", request.getScheduledTime());
         entity.put("paymentMethod", request.getPaymentMethod());
         entity.put("paymentDetails", request.getPaymentDetails());
 
-        // Pass workflow function processOrder that handles all async logic and state changes
+        // Add the workflow function processOrder, which handles all async logic and state changes before persistence
         return entityService.addItem(ENTITY_NAME, ENTITY_VERSION, entity, this::processOrder)
                 .thenApply(id -> {
                     CreateOrderResponse resp = new CreateOrderResponse();
                     resp.setOrderId(id.toString());
-
-                    // The 'status' and 'estimatedDeliveryTime' were set inside processOrder workflow,
-                    // so we read them back from entity now:
+                    // Read back fields set by workflow function
                     resp.setStatus(entity.path("status").asText("created").toLowerCase());
                     resp.setEstimatedDeliveryTime(entity.path("estimatedDeliveryTime").asText(null));
-
                     return ResponseEntity.status(HttpStatus.CREATED).body(resp);
                 });
     }
 
     /**
      * Workflow function to process the order entity asynchronously before persistence.
-     *
-     * @param entity The JSON ObjectNode representing the order entity.
-     * @return CompletableFuture<ObjectNode> with the processed entity.
+     * Modifies entity state directly.
+     * @param entity the JSON ObjectNode representing the order entity
+     * @return CompletableFuture<ObjectNode> with processed entity
      */
     private CompletableFuture<ObjectNode> processOrder(ObjectNode entity) {
         logger.info("Processing order entity in workflow function processOrder for customerId={}", entity.path("customerId").asText());
 
-        // 1. Validate payment asynchronously (simulate async call)
+        // Validate payment asynchronously
         return validatePaymentAsync(entity.path("paymentMethod").asText(), entity.path("paymentDetails").asText())
                 .thenApply(paymentOk -> {
                     if (!paymentOk) {
@@ -125,32 +94,38 @@ public class CyodaEntityControllerPrototype {
                     return entity;
                 })
                 .thenApply(enrichedEntity -> {
-                    // 2. Set default status if missing
-                    if (enrichedEntity.path("status").isMissingNode() || enrichedEntity.path("status").asText().isEmpty()) {
+                    // Set default status if missing or empty
+                    String status = enrichedEntity.path("status").asText(null);
+                    if (status == null || status.isEmpty()) {
                         enrichedEntity.put("status", "CREATED");
                     }
-
-                    // 3. Set estimated delivery time if missing - 30 minutes from now
+                    return enrichedEntity;
+                })
+                .thenApply(enrichedEntity -> {
+                    // Set estimated delivery time if missing
                     if (enrichedEntity.path("estimatedDeliveryTime").isMissingNode()) {
                         Instant eta = Instant.now().plusSeconds(30 * 60);
                         enrichedEntity.put("estimatedDeliveryTime", eta.toString());
                     }
-
                     return enrichedEntity;
                 })
                 .thenApply(enrichedEntity -> {
-                    // 4. Example fire-and-forget async task: send notification (simulated)
-                    CompletableFuture.runAsync(() -> sendOrderNotification(enrichedEntity));
+                    // Fire-and-forget notification async task
+                    CompletableFuture.runAsync(() -> sendOrderNotification(enrichedEntity)).exceptionally(ex -> {
+                        logger.error("Failed to send order notification", ex);
+                        return null;
+                    });
                     return enrichedEntity;
                 });
     }
 
     /**
      * Simulate asynchronous payment validation.
+     * Replace with real async payment gateway call.
      */
     private CompletableFuture<Boolean> validatePaymentAsync(String method, String details) {
         logger.info("Validating payment asynchronously method={}", method);
-        // Replace with real async payment gateway call
+        // Simulate async payment validation with immediate positive result
         return CompletableFuture.supplyAsync(() -> true);
     }
 
@@ -160,6 +135,10 @@ public class CyodaEntityControllerPrototype {
     private void sendOrderNotification(ObjectNode orderEntity) {
         logger.info("Sending notification for order customerId={}", orderEntity.path("customerId").asText());
         // Simulate notification logic here
+        try {
+            Thread.sleep(100); // simulate some delay
+        } catch (InterruptedException ignored) {
+        }
     }
 
     @GetMapping("/orders/{orderId}")
@@ -180,7 +159,13 @@ public class CyodaEntityControllerPrototype {
                     resp.setOrderId(orderId);
                     resp.setStatus(item.path("status").asText("unknown").toLowerCase());
                     resp.setPizzaSize(item.path("pizzaSize").asText(null));
-                    resp.setToppings(item.path("toppings").findValuesAsText("toppings"));
+                    // toppings is an array, convert accordingly or fallback to empty
+                    JsonNode toppingsNode = item.path("toppings");
+                    if (toppingsNode.isArray()) {
+                        resp.setToppings(toppingsNode.findValuesAsText(null));
+                    } else {
+                        resp.setToppings(List.of());
+                    }
                     resp.setDeliveryAddress(item.path("deliveryAddress").asText(null));
                     resp.setEstimatedDeliveryTime(item.path("estimatedDeliveryTime").asText(null));
                     return ResponseEntity.ok(resp);
@@ -254,21 +239,3 @@ public class CyodaEntityControllerPrototype {
         private String message;
     }
 }
-```
-
----
-
-### Summary of changes:
-- **All async logic (payment validation, setting ETA, firing notifications) moved into `processOrder` workflow function.**
-- `processOrder` now takes and returns `CompletableFuture<ObjectNode>`.
-- `processOrder` modifies the entity directly by calling `entity.put(...)`.
-- Controller only prepares the bare minimal entity JSON and validates input.
-- After persistence, controller reads back entity fields set by workflow function to form the response.
-- Used `CompletableFuture.runAsync()` inside workflow for fire-and-forget async tasks.
-- Removed all business logic and async calls from controller.
-
-This approach makes your controllers thin, puts domain logic and async tasks into workflow functions which run atomically before persistence, and respects the rules (no `addItem` on same entity inside workflow).
-
----
-
-If you want me to help further with extracting other logic or adding additional workflow functions, just ask!
