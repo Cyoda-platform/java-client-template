@@ -1,0 +1,85 @@
+{
+    "description": "Pizza order processing FSM workflow",
+    "initial_state": "none",
+    "states": {
+        "delivered": {
+            "transitions": {}
+        },
+        "none": {
+            "transitions": {
+                "create_order_transition": {
+                    "action": {
+                        "name": "setDefaultStatusIfMissing"
+                    },
+                    "next": "payment_validation"
+                }
+            }
+        },
+        "notified": {
+            "transitions": {
+                "set_eta": {
+                    "action": {
+                        "name": "setEstimatedDeliveryTime"
+                    },
+                    "next": "ready_for_delivery"
+                }
+            }
+        },
+        "order_failed": {
+            "transitions": {}
+        },
+        "payment_validated": {
+            "transitions": {
+                "send_notification": {
+                    "action": {
+                        "name": "sendNotification"
+                    },
+                    "next": "notified"
+                }
+            }
+        },
+        "payment_validation": {
+            "transitions": {
+                "payment_invalid": {
+                    "condition": {
+                        "function": {
+                            "name": "isPaymentInvalid"
+                        },
+                        "type": "function"
+                    },
+                    "next": "order_failed"
+                },
+                "payment_valid": {
+                    "action": {
+                        "name": "setPaymentValidatedStatus"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "isPaymentValid"
+                        },
+                        "type": "function"
+                    },
+                    "next": "payment_validated"
+                }
+            }
+        },
+        "ready_for_delivery": {
+            "transitions": {
+                "deliver_order": {
+                    "action": {
+                        "name": "markAsDelivered"
+                    },
+                    "condition": {
+                        "function": {
+                            "name": "isReadyForDelivery"
+                        },
+                        "type": "function"
+                    },
+                    "next": "delivered"
+                }
+            }
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "pizza_order_workflow"
+}
