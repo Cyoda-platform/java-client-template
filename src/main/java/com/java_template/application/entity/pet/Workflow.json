@@ -1,0 +1,55 @@
+{
+  "version": "1.0",
+  "description": "Workflow FSM for Pet entity",
+  "initial_state": "none",
+  "workflow_name": "petWorkflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "create_pet": {
+          "next": "created"
+        }
+      }
+    },
+    "created": {
+      "transitions": {
+        "approve_pet": {
+          "next": "approved",
+          "processors": [
+            {
+              "name": "PetApprovalProcessor"
+            }
+          ]
+        },
+        "reject_pet": {
+          "next": "rejected",
+          "processors": [
+            {
+              "name": "PetRejectionProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "approved": {
+      "transitions": {
+        "archive_pet": {
+          "next": "archived"
+        }
+      }
+    },
+    "rejected": {
+      "transitions": {
+        "delete_pet": {
+          "next": "deleted"
+        }
+      }
+    },
+    "archived": {
+      "transitions": {}
+    },
+    "deleted": {
+      "transitions": {}
+    }
+  }
+}
