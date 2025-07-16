@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "description": "Category entity workflow with simple approval",
+  "initial_state": "none",
+  "workflow_name": "categoryWorkflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "add_category": {
+          "next": "added"
+        }
+      }
+    },
+    "added": {
+      "transitions": {
+        "verify_category": {
+          "next": "verified",
+          "processors": [
+            {
+              "name": "CategoryVerificationProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "verified": {
+      "transitions": {}
+    }
+  }
+}
