@@ -1,0 +1,37 @@
+{
+  "version": "1.0",
+  "description": "Pet business workflow based on processPet function pattern",
+  "initial_state": "none",
+  "workflow_name": "pet_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "to_validate_pet": {
+          "next": "validate_pet"
+        }
+      }
+    },
+    "validate_pet": {
+      "transitions": {
+        "to_process_pet": {
+          "next": "process_pet",
+          "processors": [
+            {
+              "name": "PetProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "process_pet": {
+      "transitions": {
+        "to_completed": {
+          "next": "completed"
+        }
+      }
+    },
+    "completed": {
+      "transitions": {}
+    }
+  }
+}
