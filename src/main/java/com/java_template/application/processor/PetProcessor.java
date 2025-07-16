@@ -14,9 +14,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.util.function.BiFunction;
-import java.util.function.Function;
-
 @Component
 public class PetProcessor implements CyodaProcessor {
 
@@ -36,7 +33,7 @@ public class PetProcessor implements CyodaProcessor {
         return serializer.withRequest(request)
                 .toEntity(Pet.class)
                 .withErrorHandler(this::handlePetError)
-                .validate(this::isValidPet, "Invalid pet state")
+                .validate(this::isValidPet, "Invalid Pet entity")
                 .complete();
     }
 
@@ -48,11 +45,11 @@ public class PetProcessor implements CyodaProcessor {
     }
 
     private boolean isValidPet(Pet pet) {
-        return pet.isValid();
+        return pet.getName() != null && !pet.getName().isEmpty() && pet.getAge() >= 0;
     }
 
-    private ErrorInfo handlePetError(Throwable throwable, Pet pet) {
-        logger.error("Error processing pet entity", throwable);
-        return new ErrorInfo("error", throwable.getMessage());
+    private ErrorInfo handlePetError(Throwable error, Pet pet) {
+        logger.error("Error processing Pet: {}", error.getMessage(), error);
+        return ErrorInfo.processingError("Error processing Pet: " + error.getMessage());
     }
 }
