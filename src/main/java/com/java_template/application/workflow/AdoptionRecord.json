@@ -1,0 +1,46 @@
+{
+  "version": "1.0",
+  "description": "Workflow for AdoptionRecord entity",
+  "initial_state": "none",
+  "workflow_name": "adoptionRecordWorkflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "create_record": {
+          "next": "pending_approval",
+          "processors": [
+            {
+              "name": "AdoptionRecordCreateProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "pending_approval": {
+      "transitions": {
+        "approve": {
+          "next": "approved",
+          "processors": [
+            {
+              "name": "AdoptionRecordApprovalProcessor"
+            }
+          ]
+        },
+        "reject": {
+          "next": "rejected",
+          "processors": [
+            {
+              "name": "AdoptionRecordRejectionProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "approved": {
+      "transitions": {}
+    },
+    "rejected": {
+      "transitions": {}
+    }
+  }
+}
