@@ -1,0 +1,60 @@
+{
+  "version": "1.0",
+  "description": "FSM workflow for Pet entity",
+  "initial_state": "none",
+  "workflow_name": "petWorkflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "transition_to_created": {
+          "next": "created"
+        }
+      }
+    },
+    "created": {
+      "transitions": {
+        "transition_to_adopted": {
+          "next": "adopted",
+          "processors": [
+            {
+              "name": "PetAdoptionProcessor"
+            }
+          ]
+        },
+        "transition_to_returned": {
+          "next": "returned",
+          "criteria": [
+            {
+              "type": "function",
+              "function": {
+                "name": "ReturnEligibilityCriterion"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "adopted": {
+      "transitions": {
+        "transition_to_recovered": {
+          "next": "recovered",
+          "processors": [
+            {
+              "name": "PetRecoveryProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "returned": {
+      "transitions": {
+        "transition_to_created": {
+          "next": "created"
+        }
+      }
+    },
+    "recovered": {
+      "transitions": {}
+    }
+  }
+}
