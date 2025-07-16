@@ -1,0 +1,55 @@
+{
+  "version": "1.0",
+  "description": "Workflow for Pet entity demonstrating validation and status update",
+  "initial_state": "none",
+  "workflow_name": "pet_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "transition_to_validation": {
+          "next": "validation",
+          "processors": [
+            {
+              "name": "PetProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "validation": {
+      "transitions": {
+        "transition_to_status_update": {
+          "next": "status_update",
+          "criteria": [
+            {
+              "type": "function",
+              "function": {
+                "name": "PetValidationCriterion"
+              }
+            }
+          ],
+          "processors": [
+            {
+              "name": "PetProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "status_update": {
+      "transitions": {
+        "transition_to_end": {
+          "next": "end",
+          "processors": [
+            {
+              "name": "PetProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "end": {
+      "transitions": {}
+    }
+  }
+}
