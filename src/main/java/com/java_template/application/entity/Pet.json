@@ -1,0 +1,62 @@
+{
+  "version": "1.0",
+  "description": "Workflow configuration for Pet entity",
+  "initial_state": "none",
+  "workflow_name": "petWorkflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "create_pet": {
+          "next": "created"
+        }
+      }
+    },
+    "created": {
+      "transitions": {
+        "approve_pet": {
+          "next": "approved",
+          "processors": [
+            {
+              "name": "ApprovePetProcessor"
+            }
+          ]
+        },
+        "reject_pet": {
+          "next": "rejected",
+          "processors": [
+            {
+              "name": "RejectPetProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "approved": {
+      "transitions": {
+        "activate_pet": {
+          "next": "active"
+        }
+      }
+    },
+    "active": {
+      "transitions": {
+        "deactivate_pet": {
+          "next": "inactive"
+        }
+      }
+    },
+    "inactive": {
+      "transitions": {
+        "archive_pet": {
+          "next": "archived"
+        }
+      }
+    },
+    "rejected": {
+      "transitions": {}
+    },
+    "archived": {
+      "transitions": {}
+    }
+  }
+}
