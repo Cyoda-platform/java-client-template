@@ -1,0 +1,14 @@
+{
+    "entities": [
+        {
+            "entity_data_example": {
+                "created_at": "2024-06-01T12:00:00Z",
+                "description": "string",
+                "id": "string",
+                "name": "string",
+                "updated_at": "2024-06-01T12:00:00Z"
+            },
+            "entity_name": "prototype"
+        }
+    ]
+}
