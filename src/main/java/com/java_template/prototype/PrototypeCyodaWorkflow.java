@@ -1,34 +1,9 @@
-Certainly! Moving asynchronous and business logic from controller endpoints into dedicated `process{EntityName}` workflow functions is a great architectural improvement. It keeps controllers clean, promotes separation of concerns, and leverages the new workflow feature as intended.
-
----
-
-### What will be moved to the workflow function?
-
-1. **Entity validation and state changes before persistence**  
-   Example: setting `adopted`, `adopterName`, `adoptedAt` fields in the pet entity during adoption.
-
-2. **Any async processing that affects the entity or supplementary entities of different models**  
-   For example, if adoption requires creating a supplementary "adoption record" entity of a different model.
-
-3. **Fire-and-forget async calls related to the entity lifecycle**
-
----
-
-### What *cannot* be moved?
-
-- Calls to `entityService.updateItem/addItem/deleteItem` for the *same* entity model inside the workflow (to avoid recursion).
-- Controller logic related to HTTP request parsing, response formatting, validation annotations, or immediate client error responses.
-
----
-
-## Updated Java code with logic moved into `processPet` workflow:
-
-```java
 package com.java_template.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
@@ -48,7 +23,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 
 import static com.java_template.common.config.Config.*;
 
@@ -60,6 +34,7 @@ public class CyodaEntityControllerPrototype {
     private static final Logger logger = LoggerFactory.getLogger(CyodaEntityControllerPrototype.class);
     private static final String ENTITY_NAME = "pet";
     private final EntityService entityService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public CyodaEntityControllerPrototype(EntityService entityService) {
         this.entityService = entityService;
@@ -67,52 +42,54 @@ public class CyodaEntityControllerPrototype {
 
     /**
      * Workflow function to process the pet entity asynchronously before persistence.
-     * This function:
-     * - Validates and modifies the pet entity state (e.g. adoption logic)
-     * - Can create/get other entities of different models if needed
-     * - Must NOT call add/update/delete on pet entity itself to avoid infinite recursion
+     * Handles adoption logic, sets adoption fields, and may create supplementary entities.
+     * Must NOT call add/update/delete on the same entityModel to avoid recursion.
      */
     private CompletableFuture<JsonNode> processPet(JsonNode entity) {
         ObjectNode petNode = (ObjectNode) entity;
 
-        // Example: If the pet is being adopted, set adoption fields here.
-        // We assume that if "adopt" field is true in incoming entity, adoption occurs.
+        // Handle adoption processing if "adopt" flag is present and true
         if (petNode.has("adopt") && petNode.get("adopt").asBoolean(false)) {
-            logger.info("Processing adoption workflow inside processPet");
+            logger.info("Processing adoption workflow inside processPet for pet id={}", petNode.has("id") ? petNode.get("id").asText() : "N/A");
 
-            // Check if already adopted
+            // Check if pet already adopted
             if (petNode.has("adopted") && petNode.get("adopted").asBoolean(false)) {
-                // Pet already adopted - here we cannot throw exceptions easily.
-                // We can mark a field or flag for client info.
+                // Mark error field for adoption conflict
                 petNode.put("error", "Pet already adopted");
             } else {
                 // Mark as adopted
                 petNode.put("adopted", true);
 
-                // 'adopterName' must be passed in entity; if missing, set generic or error flag
-                if (petNode.hasNonNull("adopterName")) {
-                    // Use as is
+                // Ensure adopterName exists and is non-empty, fallback to "Unknown"
+                if (petNode.hasNonNull("adopterName") && !petNode.get("adopterName").asText().isBlank()) {
+                    // use provided adopterName
                 } else {
                     petNode.put("adopterName", "Unknown");
                 }
+
                 petNode.put("adoptedAt", Instant.now().toString());
 
                 // Remove the 'adopt' flag so it won't persist unnecessarily
                 petNode.remove("adopt");
+
+                // Example of adding supplementary entity asynchronously (fire and forget)
+                // Create adoption record entity of a different model
+                try {
+                    ObjectNode adoptionRecord = objectMapper.createObjectNode();
+                    adoptionRecord.put("petId", petNode.has("id") ? petNode.get("id").asLong() : -1L);
+                    adoptionRecord.put("adopterName", petNode.get("adopterName").asText());
+                    adoptionRecord.put("adoptedAt", petNode.get("adoptedAt").asText());
+                    // Adding supplementary entity, no recursion risk
+                    entityService.addItem("adoptionRecord", ENTITY_VERSION, adoptionRecord, adoptionRecordEntity -> CompletableFuture.completedFuture(adoptionRecordEntity));
+                } catch (Exception e) {
+                    logger.error("Failed to add supplementary adoption record entity", e);
+                    // Do not fail main workflow for supplementary entity failure
+                }
             }
         }
 
-        // Additional async tasks or supplementary entity adds can be done here.
-        // For example, add an adoption record entity (different entityModel) asynchronously:
-        /*
-        ObjectNode adoptionRecord = objectMapper.createObjectNode();
-        adoptionRecord.put("petId", petNode.get("id").asLong());
-        adoptionRecord.put("adopterName", petNode.get("adopterName").asText());
-        adoptionRecord.put("adoptedAt", petNode.get("adoptedAt").asText());
-        entityService.addItem("adoptionRecord", ENTITY_VERSION, adoptionRecord, otherWorkflowFunction);
-        */
+        // Here you can add other entity processing logic before persistence if needed
 
-        // Return the possibly modified entity
         return CompletableFuture.completedFuture(petNode);
     }
 
@@ -153,12 +130,15 @@ public class CyodaEntityControllerPrototype {
     public List<JsonNode> getCachedPets() {
         logger.info("Returning all pets from EntityService");
         ArrayNode petsNode = entityService.getItems(ENTITY_NAME, ENTITY_VERSION).join();
+        if (petsNode == null || !petsNode.isArray()) {
+            throw new ResponseStatusException(502, "Invalid response from EntityService");
+        }
         return List.copyOf(petsNode);
     }
 
     /**
      * Adopt a pet by updating the entity with adoption info.
-     * The actual adoption logic moved into processPet workflow.
+     * Adoption logic moved into processPet workflow function.
      */
     @PostMapping("/adopt")
     public AdoptionResponse adoptPet(@Valid @RequestBody AdoptionRequest request) {
@@ -170,21 +150,19 @@ public class CyodaEntityControllerPrototype {
             throw new ResponseStatusException(404, "Pet not found");
         }
 
+        // Check if pet already adopted early to avoid unnecessary processing
         if (petNode.has("adopted") && petNode.get("adopted").asBoolean(false)) {
             throw new ResponseStatusException(409, "Pet already adopted");
         }
 
-        // Prepare updated entity with adoption request data
-        petNode.put("adopt", true); // flag to trigger adoption logic inside workflow
+        // Add adoption flag and adopterName to trigger workflow logic
+        petNode.put("adopt", true);
         petNode.put("adopterName", request.getAdopterName());
 
-        // Use addItem with workflow function processPet to apply adoption logic before update
-        // Since this is an update, we call updateItem with workflow - but assuming updateItem supports workflow similarly:
-        // If updateItem does not support workflow, fallback to addItem with same ID or handle differently.
-        // Here, assuming only addItem supports workflow, we simulate by removing and adding or just update without workflow.
-
-        // Since updateItem likely does not support workflow, to reuse processPet, we apply the workflow manually:
+        // Process entity with workflow function before persistence
         JsonNode processedEntity = processPet(petNode).join();
+
+        // Check for workflow error marker
         if (processedEntity.has("error")) {
             throw new ResponseStatusException(409, processedEntity.get("error").asText());
         }
@@ -197,7 +175,7 @@ public class CyodaEntityControllerPrototype {
 
     /**
      * Create a new pet entity.
-     * The workflow function `processPet` is applied before persistence.
+     * Applies workflow processPet asynchronously before persistence.
      */
     @PostMapping
     public CompletableFuture<java.util.UUID> createPet(@Valid @RequestBody JsonNode petData) {
@@ -242,40 +220,4 @@ public class CyodaEntityControllerPrototype {
         private final String message;
         private final Long petId;
     }
-
 }
-```
-
----
-
-## Summary of changes:
-
-- **Adoption logic moved inside `processPet` workflow:**  
-  - Use a temporary flag `"adopt": true` in the entity to indicate the workflow should perform adoption-related changes.
-  - The workflow sets `adopted`, `adopterName`, `adoptedAt` fields and removes the flag.
-  - If pet already adopted, workflow marks an `"error"` field instead of throwing exceptions (since exception throwing inside workflows is not typical).
-
-- **Controller `adoptPet` endpoint:**  
-  - Validates pet existence and adoption status upfront.
-  - Prepares the entity for adoption by adding flags and adopter name.
-  - Calls `processPet` explicitly to apply workflow logic before persistence.
-  - Throws HTTP errors if workflow signals adoption conflict.
-  - Persists updated entity with `updateItem` (workflow is applied manually before this call because updateItem might not support workflows).
-
-- **Create pet endpoint uses the new `addItem` signature with `processPet` workflow** to asynchronously process entity before persistence.
-
-- **Search and get endpoints remain unchanged** as they only read data.
-
----
-
-## Notes:
-
-- If your `entityService.updateItem` supports workflow functions, you can replace the manual call to `processPet` with passing workflow directly. Otherwise, manually invoke workflow logic before calling update.
-
-- You can extend `processPet` to handle other async tasks or create supplementary entities of different models.
-
-- This approach avoids infinite recursion by not calling add/update/delete on the same entity inside workflow.
-
----
-
-If you want, I can help you update the code further to handle supplementary entities or implement additional workflows!
