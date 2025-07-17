@@ -1,0 +1,36 @@
+{
+  "version": "1.0",
+  "description": "Workflow FSM for ReportJob entity reflecting its business process",
+  "initial_state": "none",
+  "workflow_name": "reportJob_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_processing": {
+          "next": "processing",
+          "processors": [
+            {
+              "name": "ReportJobProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "processing": {
+      "transitions": {
+        "complete": {
+          "next": "completed"
+        },
+        "fail": {
+          "next": "failed"
+        }
+      }
+    },
+    "completed": {
+      "transitions": {}
+    },
+    "failed": {
+      "transitions": {}
+    }
+  }
+}
