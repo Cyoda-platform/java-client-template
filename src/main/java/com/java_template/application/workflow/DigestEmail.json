@@ -1,0 +1,21 @@
+{
+  "version": "1.0",
+  "description": "Workflow for DigestEmail entity handling sending and status update",
+  "initial_state": "none",
+  "workflow_name": "DigestEmailWorkflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "send_email": {
+          "next": "sent",
+          "processors": [
+            { "name": "DigestEmailProcessor" }
+          ]
+        }
+      }
+    },
+    "sent": {
+      "transitions": {}
+    }
+  }
+}
