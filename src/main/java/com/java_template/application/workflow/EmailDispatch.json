@@ -1,0 +1,31 @@
+{
+  "version": "1.0",
+  "description": "Workflow for EmailDispatch entity handling email preparation and sending.",
+  "initial_state": "none",
+  "workflow_name": "emailDispatch_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "prepare_email": {
+          "next": "prepared",
+          "processors": [
+            { "name": "EmailDispatchProcessor" }
+          ]
+        }
+      }
+    },
+    "prepared": {
+      "transitions": {
+        "send_email": {
+          "next": "sent",
+          "processors": [
+            { "name": "EmailDispatchProcessor" }
+          ]
+        }
+      }
+    },
+    "sent": {
+      "transitions": {}
+    }
+  }
+}
