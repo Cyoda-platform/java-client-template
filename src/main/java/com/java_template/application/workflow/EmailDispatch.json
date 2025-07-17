@@ -1,0 +1,36 @@
+{
+  "version": "1.0",
+  "description": "Workflow for EmailDispatch entity with email sending simulation",
+  "initial_state": "none",
+  "workflow_name": "EmailDispatchWorkflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "pending_send": {
+          "next": "pending",
+          "processors": [
+            {
+              "name": "EmailDispatchProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "pending": {
+      "transitions": {
+        "sent_email": {
+          "next": "sent"
+        },
+        "fail_email": {
+          "next": "failed"
+        }
+      }
+    },
+    "sent": {
+      "transitions": {}
+    },
+    "failed": {
+      "transitions": {}
+    }
+  }
+}
