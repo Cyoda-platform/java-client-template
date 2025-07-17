@@ -1,0 +1,46 @@
+{
+  "version": "1.0",
+  "description": "Workflow for EmailDispatchLog entity handling email dispatch status updates",
+  "initial_state": "none",
+  "workflow_name": "EmailDispatchLogWorkflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "log_pending": {
+          "next": "pending",
+          "processors": [
+            {
+              "name": "EmailDispatchLogProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "pending": {
+      "transitions": {
+        "log_success": {
+          "next": "success",
+          "processors": [
+            {
+              "name": "EmailDispatchLogProcessor"
+            }
+          ]
+        },
+        "log_failure": {
+          "next": "failure",
+          "processors": [
+            {
+              "name": "EmailDispatchLogProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "success": {
+      "transitions": {}
+    },
+    "failure": {
+      "transitions": {}
+    }
+  }
+}
