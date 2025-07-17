@@ -1,0 +1,43 @@
+{
+  "version": "1.0",
+  "description": "Workflow FSM for Report entity based on processReport function pattern",
+  "initial_state": "none",
+  "workflow_name": "report_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_processing": {
+          "next": "state_validating",
+          "processors": [
+            {
+              "name": "ReportProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "state_validating": {
+      "transitions": {
+        "validate_success": {
+          "next": "state_processing"
+        },
+        "validate_failure": {
+          "next": "state_rejected"
+        }
+      }
+    },
+    "state_processing": {
+      "transitions": {
+        "process_complete": {
+          "next": "state_completed"
+        }
+      }
+    },
+    "state_rejected": {
+      "transitions": {}
+    },
+    "state_completed": {
+      "transitions": {}
+    }
+  }
+}
