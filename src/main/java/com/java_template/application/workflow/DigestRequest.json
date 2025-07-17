@@ -1,0 +1,47 @@
+{
+  "version": "1.0",
+  "description": "Workflow for DigestRequest entity",
+  "initial_state": "none",
+  "workflow_name": "digestRequest_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "transition_to_processing": {
+          "next": "processing",
+          "processors": [
+            {
+              "name": "DigestRequestProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "processing": {
+      "transitions": {
+        "transition_to_dataFetched": {
+          "next": "dataFetched"
+        }
+      }
+    },
+    "dataFetched": {
+      "transitions": {
+        "transition_to_digestCompiled": {
+          "next": "digestCompiled"
+        }
+      }
+    },
+    "digestCompiled": {
+      "transitions": {
+        "transition_to_completed": {
+          "next": "completed"
+        }
+      }
+    },
+    "completed": {
+      "transitions": {}
+    },
+    "failed": {
+      "transitions": {}
+    }
+  }
+}
