@@ -1,0 +1,23 @@
+{
+  "version": "1.0",
+  "description": "Invoice entity workflow to handle invoice processing upon persistence event.",
+  "initial_state": "none",
+  "workflow_name": "invoice_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "to_processed": {
+          "next": "processed",
+          "processors": [
+            {
+              "name": "InvoiceProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "processed": {
+      "transitions": {}
+    }
+  }
+}
