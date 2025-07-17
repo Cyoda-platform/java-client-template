@@ -1,0 +1,23 @@
+{
+  "version": "1.0",
+  "description": "Workflow for DigestData entity",
+  "initial_state": "none",
+  "workflow_name": "DigestDataWorkflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "data_created": {
+          "next": "created",
+          "processors": [
+            {
+              "name": "DigestDataProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "created": {
+      "transitions": {}
+    }
+  }
+}
