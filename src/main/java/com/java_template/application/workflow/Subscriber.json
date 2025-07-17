@@ -1,0 +1,43 @@
+{
+  "version": "1.0",
+  "description": "Workflow FSM for Subscriber entity",
+  "initial_state": "none",
+  "workflow_name": "subscriber_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "transition_to_active": {
+          "next": "active",
+          "processors": [
+            {
+              "name": "SubscriberProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "active": {
+      "transitions": {
+        "transition_to_suspended": {
+          "next": "suspended"
+        },
+        "transition_to_cancelled": {
+          "next": "cancelled"
+        }
+      }
+    },
+    "suspended": {
+      "transitions": {
+        "transition_to_active": {
+          "next": "active"
+        },
+        "transition_to_cancelled": {
+          "next": "cancelled"
+        }
+      }
+    },
+    "cancelled": {
+      "transitions": {}
+    }
+  }
+}
