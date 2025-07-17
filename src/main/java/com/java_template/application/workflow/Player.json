@@ -1,0 +1,35 @@
+{
+  "version": "1.0",
+  "description": "Workflow for Player entity",
+  "initial_state": "none",
+  "workflow_name": "player_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "create_player": {
+          "next": "player_created",
+          "processors": [
+            {
+              "name": "PlayerProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "player_created": {
+      "transitions": {
+        "validate_player": {
+          "next": "player_validated"
+        }
+      }
+    },
+    "player_validated": {
+      "transitions": {
+        "finish": {
+          "next": "finished"
+        }
+      }
+    },
+    "finished": {}
+  }
+}
