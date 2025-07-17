@@ -1,13 +1,19 @@
-```java
 package com.java_template.prototype;
 
 import com.java_template.application.entity.DigestData;
 import com.java_template.application.entity.DigestRequest;
 import com.java_template.application.entity.EmailDispatch;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -15,13 +21,13 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
+@Validated
 @RestController
 @RequestMapping(path = "/prototype/entity")
 public class EntityControllerPrototype {
 
     private static final Logger logger = LoggerFactory.getLogger(EntityControllerPrototype.class);
 
-    // Caches for entities; key "entities" holds all entities of that type
     private final ConcurrentHashMap<String, List<DigestRequest>> digestRequestCache = new ConcurrentHashMap<>();
     private final AtomicLong digestRequestIdCounter = new AtomicLong(1);
 
@@ -31,48 +37,92 @@ public class EntityControllerPrototype {
     private final ConcurrentHashMap<String, List<EmailDispatch>> emailDispatchCache = new ConcurrentHashMap<>();
     private final AtomicLong emailDispatchIdCounter = new AtomicLong(1);
 
+    // ====== DIGEST REQUEST DTO for validation ======
+    @Data
+    public static class DigestRequestDto {
+        @NotBlank
+        @Size(max = 100)
+        private String userEmail;
+
+        @NotNull
+        private Map<@NotBlank String, @NotBlank String> metadata;
+    }
+
+    // ====== DIGEST DATA DTO for validation ======
+    @Data
+    public static class DigestDataDto {
+        @NotBlank
+        private String dataPayload;
+    }
+
+    // ====== EMAIL DISPATCH DTO for validation ======
+    @Data
+    public static class EmailDispatchDto {
+        @NotBlank
+        private String status;
+
+        @Size(max = 500)
+        private String detail;
+    }
+
     // ====== DIGEST REQUEST CRUD ======
 
     @PostMapping("/digestRequest")
-    public Map<String, Object> createDigestRequest(@RequestBody DigestRequest digestRequest) {
-        logger.info("Received request to create DigestRequest: {}", digestRequest);
+    public ResponseEntity<Map<String, Object>> createDigestRequest(@RequestBody @Valid DigestRequestDto dto) {
+        logger.info("Received request to create DigestRequest: {}", dto);
 
-        // Validate entity before saving
-        if (!digestRequest.isValid()) {
+        DigestRequest entity = new DigestRequest();
+        entity.setUserEmail(dto.getUserEmail());
+        entity.setMetadata(dto.getMetadata());
+
+        if (!entity.isValid()) {
             logger.error("Invalid DigestRequest data");
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid DigestRequest data");
         }
 
-        String id = addDigestRequest(digestRequest);
+        String id = addDigestRequest(entity);
         logger.info("DigestRequest created with id {}", id);
 
         Map<String, Object> response = new HashMap<>();
         response.put("id", id);
         response.put("status", "created");
-        return response;
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @GetMapping("/digestRequest")
+    // Using @ModelAttribute with @Valid to validate query params if needed
+    public ResponseEntity<List<DigestRequest>> listDigestRequests() {
+        logger.info("Fetching all DigestRequests");
+        List<DigestRequest> list = digestRequestCache.getOrDefault("entities", Collections.emptyList());
+        return ResponseEntity.ok(Collections.unmodifiableList(list));
     }
 
     @GetMapping("/digestRequest/{id}")
-    public DigestRequest getDigestRequest(@PathVariable String id) {
+    public ResponseEntity<DigestRequest> getDigestRequest(@PathVariable @NotBlank String id) {
         logger.info("Fetching DigestRequest with id {}", id);
         DigestRequest dr = getDigestRequestById(id);
         if (dr == null) {
             logger.error("DigestRequest with id {} not found", id);
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "DigestRequest not found");
         }
-        return dr;
+        return ResponseEntity.ok(dr);
     }
 
     @PutMapping("/digestRequest/{id}")
-    public Map<String, Object> updateDigestRequest(@PathVariable String id, @RequestBody DigestRequest digestRequest) {
+    public ResponseEntity<Map<String, Object>> updateDigestRequest(@PathVariable @NotBlank String id,
+                                                                   @RequestBody @Valid DigestRequestDto dto) {
         logger.info("Updating DigestRequest with id {}", id);
 
-        if (!digestRequest.isValid()) {
+        DigestRequest entity = new DigestRequest();
+        entity.setUserEmail(dto.getUserEmail());
+        entity.setMetadata(dto.getMetadata());
+
+        if (!entity.isValid()) {
             logger.error("Invalid DigestRequest data");
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid DigestRequest data");
         }
 
-        boolean updated = updateDigestRequestById(id, digestRequest);
+        boolean updated = updateDigestRequestById(id, entity);
         if (!updated) {
             logger.error("DigestRequest with id {} not found for update", id);
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "DigestRequest not found");
@@ -81,11 +131,11 @@ public class EntityControllerPrototype {
         Map<String, Object> response = new HashMap<>();
         response.put("id", id);
         response.put("status", "updated");
-        return response;
+        return ResponseEntity.ok(response);
     }
 
     @DeleteMapping("/digestRequest/{id}")
-    public Map<String, Object> deleteDigestRequest(@PathVariable String id) {
+    public ResponseEntity<Map<String, Object>> deleteDigestRequest(@PathVariable @NotBlank String id) {
         logger.info("Deleting DigestRequest with id {}", id);
         boolean deleted = deleteDigestRequestById(id);
         if (!deleted) {
@@ -95,50 +145,64 @@ public class EntityControllerPrototype {
         Map<String, Object> response = new HashMap<>();
         response.put("id", id);
         response.put("status", "deleted");
-        return response;
+        return ResponseEntity.ok(response);
     }
 
     // ====== DIGEST DATA CRUD ======
 
     @PostMapping("/digestData")
-    public Map<String, Object> createDigestData(@RequestBody DigestData digestData) {
-        logger.info("Received request to create DigestData: {}", digestData);
+    public ResponseEntity<Map<String, Object>> createDigestData(@RequestBody @Valid DigestDataDto dto) {
+        logger.info("Received request to create DigestData: {}", dto);
 
-        if (!digestData.isValid()) {
+        DigestData entity = new DigestData();
+        entity.setDataPayload(dto.getDataPayload());
+
+        if (!entity.isValid()) {
             logger.error("Invalid DigestData data");
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid DigestData data");
         }
 
-        String id = addDigestData(digestData);
+        String id = addDigestData(entity);
         logger.info("DigestData created with id {}", id);
 
         Map<String, Object> response = new HashMap<>();
         response.put("id", id);
         response.put("status", "created");
-        return response;
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @GetMapping("/digestData")
+    public ResponseEntity<List<DigestData>> listDigestData() {
+        logger.info("Fetching all DigestData");
+        List<DigestData> list = digestDataCache.getOrDefault("entities", Collections.emptyList());
+        return ResponseEntity.ok(Collections.unmodifiableList(list));
     }
 
     @GetMapping("/digestData/{id}")
-    public DigestData getDigestData(@PathVariable String id) {
+    public ResponseEntity<DigestData> getDigestData(@PathVariable @NotBlank String id) {
         logger.info("Fetching DigestData with id {}", id);
         DigestData dd = getDigestDataById(id);
         if (dd == null) {
             logger.error("DigestData with id {} not found", id);
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "DigestData not found");
         }
-        return dd;
+        return ResponseEntity.ok(dd);
     }
 
     @PutMapping("/digestData/{id}")
-    public Map<String, Object> updateDigestData(@PathVariable String id, @RequestBody DigestData digestData) {
+    public ResponseEntity<Map<String, Object>> updateDigestData(@PathVariable @NotBlank String id,
+                                                                @RequestBody @Valid DigestDataDto dto) {
         logger.info("Updating DigestData with id {}", id);
 
-        if (!digestData.isValid()) {
+        DigestData entity = new DigestData();
+        entity.setDataPayload(dto.getDataPayload());
+
+        if (!entity.isValid()) {
             logger.error("Invalid DigestData data");
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid DigestData data");
         }
 
-        boolean updated = updateDigestDataById(id, digestData);
+        boolean updated = updateDigestDataById(id, entity);
         if (!updated) {
             logger.error("DigestData with id {} not found for update", id);
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "DigestData not found");
@@ -147,11 +211,11 @@ public class EntityControllerPrototype {
         Map<String, Object> response = new HashMap<>();
         response.put("id", id);
         response.put("status", "updated");
-        return response;
+        return ResponseEntity.ok(response);
     }
 
     @DeleteMapping("/digestData/{id}")
-    public Map<String, Object> deleteDigestData(@PathVariable String id) {
+    public ResponseEntity<Map<String, Object>> deleteDigestData(@PathVariable @NotBlank String id) {
         logger.info("Deleting DigestData with id {}", id);
         boolean deleted = deleteDigestDataById(id);
         if (!deleted) {
@@ -161,50 +225,66 @@ public class EntityControllerPrototype {
         Map<String, Object> response = new HashMap<>();
         response.put("id", id);
         response.put("status", "deleted");
-        return response;
+        return ResponseEntity.ok(response);
     }
 
     // ====== EMAIL DISPATCH CRUD ======
 
     @PostMapping("/emailDispatch")
-    public Map<String, Object> createEmailDispatch(@RequestBody EmailDispatch emailDispatch) {
-        logger.info("Received request to create EmailDispatch: {}", emailDispatch);
+    public ResponseEntity<Map<String, Object>> createEmailDispatch(@RequestBody @Valid EmailDispatchDto dto) {
+        logger.info("Received request to create EmailDispatch: {}", dto);
 
-        if (!emailDispatch.isValid()) {
+        EmailDispatch entity = new EmailDispatch();
+        entity.setStatus(dto.getStatus());
+        entity.setDetail(dto.getDetail());
+
+        if (!entity.isValid()) {
             logger.error("Invalid EmailDispatch data");
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid EmailDispatch data");
         }
 
-        String id = addEmailDispatch(emailDispatch);
+        String id = addEmailDispatch(entity);
         logger.info("EmailDispatch created with id {}", id);
 
         Map<String, Object> response = new HashMap<>();
         response.put("id", id);
         response.put("status", "created");
-        return response;
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @GetMapping("/emailDispatch")
+    public ResponseEntity<List<EmailDispatch>> listEmailDispatch() {
+        logger.info("Fetching all EmailDispatch");
+        List<EmailDispatch> list = emailDispatchCache.getOrDefault("entities", Collections.emptyList());
+        return ResponseEntity.ok(Collections.unmodifiableList(list));
     }
 
     @GetMapping("/emailDispatch/{id}")
-    public EmailDispatch getEmailDispatch(@PathVariable String id) {
+    public ResponseEntity<EmailDispatch> getEmailDispatch(@PathVariable @NotBlank String id) {
         logger.info("Fetching EmailDispatch with id {}", id);
         EmailDispatch ed = getEmailDispatchById(id);
         if (ed == null) {
             logger.error("EmailDispatch with id {} not found", id);
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "EmailDispatch not found");
         }
-        return ed;
+        return ResponseEntity.ok(ed);
     }
 
     @PutMapping("/emailDispatch/{id}")
-    public Map<String, Object> updateEmailDispatch(@PathVariable String id, @RequestBody EmailDispatch emailDispatch) {
+    public ResponseEntity<Map<String, Object>> updateEmailDispatch(@PathVariable @NotBlank String id,
+                                                                   @RequestBody @Valid EmailDispatchDto dto) {
         logger.info("Updating EmailDispatch with id {}", id);
 
-        if (!emailDispatch.isValid()) {
+        EmailDispatch entity = new EmailDispatch();
+        entity.setStatus(dto.getStatus());
+        entity.setDetail(dto.getDetail());
+
+        if (!entity.isValid()) {
             logger.error("Invalid EmailDispatch data");
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid EmailDispatch data");
         }
 
-        boolean updated = updateEmailDispatchById(id, emailDispatch);
+        boolean updated = updateEmailDispatchById(id, entity);
         if (!updated) {
             logger.error("EmailDispatch with id {} not found for update", id);
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "EmailDispatch not found");
@@ -213,11 +293,11 @@ public class EntityControllerPrototype {
         Map<String, Object> response = new HashMap<>();
         response.put("id", id);
         response.put("status", "updated");
-        return response;
+        return ResponseEntity.ok(response);
     }
 
     @DeleteMapping("/emailDispatch/{id}")
-    public Map<String, Object> deleteEmailDispatch(@PathVariable String id) {
+    public ResponseEntity<Map<String, Object>> deleteEmailDispatch(@PathVariable @NotBlank String id) {
         logger.info("Deleting EmailDispatch with id {}", id);
         boolean deleted = deleteEmailDispatchById(id);
         if (!deleted) {
@@ -227,7 +307,7 @@ public class EntityControllerPrototype {
         Map<String, Object> response = new HashMap<>();
         response.put("id", id);
         response.put("status", "deleted");
-        return response;
+        return ResponseEntity.ok(response);
     }
 
     // ======= Cache helpers and event simulation =======
@@ -382,4 +462,3 @@ public class EntityControllerPrototype {
         // TODO: Add real event processing logic here or call Cyoda workflow trigger
     }
 }
-```
