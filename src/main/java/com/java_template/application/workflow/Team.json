@@ -1,0 +1,35 @@
+{
+  "version": "1.0",
+  "description": "Workflow for Team entity",
+  "initial_state": "none",
+  "workflow_name": "team_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "create_team": {
+          "next": "team_created",
+          "processors": [
+            {
+              "name": "TeamProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "team_created": {
+      "transitions": {
+        "validate_team": {
+          "next": "team_validated"
+        }
+      }
+    },
+    "team_validated": {
+      "transitions": {
+        "finish": {
+          "next": "finished"
+        }
+      }
+    },
+    "finished": {}
+  }
+}
