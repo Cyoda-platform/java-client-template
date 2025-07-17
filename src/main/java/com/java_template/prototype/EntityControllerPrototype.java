@@ -1,4 +1,3 @@
-```java
 package com.java_template.prototype;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -14,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.util.StringUtils;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
@@ -26,6 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
+@Validated
 @RestController
 @RequestMapping(path = "/prototype/digest")
 @RequiredArgsConstructor
@@ -35,32 +36,22 @@ public class EntityControllerPrototype {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final RestTemplate restTemplate = new RestTemplate();
 
-    // == POST /digest/request ==
     @PostMapping("/request")
-    public ResponseEntity<DigestRequestResponse> submitDigestRequest(@Valid @RequestBody DigestRequest request) {
-        log.info("Received digest request for email={} with metadata={}", request.getEmail(), request.getMetadata());
-
+    public ResponseEntity<DigestRequestResponse> submitDigestRequest(@RequestBody @Valid DigestRequest request) {
+        logger.info("Received digest request for email={} digestType={} status={}", request.getEmail(), request.getDigestType(), request.getStatus());
         String jobId = UUID.randomUUID().toString();
         Instant requestedAt = Instant.now();
-
-        // Track job as processing initially
         entityJobs.put(jobId, new JobStatus("processing", requestedAt));
-
-        // Fire-and-forget digest processing asynchronously
         CompletableFuture.runAsync(() -> processDigestRequest(jobId, request));
-
-        return ResponseEntity.accepted()
-                .body(new DigestRequestResponse(jobId, "accepted"));
+        return ResponseEntity.accepted().body(new DigestRequestResponse(jobId, "accepted"));
     }
 
-    // == GET /digest/status/{requestId} ==
     @GetMapping("/status/{requestId}")
-    public ResponseEntity<JobStatusResponse> getDigestStatus(@PathVariable("requestId") String requestId) {
+    public ResponseEntity<JobStatusResponse> getDigestStatus(@PathVariable("requestId") @NotBlank String requestId) {
         JobStatus status = entityJobs.get(requestId);
         if (status == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "RequestId not found");
         }
-
         JobStatusResponse response = new JobStatusResponse(
                 requestId,
                 status.getEmail(),
@@ -68,59 +59,38 @@ public class EntityControllerPrototype {
                 status.getSentAt(),
                 status.getDigestSummary()
         );
-
         return ResponseEntity.ok(response);
     }
 
-    // == Core processing logic (async) ==
     @Async
     protected void processDigestRequest(String jobId, DigestRequest request) {
-        log.info("Processing digest jobId={} for email={}", jobId, request.getEmail());
-
+        logger.info("Processing digest jobId={} for email={}", jobId, request.getEmail());
         try {
-            // Step 1: Determine API endpoint and parameters based on metadata or defaults
-            String digestType = request.getMetadata() != null ? request.getMetadata().getDigestType() : null;
-            Map<String, String> params = request.getMetadata() != null ? request.getMetadata().getParameters() : null;
-
-            // Default endpoint & params if none provided
+            String digestType = request.getDigestType();
+            String statusParam = StringUtils.hasText(request.getStatus()) ? request.getStatus() : "available";
             String apiUrl;
             if ("petStatusDigest".equalsIgnoreCase(digestType)) {
-                // Use petstore endpoint /pet/findByStatus?status=available or from params
-                String statusParam = (params != null && StringUtils.hasText(params.get("status"))) ?
-                        params.get("status") : "available";
                 apiUrl = "https://petstore.swagger.io/v2/pet/findByStatus?status=" + statusParam;
             } else {
-                // TODO: Extend logic for other digestTypes
-                apiUrl = "https://petstore.swagger.io/v2/pet/findByStatus?status=available";
+                apiUrl = "https://petstore.swagger.io/v2/pet/findByStatus?status=" + statusParam;
             }
-
-            log.info("Fetching external data from {}", apiUrl);
+            logger.info("Fetching external data from {}", apiUrl);
             String rawJson = restTemplate.getForObject(URI.create(apiUrl), String.class);
-
             if (rawJson == null) {
                 throw new IllegalStateException("Empty response from external API");
             }
-
             JsonNode dataNode = objectMapper.readTree(rawJson);
-
-            // Step 2: Compile digest (simple HTML string)
             String digestHtml = compileDigestHtml(dataNode);
-
-            // Step 3: Send email (mock implementation)
             sendEmail(request.getEmail(), "Your Pet Status Digest", digestHtml);
-
-            // Update job status as completed
             entityJobs.put(jobId, new JobStatus(
                     "completed",
                     Instant.now(),
                     request.getEmail(),
                     "Sent pet status digest with " + (dataNode.isArray() ? dataNode.size() : 1) + " entries"
             ));
-
-            log.info("Digest jobId={} completed successfully", jobId);
-
+            logger.info("Digest jobId={} completed successfully", jobId);
         } catch (Exception e) {
-            log.error("Error processing digest jobId={}: {}", jobId, e.toString());
+            logger.error("Error processing digest jobId={}: {}", jobId, e.toString());
             entityJobs.put(jobId, new JobStatus(
                     "failed",
                     Instant.now(),
@@ -130,12 +100,9 @@ public class EntityControllerPrototype {
         }
     }
 
-    // Simple HTML digest compilation from JsonNode (demo)
     private String compileDigestHtml(JsonNode dataNode) {
         StringBuilder sb = new StringBuilder();
-        sb.append("<html><body>");
-        sb.append("<h1>Pet Status Digest</h1>");
-        sb.append("<ul>");
+        sb.append("<html><body><h1>Pet Status Digest</h1><ul>");
         if (dataNode.isArray()) {
             for (JsonNode pet : dataNode) {
                 String name = pet.has("name") ? pet.get("name").asText() : "Unnamed";
@@ -145,47 +112,38 @@ public class EntityControllerPrototype {
         } else {
             sb.append("<li>Pet data unavailable</li>");
         }
-        sb.append("</ul>");
-        sb.append("</body></html>");
+        sb.append("</ul></body></html>");
         return sb.toString();
     }
 
-    // Mock email sending implementation - TODO replace with real email service integration
     private void sendEmail(String toEmail, String subject, String htmlContent) {
-        log.info("Mock sending email to={} subject={}", toEmail, subject);
-        // TODO: Integrate with real email service (SMTP, SES, SendGrid, etc.)
+        logger.info("Mock sending email to={} subject={}", toEmail, subject);
+        // TODO: Replace with real email service integration
     }
 
-    // == Exception handler for validation errors and others ==
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<ErrorResponse> handleResponseStatusException(ResponseStatusException ex) {
-        log.error("ResponseStatusException: {}", ex.toString());
+        logger.error("ResponseStatusException: {}", ex.toString());
         return ResponseEntity.status(ex.getStatusCode())
                 .body(new ErrorResponse(ex.getStatusCode().toString(), ex.getReason()));
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleException(Exception ex) {
-        log.error("Unexpected exception: ", ex);
+        logger.error("Unexpected exception: ", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new ErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR.toString(), "Internal server error"));
     }
-
-    // == DTOs ==
 
     @Data
     public static class DigestRequest {
         @NotBlank
         @Email
         private String email;
-
-        private Metadata metadata;
-
-        @Data
-        public static class Metadata {
-            private String digestType;
-            private Map<String, String> parameters;
-        }
+        @NotBlank
+        private String digestType;
+        @NotBlank
+        private String status;
     }
 
     @Data
@@ -210,16 +168,12 @@ public class EntityControllerPrototype {
         private final Instant sentAt;
         private final String email;
         private final String digestSummary;
-
-        // Constructor for initial job with minimal data
         public JobStatus(String status, Instant sentAt) {
             this.status = status;
             this.sentAt = sentAt;
             this.email = null;
             this.digestSummary = null;
         }
-
-        // Constructor for finished job with full info
         public JobStatus(String status, Instant sentAt, String email, String digestSummary) {
             this.status = status;
             this.sentAt = sentAt;
@@ -235,4 +189,3 @@ public class EntityControllerPrototype {
         private final String message;
     }
 }
-```
