@@ -1,0 +1,23 @@
+{
+  "version": "1.0",
+  "description": "Payment entity workflow to handle payment processing upon persistence event.",
+  "initial_state": "none",
+  "workflow_name": "payment_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "to_processed": {
+          "next": "processed",
+          "processors": [
+            {
+              "name": "PaymentProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "processed": {
+      "transitions": {}
+    }
+  }
+}
