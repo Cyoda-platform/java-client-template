@@ -1,0 +1,50 @@
+{
+  "version": "1.0",
+  "description": "Workflow FSM for GameScore entity managing score recording and validation",
+  "initial_state": "none",
+  "workflow_name": "gameScore_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "transition_to_recording": {
+          "next": "recording",
+          "processors": [
+            {
+              "name": "GameScoreProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "recording": {
+      "transitions": {
+        "transition_to_validated": {
+          "next": "validated",
+          "criteria": [
+            {
+              "type": "function",
+              "function": {
+                "name": "GameScoreValidationCriterion"
+              }
+            }
+          ],
+          "processors": [
+            {
+              "name": "GameScoreProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "validated": {
+      "transitions": {
+        "transition_to_completed": {
+          "next": "completed"
+        }
+      }
+    },
+    "completed": {
+      "transitions": {}
+    }
+  }
+}
