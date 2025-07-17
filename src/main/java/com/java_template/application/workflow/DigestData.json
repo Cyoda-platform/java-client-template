@@ -1,0 +1,23 @@
+{
+  "version": "1.0",
+  "description": "Simple workflow for DigestData entity with basic persistence",
+  "initial_state": "none",
+  "workflow_name": "DigestDataWorkflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "persist_data": {
+          "next": "persisted",
+          "processors": [
+            {
+              "name": "DigestDataProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "persisted": {
+      "transitions": {}
+    }
+  }
+}
