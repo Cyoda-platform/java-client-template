@@ -1,15 +1,16 @@
-```java
 package com.java_template.prototype;
 
 import com.java_template.application.entity.AdoptionRequest;
 import com.java_template.application.entity.Notification;
 import com.java_template.application.entity.Pet;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -17,6 +18,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
+@Validated
 @RestController
 @RequestMapping(path = "/prototype/entities")
 public class EntityControllerPrototype {
@@ -36,165 +38,147 @@ public class EntityControllerPrototype {
     // ------------------ PET CRUD ------------------
 
     @PostMapping("/pets")
-    public EntityResponse createPet(@RequestBody Pet pet) {
-        if (pet == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pet payload is missing");
-        }
+    public ResponseEntity<EntityResponse> createPet(@RequestBody @Valid PetRequest petReq) {
+        Pet pet = toPetEntity(petReq);
         if (!pet.isValid()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pet validation failed");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Pet validation failed");
         }
         String id = addPet(pet);
         logger.info("Created Pet with id={}", id);
-        return new EntityResponse(id, "Pet created and processed");
+        return ResponseEntity.ok(new EntityResponse(id, "Pet created and processed"));
     }
 
-    @GetMapping("/pets/{id}")
-    public Pet getPet(@PathVariable String id) {
-        Pet pet = getPetById(id);
+    @GetMapping("/pets")
+    // Using @ModelAttribute to bind query params for GET; workaround since GET cannot have @RequestBody
+    public ResponseEntity<Pet> getPet(@Valid @ModelAttribute PetQuery petQuery) {
+        Pet pet = getPetById(petQuery.getId());
         if (pet == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pet not found with id " + id);
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Pet not found with id " + petQuery.getId());
         }
-        logger.info("Retrieved Pet with id={}", id);
-        return pet;
+        logger.info("Retrieved Pet with id={}", petQuery.getId());
+        return ResponseEntity.ok(pet);
     }
 
-    @PutMapping("/pets/{id}")
-    public EntityResponse updatePet(@PathVariable String id, @RequestBody Pet pet) {
-        if (pet == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pet payload is missing");
-        }
+    @PutMapping("/pets")
+    public ResponseEntity<EntityResponse> updatePet(@RequestBody @Valid PetUpdateRequest petReq) {
+        Pet pet = toPetEntity(petReq);
         if (!pet.isValid()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pet validation failed");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Pet validation failed");
         }
-        pet.setId(id);
         boolean updated = updatePetInCache(pet);
         if (!updated) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pet not found with id " + id);
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Pet not found with id " + pet.getId());
         }
         processPet(pet);
-        logger.info("Updated Pet with id={}", id);
-        return new EntityResponse(id, "Pet updated and processed");
+        logger.info("Updated Pet with id={}", pet.getId());
+        return ResponseEntity.ok(new EntityResponse(pet.getId(), "Pet updated and processed"));
     }
 
-    @DeleteMapping("/pets/{id}")
-    public EntityResponse deletePet(@PathVariable String id) {
+    @DeleteMapping("/pets")
+    public ResponseEntity<EntityResponse> deletePet(@RequestParam @NotBlank String id) {
         boolean deleted = deletePetFromCache(id);
         if (!deleted) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pet not found with id " + id);
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Pet not found with id " + id);
         }
         logger.info("Deleted Pet with id={}", id);
-        // TODO: If deletion event processing needed, implement processPetDeletion(id)
-        return new EntityResponse(id, "Pet deleted");
+        return ResponseEntity.ok(new EntityResponse(id, "Pet deleted"));
     }
 
     // ------------------ ADOPTION REQUEST CRUD ------------------
 
     @PostMapping("/adoptionRequests")
-    public EntityResponse createAdoptionRequest(@RequestBody AdoptionRequest adoptionRequest) {
-        if (adoptionRequest == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "AdoptionRequest payload is missing");
-        }
+    public ResponseEntity<EntityResponse> createAdoptionRequest(@RequestBody @Valid AdoptionRequestRequest req) {
+        AdoptionRequest adoptionRequest = toAdoptionRequestEntity(req);
         if (!adoptionRequest.isValid()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "AdoptionRequest validation failed");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "AdoptionRequest validation failed");
         }
         String id = addAdoptionRequest(adoptionRequest);
         logger.info("Created AdoptionRequest with id={}", id);
-        return new EntityResponse(id, "AdoptionRequest created and processed");
+        return ResponseEntity.ok(new EntityResponse(id, "AdoptionRequest created and processed"));
     }
 
-    @GetMapping("/adoptionRequests/{id}")
-    public AdoptionRequest getAdoptionRequest(@PathVariable String id) {
-        AdoptionRequest request = getAdoptionRequestById(id);
+    @GetMapping("/adoptionRequests")
+    public ResponseEntity<AdoptionRequest> getAdoptionRequest(@Valid @ModelAttribute AdoptionRequestQuery query) {
+        AdoptionRequest request = getAdoptionRequestById(query.getId());
         if (request == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "AdoptionRequest not found with id " + id);
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "AdoptionRequest not found with id " + query.getId());
         }
-        logger.info("Retrieved AdoptionRequest with id={}", id);
-        return request;
+        logger.info("Retrieved AdoptionRequest with id={}", query.getId());
+        return ResponseEntity.ok(request);
     }
 
-    @PutMapping("/adoptionRequests/{id}")
-    public EntityResponse updateAdoptionRequest(@PathVariable String id, @RequestBody AdoptionRequest adoptionRequest) {
-        if (adoptionRequest == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "AdoptionRequest payload is missing");
-        }
+    @PutMapping("/adoptionRequests")
+    public ResponseEntity<EntityResponse> updateAdoptionRequest(@RequestBody @Valid AdoptionRequestUpdateRequest req) {
+        AdoptionRequest adoptionRequest = toAdoptionRequestEntity(req);
         if (!adoptionRequest.isValid()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "AdoptionRequest validation failed");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "AdoptionRequest validation failed");
         }
-        adoptionRequest.setId(id);
         boolean updated = updateAdoptionRequestInCache(adoptionRequest);
         if (!updated) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "AdoptionRequest not found with id " + id);
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "AdoptionRequest not found with id " + adoptionRequest.getId());
         }
         processAdoptionRequest(adoptionRequest);
-        logger.info("Updated AdoptionRequest with id={}", id);
-        return new EntityResponse(id, "AdoptionRequest updated and processed");
+        logger.info("Updated AdoptionRequest with id={}", adoptionRequest.getId());
+        return ResponseEntity.ok(new EntityResponse(adoptionRequest.getId(), "AdoptionRequest updated and processed"));
     }
 
-    @DeleteMapping("/adoptionRequests/{id}")
-    public EntityResponse deleteAdoptionRequest(@PathVariable String id) {
+    @DeleteMapping("/adoptionRequests")
+    public ResponseEntity<EntityResponse> deleteAdoptionRequest(@RequestParam @NotBlank String id) {
         boolean deleted = deleteAdoptionRequestFromCache(id);
         if (!deleted) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "AdoptionRequest not found with id " + id);
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "AdoptionRequest not found with id " + id);
         }
         logger.info("Deleted AdoptionRequest with id={}", id);
-        // TODO: If deletion event processing needed, implement processAdoptionRequestDeletion(id)
-        return new EntityResponse(id, "AdoptionRequest deleted");
+        return ResponseEntity.ok(new EntityResponse(id, "AdoptionRequest deleted"));
     }
 
     // ------------------ NOTIFICATION CRUD ------------------
 
     @PostMapping("/notifications")
-    public EntityResponse createNotification(@RequestBody Notification notification) {
-        if (notification == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Notification payload is missing");
-        }
+    public ResponseEntity<EntityResponse> createNotification(@RequestBody @Valid NotificationRequest req) {
+        Notification notification = toNotificationEntity(req);
         if (!notification.isValid()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Notification validation failed");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Notification validation failed");
         }
         String id = addNotification(notification);
         logger.info("Created Notification with id={}", id);
-        return new EntityResponse(id, "Notification created and processed");
+        return ResponseEntity.ok(new EntityResponse(id, "Notification created and processed"));
     }
 
-    @GetMapping("/notifications/{id}")
-    public Notification getNotification(@PathVariable String id) {
-        Notification notification = getNotificationById(id);
+    @GetMapping("/notifications")
+    public ResponseEntity<Notification> getNotification(@Valid @ModelAttribute NotificationQuery query) {
+        Notification notification = getNotificationById(query.getId());
         if (notification == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Notification not found with id " + id);
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Notification not found with id " + query.getId());
         }
-        logger.info("Retrieved Notification with id={}", id);
-        return notification;
+        logger.info("Retrieved Notification with id={}", query.getId());
+        return ResponseEntity.ok(notification);
     }
 
-    @PutMapping("/notifications/{id}")
-    public EntityResponse updateNotification(@PathVariable String id, @RequestBody Notification notification) {
-        if (notification == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Notification payload is missing");
-        }
+    @PutMapping("/notifications")
+    public ResponseEntity<EntityResponse> updateNotification(@RequestBody @Valid NotificationUpdateRequest req) {
+        Notification notification = toNotificationEntity(req);
         if (!notification.isValid()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Notification validation failed");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Notification validation failed");
         }
-        notification.setId(id);
         boolean updated = updateNotificationInCache(notification);
         if (!updated) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Notification not found with id " + id);
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Notification not found with id " + notification.getId());
         }
         processNotification(notification);
-        logger.info("Updated Notification with id={}", id);
-        return new EntityResponse(id, "Notification updated and processed");
+        logger.info("Updated Notification with id={}", notification.getId());
+        return ResponseEntity.ok(new EntityResponse(notification.getId(), "Notification updated and processed"));
     }
 
-    @DeleteMapping("/notifications/{id}")
-    public EntityResponse deleteNotification(@PathVariable String id) {
+    @DeleteMapping("/notifications")
+    public ResponseEntity<EntityResponse> deleteNotification(@RequestParam @NotBlank String id) {
         boolean deleted = deleteNotificationFromCache(id);
         if (!deleted) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Notification not found with id " + id);
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Notification not found with id " + id);
         }
         logger.info("Deleted Notification with id={}", id);
-        // TODO: If deletion event processing needed, implement processNotificationDeletion(id)
-        return new EntityResponse(id, "Notification deleted");
+        return ResponseEntity.ok(new EntityResponse(id, "Notification deleted"));
     }
-
 
     // =================== PRIVATE HELPER METHODS ====================
 
@@ -204,7 +188,6 @@ public class EntityControllerPrototype {
         String id = String.valueOf(petIdCounter.getAndIncrement());
         pet.setId(id);
         petCache.computeIfAbsent("pets", k -> Collections.synchronizedList(new ArrayList<>())).add(pet);
-        // Trigger event processing
         processPet(pet);
         return id;
     }
@@ -240,10 +223,8 @@ public class EntityControllerPrototype {
     }
 
     private void processPet(Pet pet) {
-        // TODO: Simulate Cyoda event processing for Pet entity
         logger.info("Processing Pet event for id={}", pet.getId());
-        // Example placeholder logic:
-        // e.g., notify other services, update downstream caches, etc.
+        // TODO: Simulate Cyoda event processing for Pet entity
     }
 
     // --- AdoptionRequest methods ---
@@ -287,8 +268,8 @@ public class EntityControllerPrototype {
     }
 
     private void processAdoptionRequest(AdoptionRequest adoptionRequest) {
-        // TODO: Simulate Cyoda event processing for AdoptionRequest entity
         logger.info("Processing AdoptionRequest event for id={}", adoptionRequest.getId());
+        // TODO: Simulate Cyoda event processing for AdoptionRequest entity
     }
 
     // --- Notification methods ---
@@ -332,16 +313,152 @@ public class EntityControllerPrototype {
     }
 
     private void processNotification(Notification notification) {
-        // TODO: Simulate Cyoda event processing for Notification entity
         logger.info("Processing Notification event for id={}", notification.getId());
+        // TODO: Simulate Cyoda event processing for Notification entity
+    }
+
+    // =================== DTOs for Validation ====================
+
+    @Data
+    public static class PetRequest {
+        @NotBlank
+        private String id; // business id may be provided or ignored on create
+        @NotBlank
+        private String technicalId;
+        @NotBlank
+        private String name;
+        @NotBlank
+        private String type;
+        @NotNull
+        private Integer age;
+        // primitives or String only, no nested objects
+    }
+
+    @Data
+    public static class PetUpdateRequest extends PetRequest {
+        // id must be present for update
+        @NotBlank
+        private String id;
+    }
+
+    @Data
+    public static class PetQuery {
+        @NotBlank
+        private String id;
+    }
+
+    @Data
+    public static class AdoptionRequestRequest {
+        @NotBlank
+        private String id;
+        @NotBlank
+        private String technicalId;
+        @NotBlank
+        private String petId;
+        @NotBlank
+        private String adopterName;
+        // other business fields as String/primitives
+    }
+
+    @Data
+    public static class AdoptionRequestUpdateRequest extends AdoptionRequestRequest {
+        @NotBlank
+        private String id;
+    }
+
+    @Data
+    public static class AdoptionRequestQuery {
+        @NotBlank
+        private String id;
+    }
+
+    @Data
+    public static class NotificationRequest {
+        @NotBlank
+        private String id;
+        @NotBlank
+        private String technicalId;
+        @NotBlank
+        private String message;
+        @NotBlank
+        private String recipientId;
+    }
+
+    @Data
+    public static class NotificationUpdateRequest extends NotificationRequest {
+        @NotBlank
+        private String id;
+    }
+
+    @Data
+    public static class NotificationQuery {
+        @NotBlank
+        private String id;
+    }
+
+    // =================== Entity Conversion Helpers ====================
+
+    private Pet toPetEntity(PetRequest req) {
+        Pet pet = new Pet();
+        pet.setId(req.getId());
+        pet.setTechnicalId(req.getTechnicalId());
+        pet.setName(req.getName());
+        pet.setType(req.getType());
+        pet.setAge(req.getAge());
+        return pet;
+    }
+
+    private Pet toPetEntity(PetUpdateRequest req) {
+        Pet pet = new Pet();
+        pet.setId(req.getId());
+        pet.setTechnicalId(req.getTechnicalId());
+        pet.setName(req.getName());
+        pet.setType(req.getType());
+        pet.setAge(req.getAge());
+        return pet;
+    }
+
+    private AdoptionRequest toAdoptionRequestEntity(AdoptionRequestRequest req) {
+        AdoptionRequest ar = new AdoptionRequest();
+        ar.setId(req.getId());
+        ar.setTechnicalId(req.getTechnicalId());
+        ar.setPetId(req.getPetId());
+        ar.setAdopterName(req.getAdopterName());
+        return ar;
+    }
+
+    private AdoptionRequest toAdoptionRequestEntity(AdoptionRequestUpdateRequest req) {
+        AdoptionRequest ar = new AdoptionRequest();
+        ar.setId(req.getId());
+        ar.setTechnicalId(req.getTechnicalId());
+        ar.setPetId(req.getPetId());
+        ar.setAdopterName(req.getAdopterName());
+        return ar;
+    }
+
+    private Notification toNotificationEntity(NotificationRequest req) {
+        Notification n = new Notification();
+        n.setId(req.getId());
+        n.setTechnicalId(req.getTechnicalId());
+        n.setMessage(req.getMessage());
+        n.setRecipientId(req.getRecipientId());
+        return n;
+    }
+
+    private Notification toNotificationEntity(NotificationUpdateRequest req) {
+        Notification n = new Notification();
+        n.setId(req.getId());
+        n.setTechnicalId(req.getTechnicalId());
+        n.setMessage(req.getMessage());
+        n.setRecipientId(req.getRecipientId());
+        return n;
     }
 
     // =================== RESPONSE DTO ====================
 
     @Data
-    private static class EntityResponse {
+    public static class EntityResponse {
         private final String id;
         private final String status;
     }
 }
-```
