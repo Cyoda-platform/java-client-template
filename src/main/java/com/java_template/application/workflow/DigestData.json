@@ -1,0 +1,31 @@
+{
+  "version": "1.0",
+  "description": "Workflow for DigestData entity managing data fetch and transformation.",
+  "initial_state": "none",
+  "workflow_name": "digestData_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "fetch_digest_data": {
+          "next": "fetched",
+          "processors": [
+            { "name": "DigestDataProcessor" }
+          ]
+        }
+      }
+    },
+    "fetched": {
+      "transitions": {
+        "transform_digest_data": {
+          "next": "transformed",
+          "processors": [
+            { "name": "DigestDataProcessor" }
+          ]
+        }
+      }
+    },
+    "transformed": {
+      "transitions": {}
+    }
+  }
+}
