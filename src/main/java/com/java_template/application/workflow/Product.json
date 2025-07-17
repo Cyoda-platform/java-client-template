@@ -1,0 +1,23 @@
+{
+  "version": "1.0",
+  "description": "Product entity workflow to process product data upon persistence.",
+  "initial_state": "none",
+  "workflow_name": "product_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "to_processed": {
+          "next": "processed",
+          "processors": [
+            {
+              "name": "ProductProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "processed": {
+      "transitions": {}
+    }
+  }
+}
