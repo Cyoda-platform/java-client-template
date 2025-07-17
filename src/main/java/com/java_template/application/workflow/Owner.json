@@ -1,0 +1,34 @@
+{
+  "version": "1.0",
+  "description": "Workflow FSM for Owner entity handling validation and processing",
+  "initial_state": "none",
+  "workflow_name": "OwnerWorkflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_validation": {
+          "next": "validating",
+          "processors": [
+            { "name": "OwnerProcessor" }
+          ]
+        }
+      }
+    },
+    "validating": {
+      "transitions": {
+        "validate_success": {
+          "next": "completed"
+        },
+        "validate_failure": {
+          "next": "error"
+        }
+      }
+    },
+    "completed": {
+      "transitions": {}
+    },
+    "error": {
+      "transitions": {}
+    }
+  }
+}
