@@ -1,0 +1,23 @@
+{
+  "version": "1.0",
+  "description": "Workflow for EmailDispatch entity processing",
+  "initial_state": "none",
+  "workflow_name": "EmailDispatchWorkflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "create_email_dispatch": {
+          "next": "processed",
+          "processors": [
+            {
+              "name": "EmailDispatchProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "processed": {
+      "transitions": {}
+    }
+  }
+}}
