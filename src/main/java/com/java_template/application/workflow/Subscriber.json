@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "description": "Workflow FSM for Subscriber entity representing the business process on persistence event",
+  "initial_state": "none",
+  "workflow_name": "subscriber_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_processing": {
+          "next": "processing",
+          "processors": [
+            {
+              "name": "SubscriberProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "processing": {
+      "transitions": {
+        "finish": {
+          "next": "done"
+        }
+      }
+    },
+    "done": {
+      "transitions": {}
+    }
+  }
+}
