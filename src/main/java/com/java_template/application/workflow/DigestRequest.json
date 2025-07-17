@@ -1,0 +1,36 @@
+{
+  "version": "1.0",
+  "description": "Workflow for DigestRequest entity processing",
+  "initial_state": "none",
+  "workflow_name": "DigestRequestWorkflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_processing": {
+          "next": "processing",
+          "processors": [
+            {
+              "name": "DigestRequestProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "processing": {
+      "transitions": {
+        "complete_processing": {
+          "next": "completed"
+        },
+        "fail_processing": {
+          "next": "failed"
+        }
+      }
+    },
+    "completed": {
+      "transitions": {}
+    },
+    "failed": {
+      "transitions": {}
+    }
+  }
+}
