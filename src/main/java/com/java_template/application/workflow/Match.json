@@ -1,0 +1,35 @@
+{
+  "version": "1.0",
+  "description": "Workflow for Match entity",
+  "initial_state": "none",
+  "workflow_name": "match_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "create_match": {
+          "next": "match_created",
+          "processors": [
+            {
+              "name": "MatchProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "match_created": {
+      "transitions": {
+        "validate_match": {
+          "next": "match_validated"
+        }
+      }
+    },
+    "match_validated": {
+      "transitions": {
+        "finish": {
+          "next": "finished"
+        }
+      }
+    },
+    "finished": {}
+  }
+}
