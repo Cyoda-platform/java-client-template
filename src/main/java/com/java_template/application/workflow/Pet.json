@@ -1,0 +1,62 @@
+{
+  "version": "1.0",
+  "description": "Workflow FSM for Pet entity processing",
+  "initial_state": "none",
+  "workflow_name": "pet_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "transition_to_processing": {
+          "next": "processing",
+          "processors": [
+            {
+              "name": "PetProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "processing": {
+      "transitions": {
+        "transition_to_valid": {
+          "next": "valid",
+          "criteria": [
+            {
+              "type": "function",
+              "function": {
+                "name": "PetValidCriterion"
+              }
+            }
+          ]
+        },
+        "transition_to_invalid": {
+          "next": "invalid",
+          "criteria": [
+            {
+              "type": "function",
+              "function": {
+                "name": "PetInvalidCriterion"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "valid": {
+      "transitions": {
+        "transition_to_completed": {
+          "next": "completed"
+        }
+      }
+    },
+    "invalid": {
+      "transitions": {
+        "transition_to_error": {
+          "next": "error"
+        }
+      }
+    },
+    "completed": {},
+    "error": {}
+  }
+}
