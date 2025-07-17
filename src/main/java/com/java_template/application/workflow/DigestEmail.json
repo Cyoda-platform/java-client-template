@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "description": "Workflow for DigestEmail entity",
+  "initial_state": "none",
+  "workflow_name": "digestEmail_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "transition_to_processing": {
+          "next": "processing",
+          "processors": [
+            {
+              "name": "DigestEmailProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "processing": {
+      "transitions": {
+        "transition_to_sent": {
+          "next": "sent"
+        }
+      }
+    },
+    "sent": {
+      "transitions": {}
+    }
+  }
+}
