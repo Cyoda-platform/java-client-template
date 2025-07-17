@@ -1,0 +1,31 @@
+{
+  "version": "1.0",
+  "description": "Workflow for DigestRequest entity to handle creation and processing.",
+  "initial_state": "none",
+  "workflow_name": "digestRequest_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "create_digest_request": {
+          "next": "created",
+          "processors": [
+            { "name": "DigestRequestProcessor" }
+          ]
+        }
+      }
+    },
+    "created": {
+      "transitions": {
+        "process_digest_request": {
+          "next": "processed",
+          "processors": [
+            { "name": "DigestRequestProcessor" }
+          ]
+        }
+      }
+    },
+    "processed": {
+      "transitions": {}
+    }
+  }
+}
