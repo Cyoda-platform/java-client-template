@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "description": "Workflow for RetrievedData entity",
+  "initial_state": "none",
+  "workflow_name": "retrievedData_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "transition_to_processing": {
+          "next": "processing",
+          "processors": [
+            {
+              "name": "RetrievedDataProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "processing": {
+      "transitions": {
+        "transition_to_ready": {
+          "next": "ready"
+        }
+      }
+    },
+    "ready": {
+      "transitions": {}
+    }
+  }
+}
