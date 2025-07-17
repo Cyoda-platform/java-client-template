@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "description": "Workflow for ReportMetadata entity processing",
+  "initial_state": "none",
+  "workflow_name": "reportMetadata_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_processing": {
+          "next": "processing",
+          "processors": [
+            {
+              "name": "ReportMetadataProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "processing": {
+      "transitions": {
+        "complete": {
+          "next": "completed"
+        }
+      }
+    },
+    "completed": {
+      "transitions": {}
+    }
+  }
+}
