@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "description": "Workflow for JobStatus entity processing",
+  "initial_state": "none",
+  "workflow_name": "jobStatus_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_processing": {
+          "next": "processing",
+          "processors": [
+            {
+              "name": "JobStatusProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "processing": {
+      "transitions": {
+        "complete": {
+          "next": "completed"
+        }
+      }
+    },
+    "completed": {
+      "transitions": {}
+    }
+  }
+}
