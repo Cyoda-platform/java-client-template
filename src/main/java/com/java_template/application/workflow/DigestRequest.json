@@ -1,0 +1,50 @@
+{
+  "version": "1.0",
+  "description": "Workflow for DigestRequest entity handling creation, data retrieval, and status updates",
+  "initial_state": "none",
+  "workflow_name": "DigestRequestWorkflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "create_digest_request": {
+          "next": "retrieving_data",
+          "processors": [
+            { "name": "DigestRequestProcessor" }
+          ]
+        }
+      }
+    },
+    "retrieving_data": {
+      "transitions": {
+        "data_retrieved": {
+          "next": "data_retrieved_state",
+          "processors": [
+            { "name": "DigestRequestDataRetrievalProcessor" }
+          ]
+        },
+        "data_retrieval_failed": {
+          "next": "failed_state",
+          "processors": [
+            { "name": "DigestRequestDataFailureProcessor" }
+          ]
+        }
+      }
+    },
+    "data_retrieved_state": {
+      "transitions": {
+        "process_digest_data": {
+          "next": "completed",
+          "processors": [
+            { "name": "DigestDataProcessor" }
+          ]
+        }
+      }
+    },
+    "failed_state": {
+      "transitions": {}
+    },
+    "completed": {
+      "transitions": {}
+    }
+  }
+}
