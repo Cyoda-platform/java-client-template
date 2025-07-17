@@ -4,10 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -24,28 +22,20 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping(path = "/prototype/bookings")
 @Validated
+@RequestMapping(path = "/prototype/bookings")
 public class EntityControllerPrototype {
 
     private static final Logger logger = LoggerFactory.getLogger(EntityControllerPrototype.class);
-
     private static final String RESTFUL_BOOKER_API_URL = "https://restful-booker.herokuapp.com/booking";
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
-
     private final Map<String, ReportSummary> lastReportCache = new ConcurrentHashMap<>();
 
-    /**
-     * POST /prototype/bookings/filter
-     * Fetches all bookings from the external API, applies filtering,
-     * calculates report summary, caches report, and returns filtered bookings + report.
-     */
     @PostMapping("/filter")
-    public ResponseEntity<FilterResponse> filterBookings(@Valid @RequestBody FilterRequest filterRequest) {
+    public ResponseEntity<FilterResponse> filterBookings(@RequestBody @Valid FilterRequest filterRequest) {
         logger.info("Received filter request: {}", filterRequest);
-
         JsonNode bookingsNode;
         try {
             bookingsNode = restTemplate.getForObject(RESTFUL_BOOKER_API_URL, JsonNode.class);
@@ -57,57 +47,38 @@ public class EntityControllerPrototype {
             logger.error("Unexpected response structure from external API");
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Invalid bookings data received");
         }
-
-        // bookingsNode is an array of objects with "bookingid" field
         List<Integer> bookingIds = new ArrayList<>();
         bookingsNode.forEach(node -> {
             if (node.has("bookingid")) {
                 bookingIds.add(node.get("bookingid").asInt());
             }
         });
-
-        // Fetch detailed bookings info in batch (one by one here due to API limitations)
         List<Booking> detailedBookings = new ArrayList<>();
         for (Integer bookingId : bookingIds) {
             try {
                 String url = RESTFUL_BOOKER_API_URL + "/" + bookingId;
                 JsonNode bookingDetailNode = restTemplate.getForObject(url, JsonNode.class);
                 if (bookingDetailNode != null) {
-                    Booking booking = parseBooking(bookingDetailNode, bookingId);
-                    detailedBookings.add(booking);
+                    detailedBookings.add(parseBooking(bookingDetailNode, bookingId));
                 }
             } catch (Exception e) {
                 logger.error("Failed to fetch booking details for id {}", bookingId, e);
-                // Skip this booking, continue others
             }
         }
-
-        // Apply filters
         List<Booking> filtered = detailedBookings.stream()
-                .filter(b -> filterByDateRange(b, filterRequest.dateFrom, filterRequest.dateTo))
-                .filter(b -> filterByPriceRange(b, filterRequest.minTotalPrice, filterRequest.maxTotalPrice))
-                .filter(b -> filterByDepositPaid(b, filterRequest.depositPaid))
+                .filter(b -> filterByDateRange(b, filterRequest.getDateFrom(), filterRequest.getDateTo()))
+                .filter(b -> filterByPriceRange(b, filterRequest.getMinTotalPrice(), filterRequest.getMaxTotalPrice()))
+                .filter(b -> filterByDepositPaid(b, filterRequest.isDepositPaid()))
                 .collect(Collectors.toList());
-
-        // Calculate report summary
-        ReportSummary report = calculateReportSummary(filtered, filterRequest.dateFrom, filterRequest.dateTo);
-
-        // Cache report keyed by a constant key (only one cached report)
+        ReportSummary report = calculateReportSummary(filtered, filterRequest.getDateFrom(), filterRequest.getDateTo());
         lastReportCache.put("latest", report);
-
         FilterResponse response = new FilterResponse();
         response.setFilteredBookings(filtered);
         response.setReport(report);
-
         logger.info("Filter processing completed. Bookings filtered: {}, Report: {}", filtered.size(), report);
-
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * GET /prototype/bookings/reports/latest
-     * Returns the last cached report summary or 404 if none available.
-     */
     @GetMapping("/reports/latest")
     public ResponseEntity<ReportSummary> getLastReport() {
         ReportSummary report = lastReportCache.get("latest");
@@ -119,46 +90,29 @@ public class EntityControllerPrototype {
         return ResponseEntity.ok(report);
     }
 
-    // --- Parsing and filtering helpers ---
-
     private Booking parseBooking(JsonNode node, int bookingId) {
-        Booking booking = new Booking();
-        booking.setBookingId(bookingId);
-        booking.setFirstName(node.path("firstname").asText(""));
-        booking.setLastName(node.path("lastname").asText(""));
-        booking.setTotalPrice(node.path("totalprice").asInt(0));
-        booking.setDepositPaid(node.path("depositpaid").asBoolean(false));
-        JsonNode bookingDatesNode = node.path("bookingdates");
-        if (bookingDatesNode.isObject()) {
-            booking.setCheckin(bookingDatesNode.path("checkin").asText(null));
-            booking.setCheckout(bookingDatesNode.path("checkout").asText(null));
+        Booking b = new Booking();
+        b.setBookingId(bookingId);
+        b.setFirstName(node.path("firstname").asText(""));
+        b.setLastName(node.path("lastname").asText(""));
+        b.setTotalPrice(node.path("totalprice").asInt(0));
+        b.setDepositPaid(node.path("depositpaid").asBoolean(false));
+        JsonNode dates = node.path("bookingdates");
+        if (dates.isObject()) {
+            b.setCheckin(dates.path("checkin").asText(null));
+            b.setCheckout(dates.path("checkout").asText(null));
         }
-        return booking;
+        return b;
     }
 
-    private boolean filterByDateRange(Booking booking, String dateFrom, String dateTo) {
-        if (dateFrom == null && dateTo == null) {
-            return true;
-        }
+    private boolean filterByDateRange(Booking b, String dateFrom, String dateTo) {
+        if (dateFrom == null && dateTo == null) return true;
         try {
-            LocalDate checkin = booking.getCheckin() != null ? LocalDate.parse(booking.getCheckin()) : null;
-            LocalDate checkout = booking.getCheckout() != null ? LocalDate.parse(booking.getCheckout()) : null;
-
-            if (checkin == null || checkout == null) {
-                return false;
-            }
-            if (dateFrom != null) {
-                LocalDate from = LocalDate.parse(dateFrom);
-                if (checkout.isBefore(from)) {
-                    return false;
-                }
-            }
-            if (dateTo != null) {
-                LocalDate to = LocalDate.parse(dateTo);
-                if (checkin.isAfter(to)) {
-                    return false;
-                }
-            }
+            LocalDate ci = b.getCheckin() != null ? LocalDate.parse(b.getCheckin()) : null;
+            LocalDate co = b.getCheckout() != null ? LocalDate.parse(b.getCheckout()) : null;
+            if (ci == null || co == null) return false;
+            if (dateFrom != null && co.isBefore(LocalDate.parse(dateFrom))) return false;
+            if (dateTo != null && ci.isAfter(LocalDate.parse(dateTo))) return false;
             return true;
         } catch (DateTimeParseException e) {
             logger.error("Invalid date format in booking or filter", e);
@@ -166,36 +120,28 @@ public class EntityControllerPrototype {
         }
     }
 
-    private boolean filterByPriceRange(Booking booking, Integer minPrice, Integer maxPrice) {
-        int price = booking.getTotalPrice();
-        if (minPrice != null && price < minPrice) {
-            return false;
-        }
-        if (maxPrice != null && price > maxPrice) {
-            return false;
-        }
+    private boolean filterByPriceRange(Booking b, int minPrice, int maxPrice) {
+        int price = b.getTotalPrice();
+        if (minPrice > 0 && price < minPrice) return false;
+        if (maxPrice > 0 && price > maxPrice) return false;
         return true;
     }
 
-    private boolean filterByDepositPaid(Booking booking, Boolean depositPaid) {
-        if (depositPaid == null) {
-            return true;
-        }
-        return depositPaid.equals(booking.isDepositPaid());
+    private boolean filterByDepositPaid(Booking b, boolean depositPaid) {
+        return !depositPaid || b.isDepositPaid();
     }
 
-    private ReportSummary calculateReportSummary(List<Booking> bookings, String dateFrom, String dateTo) {
-        int totalRevenue = bookings.stream().mapToInt(Booking::getTotalPrice).sum();
-        double averageBookingPrice = bookings.isEmpty() ? 0 : (double) totalRevenue / bookings.size();
-        ReportSummary summary = new ReportSummary();
-        summary.setTotalRevenue(totalRevenue);
-        summary.setAverageBookingPrice(averageBookingPrice);
-        summary.setBookingCount(bookings.size());
-        summary.setDateRange(new DateRange(dateFrom, dateTo));
-        return summary;
+    private ReportSummary calculateReportSummary(List<Booking> list, String dateFrom, String dateTo) {
+        int total = list.stream().mapToInt(Booking::getTotalPrice).sum();
+        double avg = list.isEmpty() ? 0 : (double) total / list.size();
+        ReportSummary r = new ReportSummary();
+        r.setTotalRevenue(total);
+        r.setAverageBookingPrice(avg);
+        r.setBookingCount(list.size());
+        r.setDateFrom(dateFrom);
+        r.setDateTo(dateTo);
+        return r;
     }
-
-    // --- Exception handling ---
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<Map<String, String>> handleResponseStatusException(ResponseStatusException ex) {
@@ -207,16 +153,17 @@ public class EntityControllerPrototype {
         return ResponseEntity.status(ex.getStatusCode()).body(error);
     }
 
-    // --- DTO and Model classes ---
-
     @Data
     public static class FilterRequest {
-        // Optional filters
+        @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}", message = "dateFrom must be in YYYY-MM-DD")
         private String dateFrom;
+        @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}", message = "dateTo must be in YYYY-MM-DD")
         private String dateTo;
-        private Integer minTotalPrice;
-        private Integer maxTotalPrice;
-        private Boolean depositPaid;
+        @Min(value = 0, message = "minTotalPrice must be >= 0")
+        private int minTotalPrice;
+        @Min(value = 0, message = "maxTotalPrice must be >= 0")
+        private int maxTotalPrice;
+        private boolean depositPaid;
     }
 
     @Data
@@ -241,17 +188,7 @@ public class EntityControllerPrototype {
         private int totalRevenue;
         private double averageBookingPrice;
         private int bookingCount;
-        private DateRange dateRange;
-    }
-
-    @Data
-    public static class DateRange {
-        private String from;
-        private String to;
-
-        public DateRange(String from, String to) {
-            this.from = from;
-            this.to = to;
-        }
+        private String dateFrom;
+        private String dateTo;
     }
 }
