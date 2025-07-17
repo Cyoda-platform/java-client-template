@@ -5,14 +5,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
+import jakarta.validation.constraints.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
@@ -24,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
+@Validated
 @RequestMapping(path = "/prototype/digest")
 public class EntityControllerPrototype {
 
@@ -31,102 +30,70 @@ public class EntityControllerPrototype {
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
-
-    // In-memory store to mock persistence of requests and their statuses
     private final Map<String, JobStatus> entityJobs = new ConcurrentHashMap<>();
 
     private static final String DEFAULT_ENDPOINT = "/pet/findByStatus";
     private static final Map<String, String> DEFAULT_PARAMETERS = Map.of("status", "available");
 
     @PostMapping("/request")
-    public ResponseEntity<DigestResponse> createDigestRequest(@Valid @RequestBody DigestRequest request) {
+    public ResponseEntity<DigestResponse> createDigestRequest(@RequestBody @Valid DigestRequest request) {
         logger.info("Received digest request for email: {}", request.getEmail());
-
         String jobId = UUID.randomUUID().toString();
         Instant requestedAt = Instant.now();
-        entityJobs.put(jobId, new JobStatus("processing", requestedAt, request.getEmail(), request.getMetadata()));
-
-        // Fire-and-forget processing of the digest
-        CompletableFuture.runAsync(() -> processDigestRequest(jobId, request));
-
-        DigestResponse response = new DigestResponse("success", "Digest request processed and email sent.", jobId);
-        return ResponseEntity.ok(response);
+        entityJobs.put(jobId, new JobStatus("processing", requestedAt, request.getEmail(), request.getMetadataJson()));
+        CompletableFuture.runAsync(() -> processDigestRequest(jobId, request)); // fire-and-forget
+        return ResponseEntity.ok(new DigestResponse("success", "Digest request accepted.", jobId));
     }
 
     @GetMapping("/status/{requestId}")
-    public ResponseEntity<JobStatus> getDigestStatus(@PathVariable("requestId") String requestId) {
+    public ResponseEntity<JobStatus> getDigestStatus(@PathVariable("requestId") @NotBlank String requestId) {
         JobStatus status = entityJobs.get(requestId);
         if (status == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Request ID not found");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Request ID not found");
         }
         return ResponseEntity.ok(status);
     }
 
     private void processDigestRequest(String jobId, DigestRequest request) {
         try {
-            logger.info("Start processing digest request with ID: {}", jobId);
-
-            // Determine endpoint and parameters
-            String endpoint = DEFAULT_ENDPOINT;
+            logger.info("Start processing job {}", jobId);
+            String endpoint = StringUtils.hasText(request.getEndpoint()) ? request.getEndpoint() : DEFAULT_ENDPOINT;
             Map<String, String> parameters = DEFAULT_PARAMETERS;
-            if (request.getApiRequest() != null && StringUtils.hasText(request.getApiRequest().getEndpoint())) {
-                endpoint = request.getApiRequest().getEndpoint();
-                if (request.getApiRequest().getParameters() != null && !request.getApiRequest().getParameters().isEmpty()) {
-                    parameters = request.getApiRequest().getParameters();
-                }
+            if (StringUtils.hasText(request.getParametersJson())) {
+                JsonNode paramsNode = objectMapper.readTree(request.getParametersJson());
+                parameters = objectMapper.convertValue(paramsNode, Map.class);
             }
-            logger.info("Using endpoint: {} with parameters: {}", endpoint, parameters);
-
-            // Build full URL for external API call
-            StringBuilder urlBuilder = new StringBuilder("https://petstore.swagger.io/v2").append(endpoint);
+            StringBuilder url = new StringBuilder("https://petstore.swagger.io/v2").append(endpoint);
             if (!parameters.isEmpty()) {
-                urlBuilder.append("?");
-                parameters.forEach((k, v) -> urlBuilder.append(k).append("=").append(v).append("&"));
-                urlBuilder.deleteCharAt(urlBuilder.length() - 1); // Remove trailing &
+                url.append("?");
+                parameters.forEach((k, v) -> url.append(k).append("=").append(v).append("&"));
+                url.deleteCharAt(url.length() - 1);
             }
-            String url = urlBuilder.toString();
-            logger.info("Calling external API URL: {}", url);
-
-            // Call external API
-            String apiResponse = restTemplate.getForObject(url, String.class);
-
-            // Parse JSON response
+            String apiResponse = restTemplate.getForObject(url.toString(), String.class);
             JsonNode dataNode = objectMapper.readTree(apiResponse);
-
-            // Compile digest email content (simple HTML/plain text mock)
-            String emailContent = compileEmailContent(dataNode, request.getEmailFormat());
-
-            // Send email (mocked)
-            sendEmail(request.getEmail(), emailContent, request.getEmailFormat());
-
-            // Update job status to completed
-            entityJobs.put(jobId, new JobStatus("completed", Instant.now(), request.getEmail(), request.getMetadata()));
-
-            logger.info("Completed processing digest request with ID: {}", jobId);
-
+            String content = compileEmailContent(dataNode, request.getEmailFormat());
+            sendEmail(request.getEmail(), content, request.getEmailFormat());
+            entityJobs.put(jobId, new JobStatus("completed", Instant.now(), request.getEmail(), request.getMetadataJson()));
+            logger.info("Completed job {}", jobId);
         } catch (Exception e) {
-            logger.error("Error processing digest request with ID: {}: {}", jobId, e.getMessage(), e);
-            entityJobs.put(jobId, new JobStatus("failed", Instant.now(), request.getEmail(), request.getMetadata()));
+            logger.error("Error in job {}: {}", jobId, e.getMessage(), e);
+            entityJobs.put(jobId, new JobStatus("failed", Instant.now(), request.getEmail(), request.getMetadataJson()));
         }
     }
 
     private String compileEmailContent(JsonNode dataNode, String format) {
-        // TODO: Improve formatting logic. For now, just return pretty-printed JSON as HTML or plain text.
         if ("plain".equalsIgnoreCase(format)) {
             return dataNode.toPrettyString();
         } else if ("attachment".equalsIgnoreCase(format)) {
-            // TODO: Handle attachment generation (not implemented here)
-            return "Attachment format requested - feature not implemented. Sending plain text instead.\n\n" + dataNode.toPrettyString();
+            return "Attachment not implemented.\n" + dataNode.toPrettyString();
         } else {
-            // Default to HTML
             return "<html><body><pre>" + dataNode.toPrettyString() + "</pre></body></html>";
         }
     }
 
-    private void sendEmail(String toEmail, String content, String format) {
-        // TODO: Replace this mock with real email sending logic
-        logger.info("Sending email to: {} with format: {}", toEmail, format != null ? format : "html");
-        logger.info("Email content preview:\n{}", content.length() > 200 ? content.substring(0, 200) + "..." : content);
+    private void sendEmail(String to, String content, String format) {
+        logger.info("Mock send email to {} format {}", to, format);
+        logger.info("Content preview: {}", content.length() > 200 ? content.substring(0, 200) + "..." : content);
     }
 
     @ExceptionHandler(ResponseStatusException.class)
@@ -137,76 +104,73 @@ public class EntityControllerPrototype {
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
+    public ResponseEntity<ErrorResponse> handleException(Exception ex) {
         logger.error("Unhandled exception: {}", ex.getMessage(), ex);
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR.toString(), "Internal server error"));
+        return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(new ErrorResponse(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR.toString(), "Internal error"));
     }
 
-    // DTOs and status classes
-
-    @Data
     public static class DigestRequest {
-        @Email
-        @NotBlank
+        @Email @NotBlank
         private String email;
-
-        private Map<String, String> metadata;
-
-        private ApiRequest apiRequest;
-
-        private String emailFormat; // optional: "plain", "html", "attachment"
-    }
-
-    @Data
-    public static class ApiRequest {
         @NotBlank
+        private String metadataJson;
         private String endpoint;
+        private String parametersJson;
+        @Pattern(regexp = "plain|html|attachment")
+        private String emailFormat;
 
-        private Map<String, String> parameters;
+        public String getEmail() { return email; }
+        public void setEmail(String email) { this.email = email; }
+        public String getMetadataJson() { return metadataJson; }
+        public void setMetadataJson(String metadataJson) { this.metadataJson = metadataJson; }
+        public String getEndpoint() { return endpoint; }
+        public void setEndpoint(String endpoint) { this.endpoint = endpoint; }
+        public String getParametersJson() { return parametersJson; }
+        public void setParametersJson(String parametersJson) { this.parametersJson = parametersJson; }
+        public String getEmailFormat() { return emailFormat; }
+        public void setEmailFormat(String emailFormat) { this.emailFormat = emailFormat; }
     }
 
-    @Data
     public static class DigestResponse {
         private String status;
         private String message;
         private String requestId;
-
         public DigestResponse(String status, String message, String requestId) {
             this.status = status;
             this.message = message;
             this.requestId = requestId;
         }
+        public String getStatus() { return status; }
+        public String getMessage() { return message; }
+        public String getRequestId() { return requestId; }
     }
 
-    @Data
     public static class JobStatus {
-        private String status; // processing, completed, failed
+        private String status;
         private Instant timestamp;
         private String email;
-        private Map<String, String> metadata;
-
-        public JobStatus(String status, Instant timestamp) {
-            this.status = status;
-            this.timestamp = timestamp;
-        }
-
-        public JobStatus(String status, Instant timestamp, String email, Map<String, String> metadata) {
+        private String metadataJson;
+        public JobStatus(String status, Instant timestamp, String email, String metadataJson) {
             this.status = status;
             this.timestamp = timestamp;
             this.email = email;
-            this.metadata = metadata;
+            this.metadataJson = metadataJson;
         }
+        public String getStatus() { return status; }
+        public Instant getTimestamp() { return timestamp; }
+        public String getEmail() { return email; }
+        public String getMetadataJson() { return metadataJson; }
     }
 
-    @Data
     public static class ErrorResponse {
         private String error;
         private String message;
-
         public ErrorResponse(String error, String message) {
             this.error = error;
             this.message = message;
         }
+        public String getError() { return error; }
+        public String getMessage() { return message; }
     }
 }
