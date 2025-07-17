@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "description": "Workflow FSM for UserAppJob entity",
+  "initial_state": "none",
+  "workflow_name": "userAppJob_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "transition_to_process": {
+          "next": "processing",
+          "processors": [
+            {
+              "name": "UserAppJobProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "processing": {
+      "transitions": {
+        "transition_to_done": {
+          "next": "done"
+        }
+      }
+    },
+    "done": {
+      "transitions": {}
+    }
+  }
+}
