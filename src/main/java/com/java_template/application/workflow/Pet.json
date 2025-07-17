@@ -1,0 +1,58 @@
+{
+  "version": "1.0",
+  "description": "Workflow for Pet entity managing pet lifecycle events",
+  "initial_state": "none",
+  "workflow_name": "pet_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_creation": {
+          "next": "created",
+          "processors": [
+            {
+              "name": "PetProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "created": {
+      "transitions": {
+        "validate_pet": {
+          "next": "validated",
+          "processors": [
+            {
+              "name": "PetProcessor"
+            }
+          ]
+        },
+        "reject_creation": {
+          "next": "rejected"
+        }
+      }
+    },
+    "validated": {
+      "transitions": {
+        "approve_pet": {
+          "next": "approved"
+        },
+        "reject_pet": {
+          "next": "rejected"
+        }
+      }
+    },
+    "approved": {
+      "transitions": {
+        "archive_pet": {
+          "next": "archived"
+        }
+      }
+    },
+    "rejected": {
+      "transitions": {}
+    },
+    "archived": {
+      "transitions": {}
+    }
+  }
+}
