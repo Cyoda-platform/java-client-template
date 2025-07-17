@@ -1,0 +1,46 @@
+{
+  "version": "1.0",
+  "description": "Workflow for DigestRequest entity managing status updates and email dispatch",
+  "initial_state": "none",
+  "workflow_name": "DigestRequestWorkflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_processing": {
+          "next": "processing",
+          "processors": [
+            {
+              "name": "DigestRequestProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "processing": {
+      "transitions": {
+        "send_email": {
+          "next": "sent",
+          "processors": [
+            {
+              "name": "DigestRequestProcessor"
+            }
+          ]
+        },
+        "fail_processing": {
+          "next": "failed",
+          "processors": [
+            {
+              "name": "DigestRequestProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "sent": {
+      "transitions": {}
+    },
+    "failed": {
+      "transitions": {}
+    }
+  }
+}
