@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "description": "Workflow FSM for CyodaEnvJob entity",
+  "initial_state": "none",
+  "workflow_name": "cyodaEnvJob_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "transition_to_validate": {
+          "next": "validate",
+          "processors": [
+            {
+              "name": "CyodaEnvJobProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "validate": {
+      "transitions": {
+        "transition_to_done": {
+          "next": "done"
+        }
+      }
+    },
+    "done": {
+      "transitions": {}
+    }
+  }
+}
