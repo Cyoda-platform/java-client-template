@@ -1,0 +1,38 @@
+{
+  "version": "1.0",
+  "description": "Workflow for AnalyzeRequest entity",
+  "initial_state": "none",
+  "workflow_name": "analyzeRequest_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_processing": {
+          "next": "validation",
+          "processors": [
+            {
+              "name": "AnalyzeRequestProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "validation": {
+      "transitions": {
+        "to_final": {
+          "next": "processed",
+          "criteria": [
+            {
+              "type": "function",
+              "function": {
+                "name": "AnalyzeRequestValidation"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "processed": {
+      "transitions": {}
+    }
+  }
+}
