@@ -1,0 +1,31 @@
+{
+  "version": "1.0",
+  "description": "Workflow for DigestData entity handling email content creation",
+  "initial_state": "none",
+  "workflow_name": "DigestDataWorkflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "process_digest_data": {
+          "next": "email_creation",
+          "processors": [
+            { "name": "DigestDataProcessor" }
+          ]
+        }
+      }
+    },
+    "email_creation": {
+      "transitions": {
+        "create_digest_email": {
+          "next": "completed",
+          "processors": [
+            { "name": "DigestEmailProcessor" }
+          ]
+        }
+      }
+    },
+    "completed": {
+      "transitions": {}
+    }
+  }
+}
