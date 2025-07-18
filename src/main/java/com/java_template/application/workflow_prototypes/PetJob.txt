@@ -1,0 +1,35 @@
+    private void processPetJob(PetJob petJob) {
+        logger.info("Processing PetJob with technicalId: {}", petJob.getTechnicalId());
+
+        try {
+            switch (petJob.getAction().toUpperCase()) {
+                case "CREATE":
+                    // Create new Pet via entityService
+                    Pet newPet = new Pet();
+                    newPet.setId(UUID.randomUUID().toString());
+                    newPet.setTechnicalId(UUID.randomUUID());
+                    newPet.setPetId(petJob.getPetId());
+                    newPet.setName("New Pet"); // TODO: replace with real data
+                    newPet.setCategory("Unknown");
+                    newPet.setStatus("AVAILABLE");
+                    entityService.addItem("Pet", ENTITY_VERSION, newPet).join();
+                    petJob.setStatus("COMPLETED");
+                    break;
+                case "UPDATE":
+                    // TODO: Implement update logic if needed
+                    petJob.setStatus("COMPLETED");
+                    break;
+                case "DELETE":
+                    // TODO: Implement delete logic if needed
+                    petJob.setStatus("COMPLETED");
+                    break;
+                default:
+                    logger.error("Unsupported action: {}", petJob.getAction());
+                    petJob.setStatus("FAILED");
+                    break;
+            }
+        } catch (Exception e) {
+            logger.error("Exception processing PetJob: {}", e.getMessage());
+            petJob.setStatus("FAILED");
+        }
+    }
