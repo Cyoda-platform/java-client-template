@@ -1,13 +1,12 @@
 package com.java_template.prototype;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.GameScoreFetchJob;
 import com.java_template.application.entity.NbaGameScore;
 import com.java_template.application.entity.Subscriber;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
@@ -18,6 +17,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.util.Date;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -33,9 +33,11 @@ public class GameScoreFetchJobController {
     private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(GameScoreFetchJobController.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
-    public GameScoreFetchJobController(EntityService entityService) {
+    public GameScoreFetchJobController(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @Data
@@ -48,14 +50,14 @@ public class GameScoreFetchJobController {
     }
 
     @PostMapping
-    public CompletableFuture<ResponseEntity<?>> createGameScoreFetchJob(@RequestBody @Valid GameScoreFetchJobDTO dto) {
+    public CompletableFuture<ResponseEntity<?>> createGameScoreFetchJob(@RequestBody @Valid GameScoreFetchJobDTO dto) throws JsonProcessingException {
         GameScoreFetchJob job = new GameScoreFetchJob();
         job.setStatus(dto.getStatus());
-        job.setScheduledDate(new Date(dto.getScheduledDate()));
+        job.setScheduledDate(LocalDate.ofEpochDay(dto.getScheduledDate() / (24 * 60 * 60 * 1000))); // convert epoch millis to LocalDate
         job.setCreatedAt(new Timestamp(System.currentTimeMillis()));
         job.setUpdatedAt(new Timestamp(System.currentTimeMillis()));
 
-        return entityService.addItem("GameScoreFetchJob", ENTITY_VERSION, job)
+        return entityService.addItem("gameScoreFetchJob", ENTITY_VERSION, job)
                 .thenApply(technicalId -> {
                     job.setTechnicalId(technicalId);
                     job.setId(technicalId.toString());
@@ -65,30 +67,36 @@ public class GameScoreFetchJobController {
     }
 
     @GetMapping("/{id}")
-    public CompletableFuture<ResponseEntity<?>> getGameScoreFetchJob(@PathVariable @NotBlank String id) {
+    public CompletableFuture<ResponseEntity<?>> getGameScoreFetchJob(@PathVariable @NotBlank String id) throws JsonProcessingException {
         UUID technicalId = UUID.fromString(id);
-        return entityService.getItem("GameScoreFetchJob", ENTITY_VERSION, technicalId)
+        return entityService.getItem("gameScoreFetchJob", ENTITY_VERSION, technicalId)
                 .thenApply(objectNode -> {
                     if (objectNode == null || objectNode.isEmpty()) {
                         logger.error("GameScoreFetchJob not found for technicalId: {}", id);
                         return ResponseEntity.status(HttpStatus.NOT_FOUND).body("GameScoreFetchJob not found");
                     }
-                    return ResponseEntity.ok(objectNode);
+                    try {
+                        GameScoreFetchJob job = objectMapper.treeToValue(objectNode, GameScoreFetchJob.class);
+                        return ResponseEntity.ok(job);
+                    } catch (JsonProcessingException e) {
+                        logger.error("Error processing GameScoreFetchJob JSON", e);
+                        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error processing response");
+                    }
                 });
     }
 
     @PutMapping("/{id}")
     public CompletableFuture<ResponseEntity<?>> updateGameScoreFetchJob(@PathVariable @NotBlank String id,
-                                                                        @RequestBody @Valid GameScoreFetchJobDTO dto) {
+                                                                        @RequestBody @Valid GameScoreFetchJobDTO dto) throws JsonProcessingException {
         UUID technicalId = UUID.fromString(id);
         GameScoreFetchJob job = new GameScoreFetchJob();
         job.setStatus(dto.getStatus());
-        job.setScheduledDate(new Date(dto.getScheduledDate()));
+        job.setScheduledDate(LocalDate.ofEpochDay(dto.getScheduledDate() / (24 * 60 * 60 * 1000))); // convert epoch millis to LocalDate
         job.setUpdatedAt(new Timestamp(System.currentTimeMillis()));
         job.setTechnicalId(technicalId);
         job.setId(id);
 
-        return entityService.updateItem("GameScoreFetchJob", ENTITY_VERSION, technicalId, job)
+        return entityService.updateItem("gameScoreFetchJob", ENTITY_VERSION, technicalId, job)
                 .thenApply(updatedId -> {
                     logger.info("Updated GameScoreFetchJob with technicalId: {}", updatedId);
                     return ResponseEntity.ok(job);
@@ -98,7 +106,7 @@ public class GameScoreFetchJobController {
     @DeleteMapping("/{id}")
     public CompletableFuture<ResponseEntity<?>> deleteGameScoreFetchJob(@PathVariable @NotBlank String id) {
         UUID technicalId = UUID.fromString(id);
-        return entityService.deleteItem("GameScoreFetchJob", ENTITY_VERSION, technicalId)
+        return entityService.deleteItem("gameScoreFetchJob", ENTITY_VERSION, technicalId)
                 .thenApply(deletedId -> {
                     logger.info("Deleted GameScoreFetchJob with technicalId: {}", deletedId);
                     return ResponseEntity.ok("Deleted GameScoreFetchJob with technicalId: " + deletedId);
@@ -115,9 +123,11 @@ class NbaGameScoreController {
     private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(NbaGameScoreController.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
-    public NbaGameScoreController(EntityService entityService) {
+    public NbaGameScoreController(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @Data
@@ -145,17 +155,17 @@ class NbaGameScoreController {
     }
 
     @PostMapping
-    public CompletableFuture<ResponseEntity<?>> createNbaGameScore(@RequestBody @Valid NbaGameScoreDTO dto) {
+    public CompletableFuture<ResponseEntity<?>> createNbaGameScore(@RequestBody @Valid NbaGameScoreDTO dto) throws JsonProcessingException {
         NbaGameScore gameScore = new NbaGameScore();
         gameScore.setGameId(dto.getGameId());
-        gameScore.setDate(new Date(dto.getDate()));
+        gameScore.setDate(LocalDate.ofEpochDay(dto.getDate() / (24 * 60 * 60 * 1000))); // convert epoch millis to LocalDate
         gameScore.setHomeTeam(dto.getHomeTeam());
         gameScore.setAwayTeam(dto.getAwayTeam());
-        gameScore.setHomeTeamScore(dto.getHomeTeamScore());
-        gameScore.setAwayTeamScore(dto.getAwayTeamScore());
+        gameScore.setHomeScore(dto.getHomeTeamScore());
+        gameScore.setAwayScore(dto.getAwayTeamScore());
         gameScore.setStatus(dto.getStatus());
 
-        return entityService.addItem("NbaGameScore", ENTITY_VERSION, gameScore)
+        return entityService.addItem("nbaGameScore", ENTITY_VERSION, gameScore)
                 .thenApply(technicalId -> {
                     gameScore.setTechnicalId(technicalId);
                     gameScore.setId(technicalId.toString());
@@ -165,34 +175,40 @@ class NbaGameScoreController {
     }
 
     @GetMapping("/{id}")
-    public CompletableFuture<ResponseEntity<?>> getNbaGameScore(@PathVariable @NotBlank String id) {
+    public CompletableFuture<ResponseEntity<?>> getNbaGameScore(@PathVariable @NotBlank String id) throws JsonProcessingException {
         UUID technicalId = UUID.fromString(id);
-        return entityService.getItem("NbaGameScore", ENTITY_VERSION, technicalId)
+        return entityService.getItem("nbaGameScore", ENTITY_VERSION, technicalId)
                 .thenApply(objectNode -> {
                     if (objectNode == null || objectNode.isEmpty()) {
                         logger.error("NbaGameScore not found for technicalId: {}", id);
                         return ResponseEntity.status(HttpStatus.NOT_FOUND).body("NbaGameScore not found");
                     }
-                    return ResponseEntity.ok(objectNode);
+                    try {
+                        NbaGameScore gameScore = objectMapper.treeToValue(objectNode, NbaGameScore.class);
+                        return ResponseEntity.ok(gameScore);
+                    } catch (JsonProcessingException e) {
+                        logger.error("Error processing NbaGameScore JSON", e);
+                        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error processing response");
+                    }
                 });
     }
 
     @PutMapping("/{id}")
     public CompletableFuture<ResponseEntity<?>> updateNbaGameScore(@PathVariable @NotBlank String id,
-                                                                   @RequestBody @Valid NbaGameScoreDTO dto) {
+                                                                   @RequestBody @Valid NbaGameScoreDTO dto) throws JsonProcessingException {
         UUID technicalId = UUID.fromString(id);
         NbaGameScore gameScore = new NbaGameScore();
         gameScore.setGameId(dto.getGameId());
-        gameScore.setDate(new Date(dto.getDate()));
+        gameScore.setDate(LocalDate.ofEpochDay(dto.getDate() / (24 * 60 * 60 * 1000))); // convert epoch millis to LocalDate
         gameScore.setHomeTeam(dto.getHomeTeam());
         gameScore.setAwayTeam(dto.getAwayTeam());
-        gameScore.setHomeTeamScore(dto.getHomeTeamScore());
-        gameScore.setAwayTeamScore(dto.getAwayTeamScore());
+        gameScore.setHomeScore(dto.getHomeTeamScore());
+        gameScore.setAwayScore(dto.getAwayTeamScore());
         gameScore.setStatus(dto.getStatus());
         gameScore.setTechnicalId(technicalId);
         gameScore.setId(id);
 
-        return entityService.updateItem("NbaGameScore", ENTITY_VERSION, technicalId, gameScore)
+        return entityService.updateItem("nbaGameScore", ENTITY_VERSION, technicalId, gameScore)
                 .thenApply(updatedId -> {
                     logger.info("Updated NbaGameScore with technicalId: {}", updatedId);
                     return ResponseEntity.ok(gameScore);
@@ -202,7 +218,7 @@ class NbaGameScoreController {
     @DeleteMapping("/{id}")
     public CompletableFuture<ResponseEntity<?>> deleteNbaGameScore(@PathVariable @NotBlank String id) {
         UUID technicalId = UUID.fromString(id);
-        return entityService.deleteItem("NbaGameScore", ENTITY_VERSION, technicalId)
+        return entityService.deleteItem("nbaGameScore", ENTITY_VERSION, technicalId)
                 .thenApply(deletedId -> {
                     logger.info("Deleted NbaGameScore with technicalId: {}", deletedId);
                     return ResponseEntity.ok("Deleted NbaGameScore with technicalId: " + deletedId);
@@ -219,9 +235,11 @@ class SubscriberController {
     private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(SubscriberController.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
-    public SubscriberController(EntityService entityService) {
+    public SubscriberController(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @Data
@@ -229,17 +247,22 @@ class SubscriberController {
         @NotBlank
         private String contactInfo;
 
+        private String[] teamPreferences; // optional if we want to allow setting this in DTO
+
         @NotBlank
         private String status;
     }
 
     @PostMapping
-    public CompletableFuture<ResponseEntity<?>> createSubscriber(@RequestBody @Valid SubscriberDTO dto) {
+    public CompletableFuture<ResponseEntity<?>> createSubscriber(@RequestBody @Valid SubscriberDTO dto) throws JsonProcessingException {
         Subscriber subscriber = new Subscriber();
         subscriber.setContactInfo(dto.getContactInfo());
+        if(dto.getTeamPreferences() != null) {
+            subscriber.setTeamPreferences(java.util.Arrays.asList(dto.getTeamPreferences()));
+        }
         subscriber.setStatus(dto.getStatus());
 
-        return entityService.addItem("Subscriber", ENTITY_VERSION, subscriber)
+        return entityService.addItem("subscriber", ENTITY_VERSION, subscriber)
                 .thenApply(technicalId -> {
                     subscriber.setTechnicalId(technicalId);
                     subscriber.setId(technicalId.toString());
@@ -249,29 +272,38 @@ class SubscriberController {
     }
 
     @GetMapping("/{id}")
-    public CompletableFuture<ResponseEntity<?>> getSubscriber(@PathVariable @NotBlank String id) {
+    public CompletableFuture<ResponseEntity<?>> getSubscriber(@PathVariable @NotBlank String id) throws JsonProcessingException {
         UUID technicalId = UUID.fromString(id);
-        return entityService.getItem("Subscriber", ENTITY_VERSION, technicalId)
+        return entityService.getItem("subscriber", ENTITY_VERSION, technicalId)
                 .thenApply(objectNode -> {
                     if (objectNode == null || objectNode.isEmpty()) {
                         logger.error("Subscriber not found for technicalId: {}", id);
                         return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Subscriber not found");
                     }
-                    return ResponseEntity.ok(objectNode);
+                    try {
+                        Subscriber subscriber = objectMapper.treeToValue(objectNode, Subscriber.class);
+                        return ResponseEntity.ok(subscriber);
+                    } catch (JsonProcessingException e) {
+                        logger.error("Error processing Subscriber JSON", e);
+                        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error processing response");
+                    }
                 });
     }
 
     @PutMapping("/{id}")
     public CompletableFuture<ResponseEntity<?>> updateSubscriber(@PathVariable @NotBlank String id,
-                                                                 @RequestBody @Valid SubscriberDTO dto) {
+                                                                 @RequestBody @Valid SubscriberDTO dto) throws JsonProcessingException {
         UUID technicalId = UUID.fromString(id);
         Subscriber subscriber = new Subscriber();
         subscriber.setContactInfo(dto.getContactInfo());
+        if(dto.getTeamPreferences() != null) {
+            subscriber.setTeamPreferences(java.util.Arrays.asList(dto.getTeamPreferences()));
+        }
         subscriber.setStatus(dto.getStatus());
         subscriber.setTechnicalId(technicalId);
         subscriber.setId(id);
 
-        return entityService.updateItem("Subscriber", ENTITY_VERSION, technicalId, subscriber)
+        return entityService.updateItem("subscriber", ENTITY_VERSION, technicalId, subscriber)
                 .thenApply(updatedId -> {
                     logger.info("Updated Subscriber with technicalId: {}", updatedId);
                     return ResponseEntity.ok(subscriber);
@@ -281,7 +313,7 @@ class SubscriberController {
     @DeleteMapping("/{id}")
     public CompletableFuture<ResponseEntity<?>> deleteSubscriber(@PathVariable @NotBlank String id) {
         UUID technicalId = UUID.fromString(id);
-        return entityService.deleteItem("Subscriber", ENTITY_VERSION, technicalId)
+        return entityService.deleteItem("subscriber", ENTITY_VERSION, technicalId)
                 .thenApply(deletedId -> {
                     logger.info("Deleted Subscriber with technicalId: {}", deletedId);
                     return ResponseEntity.ok("Deleted Subscriber with technicalId: " + deletedId);
