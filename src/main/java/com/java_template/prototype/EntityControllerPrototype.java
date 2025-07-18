@@ -5,7 +5,6 @@ import com.java_template.application.entity.Pet;
 import com.java_template.application.entity.Task;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,6 +13,10 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -33,16 +36,10 @@ public class EntityControllerPrototype {
     private final AtomicLong taskIdCounter = new AtomicLong(1);
     private final AtomicLong petIdCounter = new AtomicLong(1);
 
-    // DTOs for POST/PUT requests with validation (flat fields, no nested objects)
     @Data
     public static class JobDto {
         @NotBlank
         private String name;
-
-        // Add other fields as String or primitives with validation annotations if needed
-        // Example:
-        // @NotNull
-        // private Integer priority;
     }
 
     @Data
@@ -59,15 +56,6 @@ public class EntityControllerPrototype {
         @NotBlank
         private String type;
     }
-
-    // GET query param DTO example (for demonstration, no query params needed here, but shown as example)
-    @Data
-    public static class IdQuery {
-        @NotBlank
-        private String id;
-    }
-
-    // --- JOB CRUD ---
 
     @PostMapping("/jobs")
     public ResponseEntity<Map<String, Object>> createJob(@RequestBody @Valid JobDto jobDto) {
@@ -123,8 +111,6 @@ public class EntityControllerPrototype {
         return ResponseEntity.ok(Collections.singletonMap("status", "Job deleted"));
     }
 
-    // --- TASK CRUD ---
-
     @PostMapping("/tasks")
     public ResponseEntity<Map<String, Object>> createTask(@RequestBody @Valid TaskDto taskDto) {
         logger.info("Received request to create Task with DTO: {}", taskDto);
@@ -178,8 +164,6 @@ public class EntityControllerPrototype {
         logger.info("Task deleted with id {}", id);
         return ResponseEntity.ok(Collections.singletonMap("status", "Task deleted"));
     }
-
-    // --- PET CRUD ---
 
     @PostMapping("/pets")
     public ResponseEntity<Map<String, Object>> createPet(@RequestBody @Valid PetDto petDto) {
@@ -237,8 +221,6 @@ public class EntityControllerPrototype {
         return ResponseEntity.ok(Collections.singletonMap("status", "Pet deleted"));
     }
 
-    // ======= JOB Cache Methods =======
-
     private String addJob(Job job) {
         String id = String.valueOf(jobIdCounter.getAndIncrement());
         job.setId(id);
@@ -277,8 +259,6 @@ public class EntityControllerPrototype {
             return jobs.removeIf(j -> id.equals(j.getId()));
         }
     }
-
-    // ======= TASK Cache Methods =======
 
     private String addTask(Task task) {
         String id = String.valueOf(taskIdCounter.getAndIncrement());
@@ -319,8 +299,6 @@ public class EntityControllerPrototype {
         }
     }
 
-    // ======= PET Cache Methods =======
-
     private String addPet(Pet pet) {
         String id = String.valueOf(petIdCounter.getAndIncrement());
         pet.setId(id);
@@ -360,38 +338,49 @@ public class EntityControllerPrototype {
         }
     }
 
-    // ======= Event Processing Stubs with minimal business logic =======
-
+    // When a Job is submitted, processJob fetches pets from an internet API and logs them
     private void processJob(Job job) {
         logger.info("Processing Job event for job id: {}", job.getId());
-        if (job.getName() == null || job.getName().isBlank()) {
-            logger.error("Job processing failed: name is blank for job id {}", job.getId());
-            // TODO: Add error handling or event fail logic
-        } else {
-            logger.info("Job processing succeeded for job id {}", job.getId());
-            // TODO: Add more processing logic here
+        try {
+            String petsJson = fetchPetsFromInternet();
+            logger.info("Fetched pets from internet for job id {}: {}", job.getId(), petsJson);
+            // TODO: parse petsJson and maybe add to petCache or further processing
+        } catch (Exception e) {
+            logger.error("Failed to fetch pets during Job processing for job id {}: {}", job.getId(), e.getMessage());
         }
+    }
+
+    private String fetchPetsFromInternet() throws Exception {
+        // Example public API for pets placeholder - TODO: Replace with actual API if available
+        String urlString = "https://petstore.swagger.io/v2/pet/findByStatus?status=available";
+        URL url = new URL(urlString);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("GET");
+        conn.setRequestProperty("Accept", "application/json");
+
+        int responseCode = conn.getResponseCode();
+        if (responseCode != 200) {
+            throw new RuntimeException("Failed : HTTP error code : " + responseCode);
+        }
+
+        BufferedReader br = new BufferedReader(new InputStreamReader((conn.getInputStream())));
+
+        StringBuilder sb = new StringBuilder();
+        String output;
+        while ((output = br.readLine()) != null) {
+            sb.append(output);
+        }
+        conn.disconnect();
+        return sb.toString();
     }
 
     private void processTask(Task task) {
         logger.info("Processing Task event for task id: {}", task.getId());
-        if (task.getDescription() == null || task.getDescription().isBlank()) {
-            logger.error("Task processing failed: description is blank for task id {}", task.getId());
-            // TODO: Add error handling or event fail logic
-        } else {
-            logger.info("Task processing succeeded for task id {}", task.getId());
-            // TODO: Add more processing logic here
-        }
+        // No special logic
     }
 
     private void processPet(Pet pet) {
         logger.info("Processing Pet event for pet id: {}", pet.getId());
-        if (pet.getPetName() == null || pet.getPetName().isBlank() || pet.getType() == null || pet.getType().isBlank()) {
-            logger.error("Pet processing failed: petName or type is blank for pet id {}", pet.getId());
-            // TODO: Add error handling or event fail logic
-        } else {
-            logger.info("Pet processing succeeded for pet id {}", pet.getId());
-            // TODO: Add more processing logic here
-        }
+        // No special logic
     }
 }
