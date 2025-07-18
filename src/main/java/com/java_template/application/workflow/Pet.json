@@ -1,0 +1,66 @@
+{
+    "desc": "Workflow for processing Pet entity lifecycle and adoption status transitions",
+    "id": "pet_workflow",
+    "initialState": "none",
+    "name": "Pet workflow",
+    "states": {
+        "adopted": {
+            "transitions": [
+                {
+                    "id": "end_workflow",
+                    "next": "final"
+                }
+            ]
+        },
+        "available": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PendingAdoptionCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "available_to_pending",
+                    "next": "pending"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "AdoptionEventCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "available_to_adopted",
+                    "next": "adopted"
+                }
+            ]
+        },
+        "final": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "init_to_available",
+                    "next": "available"
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "AdoptionConfirmedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "pending_to_adopted",
+                    "next": "adopted"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
