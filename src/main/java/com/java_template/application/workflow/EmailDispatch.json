@@ -1,0 +1,25 @@
+{
+  "version": "1.0",
+  "description": "EmailDispatch entity simple workflow",
+  "initial_state": "none",
+  "workflow_name": "EmailDispatchWorkflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "send": {
+          "next": "sent"
+        }
+      }
+    },
+    "sent": {
+      "transitions": {
+        "archive": {
+          "next": "archived"
+        }
+      }
+    },
+    "archived": {
+      "transitions": {}
+    }
+  }
+}
