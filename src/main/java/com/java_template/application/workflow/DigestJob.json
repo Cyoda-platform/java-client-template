@@ -1,0 +1,98 @@
+```json
+{
+  "version": "1.0",
+  "description": "DigestJob workflow FSM with states, transitions, processor, and criterion",
+  "initial_state": "none",
+  "workflow_name": "DigestJob_workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "start_processing": {
+            "next": "processing_check_status"
+          }
+        }
+      ]
+    },
+    "processing_check_status": {
+      "transitions": [
+        {
+          "to_processing": {
+            "next": "processing",
+            "criterion": {
+              "type": "function",
+              "function": {
+                "name": "DigestJobProcessingCriterion"
+              }
+            }
+          }
+        },
+        {
+          "to_completed": {
+            "next": "completed",
+            "criterion": {
+              "type": "function",
+              "function": {
+                "name": "DigestJobNotProcessingCriterion"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "requests_exist": {
+            "next": "generate_digest_content",
+            "criterion": {
+              "type": "function",
+              "function": {
+                "name": "DigestRequestsExistCriterion"
+              }
+            },
+            "processors": [
+              {
+                "name": "DigestJobProcessor"
+              }
+            ]
+          }
+        },
+        {
+          "no_requests": {
+            "next": "completed",
+            "criterion": {
+              "type": "function",
+              "function": {
+                "name": "DigestRequestsEmptyCriterion"
+              }
+            },
+            "processors": [
+              {
+                "name": "DigestJobProcessor"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "generate_digest_content": {
+      "transitions": [
+        {
+          "to_completed": {
+            "next": "completed",
+            "processors": [
+              {
+                "name": "DigestJobProcessor"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    }
+  }
+}
+```
