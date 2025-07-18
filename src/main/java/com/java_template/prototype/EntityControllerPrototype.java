@@ -13,6 +13,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.*;
 import com.java_template.application.entity.DigestRequest;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.net.URI;
+import java.io.IOException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @RestController
 @RequestMapping(path = "/prototype")
@@ -24,6 +30,9 @@ public class EntityControllerPrototype {
 
     private final ConcurrentHashMap<String, DigestRequest> digestRequestCache = new ConcurrentHashMap<>();
     private final AtomicLong digestRequestIdCounter = new AtomicLong(1);
+
+    private final HttpClient httpClient = HttpClient.newHttpClient();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     // DTO for POST and PUT requests - primitives and String only, with validation annotations
     public static class DigestRequestDTO {
@@ -160,24 +169,42 @@ public class EntityControllerPrototype {
     private void processDigestRequest(DigestRequest entity) {
         logger.info("Processing DigestRequest with ID: {}", entity.getId());
 
-        // TODO: Implement actual business logic here
-        // Examples:
-        // - Validate external API URL and email recipients again if needed
-        // - Call external API to fetch data
-        // - Format data and generate email content using template if provided
-        // - Send email to recipients
-        // - Update entity status to COMPLETED or FAILED accordingly
-        // - Update updatedAt timestamp
+        try {
+            entity.setStatus(DigestRequest.StatusEnum.PROCESSING);
+            entity.setUpdatedAt(java.time.LocalDateTime.now());
+            digestRequestCache.put(entity.getId(), entity);
 
-        // For now, simulate processing by setting status to PROCESSING then COMPLETED
-        entity.setStatus(DigestRequest.StatusEnum.PROCESSING);
+            // Call external API URL
+            HttpRequest httpRequest = HttpRequest.newBuilder()
+                    .uri(URI.create(entity.getExternalApiUrl()))
+                    .GET()
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() == 200) {
+                String responseBody = response.body();
+                logger.info("External API call successful for DigestRequest ID {}: Response length: {}", entity.getId(), responseBody.length());
+
+                // TODO: Process responseBody, format email content using template if needed
+                // For now, just log
+                logger.info("Data ingestion and processing logic placeholder for DigestRequest ID {}", entity.getId());
+
+                // TODO: Send email to recipients - integrate with email service
+
+                entity.setStatus(DigestRequest.StatusEnum.COMPLETED);
+            } else {
+                logger.error("External API call failed for DigestRequest ID {} with status code {}", entity.getId(), response.statusCode());
+                entity.setStatus(DigestRequest.StatusEnum.FAILED);
+            }
+        } catch (IOException | InterruptedException e) {
+            logger.error("Exception during external API call for DigestRequest ID {}: {}", entity.getId(), e.getMessage());
+            entity.setStatus(DigestRequest.StatusEnum.FAILED);
+            Thread.currentThread().interrupt();
+        }
+
         entity.setUpdatedAt(java.time.LocalDateTime.now());
-
-        // Simulate success
-        entity.setStatus(DigestRequest.StatusEnum.COMPLETED);
-        entity.setUpdatedAt(java.time.LocalDateTime.now());
-
         digestRequestCache.put(entity.getId(), entity);
-        logger.info("Completed processing DigestRequest with ID: {}", entity.getId());
+        logger.info("Completed processing DigestRequest with ID: {}. Status: {}", entity.getId(), entity.getStatus());
     }
 }
