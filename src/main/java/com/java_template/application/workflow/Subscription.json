@@ -1,0 +1,35 @@
+{
+  "version": "1.0",
+  "description": "Workflow for Subscription entity representing subscription create and update processing",
+  "initial_state": "none",
+  "workflow_name": "SubscriptionWorkflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "create_transition": {
+          "next": "created",
+          "processors": [
+            {
+              "name": "SubscriptionProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "created": {
+      "transitions": {
+        "update_transition": {
+          "next": "updated",
+          "processors": [
+            {
+              "name": "SubscriptionProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "updated": {
+      "transitions": {}
+    }
+  }
+}
