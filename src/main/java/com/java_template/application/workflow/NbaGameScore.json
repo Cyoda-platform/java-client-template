@@ -1,0 +1,102 @@
+```json
+{
+  "version": "1.0",
+  "description": "Workflow FSM for NbaGameScore entity processing",
+  "initial_state": "none",
+  "workflow_name": "nba_game_score_workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "transition_to_received": {
+            "next": "received"
+          }
+        }
+      ]
+    },
+    "received": {
+      "transitions": [
+        {
+          "validate_score_complete": {
+            "next": "validated",
+            "criterion": {
+              "type": "function",
+              "function": {
+                "name": "NbaGameScoreIsScoreDataCompleteCriterion"
+              }
+            }
+          }
+        },
+        {
+          "incomplete_score": {
+            "next": "invalid",
+            "criterion": {
+              "type": "function",
+              "function": {
+                "name": "NbaGameScoreIsScoreDataCompleteCriterion",
+                "negate": true
+              }
+            }
+          }
+        }
+      ]
+    },
+    "invalid": {
+      "transitions": []
+    },
+    "validated": {
+      "transitions": [
+        {
+          "process_score": {
+            "next": "processed",
+            "processors": [
+              {
+                "name": "NbaGameScoreProcessor"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "processed": {
+      "transitions": [
+        {
+          "has_subscribers": {
+            "next": "notified",
+            "criterion": {
+              "type": "function",
+              "function": {
+                "name": "NbaGameScoreHasSubscribersCriterion"
+              }
+            }
+          }
+        },
+        {
+          "no_subscribers": {
+            "next": "completed",
+            "criterion": {
+              "type": "function",
+              "function": {
+                "name": "NbaGameScoreHasSubscribersCriterion",
+                "negate": true
+              }
+            }
+          }
+        }
+      ]
+    },
+    "notified": {
+      "transitions": [
+        {
+          "notify_subscribers": {
+            "next": "completed"
+          }
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    }
+  }
+}
+```
