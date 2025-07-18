@@ -360,20 +360,38 @@ public class EntityControllerPrototype {
         }
     }
 
-    // ======= Event Processing Stubs =======
+    // ======= Event Processing Stubs with minimal business logic =======
 
     private void processJob(Job job) {
-        // TODO: Replace with actual Cyoda event processing logic
         logger.info("Processing Job event for job id: {}", job.getId());
+        if (job.getName() == null || job.getName().isBlank()) {
+            logger.error("Job processing failed: name is blank for job id {}", job.getId());
+            // TODO: Add error handling or event fail logic
+        } else {
+            logger.info("Job processing succeeded for job id {}", job.getId());
+            // TODO: Add more processing logic here
+        }
     }
 
     private void processTask(Task task) {
-        // TODO: Replace with actual Cyoda event processing logic
         logger.info("Processing Task event for task id: {}", task.getId());
+        if (task.getDescription() == null || task.getDescription().isBlank()) {
+            logger.error("Task processing failed: description is blank for task id {}", task.getId());
+            // TODO: Add error handling or event fail logic
+        } else {
+            logger.info("Task processing succeeded for task id {}", task.getId());
+            // TODO: Add more processing logic here
+        }
     }
 
     private void processPet(Pet pet) {
-        // TODO: Replace with actual Cyoda event processing logic
         logger.info("Processing Pet event for pet id: {}", pet.getId());
+        if (pet.getPetName() == null || pet.getPetName().isBlank() || pet.getType() == null || pet.getType().isBlank()) {
+            logger.error("Pet processing failed: petName or type is blank for pet id {}", pet.getId());
+            // TODO: Add error handling or event fail logic
+        } else {
+            logger.info("Pet processing succeeded for pet id {}", pet.getId());
+            // TODO: Add more processing logic here
+        }
     }
 }
