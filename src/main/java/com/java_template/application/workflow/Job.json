@@ -1,0 +1,36 @@
+{
+  "version": "1.0",
+  "description": "Workflow for Job entity with processing steps",
+  "initial_state": "none",
+  "workflow_name": "job_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "create_to_processing": {
+          "next": "processing",
+          "processors": [
+            {
+              "name": "JobProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "processing": {
+      "transitions": {
+        "processing_to_done": {
+          "next": "done"
+        },
+        "processing_to_failed": {
+          "next": "failed"
+        }
+      }
+    },
+    "done": {
+      "transitions": {}
+    },
+    "failed": {
+      "transitions": {}
+    }
+  }
+}
