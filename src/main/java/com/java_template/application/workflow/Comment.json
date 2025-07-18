@@ -1,0 +1,23 @@
+{
+  "version": "1.0",
+  "description": "Workflow for Comment entity representing the business operations on comment persistence events",
+  "initial_state": "none",
+  "workflow_name": "comment_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "transition_to_saved": {
+          "next": "saved",
+          "processors": [
+            {
+              "name": "CommentProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "saved": {
+      "transitions": {}
+    }
+  }
+}
