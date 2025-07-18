@@ -1,0 +1,19 @@
+    private void processDigestRequest(DigestRequest request) throws ExecutionException, InterruptedException {
+        logger.info("Processing DigestRequest event for id {}", request.getId());
+
+        // Check linked DigestJob existence
+        SearchConditionRequest condition = SearchConditionRequest.group("AND",
+                Condition.of("$.id", "EQUALS", request.getId()));
+
+        CompletableFuture<ArrayNode> jobsFuture = entityService.getItemsByCondition(
+                "DigestJob",
+                ENTITY_VERSION,
+                condition);
+        ArrayNode jobsNodes = jobsFuture.get();
+
+        if (jobsNodes == null || jobsNodes.size() == 0) {
+            logger.info("No linked DigestJob found for DigestRequest id {}", request.getId());
+        } else {
+            logger.info("Linked DigestJob found for DigestRequest id {}", request.getId());
+        }
+    }
