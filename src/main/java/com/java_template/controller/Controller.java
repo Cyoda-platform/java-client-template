@@ -2,6 +2,7 @@ package com.java_template.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.GameScore;
 import com.java_template.application.entity.Job;
 import com.java_template.application.entity.Subscription;
@@ -44,8 +45,12 @@ public class Controller {
         logger.info("Received request to create Job: {}", request);
         try {
             Job job = new Job();
-            job.setName(request.getName());
-            job.setDescription(request.getDescription());
+            job.setId(request.getName()); // mapping name to id for business ID
+            job.setJobId(request.getName());
+            job.setSchedule(request.getDescription()); // using description as schedule for example
+            UUID technicalId = UUID.randomUUID();
+            job.setTechnicalId(technicalId);
+
             String id = entityService.addItem("job", ENTITY_VERSION, job).get();
             logger.info("Job created with id: {}", id);
             return ResponseEntity.ok().body(new IdResponse(id, "Job created and processed"));
@@ -60,7 +65,8 @@ public class Controller {
         logger.info("Fetching Job with id: {}", request.getId());
         Job job = null;
         try {
-            var entityJson = entityService.findById("job", ENTITY_VERSION, request.getId()).get();
+            UUID uuid = UUID.fromString(request.getId());
+            ObjectNode entityJson = entityService.getItem("job", ENTITY_VERSION, uuid).get();
             job = objectMapper.treeToValue(entityJson, Job.class);
         } catch (Exception e) {
             logger.error("Job not found with id: {}", request.getId());
@@ -70,14 +76,16 @@ public class Controller {
     }
 
     @PutMapping("/jobs")
-    public ResponseEntity<?> updateJob(@RequestBody @Valid JobUpdateRequest request) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> updateJob(@RequestBody @Valid JobUpdateRequest request) throws ExecutionException, InterruptedException, JsonProcessingException {
         logger.info("Updating Job with id: {}", request.getId());
-        Job job = new Job();
-        job.setId(request.getId());
-        job.setName(request.getName());
-        job.setDescription(request.getDescription());
         try {
-            entityService.addItem("job", ENTITY_VERSION, job).get();
+            Job job = new Job();
+            job.setTechnicalId(UUID.fromString(request.getId()));
+            job.setId(request.getName());
+            job.setJobId(request.getName());
+            job.setSchedule(request.getDescription());
+
+            entityService.updateItem("job", ENTITY_VERSION, job).get();
         } catch (Exception e) {
             logger.error("Error updating Job with id: {}", request.getId(), e);
             throw new ResponseStatusException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, "Failed to update Job");
@@ -86,10 +94,10 @@ public class Controller {
     }
 
     @DeleteMapping("/jobs")
-    public ResponseEntity<?> deleteJob(@Valid @ModelAttribute JobDeleteRequest request) {
+    public ResponseEntity<?> deleteJob(@Valid @ModelAttribute JobDeleteRequest request) throws ExecutionException, InterruptedException {
         logger.info("Deleting Job with id: {}", request.getId());
         try {
-            entityService.deleteItem("job", ENTITY_VERSION, request.getId());
+            UUID deletedId = entityService.deleteItem("job", ENTITY_VERSION, UUID.fromString(request.getId())).get();
         } catch (Exception e) {
             logger.error("Job not found with id: {}", request.getId());
             throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Job not found");
@@ -104,8 +112,11 @@ public class Controller {
         logger.info("Received request to create Subscription: {}", request);
         try {
             Subscription sub = new Subscription();
-            sub.setEmail(request.getEmail());
-            sub.setFrequency(request.getFrequency());
+            sub.setUserEmail(request.getEmail());
+            // frequency is not a field in entity, so not set here
+            UUID technicalId = UUID.randomUUID();
+            sub.setTechnicalId(technicalId);
+
             String id = entityService.addItem("subscription", ENTITY_VERSION, sub).get();
             logger.info("Subscription created with id: {}", id);
             return ResponseEntity.ok(new IdResponse(id, "Subscription created and processed"));
@@ -120,7 +131,8 @@ public class Controller {
         logger.info("Fetching Subscription with id: {}", request.getId());
         Subscription sub = null;
         try {
-            var entityJson = entityService.findById("subscription", ENTITY_VERSION, request.getId()).get();
+            UUID uuid = UUID.fromString(request.getId());
+            ObjectNode entityJson = entityService.getItem("subscription", ENTITY_VERSION, uuid).get();
             sub = objectMapper.treeToValue(entityJson, Subscription.class);
         } catch (Exception e) {
             logger.error("Subscription not found with id: {}", request.getId());
@@ -130,14 +142,15 @@ public class Controller {
     }
 
     @PutMapping("/subscriptions")
-    public ResponseEntity<?> updateSubscription(@RequestBody @Valid SubscriptionUpdateRequest request) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> updateSubscription(@RequestBody @Valid SubscriptionUpdateRequest request) throws ExecutionException, InterruptedException, JsonProcessingException {
         logger.info("Updating Subscription with id: {}", request.getId());
-        Subscription sub = new Subscription();
-        sub.setId(request.getId());
-        sub.setEmail(request.getEmail());
-        sub.setFrequency(request.getFrequency());
         try {
-            entityService.addItem("subscription", ENTITY_VERSION, sub).get();
+            Subscription sub = new Subscription();
+            sub.setTechnicalId(UUID.fromString(request.getId()));
+            sub.setUserEmail(request.getEmail());
+            // frequency not present in entity, so not set here
+
+            entityService.updateItem("subscription", ENTITY_VERSION, sub).get();
         } catch (Exception e) {
             logger.error("Error updating Subscription with id: {}", request.getId(), e);
             throw new ResponseStatusException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, "Failed to update Subscription");
@@ -146,10 +159,10 @@ public class Controller {
     }
 
     @DeleteMapping("/subscriptions")
-    public ResponseEntity<?> deleteSubscription(@Valid @ModelAttribute SubscriptionDeleteRequest request) {
+    public ResponseEntity<?> deleteSubscription(@Valid @ModelAttribute SubscriptionDeleteRequest request) throws ExecutionException, InterruptedException {
         logger.info("Deleting Subscription with id: {}", request.getId());
         try {
-            entityService.deleteItem("subscription", ENTITY_VERSION, request.getId());
+            UUID deletedId = entityService.deleteItem("subscription", ENTITY_VERSION, UUID.fromString(request.getId())).get();
         } catch (Exception e) {
             logger.error("Subscription not found with id: {}", request.getId());
             throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Subscription not found");
@@ -165,10 +178,13 @@ public class Controller {
         try {
             GameScore gs = new GameScore();
             gs.setGameId(request.getGameId());
-            gs.setHomeTeam(request.getHomeTeam());
-            gs.setAwayTeam(request.getAwayTeam());
-            gs.setHomeScore(request.getHomeScore());
-            gs.setAwayScore(request.getAwayScore());
+            gs.setTeamHome(request.getHomeTeam());
+            gs.setTeamAway(request.getAwayTeam());
+            gs.setScoreHome(request.getHomeScore());
+            gs.setScoreAway(request.getAwayScore());
+            UUID technicalId = UUID.randomUUID();
+            gs.setTechnicalId(technicalId);
+
             String id = entityService.addItem("gameScore", ENTITY_VERSION, gs).get();
             logger.info("GameScore created with id: {}", id);
             return ResponseEntity.ok(new IdResponse(id, "GameScore created and processed"));
@@ -183,7 +199,8 @@ public class Controller {
         logger.info("Fetching GameScore with id: {}", request.getId());
         GameScore gs = null;
         try {
-            var entityJson = entityService.findById("gameScore", ENTITY_VERSION, request.getId()).get();
+            UUID uuid = UUID.fromString(request.getId());
+            ObjectNode entityJson = entityService.getItem("gameScore", ENTITY_VERSION, uuid).get();
             gs = objectMapper.treeToValue(entityJson, GameScore.class);
         } catch (Exception e) {
             logger.error("GameScore not found with id: {}", request.getId());
@@ -193,17 +210,18 @@ public class Controller {
     }
 
     @PutMapping("/gamescores")
-    public ResponseEntity<?> updateGameScore(@RequestBody @Valid GameScoreUpdateRequest request) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> updateGameScore(@RequestBody @Valid GameScoreUpdateRequest request) throws ExecutionException, InterruptedException, JsonProcessingException {
         logger.info("Updating GameScore with id: {}", request.getId());
-        GameScore gs = new GameScore();
-        gs.setId(request.getId());
-        gs.setGameId(request.getGameId());
-        gs.setHomeTeam(request.getHomeTeam());
-        gs.setAwayTeam(request.getAwayTeam());
-        gs.setHomeScore(request.getHomeScore());
-        gs.setAwayScore(request.getAwayScore());
         try {
-            entityService.addItem("gameScore", ENTITY_VERSION, gs).get();
+            GameScore gs = new GameScore();
+            gs.setTechnicalId(UUID.fromString(request.getId()));
+            gs.setGameId(request.getGameId());
+            gs.setTeamHome(request.getHomeTeam());
+            gs.setTeamAway(request.getAwayTeam());
+            gs.setScoreHome(request.getHomeScore());
+            gs.setScoreAway(request.getAwayScore());
+
+            entityService.updateItem("gameScore", ENTITY_VERSION, gs).get();
         } catch (Exception e) {
             logger.error("Error updating GameScore with id: {}", request.getId(), e);
             throw new ResponseStatusException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, "Failed to update GameScore");
@@ -212,10 +230,10 @@ public class Controller {
     }
 
     @DeleteMapping("/gamescores")
-    public ResponseEntity<?> deleteGameScore(@Valid @ModelAttribute GameScoreDeleteRequest request) {
+    public ResponseEntity<?> deleteGameScore(@Valid @ModelAttribute GameScoreDeleteRequest request) throws ExecutionException, InterruptedException {
         logger.info("Deleting GameScore with id: {}", request.getId());
         try {
-            entityService.deleteItem("gameScore", ENTITY_VERSION, request.getId());
+            UUID deletedId = entityService.deleteItem("gameScore", ENTITY_VERSION, UUID.fromString(request.getId())).get();
         } catch (Exception e) {
             logger.error("GameScore not found with id: {}", request.getId());
             throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "GameScore not found");
