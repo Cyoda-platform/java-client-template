@@ -1,0 +1,66 @@
+{
+    "description": "Subscriber entity lifecycle workflow",
+    "initial_state": "none",
+    "states": {
+        "active": {
+            "transitions": [
+                {
+                    "deactivate": {
+                        "next": "inactive"
+                    }
+                }
+            ]
+        },
+        "inactive": {
+            "transitions": []
+        },
+        "invalid": {
+            "transitions": []
+        },
+        "new": {
+            "transitions": [
+                {
+                    "validate_and_check_duplicate": {
+                        "criterion": {
+                            "function": {
+                                "name": "SubscriberEmailValidationCriterion"
+                            },
+                            "type": "function"
+                        },
+                        "next": "validated"
+                    }
+                },
+                {
+                    "invalid_email_or_duplicate": {
+                        "next": "invalid"
+                    }
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "transition_to_new": {
+                        "next": "new"
+                    }
+                }
+            ]
+        },
+        "validated": {
+            "transitions": [
+                {
+                    "activate_subscriber": {
+                        "next": "active",
+                        "processors": [
+                            {
+                                "name": "SubscriberProcessor"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "subscriber_workflow"
+}
