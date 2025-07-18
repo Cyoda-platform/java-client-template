@@ -1,0 +1,86 @@
+{
+    "description": "DigestJob orchestration workflow FSM with states, transitions, unique processors and criteria",
+    "initial_state": "none",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "start_processing": {
+                        "criterion": {
+                            "function": {
+                                "name": "ValidPetDataQueryCriterion"
+                            },
+                            "type": "function"
+                        },
+                        "next": "pending"
+                    }
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "to_processing_valid": {
+                        "criterion": {
+                            "function": {
+                                "name": "HasEmailRecipientsCriterion"
+                            },
+                            "type": "function"
+                        },
+                        "next": "processing"
+                    }
+                },
+                {
+                    "to_failed_invalid": {
+                        "criterion": {
+                            "function": {
+                                "name": "InvalidJobDataCriterion"
+                            },
+                            "type": "function"
+                        },
+                        "next": "failed"
+                    }
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "to_completed": {
+                        "criterion": {
+                            "function": {
+                                "name": "AllPetDataProcessedAndEmailsSentCriterion"
+                            },
+                            "type": "function"
+                        },
+                        "next": "completed",
+                        "processors": [
+                            {
+                                "name": "EmailDispatchProcessor"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "to_failed_processing_error": {
+                        "criterion": {
+                            "function": {
+                                "name": "ProcessingFailedCriterion"
+                            },
+                            "type": "function"
+                        },
+                        "next": "failed"
+                    }
+                }
+            ]
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "digest_job_workflow"
+}
