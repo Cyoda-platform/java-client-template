@@ -1,12 +1,14 @@
-Here is the generated EntityControllerPrototype.java for the DigestRequest entity, implementing the event-driven API design and validation as per your requirements:
-
-```java
 package com.java_template.prototype;
 
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
+import org.springframework.validation.annotation.Validated;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.*;
@@ -15,30 +17,79 @@ import com.java_template.application.entity.DigestRequest;
 @RestController
 @RequestMapping(path = "/prototype")
 @Slf4j
+@Validated
 public class EntityControllerPrototype {
+
+    private static final Logger logger = LoggerFactory.getLogger(EntityControllerPrototype.class);
 
     private final ConcurrentHashMap<String, DigestRequest> digestRequestCache = new ConcurrentHashMap<>();
     private final AtomicLong digestRequestIdCounter = new AtomicLong(1);
 
+    // DTO for POST and PUT requests - primitives and String only, with validation annotations
+    public static class DigestRequestDTO {
+        @NotBlank(message = "userId must not be blank")
+        private String userId;
+
+        @NotBlank(message = "externalApiUrl must not be blank")
+        @Pattern(regexp = "^https?://.+", message = "externalApiUrl must be a valid URL starting with http or https")
+        private String externalApiUrl;
+
+        @NotNull(message = "emailRecipients must not be null")
+        @Size(min = 1, message = "emailRecipients must contain at least one email")
+        private List<@Email(message = "emailRecipients must contain valid email addresses") String> emailRecipients;
+
+        private String emailTemplateId; // optional, no constraints
+
+        public String getUserId() {
+            return userId;
+        }
+        public void setUserId(String userId) {
+            this.userId = userId;
+        }
+        public String getExternalApiUrl() {
+            return externalApiUrl;
+        }
+        public void setExternalApiUrl(String externalApiUrl) {
+            this.externalApiUrl = externalApiUrl;
+        }
+        public List<String> getEmailRecipients() {
+            return emailRecipients;
+        }
+        public void setEmailRecipients(List<String> emailRecipients) {
+            this.emailRecipients = emailRecipients;
+        }
+        public String getEmailTemplateId() {
+            return emailTemplateId;
+        }
+        public void setEmailTemplateId(String emailTemplateId) {
+            this.emailTemplateId = emailTemplateId;
+        }
+    }
+
     @PostMapping("/digest-request")
-    public ResponseEntity<?> createDigestRequest(@RequestBody DigestRequest request) {
-        if (request == null) {
-            log.error("DigestRequest creation failed: request body is null");
+    public ResponseEntity<?> createDigestRequest(@RequestBody @Valid DigestRequestDTO dto) {
+        if (dto == null) {
+            logger.error("DigestRequest creation failed: request body is null");
             return ResponseEntity.badRequest().body("Request body cannot be null");
         }
 
-        // Generate business ID as string of atomic counter
         String id = String.valueOf(digestRequestIdCounter.getAndIncrement());
-        request.setId(id);
 
-        // Set initial status and timestamps
+        DigestRequest request = new DigestRequest();
+        request.setId(id);
+        // technicalId is private UUID - assumed generated elsewhere or null here
+        request.setUserId(dto.getUserId());
+        request.setExternalApiUrl(dto.getExternalApiUrl());
+        request.setEmailRecipients(dto.getEmailRecipients());
+        request.setEmailTemplateId(dto.getEmailTemplateId());
         request.setStatus(DigestRequest.StatusEnum.PENDING);
-        request.setCreatedAt(java.time.LocalDateTime.now());
-        request.setUpdatedAt(java.time.LocalDateTime.now());
-        request.setRequestTime(java.time.LocalDateTime.now());
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        request.setCreatedAt(now);
+        request.setUpdatedAt(now);
+        request.setRequestTime(now);
 
         if (!request.isValid()) {
-            log.error("DigestRequest creation failed: validation errors for id {}", id);
+            logger.error("DigestRequest creation failed: validation errors for id {}", id);
             return ResponseEntity.badRequest().body("Validation failed: required fields missing or invalid");
         }
 
@@ -50,61 +101,64 @@ public class EntityControllerPrototype {
         response.put("status", request.getStatus());
         response.put("createdAt", request.getCreatedAt());
 
-        log.info("DigestRequest created with ID: {}", id);
+        logger.info("DigestRequest created with ID: {}", id);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
     @GetMapping("/digest-request/{id}")
-    public ResponseEntity<?> getDigestRequest(@PathVariable String id) {
+    public ResponseEntity<?> getDigestRequest(
+            @PathVariable @NotBlank(message = "id path variable must not be blank") String id) {
         DigestRequest request = digestRequestCache.get(id);
         if (request == null) {
-            log.error("DigestRequest GET failed: no entity found with ID {}", id);
+            logger.error("DigestRequest GET failed: no entity found with ID {}", id);
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("DigestRequest not found");
         }
         return ResponseEntity.ok(request);
     }
 
     @PutMapping("/digest-request/{id}")
-    public ResponseEntity<?> updateDigestRequest(@PathVariable String id, @RequestBody DigestRequest updatedRequest) {
+    public ResponseEntity<?> updateDigestRequest(
+            @PathVariable @NotBlank(message = "id path variable must not be blank") String id,
+            @RequestBody @Valid DigestRequestDTO dto) {
         DigestRequest existingRequest = digestRequestCache.get(id);
         if (existingRequest == null) {
-            log.error("DigestRequest update failed: no entity found with ID {}", id);
+            logger.error("DigestRequest update failed: no entity found with ID {}", id);
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("DigestRequest not found");
         }
 
-        // Update fields except id and technicalId
-        existingRequest.setUserId(updatedRequest.getUserId());
-        existingRequest.setExternalApiUrl(updatedRequest.getExternalApiUrl());
-        existingRequest.setEmailRecipients(updatedRequest.getEmailRecipients());
-        existingRequest.setEmailTemplateId(updatedRequest.getEmailTemplateId());
+        existingRequest.setUserId(dto.getUserId());
+        existingRequest.setExternalApiUrl(dto.getExternalApiUrl());
+        existingRequest.setEmailRecipients(dto.getEmailRecipients());
+        existingRequest.setEmailTemplateId(dto.getEmailTemplateId());
         existingRequest.setUpdatedAt(java.time.LocalDateTime.now());
         existingRequest.setStatus(DigestRequest.StatusEnum.PENDING); // Reset status to trigger processing
 
         if (!existingRequest.isValid()) {
-            log.error("DigestRequest update failed validation for ID {}", id);
+            logger.error("DigestRequest update failed validation for ID {}", id);
             return ResponseEntity.badRequest().body("Validation failed: required fields missing or invalid");
         }
 
         digestRequestCache.put(id, existingRequest);
         processDigestRequest(existingRequest);
 
-        log.info("DigestRequest updated and processing triggered for ID: {}", id);
+        logger.info("DigestRequest updated and processing triggered for ID: {}", id);
         return ResponseEntity.ok(existingRequest);
     }
 
     @DeleteMapping("/digest-request/{id}")
-    public ResponseEntity<?> deleteDigestRequest(@PathVariable String id) {
+    public ResponseEntity<?> deleteDigestRequest(
+            @PathVariable @NotBlank(message = "id path variable must not be blank") String id) {
         DigestRequest removed = digestRequestCache.remove(id);
         if (removed == null) {
-            log.error("DigestRequest delete failed: no entity found with ID {}", id);
+            logger.error("DigestRequest delete failed: no entity found with ID {}", id);
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("DigestRequest not found");
         }
-        log.info("DigestRequest deleted with ID: {}", id);
+        logger.info("DigestRequest deleted with ID: {}", id);
         return ResponseEntity.ok("DigestRequest deleted successfully");
     }
 
     private void processDigestRequest(DigestRequest entity) {
-        log.info("Processing DigestRequest with ID: {}", entity.getId());
+        logger.info("Processing DigestRequest with ID: {}", entity.getId());
 
         // TODO: Implement actual business logic here
         // Examples:
@@ -124,11 +178,6 @@ public class EntityControllerPrototype {
         entity.setUpdatedAt(java.time.LocalDateTime.now());
 
         digestRequestCache.put(entity.getId(), entity);
-        log.info("Completed processing DigestRequest with ID: {}", entity.getId());
+        logger.info("Completed processing DigestRequest with ID: {}", entity.getId());
     }
 }
-```
-
-This prototype controller exposes REST endpoints for DigestRequest entity CRUD operations with in-memory caching and basic validation. The `processDigestRequest` method is a placeholder for your business logic.
-
-If you are satisfied or have further requests, please let me know! Otherwise, I can finish the discussion.
