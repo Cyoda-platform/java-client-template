@@ -1,0 +1,42 @@
+{
+  "version": "1.0",
+  "description": "Workflow for Job entity with processing simulation",
+  "initial_state": "none",
+  "workflow_name": "job_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "create_job": {
+          "next": "created",
+          "processors": [
+            {
+              "name": "JobProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "created": {
+      "transitions": {
+        "update_job": {
+          "next": "updated",
+          "processors": [
+            {
+              "name": "JobProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "updated": {
+      "transitions": {
+        "delete_job": {
+          "next": "deleted"
+        }
+      }
+    },
+    "deleted": {
+      "transitions": {}
+    }
+  }
+}
