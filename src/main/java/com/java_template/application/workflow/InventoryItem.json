@@ -1,0 +1,48 @@
+{
+  "version": "1.0",
+  "description": "Workflow FSM for InventoryItem entity representing its business process",
+  "initial_state": "none",
+  "workflow_name": "inventoryItem_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_validation": {
+          "next": "validation",
+          "processors": [
+            {
+              "name": "InventoryItemValidationProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "validation": {
+      "transitions": {
+        "validation_passed": {
+          "next": "transformation",
+          "processors": [
+            {
+              "name": "InventoryItemTransformationProcessor"
+            }
+          ]
+        },
+        "validation_failed": {
+          "next": "error"
+        }
+      }
+    },
+    "transformation": {
+      "transitions": {
+        "complete": {
+          "next": "completed"
+        }
+      }
+    },
+    "error": {
+      "transitions": {}
+    },
+    "completed": {
+      "transitions": {}
+    }
+  }
+}
