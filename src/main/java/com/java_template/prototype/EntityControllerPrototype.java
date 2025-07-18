@@ -1,39 +1,33 @@
-```java
 package com.java_template.prototype;
 
 import com.java_template.application.entity.GameScore;
 import com.java_template.application.entity.Job;
 import com.java_template.application.entity.Subscription;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
 import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.*;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
+@Validated
 @RestController
 @RequestMapping(path = "/prototype")
 public class EntityControllerPrototype {
 
     private static final Logger logger = LoggerFactory.getLogger(EntityControllerPrototype.class);
 
-    /*
-     * Caches for entities
-     * Key = entity ID (String)
-     * Value = entity instance
-     */
     private final ConcurrentHashMap<String, Job> jobCache = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Subscription> subscriptionCache = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, GameScore> gameScoreCache = new ConcurrentHashMap<>();
 
-    /*
-     * Atomic counters for generating incremental business IDs (String).
-     * Technical UUID is generated per entity instance.
-     */
     private final AtomicLong jobIdCounter = new AtomicLong(1);
     private final AtomicLong subscriptionIdCounter = new AtomicLong(1);
     private final AtomicLong gameScoreIdCounter = new AtomicLong(1);
@@ -41,185 +35,206 @@ public class EntityControllerPrototype {
     // ==================== JOB ENDPOINTS ====================
 
     @PostMapping("/jobs")
-    public Map<String, Object> createJob(@RequestBody Job job) {
-        logger.info("Received request to create Job: {}", job);
+    public ResponseEntity<?> createJob(@RequestBody @Valid JobCreateRequest request) {
+        logger.info("Received request to create Job: {}", request);
         try {
+            Job job = new Job();
+            job.setName(request.getName());
+            job.setDescription(request.getDescription());
             String id = addJob(job);
             logger.info("Job created with id: {}", id);
-            return Map.of(
-                    "id", id,
-                    "status", "Job created and processed"
-            );
+            return ResponseEntity.ok().body(new IdResponse(id, "Job created and processed"));
+        } catch (IllegalArgumentException e) {
+            logger.error("Invalid Job data: {}", e.getMessage());
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, e.getMessage());
         } catch (Exception e) {
             logger.error("Error creating Job", e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to create Job");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, "Failed to create Job");
         }
     }
 
-    @GetMapping("/jobs/{id}")
-    public Job getJob(@PathVariable String id) {
+    @GetMapping("/jobs")
+    // Using @ModelAttribute for GET parameters validation workaround
+    public ResponseEntity<Job> getJob(@Valid @ModelAttribute JobGetRequest request) {
+        String id = request.getId();
         logger.info("Fetching Job with id: {}", id);
         Job job = jobCache.get(id);
         if (job == null) {
             logger.error("Job not found with id: {}", id);
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Job not found");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Job not found");
         }
-        return job;
+        return ResponseEntity.ok(job);
     }
 
-    @PutMapping("/jobs/{id}")
-    public Map<String, Object> updateJob(@PathVariable String id, @RequestBody Job job) {
+    @PutMapping("/jobs")
+    public ResponseEntity<?> updateJob(@RequestBody @Valid JobUpdateRequest request) {
+        String id = request.getId();
         logger.info("Updating Job with id: {}", id);
-        if (!jobCache.containsKey(id)) {
+        Job existing = jobCache.get(id);
+        if (existing == null) {
             logger.error("Job not found with id: {}", id);
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Job not found");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Job not found");
         }
-        job.setId(id);
-        job.setTechnicalId(UUID.randomUUID());
-        if (!job.isValid()) {
+        existing.setName(request.getName());
+        existing.setDescription(request.getDescription());
+        existing.setTechnicalId(UUID.randomUUID());
+        if (!existing.isValid()) {
             logger.error("Job validation failed for id: {}", id);
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid Job data");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid Job data");
         }
-        jobCache.put(id, job);
-        processJob(job);
-        return Map.of(
-                "id", id,
-                "status", "Job updated and processed"
-        );
+        jobCache.put(id, existing);
+        processJob(existing);
+        return ResponseEntity.ok(new IdResponse(id, "Job updated and processed"));
     }
 
-    @DeleteMapping("/jobs/{id}")
-    public Map<String, String> deleteJob(@PathVariable String id) {
+    @DeleteMapping("/jobs")
+    public ResponseEntity<?> deleteJob(@Valid @ModelAttribute JobDeleteRequest request) {
+        String id = request.getId();
         logger.info("Deleting Job with id: {}", id);
         Job removed = jobCache.remove(id);
         if (removed == null) {
             logger.error("Job not found with id: {}", id);
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Job not found");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Job not found");
         }
-        // Optionally process entity deletion event here if needed
-        return Map.of("status", "Job deleted");
+        return ResponseEntity.ok(new StatusResponse("Job deleted"));
     }
 
     // ==================== SUBSCRIPTION ENDPOINTS ====================
 
     @PostMapping("/subscriptions")
-    public Map<String, Object> createSubscription(@RequestBody Subscription subscription) {
-        logger.info("Received request to create Subscription: {}", subscription);
+    public ResponseEntity<?> createSubscription(@RequestBody @Valid SubscriptionCreateRequest request) {
+        logger.info("Received request to create Subscription: {}", request);
         try {
-            String id = addSubscription(subscription);
+            Subscription sub = new Subscription();
+            sub.setEmail(request.getEmail());
+            sub.setFrequency(request.getFrequency());
+            String id = addSubscription(sub);
             logger.info("Subscription created with id: {}", id);
-            return Map.of(
-                    "id", id,
-                    "status", "Subscription created and processed"
-            );
+            return ResponseEntity.ok(new IdResponse(id, "Subscription created and processed"));
+        } catch (IllegalArgumentException e) {
+            logger.error("Invalid Subscription data: {}", e.getMessage());
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, e.getMessage());
         } catch (Exception e) {
             logger.error("Error creating Subscription", e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to create Subscription");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, "Failed to create Subscription");
         }
     }
 
-    @GetMapping("/subscriptions/{id}")
-    public Subscription getSubscription(@PathVariable String id) {
+    @GetMapping("/subscriptions")
+    public ResponseEntity<Subscription> getSubscription(@Valid @ModelAttribute SubscriptionGetRequest request) {
+        String id = request.getId();
         logger.info("Fetching Subscription with id: {}", id);
-        Subscription subscription = subscriptionCache.get(id);
-        if (subscription == null) {
+        Subscription sub = subscriptionCache.get(id);
+        if (sub == null) {
             logger.error("Subscription not found with id: {}", id);
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Subscription not found");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Subscription not found");
         }
-        return subscription;
+        return ResponseEntity.ok(sub);
     }
 
-    @PutMapping("/subscriptions/{id}")
-    public Map<String, Object> updateSubscription(@PathVariable String id, @RequestBody Subscription subscription) {
+    @PutMapping("/subscriptions")
+    public ResponseEntity<?> updateSubscription(@RequestBody @Valid SubscriptionUpdateRequest request) {
+        String id = request.getId();
         logger.info("Updating Subscription with id: {}", id);
-        if (!subscriptionCache.containsKey(id)) {
+        Subscription existing = subscriptionCache.get(id);
+        if (existing == null) {
             logger.error("Subscription not found with id: {}", id);
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Subscription not found");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Subscription not found");
         }
-        subscription.setId(id);
-        subscription.setTechnicalId(UUID.randomUUID());
-        if (!subscription.isValid()) {
+        existing.setEmail(request.getEmail());
+        existing.setFrequency(request.getFrequency());
+        existing.setTechnicalId(UUID.randomUUID());
+        if (!existing.isValid()) {
             logger.error("Subscription validation failed for id: {}", id);
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid Subscription data");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid Subscription data");
         }
-        subscriptionCache.put(id, subscription);
-        processSubscription(subscription);
-        return Map.of(
-                "id", id,
-                "status", "Subscription updated and processed"
-        );
+        subscriptionCache.put(id, existing);
+        processSubscription(existing);
+        return ResponseEntity.ok(new IdResponse(id, "Subscription updated and processed"));
     }
 
-    @DeleteMapping("/subscriptions/{id}")
-    public Map<String, String> deleteSubscription(@PathVariable String id) {
+    @DeleteMapping("/subscriptions")
+    public ResponseEntity<?> deleteSubscription(@Valid @ModelAttribute SubscriptionDeleteRequest request) {
+        String id = request.getId();
         logger.info("Deleting Subscription with id: {}", id);
         Subscription removed = subscriptionCache.remove(id);
         if (removed == null) {
             logger.error("Subscription not found with id: {}", id);
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Subscription not found");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Subscription not found");
         }
-        return Map.of("status", "Subscription deleted");
+        return ResponseEntity.ok(new StatusResponse("Subscription deleted"));
     }
 
     // ==================== GAMESCORE ENDPOINTS ====================
 
     @PostMapping("/gamescores")
-    public Map<String, Object> createGameScore(@RequestBody GameScore gameScore) {
-        logger.info("Received request to create GameScore: {}", gameScore);
+    public ResponseEntity<?> createGameScore(@RequestBody @Valid GameScoreCreateRequest request) {
+        logger.info("Received request to create GameScore: {}", request);
         try {
-            String id = addGameScore(gameScore);
+            GameScore gs = new GameScore();
+            gs.setGameId(request.getGameId());
+            gs.setHomeTeam(request.getHomeTeam());
+            gs.setAwayTeam(request.getAwayTeam());
+            gs.setHomeScore(request.getHomeScore());
+            gs.setAwayScore(request.getAwayScore());
+            String id = addGameScore(gs);
             logger.info("GameScore created with id: {}", id);
-            return Map.of(
-                    "id", id,
-                    "status", "GameScore created and processed"
-            );
+            return ResponseEntity.ok(new IdResponse(id, "GameScore created and processed"));
+        } catch (IllegalArgumentException e) {
+            logger.error("Invalid GameScore data: {}", e.getMessage());
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, e.getMessage());
         } catch (Exception e) {
             logger.error("Error creating GameScore", e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to create GameScore");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, "Failed to create GameScore");
         }
     }
 
-    @GetMapping("/gamescores/{id}")
-    public GameScore getGameScore(@PathVariable String id) {
+    @GetMapping("/gamescores")
+    public ResponseEntity<GameScore> getGameScore(@Valid @ModelAttribute GameScoreGetRequest request) {
+        String id = request.getId();
         logger.info("Fetching GameScore with id: {}", id);
-        GameScore gameScore = gameScoreCache.get(id);
-        if (gameScore == null) {
+        GameScore gs = gameScoreCache.get(id);
+        if (gs == null) {
             logger.error("GameScore not found with id: {}", id);
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "GameScore not found");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "GameScore not found");
         }
-        return gameScore;
+        return ResponseEntity.ok(gs);
     }
 
-    @PutMapping("/gamescores/{id}")
-    public Map<String, Object> updateGameScore(@PathVariable String id, @RequestBody GameScore gameScore) {
+    @PutMapping("/gamescores")
+    public ResponseEntity<?> updateGameScore(@RequestBody @Valid GameScoreUpdateRequest request) {
+        String id = request.getId();
         logger.info("Updating GameScore with id: {}", id);
-        if (!gameScoreCache.containsKey(id)) {
+        GameScore existing = gameScoreCache.get(id);
+        if (existing == null) {
             logger.error("GameScore not found with id: {}", id);
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "GameScore not found");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "GameScore not found");
         }
-        gameScore.setId(id);
-        gameScore.setTechnicalId(UUID.randomUUID());
-        if (!gameScore.isValid()) {
+        existing.setGameId(request.getGameId());
+        existing.setHomeTeam(request.getHomeTeam());
+        existing.setAwayTeam(request.getAwayTeam());
+        existing.setHomeScore(request.getHomeScore());
+        existing.setAwayScore(request.getAwayScore());
+        existing.setTechnicalId(UUID.randomUUID());
+        if (!existing.isValid()) {
             logger.error("GameScore validation failed for id: {}", id);
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid GameScore data");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid GameScore data");
         }
-        gameScoreCache.put(id, gameScore);
-        processGameScore(gameScore);
-        return Map.of(
-                "id", id,
-                "status", "GameScore updated and processed"
-        );
+        gameScoreCache.put(id, existing);
+        processGameScore(existing);
+        return ResponseEntity.ok(new IdResponse(id, "GameScore updated and processed"));
     }
 
-    @DeleteMapping("/gamescores/{id}")
-    public Map<String, String> deleteGameScore(@PathVariable String id) {
+    @DeleteMapping("/gamescores")
+    public ResponseEntity<?> deleteGameScore(@Valid @ModelAttribute GameScoreDeleteRequest request) {
+        String id = request.getId();
         logger.info("Deleting GameScore with id: {}", id);
         GameScore removed = gameScoreCache.remove(id);
         if (removed == null) {
             logger.error("GameScore not found with id: {}", id);
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "GameScore not found");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "GameScore not found");
         }
-        return Map.of("status", "GameScore deleted");
+        return ResponseEntity.ok(new StatusResponse("GameScore deleted"));
     }
 
     // ==================== ENTITY CACHE MANAGEMENT & EVENT PROCESSING ====================
@@ -239,7 +254,6 @@ public class EntityControllerPrototype {
     }
 
     private void processJob(Job job) {
-        // Simulate event processing triggered by Cyoda - e.g. enqueue job, run scheduling, etc.
         logger.info("Processing Job event for id: {}", job.getId());
         // TODO: Replace this mock logic with actual event processing integration
     }
@@ -259,7 +273,6 @@ public class EntityControllerPrototype {
     }
 
     private void processSubscription(Subscription subscription) {
-        // Simulate event processing for subscription changes (e.g. send confirmation email)
         logger.info("Processing Subscription event for id: {}", subscription.getId());
         // TODO: Replace this mock logic with actual event processing integration
     }
@@ -279,9 +292,143 @@ public class EntityControllerPrototype {
     }
 
     private void processGameScore(GameScore gameScore) {
-        // Simulate event processing for new or updated game scores (e.g. notify subscribers)
         logger.info("Processing GameScore event for id: {}", gameScore.getId());
         // TODO: Replace this mock logic with actual event processing integration
     }
+
+    // ==================== REQUEST & RESPONSE DTOs ====================
+
+    @Data
+    public static class JobCreateRequest {
+        @NotBlank
+        @Size(max = 100)
+        private String name;
+
+        @Size(max = 500)
+        private String description;
+    }
+
+    @Data
+    public static class JobGetRequest {
+        @NotBlank
+        private String id;
+    }
+
+    @Data
+    public static class JobUpdateRequest {
+        @NotBlank
+        private String id;
+
+        @NotBlank
+        @Size(max = 100)
+        private String name;
+
+        @Size(max = 500)
+        private String description;
+    }
+
+    @Data
+    public static class JobDeleteRequest {
+        @NotBlank
+        private String id;
+    }
+
+    @Data
+    public static class SubscriptionCreateRequest {
+        @NotBlank
+        @Email
+        private String email;
+
+        @NotBlank
+        @Pattern(regexp = "daily|weekly|monthly", flags = Pattern.Flag.CASE_INSENSITIVE)
+        private String frequency;
+    }
+
+    @Data
+    public static class SubscriptionGetRequest {
+        @NotBlank
+        private String id;
+    }
+
+    @Data
+    public static class SubscriptionUpdateRequest {
+        @NotBlank
+        private String id;
+
+        @NotBlank
+        @Email
+        private String email;
+
+        @NotBlank
+        @Pattern(regexp = "daily|weekly|monthly", flags = Pattern.Flag.CASE_INSENSITIVE)
+        private String frequency;
+    }
+
+    @Data
+    public static class SubscriptionDeleteRequest {
+        @NotBlank
+        private String id;
+    }
+
+    @Data
+    public static class GameScoreCreateRequest {
+        @NotBlank
+        private String gameId;
+
+        @NotBlank
+        private String homeTeam;
+
+        @NotBlank
+        private String awayTeam;
+
+        @Min(0)
+        private int homeScore;
+
+        @Min(0)
+        private int awayScore;
+    }
+
+    @Data
+    public static class GameScoreGetRequest {
+        @NotBlank
+        private String id;
+    }
+
+    @Data
+    public static class GameScoreUpdateRequest {
+        @NotBlank
+        private String id;
+
+        @NotBlank
+        private String gameId;
+
+        @NotBlank
+        private String homeTeam;
+
+        @NotBlank
+        private String awayTeam;
+
+        @Min(0)
+        private int homeScore;
+
+        @Min(0)
+        private int awayScore;
+    }
+
+    @Data
+    public static class GameScoreDeleteRequest {
+        @NotBlank
+        private String id;
+    }
+
+    @Data
+    public static class IdResponse {
+        private final String id;
+        private final String status;
+    }
+
+    @Data
+    public static class StatusResponse {
+        private final String status;
+    }
 }
-```
