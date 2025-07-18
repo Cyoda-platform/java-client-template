@@ -1,0 +1,22 @@
+private void processPurrfectPetsJob(PurrfectPetsJob job) {
+    log.info("Processing PurrfectPetsJob with jobId: {}", job.getJobId());
+    if (!job.getJobType().equals("PetDataSync") && !job.getJobType().equals("AdoptionProcessing")) {
+        job.setStatus("FAILED");
+        log.error("Invalid jobType: {}", job.getJobType());
+        return;
+    }
+    job.setStatus("PROCESSING");
+
+    try {
+        if (job.getJobType().equals("PetDataSync")) {
+            log.info("Syncing pet data from Petstore API...");
+        } else if (job.getJobType().equals("AdoptionProcessing")) {
+            log.info("Processing adoption requests...");
+        }
+        job.setStatus("COMPLETED");
+        log.info("Job {} completed successfully", job.getJobId());
+    } catch (Exception e) {
+        job.setStatus("FAILED");
+        log.error("Job {} failed processing: {}", job.getJobId(), e.getMessage());
+    }
+}
