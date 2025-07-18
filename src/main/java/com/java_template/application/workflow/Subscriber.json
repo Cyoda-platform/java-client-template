@@ -1,0 +1,63 @@
+```json
+{
+  "version": "1.0",
+  "description": "Workflow FSM for Subscriber entity lifecycle",
+  "initial_state": "none",
+  "workflow_name": "Subscriber_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "activate_if_subscription_active": {
+          "next": "ACTIVE",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "SubscriptionActiveCriterion"
+            }
+          }
+        },
+        "deactivate_if_subscription_inactive": {
+          "next": "INACTIVE",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "SubscriptionInactiveCriterion"
+            }
+          }
+        }
+      }
+    },
+    "ACTIVE": {
+      "transitions": {
+        "deactivate_subscription": {
+          "next": "INACTIVE",
+          "processors": [
+            {
+              "name": "SubscriberProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "INACTIVE": {
+      "transitions": {
+        "reactivate_subscription": {
+          "next": "ACTIVE",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "SubscriptionReactivationCriterion"
+            }
+          }
+        },
+        "cancel_subscription": {
+          "next": "CANCELLED"
+        }
+      }
+    },
+    "CANCELLED": {
+      "transitions": {}
+    }
+  }
+}
+```
