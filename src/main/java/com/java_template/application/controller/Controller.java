@@ -60,7 +60,6 @@ public class GameScoreFetchJobController {
                     job.setTechnicalId(technicalId);
                     job.setId(technicalId.toString());
                     logger.info("Created GameScoreFetchJob with technicalId: {}", technicalId);
-                    processGameScoreFetchJob(job);
                     return ResponseEntity.status(HttpStatus.CREATED).body(job);
                 });
     }
@@ -92,7 +91,6 @@ public class GameScoreFetchJobController {
         return entityService.updateItem("GameScoreFetchJob", ENTITY_VERSION, technicalId, job)
                 .thenApply(updatedId -> {
                     logger.info("Updated GameScoreFetchJob with technicalId: {}", updatedId);
-                    processGameScoreFetchJob(job);
                     return ResponseEntity.ok(job);
                 });
     }
@@ -105,16 +103,6 @@ public class GameScoreFetchJobController {
                     logger.info("Deleted GameScoreFetchJob with technicalId: {}", deletedId);
                     return ResponseEntity.ok("Deleted GameScoreFetchJob with technicalId: " + deletedId);
                 });
-    }
-
-    private void processGameScoreFetchJob(GameScoreFetchJob job) {
-        logger.info("Processing GameScoreFetchJob with technicalId: {}", job.getTechnicalId());
-        // TODO: Implement actual business logic per requirements:
-        // - Validate scheduledDate
-        // - Fetch NBA game scores from external API
-        // - Save/update NbaGameScore entities via NbaGameScoreController or entityService
-        // - Update job status
-        // - Trigger notifications if necessary
     }
 }
 
@@ -172,7 +160,6 @@ class NbaGameScoreController {
                     gameScore.setTechnicalId(technicalId);
                     gameScore.setId(technicalId.toString());
                     logger.info("Created NbaGameScore with technicalId: {}", technicalId);
-                    processNbaGameScore(gameScore);
                     return ResponseEntity.status(HttpStatus.CREATED).body(gameScore);
                 });
     }
@@ -208,7 +195,6 @@ class NbaGameScoreController {
         return entityService.updateItem("NbaGameScore", ENTITY_VERSION, technicalId, gameScore)
                 .thenApply(updatedId -> {
                     logger.info("Updated NbaGameScore with technicalId: {}", updatedId);
-                    processNbaGameScore(gameScore);
                     return ResponseEntity.ok(gameScore);
                 });
     }
@@ -221,14 +207,6 @@ class NbaGameScoreController {
                     logger.info("Deleted NbaGameScore with technicalId: {}", deletedId);
                     return ResponseEntity.ok("Deleted NbaGameScore with technicalId: " + deletedId);
                 });
-    }
-
-    private void processNbaGameScore(NbaGameScore gameScore) {
-        logger.info("Processing NbaGameScore with technicalId: {}", gameScore.getTechnicalId());
-        // TODO: Implement actual business logic per requirements:
-        // - Validate completeness of score data
-        // - Update status to PROCESSED
-        // - Trigger notifications for subscribers interested in teams
     }
 }
 
@@ -266,7 +244,6 @@ class SubscriberController {
                     subscriber.setTechnicalId(technicalId);
                     subscriber.setId(technicalId.toString());
                     logger.info("Created Subscriber with technicalId: {}", technicalId);
-                    processSubscriber(subscriber);
                     return ResponseEntity.status(HttpStatus.CREATED).body(subscriber);
                 });
     }
@@ -297,7 +274,6 @@ class SubscriberController {
         return entityService.updateItem("Subscriber", ENTITY_VERSION, technicalId, subscriber)
                 .thenApply(updatedId -> {
                     logger.info("Updated Subscriber with technicalId: {}", updatedId);
-                    processSubscriber(subscriber);
                     return ResponseEntity.ok(subscriber);
                 });
     }
@@ -310,12 +286,5 @@ class SubscriberController {
                     logger.info("Deleted Subscriber with technicalId: {}", deletedId);
                     return ResponseEntity.ok("Deleted Subscriber with technicalId: " + deletedId);
                 });
-    }
-
-    private void processSubscriber(Subscriber subscriber) {
-        logger.info("Processing Subscriber with technicalId: {}", subscriber.getTechnicalId());
-        // TODO: Implement actual business logic per requirements:
-        // - Validate contactInfo and preferences
-        // - No further automatic processing unless triggered by GameScore events
     }
 }
