@@ -33,7 +33,7 @@ public class Controller {
     private final EntityService entityService;
     private final ObjectMapper objectMapper;
 
-    private static final String ENTITY_NAME_JOB = "Job";
+    private static final String ENTITY_NAME_JOB = "job";
 
     public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
@@ -41,7 +41,7 @@ public class Controller {
     }
 
     @PostMapping
-    public ResponseEntity<CreateResponse> createJob(@RequestBody @Valid JobCreateUpdateDTO jobDto) throws ExecutionException, InterruptedException {
+    public ResponseEntity<CreateResponse> createJob(@RequestBody @Valid JobCreateUpdateDTO jobDto) throws ExecutionException, InterruptedException, JsonProcessingException {
         logger.info("Received request to create Job: {}", jobDto);
         Job job = toJob(jobDto);
         if (!job.isValid()) {
@@ -55,13 +55,12 @@ public class Controller {
         UUID technicalId = idFuture.get();
         job.setTechnicalId(technicalId);
         logger.info("Job created with technicalId: {}", technicalId);
-        // Business logic moved to processors, only persist here
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new CreateResponse(technicalId.toString(), "Job created and processed"));
     }
 
     @GetMapping
-    public ResponseEntity<List<Job>> listJobs() throws ExecutionException, InterruptedException {
+    public ResponseEntity<List<Job>> listJobs() throws ExecutionException, InterruptedException, JsonProcessingException {
         logger.info("Listing all Jobs");
         CompletableFuture<ArrayNode> itemsFuture = entityService.getItems(ENTITY_NAME_JOB, ENTITY_VERSION);
         ArrayNode items = itemsFuture.get();
@@ -71,7 +70,9 @@ public class Controller {
                     try {
                         CompletableFuture<ObjectNode> itemFuture = entityService.getItem(ENTITY_NAME_JOB, ENTITY_VERSION, UUID.fromString(id));
                         ObjectNode obj = itemFuture.get();
-                        return objectMapper.treeToValue(obj, Job.class);
+                        Job job = objectMapper.treeToValue(obj, Job.class);
+                        job.setTechnicalId(UUID.fromString(id));
+                        return job;
                     } catch (JsonProcessingException | InterruptedException | ExecutionException e) {
                         throw new RuntimeException(e);
                     }
@@ -80,7 +81,7 @@ public class Controller {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Job> getJob(@PathVariable @NotBlank String id) throws ExecutionException, InterruptedException {
+    public ResponseEntity<Job> getJob(@PathVariable @NotBlank String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         logger.info("Fetching Job with technicalId: {}", id);
         UUID uuid = UUID.fromString(id);
         CompletableFuture<ObjectNode> itemFuture = entityService.getItem(ENTITY_NAME_JOB, ENTITY_VERSION, uuid);
@@ -89,20 +90,14 @@ public class Controller {
             logger.error("Job not found with technicalId: {}", id);
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Job not found");
         }
-        Job job;
-        try {
-            job = objectMapper.treeToValue(obj, Job.class);
-        } catch (JsonProcessingException e) {
-            logger.error("Error parsing Job entity for technicalId: {}", id, e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error parsing Job entity");
-        }
+        Job job = objectMapper.treeToValue(obj, Job.class);
         job.setTechnicalId(uuid);
         return ResponseEntity.ok(job);
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<CreateResponse> updateJob(@PathVariable @NotBlank String id,
-                                                    @RequestBody @Valid JobCreateUpdateDTO jobDto) throws ExecutionException, InterruptedException {
+                                                    @RequestBody @Valid JobCreateUpdateDTO jobDto) throws ExecutionException, InterruptedException, JsonProcessingException {
         logger.info("Updating Job with technicalId: {}", id);
         UUID uuid = UUID.fromString(id);
         Job job = toJob(jobDto);
@@ -121,7 +116,6 @@ public class Controller {
             logger.error("Job update failed or not found for technicalId: {}", id);
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Job not found");
         }
-        // Business logic moved to processors, only persist here
         return ResponseEntity.ok(new CreateResponse(id, "Job updated and processed"));
     }
 
@@ -146,54 +140,41 @@ public class Controller {
     public static class JobCreateUpdateDTO {
         @NotBlank
         @jakarta.validation.constraints.Size(max = 255)
-        private String name;
+        private String id; // business ID from entity
 
         @NotBlank
         @jakarta.validation.constraints.Size(max = 255)
-        private String description;
+        private String status;
 
-        @jakarta.validation.constraints.NotNull
-        private Integer priority;
-
-        public String getName() {
-            return name;
+        public String getId() {
+            return id;
         }
 
-        public void setName(String name) {
-            this.name = name;
+        public void setId(String id) {
+            this.id = id;
         }
 
-        public String getDescription() {
-            return description;
+        public String getStatus() {
+            return status;
         }
 
-        public void setDescription(String description) {
-            this.description = description;
-        }
-
-        public Integer getPriority() {
-            return priority;
-        }
-
-        public void setPriority(Integer priority) {
-            this.priority = priority;
+        public void setStatus(String status) {
+            this.status = status;
         }
 
         @Override
         public String toString() {
             return "JobCreateUpdateDTO{" +
-                    "name='" + name + '\'' +
-                    ", description='" + description + '\'' +
-                    ", priority=" + priority +
+                    "id='" + id + '\'' +
+                    ", status='" + status + '\'' +
                     '}';
         }
     }
 
     private Job toJob(JobCreateUpdateDTO dto) {
         Job job = new Job();
-        job.setName(dto.getName());
-        job.setDescription(dto.getDescription());
-        job.setPriority(dto.getPriority());
+        job.setId(dto.getId());
+        job.setStatus(dto.getStatus());
         return job;
     }
 
