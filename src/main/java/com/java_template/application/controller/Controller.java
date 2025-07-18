@@ -1,6 +1,7 @@
 package com.java_template.application.controller;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.DigestJob;
 import com.java_template.application.entity.PetDataRecord;
@@ -14,11 +15,8 @@ import org.springframework.web.bind.annotation.*;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
-
-import static com.java_template.common.config.Config.*;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
+import java.util.UUID;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping(path = "/entity")
@@ -27,6 +25,7 @@ import com.java_template.common.util.SearchConditionRequest;
 public class Controller {
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     private static final String ENTITY_DIGEST_JOB = "DigestJob";
     private static final String ENTITY_PET_DATA_RECORD = "PetDataRecord";
@@ -38,7 +37,7 @@ public class Controller {
     // ----------------- DigestJob Endpoints -----------------
 
     @PostMapping("/digestJob")
-    public ResponseEntity<?> createDigestJob(@RequestBody DigestJob digestJob) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> createDigestJob(@Valid @RequestBody DigestJob digestJob) throws ExecutionException, InterruptedException, JsonProcessingException {
         if (digestJob == null) {
             log.error("Received null DigestJob");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("DigestJob payload cannot be null");
@@ -62,14 +61,11 @@ public class Controller {
 
         log.info("Created DigestJob with technicalId: {}", technicalId);
 
-        // processDigestJob removed
-
         return ResponseEntity.status(HttpStatus.CREATED).body(digestJob);
     }
 
     @GetMapping("/digestJob/{id}")
-    public ResponseEntity<?> getDigestJob(@PathVariable String id) throws ExecutionException, InterruptedException {
-        // id here is technicalId string (UUID string)
+    public ResponseEntity<?> getDigestJob(@PathVariable @Valid @NotBlank String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         UUID technicalId;
         try {
             technicalId = UUID.fromString(id);
@@ -89,14 +85,14 @@ public class Controller {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("DigestJob not found");
         }
 
-        DigestJob digestJob = node.traverse().readValueAs(DigestJob.class);
+        DigestJob digestJob = objectMapper.treeToValue(node, DigestJob.class);
         return ResponseEntity.ok(digestJob);
     }
 
     // ----------------- PetDataRecord Endpoints -----------------
 
     @PostMapping("/petDataRecord")
-    public ResponseEntity<?> createPetDataRecord(@RequestBody PetDataRecord petDataRecord) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> createPetDataRecord(@Valid @RequestBody PetDataRecord petDataRecord) throws ExecutionException, InterruptedException, JsonProcessingException {
         if (petDataRecord == null) {
             log.error("Received null PetDataRecord");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("PetDataRecord payload cannot be null");
@@ -119,13 +115,11 @@ public class Controller {
 
         log.info("Created PetDataRecord with technicalId: {}", technicalId);
 
-        // processPetDataRecord removed
-
         return ResponseEntity.status(HttpStatus.CREATED).body(petDataRecord);
     }
 
     @GetMapping("/petDataRecord/{id}")
-    public ResponseEntity<?> getPetDataRecord(@PathVariable String id) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> getPetDataRecord(@PathVariable @Valid @NotBlank String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         UUID technicalId;
         try {
             technicalId = UUID.fromString(id);
@@ -145,14 +139,14 @@ public class Controller {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("PetDataRecord not found");
         }
 
-        PetDataRecord petDataRecord = node.traverse().readValueAs(PetDataRecord.class);
+        PetDataRecord petDataRecord = objectMapper.treeToValue(node, PetDataRecord.class);
         return ResponseEntity.ok(petDataRecord);
     }
 
     // ----------------- EmailDispatch Endpoints (local cache) -----------------
 
     @PostMapping("/emailDispatch")
-    public ResponseEntity<?> createEmailDispatch(@RequestBody EmailDispatch emailDispatch) {
+    public ResponseEntity<?> createEmailDispatch(@Valid @RequestBody EmailDispatch emailDispatch) {
         if (emailDispatch == null) {
             log.error("Received null EmailDispatch");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("EmailDispatch payload cannot be null");
@@ -170,13 +164,11 @@ public class Controller {
         emailDispatchCache.put(id, emailDispatch);
         log.info("Created EmailDispatch with ID: {}", id);
 
-        // processEmailDispatch removed
-
         return ResponseEntity.status(HttpStatus.CREATED).body(emailDispatch);
     }
 
     @GetMapping("/emailDispatch/{id}")
-    public ResponseEntity<?> getEmailDispatch(@PathVariable String id) {
+    public ResponseEntity<?> getEmailDispatch(@PathVariable @Valid @NotBlank String id) {
         EmailDispatch email = emailDispatchCache.get(id);
         if (email == null) {
             log.error("EmailDispatch not found with ID: {}", id);
