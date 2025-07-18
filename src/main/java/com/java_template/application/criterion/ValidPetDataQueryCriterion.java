@@ -16,8 +16,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.util.Objects;
-
 @Component
 public class ValidPetDataQueryCriterion implements CyodaCriterion {
 
@@ -42,14 +40,13 @@ public class ValidPetDataQueryCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "ValidPetDataQueryCriterion".equals(modelSpec.operationName()) &&
-               "digestJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+                "digestJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
     private EvaluationOutcome validateEntity(DigestJob entity) {
-        // Validate petDataQuery is non-null and not blank
         if (entity.getPetDataQuery() == null || entity.getPetDataQuery().isBlank()) {
-            return EvaluationOutcome.fail("Pet data query must be provided", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("petDataQuery is required and cannot be blank", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         return EvaluationOutcome.success();
     }
