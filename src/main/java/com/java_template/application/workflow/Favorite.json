@@ -1,0 +1,63 @@
+{
+    "description": "FSM for Favorite entity processing workflow",
+    "initial_state": "none",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "start_validation": {
+                        "next": "validate_favorite"
+                    }
+                }
+            ]
+        },
+        "process_favorite": {
+            "transitions": [
+                {
+                    "process_and_complete": {
+                        "next": "completed",
+                        "processors": [
+                            {
+                                "name": "FavoriteProcessor"
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        "validate_favorite": {
+            "transitions": [
+                {
+                    "valid_favorite": {
+                        "criterion": {
+                            "class": {
+                                "name": "FavoriteValidityCriterion"
+                            },
+                            "type": "class"
+                        },
+                        "next": "process_favorite"
+                    }
+                },
+                {
+                    "invalid_favorite": {
+                        "criterion": {
+                            "class": {
+                                "name": "FavoriteInvalidityCriterion"
+                            },
+                            "type": "class"
+                        },
+                        "next": "validation_failed"
+                    }
+                }
+            ]
+        },
+        "validation_failed": {
+            "transitions": []
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "favorite_entity_workflow"
+}
