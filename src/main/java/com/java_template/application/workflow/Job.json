@@ -1,0 +1,35 @@
+{
+  "version": "1.0",
+  "description": "Workflow for Job entity representing job creation and update processing",
+  "initial_state": "none",
+  "workflow_name": "JobWorkflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "create_transition": {
+          "next": "created",
+          "processors": [
+            {
+              "name": "JobProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "created": {
+      "transitions": {
+        "update_transition": {
+          "next": "updated",
+          "processors": [
+            {
+              "name": "JobProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "updated": {
+      "transitions": {}
+    }
+  }
+}
