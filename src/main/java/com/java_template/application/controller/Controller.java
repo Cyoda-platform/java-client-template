@@ -1,12 +1,12 @@
 package com.java_template.prototype;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Job;
 import com.java_template.application.entity.Pet;
 import com.java_template.application.entity.Task;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -35,6 +35,8 @@ public class Controller {
     private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
+
+    private final ObjectMapper objectMapper = entityService.getObjectMapper();
 
     // DTOs for POST/PUT requests with validation (flat fields, no nested objects)
     @Data
@@ -72,7 +74,7 @@ public class Controller {
     public ResponseEntity<Map<String, Object>> createJob(@RequestBody @Valid JobDto jobDto) throws ExecutionException, InterruptedException {
         logger.info("Received request to create Job with DTO: {}", jobDto);
         Job job = new Job();
-        job.setId(null);
+        job.setTechnicalId(null);
         job.setType(jobDto.getType());
         job.setStatus(jobDto.getStatus());
         job.setParameters(jobDto.getParameters());
@@ -80,7 +82,7 @@ public class Controller {
             logger.error("Invalid Job data");
             throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid Job data");
         }
-        CompletableFuture<UUID> idFuture = entityService.addItem("Job", ENTITY_VERSION, job);
+        CompletableFuture<UUID> idFuture = entityService.addItem("job", ENTITY_VERSION, job);
         UUID technicalId = idFuture.get();
         String id = technicalId.toString();
         logger.info("Job created with technicalId {}", id);
@@ -91,25 +93,27 @@ public class Controller {
     }
 
     @GetMapping("/jobs/{id}")
-    public ResponseEntity<Job> getJob(@PathVariable @NotBlank String id) throws ExecutionException, InterruptedException {
+    public ResponseEntity<Job> getJob(@PathVariable @NotBlank String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         logger.info("Fetching Job with id {}", id);
         UUID technicalId = UUID.fromString(id);
-        CompletableFuture<ObjectNode> itemFuture = entityService.getItem("Job", ENTITY_VERSION, technicalId);
+        CompletableFuture<ObjectNode> itemFuture = entityService.getItem("job", ENTITY_VERSION, technicalId);
         ObjectNode node = itemFuture.get();
         if (node == null || node.isEmpty()) {
             throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Job not found with id " + id);
         }
-        Job job = entityService.getObjectMapper().convertValue(node, Job.class);
+        Job job = objectMapper.treeToValue(node, Job.class);
         job.setId(id);
+        job.setTechnicalId(technicalId);
         return ResponseEntity.ok(job);
     }
 
     @PutMapping("/jobs/{id}")
-    public ResponseEntity<Job> updateJob(@PathVariable @NotBlank String id, @RequestBody @Valid JobDto jobDto) throws ExecutionException, InterruptedException {
+    public ResponseEntity<Job> updateJob(@PathVariable @NotBlank String id, @RequestBody @Valid JobDto jobDto) throws ExecutionException, InterruptedException, JsonProcessingException {
         logger.info("Updating Job with id {} and DTO: {}", id, jobDto);
         UUID technicalId = UUID.fromString(id);
         Job job = new Job();
         job.setId(id);
+        job.setTechnicalId(technicalId);
         job.setType(jobDto.getType());
         job.setStatus(jobDto.getStatus());
         job.setParameters(jobDto.getParameters());
@@ -117,7 +121,7 @@ public class Controller {
             logger.error("Invalid Job data");
             throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid Job data");
         }
-        CompletableFuture<UUID> updatedItemId = entityService.updateItem("Job", ENTITY_VERSION, technicalId, job);
+        CompletableFuture<UUID> updatedItemId = entityService.updateItem("job", ENTITY_VERSION, technicalId, job);
         updatedItemId.get();
         logger.info("Job updated: {}", job);
         return ResponseEntity.ok(job);
@@ -127,7 +131,7 @@ public class Controller {
     public ResponseEntity<Map<String, String>> deleteJob(@PathVariable @NotBlank String id) throws ExecutionException, InterruptedException {
         logger.info("Deleting Job with id {}", id);
         UUID technicalId = UUID.fromString(id);
-        CompletableFuture<UUID> deletedItemId = entityService.deleteItem("Job", ENTITY_VERSION, technicalId);
+        CompletableFuture<UUID> deletedItemId = entityService.deleteItem("job", ENTITY_VERSION, technicalId);
         deletedItemId.get();
         logger.info("Job deleted with id {}", id);
         return ResponseEntity.ok(Collections.singletonMap("status", "Job deleted"));
@@ -139,7 +143,7 @@ public class Controller {
     public ResponseEntity<Map<String, Object>> createTask(@RequestBody @Valid TaskDto taskDto) throws ExecutionException, InterruptedException {
         logger.info("Received request to create Task with DTO: {}", taskDto);
         Task task = new Task();
-        task.setId(null);
+        task.setTechnicalId(null);
         task.setJobId(taskDto.getJobId());
         task.setType(taskDto.getType());
         task.setStatus(taskDto.getStatus());
@@ -148,7 +152,7 @@ public class Controller {
             logger.error("Invalid Task data");
             throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid Task data");
         }
-        CompletableFuture<UUID> idFuture = entityService.addItem("Task", ENTITY_VERSION, task);
+        CompletableFuture<UUID> idFuture = entityService.addItem("task", ENTITY_VERSION, task);
         UUID technicalId = idFuture.get();
         String id = technicalId.toString();
         logger.info("Task created with technicalId {}", id);
@@ -159,25 +163,27 @@ public class Controller {
     }
 
     @GetMapping("/tasks/{id}")
-    public ResponseEntity<Task> getTask(@PathVariable @NotBlank String id) throws ExecutionException, InterruptedException {
+    public ResponseEntity<Task> getTask(@PathVariable @NotBlank String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         logger.info("Fetching Task with id {}", id);
         UUID technicalId = UUID.fromString(id);
-        CompletableFuture<ObjectNode> itemFuture = entityService.getItem("Task", ENTITY_VERSION, technicalId);
+        CompletableFuture<ObjectNode> itemFuture = entityService.getItem("task", ENTITY_VERSION, technicalId);
         ObjectNode node = itemFuture.get();
         if (node == null || node.isEmpty()) {
             throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Task not found with id " + id);
         }
-        Task task = entityService.getObjectMapper().convertValue(node, Task.class);
+        Task task = objectMapper.treeToValue(node, Task.class);
         task.setId(id);
+        task.setTechnicalId(technicalId);
         return ResponseEntity.ok(task);
     }
 
     @PutMapping("/tasks/{id}")
-    public ResponseEntity<Task> updateTask(@PathVariable @NotBlank String id, @RequestBody @Valid TaskDto taskDto) throws ExecutionException, InterruptedException {
+    public ResponseEntity<Task> updateTask(@PathVariable @NotBlank String id, @RequestBody @Valid TaskDto taskDto) throws ExecutionException, InterruptedException, JsonProcessingException {
         logger.info("Updating Task with id {} and DTO: {}", id, taskDto);
         UUID technicalId = UUID.fromString(id);
         Task task = new Task();
         task.setId(id);
+        task.setTechnicalId(technicalId);
         task.setJobId(taskDto.getJobId());
         task.setType(taskDto.getType());
         task.setStatus(taskDto.getStatus());
@@ -186,7 +192,7 @@ public class Controller {
             logger.error("Invalid Task data");
             throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid Task data");
         }
-        CompletableFuture<UUID> updatedItemId = entityService.updateItem("Task", ENTITY_VERSION, technicalId, task);
+        CompletableFuture<UUID> updatedItemId = entityService.updateItem("task", ENTITY_VERSION, technicalId, task);
         updatedItemId.get();
         logger.info("Task updated: {}", task);
         return ResponseEntity.ok(task);
@@ -196,7 +202,7 @@ public class Controller {
     public ResponseEntity<Map<String, String>> deleteTask(@PathVariable @NotBlank String id) throws ExecutionException, InterruptedException {
         logger.info("Deleting Task with id {}", id);
         UUID technicalId = UUID.fromString(id);
-        CompletableFuture<UUID> deletedItemId = entityService.deleteItem("Task", ENTITY_VERSION, technicalId);
+        CompletableFuture<UUID> deletedItemId = entityService.deleteItem("task", ENTITY_VERSION, technicalId);
         deletedItemId.get();
         logger.info("Task deleted with id {}", id);
         return ResponseEntity.ok(Collections.singletonMap("status", "Task deleted"));
