@@ -1,0 +1,47 @@
+{
+  "version": "1.0",
+  "description": "User entity workflow representing business operations on User entity.",
+  "initial_state": "none",
+  "workflow_name": "user_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "create_user": {
+          "next": "user_created",
+          "processors": [
+            {
+              "name": "UserProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "user_created": {
+      "transitions": {
+        "activate_user": {
+          "next": "user_active",
+          "processors": [
+            {
+              "name": "UserProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "user_active": {
+      "transitions": {
+        "deactivate_user": {
+          "next": "user_inactive",
+          "processors": [
+            {
+              "name": "UserProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "user_inactive": {
+      "transitions": {}
+    }
+  }
+}
