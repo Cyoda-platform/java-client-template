@@ -1,0 +1,55 @@
+private void processPurrfectPetsJob(PurrfectPetsJob job) throws ExecutionException, InterruptedException {
+    log.info("Processing PurrfectPetsJob with technicalId: {}", job.getTechnicalId());
+
+    if (job.getOperationType() == null || job.getOperationType().isBlank()) {
+        log.error("Invalid operationType in job {}", job.getTechnicalId());
+        job.setStatus("FAILED");
+        // Update job status in external store
+        entityService.updateItem("PurrfectPetsJob", ENTITY_VERSION, job.getTechnicalId(), job).get();
+        return;
+    }
+
+    try {
+        job.setStatus("PROCESSING");
+        entityService.updateItem("PurrfectPetsJob", ENTITY_VERSION, job.getTechnicalId(), job).get();
+
+        switch (job.getOperationType()) {
+            case "ImportPets":
+                // Simulate creating a new pet entity
+                Pet newPet = new Pet();
+                newPet.setName("ImportedPet-" + UUID.randomUUID().toString());
+                newPet.setCategory("cat");
+                newPet.setStatus("AVAILABLE");
+                CompletableFuture<UUID> petIdFuture = entityService.addItem("Pet", ENTITY_VERSION, newPet);
+                UUID petTechnicalId = petIdFuture.get();
+                newPet.setTechnicalId(petTechnicalId);
+                processPet(newPet);
+                log.info("Imported pet with technicalId: {}", petTechnicalId);
+                break;
+            case "SyncFavorites":
+                // Simulate syncing favorites - no real external call here
+                log.info("SyncFavorites operation executed for job {}", job.getTechnicalId());
+                break;
+            default:
+                log.error("Unknown operationType {} for job {}", job.getOperationType(), job.getTechnicalId());
+                job.setStatus("FAILED");
+                entityService.updateItem("PurrfectPetsJob", ENTITY_VERSION, job.getTechnicalId(), job).get();
+                return;
+        }
+        job.setStatus("COMPLETED");
+        entityService.updateItem("PurrfectPetsJob", ENTITY_VERSION, job.getTechnicalId(), job).get();
+        log.info("PurrfectPetsJob {} completed successfully", job.getTechnicalId());
+    } catch (Exception e) {
+        log.error("Processing job {} failed: {}", job.getTechnicalId(), e.getMessage());
+        job.setStatus("FAILED");
+        entityService.updateItem("PurrfectPetsJob", ENTITY_VERSION, job.getTechnicalId(), job).get();
+    }
+}
+
+private void processPet(Pet pet) {
+    log.info("Processing Pet with technicalId: {}", pet.getTechnicalId());
+
+    // Validate category and status are non-blank (already validated in controller)
+    // Simulate updating internal caches or indexes if needed
+    log.info("Pet processed: technicalId={}, name={}, category={}, status={}", pet.getTechnicalId(), pet.getName(), pet.getCategory(), pet.getStatus());
+}
