@@ -1,0 +1,8 @@
+    private void processGameScore(GameScore score) throws ExecutionException, InterruptedException {
+        log.info("Processing GameScore with technicalId: {}", score.getTechnicalId());
+        if ("NEW".equalsIgnoreCase(score.getStatus())) {
+            score.setStatus("PROCESSED");
+            entityService.updateItem(GAME_SCORE_MODEL, ENTITY_VERSION, score.getTechnicalId(), score).get();
+            log.info("GameScore technicalId {} marked as PROCESSED", score.getTechnicalId());
+        }
+    }
