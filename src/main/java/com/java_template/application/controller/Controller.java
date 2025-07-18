@@ -18,15 +18,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.IOException;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -41,11 +36,11 @@ public class Controller {
     private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
-    private final HttpClient httpClient;
+    private final java.net.http.HttpClient httpClient;
 
     public Controller(EntityService entityService) {
         this.entityService = entityService;
-        this.httpClient = HttpClient.newHttpClient();
+        this.httpClient = java.net.http.HttpClient.newHttpClient();
     }
 
     @Data
@@ -85,7 +80,6 @@ public class Controller {
         return entityService.addItem("DigestRequest", ENTITY_VERSION, request)
                 .thenApply(technicalId -> {
                     request.setId(technicalId.toString()); // store technicalId as string id
-                    processDigestRequest(request);
                     Map<String, Object> response = new HashMap<>();
                     response.put("id", request.getId());
                     response.put("status", request.getStatus());
@@ -153,7 +147,6 @@ public class Controller {
 
                         return entityService.updateItem("DigestRequest", ENTITY_VERSION, technicalId, existingRequest)
                                 .thenApply(updatedId -> {
-                                    processDigestRequest(existingRequest);
                                     logger.info("DigestRequest updated and processing triggered for technicalId: {}", updatedId);
                                     existingRequest.setId(updatedId.toString());
                                     return ResponseEntity.ok(existingRequest);
@@ -180,43 +173,6 @@ public class Controller {
                     logger.info("DigestRequest deleted with technicalId: {}", deletedId);
                     return ResponseEntity.ok("DigestRequest deleted successfully");
                 });
-    }
-
-    private void processDigestRequest(DigestRequest entity) {
-        logger.info("Processing DigestRequest with ID: {}", entity.getId());
-        try {
-            entity.setStatus(DigestRequest.StatusEnum.PROCESSING);
-            entity.setUpdatedAt(LocalDateTime.now());
-            entityService.updateItem("DigestRequest", ENTITY_VERSION, UUID.fromString(entity.getId()), entity).join();
-
-            HttpRequest httpRequest = HttpRequest.newBuilder()
-                    .uri(URI.create(entity.getExternalApiUrl()))
-                    .GET()
-                    .build();
-
-            HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
-
-            if (response.statusCode() == 200) {
-                String responseBody = response.body();
-                logger.info("External API call successful for DigestRequest ID {}: Response length: {}", entity.getId(), responseBody.length());
-
-                // TODO: Process responseBody, format email content using template if needed
-                // TODO: Send email to recipients - integrate with email service
-
-                entity.setStatus(DigestRequest.StatusEnum.COMPLETED);
-            } else {
-                logger.error("External API call failed for DigestRequest ID {} with status code {}", entity.getId(), response.statusCode());
-                entity.setStatus(DigestRequest.StatusEnum.FAILED);
-            }
-        } catch (IOException | InterruptedException e) {
-            logger.error("Exception during external API call for DigestRequest ID {}: {}", entity.getId(), e.getMessage());
-            entity.setStatus(DigestRequest.StatusEnum.FAILED);
-            Thread.currentThread().interrupt();
-        }
-
-        entity.setUpdatedAt(LocalDateTime.now());
-        entityService.updateItem("DigestRequest", ENTITY_VERSION, UUID.fromString(entity.getId()), entity).join();
-        logger.info("Completed processing DigestRequest with ID: {}. Status: {}", entity.getId(), entity.getStatus());
     }
 
     private static final com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
