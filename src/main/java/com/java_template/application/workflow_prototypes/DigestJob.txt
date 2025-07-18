@@ -1,0 +1,89 @@
+private void processDigestJob(DigestJob digestJob) throws ExecutionException, InterruptedException {
+    log.info("Processing DigestJob with technicalId: {}", digestJob.getTechnicalId());
+
+    if (digestJob.getPetDataQuery() == null || digestJob.getPetDataQuery().isBlank()) {
+        log.error("DigestJob petDataQuery is blank");
+        digestJob.setStatus("FAILED");
+        entityService.updateItem(ENTITY_DIGEST_JOB, ENTITY_VERSION, digestJob.getTechnicalId(), digestJob).get();
+        return;
+    }
+    if (digestJob.getEmailRecipients() == null || digestJob.getEmailRecipients().isEmpty()) {
+        log.error("DigestJob emailRecipients list is empty");
+        digestJob.setStatus("FAILED");
+        entityService.updateItem(ENTITY_DIGEST_JOB, ENTITY_VERSION, digestJob.getTechnicalId(), digestJob).get();
+        return;
+    }
+
+    digestJob.setStatus("PROCESSING");
+    entityService.updateItem(ENTITY_DIGEST_JOB, ENTITY_VERSION, digestJob.getTechnicalId(), digestJob).get();
+
+    // Simulate fetching pet data from external API based on petDataQuery
+    // For prototype, we simulate with dummy data
+
+    List<PetDataRecord> fetchedPetData = new ArrayList<>();
+    for (int i = 0; i < 3; i++) {
+        PetDataRecord petDataRecord = new PetDataRecord();
+        petDataRecord.setJobId(digestJob.getId());
+        petDataRecord.setPetId(100 + i);
+        petDataRecord.setName("PetName" + i);
+        petDataRecord.setCategory("Category" + i);
+        petDataRecord.setStatus("NEW");
+
+        CompletableFuture<UUID> idFuture = entityService.addItem(
+                ENTITY_PET_DATA_RECORD,
+                ENTITY_VERSION,
+                petDataRecord
+        );
+        UUID technicalId = idFuture.get();
+        petDataRecord.setTechnicalId(technicalId);
+        fetchedPetData.add(petDataRecord);
+
+        processPetDataRecord(petDataRecord);
+    }
+
+    // After processing all pet data records, create EmailDispatch entries to send emails
+    for (String recipient : digestJob.getEmailRecipients()) {
+        EmailDispatch emailDispatch = new EmailDispatch();
+        String id = String.valueOf(emailDispatchIdCounter++);
+        emailDispatch.setId(id);
+        emailDispatch.setTechnicalId(UUID.randomUUID());
+        emailDispatch.setJobId(digestJob.getId());
+        emailDispatch.setRecipient(recipient);
+        emailDispatch.setSubject("Pet Data Digest");
+        emailDispatch.setBody("Digest of pet data for your query: " + digestJob.getPetDataQuery());
+        emailDispatch.setStatus("QUEUED");
+        emailDispatchCache.put(id, emailDispatch);
+
+        processEmailDispatch(emailDispatch);
+    }
+
+    digestJob.setStatus("COMPLETED");
+    entityService.updateItem(ENTITY_DIGEST_JOB, ENTITY_VERSION, digestJob.getTechnicalId(), digestJob).get();
+
+    log.info("Completed processing DigestJob with technicalId: {}", digestJob.getTechnicalId());
+}
+
+private void processPetDataRecord(PetDataRecord petDataRecord) throws ExecutionException, InterruptedException {
+    log.info("Processing PetDataRecord with technicalId: {}", petDataRecord.getTechnicalId());
+
+    petDataRecord.setStatus("PROCESSED");
+    entityService.updateItem(ENTITY_PET_DATA_RECORD, ENTITY_VERSION, petDataRecord.getTechnicalId(), petDataRecord).get();
+
+    log.info("PetDataRecord processed with technicalId: {}", petDataRecord.getTechnicalId());
+}
+
+private void processEmailDispatch(EmailDispatch emailDispatch) {
+    log.info("Processing EmailDispatch with ID: {}", emailDispatch.getId());
+
+    // Simulate sending email (in real implementation, call email service)
+    try {
+        // Simulated email sending...
+        emailDispatch.setStatus("SENT");
+        log.info("Email sent to {}", emailDispatch.getRecipient());
+    } catch (Exception e) {
+        log.error("Failed to send email to {}", emailDispatch.getRecipient(), e);
+        emailDispatch.setStatus("FAILED");
+    }
+
+    emailDispatchCache.put(emailDispatch.getId(), emailDispatch);
+}
