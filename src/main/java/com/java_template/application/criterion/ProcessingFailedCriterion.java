@@ -40,14 +40,13 @@ public class ProcessingFailedCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "ProcessingFailedCriterion".equals(modelSpec.operationName()) &&
-               "digestJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+                "digestJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
     private EvaluationOutcome validateEntity(DigestJob entity) {
-        // Simplified logic: fail if status is FAILED during processing
-        if (entity.getStatus() != null && "FAILED".equalsIgnoreCase(entity.getStatus())) {
-            return EvaluationOutcome.fail("Digest job is in failed state", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        if (!"FAILED".equalsIgnoreCase(entity.getStatus())) {
+            return EvaluationOutcome.fail("DigestJob status is not FAILED", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
         return EvaluationOutcome.success();
     }
