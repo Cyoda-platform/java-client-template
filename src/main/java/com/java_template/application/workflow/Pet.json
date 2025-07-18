@@ -1,0 +1,49 @@
+{
+    "description": "FSM workflow for Pet entity lifecycle with validation and indexing",
+    "initial_state": "none",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "transition_to_validated": {
+                        "criterion": {
+                            "function": {
+                                "name": "PetDataValidCriterion"
+                            },
+                            "type": "function"
+                        },
+                        "next": "validated"
+                    }
+                }
+            ]
+        },
+        "processed": {
+            "transitions": [
+                {
+                    "transition_to_completed": {
+                        "next": "completed"
+                    }
+                }
+            ]
+        },
+        "validated": {
+            "transitions": [
+                {
+                    "transition_to_processed": {
+                        "next": "processed",
+                        "processors": [
+                            {
+                                "name": "PetProcessor"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "pet_workflow"
+}
