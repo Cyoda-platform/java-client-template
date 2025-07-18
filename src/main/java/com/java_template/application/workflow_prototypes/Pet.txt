@@ -1,0 +1,4 @@
+private void processPet(Pet pet) {
+    log.info("Processing Pet with petId: {}", pet.getPetId());
+    log.info("Pet {} is available for adoption", pet.getName());
+}
