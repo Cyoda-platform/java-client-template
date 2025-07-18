@@ -1,0 +1,40 @@
+{
+  "version": "1.0",
+  "description": "Workflow for FlightSearchRequest entity representing the flight search request flow",
+  "initial_state": "none",
+  "workflow_name": "FlightSearchRequestWorkflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "submit_search": {
+          "next": "search_submitted",
+          "processors": [
+            {
+              "name": "FlightSearchRequestProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "search_submitted": {
+      "transitions": {
+        "validate_search": {
+          "next": "validated",
+          "processors": [
+            {
+              "name": "FlightSearchRequestProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "validated": {
+      "transitions": {
+        "search_completed": {
+          "next": "completed"
+        }
+      }
+    },
+    "completed": {}
+  }
+}
