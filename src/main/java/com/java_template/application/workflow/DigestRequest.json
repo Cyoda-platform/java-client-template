@@ -1,0 +1,117 @@
+```json
+{
+  "version": "1.0",
+  "description": "DigestRequest entity workflow FSM",
+  "initial_state": "none",
+  "workflow_name": "digest_request_workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "transition_to_validation": {
+            "next": "validation"
+          }
+        }
+      ]
+    },
+    "validation": {
+      "transitions": [
+        {
+          "valid_request": {
+            "next": "processing",
+            "criterion": {
+              "type": "function",
+              "function": {
+                "name": "DigestRequestValidationCriterion"
+              }
+            }
+          }
+        },
+        {
+          "invalid_request": {
+            "next": "failed",
+            "criterion": {
+              "type": "function",
+              "function": {
+                "name": "DigestRequestValidationFailCriterion"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "to_fetch_data": {
+            "next": "fetch_data",
+            "processors": [
+              {
+                "name": "DigestRequestProcessor"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "fetch_data": {
+      "transitions": [
+        {
+          "fetch_success": {
+            "next": "email_dispatch",
+            "criterion": {
+              "type": "function",
+              "function": {
+                "name": "FetchSuccessCriterion"
+              }
+            }
+          }
+        },
+        {
+          "fetch_failed": {
+            "next": "failed",
+            "criterion": {
+              "type": "function",
+              "function": {
+                "name": "FetchFailedCriterion"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "email_dispatch": {
+      "transitions": [
+        {
+          "email_sent": {
+            "next": "completed",
+            "criterion": {
+              "type": "function",
+              "function": {
+                "name": "EmailSentCriterion"
+              }
+            }
+          }
+        },
+        {
+          "email_failed": {
+            "next": "failed",
+            "criterion": {
+              "type": "function",
+              "function": {
+                "name": "EmailFailedCriterion"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  }
+}
+```
