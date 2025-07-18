@@ -1,0 +1,42 @@
+{
+  "version": "1.0",
+  "description": "Job entity workflow with processing after creation and update",
+  "initial_state": "none",
+  "workflow_name": "JobWorkflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "create": {
+          "next": "created",
+          "processors": [
+            {
+              "name": "JobProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "created": {
+      "transitions": {
+        "update": {
+          "next": "updated",
+          "processors": [
+            {
+              "name": "JobProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "updated": {
+      "transitions": {
+        "complete": {
+          "next": "completed"
+        }
+      }
+    },
+    "completed": {
+      "transitions": {}
+    }
+  }
+}
