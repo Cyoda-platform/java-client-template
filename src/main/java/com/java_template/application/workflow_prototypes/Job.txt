@@ -1,0 +1,26 @@
+    private void processJob(Job job) {
+        logger.info("Processing Job event for job id: {}", job.getId());
+        // When a job is submitted, fetch pets from internet
+        try {
+            String petsJson = fetchPetsFromInternet();
+            logger.info("Fetched pets JSON: {}", petsJson);
+            // TODO: parse JSON and create Pet entities and add to petCache if needed
+        } catch (Exception e) {
+            logger.error("Error fetching pets from internet during job processing", e);
+        }
+    }
+
+    private String fetchPetsFromInternet() throws Exception {
+        String urlString = "https://petstore.swagger.io/v2/pet/findByStatus?status=available";
+        URL url = new URL(urlString);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("GET");
+        conn.setRequestProperty("Accept", "application/json");
+        int responseCode = conn.getResponseCode();
+        if (responseCode != 200) {
+            throw new RuntimeException("Failed : HTTP error code : " + responseCode);
+        }
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+            return br.lines().collect(Collectors.joining(System.lineSeparator()));
+        }
+    }
