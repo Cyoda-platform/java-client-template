@@ -1,0 +1,7 @@
+private void processNbaGameScore(NbaGameScore gameScore) {
+    logger.info("Processing NbaGameScore with technicalId: {}", gameScore.getTechnicalId());
+    // TODO: Implement actual business logic per requirements:
+    // - Validate completeness of score data
+    // - Update status to PROCESSED
+    // - Trigger notifications for subscribers interested in teams
+}
