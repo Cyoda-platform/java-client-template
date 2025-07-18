@@ -1,0 +1,5 @@
+    private void processPet(Pet pet) {
+        // Simple logging for pet processing
+        logger.info("Processing Pet event for pet id: {}", pet.getId());
+        // TODO: implement actual processing logic
+    }
