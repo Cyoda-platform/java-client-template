@@ -1,0 +1,25 @@
+private void processAdoptionRequest(AdoptionRequest request) throws ExecutionException, InterruptedException {
+    log.info("Processing AdoptionRequest with requestId: {}", request.getRequestId());
+
+    SearchConditionRequest petCondition = SearchConditionRequest.group("AND",
+            Condition.of("$.petId", "EQUALS", request.getPetId()));
+    ArrayNode petResults = entityService.getItemsByCondition(ENTITY_NAME_PET, ENTITY_VERSION, petCondition).get();
+
+    if (petResults.isEmpty()) {
+        request.setStatus("REJECTED");
+        log.error("Adoption request rejected: pet not found {}", request.getPetId());
+    } else {
+        ObjectNode petNode = (ObjectNode) petResults.get(0);
+        Pet pet = entityService.getObjectMapper().treeToValue(petNode, Pet.class);
+
+        if (!"AVAILABLE".equals(pet.getStatus())) {
+            request.setStatus("REJECTED");
+            log.error("Adoption request rejected: pet not available {}", request.getPetId());
+        } else {
+            request.setStatus("APPROVED");
+            pet.setStatus("PENDING");
+            entityService.addItem(ENTITY_NAME_PET, ENTITY_VERSION, pet).get();
+            log.info("Adoption request approved for pet {}", pet.getName());
+        }
+    }
+}
