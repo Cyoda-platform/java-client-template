@@ -5,6 +5,7 @@ import com.java_template.application.entity.Pet;
 import com.java_template.application.entity.Task;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,9 +18,11 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
 @Validated
 @RestController
@@ -36,26 +39,48 @@ public class EntityControllerPrototype {
     private final AtomicLong taskIdCounter = new AtomicLong(1);
     private final AtomicLong petIdCounter = new AtomicLong(1);
 
+    // DTOs for POST/PUT requests with validation (flat fields, no nested objects)
     @Data
     public static class JobDto {
         @NotBlank
-        private String name;
+        private String type;
+
+        @NotBlank
+        private String status;
+
+        private String parameters;
     }
 
     @Data
     public static class TaskDto {
         @NotBlank
-        private String description;
+        private String jobId;
+
+        @NotBlank
+        private String type;
+
+        @NotBlank
+        private String status;
+
+        private String result;
     }
 
     @Data
     public static class PetDto {
         @NotBlank
-        private String petName;
+        private String name;
 
         @NotBlank
         private String type;
+
+        @NotBlank
+        private String status;
+
+        @NotNull
+        private Integer age;
     }
+
+    // --- JOB CRUD ---
 
     @PostMapping("/jobs")
     public ResponseEntity<Map<String, Object>> createJob(@RequestBody @Valid JobDto jobDto) {
@@ -63,7 +88,9 @@ public class EntityControllerPrototype {
         Job job = new Job();
         job.setId(null); // will be set by addJob
         job.setTechnicalId(UUID.randomUUID());
-        job.setName(jobDto.getName());
+        job.setType(jobDto.getType());
+        job.setStatus(jobDto.getStatus());
+        job.setParameters(jobDto.getParameters());
         if (!job.isValid()) {
             logger.error("Invalid Job data");
             throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid Job data");
@@ -89,7 +116,9 @@ public class EntityControllerPrototype {
         Job job = new Job();
         job.setId(id);
         job.setTechnicalId(UUID.randomUUID());
-        job.setName(jobDto.getName());
+        job.setType(jobDto.getType());
+        job.setStatus(jobDto.getStatus());
+        job.setParameters(jobDto.getParameters());
         if (!job.isValid()) {
             logger.error("Invalid Job data");
             throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid Job data");
@@ -111,13 +140,18 @@ public class EntityControllerPrototype {
         return ResponseEntity.ok(Collections.singletonMap("status", "Job deleted"));
     }
 
+    // --- TASK CRUD ---
+
     @PostMapping("/tasks")
     public ResponseEntity<Map<String, Object>> createTask(@RequestBody @Valid TaskDto taskDto) {
         logger.info("Received request to create Task with DTO: {}", taskDto);
         Task task = new Task();
         task.setId(null);
         task.setTechnicalId(UUID.randomUUID());
-        task.setDescription(taskDto.getDescription());
+        task.setJobId(taskDto.getJobId());
+        task.setType(taskDto.getType());
+        task.setStatus(taskDto.getStatus());
+        task.setResult(taskDto.getResult());
         if (!task.isValid()) {
             logger.error("Invalid Task data");
             throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid Task data");
@@ -143,7 +177,10 @@ public class EntityControllerPrototype {
         Task task = new Task();
         task.setId(id);
         task.setTechnicalId(UUID.randomUUID());
-        task.setDescription(taskDto.getDescription());
+        task.setJobId(taskDto.getJobId());
+        task.setType(taskDto.getType());
+        task.setStatus(taskDto.getStatus());
+        task.setResult(taskDto.getResult());
         if (!task.isValid()) {
             logger.error("Invalid Task data");
             throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid Task data");
@@ -165,14 +202,18 @@ public class EntityControllerPrototype {
         return ResponseEntity.ok(Collections.singletonMap("status", "Task deleted"));
     }
 
+    // --- PET CRUD ---
+
     @PostMapping("/pets")
     public ResponseEntity<Map<String, Object>> createPet(@RequestBody @Valid PetDto petDto) {
         logger.info("Received request to create Pet with DTO: {}", petDto);
         Pet pet = new Pet();
         pet.setId(null);
         pet.setTechnicalId(UUID.randomUUID());
-        pet.setPetName(petDto.getPetName());
+        pet.setName(petDto.getName());
         pet.setType(petDto.getType());
+        pet.setStatus(petDto.getStatus());
+        pet.setAge(petDto.getAge());
         if (!pet.isValid()) {
             logger.error("Invalid Pet data");
             throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid Pet data");
@@ -198,8 +239,10 @@ public class EntityControllerPrototype {
         Pet pet = new Pet();
         pet.setId(id);
         pet.setTechnicalId(UUID.randomUUID());
-        pet.setPetName(petDto.getPetName());
+        pet.setName(petDto.getName());
         pet.setType(petDto.getType());
+        pet.setStatus(petDto.getStatus());
+        pet.setAge(petDto.getAge());
         if (!pet.isValid()) {
             logger.error("Invalid Pet data");
             throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid Pet data");
@@ -220,6 +263,8 @@ public class EntityControllerPrototype {
         logger.info("Pet deleted with id {}", id);
         return ResponseEntity.ok(Collections.singletonMap("status", "Pet deleted"));
     }
+
+    // ======= JOB Cache Methods =======
 
     private String addJob(Job job) {
         String id = String.valueOf(jobIdCounter.getAndIncrement());
@@ -260,6 +305,8 @@ public class EntityControllerPrototype {
         }
     }
 
+    // ======= TASK Cache Methods =======
+
     private String addTask(Task task) {
         String id = String.valueOf(taskIdCounter.getAndIncrement());
         task.setId(id);
@@ -298,6 +345,8 @@ public class EntityControllerPrototype {
             return tasks.removeIf(t -> id.equals(t.getId()));
         }
     }
+
+    // ======= PET Cache Methods =======
 
     private String addPet(Pet pet) {
         String id = String.valueOf(petIdCounter.getAndIncrement());
@@ -338,49 +387,44 @@ public class EntityControllerPrototype {
         }
     }
 
-    // When a Job is submitted, processJob fetches pets from an internet API and logs them
+    // ======= Event Processing =======
+
     private void processJob(Job job) {
         logger.info("Processing Job event for job id: {}", job.getId());
+        // When a job is submitted, fetch pets from internet
         try {
             String petsJson = fetchPetsFromInternet();
-            logger.info("Fetched pets from internet for job id {}: {}", job.getId(), petsJson);
-            // TODO: parse petsJson and maybe add to petCache or further processing
+            logger.info("Fetched pets JSON: {}", petsJson);
+            // TODO: parse JSON and create Pet entities and add to petCache if needed
         } catch (Exception e) {
-            logger.error("Failed to fetch pets during Job processing for job id {}: {}", job.getId(), e.getMessage());
+            logger.error("Error fetching pets from internet during job processing", e);
         }
     }
 
+    private void processTask(Task task) {
+        // Simple logging for task processing
+        logger.info("Processing Task event for task id: {}", task.getId());
+        // TODO: implement actual processing logic
+    }
+
+    private void processPet(Pet pet) {
+        // Simple logging for pet processing
+        logger.info("Processing Pet event for pet id: {}", pet.getId());
+        // TODO: implement actual processing logic
+    }
+
     private String fetchPetsFromInternet() throws Exception {
-        // Example public API for pets placeholder - TODO: Replace with actual API if available
         String urlString = "https://petstore.swagger.io/v2/pet/findByStatus?status=available";
         URL url = new URL(urlString);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("GET");
         conn.setRequestProperty("Accept", "application/json");
-
         int responseCode = conn.getResponseCode();
         if (responseCode != 200) {
             throw new RuntimeException("Failed : HTTP error code : " + responseCode);
         }
-
-        BufferedReader br = new BufferedReader(new InputStreamReader((conn.getInputStream())));
-
-        StringBuilder sb = new StringBuilder();
-        String output;
-        while ((output = br.readLine()) != null) {
-            sb.append(output);
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+            return br.lines().collect(Collectors.joining(System.lineSeparator()));
         }
-        conn.disconnect();
-        return sb.toString();
-    }
-
-    private void processTask(Task task) {
-        logger.info("Processing Task event for task id: {}", task.getId());
-        // No special logic
-    }
-
-    private void processPet(Pet pet) {
-        logger.info("Processing Pet event for pet id: {}", pet.getId());
-        // No special logic
     }
 }
