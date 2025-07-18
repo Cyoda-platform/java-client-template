@@ -1,13 +1,16 @@
-```java
 package com.java_template.prototype;
 
 import com.java_template.application.entity.Job;
 import com.java_template.application.entity.Pet;
 import com.java_template.application.entity.Task;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -15,164 +18,223 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
+@Validated
 @RestController
 @RequestMapping(path = "/prototype")
 public class EntityControllerPrototype {
 
     private static final Logger logger = LoggerFactory.getLogger(EntityControllerPrototype.class);
 
-    // Local caches for entities
     private final ConcurrentHashMap<String, List<Job>> jobCache = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, List<Task>> taskCache = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, List<Pet>> petCache = new ConcurrentHashMap<>();
 
-    // Atomic counters for IDs
     private final AtomicLong jobIdCounter = new AtomicLong(1);
     private final AtomicLong taskIdCounter = new AtomicLong(1);
     private final AtomicLong petIdCounter = new AtomicLong(1);
 
+    // DTOs for POST/PUT requests with validation (flat fields, no nested objects)
+    @Data
+    public static class JobDto {
+        @NotBlank
+        private String name;
+
+        // Add other fields as String or primitives with validation annotations if needed
+        // Example:
+        // @NotNull
+        // private Integer priority;
+    }
+
+    @Data
+    public static class TaskDto {
+        @NotBlank
+        private String description;
+    }
+
+    @Data
+    public static class PetDto {
+        @NotBlank
+        private String petName;
+
+        @NotBlank
+        private String type;
+    }
+
+    // GET query param DTO example (for demonstration, no query params needed here, but shown as example)
+    @Data
+    public static class IdQuery {
+        @NotBlank
+        private String id;
+    }
+
     // --- JOB CRUD ---
 
     @PostMapping("/jobs")
-    public Map<String, Object> createJob(@RequestBody Job job) {
-        logger.info("Received request to create Job: {}", job);
+    public ResponseEntity<Map<String, Object>> createJob(@RequestBody @Valid JobDto jobDto) {
+        logger.info("Received request to create Job with DTO: {}", jobDto);
+        Job job = new Job();
+        job.setId(null); // will be set by addJob
+        job.setTechnicalId(UUID.randomUUID());
+        job.setName(jobDto.getName());
         if (!job.isValid()) {
             logger.error("Invalid Job data");
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid Job data");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid Job data");
         }
         String id = addJob(job);
         logger.info("Job created with id {}", id);
         Map<String, Object> resp = new HashMap<>();
         resp.put("id", id);
         resp.put("status", "Job processed");
-        return resp;
+        return ResponseEntity.ok(resp);
     }
 
     @GetMapping("/jobs/{id}")
-    public Job getJob(@PathVariable String id) {
+    public ResponseEntity<Job> getJob(@PathVariable @NotBlank String id) {
         logger.info("Fetching Job with id {}", id);
-        return getJobById(id);
+        Job job = getJobById(id);
+        return ResponseEntity.ok(job);
     }
 
     @PutMapping("/jobs/{id}")
-    public Job updateJob(@PathVariable String id, @RequestBody Job job) {
-        logger.info("Updating Job with id {}: {}", id, job);
+    public ResponseEntity<Job> updateJob(@PathVariable @NotBlank String id, @RequestBody @Valid JobDto jobDto) {
+        logger.info("Updating Job with id {} and DTO: {}", id, jobDto);
+        Job job = new Job();
+        job.setId(id);
+        job.setTechnicalId(UUID.randomUUID());
+        job.setName(jobDto.getName());
         if (!job.isValid()) {
             logger.error("Invalid Job data");
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid Job data");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid Job data");
         }
-        job.setId(id);
         Job updated = updateJobInCache(id, job);
         logger.info("Job updated: {}", updated);
-        return updated;
+        return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/jobs/{id}")
-    public Map<String, String> deleteJob(@PathVariable String id) {
+    public ResponseEntity<Map<String, String>> deleteJob(@PathVariable @NotBlank String id) {
         logger.info("Deleting Job with id {}", id);
         boolean removed = deleteJobFromCache(id);
         if (!removed) {
             logger.error("Job with id {} not found for deletion", id);
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Job not found");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Job not found");
         }
         logger.info("Job deleted with id {}", id);
-        return Collections.singletonMap("status", "Job deleted");
+        return ResponseEntity.ok(Collections.singletonMap("status", "Job deleted"));
     }
 
     // --- TASK CRUD ---
 
     @PostMapping("/tasks")
-    public Map<String, Object> createTask(@RequestBody Task task) {
-        logger.info("Received request to create Task: {}", task);
+    public ResponseEntity<Map<String, Object>> createTask(@RequestBody @Valid TaskDto taskDto) {
+        logger.info("Received request to create Task with DTO: {}", taskDto);
+        Task task = new Task();
+        task.setId(null);
+        task.setTechnicalId(UUID.randomUUID());
+        task.setDescription(taskDto.getDescription());
         if (!task.isValid()) {
             logger.error("Invalid Task data");
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid Task data");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid Task data");
         }
         String id = addTask(task);
         logger.info("Task created with id {}", id);
         Map<String, Object> resp = new HashMap<>();
         resp.put("id", id);
         resp.put("status", "Task processed");
-        return resp;
+        return ResponseEntity.ok(resp);
     }
 
     @GetMapping("/tasks/{id}")
-    public Task getTask(@PathVariable String id) {
+    public ResponseEntity<Task> getTask(@PathVariable @NotBlank String id) {
         logger.info("Fetching Task with id {}", id);
-        return getTaskById(id);
+        Task task = getTaskById(id);
+        return ResponseEntity.ok(task);
     }
 
     @PutMapping("/tasks/{id}")
-    public Task updateTask(@PathVariable String id, @RequestBody Task task) {
-        logger.info("Updating Task with id {}: {}", id, task);
+    public ResponseEntity<Task> updateTask(@PathVariable @NotBlank String id, @RequestBody @Valid TaskDto taskDto) {
+        logger.info("Updating Task with id {} and DTO: {}", id, taskDto);
+        Task task = new Task();
+        task.setId(id);
+        task.setTechnicalId(UUID.randomUUID());
+        task.setDescription(taskDto.getDescription());
         if (!task.isValid()) {
             logger.error("Invalid Task data");
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid Task data");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid Task data");
         }
-        task.setId(id);
         Task updated = updateTaskInCache(id, task);
         logger.info("Task updated: {}", updated);
-        return updated;
+        return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/tasks/{id}")
-    public Map<String, String> deleteTask(@PathVariable String id) {
+    public ResponseEntity<Map<String, String>> deleteTask(@PathVariable @NotBlank String id) {
         logger.info("Deleting Task with id {}", id);
         boolean removed = deleteTaskFromCache(id);
         if (!removed) {
             logger.error("Task with id {} not found for deletion", id);
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Task not found");
         }
         logger.info("Task deleted with id {}", id);
-        return Collections.singletonMap("status", "Task deleted");
+        return ResponseEntity.ok(Collections.singletonMap("status", "Task deleted"));
     }
 
     // --- PET CRUD ---
 
     @PostMapping("/pets")
-    public Map<String, Object> createPet(@RequestBody Pet pet) {
-        logger.info("Received request to create Pet: {}", pet);
+    public ResponseEntity<Map<String, Object>> createPet(@RequestBody @Valid PetDto petDto) {
+        logger.info("Received request to create Pet with DTO: {}", petDto);
+        Pet pet = new Pet();
+        pet.setId(null);
+        pet.setTechnicalId(UUID.randomUUID());
+        pet.setPetName(petDto.getPetName());
+        pet.setType(petDto.getType());
         if (!pet.isValid()) {
             logger.error("Invalid Pet data");
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid Pet data");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid Pet data");
         }
         String id = addPet(pet);
         logger.info("Pet created with id {}", id);
         Map<String, Object> resp = new HashMap<>();
         resp.put("id", id);
         resp.put("status", "Pet processed");
-        return resp;
+        return ResponseEntity.ok(resp);
     }
 
     @GetMapping("/pets/{id}")
-    public Pet getPet(@PathVariable String id) {
+    public ResponseEntity<Pet> getPet(@PathVariable @NotBlank String id) {
         logger.info("Fetching Pet with id {}", id);
-        return getPetById(id);
+        Pet pet = getPetById(id);
+        return ResponseEntity.ok(pet);
     }
 
     @PutMapping("/pets/{id}")
-    public Pet updatePet(@PathVariable String id, @RequestBody Pet pet) {
-        logger.info("Updating Pet with id {}: {}", id, pet);
+    public ResponseEntity<Pet> updatePet(@PathVariable @NotBlank String id, @RequestBody @Valid PetDto petDto) {
+        logger.info("Updating Pet with id {} and DTO: {}", id, petDto);
+        Pet pet = new Pet();
+        pet.setId(id);
+        pet.setTechnicalId(UUID.randomUUID());
+        pet.setPetName(petDto.getPetName());
+        pet.setType(petDto.getType());
         if (!pet.isValid()) {
             logger.error("Invalid Pet data");
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid Pet data");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid Pet data");
         }
-        pet.setId(id);
         Pet updated = updatePetInCache(id, pet);
         logger.info("Pet updated: {}", updated);
-        return updated;
+        return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/pets/{id}")
-    public Map<String, String> deletePet(@PathVariable String id) {
+    public ResponseEntity<Map<String, String>> deletePet(@PathVariable @NotBlank String id) {
         logger.info("Deleting Pet with id {}", id);
         boolean removed = deletePetFromCache(id);
         if (!removed) {
             logger.error("Pet with id {} not found for deletion", id);
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pet not found");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Pet not found");
         }
         logger.info("Pet deleted with id {}", id);
-        return Collections.singletonMap("status", "Pet deleted");
+        return ResponseEntity.ok(Collections.singletonMap("status", "Pet deleted"));
     }
 
     // ======= JOB Cache Methods =======
@@ -191,7 +253,7 @@ public class EntityControllerPrototype {
         return jobs.stream()
                 .filter(j -> id.equals(j.getId()))
                 .findFirst()
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Job not found with id " + id));
+                .orElseThrow(() -> new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Job not found with id " + id));
     }
 
     private Job updateJobInCache(String id, Job job) {
@@ -206,7 +268,7 @@ public class EntityControllerPrototype {
                 }
             }
         }
-        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Job not found with id " + id);
+        throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Job not found with id " + id);
     }
 
     private boolean deleteJobFromCache(String id) {
@@ -232,7 +294,7 @@ public class EntityControllerPrototype {
         return tasks.stream()
                 .filter(t -> id.equals(t.getId()))
                 .findFirst()
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found with id " + id));
+                .orElseThrow(() -> new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Task not found with id " + id));
     }
 
     private Task updateTaskInCache(String id, Task task) {
@@ -247,7 +309,7 @@ public class EntityControllerPrototype {
                 }
             }
         }
-        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found with id " + id);
+        throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Task not found with id " + id);
     }
 
     private boolean deleteTaskFromCache(String id) {
@@ -273,7 +335,7 @@ public class EntityControllerPrototype {
         return pets.stream()
                 .filter(p -> id.equals(p.getId()))
                 .findFirst()
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pet not found with id " + id));
+                .orElseThrow(() -> new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Pet not found with id " + id));
     }
 
     private Pet updatePetInCache(String id, Pet pet) {
@@ -288,7 +350,7 @@ public class EntityControllerPrototype {
                 }
             }
         }
-        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Pet not found with id " + id);
+        throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Pet not found with id " + id);
     }
 
     private boolean deletePetFromCache(String id) {
@@ -303,19 +365,15 @@ public class EntityControllerPrototype {
     private void processJob(Job job) {
         // TODO: Replace with actual Cyoda event processing logic
         logger.info("Processing Job event for job id: {}", job.getId());
-        // Example dummy logic: just log
     }
 
     private void processTask(Task task) {
         // TODO: Replace with actual Cyoda event processing logic
         logger.info("Processing Task event for task id: {}", task.getId());
-        // Example dummy logic: just log
     }
 
     private void processPet(Pet pet) {
         // TODO: Replace with actual Cyoda event processing logic
         logger.info("Processing Pet event for pet id: {}", pet.getId());
-        // Example dummy logic: just log
     }
 }
-```
