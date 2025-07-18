@@ -1,0 +1,5 @@
+    private void processTask(Task task) {
+        // Simple logging for task processing
+        logger.info("Processing Task event for task id: {}", task.getId());
+        // TODO: implement actual processing logic
+    }
