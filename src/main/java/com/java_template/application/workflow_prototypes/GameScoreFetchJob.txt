@@ -1,0 +1,9 @@
+private void processGameScoreFetchJob(GameScoreFetchJob job) {
+    logger.info("Processing GameScoreFetchJob with technicalId: {}", job.getTechnicalId());
+    // TODO: Implement actual business logic per requirements:
+    // - Validate scheduledDate
+    // - Fetch NBA game scores from external API
+    // - Save/update NbaGameScore entities via NbaGameScoreController or entityService
+    // - Update job status
+    // - Trigger notifications if necessary
+}
