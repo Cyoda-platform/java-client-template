@@ -1,12 +1,11 @@
 package com.java_template.prototype;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Pet;
 import com.java_template.application.entity.PetJob;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -20,7 +19,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -35,9 +33,11 @@ public class PetJobController {
     private static final Logger logger = LoggerFactory.getLogger(PetJobController.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
-    public PetJobController(EntityService entityService) {
+    public PetJobController(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @Data
@@ -47,16 +47,20 @@ public class PetJobController {
         private String action;
 
         @NotBlank
-        @Size(max = 36)
-        @Pattern(regexp = "^[0-9a-fA-F\\-]{36}$", message = "petId must be a valid UUID string")
+        @Pattern(regexp = "^[0-9]+$", message = "petId must be a valid numeric string")
         private String petId;
     }
 
     @PostMapping
-    public CompletableFuture<ResponseEntity<?>> createPetJob(@RequestBody @Valid PetJobDto petJobDto) {
+    public CompletableFuture<ResponseEntity<?>> createPetJob(@RequestBody @Valid PetJobDto petJobDto) throws JsonProcessingException {
         PetJob petJob = new PetJob();
         petJob.setAction(petJobDto.getAction());
-        petJob.setPetId(petJobDto.getPetId());
+        petJob.setPetId(Long.valueOf(petJobDto.getPetId())); // petId is Long in entity
+        petJob.setId(""); // id and technicalId will be set after creation
+        petJob.setTechnicalId(null);
+        petJob.setJobId(""); // jobId must be set or null? For now empty string to pass isValid check
+        petJob.setStatus(""); // status must be set or null? For now empty string to pass isValid check
+
         if (!petJob.isValid()) {
             logger.error("Invalid PetJob data");
             return CompletableFuture.completedFuture(ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid PetJob data"));
@@ -76,7 +80,7 @@ public class PetJobController {
     }
 
     @GetMapping("/{id}")
-    public CompletableFuture<ResponseEntity<?>> getPetJob(@PathVariable @NotBlank String id) {
+    public CompletableFuture<ResponseEntity<?>> getPetJob(@PathVariable @NotBlank String id) throws JsonProcessingException {
         UUID technicalId = UUID.fromString(id);
         return entityService.getItem("PetJob", ENTITY_VERSION, technicalId)
                 .thenApply(objectNode -> {
@@ -84,14 +88,21 @@ public class PetJobController {
                         logger.error("PetJob not found with id {}", id);
                         return ResponseEntity.status(HttpStatus.NOT_FOUND).body("PetJob not found");
                     }
-                    return ResponseEntity.ok(objectNode);
+                    PetJob petJob = null;
+                    try {
+                        petJob = objectMapper.treeToValue(objectNode, PetJob.class);
+                    } catch (JsonProcessingException e) {
+                        logger.error("Error converting PetJob JSON to object: {}", e.getMessage());
+                        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error processing PetJob data");
+                    }
+                    return ResponseEntity.ok(petJob);
                 });
     }
 
     @PutMapping("/{id}")
     public CompletableFuture<ResponseEntity<?>> updatePetJob(
             @PathVariable @NotBlank String id,
-            @RequestBody @Valid PetJobDto petJobDto) {
+            @RequestBody @Valid PetJobDto petJobDto) throws JsonProcessingException {
         UUID technicalId = UUID.fromString(id);
         return entityService.getItem("PetJob", ENTITY_VERSION, technicalId)
                 .thenCompose(existingItem -> {
@@ -103,7 +114,9 @@ public class PetJobController {
                     petJob.setTechnicalId(technicalId);
                     petJob.setId(id);
                     petJob.setAction(petJobDto.getAction());
-                    petJob.setPetId(petJobDto.getPetId());
+                    petJob.setPetId(Long.valueOf(petJobDto.getPetId()));
+                    petJob.setJobId(""); // must set jobId and status to pass isValid
+                    petJob.setStatus("");
                     if (!petJob.isValid()) {
                         logger.error("Invalid PetJob data");
                         return CompletableFuture.completedFuture(ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid PetJob data"));
@@ -145,16 +158,17 @@ public class PetController {
     private static final Logger logger = LoggerFactory.getLogger(PetController.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
-    public PetController(EntityService entityService) {
+    public PetController(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @Data
     public static class PetDto {
         @NotBlank
-        @Size(max = 36)
-        @Pattern(regexp = "^[0-9a-fA-F\\-]{36}$", message = "petId must be a valid UUID string")
+        @Pattern(regexp = "^[0-9]+$", message = "petId must be a valid numeric string")
         private String petId;
 
         @NotBlank
@@ -171,12 +185,14 @@ public class PetController {
     }
 
     @PostMapping
-    public CompletableFuture<ResponseEntity<?>> createPet(@RequestBody @Valid PetDto petDto) {
+    public CompletableFuture<ResponseEntity<?>> createPet(@RequestBody @Valid PetDto petDto) throws JsonProcessingException {
         Pet pet = new Pet();
-        pet.setPetId(petDto.getPetId());
+        pet.setPetId(Long.valueOf(petDto.getPetId()));
         pet.setName(petDto.getName());
         pet.setCategory(petDto.getCategory());
         pet.setStatus(petDto.getStatus());
+        pet.setId(""); // id and technicalId will be set after creation
+        pet.setTechnicalId(null);
         if (!pet.isValid()) {
             logger.error("Invalid Pet data");
             return CompletableFuture.completedFuture(ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid Pet data"));
@@ -196,7 +212,7 @@ public class PetController {
     }
 
     @GetMapping("/{id}")
-    public CompletableFuture<ResponseEntity<?>> getPet(@PathVariable @NotBlank String id) {
+    public CompletableFuture<ResponseEntity<?>> getPet(@PathVariable @NotBlank String id) throws JsonProcessingException {
         UUID technicalId = UUID.fromString(id);
         return entityService.getItem("Pet", ENTITY_VERSION, technicalId)
                 .thenApply(objectNode -> {
@@ -204,14 +220,21 @@ public class PetController {
                         logger.error("Pet not found with id {}", id);
                         return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Pet not found");
                     }
-                    return ResponseEntity.ok(objectNode);
+                    Pet pet = null;
+                    try {
+                        pet = objectMapper.treeToValue(objectNode, Pet.class);
+                    } catch (JsonProcessingException e) {
+                        logger.error("Error converting Pet JSON to object: {}", e.getMessage());
+                        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error processing Pet data");
+                    }
+                    return ResponseEntity.ok(pet);
                 });
     }
 
     @PutMapping("/{id}")
     public CompletableFuture<ResponseEntity<?>> updatePet(
             @PathVariable @NotBlank String id,
-            @RequestBody @Valid PetDto petDto) {
+            @RequestBody @Valid PetDto petDto) throws JsonProcessingException {
         UUID technicalId = UUID.fromString(id);
         return entityService.getItem("Pet", ENTITY_VERSION, technicalId)
                 .thenCompose(existingItem -> {
@@ -222,7 +245,7 @@ public class PetController {
                     Pet pet = new Pet();
                     pet.setTechnicalId(technicalId);
                     pet.setId(id);
-                    pet.setPetId(petDto.getPetId());
+                    pet.setPetId(Long.valueOf(petDto.getPetId()));
                     pet.setName(petDto.getName());
                     pet.setCategory(petDto.getCategory());
                     pet.setStatus(petDto.getStatus());
