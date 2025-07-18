@@ -1,15 +1,15 @@
-```java
 package com.java_template.prototype;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
@@ -23,36 +23,30 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
+@Validated
 @RestController
 @RequestMapping(path = "/prototype")
 public class EntityControllerPrototype {
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
-
-    // In-memory mock DB for books and user searches
     private final Map<String, Book> bookDb = new ConcurrentHashMap<>();
     private final Map<String, List<UserSearch>> userSearchDb = new ConcurrentHashMap<>();
-
-    // Mock in-memory job store for async ingestion/report generation - optional extension
-    private final Map<String, JobStatus> entityJobs = new ConcurrentHashMap<>();
-
-    // ========== DTOs ==========
 
     @Data
     public static class SearchRequest {
         @NotBlank
         private String query;
-        private Filters filters = new Filters();
-        private Integer page = 1;
-        private Integer pageSize = 20;
-    }
-
-    @Data
-    public static class Filters {
+        @Size(max = 100)
         private String genre;
+        @Min(0)
         private Integer publicationYear;
+        @Size(max = 100)
         private String author;
+        @Min(1)
+        private int page = 1;
+        @Min(1)
+        private int pageSize = 20;
     }
 
     @Data
@@ -63,7 +57,6 @@ public class EntityControllerPrototype {
         private String coverImageUrl;
         private Integer publicationYear;
         private List<String> genres = new ArrayList<>();
-        // Additional fields for detail:
         private String description;
         private String publisher;
         private String isbn;
@@ -79,9 +72,16 @@ public class EntityControllerPrototype {
 
     @Data
     public static class UserSearch {
+        @NotBlank
         private String userId;
+        @NotBlank
         private String query;
-        private Filters filters = new Filters();
+        @Size(max = 100)
+        private String genre;
+        @Min(0)
+        private Integer publicationYear;
+        @Size(max = 100)
+        private String author;
         private Instant timestamp;
     }
 
@@ -110,6 +110,7 @@ public class EntityControllerPrototype {
     public static class RecommendationRequest {
         @NotBlank
         private String userId;
+        @Min(1)
         private Integer limit = 10;
     }
 
@@ -118,311 +119,168 @@ public class EntityControllerPrototype {
         private List<Book> recommendations = new ArrayList<>();
     }
 
-    @Data
-    public static class JobStatus {
-        private String status;
-        private Instant requestedAt;
-    }
-
-    // ========== API Endpoints ==========
-
-    /**
-     * POST /prototype/api/books/search
-     * Search books via Open Library API + local filtering.
-     */
     @PostMapping("/api/books/search")
-    public ResponseEntity<SearchResponse> searchBooks(@RequestBody SearchRequest request) {
-        logger.info("Search request received: query='{}', filters={}, page={}, pageSize={}",
-                request.getQuery(), request.getFilters(), request.getPage(), request.getPageSize());
-
+    public ResponseEntity<SearchResponse> searchBooks(@RequestBody @Valid SearchRequest request) {
+        logger.info("Search: query={}, genre={}, year={}, author={}", request.getQuery(),
+                request.getGenre(), request.getPublicationYear(), request.getAuthor());
         try {
-            // Encode query for URL
-            String encodedQuery = URLEncoder.encode(request.getQuery(), StandardCharsets.UTF_8);
-
-            // Build Open Library API URL (search.json?q=...)
-            String url = "https://openlibrary.org/search.json?q=" + encodedQuery
-                    + "&page=" + request.getPage();
-
-            // Fetch raw JSON from Open Library (no POST endpoint, so GET here is acceptable as external call)
-            String rawResponse = restTemplate.getForObject(new URI(url), String.class);
-
-            JsonNode root = objectMapper.readTree(rawResponse);
-            JsonNode docs = root.path("docs");
-
+            String q = URLEncoder.encode(request.getQuery(), StandardCharsets.UTF_8);
+            String url = "https://openlibrary.org/search.json?q=" + q + "&page=" + request.getPage();
+            String raw = restTemplate.getForObject(new URI(url), String.class);
+            JsonNode docs = objectMapper.readTree(raw).path("docs");
             List<Book> books = new ArrayList<>();
-
             if (docs.isArray()) {
-                for (JsonNode doc : docs) {
-                    Book book = new Book();
-
-                    String key = doc.path("key").asText("");
-                    // key example: "/works/OL262758W"
-                    book.setBookId(key.startsWith("/works/") ? key.substring(7) : key);
-
-                    book.setTitle(doc.path("title").asText(""));
-
-                    // authors (array of names)
-                    List<String> authors = new ArrayList<>();
-                    JsonNode authorNode = doc.path("author_name");
-                    if (authorNode.isArray()) {
-                        for (JsonNode a : authorNode) {
-                            authors.add(a.asText());
-                        }
+                for (JsonNode d : docs) {
+                    Book b = new Book();
+                    String key = d.path("key").asText("");
+                    b.setBookId(key.startsWith("/works/") ? key.substring(7) : key);
+                    b.setTitle(d.path("title").asText(""));
+                    d.path("author_name").forEach(a -> b.getAuthors().add(a.asText()));
+                    if (d.has("cover_i")) {
+                        b.setCoverImageUrl("https://covers.openlibrary.org/b/id/" +
+                                d.path("cover_i").asInt() + "-M.jpg");
                     }
-                    book.setAuthors(authors);
-
-                    // cover image URL (Open Library cover API)
-                    JsonNode coverIdNode = doc.path("cover_i");
-                    if (coverIdNode.isInt()) {
-                        book.setCoverImageUrl("https://covers.openlibrary.org/b/id/" + coverIdNode.asInt() + "-M.jpg");
+                    if (d.has("first_publish_year")) {
+                        b.setPublicationYear(d.path("first_publish_year").asInt());
                     }
-
-                    // publication year (first_publish_year)
-                    if (doc.has("first_publish_year")) {
-                        book.setPublicationYear(doc.path("first_publish_year").asInt());
-                    }
-
-                    // genres - Open Library does not provide genres directly here, so leave empty or use subject
-                    List<String> genres = new ArrayList<>();
-                    JsonNode subjectNode = doc.path("subject");
-                    if (subjectNode.isArray()) {
-                        for (JsonNode s : subjectNode) {
-                            genres.add(s.asText());
-                        }
-                    }
-                    book.setGenres(genres);
-
-                    // Apply local filters (genre, publicationYear, author)
-                    if (filterBook(book, request.getFilters())) {
-                        books.add(book);
-
-                        // Save/update in local mock DB for demo purposes
-                        bookDb.put(book.getBookId(), book);
+                    d.path("subject").forEach(s -> b.getGenres().add(s.asText()));
+                    if (filterBook(b, request)) {
+                        books.add(b);
+                        bookDb.put(b.getBookId(), b);
                     }
                 }
             }
-
-            // Prepare response with pagination (simple slice for safety)
-            int fromIndex = 0;
-            int toIndex = Math.min(books.size(), request.getPageSize());
-            List<Book> pageResults = books.subList(fromIndex, toIndex);
-
-            SearchResponse response = new SearchResponse();
-            response.setResults(pageResults);
-            response.setTotalResults(books.size());
-            response.setPage(request.getPage());
-            response.setPageSize(request.getPageSize());
-
-            logger.info("Returning {} results (total {}) for query '{}'", pageResults.size(), books.size(), request.getQuery());
-            return ResponseEntity.ok(response);
-
+            int total = books.size();
+            int to = Math.min(total, request.getPageSize());
+            SearchResponse resp = new SearchResponse();
+            resp.setResults(books.subList(0, to));
+            resp.setTotalResults(total);
+            resp.setPage(request.getPage());
+            resp.setPageSize(request.getPageSize());
+            return ResponseEntity.ok(resp);
         } catch (Exception e) {
-            logger.error("Error during book search", e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to search books");
+            logger.error("Search error", e);
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Failed to search books");
         }
     }
 
-    private boolean filterBook(Book book, Filters filters) {
-        if (filters == null) return true;
-
-        if (filters.getGenre() != null && !filters.getGenre().isBlank()) {
-            boolean foundGenre = book.getGenres().stream()
-                    .anyMatch(g -> g.equalsIgnoreCase(filters.getGenre().trim()));
-            if (!foundGenre) return false;
+    private boolean filterBook(Book b, SearchRequest r) {
+        if (r.getGenre() != null && !r.getGenre().isBlank()) {
+            if (b.getGenres().stream().noneMatch(g -> g.equalsIgnoreCase(r.getGenre().trim()))) return false;
         }
-
-        if (filters.getPublicationYear() != null) {
-            if (!filters.getPublicationYear().equals(book.getPublicationYear())) return false;
+        if (r.getPublicationYear() != null) {
+            if (!r.getPublicationYear().equals(b.getPublicationYear())) return false;
         }
-
-        if (filters.getAuthor() != null && !filters.getAuthor().isBlank()) {
-            boolean foundAuthor = book.getAuthors().stream()
-                    .anyMatch(a -> a.equalsIgnoreCase(filters.getAuthor().trim()));
-            if (!foundAuthor) return false;
+        if (r.getAuthor() != null && !r.getAuthor().isBlank()) {
+            if (b.getAuthors().stream().noneMatch(a -> a.equalsIgnoreCase(r.getAuthor().trim()))) return false;
         }
         return true;
     }
 
-    /**
-     * GET /prototype/api/books/{bookId}
-     * Return book details from local "database".
-     */
     @GetMapping("/api/books/{bookId}")
     public ResponseEntity<Book> getBookDetails(@PathVariable String bookId) {
-        logger.info("Get book details for bookId={}", bookId);
-        Book book = bookDb.get(bookId);
-        if (book == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Book not found");
-        }
-        return ResponseEntity.ok(book);
+        logger.info("Detail: bookId={}", bookId);
+        Book b = bookDb.get(bookId);
+        if (b == null) throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND,
+                "Book not found");
+        return ResponseEntity.ok(b);
     }
 
-    /**
-     * POST /prototype/api/user/search
-     * Record user search activity.
-     */
     @PostMapping("/api/user/search")
-    public ResponseEntity<Void> recordUserSearch(@RequestBody UserSearch search) {
-        logger.info("Recording user search for userId={}, query='{}'", search.getUserId(), search.getQuery());
-
-        if (search.getTimestamp() == null) {
-            search.setTimestamp(Instant.now());
-        }
-
+    public ResponseEntity<Void> recordUserSearch(@RequestBody @Valid UserSearch search) {
+        logger.info("Record search: userId={}, query={}", search.getUserId(), search.getQuery());
+        if (search.getTimestamp() == null) search.setTimestamp(Instant.now());
         userSearchDb.computeIfAbsent(search.getUserId(), k -> new ArrayList<>()).add(search);
-
-        // TODO: Fire-and-forget async processing to update reports/recommendations if needed
         CompletableFuture.runAsync(() -> {
-            logger.info("Async processing user search record for userId={}", search.getUserId());
-            // placeholder for actual processing logic
+            logger.info("Async record for {}", search.getUserId());
+            // TODO: process for reports/recommendations
         });
-
         return ResponseEntity.ok().build();
     }
 
-    /**
-     * GET /prototype/api/reports/weekly
-     * Return mock weekly report based on user search data.
-     */
     @GetMapping("/api/reports/weekly")
     public ResponseEntity<WeeklyReport> getWeeklyReport() {
-        logger.info("Generating weekly report");
-
-        WeeklyReport report = new WeeklyReport();
-
-        // Mock: Aggregate most searched books across all users
-        Map<String, Integer> bookSearchCount = new HashMap<>();
-        Map<String, String> bookTitleMap = new HashMap<>();
-
-        userSearchDb.values().forEach(searches -> {
-            for (UserSearch s : searches) {
-                // We only have query text here, so match by title substring (mock)
-                bookDb.values().forEach(book -> {
-                    if (book.getTitle().toLowerCase().contains(s.getQuery().toLowerCase())) {
-                        bookSearchCount.merge(book.getBookId(), 1, Integer::sum);
-                        bookTitleMap.putIfAbsent(book.getBookId(), book.getTitle());
-                    }
-                });
+        logger.info("Weekly report");
+        WeeklyReport rpt = new WeeklyReport();
+        Map<String, Integer> count = new HashMap<>();
+        Map<String, String> titles = new HashMap<>();
+        userSearchDb.values().forEach(list -> list.forEach(s -> bookDb.values().forEach(b -> {
+            if (b.getTitle().toLowerCase().contains(s.getQuery().toLowerCase())) {
+                count.merge(b.getBookId(), 1, Integer::sum);
+                titles.putIfAbsent(b.getBookId(), b.getTitle());
             }
+        })));
+        List<MostSearchedBook> ms = new ArrayList<>();
+        count.forEach((id, c) -> {
+            MostSearchedBook m = new MostSearchedBook();
+            m.setBookId(id);
+            m.setTitle(titles.get(id));
+            m.setSearchCount(c);
+            ms.add(m);
         });
-
-        List<MostSearchedBook> mostSearchedBooks = new ArrayList<>();
-        bookSearchCount.forEach((bookId, count) -> {
-            MostSearchedBook msb = new MostSearchedBook();
-            msb.setBookId(bookId);
-            msb.setTitle(bookTitleMap.getOrDefault(bookId, "Unknown"));
-            msb.setSearchCount(count);
-            mostSearchedBooks.add(msb);
-        });
-
-        mostSearchedBooks.sort(Comparator.comparingInt(MostSearchedBook::getSearchCount).reversed());
-
-        report.setMostSearchedBooks(mostSearchedBooks.size() > 10 ? mostSearchedBooks.subList(0, 10) : mostSearchedBooks);
-
-        // Mock user preferences aggregate (top genres/authors from all user searches)
-        Map<String, Integer> genreCount = new HashMap<>();
-        Map<String, Integer> authorCount = new HashMap<>();
-
-        userSearchDb.values().forEach(searches -> {
-            for (UserSearch s : searches) {
-                Filters f = s.getFilters();
-                if (f != null) {
-                    if (f.getGenre() != null) {
-                        genreCount.merge(f.getGenre(), 1, Integer::sum);
-                    }
-                    if (f.getAuthor() != null) {
-                        authorCount.merge(f.getAuthor(), 1, Integer::sum);
-                    }
-                }
-            }
-        });
-
-        UserPreferences prefs = new UserPreferences();
-        prefs.setTopGenres(topNKeys(genreCount, 5));
-        prefs.setTopAuthors(topNKeys(authorCount, 5));
-        report.setUserPreferences(prefs);
-
-        // Set week dates as last 7 days ISO strings (mock)
+        ms.sort(Comparator.comparingInt(MostSearchedBook::getSearchCount).reversed());
+        rpt.setMostSearchedBooks(ms.size() > 10 ? ms.subList(0, 10) : ms);
+        Map<String, Integer> gCount = new HashMap<>();
+        Map<String, Integer> aCount = new HashMap<>();
+        userSearchDb.values().forEach(list -> list.forEach(s -> {
+            if (s.getGenre() != null) gCount.merge(s.getGenre(), 1, Integer::sum);
+            if (s.getAuthor() != null) aCount.merge(s.getAuthor(), 1, Integer::sum);
+        }));
+        UserPreferences up = new UserPreferences();
+        up.setTopGenres(topN(gCount, 5));
+        up.setTopAuthors(topN(aCount, 5));
+        rpt.setUserPreferences(up);
         Instant now = Instant.now();
-        report.setWeekEndDate(now.toString());
-        report.setWeekStartDate(now.minusSeconds(7 * 24 * 3600).toString());
-
-        return ResponseEntity.ok(report);
+        rpt.setWeekEndDate(now.toString());
+        rpt.setWeekStartDate(now.minusSeconds(7*24*3600).toString());
+        return ResponseEntity.ok(rpt);
     }
 
-    private List<String> topNKeys(Map<String, Integer> map, int n) {
-        return map.entrySet().stream()
-                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-                .limit(n)
-                .map(Map.Entry::getKey)
-                .toList();
+    private List<String> topN(Map<String, Integer> m, int n) {
+        return m.entrySet().stream().sorted(Map.Entry.<String,Integer>comparingByValue().reversed())
+                .limit(n).map(Map.Entry::getKey).toList();
     }
 
-    /**
-     * POST /prototype/api/recommendations
-     * Provide simple heuristic recommendations based on user previous searches.
-     */
     @PostMapping("/api/recommendations")
-    public ResponseEntity<RecommendationResponse> getRecommendations(@RequestBody RecommendationRequest request) {
-        logger.info("Generating recommendations for userId={}", request.getUserId());
-
-        List<UserSearch> searches = userSearchDb.getOrDefault(request.getUserId(), Collections.emptyList());
-
-        // Simple heuristic: recommend books authored by authors user searched for most
+    public ResponseEntity<RecommendationResponse> getRecommendations(
+            @RequestBody @Valid RecommendationRequest req) {
+        logger.info("Recommendations for {}", req.getUserId());
+        List<UserSearch> list = userSearchDb.getOrDefault(req.getUserId(), Collections.emptyList());
         Map<String, Integer> authorFreq = new HashMap<>();
-        for (UserSearch search : searches) {
-            Filters f = search.getFilters();
-            if (f != null && f.getAuthor() != null) {
-                authorFreq.merge(f.getAuthor(), 1, Integer::sum);
+        list.forEach(s -> {
+            if (s.getAuthor() != null) authorFreq.merge(s.getAuthor(), 1, Integer::sum);
+        });
+        List<String> topAuth = authorFreq.entrySet().stream()
+                .sorted(Map.Entry.<String,Integer>comparingByValue().reversed())
+                .limit(5).map(Map.Entry::getKey).toList();
+        List<Book> recs = new ArrayList<>();
+        for (Book b : bookDb.values()) {
+            if (b.getAuthors().stream().anyMatch(topAuth::contains)) {
+                recs.add(b);
             }
+            if (recs.size() >= req.getLimit()) break;
         }
-
-        // Get top authors
-        List<String> topAuthors = authorFreq.entrySet().stream()
-                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-                .limit(5)
-                .map(Map.Entry::getKey)
-                .toList();
-
-        List<Book> recommendations = new ArrayList<>();
-
-        for (Book book : bookDb.values()) {
-            for (String author : book.getAuthors()) {
-                if (topAuthors.contains(author)) {
-                    recommendations.add(book);
-                    break;
-                }
-            }
-            if (recommendations.size() >= (request.getLimit() != null ? request.getLimit() : 10)) {
-                break;
-            }
-        }
-
-        RecommendationResponse response = new RecommendationResponse();
-        response.setRecommendations(recommendations);
-
-        return ResponseEntity.ok(response);
+        RecommendationResponse resp = new RecommendationResponse();
+        resp.setRecommendations(recs);
+        return ResponseEntity.ok(resp);
     }
-
-    // ========== Basic error handling ==========
 
     @ExceptionHandler(ResponseStatusException.class)
-    public ResponseEntity<Map<String, String>> handleResponseStatusException(ResponseStatusException ex) {
-        logger.error("Handled error: {} - {}", ex.getStatusCode(), ex.getReason(), ex);
-
-        Map<String, String> err = new HashMap<>();
-        err.put("error", ex.getStatusCode().toString());
-        err.put("message", ex.getReason());
-        return ResponseEntity.status(ex.getStatusCode()).body(err);
+    public ResponseEntity<Map<String,String>> handleResponseStatus(ResponseStatusException ex) {
+        logger.error("Error {}: {}", ex.getStatusCode(), ex.getReason(), ex);
+        Map<String,String> e = new HashMap<>();
+        e.put("error", ex.getStatusCode().toString());
+        e.put("message", ex.getReason());
+        return ResponseEntity.status(ex.getStatusCode()).body(e);
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, String>> handleGenericException(Exception ex) {
-        logger.error("Unhandled exception", ex);
-        Map<String, String> err = new HashMap<>();
-        err.put("error", HttpStatus.INTERNAL_SERVER_ERROR.toString());
-        err.put("message", "Internal server error");
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(err);
+    public ResponseEntity<Map<String,String>> handleException(Exception ex) {
+        logger.error("Unhandled", ex);
+        Map<String,String> e = new HashMap<>();
+        e.put("error", org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR.toString());
+        e.put("message", "Internal server error");
+        return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR).body(e);
     }
 }
-```
