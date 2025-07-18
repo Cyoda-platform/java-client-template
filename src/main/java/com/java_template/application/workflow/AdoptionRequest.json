@@ -1,0 +1,23 @@
+{
+  "version": "1.0",
+  "description": "Workflow for AdoptionRequest entity processing",
+  "initial_state": "none",
+  "workflow_name": "adoptionRequest_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "create_or_update_adoptionRequest": {
+          "next": "processed",
+          "processors": [
+            {
+              "name": "AdoptionRequestProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "processed": {
+      "transitions": {}
+    }
+  }
+}
