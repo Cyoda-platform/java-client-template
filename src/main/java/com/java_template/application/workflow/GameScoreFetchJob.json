@@ -1,0 +1,72 @@
+```json
+{
+  "version": "1.0",
+  "description": "Workflow FSM for GameScoreFetchJob entity lifecycle",
+  "initial_state": "none",
+  "workflow_name": "GameScoreFetchJob_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_if_scheduled_date_valid": {
+          "next": "PENDING",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ScheduledDateValidCriterion"
+            }
+          }
+        },
+        "start_if_scheduled_date_invalid": {
+          "next": "FAILED",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ScheduledDateInvalidCriterion"
+            }
+          }
+        }
+      }
+    },
+    "PENDING": {
+      "transitions": {
+        "start_job_transition": {
+          "next": "RUNNING",
+          "processors": [
+            {
+              "name": "GameScoreFetchJobProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "RUNNING": {
+      "transitions": {
+        "fetch_success_transition": {
+          "next": "COMPLETED",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "FetchSuccessCriterion"
+            }
+          }
+        },
+        "fetch_failure_transition": {
+          "next": "FAILED",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "FetchFailureCriterion"
+            }
+          }
+        }
+      }
+    },
+    "COMPLETED": {
+      "transitions": {}
+    },
+    "FAILED": {
+      "transitions": {}
+    }
+  }
+}
+```
