@@ -2,6 +2,8 @@ package com.java_template.prototype;
 
 import static com.java_template.common.config.Config.*;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Pet;
@@ -9,6 +11,7 @@ import com.java_template.application.entity.PetUpdateJob;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -19,7 +22,7 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.UUID;
 
 @RestController
 @RequestMapping(path = "/prototype")
@@ -28,16 +31,14 @@ import java.util.concurrent.atomic.AtomicLong;
 public class Controller {
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     // Local cache and ID counter only for minor/utility entities (none here per instructions)
-
-    private final AtomicLong petUpdateJobIdCounter = new AtomicLong(1); // for generating IDs in pet update job processing
-    private final AtomicLong petIdCounter = new AtomicLong(1); // for generating IDs in pet processing
 
     // --- PetUpdateJob Endpoints ---
 
     @PostMapping("/petUpdateJob")
-    public ResponseEntity<?> createPetUpdateJob(@RequestBody PetUpdateJob jobRequest) {
+    public ResponseEntity<?> createPetUpdateJob(@Valid @RequestBody PetUpdateJob jobRequest) throws JsonProcessingException {
         if (jobRequest == null || jobRequest.getSource() == null || jobRequest.getSource().isBlank()) {
             log.error("Invalid PetUpdateJob creation request: missing source");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Source is required");
@@ -48,9 +49,9 @@ public class Controller {
         jobRequest.setStatus("PENDING");
         jobRequest.setRequestedAt(LocalDateTime.now());
 
-        CompletableFuture<java.util.UUID> idFuture = entityService.addItem("PetUpdateJob", ENTITY_VERSION, jobRequest);
+        CompletableFuture<UUID> idFuture = entityService.addItem("PetUpdateJob", ENTITY_VERSION, jobRequest);
 
-        java.util.UUID technicalId;
+        UUID technicalId;
         try {
             technicalId = idFuture.get();
         } catch (InterruptedException | ExecutionException e) {
@@ -72,10 +73,10 @@ public class Controller {
     }
 
     @GetMapping("/petUpdateJob/{id}")
-    public ResponseEntity<?> getPetUpdateJob(@PathVariable String id) throws ExecutionException, InterruptedException {
-        // Build condition to search by technicalId
+    public ResponseEntity<?> getPetUpdateJob(@PathVariable String id) throws ExecutionException, InterruptedException, JsonProcessingException {
+        // Build condition to search by technicalId (UUID)
         SearchConditionRequest condition = SearchConditionRequest.group("AND",
-                Condition.of("$.technicalId", "EQUALS", id));
+                Condition.of("$.technicalId", "EQUALS", UUID.fromString(id)));
 
         CompletableFuture<ArrayNode> itemsFuture = entityService.getItemsByCondition("PetUpdateJob", ENTITY_VERSION, condition);
 
@@ -85,13 +86,14 @@ public class Controller {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("PetUpdateJob not found");
         }
         ObjectNode jobNode = (ObjectNode) items.get(0);
-        return ResponseEntity.ok(jobNode);
+        PetUpdateJob job = objectMapper.treeToValue(jobNode, PetUpdateJob.class);
+        return ResponseEntity.ok(job);
     }
 
     // --- Pet Endpoints ---
 
     @PostMapping("/pet")
-    public ResponseEntity<?> createPet(@RequestBody Pet petRequest) {
+    public ResponseEntity<?> createPet(@Valid @RequestBody Pet petRequest) throws JsonProcessingException {
         if (petRequest == null
                 || petRequest.getName() == null || petRequest.getName().isBlank()
                 || petRequest.getCategory() == null || petRequest.getCategory().isBlank()
@@ -102,10 +104,11 @@ public class Controller {
 
         petRequest.setId(null);
         petRequest.setPetId(null);
+        petRequest.setTechnicalId(null);
 
-        CompletableFuture<java.util.UUID> idFuture = entityService.addItem("Pet", ENTITY_VERSION, petRequest);
+        CompletableFuture<UUID> idFuture = entityService.addItem("Pet", ENTITY_VERSION, petRequest);
 
-        java.util.UUID technicalId;
+        UUID technicalId;
         try {
             technicalId = idFuture.get();
         } catch (InterruptedException | ExecutionException e) {
@@ -116,6 +119,7 @@ public class Controller {
         String generatedId = technicalId.toString();
         petRequest.setId(generatedId);
         petRequest.setPetId(generatedId);
+        petRequest.setTechnicalId(technicalId);
 
         log.info("Created Pet with technicalId: {}", generatedId);
 
@@ -126,9 +130,9 @@ public class Controller {
     }
 
     @GetMapping("/pet/{id}")
-    public ResponseEntity<?> getPet(@PathVariable String id) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> getPet(@PathVariable String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         SearchConditionRequest condition = SearchConditionRequest.group("AND",
-                Condition.of("$.technicalId", "EQUALS", id));
+                Condition.of("$.technicalId", "EQUALS", UUID.fromString(id)));
 
         CompletableFuture<ArrayNode> itemsFuture = entityService.getItemsByCondition("Pet", ENTITY_VERSION, condition);
 
@@ -138,7 +142,8 @@ public class Controller {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Pet not found");
         }
         ObjectNode petNode = (ObjectNode) items.get(0);
-        return ResponseEntity.ok(petNode);
+        Pet pet = objectMapper.treeToValue(petNode, Pet.class);
+        return ResponseEntity.ok(pet);
     }
 
     @GetMapping("/pet")
