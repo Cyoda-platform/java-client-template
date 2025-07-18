@@ -1,0 +1,60 @@
+package com.java_template.application.criterion;
+
+import com.java_template.application.entity.NbaScoreJob;
+import com.java_template.common.serializer.CriterionSerializer;
+import com.java_template.common.serializer.EvaluationOutcome;
+import com.java_template.common.serializer.ReasonAttachmentStrategy;
+import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.serializer.StandardEvalReasonCategories;
+import com.java_template.common.config.Config;
+import com.java_template.common.workflow.CyodaCriterion;
+import com.java_template.common.workflow.CyodaEventContext;
+import com.java_template.common.workflow.OperationSpecification;
+import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationRequest;
+import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+
+@Component
+public class NotificationsSentSuccessfullyCriterion implements CyodaCriterion {
+
+    private final Logger logger = LoggerFactory.getLogger(this.getClass());
+    private final CriterionSerializer serializer;
+
+    public NotificationsSentSuccessfullyCriterion(SerializerFactory serializerFactory) {
+        this.serializer = serializerFactory.getDefaultCriteriaSerializer();
+        logger.info("NotificationsSentSuccessfullyCriterion initialized with SerializerFactory");
+    }
+
+    @Override
+    public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
+        EntityCriteriaCalculationRequest request = context.getEvent();
+
+        return serializer.withRequest(request)
+                .evaluateEntity(NbaScoreJob.class, this::validateEntity)
+                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+                .complete();
+    }
+
+    @Override
+    public boolean supports(OperationSpecification modelSpec) {
+        return "NotificationsSentSuccessfullyCriterion".equals(modelSpec.operationName()) &&
+                "nbaScoreJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+    }
+
+    private EvaluationOutcome validateEntity(NbaScoreJob entity) {
+        // Business logic: Notifications sent successfully when status is COMPLETED and completedAt is not null
+        if (entity.getStatus() == null || entity.getStatus().isBlank()) {
+            return EvaluationOutcome.fail("Status must not be null or blank", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (!"COMPLETED".equalsIgnoreCase(entity.getStatus())) {
+            return EvaluationOutcome.fail("Job status must be COMPLETED for notifications sent", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        }
+        if (entity.getCompletedAt() == null) {
+            return EvaluationOutcome.fail("Job must be completed with a completion timestamp", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        }
+        return EvaluationOutcome.success();
+    }
+}
