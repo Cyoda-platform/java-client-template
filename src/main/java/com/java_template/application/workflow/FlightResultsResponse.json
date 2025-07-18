@@ -1,0 +1,28 @@
+{
+  "version": "1.0",
+  "description": "Workflow for FlightResultsResponse entity representing processing of aggregated flight results",
+  "initial_state": "none",
+  "workflow_name": "FlightResultsResponseWorkflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "aggregate_results": {
+          "next": "aggregated",
+          "processors": [
+            {
+              "name": "FlightResultsResponseProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "aggregated": {
+      "transitions": {
+        "finalize": {
+          "next": "completed"
+        }
+      }
+    },
+    "completed": {}
+  }
+}
