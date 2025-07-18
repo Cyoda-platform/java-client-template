@@ -47,7 +47,6 @@ public class Controller {
         // technicalId will be set by entityService, ignore setting manually
         UUID technicalId = entityService.addItem(NBA_SCORE_JOB_MODEL, ENTITY_VERSION, job).get();
         job.setTechnicalId(technicalId);
-        processNbaScoreJob(job);
         log.info("Created NbaScoreJob with technicalId: {}", technicalId);
         return ResponseEntity.status(HttpStatus.CREATED).body(job);
     }
@@ -85,7 +84,6 @@ public class Controller {
         subscriber.setSubscribedAt(new Date(System.currentTimeMillis()));
         UUID technicalId = entityService.addItem(SUBSCRIBER_MODEL, ENTITY_VERSION, subscriber).get();
         subscriber.setTechnicalId(technicalId);
-        processSubscriber(subscriber);
         log.info("Created Subscriber with technicalId: {}", technicalId);
         return ResponseEntity.status(HttpStatus.CREATED).body(subscriber);
     }
@@ -128,7 +126,6 @@ public class Controller {
         score.setStatus("NEW");
         UUID technicalId = entityService.addItem(GAME_SCORE_MODEL, ENTITY_VERSION, score).get();
         score.setTechnicalId(technicalId);
-        processGameScore(score);
         log.info("Created GameScore with technicalId: {}", technicalId);
         return ResponseEntity.status(HttpStatus.CREATED).body(score);
     }
@@ -178,67 +175,6 @@ public class Controller {
             }
         }
         return ResponseEntity.ok(filtered);
-    }
-
-    // --- Process Methods ---
-
-    private void processNbaScoreJob(NbaScoreJob job) throws ExecutionException, InterruptedException {
-        log.info("Processing NbaScoreJob with technicalId: {}", job.getTechnicalId());
-        try {
-            job.setStatus("IN_PROGRESS");
-            entityService.updateItem(NBA_SCORE_JOB_MODEL, ENTITY_VERSION, job.getTechnicalId(), job).get();
-
-            // Simulate asynchronous data fetch from external API for job.date
-            Date gameDate = Date.valueOf(job.getDate());
-            GameScore sampleScore = new GameScore();
-            sampleScore.setGameDate(job.getDate());
-            sampleScore.setHomeTeam("Lakers");
-            sampleScore.setAwayTeam("Warriors");
-            sampleScore.setHomeScore(110);
-            sampleScore.setAwayScore(108);
-            sampleScore.setStatus("NEW");
-            UUID gsTechnicalId = entityService.addItem(GAME_SCORE_MODEL, ENTITY_VERSION, sampleScore).get();
-            sampleScore.setTechnicalId(gsTechnicalId);
-            processGameScore(sampleScore);
-
-            // Notify all active subscribers
-            Condition statusCondition = Condition.of("$.status", "IEQUALS", "ACTIVE");
-            SearchConditionRequest activeCondition = SearchConditionRequest.group("AND", statusCondition);
-            ArrayNode activeSubsNodes = entityService.getItemsByCondition(SUBSCRIBER_MODEL, ENTITY_VERSION, activeCondition).get();
-            List<Subscriber> activeSubscribers = new ArrayList<>();
-            if (activeSubsNodes != null) {
-                for (int i = 0; i < activeSubsNodes.size(); i++) {
-                    activeSubscribers.add(nodeToSubscriber((ObjectNode) activeSubsNodes.get(i)));
-                }
-            }
-            for (Subscriber sub : activeSubscribers) {
-                // Simulate sending email notification
-                log.info("Sending NBA scores email notification to subscriber: {}", sub.getEmail());
-            }
-            job.setStatus("COMPLETED");
-            job.setCompletedAt(new Date(System.currentTimeMillis()));
-        } catch (Exception e) {
-            log.error("Failed to process NbaScoreJob technicalId {}: {}", job.getTechnicalId(), e.getMessage());
-            job.setStatus("FAILED");
-        }
-        entityService.updateItem(NBA_SCORE_JOB_MODEL, ENTITY_VERSION, job.getTechnicalId(), job).get();
-    }
-
-    private void processSubscriber(Subscriber subscriber) {
-        log.info("Processing Subscriber with technicalId: {}", subscriber.getTechnicalId());
-        if (subscriber.getEmail() == null || !subscriber.getEmail().matches("^[\\w\\.-]+@[\\w\\.-]+\\.\\w+$")) {
-            log.error("Invalid email format for subscriber technicalId: {}", subscriber.getTechnicalId());
-        }
-        log.info("Welcome email sent to: {}", subscriber.getEmail());
-    }
-
-    private void processGameScore(GameScore score) throws ExecutionException, InterruptedException {
-        log.info("Processing GameScore with technicalId: {}", score.getTechnicalId());
-        if ("NEW".equalsIgnoreCase(score.getStatus())) {
-            score.setStatus("PROCESSED");
-            entityService.updateItem(GAME_SCORE_MODEL, ENTITY_VERSION, score.getTechnicalId(), score).get();
-            log.info("GameScore technicalId {} marked as PROCESSED", score.getTechnicalId());
-        }
     }
 
     // --- Helper mapping methods ---
