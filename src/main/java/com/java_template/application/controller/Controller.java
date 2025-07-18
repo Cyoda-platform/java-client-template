@@ -1,5 +1,7 @@
 package com.java_template.prototype;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.DigestContent;
@@ -37,6 +39,7 @@ public class DigestJobController {
     private static final Logger logger = LoggerFactory.getLogger(DigestJobController.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final int ENTITY_VERSION = ENTITY_VERSION;
     private static final String ENTITY_NAME = "DigestJob";
@@ -48,12 +51,17 @@ public class DigestJobController {
     }
 
     @PostMapping
-    public ResponseEntity<Map<String, Object>> createDigestJob(@RequestBody @Valid DigestJobRequest digestJobReq) throws ExecutionException, InterruptedException {
+    public ResponseEntity<Map<String, Object>> createDigestJob(@RequestBody @Valid DigestJobRequest digestJobReq) throws ExecutionException, InterruptedException, JsonProcessingException {
         logger.info("Received request to create DigestJob: {}", digestJobReq);
 
         DigestJob digestJob = new DigestJob();
         digestJob.setId(String.valueOf(digestJobIdCounter.getAndIncrement()));
         digestJob.setTechnicalId(UUID.randomUUID());
+        // Set required fields to valid values or from digestJobReq if available
+        digestJob.setUserEmail(""); // TODO: Set proper userEmail
+        digestJob.setStatus("PENDING");
+        digestJob.setCreatedAt(java.time.Instant.now());
+        digestJob.setUpdatedAt(java.time.Instant.now());
 
         if (!digestJob.isValid()) {
             throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid DigestJob entity");
@@ -73,7 +81,7 @@ public class DigestJobController {
     }
 
     @GetMapping
-    public ResponseEntity<DigestJob> getDigestJob(@RequestParam @NotBlank String id) throws ExecutionException, InterruptedException {
+    public ResponseEntity<DigestJob> getDigestJob(@RequestParam @NotBlank String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         SearchConditionRequest condition = SearchConditionRequest.group("AND",
                 Condition.of("$.id", "EQUALS", id));
         CompletableFuture<ArrayNode> itemsFuture = entityService.getItemsByCondition(
@@ -87,12 +95,12 @@ public class DigestJobController {
         }
 
         ObjectNode node = (ObjectNode) nodes.get(0);
-        DigestJob job = JsonUtil.convert(node, DigestJob.class);
+        DigestJob job = objectMapper.treeToValue(node, DigestJob.class);
         return ResponseEntity.ok(job);
     }
 
     @PutMapping
-    public ResponseEntity<Map<String, Object>> updateDigestJob(@RequestBody @Valid DigestJobUpdateRequest digestJobUpdateReq) throws ExecutionException, InterruptedException {
+    public ResponseEntity<Map<String, Object>> updateDigestJob(@RequestBody @Valid DigestJobUpdateRequest digestJobUpdateReq) throws ExecutionException, InterruptedException, JsonProcessingException {
         logger.info("Received request to update DigestJob id {}: {}", digestJobUpdateReq.getId(), digestJobUpdateReq);
 
         DigestJob existing = getDigestJobById(digestJobUpdateReq.getId());
@@ -100,6 +108,11 @@ public class DigestJobController {
         DigestJob updated = new DigestJob();
         updated.setId(existing.getId());
         updated.setTechnicalId(existing.getTechnicalId());
+        // Set other fields to update from digestJobUpdateReq as needed
+        updated.setUserEmail(existing.getUserEmail());
+        updated.setStatus(existing.getStatus());
+        updated.setCreatedAt(existing.getCreatedAt());
+        updated.setUpdatedAt(java.time.Instant.now());
 
         if (!updated.isValid()) {
             throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid DigestJob entity");
@@ -136,7 +149,7 @@ public class DigestJobController {
         return ResponseEntity.ok(Map.of("id", id, "status", "deleted"));
     }
 
-    private DigestJob getDigestJobById(String id) throws ExecutionException, InterruptedException {
+    private DigestJob getDigestJobById(String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         SearchConditionRequest condition = SearchConditionRequest.group("AND",
                 Condition.of("$.id", "EQUALS", id));
         CompletableFuture<ArrayNode> itemsFuture = entityService.getItemsByCondition(
@@ -150,10 +163,10 @@ public class DigestJobController {
         }
 
         ObjectNode node = (ObjectNode) nodes.get(0);
-        return JsonUtil.convert(node, DigestJob.class);
+        return objectMapper.treeToValue(node, DigestJob.class);
     }
 
-    private void processDigestJob(DigestJob job) throws ExecutionException, InterruptedException {
+    private void processDigestJob(DigestJob job) throws ExecutionException, InterruptedException, JsonProcessingException {
         logger.info("Processing DigestJob event for id {}", job.getId());
 
         // Retrieve all DigestRequest entities
@@ -166,7 +179,7 @@ public class DigestJobController {
             logger.info("Found {} DigestRequests, processing them for DigestJob id {}", requestsNodes.size(), job.getId());
             for (int i = 0; i < requestsNodes.size(); i++) {
                 ObjectNode reqNode = (ObjectNode) requestsNodes.get(i);
-                DigestRequest req = JsonUtil.convert(reqNode, DigestRequest.class);
+                DigestRequest req = objectMapper.treeToValue(reqNode, DigestRequest.class);
 
                 DigestContent content = new DigestContent();
                 content.setId(null);
@@ -174,6 +187,8 @@ public class DigestJobController {
                 content.setRequestId(req.getId());
                 content.setDigestJobId(job.getId());
                 content.setContent("Generated content for request " + req.getId());
+                content.setFormat("PLAIN_TEXT");
+                content.setCreatedAt(java.time.Instant.now());
 
                 // Add DigestContent using entityService
                 CompletableFuture<UUID> addedContentIdFuture = entityService.addItem(
@@ -223,6 +238,7 @@ class DigestRequestController {
     private static final Logger logger = LoggerFactory.getLogger(DigestRequestController.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final int ENTITY_VERSION = ENTITY_VERSION;
     private static final String ENTITY_NAME = "DigestRequest";
@@ -234,12 +250,15 @@ class DigestRequestController {
     }
 
     @PostMapping
-    public ResponseEntity<Map<String, Object>> createDigestRequest(@RequestBody @Valid DigestRequestRequest digestRequestReq) throws ExecutionException, InterruptedException {
+    public ResponseEntity<Map<String, Object>> createDigestRequest(@RequestBody @Valid DigestRequestRequest digestRequestReq) throws ExecutionException, InterruptedException, JsonProcessingException {
         logger.info("Received request to create DigestRequest: {}", digestRequestReq);
 
         DigestRequest request = new DigestRequest();
         request.setId(String.valueOf(digestRequestIdCounter.getAndIncrement()));
         request.setTechnicalId(UUID.randomUUID());
+        // Set required fields or from digestRequestReq if available
+        request.setUserEmail(""); // TODO: Set proper userEmail
+        request.setReceivedAt(java.time.Instant.now());
 
         if (!request.isValid()) {
             throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid DigestRequest entity");
@@ -259,7 +278,7 @@ class DigestRequestController {
     }
 
     @GetMapping
-    public ResponseEntity<DigestRequest> getDigestRequest(@RequestParam @NotBlank String id) throws ExecutionException, InterruptedException {
+    public ResponseEntity<DigestRequest> getDigestRequest(@RequestParam @NotBlank String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         SearchConditionRequest condition = SearchConditionRequest.group("AND",
                 Condition.of("$.id", "EQUALS", id));
         CompletableFuture<ArrayNode> itemsFuture = entityService.getItemsByCondition(
@@ -273,12 +292,12 @@ class DigestRequestController {
         }
 
         ObjectNode node = (ObjectNode) nodes.get(0);
-        DigestRequest req = JsonUtil.convert(node, DigestRequest.class);
+        DigestRequest req = objectMapper.treeToValue(node, DigestRequest.class);
         return ResponseEntity.ok(req);
     }
 
     @PutMapping
-    public ResponseEntity<Map<String, Object>> updateDigestRequest(@RequestBody @Valid DigestRequestUpdateRequest digestRequestUpdateReq) throws ExecutionException, InterruptedException {
+    public ResponseEntity<Map<String, Object>> updateDigestRequest(@RequestBody @Valid DigestRequestUpdateRequest digestRequestUpdateReq) throws ExecutionException, InterruptedException, JsonProcessingException {
         logger.info("Received request to update DigestRequest id {}: {}", digestRequestUpdateReq.getId(), digestRequestUpdateReq);
 
         DigestRequest existing = getDigestRequestById(digestRequestUpdateReq.getId());
@@ -286,6 +305,9 @@ class DigestRequestController {
         DigestRequest updated = new DigestRequest();
         updated.setId(existing.getId());
         updated.setTechnicalId(existing.getTechnicalId());
+        // Set other fields to update from digestRequestUpdateReq as needed
+        updated.setUserEmail(existing.getUserEmail());
+        updated.setReceivedAt(existing.getReceivedAt());
 
         if (!updated.isValid()) {
             throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid DigestRequest entity");
@@ -322,7 +344,7 @@ class DigestRequestController {
         return ResponseEntity.ok(Map.of("id", id, "status", "deleted"));
     }
 
-    private DigestRequest getDigestRequestById(String id) throws ExecutionException, InterruptedException {
+    private DigestRequest getDigestRequestById(String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         SearchConditionRequest condition = SearchConditionRequest.group("AND",
                 Condition.of("$.id", "EQUALS", id));
         CompletableFuture<ArrayNode> itemsFuture = entityService.getItemsByCondition(
@@ -336,7 +358,7 @@ class DigestRequestController {
         }
 
         ObjectNode node = (ObjectNode) nodes.get(0);
-        return JsonUtil.convert(node, DigestRequest.class);
+        return objectMapper.treeToValue(node, DigestRequest.class);
     }
 
     private void processDigestRequest(DigestRequest request) throws ExecutionException, InterruptedException {
@@ -381,6 +403,7 @@ class DigestContentController {
     private static final Logger logger = LoggerFactory.getLogger(DigestContentController.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final int ENTITY_VERSION = ENTITY_VERSION;
     private static final String ENTITY_NAME = "DigestContent";
@@ -392,7 +415,7 @@ class DigestContentController {
     }
 
     @PostMapping
-    public ResponseEntity<Map<String, Object>> createDigestContent(@RequestBody @Valid DigestContentRequest digestContentReq) throws ExecutionException, InterruptedException {
+    public ResponseEntity<Map<String, Object>> createDigestContent(@RequestBody @Valid DigestContentRequest digestContentReq) throws ExecutionException, InterruptedException, JsonProcessingException {
         logger.info("Received request to create DigestContent: {}", digestContentReq);
 
         DigestContent content = new DigestContent();
@@ -401,6 +424,8 @@ class DigestContentController {
         content.setContent(digestContentReq.getContent());
         content.setRequestId(digestContentReq.getRequestId());
         content.setDigestJobId(digestContentReq.getDigestJobId());
+        content.setFormat("PLAIN_TEXT");
+        content.setCreatedAt(java.time.Instant.now());
 
         if (!content.isValid()) {
             throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid DigestContent entity");
@@ -420,7 +445,7 @@ class DigestContentController {
     }
 
     @GetMapping
-    public ResponseEntity<DigestContent> getDigestContent(@RequestParam @NotBlank String id) throws ExecutionException, InterruptedException {
+    public ResponseEntity<DigestContent> getDigestContent(@RequestParam @NotBlank String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         SearchConditionRequest condition = SearchConditionRequest.group("AND",
                 Condition.of("$.id", "EQUALS", id));
         CompletableFuture<ArrayNode> itemsFuture = entityService.getItemsByCondition(
@@ -434,12 +459,12 @@ class DigestContentController {
         }
 
         ObjectNode node = (ObjectNode) nodes.get(0);
-        DigestContent content = JsonUtil.convert(node, DigestContent.class);
+        DigestContent content = objectMapper.treeToValue(node, DigestContent.class);
         return ResponseEntity.ok(content);
     }
 
     @PutMapping
-    public ResponseEntity<Map<String, Object>> updateDigestContent(@RequestBody @Valid DigestContentUpdateRequest digestContentUpdateReq) throws ExecutionException, InterruptedException {
+    public ResponseEntity<Map<String, Object>> updateDigestContent(@RequestBody @Valid DigestContentUpdateRequest digestContentUpdateReq) throws ExecutionException, InterruptedException, JsonProcessingException {
         logger.info("Received request to update DigestContent id {}: {}", digestContentUpdateReq.getId(), digestContentUpdateReq);
 
         DigestContent existing = getDigestContentById(digestContentUpdateReq.getId());
@@ -450,6 +475,8 @@ class DigestContentController {
         updated.setContent(digestContentUpdateReq.getContent());
         updated.setRequestId(digestContentUpdateReq.getRequestId());
         updated.setDigestJobId(digestContentUpdateReq.getDigestJobId());
+        updated.setFormat("PLAIN_TEXT");
+        updated.setCreatedAt(existing.getCreatedAt());
 
         if (!updated.isValid()) {
             throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid DigestContent entity");
@@ -486,7 +513,7 @@ class DigestContentController {
         return ResponseEntity.ok(Map.of("id", id, "status", "deleted"));
     }
 
-    private DigestContent getDigestContentById(String id) throws ExecutionException, InterruptedException {
+    private DigestContent getDigestContentById(String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         SearchConditionRequest condition = SearchConditionRequest.group("AND",
                 Condition.of("$.id", "EQUALS", id));
         CompletableFuture<ArrayNode> itemsFuture = entityService.getItemsByCondition(
@@ -500,7 +527,7 @@ class DigestContentController {
         }
 
         ObjectNode node = (ObjectNode) nodes.get(0);
-        return JsonUtil.convert(node, DigestContent.class);
+        return objectMapper.treeToValue(node, DigestContent.class);
     }
 
     private void processDigestContent(DigestContent content) throws ExecutionException, InterruptedException {
@@ -520,7 +547,7 @@ class DigestContentController {
         }
     }
 
-    private DigestRequest getDigestRequestById(String id) throws ExecutionException, InterruptedException {
+    private DigestRequest getDigestRequestById(String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         SearchConditionRequest condition = SearchConditionRequest.group("AND",
                 Condition.of("$.id", "EQUALS", id));
         CompletableFuture<ArrayNode> itemsFuture = entityService.getItemsByCondition(
@@ -534,7 +561,7 @@ class DigestContentController {
         }
 
         ObjectNode node = (ObjectNode) nodes.get(0);
-        return JsonUtil.convert(node, DigestRequest.class);
+        return objectMapper.treeToValue(node, DigestRequest.class);
     }
 
     @Data
@@ -565,16 +592,16 @@ class DigestContentController {
         @Size(min = 1, max = 10000)
         private String content;
     }
-}
+} 
 
 // Utility class for JSON conversion (may be part of project utils)
 class JsonUtil {
-    private static final com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+    private static final ObjectMapper mapper = new ObjectMapper();
 
     static <T> T convert(ObjectNode node, Class<T> clazz) {
         try {
             return mapper.treeToValue(node, clazz);
-        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+        } catch (JsonProcessingException e) {
             throw new RuntimeException("Failed to convert ObjectNode to " + clazz.getSimpleName(), e);
         }
     }
