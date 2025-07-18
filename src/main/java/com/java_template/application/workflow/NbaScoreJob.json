@@ -1,0 +1,67 @@
+{
+  "version": "1.0",
+  "description": "NbaScoreJob entity workflow FSM",
+  "initial_state": "none",
+  "workflow_name": "nba_score_job_workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        "start_processing": {
+          "next": "in_progress",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "CanStartProcessingCriterion"
+            }
+          }
+        }
+      ]
+    },
+    "in_progress": {
+      "transitions": [
+        "fetch_scores_and_persist": {
+          "next": "notify_subscribers",
+          "processors": [
+            {
+              "name": "NbaScoreJobProcessor"
+            }
+          ],
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ScoresFetchedSuccessfullyCriterion"
+            }
+          }
+        },
+        "fail_due_to_fetch_error": {
+          "next": "failed",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ScoresNotFetchedCriterion"
+            }
+          }
+        }
+      ]
+    },
+    "notify_subscribers": {
+      "transitions": [
+        "send_notifications": {
+          "next": "completed",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "NotificationsSentSuccessfullyCriterion"
+            }
+          }
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  }
+}
