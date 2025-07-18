@@ -1,0 +1,18 @@
+{
+  "version": "1.0",
+  "description": "Workflow for Pet entity with simple processing",
+  "initial_state": "none",
+  "workflow_name": "pet_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "create_to_created": {
+          "next": "created"
+        }
+      }
+    },
+    "created": {
+      "transitions": {}
+    }
+  }
+}
