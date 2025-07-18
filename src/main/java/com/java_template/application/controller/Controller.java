@@ -1,5 +1,7 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.PurrfectPetsJob;
@@ -14,6 +16,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -27,11 +32,12 @@ import static com.java_template.common.config.Config.*;
 public class Controller {
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     // ----------------------- PurrfectPetsJob Endpoints -----------------------
 
     @PostMapping("/jobs")
-    public ResponseEntity<?> createPurrfectPetsJob(@RequestBody PurrfectPetsJob job) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> createPurrfectPetsJob(@Valid @RequestBody PurrfectPetsJob job) throws ExecutionException, InterruptedException, JsonProcessingException {
         if (job == null) {
             log.error("Received null PurrfectPetsJob");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("PurrfectPetsJob data is required");
@@ -49,7 +55,7 @@ public class Controller {
     }
 
     @GetMapping("/jobs/{id}")
-    public ResponseEntity<?> getPurrfectPetsJob(@PathVariable String id) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> getPurrfectPetsJob(@PathVariable @NotBlank String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         UUID technicalId;
         try {
             technicalId = UUID.fromString(id);
@@ -61,13 +67,15 @@ public class Controller {
         if (jobNode == null || jobNode.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("PurrfectPetsJob not found with id " + id);
         }
-        return ResponseEntity.ok(jobNode);
+        // Convert ObjectNode to PurrfectPetsJob entity if needed
+        PurrfectPetsJob job = objectMapper.treeToValue(jobNode, PurrfectPetsJob.class);
+        return ResponseEntity.ok(job);
     }
 
     // ----------------------- Pet Endpoints -----------------------
 
     @PostMapping("/pets")
-    public ResponseEntity<?> createPet(@RequestBody Pet pet) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> createPet(@Valid @RequestBody Pet pet) throws ExecutionException, InterruptedException, JsonProcessingException {
         if (pet == null) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Pet data is required");
         }
@@ -89,7 +97,7 @@ public class Controller {
     }
 
     @GetMapping("/pets/{id}")
-    public ResponseEntity<?> getPet(@PathVariable String id) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> getPet(@PathVariable @NotBlank String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         UUID technicalId;
         try {
             technicalId = UUID.fromString(id);
@@ -101,13 +109,14 @@ public class Controller {
         if (petNode == null || petNode.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Pet not found with id " + id);
         }
-        return ResponseEntity.ok(petNode);
+        Pet pet = objectMapper.treeToValue(petNode, Pet.class);
+        return ResponseEntity.ok(pet);
     }
 
     // ----------------------- Favorite Endpoints -----------------------
 
     @PostMapping("/favorites")
-    public ResponseEntity<?> createFavorite(@RequestBody Favorite favorite) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> createFavorite(@Valid @RequestBody Favorite favorite) throws ExecutionException, InterruptedException, JsonProcessingException {
         if (favorite == null) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Favorite data is required");
         }
@@ -143,11 +152,7 @@ public class Controller {
     }
 
     @GetMapping("/favorites")
-    public ResponseEntity<?> getFavoritesByUser(@RequestParam String userId) throws ExecutionException, InterruptedException {
-        if (userId == null || userId.isBlank()) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("UserId query parameter is required");
-        }
-
+    public ResponseEntity<?> getFavoritesByUser(@RequestParam @NotBlank String userId) throws ExecutionException, InterruptedException {
         Condition userCondition = Condition.of("$.userId", "EQUALS", userId);
         Condition statusCondition = Condition.of("$.status", "EQUALS", "ACTIVE");
         SearchConditionRequest conditionRequest = SearchConditionRequest.group("AND", userCondition, statusCondition);
