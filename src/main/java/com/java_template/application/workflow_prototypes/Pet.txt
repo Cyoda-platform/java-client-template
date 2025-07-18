@@ -1,0 +1,10 @@
+    private void processPet(Pet pet) {
+        logger.info("Processing Pet with technicalId: {}", pet.getTechnicalId());
+
+        // Implement actual business logic here:
+        // - Validate required fields
+        // - Update search indexes or related caches if needed
+        // - Prepare Pet data for retrieval
+
+        // TODO: Implement enrichment or external API calls if required
+    }
