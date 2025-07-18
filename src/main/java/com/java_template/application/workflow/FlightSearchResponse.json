@@ -1,0 +1,40 @@
+{
+  "version": "1.0",
+  "description": "Workflow for FlightSearchResponse entity representing the flight search response processing",
+  "initial_state": "none",
+  "workflow_name": "FlightSearchResponseWorkflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "receive_response": {
+          "next": "response_received",
+          "processors": [
+            {
+              "name": "FlightSearchResponseProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "response_received": {
+      "transitions": {
+        "validate_response": {
+          "next": "validated",
+          "processors": [
+            {
+              "name": "FlightSearchResponseProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "validated": {
+      "transitions": {
+        "finalize": {
+          "next": "completed"
+        }
+      }
+    },
+    "completed": {}
+  }
+}
