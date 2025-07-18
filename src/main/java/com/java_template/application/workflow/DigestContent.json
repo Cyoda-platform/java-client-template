@@ -1,0 +1,91 @@
+```json
+{
+  "version": "1.0",
+  "description": "DigestContent entity workflow FSM",
+  "initial_state": "none",
+  "workflow_name": "DigestContentWorkflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "start_processing": {
+            "next": "processing"
+          }
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "content_valid": {
+            "next": "content_retrieved",
+            "criterion": {
+              "type": "function",
+              "function": {
+                "name": "HasValidContentCriterion"
+              }
+            },
+            "processors": [
+              {
+                "name": "DigestContentProcessor"
+              }
+            ]
+          }
+        },
+        {
+          "content_invalid": {
+            "next": "failed",
+            "criterion": {
+              "type": "function",
+              "function": {
+                "name": "HasNoValidContentCriterion"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "content_retrieved": {
+      "transitions": [
+        {
+          "linked_request_exists": {
+            "next": "email_dispatched",
+            "criterion": {
+              "type": "function",
+              "function": {
+                "name": "LinkedDigestRequestExistsCriterion"
+              }
+            }
+          }
+        },
+        {
+          "linked_request_missing": {
+            "next": "failed",
+            "criterion": {
+              "type": "function",
+              "function": {
+                "name": "LinkedDigestRequestMissingCriterion"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "email_dispatched": {
+      "transitions": [
+        {
+          "complete_job": {
+            "next": "completed"
+          }
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  }
+}
+```
