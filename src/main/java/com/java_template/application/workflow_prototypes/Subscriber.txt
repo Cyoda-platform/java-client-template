@@ -1,0 +1,6 @@
+private void processSubscriber(Subscriber subscriber) {
+    logger.info("Processing Subscriber with technicalId: {}", subscriber.getTechnicalId());
+    // TODO: Implement actual business logic per requirements:
+    // - Validate contactInfo and preferences
+    // - No further automatic processing unless triggered by GameScore events
+}
