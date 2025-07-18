@@ -1,0 +1,47 @@
+    private void processDigestJob(DigestJob job) throws ExecutionException, InterruptedException {
+        logger.info("Processing DigestJob event for id {}", job.getId());
+
+        // Retrieve all DigestRequest entities
+        CompletableFuture<ArrayNode> requestsFuture = entityService.getItems("DigestRequest", ENTITY_VERSION);
+        ArrayNode requestsNodes = requestsFuture.get();
+
+        if (requestsNodes == null || requestsNodes.size() == 0) {
+            logger.info("No DigestRequests found to associate with DigestJob id {}", job.getId());
+        } else {
+            logger.info("Found {} DigestRequests, processing them for DigestJob id {}", requestsNodes.size(), job.getId());
+            for (int i = 0; i < requestsNodes.size(); i++) {
+                ObjectNode reqNode = (ObjectNode) requestsNodes.get(i);
+                DigestRequest req = JsonUtil.convert(reqNode, DigestRequest.class);
+
+                DigestContent content = new DigestContent();
+                content.setId(null);
+                content.setTechnicalId(UUID.randomUUID());
+                content.setRequestId(req.getId());
+                content.setDigestJobId(job.getId());
+                content.setContent("Generated content for request " + req.getId());
+
+                // Add DigestContent using entityService
+                CompletableFuture<UUID> addedContentIdFuture = entityService.addItem(
+                        "DigestContent",
+                        ENTITY_VERSION,
+                        content);
+                addedContentIdFuture.get();
+
+                // Process the DigestContent
+                processDigestContent(content);
+            }
+        }
+
+        logger.info("DigestJob event processing completed for id {}", job.getId());
+    }
+
+    private void processDigestContent(DigestContent content) {
+        logger.info("Processing DigestContent event for id {}", content.getId());
+
+        if (content.getContent() == null || content.getContent().isBlank()) {
+            logger.warn("DigestContent id {} has empty content field", content.getId());
+        } else {
+            logger.info("DigestContent id {} content length: {}", content.getId(), content.getContent().length());
+        }
+        // No external call here to keep consistent with original logic
+    }
