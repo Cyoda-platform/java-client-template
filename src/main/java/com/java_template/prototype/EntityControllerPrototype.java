@@ -6,10 +6,8 @@ import com.java_template.application.entity.DigestRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -299,7 +297,7 @@ public class EntityControllerPrototype {
         content.setId(String.valueOf(digestContentIdCounter.getAndIncrement()));
         content.setTechnicalId(UUID.randomUUID());
         content.setContent(digestContentReq.getContent());
-        content.setRequestId(digestContentReq.getRequestId()); // added requestId
+        content.setRequestId(digestContentReq.getRequestId());
         content.setDigestJobId(digestContentReq.getDigestJobId());
 
         if (!content.isValid()) {
@@ -329,7 +327,7 @@ public class EntityControllerPrototype {
         updated.setId(existing.getId());
         updated.setTechnicalId(existing.getTechnicalId());
         updated.setContent(digestContentUpdateReq.getContent());
-        updated.setRequestId(digestContentUpdateReq.getRequestId()); // added requestId
+        updated.setRequestId(digestContentUpdateReq.getRequestId());
         updated.setDigestJobId(digestContentUpdateReq.getDigestJobId());
 
         if (!updated.isValid()) {
