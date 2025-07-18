@@ -1,0 +1,36 @@
+private void processDigestRequest(DigestRequest entity) {
+    logger.info("Processing DigestRequest with ID: {}", entity.getId());
+    try {
+        entity.setStatus(DigestRequest.StatusEnum.PROCESSING);
+        entity.setUpdatedAt(LocalDateTime.now());
+        entityService.updateItem("DigestRequest", ENTITY_VERSION, UUID.fromString(entity.getId()), entity).join();
+
+        HttpRequest httpRequest = HttpRequest.newBuilder()
+                .uri(URI.create(entity.getExternalApiUrl()))
+                .GET()
+                .build();
+
+        HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
+
+        if (response.statusCode() == 200) {
+            String responseBody = response.body();
+            logger.info("External API call successful for DigestRequest ID {}: Response length: {}", entity.getId(), responseBody.length());
+
+            // TODO: Process responseBody, format email content using template if needed
+            // TODO: Send email to recipients - integrate with email service
+
+            entity.setStatus(DigestRequest.StatusEnum.COMPLETED);
+        } else {
+            logger.error("External API call failed for DigestRequest ID {} with status code {}", entity.getId(), response.statusCode());
+            entity.setStatus(DigestRequest.StatusEnum.FAILED);
+        }
+    } catch (IOException | InterruptedException e) {
+        logger.error("Exception during external API call for DigestRequest ID {}: {}", entity.getId(), e.getMessage());
+        entity.setStatus(DigestRequest.StatusEnum.FAILED);
+        Thread.currentThread().interrupt();
+    }
+
+    entity.setUpdatedAt(LocalDateTime.now());
+    entityService.updateItem("DigestRequest", ENTITY_VERSION, UUID.fromString(entity.getId()), entity).join();
+    logger.info("Completed processing DigestRequest with ID: {}. Status: {}", entity.getId(), entity.getStatus());
+}
