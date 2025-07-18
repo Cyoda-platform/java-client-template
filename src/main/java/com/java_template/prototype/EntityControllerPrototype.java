@@ -1,13 +1,18 @@
-```java
 package com.java_template.prototype;
 
 import com.java_template.application.entity.AdoptionRequest;
 import com.java_template.application.entity.Job;
 import com.java_template.application.entity.Pet;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -17,16 +22,15 @@ import java.util.concurrent.atomic.AtomicLong;
 
 @RestController
 @RequestMapping(path = "/prototype/entity")
+@Validated
 public class EntityControllerPrototype {
 
     private static final Logger logger = LoggerFactory.getLogger(EntityControllerPrototype.class);
 
-    // Local caches for each entity type
     private final ConcurrentHashMap<String, List<Job>> jobCache = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, List<Pet>> petCache = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, List<AdoptionRequest>> adoptionRequestCache = new ConcurrentHashMap<>();
 
-    // ID counters for each entity type
     private final AtomicLong jobIdCounter = new AtomicLong(1);
     private final AtomicLong petIdCounter = new AtomicLong(1);
     private final AtomicLong adoptionRequestIdCounter = new AtomicLong(1);
@@ -34,168 +38,184 @@ public class EntityControllerPrototype {
     // ====== JOB CRUD ======
 
     @PostMapping("/job")
-    public Map<String, Object> createJob(@RequestBody Job job) {
-        logger.info("Received request to create Job: {}", job);
+    public ResponseEntity<Map<String, Object>> createJob(@RequestBody @Valid JobInput jobInput) {
+        logger.info("Received request to create Job: {}", jobInput);
         try {
+            Job job = convertToJob(jobInput);
             String id = addJob(job);
             logger.info("Job created with id {}", id);
-            return Map.of("id", id, "status", "Job created and processed");
+            return ResponseEntity.ok(Map.of("id", id, "status", "Job created and processed"));
         } catch (Exception e) {
             logger.error("Error creating Job", e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error creating job");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, "Error creating job");
         }
     }
 
-    @GetMapping("/job/{id}")
-    public Job getJob(@PathVariable String id) {
+    @GetMapping("/job")
+    // Using @ModelAttribute DTO to validate query params in GET
+    public ResponseEntity<Job> getJob(@Valid @ModelAttribute JobQuery query) {
+        String id = query.getId();
         logger.info("Received request to get Job with id: {}", id);
-        return getEntityById(jobCache, id)
+        Job job = getEntityById(jobCache, id)
                 .orElseThrow(() -> {
                     logger.error("Job with id {} not found", id);
-                    return new ResponseStatusException(HttpStatus.NOT_FOUND, "Job not found");
+                    return new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Job not found");
                 });
+        return ResponseEntity.ok(job);
     }
 
-    @PutMapping("/job/{id}")
-    public Map<String, Object> updateJob(@PathVariable String id, @RequestBody Job job) {
-        logger.info("Received request to update Job with id {}: {}", id, job);
+    @PutMapping("/job")
+    public ResponseEntity<Map<String, Object>> updateJob(@RequestBody @Valid JobUpdate jobUpdate) {
+        String id = jobUpdate.getId();
+        logger.info("Received request to update Job with id {}: {}", id, jobUpdate);
         try {
+            Job job = convertToJob(jobUpdate);
             updateEntity(jobCache, id, job);
             processJob(job);
-            return Map.of("id", id, "status", "Job updated and processed");
+            return ResponseEntity.ok(Map.of("id", id, "status", "Job updated and processed"));
         } catch (ResponseStatusException ex) {
             logger.error("Job update failed: {}", ex.getMessage());
             throw ex;
         } catch (Exception e) {
             logger.error("Error updating Job", e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error updating job");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, "Error updating job");
         }
     }
 
-    @DeleteMapping("/job/{id}")
-    public Map<String, Object> deleteJob(@PathVariable String id) {
+    @DeleteMapping("/job")
+    public ResponseEntity<Map<String, Object>> deleteJob(@RequestParam @NotBlank String id) {
         logger.info("Received request to delete Job with id {}", id);
         try {
             deleteEntity(jobCache, id);
-            return Map.of("id", id, "status", "Job deleted");
+            return ResponseEntity.ok(Map.of("id", id, "status", "Job deleted"));
         } catch (ResponseStatusException ex) {
             logger.error("Job delete failed: {}", ex.getMessage());
             throw ex;
         } catch (Exception e) {
             logger.error("Error deleting Job", e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error deleting job");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, "Error deleting job");
         }
     }
 
     // ====== PET CRUD ======
 
     @PostMapping("/pet")
-    public Map<String, Object> createPet(@RequestBody Pet pet) {
-        logger.info("Received request to create Pet: {}", pet);
+    public ResponseEntity<Map<String, Object>> createPet(@RequestBody @Valid PetInput petInput) {
+        logger.info("Received request to create Pet: {}", petInput);
         try {
+            Pet pet = convertToPet(petInput);
             String id = addPet(pet);
             logger.info("Pet created with id {}", id);
-            return Map.of("id", id, "status", "Pet created and processed");
+            return ResponseEntity.ok(Map.of("id", id, "status", "Pet created and processed"));
         } catch (Exception e) {
             logger.error("Error creating Pet", e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error creating pet");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, "Error creating pet");
         }
     }
 
-    @GetMapping("/pet/{id}")
-    public Pet getPet(@PathVariable String id) {
+    @GetMapping("/pet")
+    public ResponseEntity<Pet> getPet(@Valid @ModelAttribute PetQuery query) {
+        String id = query.getId();
         logger.info("Received request to get Pet with id: {}", id);
-        return getEntityById(petCache, id)
+        Pet pet = getEntityById(petCache, id)
                 .orElseThrow(() -> {
                     logger.error("Pet with id {} not found", id);
-                    return new ResponseStatusException(HttpStatus.NOT_FOUND, "Pet not found");
+                    return new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Pet not found");
                 });
+        return ResponseEntity.ok(pet);
     }
 
-    @PutMapping("/pet/{id}")
-    public Map<String, Object> updatePet(@PathVariable String id, @RequestBody Pet pet) {
-        logger.info("Received request to update Pet with id {}: {}", id, pet);
+    @PutMapping("/pet")
+    public ResponseEntity<Map<String, Object>> updatePet(@RequestBody @Valid PetUpdate petUpdate) {
+        String id = petUpdate.getId();
+        logger.info("Received request to update Pet with id {}: {}", id, petUpdate);
         try {
+            Pet pet = convertToPet(petUpdate);
             updateEntity(petCache, id, pet);
             processPet(pet);
-            return Map.of("id", id, "status", "Pet updated and processed");
+            return ResponseEntity.ok(Map.of("id", id, "status", "Pet updated and processed"));
         } catch (ResponseStatusException ex) {
             logger.error("Pet update failed: {}", ex.getMessage());
             throw ex;
         } catch (Exception e) {
             logger.error("Error updating Pet", e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error updating pet");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, "Error updating pet");
         }
     }
 
-    @DeleteMapping("/pet/{id}")
-    public Map<String, Object> deletePet(@PathVariable String id) {
+    @DeleteMapping("/pet")
+    public ResponseEntity<Map<String, Object>> deletePet(@RequestParam @NotBlank String id) {
         logger.info("Received request to delete Pet with id {}", id);
         try {
             deleteEntity(petCache, id);
-            return Map.of("id", id, "status", "Pet deleted");
+            return ResponseEntity.ok(Map.of("id", id, "status", "Pet deleted"));
         } catch (ResponseStatusException ex) {
             logger.error("Pet delete failed: {}", ex.getMessage());
             throw ex;
         } catch (Exception e) {
             logger.error("Error deleting Pet", e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error deleting pet");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, "Error deleting pet");
         }
     }
 
     // ====== ADOPTION REQUEST CRUD ======
 
     @PostMapping("/adoptionRequest")
-    public Map<String, Object> createAdoptionRequest(@RequestBody AdoptionRequest request) {
-        logger.info("Received request to create AdoptionRequest: {}", request);
+    public ResponseEntity<Map<String, Object>> createAdoptionRequest(@RequestBody @Valid AdoptionRequestInput input) {
+        logger.info("Received request to create AdoptionRequest: {}", input);
         try {
+            AdoptionRequest request = convertToAdoptionRequest(input);
             String id = addAdoptionRequest(request);
             logger.info("AdoptionRequest created with id {}", id);
-            return Map.of("id", id, "status", "AdoptionRequest created and processed");
+            return ResponseEntity.ok(Map.of("id", id, "status", "AdoptionRequest created and processed"));
         } catch (Exception e) {
             logger.error("Error creating AdoptionRequest", e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error creating adoption request");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, "Error creating adoption request");
         }
     }
 
-    @GetMapping("/adoptionRequest/{id}")
-    public AdoptionRequest getAdoptionRequest(@PathVariable String id) {
+    @GetMapping("/adoptionRequest")
+    public ResponseEntity<AdoptionRequest> getAdoptionRequest(@Valid @ModelAttribute AdoptionRequestQuery query) {
+        String id = query.getId();
         logger.info("Received request to get AdoptionRequest with id: {}", id);
-        return getEntityById(adoptionRequestCache, id)
+        AdoptionRequest request = getEntityById(adoptionRequestCache, id)
                 .orElseThrow(() -> {
                     logger.error("AdoptionRequest with id {} not found", id);
-                    return new ResponseStatusException(HttpStatus.NOT_FOUND, "AdoptionRequest not found");
+                    return new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "AdoptionRequest not found");
                 });
+        return ResponseEntity.ok(request);
     }
 
-    @PutMapping("/adoptionRequest/{id}")
-    public Map<String, Object> updateAdoptionRequest(@PathVariable String id, @RequestBody AdoptionRequest request) {
-        logger.info("Received request to update AdoptionRequest with id {}: {}", id, request);
+    @PutMapping("/adoptionRequest")
+    public ResponseEntity<Map<String, Object>> updateAdoptionRequest(@RequestBody @Valid AdoptionRequestUpdate input) {
+        String id = input.getId();
+        logger.info("Received request to update AdoptionRequest with id {}: {}", id, input);
         try {
+            AdoptionRequest request = convertToAdoptionRequest(input);
             updateEntity(adoptionRequestCache, id, request);
             processAdoptionRequest(request);
-            return Map.of("id", id, "status", "AdoptionRequest updated and processed");
+            return ResponseEntity.ok(Map.of("id", id, "status", "AdoptionRequest updated and processed"));
         } catch (ResponseStatusException ex) {
             logger.error("AdoptionRequest update failed: {}", ex.getMessage());
             throw ex;
         } catch (Exception e) {
             logger.error("Error updating AdoptionRequest", e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error updating adoption request");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, "Error updating adoption request");
         }
     }
 
-    @DeleteMapping("/adoptionRequest/{id}")
-    public Map<String, Object> deleteAdoptionRequest(@PathVariable String id) {
+    @DeleteMapping("/adoptionRequest")
+    public ResponseEntity<Map<String, Object>> deleteAdoptionRequest(@RequestParam @NotBlank String id) {
         logger.info("Received request to delete AdoptionRequest with id {}", id);
         try {
             deleteEntity(adoptionRequestCache, id);
-            return Map.of("id", id, "status", "AdoptionRequest deleted");
+            return ResponseEntity.ok(Map.of("id", id, "status", "AdoptionRequest deleted"));
         } catch (ResponseStatusException ex) {
             logger.error("AdoptionRequest delete failed: {}", ex.getMessage());
             throw ex;
         } catch (Exception e) {
             logger.error("Error deleting AdoptionRequest", e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error deleting adoption request");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, "Error deleting adoption request");
         }
     }
 
@@ -214,31 +234,31 @@ public class EntityControllerPrototype {
     private <T extends com.java_template.common.workflow.CyodaEntity> void updateEntity(ConcurrentHashMap<String, List<T>> cache, String id, T updatedEntity) {
         List<T> entities = cache.get("entities");
         if (entities == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Entity not found");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Entity not found");
         }
         synchronized (entities) {
             for (int i = 0; i < entities.size(); i++) {
                 if (id.equals(entities.get(i).getId())) {
                     updatedEntity.setId(id);
-                    updatedEntity.setTechnicalId(entities.get(i).getTechnicalId()); // Preserve technicalId
+                    updatedEntity.setTechnicalId(entities.get(i).getTechnicalId());
                     entities.set(i, updatedEntity);
                     logger.info("Entity with id {} updated in cache", id);
                     return;
                 }
             }
         }
-        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Entity not found");
+        throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Entity not found");
     }
 
     private <T extends com.java_template.common.workflow.CyodaEntity> void deleteEntity(ConcurrentHashMap<String, List<T>> cache, String id) {
         List<T> entities = cache.get("entities");
         if (entities == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Entity not found");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Entity not found");
         }
         synchronized (entities) {
             boolean removed = entities.removeIf(e -> id.equals(e.getId()));
             if (!removed) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Entity not found");
+                throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Entity not found");
             }
             logger.info("Entity with id {} removed from cache", id);
         }
@@ -248,7 +268,7 @@ public class EntityControllerPrototype {
 
     private String addJob(Job job) {
         if (job.getId() != null && !job.getId().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "New Job cannot have an id");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "New Job cannot have an id");
         }
         String id = String.valueOf(jobIdCounter.getAndIncrement());
         job.setId(id);
@@ -261,7 +281,7 @@ public class EntityControllerPrototype {
 
     private String addPet(Pet pet) {
         if (pet.getId() != null && !pet.getId().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "New Pet cannot have an id");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "New Pet cannot have an id");
         }
         String id = String.valueOf(petIdCounter.getAndIncrement());
         pet.setId(id);
@@ -274,7 +294,7 @@ public class EntityControllerPrototype {
 
     private String addAdoptionRequest(AdoptionRequest request) {
         if (request.getId() != null && !request.getId().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "New AdoptionRequest cannot have an id");
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "New AdoptionRequest cannot have an id");
         }
         String id = String.valueOf(adoptionRequestIdCounter.getAndIncrement());
         request.setId(id);
@@ -301,5 +321,179 @@ public class EntityControllerPrototype {
         // TODO: Replace with real event processing logic or integration with Cyoda event system
         logger.info("Processing AdoptionRequest entity event for id {}", request.getId());
     }
+
+    // ====== Conversion Utilities from DTOs to Entities ======
+
+    private Job convertToJob(JobInput input) {
+        Job job = new Job();
+        job.setId(null); // id is generated on add
+        job.setTechnicalId(null);
+        job.setName(input.getName());
+        job.setDescription(input.getDescription());
+        job.setStatus(input.getStatus());
+        return job;
+    }
+
+    private Job convertToJob(JobUpdate input) {
+        Job job = new Job();
+        job.setId(input.getId());
+        job.setTechnicalId(null);
+        job.setName(input.getName());
+        job.setDescription(input.getDescription());
+        job.setStatus(input.getStatus());
+        return job;
+    }
+
+    private Pet convertToPet(PetInput input) {
+        Pet pet = new Pet();
+        pet.setId(null);
+        pet.setTechnicalId(null);
+        pet.setName(input.getName());
+        pet.setType(input.getType());
+        pet.setAge(input.getAge());
+        return pet;
+    }
+
+    private Pet convertToPet(PetUpdate input) {
+        Pet pet = new Pet();
+        pet.setId(input.getId());
+        pet.setTechnicalId(null);
+        pet.setName(input.getName());
+        pet.setType(input.getType());
+        pet.setAge(input.getAge());
+        return pet;
+    }
+
+    private AdoptionRequest convertToAdoptionRequest(AdoptionRequestInput input) {
+        AdoptionRequest request = new AdoptionRequest();
+        request.setId(null);
+        request.setTechnicalId(null);
+        request.setPetId(input.getPetId());
+        request.setApplicantName(input.getApplicantName());
+        request.setStatus(input.getStatus());
+        return request;
+    }
+
+    private AdoptionRequest convertToAdoptionRequest(AdoptionRequestUpdate input) {
+        AdoptionRequest request = new AdoptionRequest();
+        request.setId(input.getId());
+        request.setTechnicalId(null);
+        request.setPetId(input.getPetId());
+        request.setApplicantName(input.getApplicantName());
+        request.setStatus(input.getStatus());
+        return request;
+    }
+
+    // ====== DTO Classes for Validation ======
+
+    @Data
+    public static class JobInput {
+        @NotBlank
+        @Size(max = 100)
+        private String name;
+
+        @Size(max = 255)
+        private String description;
+
+        @NotBlank
+        @Pattern(regexp = "NEW|RUNNING|COMPLETED|FAILED")
+        private String status;
+    }
+
+    @Data
+    public static class JobUpdate {
+        @NotBlank
+        private String id;
+
+        @NotBlank
+        @Size(max = 100)
+        private String name;
+
+        @Size(max = 255)
+        private String description;
+
+        @NotBlank
+        @Pattern(regexp = "NEW|RUNNING|COMPLETED|FAILED")
+        private String status;
+    }
+
+    @Data
+    public static class JobQuery {
+        @NotBlank
+        private String id;
+    }
+
+    @Data
+    public static class PetInput {
+        @NotBlank
+        @Size(max = 50)
+        private String name;
+
+        @NotBlank
+        @Size(max = 30)
+        private String type;
+
+        @NotNull
+        private Integer age;
+    }
+
+    @Data
+    public static class PetUpdate {
+        @NotBlank
+        private String id;
+
+        @NotBlank
+        @Size(max = 50)
+        private String name;
+
+        @NotBlank
+        @Size(max = 30)
+        private String type;
+
+        @NotNull
+        private Integer age;
+    }
+
+    @Data
+    public static class PetQuery {
+        @NotBlank
+        private String id;
+    }
+
+    @Data
+    public static class AdoptionRequestInput {
+        @NotBlank
+        private String petId; // foreign key as String
+
+        @NotBlank
+        @Size(max = 100)
+        private String applicantName;
+
+        @NotBlank
+        @Pattern(regexp = "PENDING|APPROVED|REJECTED")
+        private String status;
+    }
+
+    @Data
+    public static class AdoptionRequestUpdate {
+        @NotBlank
+        private String id;
+
+        @NotBlank
+        private String petId;
+
+        @NotBlank
+        @Size(max = 100)
+        private String applicantName;
+
+        @NotBlank
+        @Pattern(regexp = "PENDING|APPROVED|REJECTED")
+        private String status;
+    }
+
+    @Data
+    public static class AdoptionRequestQuery {
+        @NotBlank
+        private String id;
+    }
 }
-```
