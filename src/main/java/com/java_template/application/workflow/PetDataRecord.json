@@ -1,0 +1,92 @@
+{
+    "description": "DigestJob entity workflow FSM representing the lifecycle of a digest job processing pet data and dispatching emails",
+    "initial_state": "none",
+    "states": {
+        "completed": {
+            "transitions": {}
+        },
+        "email_dispatch": {
+            "transitions": {
+                "all_emails_dispatched_successfully": {
+                    "criterion": {
+                        "function": {
+                            "name": "AllEmailsDispatchedSuccessfullyCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "next": "completed"
+                },
+                "email_dispatch_failure": {
+                    "criterion": {
+                        "function": {
+                            "name": "EmailDispatchFailureCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "next": "failed"
+                }
+            }
+        },
+        "failed": {
+            "transitions": {}
+        },
+        "none": {
+            "transitions": {
+                "start_validation": {
+                    "criterion": {
+                        "function": {
+                            "name": "IsValidDigestJobCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "next": "pending"
+                }
+            }
+        },
+        "pending": {
+            "transitions": {
+                "fail_due_to_invalid": {
+                    "criterion": {
+                        "function": {
+                            "name": "IsInvalidDigestJobCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "next": "failed"
+                },
+                "validate_and_start_processing": {
+                    "next": "processing",
+                    "processors": [
+                        {
+                            "name": "PetDataRecordProcessor"
+                        }
+                    ]
+                }
+            }
+        },
+        "processing": {
+            "transitions": {
+                "all_pet_data_processed_success": {
+                    "criterion": {
+                        "function": {
+                            "name": "AllPetDataRecordsProcessedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "next": "email_dispatch"
+                },
+                "error_occurred": {
+                    "criterion": {
+                        "function": {
+                            "name": "ErrorOccurredCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "next": "failed"
+                }
+            }
+        }
+    },
+    "version": "1.0",
+    "workflow_name": "digest_job_workflow"
+}
