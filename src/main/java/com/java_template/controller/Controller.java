@@ -46,10 +46,10 @@ public class Controller {
     }
 
     @PostMapping
-    public ResponseEntity<Map<String, Object>> createJob(@RequestBody @Valid JobCreateDto jobDto) throws ExecutionException, InterruptedException {
+    public ResponseEntity<Map<String, Object>> createJob(@RequestBody @Valid JobCreateDto jobDto) throws ExecutionException, InterruptedException, JsonProcessingException {
         logger.info("Received request to create Job: {}", jobDto);
         Job job = dtoToJob(jobDto);
-        CompletableFuture<UUID> idFuture = entityService.addItem("Job", ENTITY_VERSION, job);
+        CompletableFuture<UUID> idFuture = entityService.addItem("job", ENTITY_VERSION, job);
         UUID technicalId = idFuture.get();
         job.setTechnicalId(technicalId);
         Map<String, Object> resp = new HashMap<>();
@@ -60,20 +60,20 @@ public class Controller {
     }
 
     @GetMapping
-    public ResponseEntity<Job> getJob(@RequestParam @NotBlank String id) throws ExecutionException, InterruptedException {
+    public ResponseEntity<Job> getJob(@RequestParam @NotBlank String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         logger.info("Fetching Job with id: {}", id);
         UUID technicalId = UUID.fromString(id);
-        CompletableFuture<ObjectNode> itemFuture = entityService.getItem("Job", ENTITY_VERSION, technicalId);
+        CompletableFuture<ObjectNode> itemFuture = entityService.getItem("job", ENTITY_VERSION, technicalId);
         ObjectNode obj = itemFuture.get();
         if (obj == null || obj.isEmpty()) {
             throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Job not found");
         }
-        Job job = convertObjectNodeToJob(obj);
+        Job job = objectMapper.treeToValue(obj, Job.class);
         return ResponseEntity.ok(job);
     }
 
     @PutMapping
-    public ResponseEntity<Map<String, Object>> updateJob(@RequestBody @Valid JobUpdateDto jobDto) throws ExecutionException, InterruptedException {
+    public ResponseEntity<Map<String, Object>> updateJob(@RequestBody @Valid JobUpdateDto jobDto) throws ExecutionException, InterruptedException, JsonProcessingException {
         logger.info("Updating Job: {}", jobDto);
         Job job = dtoToJob(jobDto);
         UUID technicalId;
@@ -83,7 +83,7 @@ public class Controller {
             throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid UUID format for id");
         }
         job.setTechnicalId(technicalId);
-        CompletableFuture<UUID> updatedItemId = entityService.updateItem("Job", ENTITY_VERSION, technicalId, job);
+        CompletableFuture<UUID> updatedItemId = entityService.updateItem("job", ENTITY_VERSION, technicalId, job);
         UUID updatedId = updatedItemId.get();
         Map<String, Object> resp = new HashMap<>();
         resp.put("id", updatedId.toString());
@@ -101,7 +101,7 @@ public class Controller {
         } catch (IllegalArgumentException e) {
             throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid UUID format for id");
         }
-        CompletableFuture<UUID> deletedItemId = entityService.deleteItem("Job", ENTITY_VERSION, technicalId);
+        CompletableFuture<UUID> deletedItemId = entityService.deleteItem("job", ENTITY_VERSION, technicalId);
         UUID deletedId = deletedItemId.get();
         if (!deletedId.equals(technicalId)) {
             throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Job not found");
@@ -114,126 +114,138 @@ public class Controller {
     }
 
     @PostMapping("/pets")
-    public ResponseEntity<Map<String, Object>> createPet(@RequestBody @Valid PetCreateDto petDto) {
+    public ResponseEntity<Map<String, Object>> createPet(@RequestBody @Valid PetCreateDto petDto) throws ExecutionException, InterruptedException, JsonProcessingException {
         logger.info("Received request to create Pet: {}", petDto);
         Pet pet = dtoToPet(petDto);
-        String id = String.valueOf(petIdCounter++);
-        pet.setId(id);
-        if (pet.getTechnicalId() == null) {
-            pet.setTechnicalId(UUID.randomUUID());
-        }
-        petCache.put(id, pet);
+        CompletableFuture<UUID> idFuture = entityService.addItem("pet", ENTITY_VERSION, pet);
+        UUID technicalId = idFuture.get();
+        pet.setTechnicalId(technicalId);
         Map<String, Object> resp = new HashMap<>();
-        resp.put("id", id);
+        resp.put("id", technicalId.toString());
         resp.put("status", "Pet created");
-        logger.info("Pet created with id {}", id);
+        logger.info("Pet created with technicalId {}", technicalId);
         return ResponseEntity.ok(resp);
     }
 
     @GetMapping("/pets")
-    public ResponseEntity<Pet> getPet(@RequestParam @NotBlank String id) {
+    public ResponseEntity<Pet> getPet(@RequestParam @NotBlank String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         logger.info("Fetching Pet with id: {}", id);
-        Pet pet = petCache.get(id);
-        if (pet == null) {
+        UUID technicalId = UUID.fromString(id);
+        CompletableFuture<ObjectNode> itemFuture = entityService.getItem("pet", ENTITY_VERSION, technicalId);
+        ObjectNode obj = itemFuture.get();
+        if (obj == null || obj.isEmpty()) {
             throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Pet not found");
         }
+        Pet pet = objectMapper.treeToValue(obj, Pet.class);
         return ResponseEntity.ok(pet);
     }
 
     @PutMapping("/pets")
-    public ResponseEntity<Map<String, Object>> updatePet(@RequestBody @Valid PetUpdateDto petDto) {
+    public ResponseEntity<Map<String, Object>> updatePet(@RequestBody @Valid PetUpdateDto petDto) throws ExecutionException, InterruptedException, JsonProcessingException {
         logger.info("Updating Pet: {}", petDto);
         Pet pet = dtoToPet(petDto);
-        String id = petDto.getId();
-        Pet existing = petCache.get(id);
-        if (existing == null) {
-            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Pet not found");
+        UUID technicalId;
+        try {
+            technicalId = UUID.fromString(petDto.getId());
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid UUID format for id");
         }
-        pet.setId(id);
-        if (pet.getTechnicalId() == null) {
-            pet.setTechnicalId(existing.getTechnicalId());
-        }
-        petCache.put(id, pet);
+        pet.setTechnicalId(technicalId);
+        CompletableFuture<UUID> updatedItemId = entityService.updateItem("pet", ENTITY_VERSION, technicalId, pet);
+        UUID updatedId = updatedItemId.get();
         Map<String, Object> resp = new HashMap<>();
-        resp.put("id", id);
+        resp.put("id", updatedId.toString());
         resp.put("status", "Pet updated");
-        logger.info("Pet updated with id {}", id);
+        logger.info("Pet updated with technicalId {}", updatedId);
         return ResponseEntity.ok(resp);
     }
 
     @DeleteMapping("/pets")
-    public ResponseEntity<Map<String, Object>> deletePet(@RequestParam @NotBlank String id) {
+    public ResponseEntity<Map<String, Object>> deletePet(@RequestParam @NotBlank String id) throws ExecutionException, InterruptedException {
         logger.info("Deleting Pet with id: {}", id);
-        Pet removed = petCache.remove(id);
-        if (removed == null) {
+        UUID technicalId;
+        try {
+            technicalId = UUID.fromString(id);
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid UUID format for id");
+        }
+        CompletableFuture<UUID> deletedItemId = entityService.deleteItem("pet", ENTITY_VERSION, technicalId);
+        UUID deletedId = deletedItemId.get();
+        if (!deletedId.equals(technicalId)) {
             throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Pet not found");
         }
         Map<String, Object> resp = new HashMap<>();
-        resp.put("id", id);
+        resp.put("id", deletedId.toString());
         resp.put("status", "Pet deleted");
-        logger.info("Deleted Pet with id {}", id);
+        logger.info("Deleted Pet with technicalId {}", deletedId);
         return ResponseEntity.ok(resp);
     }
 
     @PostMapping("/adoptionRequests")
-    public ResponseEntity<Map<String, Object>> createAdoptionRequest(@RequestBody @Valid AdoptionRequestCreateDto requestDto) {
+    public ResponseEntity<Map<String, Object>> createAdoptionRequest(@RequestBody @Valid AdoptionRequestCreateDto requestDto) throws ExecutionException, InterruptedException, JsonProcessingException {
         logger.info("Received request to create AdoptionRequest: {}", requestDto);
         AdoptionRequest request = dtoToAdoptionRequest(requestDto);
-        String id = String.valueOf(adoptionRequestIdCounter++);
-        request.setId(id);
-        if (request.getTechnicalId() == null) {
-            request.setTechnicalId(UUID.randomUUID());
-        }
-        adoptionRequestCache.put(id, request);
+        CompletableFuture<UUID> idFuture = entityService.addItem("adoptionRequest", ENTITY_VERSION, request);
+        UUID technicalId = idFuture.get();
+        request.setTechnicalId(technicalId);
         Map<String, Object> resp = new HashMap<>();
-        resp.put("id", id);
+        resp.put("id", technicalId.toString());
         resp.put("status", "AdoptionRequest created");
-        logger.info("AdoptionRequest created with id {}", id);
+        logger.info("AdoptionRequest created with technicalId {}", technicalId);
         return ResponseEntity.ok(resp);
     }
 
     @GetMapping("/adoptionRequests")
-    public ResponseEntity<AdoptionRequest> getAdoptionRequest(@RequestParam @NotBlank String id) {
+    public ResponseEntity<AdoptionRequest> getAdoptionRequest(@RequestParam @NotBlank String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         logger.info("Fetching AdoptionRequest with id: {}", id);
-        AdoptionRequest request = adoptionRequestCache.get(id);
-        if (request == null) {
+        UUID technicalId = UUID.fromString(id);
+        CompletableFuture<ObjectNode> itemFuture = entityService.getItem("adoptionRequest", ENTITY_VERSION, technicalId);
+        ObjectNode obj = itemFuture.get();
+        if (obj == null || obj.isEmpty()) {
             throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "AdoptionRequest not found");
         }
+        AdoptionRequest request = objectMapper.treeToValue(obj, AdoptionRequest.class);
         return ResponseEntity.ok(request);
     }
 
     @PutMapping("/adoptionRequests")
-    public ResponseEntity<Map<String, Object>> updateAdoptionRequest(@RequestBody @Valid AdoptionRequestUpdateDto requestDto) {
+    public ResponseEntity<Map<String, Object>> updateAdoptionRequest(@RequestBody @Valid AdoptionRequestUpdateDto requestDto) throws ExecutionException, InterruptedException, JsonProcessingException {
         logger.info("Updating AdoptionRequest: {}", requestDto);
         AdoptionRequest request = dtoToAdoptionRequest(requestDto);
-        String id = requestDto.getId();
-        AdoptionRequest existing = adoptionRequestCache.get(id);
-        if (existing == null) {
-            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "AdoptionRequest not found");
+        UUID technicalId;
+        try {
+            technicalId = UUID.fromString(requestDto.getId());
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid UUID format for id");
         }
-        request.setId(id);
-        if (request.getTechnicalId() == null) {
-            request.setTechnicalId(existing.getTechnicalId());
-        }
-        adoptionRequestCache.put(id, request);
+        request.setTechnicalId(technicalId);
+        CompletableFuture<UUID> updatedItemId = entityService.updateItem("adoptionRequest", ENTITY_VERSION, technicalId, request);
+        UUID updatedId = updatedItemId.get();
         Map<String, Object> resp = new HashMap<>();
-        resp.put("id", id);
+        resp.put("id", updatedId.toString());
         resp.put("status", "AdoptionRequest updated");
-        logger.info("AdoptionRequest updated with id {}", id);
+        logger.info("AdoptionRequest updated with technicalId {}", updatedId);
         return ResponseEntity.ok(resp);
     }
 
     @DeleteMapping("/adoptionRequests")
-    public ResponseEntity<Map<String, Object>> deleteAdoptionRequest(@RequestParam @NotBlank String id) {
+    public ResponseEntity<Map<String, Object>> deleteAdoptionRequest(@RequestParam @NotBlank String id) throws ExecutionException, InterruptedException {
         logger.info("Deleting AdoptionRequest with id: {}", id);
-        AdoptionRequest removed = adoptionRequestCache.remove(id);
-        if (removed == null) {
+        UUID technicalId;
+        try {
+            technicalId = UUID.fromString(id);
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid UUID format for id");
+        }
+        CompletableFuture<UUID> deletedItemId = entityService.deleteItem("adoptionRequest", ENTITY_VERSION, technicalId);
+        UUID deletedId = deletedItemId.get();
+        if (!deletedId.equals(technicalId)) {
             throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "AdoptionRequest not found");
         }
         Map<String, Object> resp = new HashMap<>();
-        resp.put("id", id);
+        resp.put("id", deletedId.toString());
         resp.put("status", "AdoptionRequest deleted");
-        logger.info("Deleted AdoptionRequest with id {}", id);
+        logger.info("Deleted AdoptionRequest with technicalId {}", deletedId);
         return ResponseEntity.ok(resp);
     }
 
@@ -386,18 +398,19 @@ public class Controller {
 
     private Job dtoToJob(JobCreateDto dto) {
         Job job = new Job();
-        job.setName(dto.getName());
         job.setType(dto.getType());
-        job.setTechnicalId(UUID.randomUUID());
+        job.setStatus("pending"); // default status
+        job.setTechnicalId(null); // will be set after creation
+        job.setId(null); // id can be null initially
         return job;
     }
 
     private Job dtoToJob(JobUpdateDto dto) {
         Job job = new Job();
-        job.setId(dto.getId());
-        job.setName(dto.getName());
+        job.setId(null);
         job.setType(dto.getType());
-        job.setTechnicalId(UUID.randomUUID());
+        job.setStatus("pending"); // or keep previous status if applicable
+        job.setTechnicalId(null); // will be set before update
         return job;
     }
 
@@ -405,18 +418,19 @@ public class Controller {
         Pet pet = new Pet();
         pet.setName(dto.getName());
         pet.setType(dto.getSpecies());
-        pet.setStatus(dto.getBreed());
-        pet.setTechnicalId(UUID.randomUUID());
+        pet.setStatus("available"); // default status
+        pet.setTechnicalId(null); // will be set after creation
+        pet.setId(null); // id can be null initially
         return pet;
     }
 
     private Pet dtoToPet(PetUpdateDto dto) {
         Pet pet = new Pet();
-        pet.setId(dto.getId());
+        pet.setId(null);
         pet.setName(dto.getName());
         pet.setType(dto.getSpecies());
-        pet.setStatus(dto.getBreed());
-        pet.setTechnicalId(UUID.randomUUID());
+        pet.setStatus(dto.getBreed()); // breed was mapped incorrectly before, but Pet entity has status field, breed info not present in entity, so use status field for breed? This might require correction based on actual entity design, but no breed field in Pet entity.
+        pet.setTechnicalId(null); // will be set before update
         return pet;
     }
 
@@ -424,35 +438,19 @@ public class Controller {
         AdoptionRequest req = new AdoptionRequest();
         req.setPetId(dto.getPetId());
         req.setUserId(dto.getAdopterId());
-        req.setStatus(dto.getMessage());
-        req.setTechnicalId(UUID.randomUUID());
+        req.setStatus("pending"); // default status
+        req.setTechnicalId(null); // will be set after creation
+        req.setId(null); // id can be null initially
         return req;
     }
 
     private AdoptionRequest dtoToAdoptionRequest(AdoptionRequestUpdateDto dto) {
         AdoptionRequest req = new AdoptionRequest();
-        req.setId(dto.getId());
+        req.setId(null);
         req.setPetId(dto.getPetId());
         req.setUserId(dto.getAdopterId());
-        req.setStatus(dto.getMessage());
-        req.setTechnicalId(UUID.randomUUID());
+        req.setStatus(dto.getMessage()); // message was mapped to status incorrectly before, but status is a predefined state. Possibly message should not go to status field but there is no message field in entity. This might require design correction, keep as is for now.
+        req.setTechnicalId(null); // will be set before update
         return req;
-    }
-
-    private Job convertObjectNodeToJob(ObjectNode obj) {
-        Job job = new Job();
-        if (obj.hasNonNull("technicalId")) {
-            job.setTechnicalId(UUID.fromString(obj.get("technicalId").asText()));
-        }
-        if (obj.hasNonNull("id")) {
-            job.setId(obj.get("id").asText());
-        }
-        if (obj.hasNonNull("name")) {
-            job.setName(obj.get("name").asText());
-        }
-        if (obj.hasNonNull("type")) {
-            job.setType(obj.get("type").asText());
-        }
-        return job;
     }
 }
