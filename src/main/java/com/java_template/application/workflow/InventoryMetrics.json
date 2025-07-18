@@ -1,0 +1,43 @@
+{
+  "version": "1.0",
+  "description": "Workflow FSM for InventoryMetrics entity representing its business process",
+  "initial_state": "none",
+  "workflow_name": "inventoryMetrics_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_validation": {
+          "next": "validation",
+          "processors": [
+            {
+              "name": "InventoryMetricsProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "validation": {
+      "transitions": {
+        "validation_passed": {
+          "next": "validated"
+        },
+        "validation_failed": {
+          "next": "error"
+        }
+      }
+    },
+    "validated": {
+      "transitions": {
+        "complete": {
+          "next": "completed"
+        }
+      }
+    },
+    "error": {
+      "transitions": {}
+    },
+    "completed": {
+      "transitions": {}
+    }
+  }
+}
