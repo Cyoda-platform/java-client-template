@@ -1,13 +1,18 @@
-```java
 package com.java_template.prototype;
 
 import com.java_template.application.entity.GameScoreData;
 import com.java_template.application.entity.Job;
 import com.java_template.application.entity.Subscriber;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -16,25 +21,23 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
+@Validated
 @RestController
 @RequestMapping(path = "/prototype/entity")
 public class EntityControllerPrototype {
 
     private static final Logger logger = LoggerFactory.getLogger(EntityControllerPrototype.class);
 
-    // Caches for each entity type (key "entities" -> list of entities)
     private final ConcurrentHashMap<String, List<Job>> jobCache = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, List<Subscriber>> subscriberCache = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, List<GameScoreData>> gameScoreDataCache = new ConcurrentHashMap<>();
 
-    // ID counters for each entity
     private final AtomicLong jobIdCounter = new AtomicLong(1);
     private final AtomicLong subscriberIdCounter = new AtomicLong(1);
     private final AtomicLong gameScoreDataIdCounter = new AtomicLong(1);
 
     @PostConstruct
     public void init() {
-        // Initialize caches with empty lists
         jobCache.putIfAbsent("entities", Collections.synchronizedList(new ArrayList<>()));
         subscriberCache.putIfAbsent("entities", Collections.synchronizedList(new ArrayList<>()));
         gameScoreDataCache.putIfAbsent("entities", Collections.synchronizedList(new ArrayList<>()));
@@ -44,11 +47,12 @@ public class EntityControllerPrototype {
     // ======= JOB CRUD =======
 
     @PostMapping("/job")
-    public Map<String, Object> createJob(@RequestBody Job job) {
+    public ResponseEntity<Map<String, Object>> createJob(@RequestBody @Valid JobDTO jobDTO) {
         try {
+            Job job = fromJobDTO(jobDTO);
             String id = addJob(job);
             logger.info("Job created with id {}", id);
-            return Map.of("id", id, "status", "processed");
+            return ResponseEntity.ok(Map.of("id", id, "status", "processed"));
         } catch (Exception e) {
             logger.error("Error creating Job: {}", e.getMessage(), e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
@@ -56,20 +60,25 @@ public class EntityControllerPrototype {
         }
     }
 
-    @GetMapping("/job/{id}")
-    public Job getJob(@PathVariable String id) {
-        return getEntityById(jobCache, id)
+    @GetMapping("/job")
+    public ResponseEntity<Job> getJob(@RequestParam @NotBlank String id) {
+        Job job = getEntityById(jobCache, id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Job with id " + id + " not found"));
+        return ResponseEntity.ok(job);
     }
 
-    @PutMapping("/job/{id}")
-    public Map<String, Object> updateJob(@PathVariable String id, @RequestBody Job updatedJob) {
+    @PutMapping("/job")
+    public ResponseEntity<Map<String, Object>> updateJob(@RequestBody @Valid JobUpdateDTO jobUpdateDTO) {
         try {
-            updateEntity(jobCache, id, updatedJob);
+            Job existingJob = getEntityById(jobCache, jobUpdateDTO.getId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                            "Job with id " + jobUpdateDTO.getId() + " not found"));
+            Job updatedJob = fromJobUpdateDTO(jobUpdateDTO, existingJob);
+            updateEntity(jobCache, updatedJob.getId(), updatedJob);
             processJob(updatedJob);
-            logger.info("Job updated with id {}", id);
-            return Map.of("id", id, "status", "processed");
+            logger.info("Job updated with id {}", updatedJob.getId());
+            return ResponseEntity.ok(Map.of("id", updatedJob.getId(), "status", "processed"));
         } catch (ResponseStatusException ex) {
             throw ex;
         } catch (Exception e) {
@@ -79,11 +88,11 @@ public class EntityControllerPrototype {
         }
     }
 
-    @DeleteMapping("/job/{id}")
-    public Map<String, String> deleteJob(@PathVariable String id) {
+    @DeleteMapping("/job")
+    public ResponseEntity<Map<String, String>> deleteJob(@RequestParam @NotBlank String id) {
         if (deleteEntity(jobCache, id)) {
             logger.info("Job deleted with id {}", id);
-            return Map.of("id", id, "status", "deleted");
+            return ResponseEntity.ok(Map.of("id", id, "status", "deleted"));
         } else {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND,
                     "Job with id " + id + " not found");
@@ -93,11 +102,12 @@ public class EntityControllerPrototype {
     // ======= SUBSCRIBER CRUD =======
 
     @PostMapping("/subscriber")
-    public Map<String, Object> createSubscriber(@RequestBody Subscriber subscriber) {
+    public ResponseEntity<Map<String, Object>> createSubscriber(@RequestBody @Valid SubscriberDTO subscriberDTO) {
         try {
+            Subscriber subscriber = fromSubscriberDTO(subscriberDTO);
             String id = addSubscriber(subscriber);
             logger.info("Subscriber created with id {}", id);
-            return Map.of("id", id, "status", "processed");
+            return ResponseEntity.ok(Map.of("id", id, "status", "processed"));
         } catch (Exception e) {
             logger.error("Error creating Subscriber: {}", e.getMessage(), e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
@@ -105,20 +115,25 @@ public class EntityControllerPrototype {
         }
     }
 
-    @GetMapping("/subscriber/{id}")
-    public Subscriber getSubscriber(@PathVariable String id) {
-        return getEntityById(subscriberCache, id)
+    @GetMapping("/subscriber")
+    public ResponseEntity<Subscriber> getSubscriber(@RequestParam @NotBlank String id) {
+        Subscriber subscriber = getEntityById(subscriberCache, id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Subscriber with id " + id + " not found"));
+        return ResponseEntity.ok(subscriber);
     }
 
-    @PutMapping("/subscriber/{id}")
-    public Map<String, Object> updateSubscriber(@PathVariable String id, @RequestBody Subscriber updatedSubscriber) {
+    @PutMapping("/subscriber")
+    public ResponseEntity<Map<String, Object>> updateSubscriber(@RequestBody @Valid SubscriberUpdateDTO subscriberUpdateDTO) {
         try {
-            updateEntity(subscriberCache, id, updatedSubscriber);
+            Subscriber existingSubscriber = getEntityById(subscriberCache, subscriberUpdateDTO.getId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                            "Subscriber with id " + subscriberUpdateDTO.getId() + " not found"));
+            Subscriber updatedSubscriber = fromSubscriberUpdateDTO(subscriberUpdateDTO, existingSubscriber);
+            updateEntity(subscriberCache, updatedSubscriber.getId(), updatedSubscriber);
             processSubscriber(updatedSubscriber);
-            logger.info("Subscriber updated with id {}", id);
-            return Map.of("id", id, "status", "processed");
+            logger.info("Subscriber updated with id {}", updatedSubscriber.getId());
+            return ResponseEntity.ok(Map.of("id", updatedSubscriber.getId(), "status", "processed"));
         } catch (ResponseStatusException ex) {
             throw ex;
         } catch (Exception e) {
@@ -128,11 +143,11 @@ public class EntityControllerPrototype {
         }
     }
 
-    @DeleteMapping("/subscriber/{id}")
-    public Map<String, String> deleteSubscriber(@PathVariable String id) {
+    @DeleteMapping("/subscriber")
+    public ResponseEntity<Map<String, String>> deleteSubscriber(@RequestParam @NotBlank String id) {
         if (deleteEntity(subscriberCache, id)) {
             logger.info("Subscriber deleted with id {}", id);
-            return Map.of("id", id, "status", "deleted");
+            return ResponseEntity.ok(Map.of("id", id, "status", "deleted"));
         } else {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND,
                     "Subscriber with id " + id + " not found");
@@ -142,11 +157,12 @@ public class EntityControllerPrototype {
     // ======= GAMESCOREDATA CRUD =======
 
     @PostMapping("/gameScoreData")
-    public Map<String, Object> createGameScoreData(@RequestBody GameScoreData gameScoreData) {
+    public ResponseEntity<Map<String, Object>> createGameScoreData(@RequestBody @Valid GameScoreDataDTO gameScoreDataDTO) {
         try {
+            GameScoreData gameScoreData = fromGameScoreDataDTO(gameScoreDataDTO);
             String id = addGameScoreData(gameScoreData);
             logger.info("GameScoreData created with id {}", id);
-            return Map.of("id", id, "status", "processed");
+            return ResponseEntity.ok(Map.of("id", id, "status", "processed"));
         } catch (Exception e) {
             logger.error("Error creating GameScoreData: {}", e.getMessage(), e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
@@ -154,20 +170,25 @@ public class EntityControllerPrototype {
         }
     }
 
-    @GetMapping("/gameScoreData/{id}")
-    public GameScoreData getGameScoreData(@PathVariable String id) {
-        return getEntityById(gameScoreDataCache, id)
+    @GetMapping("/gameScoreData")
+    public ResponseEntity<GameScoreData> getGameScoreData(@RequestParam @NotBlank String id) {
+        GameScoreData gameScoreData = getEntityById(gameScoreDataCache, id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "GameScoreData with id " + id + " not found"));
+        return ResponseEntity.ok(gameScoreData);
     }
 
-    @PutMapping("/gameScoreData/{id}")
-    public Map<String, Object> updateGameScoreData(@PathVariable String id, @RequestBody GameScoreData updatedGameScoreData) {
+    @PutMapping("/gameScoreData")
+    public ResponseEntity<Map<String, Object>> updateGameScoreData(@RequestBody @Valid GameScoreDataUpdateDTO gameScoreDataUpdateDTO) {
         try {
-            updateEntity(gameScoreDataCache, id, updatedGameScoreData);
+            GameScoreData existingGameScoreData = getEntityById(gameScoreDataCache, gameScoreDataUpdateDTO.getId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                            "GameScoreData with id " + gameScoreDataUpdateDTO.getId() + " not found"));
+            GameScoreData updatedGameScoreData = fromGameScoreDataUpdateDTO(gameScoreDataUpdateDTO, existingGameScoreData);
+            updateEntity(gameScoreDataCache, updatedGameScoreData.getId(), updatedGameScoreData);
             processGameScoreData(updatedGameScoreData);
-            logger.info("GameScoreData updated with id {}", id);
-            return Map.of("id", id, "status", "processed");
+            logger.info("GameScoreData updated with id {}", updatedGameScoreData.getId());
+            return ResponseEntity.ok(Map.of("id", updatedGameScoreData.getId(), "status", "processed"));
         } catch (ResponseStatusException ex) {
             throw ex;
         } catch (Exception e) {
@@ -177,11 +198,11 @@ public class EntityControllerPrototype {
         }
     }
 
-    @DeleteMapping("/gameScoreData/{id}")
-    public Map<String, String> deleteGameScoreData(@PathVariable String id) {
+    @DeleteMapping("/gameScoreData")
+    public ResponseEntity<Map<String, String>> deleteGameScoreData(@RequestParam @NotBlank String id) {
         if (deleteEntity(gameScoreDataCache, id)) {
             logger.info("GameScoreData deleted with id {}", id);
-            return Map.of("id", id, "status", "deleted");
+            return ResponseEntity.ok(Map.of("id", id, "status", "deleted"));
         } else {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND,
                     "GameScoreData with id " + id + " not found");
@@ -192,7 +213,6 @@ public class EntityControllerPrototype {
     // Local cache CRUD operations
     // ============================
 
-    // JOB
     private String addJob(Job job) {
         String id = String.valueOf(jobIdCounter.getAndIncrement());
         job.setId(id);
@@ -202,7 +222,6 @@ public class EntityControllerPrototype {
         return id;
     }
 
-    // SUBSCRIBER
     private String addSubscriber(Subscriber subscriber) {
         String id = String.valueOf(subscriberIdCounter.getAndIncrement());
         subscriber.setId(id);
@@ -212,7 +231,6 @@ public class EntityControllerPrototype {
         return id;
     }
 
-    // GAMESCOREDATA
     private String addGameScoreData(GameScoreData gameScoreData) {
         String id = String.valueOf(gameScoreDataIdCounter.getAndIncrement());
         gameScoreData.setId(id);
@@ -226,7 +244,6 @@ public class EntityControllerPrototype {
         List<T> entities = cache.get("entities");
         if (entities == null) return Optional.empty();
 
-        // Use reflection to find entity with matching id field
         synchronized (entities) {
             return entities.stream()
                     .filter(entity -> {
@@ -253,7 +270,6 @@ public class EntityControllerPrototype {
                 try {
                     Object entityId = entity.getClass().getMethod("getId").invoke(entity);
                     if (id.equals(entityId)) {
-                        // preserve technicalId from old entity
                         Object techId = entity.getClass().getMethod("getTechnicalId").invoke(entity);
                         updatedEntity.getClass().getMethod("setId", String.class).invoke(updatedEntity, id);
                         updatedEntity.getClass().getMethod("setTechnicalId", UUID.class).invoke(updatedEntity, techId);
@@ -300,19 +316,162 @@ public class EntityControllerPrototype {
     private void processJob(Job job) {
         // TODO: Add business logic for job processing simulation
         logger.info("Processing Job event: id={} name={}", job.getId(), job.getName());
-        // For prototype, just log processing
     }
 
     private void processSubscriber(Subscriber subscriber) {
         // TODO: Add business logic for subscriber event processing simulation
         logger.info("Processing Subscriber event: id={} email={}", subscriber.getId(), subscriber.getEmail());
-        // For prototype, just log processing
     }
 
     private void processGameScoreData(GameScoreData gameScoreData) {
         // TODO: Add business logic for GameScoreData event processing simulation
         logger.info("Processing GameScoreData event: id={} date={}", gameScoreData.getId(), gameScoreData.getDate());
-        // For prototype, just log processing
+    }
+
+    // ============================
+    // DTOs with validation - no nested objects, primitives or String only
+    // ============================
+
+    @Data
+    public static class JobDTO {
+        @NotBlank
+        private String name;
+
+        @NotBlank
+        private String schedule; // e.g. cron expression
+
+        @NotBlank
+        private String description;
+    }
+
+    @Data
+    public static class JobUpdateDTO {
+        @NotBlank
+        private String id;
+
+        @NotBlank
+        private String name;
+
+        @NotBlank
+        private String schedule;
+
+        @NotBlank
+        private String description;
+    }
+
+    @Data
+    public static class SubscriberDTO {
+        @NotBlank
+        @Pattern(regexp = "^[\\w-.]+@[\\w-]+\\.[\\w-.]+$", message = "Invalid email format")
+        private String email;
+
+        @NotBlank
+        private String status; // e.g. "ACTIVE", "INACTIVE"
+    }
+
+    @Data
+    public static class SubscriberUpdateDTO {
+        @NotBlank
+        private String id;
+
+        @NotBlank
+        @Pattern(regexp = "^[\\w-.]+@[\\w-]+\\.[\\w-.]+$", message = "Invalid email format")
+        private String email;
+
+        @NotBlank
+        private String status;
+    }
+
+    @Data
+    public static class GameScoreDataDTO {
+        @NotBlank
+        @Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}$", message = "Date must be in yyyy-MM-dd format")
+        private String date;
+
+        @NotNull
+        private Integer homeScore;
+
+        @NotNull
+        private Integer awayScore;
+
+        @NotBlank
+        private String homeTeam;
+
+        @NotBlank
+        private String awayTeam;
+    }
+
+    @Data
+    public static class GameScoreDataUpdateDTO {
+        @NotBlank
+        private String id;
+
+        @NotBlank
+        @Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}$", message = "Date must be in yyyy-MM-dd format")
+        private String date;
+
+        @NotNull
+        private Integer homeScore;
+
+        @NotNull
+        private Integer awayScore;
+
+        @NotBlank
+        private String homeTeam;
+
+        @NotBlank
+        private String awayTeam;
+    }
+
+
+    // ============================
+    // Conversion helpers DTO -> Entity
+    // ============================
+
+    private Job fromJobDTO(JobDTO dto) {
+        Job job = new Job();
+        job.setName(dto.getName());
+        job.setSchedule(dto.getSchedule());
+        job.setDescription(dto.getDescription());
+        return job;
+    }
+
+    private Job fromJobUpdateDTO(JobUpdateDTO dto, Job existing) {
+        existing.setName(dto.getName());
+        existing.setSchedule(dto.getSchedule());
+        existing.setDescription(dto.getDescription());
+        return existing;
+    }
+
+    private Subscriber fromSubscriberDTO(SubscriberDTO dto) {
+        Subscriber subscriber = new Subscriber();
+        subscriber.setEmail(dto.getEmail());
+        subscriber.setStatus(dto.getStatus());
+        return subscriber;
+    }
+
+    private Subscriber fromSubscriberUpdateDTO(SubscriberUpdateDTO dto, Subscriber existing) {
+        existing.setEmail(dto.getEmail());
+        existing.setStatus(dto.getStatus());
+        return existing;
+    }
+
+    private GameScoreData fromGameScoreDataDTO(GameScoreDataDTO dto) {
+        GameScoreData gsd = new GameScoreData();
+        gsd.setDate(dto.getDate());
+        gsd.setHomeScore(dto.getHomeScore());
+        gsd.setAwayScore(dto.getAwayScore());
+        gsd.setHomeTeam(dto.getHomeTeam());
+        gsd.setAwayTeam(dto.getAwayTeam());
+        return gsd;
+    }
+
+    private GameScoreData fromGameScoreDataUpdateDTO(GameScoreDataUpdateDTO dto, GameScoreData existing) {
+        existing.setDate(dto.getDate());
+        existing.setHomeScore(dto.getHomeScore());
+        existing.setAwayScore(dto.getAwayScore());
+        existing.setHomeTeam(dto.getHomeTeam());
+        existing.setAwayTeam(dto.getAwayTeam());
+        return existing;
     }
 }
-```
