@@ -66,7 +66,7 @@ public class PetJobController {
                     petJob.setTechnicalId(technicalId);
                     petJob.setId(technicalId.toString());
                     try {
-                        processPetJob(petJob);
+                        // processPetJob removed
                     } catch (Exception e) {
                         logger.error("Error processing PetJob with technicalId {}: {}", technicalId, e.getMessage());
                         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error processing PetJob");
@@ -111,7 +111,7 @@ public class PetJobController {
                     return entityService.updateItem("PetJob", ENTITY_VERSION, technicalId, petJob)
                             .thenApply(updatedId -> {
                                 try {
-                                    processPetJob(petJob);
+                                    // processPetJob removed
                                 } catch (Exception e) {
                                     logger.error("Error processing PetJob with technicalId {}: {}", id, e.getMessage());
                                     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error processing PetJob");
@@ -133,42 +133,6 @@ public class PetJobController {
                     logger.info("Deleted PetJob with technicalId {}", id);
                     return ResponseEntity.ok("PetJob deleted");
                 });
-    }
-
-    private void processPetJob(PetJob petJob) {
-        logger.info("Processing PetJob with technicalId: {}", petJob.getTechnicalId());
-
-        try {
-            switch (petJob.getAction().toUpperCase()) {
-                case "CREATE":
-                    // Create new Pet via entityService
-                    Pet newPet = new Pet();
-                    newPet.setId(UUID.randomUUID().toString());
-                    newPet.setTechnicalId(UUID.randomUUID());
-                    newPet.setPetId(petJob.getPetId());
-                    newPet.setName("New Pet"); // TODO: replace with real data
-                    newPet.setCategory("Unknown");
-                    newPet.setStatus("AVAILABLE");
-                    entityService.addItem("Pet", ENTITY_VERSION, newPet).join();
-                    petJob.setStatus("COMPLETED");
-                    break;
-                case "UPDATE":
-                    // TODO: Implement update logic if needed
-                    petJob.setStatus("COMPLETED");
-                    break;
-                case "DELETE":
-                    // TODO: Implement delete logic if needed
-                    petJob.setStatus("COMPLETED");
-                    break;
-                default:
-                    logger.error("Unsupported action: {}", petJob.getAction());
-                    petJob.setStatus("FAILED");
-                    break;
-            }
-        } catch (Exception e) {
-            logger.error("Exception processing PetJob: {}", e.getMessage());
-            petJob.setStatus("FAILED");
-        }
     }
 }
 
@@ -222,7 +186,7 @@ public class PetController {
                     pet.setTechnicalId(technicalId);
                     pet.setId(technicalId.toString());
                     try {
-                        processPet(pet);
+                        // processPet removed
                     } catch (Exception e) {
                         logger.error("Error processing Pet with technicalId {}: {}", technicalId, e.getMessage());
                         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error processing Pet");
@@ -269,7 +233,7 @@ public class PetController {
                     return entityService.updateItem("Pet", ENTITY_VERSION, technicalId, pet)
                             .thenApply(updatedId -> {
                                 try {
-                                    processPet(pet);
+                                    // processPet removed
                                 } catch (Exception e) {
                                     logger.error("Error processing Pet with technicalId {}: {}", id, e.getMessage());
                                     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error processing Pet");
@@ -291,16 +255,5 @@ public class PetController {
                     logger.info("Deleted Pet with technicalId {}", id);
                     return ResponseEntity.ok("Pet deleted");
                 });
-    }
-
-    private void processPet(Pet pet) {
-        logger.info("Processing Pet with technicalId: {}", pet.getTechnicalId());
-
-        // Implement actual business logic here:
-        // - Validate required fields
-        // - Update search indexes or related caches if needed
-        // - Prepare Pet data for retrieval
-
-        // TODO: Implement enrichment or external API calls if required
     }
 }
