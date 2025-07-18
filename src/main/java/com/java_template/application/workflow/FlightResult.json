@@ -1,0 +1,28 @@
+{
+  "version": "1.0",
+  "description": "Workflow for FlightResult entity representing processing of individual flight results",
+  "initial_state": "none",
+  "workflow_name": "FlightResultWorkflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "process_result": {
+          "next": "processed",
+          "processors": [
+            {
+              "name": "FlightResultProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "processed": {
+      "transitions": {
+        "archive_result": {
+          "next": "archived"
+        }
+      }
+    },
+    "archived": {}
+  }
+}
