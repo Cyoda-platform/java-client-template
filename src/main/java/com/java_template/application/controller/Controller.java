@@ -1,23 +1,26 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Pet;
 import com.java_template.application.entity.PurrfectPetsJob;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.*;
+import jakarta.validation.Valid;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/controller")
@@ -26,13 +29,14 @@ import static com.java_template.common.config.Config.*;
 public class Controller {
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     private static final String JOB_ENTITY = "PurrfectPetsJob";
     private static final String PET_ENTITY = "Pet";
 
     // POST /controller/jobs - create new PurrfectPetsJob
     @PostMapping("/jobs")
-    public ResponseEntity<?> createJob(@RequestBody PurrfectPetsJob job) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> createJob(@Valid @RequestBody PurrfectPetsJob job) throws ExecutionException, InterruptedException, JsonProcessingException {
         if (job == null) {
             log.error("Received null job");
             return ResponseEntity.badRequest().body("Job cannot be null");
@@ -62,19 +66,21 @@ public class Controller {
 
     // GET /controller/jobs/{id} - get job by id
     @GetMapping("/jobs/{id}")
-    public ResponseEntity<?> getJobById(@PathVariable UUID id) throws ExecutionException, InterruptedException {
-        CompletableFuture<ObjectNode> itemFuture = entityService.getItem(JOB_ENTITY, ENTITY_VERSION, id);
+    public ResponseEntity<?> getJobById(@PathVariable String id) throws ExecutionException, InterruptedException, JsonProcessingException {
+        UUID uuid = UUID.fromString(id);
+        CompletableFuture<ObjectNode> itemFuture = entityService.getItem(JOB_ENTITY, ENTITY_VERSION, uuid);
         ObjectNode jobNode = itemFuture.get();
         if (jobNode == null || jobNode.isEmpty()) {
-            log.error("Job not found with technicalId: {}", id);
+            log.error("Job not found with technicalId: {}", uuid);
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Job not found");
         }
-        return ResponseEntity.ok(jobNode);
+        PurrfectPetsJob job = objectMapper.treeToValue(jobNode, PurrfectPetsJob.class);
+        return ResponseEntity.ok(job);
     }
 
     // POST /controller/pets - add new pet or pet state
     @PostMapping("/pets")
-    public ResponseEntity<?> createPet(@RequestBody Pet pet) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> createPet(@Valid @RequestBody Pet pet) throws ExecutionException, InterruptedException, JsonProcessingException {
         if (pet == null) {
             log.error("Received null pet");
             return ResponseEntity.badRequest().body("Pet cannot be null");
@@ -101,23 +107,26 @@ public class Controller {
 
     // GET /controller/pets/{id} - get pet by id
     @GetMapping("/pets/{id}")
-    public ResponseEntity<?> getPetById(@PathVariable UUID id) throws ExecutionException, InterruptedException {
-        CompletableFuture<ObjectNode> itemFuture = entityService.getItem(PET_ENTITY, ENTITY_VERSION, id);
+    public ResponseEntity<?> getPetById(@PathVariable String id) throws ExecutionException, InterruptedException, JsonProcessingException {
+        UUID uuid = UUID.fromString(id);
+        CompletableFuture<ObjectNode> itemFuture = entityService.getItem(PET_ENTITY, ENTITY_VERSION, uuid);
         ObjectNode petNode = itemFuture.get();
         if (petNode == null || petNode.isEmpty()) {
-            log.error("Pet not found with technicalId: {}", id);
+            log.error("Pet not found with technicalId: {}", uuid);
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Pet not found");
         }
-        return ResponseEntity.ok(petNode);
+        Pet pet = objectMapper.treeToValue(petNode, Pet.class);
+        return ResponseEntity.ok(pet);
     }
 
     // POST /controller/pets/{id}/update - create new pet version (immutable)
     @PostMapping("/pets/{id}/update")
-    public ResponseEntity<?> updatePet(@PathVariable UUID id, @RequestBody Pet petUpdate) throws ExecutionException, InterruptedException {
-        CompletableFuture<ObjectNode> existingPetFuture = entityService.getItem(PET_ENTITY, ENTITY_VERSION, id);
+    public ResponseEntity<?> updatePet(@PathVariable String id, @Valid @RequestBody Pet petUpdate) throws ExecutionException, InterruptedException, JsonProcessingException {
+        UUID uuid = UUID.fromString(id);
+        CompletableFuture<ObjectNode> existingPetFuture = entityService.getItem(PET_ENTITY, ENTITY_VERSION, uuid);
         ObjectNode existingPetNode = existingPetFuture.get();
         if (existingPetNode == null || existingPetNode.isEmpty()) {
-            log.error("Pet not found for update with technicalId: {}", id);
+            log.error("Pet not found for update with technicalId: {}", uuid);
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Pet not found");
         }
         if (petUpdate == null) {
@@ -146,16 +155,16 @@ public class Controller {
 
     // POST /controller/pets/{id}/deactivate - create deactivation record
     @PostMapping("/pets/{id}/deactivate")
-    public ResponseEntity<?> deactivatePet(@PathVariable UUID id) throws ExecutionException, InterruptedException {
-        CompletableFuture<ObjectNode> existingPetFuture = entityService.getItem(PET_ENTITY, ENTITY_VERSION, id);
+    public ResponseEntity<?> deactivatePet(@PathVariable String id) throws ExecutionException, InterruptedException, JsonProcessingException {
+        UUID uuid = UUID.fromString(id);
+        CompletableFuture<ObjectNode> existingPetFuture = entityService.getItem(PET_ENTITY, ENTITY_VERSION, uuid);
         ObjectNode existingPetNode = existingPetFuture.get();
         if (existingPetNode == null || existingPetNode.isEmpty()) {
-            log.error("Pet not found for deactivation with technicalId: {}", id);
+            log.error("Pet not found for deactivation with technicalId: {}", uuid);
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Pet not found");
         }
 
         Pet deactivatedPet = new Pet();
-        // Copy fields from existingPetNode to deactivatedPet
         deactivatedPet.setPetId(existingPetNode.get("petId").asText());
         deactivatedPet.setName(existingPetNode.get("name").asText(null));
         deactivatedPet.setSpecies(existingPetNode.get("species").asText(null));
