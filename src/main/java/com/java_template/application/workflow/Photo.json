@@ -1,0 +1,23 @@
+{
+  "version": "1.0",
+  "description": "Workflow for Photo entity representing the business operations on photo persistence events",
+  "initial_state": "none",
+  "workflow_name": "photo_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "transition_to_saved": {
+          "next": "saved",
+          "processors": [
+            {
+              "name": "PhotoProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "saved": {
+      "transitions": {}
+    }
+  }
+}
