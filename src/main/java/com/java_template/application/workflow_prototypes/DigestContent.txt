@@ -1,0 +1,33 @@
+    private void processDigestContent(DigestContent content) throws ExecutionException, InterruptedException {
+        logger.info("Processing DigestContent event for id {}", content.getId());
+
+        if (content.getContent() == null || content.getContent().isBlank()) {
+            logger.warn("DigestContent id {} has empty content field", content.getId());
+        } else {
+            logger.info("DigestContent id {} content length: {}", content.getId(), content.getContent().length());
+        }
+
+        try {
+            DigestRequest linkedRequest = getDigestRequestById(content.getRequestId());
+            logger.info("Linked DigestRequest found for DigestContent id {}: requestId {}", content.getId(), linkedRequest.getId());
+        } catch (ResponseStatusException ex) {
+            logger.warn("Linked DigestRequest id {} not found for DigestContent id {}", content.getRequestId(), content.getId());
+        }
+    }
+
+    private DigestRequest getDigestRequestById(String id) throws ExecutionException, InterruptedException {
+        SearchConditionRequest condition = SearchConditionRequest.group("AND",
+                Condition.of("$.id", "EQUALS", id));
+        CompletableFuture<ArrayNode> itemsFuture = entityService.getItemsByCondition(
+                "DigestRequest",
+                ENTITY_VERSION,
+                condition);
+        ArrayNode nodes = itemsFuture.get();
+
+        if (nodes == null || nodes.size() == 0) {
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "DigestRequest not found");
+        }
+
+        ObjectNode node = (ObjectNode) nodes.get(0);
+        return JsonUtil.convert(node, DigestRequest.class);
+    }
