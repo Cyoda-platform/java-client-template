@@ -1,0 +1,39 @@
+{
+  "version": "1.0",
+  "description": "Workflow for AdoptionRequest entity with criterion",
+  "initial_state": "none",
+  "workflow_name": "adoptionRequest_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "create_to_pending": {
+          "next": "pending"
+        }
+      }
+    },
+    "pending": {
+      "transitions": {
+        "pending_to_approved": {
+          "next": "approved",
+          "criteria": [
+            {
+              "type": "function",
+              "function": {
+                "name": "AdoptionRequestApprovalCriterion"
+              }
+            }
+          ]
+        },
+        "pending_to_rejected": {
+          "next": "rejected"
+        }
+      }
+    },
+    "approved": {
+      "transitions": {}
+    },
+    "rejected": {
+      "transitions": {}
+    }
+  }
+}
