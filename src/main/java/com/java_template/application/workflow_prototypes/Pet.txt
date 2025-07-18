@@ -1,0 +1,13 @@
+    // Business logic for processing Pet entity
+    private void processPet(Pet pet) {
+        log.info("Processing Pet with petId: {}", pet.getPetId());
+        if (pet.getName() == null || pet.getName().isBlank()) {
+            log.error("Pet name is required for petId: {}", pet.getPetId());
+            return;
+        }
+        if (pet.getAge() != null && pet.getAge() < 0) {
+            log.error("Invalid pet age for petId: {}", pet.getPetId());
+            return;
+        }
+        log.info("Pet processed: {} ({})", pet.getName(), pet.getStatus());
+    }
