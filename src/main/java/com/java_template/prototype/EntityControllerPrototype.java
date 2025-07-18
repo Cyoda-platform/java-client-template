@@ -299,7 +299,7 @@ public class EntityControllerPrototype {
         content.setId(String.valueOf(digestContentIdCounter.getAndIncrement()));
         content.setTechnicalId(UUID.randomUUID());
         content.setContent(digestContentReq.getContent());
-        content.setRequestId(digestContentReq.getRequestId());
+        content.setRequestId(digestContentReq.getRequestId()); // added requestId
         content.setDigestJobId(digestContentReq.getDigestJobId());
 
         if (!content.isValid()) {
@@ -329,7 +329,7 @@ public class EntityControllerPrototype {
         updated.setId(existing.getId());
         updated.setTechnicalId(existing.getTechnicalId());
         updated.setContent(digestContentUpdateReq.getContent());
-        updated.setRequestId(digestContentUpdateReq.getRequestId());
+        updated.setRequestId(digestContentUpdateReq.getRequestId()); // added requestId
         updated.setDigestJobId(digestContentUpdateReq.getDigestJobId());
 
         if (!updated.isValid()) {
