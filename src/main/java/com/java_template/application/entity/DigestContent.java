@@ -14,6 +14,7 @@ public class DigestContent implements CyodaEntity {
     private String id;
     private UUID technicalId;
     private String digestJobId; // foreign key to DigestJob
+    private String requestId; // foreign key to DigestRequest
     private String content;
     private String format; // PLAIN_TEXT, HTML, ATTACHMENT
     private Instant createdAt;
@@ -32,6 +33,7 @@ public class DigestContent implements CyodaEntity {
     public boolean isValid() {
         if (id == null || id.isBlank()) return false;
         if (digestJobId == null || digestJobId.isBlank()) return false;
+        if (requestId == null || requestId.isBlank()) return false;
         if (content == null || content.isBlank()) return false;
         if (format == null || format.isBlank()) return false;
         return true;
