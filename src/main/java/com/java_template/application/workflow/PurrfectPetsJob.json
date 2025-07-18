@@ -1,0 +1,113 @@
+{
+    "desc": "Workflow representing the lifecycle of PurrfectPetsJob processing",
+    "id": "purrfectpetsjob_workflow",
+    "initialState": "none",
+    "name": "PurrfectPetsJob workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "start_processing_transition",
+                    "next": "pending",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "add_application_resource"
+                            },
+                            "name": "PurrfectPetsJobProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsImportPetsJobCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "valid_job_type_transition",
+                    "next": "processing_import_pets"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsUpdatePetStatusJobCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "valid_job_type_update_transition",
+                    "next": "processing_update_pet_status"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsInvalidJobTypeCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "invalid_job_type_transition",
+                    "next": "failed"
+                }
+            ]
+        },
+        "processing_import_pets": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsImportPetsProcessingSuccessfulCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "import_pets_success",
+                    "next": "completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsImportPetsProcessingFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "import_pets_failed",
+                    "next": "failed"
+                }
+            ]
+        },
+        "processing_update_pet_status": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsUpdatePetStatusProcessingSuccessfulCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "update_pet_status_success",
+                    "next": "completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsUpdatePetStatusProcessingFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "update_pet_status_failed",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
