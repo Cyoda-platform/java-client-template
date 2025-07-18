@@ -1,0 +1,37 @@
+{
+  "version": "1.0",
+  "description": "Workflow for Subscriber entity with basic processing and criteria",
+  "initial_state": "none",
+  "workflow_name": "subscriber_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "add_subscriber": {
+          "next": "active",
+          "processors": [
+            {
+              "name": "SubscriberProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "active": {
+      "transitions": {
+        "update_status": {
+          "next": "updated"
+        }
+      }
+    },
+    "updated": {
+      "transitions": {
+        "deactivate": {
+          "next": "inactive"
+        }
+      }
+    },
+    "inactive": {
+      "transitions": {}
+    }
+  }
+}
