@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "description": "Workflow FSM for InventoryReport entity representing its business process",
+  "initial_state": "none",
+  "workflow_name": "inventoryReport_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_processing": {
+          "next": "processing",
+          "processors": [
+            {
+              "name": "InventoryReportProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "processing": {
+      "transitions": {
+        "complete_processing": {
+          "next": "completed"
+        }
+      }
+    },
+    "completed": {
+      "transitions": {}
+    }
+  }
+}
