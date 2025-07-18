@@ -1,4 +1,3 @@
-```java
 package com.java_template.prototype;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -6,16 +5,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.net.URI;
 import java.time.Instant;
@@ -29,34 +26,24 @@ import java.util.concurrent.ConcurrentHashMap;
 public class EntityControllerPrototype {
 
     private static final Logger logger = LoggerFactory.getLogger(EntityControllerPrototype.class);
-
-    private static final String AIRPORT_GAP_API_URL = "https://airportgap.dev-tester.com/api/flights/search"; // TODO: Replace if production URL differs
-    private static final String AIRPORT_GAP_API_KEY = "YOUR_API_KEY"; // TODO: Replace with real API key or config
+    private static final String AIRPORT_GAP_API_URL = "https://airportgap.dev-tester.com/api/flights/search"; // TODO replace if needed
+    private static final String AIRPORT_GAP_API_KEY = "YOUR_API_KEY"; // TODO use real key
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
-
-    // In-memory storage of search results keyed by searchId
     private final Map<String, StoredSearchResults> storedResults = new ConcurrentHashMap<>();
-
-    // --- DTOs ---
 
     @Data
     public static class FlightSearchRequest {
         @NotBlank
         private String departureAirport;
-
         @NotBlank
         private String arrivalAirport;
-
         @NotBlank
-        @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}", message = "departureDate must be in YYYY-MM-DD format")
+        @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}")
         private String departureDate;
-
-        // Optional for round-trip; null if one-way
-        @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}", message = "returnDate must be in YYYY-MM-DD format")
+        @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}")
         private String returnDate;
-
         @Min(1)
         private int passengers;
     }
@@ -74,8 +61,8 @@ public class EntityControllerPrototype {
         private String airline;
         private String departureAirport;
         private String arrivalAirport;
-        private String departureTime; // ISO8601 datetime string
-        private String arrivalTime;   // ISO8601 datetime string
+        private String departureTime;
+        private String arrivalTime;
         private Double price;
     }
 
@@ -88,276 +75,141 @@ public class EntityControllerPrototype {
     @Data
     public static class FilterSortRequest {
         @NotBlank
-        private String sortBy; // e.g. price_asc, departureTime_desc
-
-        private Filters filters;
-
-        @Data
-        public static class Filters {
-            private List<String> airlines;
-            private PriceRange priceRange;
-            private DepartureTimeRange departureTimeRange;
-        }
-
-        @Data
-        public static class PriceRange {
-            private Double min;
-            private Double max;
-        }
-
-        @Data
-        public static class DepartureTimeRange {
-            private String start; // ISO8601 datetime
-            private String end;   // ISO8601 datetime
-        }
+        private String sortBy;
+        private List<@NotBlank String> airlines;
+        private Double priceMin;
+        private Double priceMax;
+        @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}T.*")
+        private String departureStartTime;
+        @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}T.*")
+        private String departureEndTime;
     }
 
-    // Wrapper for stored results
     @Data
     static class StoredSearchResults {
         private final Instant createdAt;
         private final List<FlightResult> flights;
     }
 
-    // --- Endpoints ---
-
-    /**
-     * POST /prototype/api/flights/search
-     * Accepts search parameters, queries external API asynchronously, stores results.
-     */
     @PostMapping("/search")
-    public ResponseEntity<FlightSearchResponse> searchFlights(@Valid @RequestBody FlightSearchRequest request) {
-        logger.info("Received flight search request: departure {} arrival {} date {} passengers {}",
-                request.getDepartureAirport(), request.getArrivalAirport(), request.getDepartureDate(), request.getPassengers());
-
-        // Generate unique searchId
+    public ResponseEntity<FlightSearchResponse> searchFlights(@RequestBody @Valid FlightSearchRequest request) {
+        logger.info("Search request: {}->{} on {} passengers {}", request.getDepartureAirport(),
+                request.getArrivalAirport(), request.getDepartureDate(), request.getPassengers());
         String searchId = UUID.randomUUID().toString();
-
-        // Fire-and-forget querying external API (async background task)
         CompletableFuture.runAsync(() -> {
             try {
-                logger.info("Starting external API query for searchId {}", searchId);
-
-                // Build external API request payload (according to Airport Gap API docs)
-                Map<String, Object> apiRequestPayload = new HashMap<>();
-                apiRequestPayload.put("from", request.getDepartureAirport());
-                apiRequestPayload.put("to", request.getArrivalAirport());
-                apiRequestPayload.put("departure_date", request.getDepartureDate());
+                Map<String, Object> payload = new HashMap<>();
+                payload.put("from", request.getDepartureAirport());
+                payload.put("to", request.getArrivalAirport());
+                payload.put("departure_date", request.getDepartureDate());
                 if (request.getReturnDate() != null && !request.getReturnDate().isBlank()) {
-                    apiRequestPayload.put("return_date", request.getReturnDate());
+                    payload.put("return_date", request.getReturnDate());
                 }
-                apiRequestPayload.put("passengers", request.getPassengers());
-
-                // TODO: replace with proper HTTP client with headers, timeout, retries, etc.
-                // For demo purposes, using RestTemplate with simple exchange
-
-                // Note: Airport Gap API might require API key or auth - TODO: add headers if needed
+                payload.put("passengers", request.getPassengers());
                 URI uri = URI.create(AIRPORT_GAP_API_URL);
-
-                // Send POST request to Airport Gap API
-                ResponseEntity<String> apiResponse = restTemplate.postForEntity(uri, apiRequestPayload, String.class);
-
-                if (!apiResponse.getStatusCode().is2xxSuccessful()) {
-                    logger.error("Airport Gap API call failed with status: {}", apiResponse.getStatusCodeValue());
-                    storedResults.put(searchId, new StoredSearchResults(Instant.now(), Collections.emptyList()));
-                    return;
-                }
-
-                String body = apiResponse.getBody();
-                if (body == null || body.isBlank()) {
-                    logger.error("Airport Gap API returned empty body");
-                    storedResults.put(searchId, new StoredSearchResults(Instant.now(), Collections.emptyList()));
-                    return;
-                }
-
-                // Parse JSON response
-                JsonNode rootNode = objectMapper.readTree(body);
-
-                // TODO: Adapt parsing based on actual Airport Gap API response schema
-                // Here we assume results are under "flights" array; if no flights, empty array
-
-                JsonNode flightsNode = rootNode.path("flights");
-                List<FlightResult> flightResults = new ArrayList<>();
-
-                if (flightsNode.isArray()) {
-                    for (JsonNode flightNode : flightsNode) {
-                        FlightResult fr = new FlightResult();
-                        fr.setFlightNumber(flightNode.path("flight_number").asText(null));
-                        fr.setAirline(flightNode.path("airline").asText(null));
-                        fr.setDepartureAirport(flightNode.path("departure_airport").asText(null));
-                        fr.setArrivalAirport(flightNode.path("arrival_airport").asText(null));
-                        fr.setDepartureTime(flightNode.path("departure_time").asText(null));
-                        fr.setArrivalTime(flightNode.path("arrival_time").asText(null));
-                        if (flightNode.has("price")) {
-                            fr.setPrice(flightNode.get("price").asDouble(0.0));
+                ResponseEntity<String> apiResp = restTemplate.postForEntity(uri, payload, String.class);
+                List<FlightResult> list = new ArrayList<>();
+                if (apiResp.getStatusCode().is2xxSuccessful() && apiResp.getBody() != null) {
+                    JsonNode root = objectMapper.readTree(apiResp.getBody());
+                    JsonNode arr = root.path("flights");
+                    if (arr.isArray()) {
+                        for (JsonNode n : arr) {
+                            FlightResult f = new FlightResult();
+                            f.setFlightNumber(n.path("flight_number").asText(null));
+                            f.setAirline(n.path("airline").asText(null));
+                            f.setDepartureAirport(n.path("departure_airport").asText(null));
+                            f.setArrivalAirport(n.path("arrival_airport").asText(null));
+                            f.setDepartureTime(n.path("departure_time").asText(null));
+                            f.setArrivalTime(n.path("arrival_time").asText(null));
+                            if (n.has("price")) f.setPrice(n.get("price").asDouble());
+                            list.add(f);
                         }
-                        flightResults.add(fr);
                     }
                 }
-
-                storedResults.put(searchId, new StoredSearchResults(Instant.now(), flightResults));
-                logger.info("Stored {} flights for searchId {}", flightResults.size(), searchId);
-
-            } catch (Exception ex) {
-                logger.error("Error querying Airport Gap API for searchId " + searchId, ex);
+                storedResults.put(searchId, new StoredSearchResults(Instant.now(), list));
+                logger.info("Stored {} flights for {}", list.size(), searchId);
+            } catch (Exception e) {
+                logger.error("Error for " + searchId, e);
                 storedResults.put(searchId, new StoredSearchResults(Instant.now(), Collections.emptyList()));
             }
         });
-
-        FlightSearchResponse response = new FlightSearchResponse();
-        response.setSearchId(searchId);
-        response.setResultsCount(0); // results not ready yet
-        response.setMessage("Search started. Use searchId to retrieve results.");
-
-        return ResponseEntity.accepted().body(response);
+        FlightSearchResponse resp = new FlightSearchResponse();
+        resp.setSearchId(searchId);
+        resp.setResultsCount(0);
+        resp.setMessage("Search started");
+        return ResponseEntity.accepted().body(resp);
     }
 
-    /**
-     * GET /prototype/api/flights/results/{searchId}
-     * Retrieve stored flight search results.
-     */
     @GetMapping("/results/{searchId}")
-    public ResponseEntity<FlightResultsResponse> getSearchResults(@PathVariable String searchId,
-                                                                 @RequestParam(required = false) String sort,
-                                                                 @RequestParam(required = false) String filterAirline) {
-        logger.info("Retrieving results for searchId {}", searchId);
-
-        StoredSearchResults stored = storedResults.get(searchId);
-        if (stored == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "searchId not found");
-        }
-
-        List<FlightResult> flights = new ArrayList<>(stored.getFlights());
-
-        // Basic filtering by airline if requested
-        if (filterAirline != null && !filterAirline.isBlank()) {
-            flights.removeIf(f -> f.getAirline() == null || !f.getAirline().equalsIgnoreCase(filterAirline));
-        }
-
-        // Basic sorting
-        if (sort != null) {
-            switch (sort.toLowerCase()) {
-                case "price_asc":
-                    flights.sort(Comparator.comparing(f -> Optional.ofNullable(f.getPrice()).orElse(Double.MAX_VALUE)));
-                    break;
-                case "price_desc":
-                    flights.sort(Comparator.comparing((FlightResult f) -> Optional.ofNullable(f.getPrice()).orElse(Double.MIN_VALUE)).reversed());
-                    break;
-                case "departuretime_asc":
-                    flights.sort(Comparator.comparing(FlightResult::getDepartureTime, Comparator.nullsLast(String::compareTo)));
-                    break;
-                case "departuretime_desc":
-                    flights.sort(Comparator.comparing(FlightResult::getDepartureTime, Comparator.nullsLast(String::compareTo)).reversed());
-                    break;
-                default:
-                    // Unsupported sort - ignore
-                    logger.info("Unsupported sort parameter: {}", sort);
-            }
-        }
-
-        FlightResultsResponse response = new FlightResultsResponse();
-        response.setSearchId(searchId);
-        response.setFlights(flights);
-
-        return ResponseEntity.ok(response);
+    public ResponseEntity<FlightResultsResponse> getSearchResults(
+            @PathVariable @NotBlank String searchId,
+            @RequestParam(required = false) String sort,
+            @RequestParam(required = false) String filterAirline) {
+        logger.info("Get results for {}", searchId);
+        StoredSearchResults s = storedResults.get(searchId);
+        if (s == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "searchId not found");
+        List<FlightResult> flights = new ArrayList<>(s.getFlights());
+        if (filterAirline != null) flights.removeIf(f -> f.getAirline() == null || !f.getAirline().equalsIgnoreCase(filterAirline));
+        if ("price_asc".equalsIgnoreCase(sort)) flights.sort(Comparator.comparing(f -> Optional.ofNullable(f.getPrice()).orElse(Double.MAX_VALUE)));
+        if ("price_desc".equalsIgnoreCase(sort)) flights.sort(Comparator.comparing((FlightResult f) -> Optional.ofNullable(f.getPrice()).orElse(Double.MIN_VALUE)).reversed());
+        FlightResultsResponse resp = new FlightResultsResponse();
+        resp.setSearchId(searchId);
+        resp.setFlights(flights);
+        return ResponseEntity.ok(resp);
     }
 
-    /**
-     * POST /prototype/api/flights/results/{searchId}/filter
-     * Apply complex filtering and sorting to stored results.
-     */
     @PostMapping("/results/{searchId}/filter")
-    public ResponseEntity<FlightResultsResponse> filterAndSortResults(@PathVariable String searchId,
-                                                                      @Valid @RequestBody FilterSortRequest request) {
-        logger.info("Filtering and sorting results for searchId {} with sortBy {}", searchId, request.getSortBy());
-
-        StoredSearchResults stored = storedResults.get(searchId);
-        if (stored == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "searchId not found");
+    public ResponseEntity<FlightResultsResponse> filterResults(
+            @PathVariable @NotBlank String searchId,
+            @RequestBody @Valid FilterSortRequest req) {
+        logger.info("Filter {} sortBy {}", searchId, req.getSortBy());
+        StoredSearchResults s = storedResults.get(searchId);
+        if (s == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "searchId not found");
+        List<FlightResult> list = new ArrayList<>(s.getFlights());
+        if (req.getAirlines() != null && !req.getAirlines().isEmpty()) {
+            Set<String> set = new HashSet<>();
+            req.getAirlines().forEach(a -> set.add(a.toLowerCase()));
+            list.removeIf(f -> f.getAirline() == null || !set.contains(f.getAirline().toLowerCase()));
         }
-
-        List<FlightResult> filtered = new ArrayList<>(stored.getFlights());
-
-        // Apply filters
-        FilterSortRequest.Filters filters = request.getFilters();
-        if (filters != null) {
-            // Filter airlines
-            if (filters.getAirlines() != null && !filters.getAirlines().isEmpty()) {
-                Set<String> allowedAirlines = new HashSet<>();
-                for (String al : filters.getAirlines()) {
-                    if (al != null) allowedAirlines.add(al.toLowerCase());
-                }
-                filtered.removeIf(f -> f.getAirline() == null || !allowedAirlines.contains(f.getAirline().toLowerCase()));
-            }
-
-            // Filter price range
-            if (filters.getPriceRange() != null) {
-                Double min = filters.getPriceRange().getMin();
-                Double max = filters.getPriceRange().getMax();
-                filtered.removeIf(f -> {
-                    if (f.getPrice() == null) return true;
-                    if (min != null && f.getPrice() < min) return true;
-                    if (max != null && f.getPrice() > max) return true;
-                    return false;
-                });
-            }
-
-            // Filter departure time range
-            if (filters.getDepartureTimeRange() != null) {
-                String start = filters.getDepartureTimeRange().getStart();
-                String end = filters.getDepartureTimeRange().getEnd();
-                filtered.removeIf(f -> {
-                    if (f.getDepartureTime() == null) return true;
-                    if (start != null && f.getDepartureTime().compareTo(start) < 0) return true;
-                    if (end != null && f.getDepartureTime().compareTo(end) > 0) return true;
-                    return false;
-                });
-            }
-        }
-
-        // Apply sorting
-        switch (request.getSortBy().toLowerCase()) {
+        if (req.getPriceMin() != null) list.removeIf(f -> f.getPrice() == null || f.getPrice() < req.getPriceMin());
+        if (req.getPriceMax() != null) list.removeIf(f -> f.getPrice() == null || f.getPrice() > req.getPriceMax());
+        if (req.getDepartureStartTime() != null) list.removeIf(f -> f.getDepartureTime() == null || f.getDepartureTime().compareTo(req.getDepartureStartTime()) < 0);
+        if (req.getDepartureEndTime() != null) list.removeIf(f -> f.getDepartureTime() == null || f.getDepartureTime().compareTo(req.getDepartureEndTime()) > 0);
+        switch (req.getSortBy().toLowerCase()) {
             case "price_asc":
-                filtered.sort(Comparator.comparing(f -> Optional.ofNullable(f.getPrice()).orElse(Double.MAX_VALUE)));
+                list.sort(Comparator.comparing(f -> Optional.ofNullable(f.getPrice()).orElse(Double.MAX_VALUE)));
                 break;
             case "price_desc":
-                filtered.sort(Comparator.comparing((FlightResult f) -> Optional.ofNullable(f.getPrice()).orElse(Double.MIN_VALUE)).reversed());
+                list.sort(Comparator.comparing((FlightResult f) -> Optional.ofNullable(f.getPrice()).orElse(Double.MIN_VALUE)).reversed());
                 break;
             case "departuretime_asc":
-                filtered.sort(Comparator.comparing(FlightResult::getDepartureTime, Comparator.nullsLast(String::compareTo)));
+                list.sort(Comparator.comparing(FlightResult::getDepartureTime));
                 break;
             case "departuretime_desc":
-                filtered.sort(Comparator.comparing(FlightResult::getDepartureTime, Comparator.nullsLast(String::compareTo)).reversed());
+                list.sort(Comparator.comparing(FlightResult::getDepartureTime).reversed());
                 break;
-            default:
-                logger.info("Unsupported sortBy value: {}", request.getSortBy());
         }
-
-        FlightResultsResponse response = new FlightResultsResponse();
-        response.setSearchId(searchId);
-        response.setFlights(filtered);
-
-        return ResponseEntity.ok(response);
+        FlightResultsResponse r = new FlightResultsResponse();
+        r.setSearchId(searchId);
+        r.setFlights(list);
+        return ResponseEntity.ok(r);
     }
 
-    // --- Minimal error handling ---
-
     @ExceptionHandler(ResponseStatusException.class)
-    public ResponseEntity<Map<String, String>> handleResponseStatusException(ResponseStatusException ex) {
-        logger.error("Handled error: {}", ex.getMessage());
-        Map<String, String> error = new HashMap<>();
-        error.put("error", ex.getStatusCode().toString());
-        error.put("message", ex.getReason());
-        return ResponseEntity.status(ex.getStatusCode()).body(error);
+    public ResponseEntity<Map<String,String>> handleResponseStatus(ResponseStatusException ex) {
+        logger.error("Error: {}", ex.getMessage());
+        Map<String,String> err = new HashMap<>();
+        err.put("error", ex.getStatusCode().toString());
+        err.put("message", ex.getReason());
+        return ResponseEntity.status(ex.getStatusCode()).body(err);
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, String>> handleGenericException(Exception ex) {
-        logger.error("Unexpected error", ex);
-        Map<String, String> error = new HashMap<>();
-        error.put("error", HttpStatus.INTERNAL_SERVER_ERROR.toString());
-        error.put("message", "Internal server error");
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+    public ResponseEntity<Map<String,String>> handleException(Exception ex) {
+        logger.error("Internal error", ex);
+        Map<String,String> err = new HashMap<>();
+        err.put("error", HttpStatus.INTERNAL_SERVER_ERROR.toString());
+        err.put("message", "Internal server error");
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(err);
     }
 }
-```
