@@ -1,0 +1,131 @@
+```json
+{
+  "version": "1.0",
+  "description": "PetJob processing workflow FSM",
+  "initial_state": "none",
+  "workflow_name": "PetJob_workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "to_validate_action": {
+            "next": "validate_action"
+          }
+        }
+      ]
+    },
+    "validate_action": {
+      "transitions": [
+        {
+          "valid_action": {
+            "next": "process_action",
+            "criterion": {
+              "type": "function",
+              "function": {
+                "name": "PetJobIsValidActionCriterion"
+              }
+            }
+          }
+        },
+        {
+          "invalid_action": {
+            "next": "failed"
+          }
+        }
+      ]
+    },
+    "process_action": {
+      "transitions": [
+        {
+          "create_action": {
+            "next": "handle_create",
+            "criterion": {
+              "type": "function",
+              "function": {
+                "name": "PetJobIsCreateActionCriterion"
+              }
+            }
+          }
+        },
+        {
+          "update_action": {
+            "next": "handle_update",
+            "criterion": {
+              "type": "function",
+              "function": {
+                "name": "PetJobIsUpdateActionCriterion"
+              }
+            }
+          }
+        },
+        {
+          "delete_action": {
+            "next": "handle_delete",
+            "criterion": {
+              "type": "function",
+              "function": {
+                "name": "PetJobIsDeleteActionCriterion"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "handle_create": {
+      "transitions": [
+        {
+          "complete_create": {
+            "next": "completed",
+            "processors": [
+              {
+                "name": "PetJobProcessor"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "handle_update": {
+      "transitions": [
+        {
+          "complete_update": {
+            "next": "completed",
+            "processors": [
+              {
+                "name": "PetJobProcessor"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "handle_delete": {
+      "transitions": [
+        {
+          "complete_delete": {
+            "next": "completed",
+            "processors": [
+              {
+                "name": "PetJobProcessor"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  }
+}
+```
+
+```json
+{
+  "resource_path": "src/main/java/com/java_template/application/workflow/PetJob.json",
+  "file_contents": "{\n  \"version\": \"1.0\",\n  \"description\": \"PetJob processing workflow FSM\",\n  \"initial_state\": \"none\",\n  \"workflow_name\": \"PetJob_workflow\",\n  \"states\": {\n    \"none\": {\n      \"transitions\": [\n        {\n          \"to_validate_action\": {\n            \"next\": \"validate_action\"\n          }\n        }\n      ]\n    },\n    \"validate_action\": {\n      \"transitions\": [\n        {\n          \"valid_action\": {\n            \"next\": \"process_action\",\n            \"criterion\": {\n              \"type\": \"function\",\n              \"function\": {\n                \"name\": \"PetJobIsValidActionCriterion\"\n              }\n            }\n          }\n        },\n        {\n          \"invalid_action\": {\n            \"next\": \"failed\"\n          }\n        }\n      ]\n    },\n    \"process_action\": {\n      \"transitions\": [\n        {\n          \"create_action\": {\n            \"next\": \"handle_create\",\n            \"criterion\": {\n              \"type\": \"function\",\n              \"function\": {\n                \"name\": \"PetJobIsCreateActionCriterion\"\n              }\n            }\n          }\n        },\n        {\n          \"update_action\": {\n            \"next\": \"handle_update\",\n            \"criterion\": {\n              \"type\": \"function\",\n              \"function\": {\n                \"name\": \"PetJobIsUpdateActionCriterion\"\n              }\n            }\n          }\n        },\n        {\n          \"delete_action\": {\n            \"next\": \"handle_delete\",\n            \"criterion\": {\n              \"type\": \"function\",\n              \"function\": {\n                \"name\": \"PetJobIsDeleteActionCriterion\"\n              }\n            }\n          }\n        }\n      ]\n    },\n    \"handle_create\": {\n      \"transitions\": [\n        {\n          \"complete_create\": {\n            \"next\": \"completed\",\n            \"processors\": [\n              {\n                \"name\": \"PetJobProcessor\"\n              }\n            ]\n          }\n        }\n      ]\n    },\n    \"handle_update\": {\n      \"transitions\": [\n        {\n          \"complete_update\": {\n            \"next\": \"completed\",\n            \"processors\": [\n              {\n                \"name\": \"PetJobProcessor\"\n              }\n            ]\n          }\n        }\n      ]\n    },\n    \"handle_delete\": {\n      \"transitions\": [\n        {\n          \"complete_delete\": {\n            \"next\": \"completed\",\n            \"processors\": [\n              {\n                \"name\": \"PetJobProcessor\"\n              }\n            ]\n          }\n        }\n      ]\n    },\n    \"completed\": {\n      \"transitions\": []\n    },\n    \"failed\": {\n      \"transitions\": []\n    }\n  }\n}"
+}
+```
