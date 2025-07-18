@@ -1,0 +1,69 @@
+```json
+{
+  "version": "1.0",
+  "description": "PetUpdateJob lifecycle FSM workflow",
+  "initial_state": "none",
+  "workflow_name": "PetUpdateJob_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_processing": {
+          "next": "pending",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsJobNoneCriterion"
+            }
+          }
+        }
+      }
+    },
+    "pending": {
+      "transitions": {
+        "begin_processing": {
+          "next": "processing",
+          "processors": [
+            {
+              "name": "PetUpdateJobProcessor"
+            }
+          ],
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsJobPendingCriterion"
+            }
+          }
+        }
+      }
+    },
+    "processing": {
+      "transitions": {
+        "complete_success": {
+          "next": "completed",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsPetValidCriterion"
+            }
+          }
+        },
+        "fail_processing": {
+          "next": "failed",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsPetInvalidCriterion"
+            }
+          }
+        }
+      }
+    },
+    "completed": {
+      "transitions": {}
+    },
+    "failed": {
+      "transitions": {}
+    }
+  }
+}
+```
