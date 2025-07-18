@@ -2,6 +2,7 @@ package com.java_template.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.AdoptionRequest;
 import com.java_template.application.entity.Job;
 import com.java_template.application.entity.Pet;
@@ -14,11 +15,9 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
-import javax.validation.Valid;
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Pattern;
-import javax.validation.constraints.Size;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
@@ -44,188 +43,178 @@ public class Controller {
     // ====== JOB CRUD ======
 
     @PostMapping("/job")
-    public ResponseEntity<Map<String, Object>> createJob(@RequestBody @Valid JobInput jobInput) throws ExecutionException, InterruptedException {
+    public ResponseEntity<Map<String, Object>> createJob(@RequestBody @Valid JobInput jobInput) throws ExecutionException, InterruptedException, JsonProcessingException {
         logger.info("Received request to create Job: {}", jobInput);
-        try {
-            Job job = objectMapper.convertValue(jobInput, Job.class);
-            job.setId(null); // id is generated on add
-            job.setTechnicalId(null);
-            UUID id = entityService.addItem("job", ENTITY_VERSION, job).get();
-            logger.info("Job created with id {}", id);
-            return ResponseEntity.ok(Map.of("id", id.toString(), "status", "Job created and processed"));
-        } catch (JsonProcessingException e) {
-            logger.error("Error mapping JobInput to Job", e);
-            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid Job input");
-        }
+        Job job = new Job();
+        job.setId(null); // id is generated on add
+        job.setTechnicalId(null);
+        job.setStatus(jobInput.getStatus());
+        job.setDescription(jobInput.getDescription());
+        UUID id = entityService.addItem("job", ENTITY_VERSION, job).get();
+        logger.info("Job created with id {}", id);
+        return ResponseEntity.ok(Map.of("id", id.toString(), "status", "Job created and processed"));
     }
 
     @GetMapping("/job")
-    public ResponseEntity<Job> getJob(@Valid @ModelAttribute JobQuery query) throws ExecutionException, InterruptedException {
+    public ResponseEntity<Job> getJob(@Valid @ModelAttribute JobQuery query) throws ExecutionException, InterruptedException, JsonProcessingException {
         String id = query.getId();
         logger.info("Received request to get Job with id: {}", id);
-        Job job = entityService.searchEntityById("job", ENTITY_VERSION, id, Job.class);
-        if (job == null) {
+        UUID technicalId = UUID.fromString(id);
+        ObjectNode node = entityService.getItem("job", ENTITY_VERSION, technicalId).get();
+        if (node == null) {
             logger.error("Job with id {} not found", id);
             throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Job not found");
         }
+        Job job = objectMapper.treeToValue(node, Job.class);
         return ResponseEntity.ok(job);
     }
 
     @PutMapping("/job")
-    public ResponseEntity<Map<String, Object>> updateJob(@RequestBody @Valid JobUpdate jobUpdate) throws ExecutionException, InterruptedException {
+    public ResponseEntity<Map<String, Object>> updateJob(@RequestBody @Valid JobUpdate jobUpdate) throws ExecutionException, InterruptedException, JsonProcessingException {
         String id = jobUpdate.getId();
         logger.info("Received request to update Job with id {}: {}", id, jobUpdate);
-        try {
-            Job job = objectMapper.convertValue(jobUpdate, Job.class);
-            UUID jobId = entityService.addItem("job", ENTITY_VERSION, job).get();
-            return ResponseEntity.ok(Map.of("id", jobId.toString(), "status", "Job updated and processed"));
-        } catch (JsonProcessingException e) {
-            logger.error("Error mapping JobUpdate to Job", e);
-            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid Job update input");
-        }
+        Job job = new Job();
+        job.setTechnicalId(UUID.fromString(id));
+        job.setStatus(jobUpdate.getStatus());
+        job.setDescription(jobUpdate.getDescription());
+        UUID jobId = entityService.updateItem("job", ENTITY_VERSION, job).get();
+        return ResponseEntity.ok(Map.of("id", jobId.toString(), "status", "Job updated and processed"));
     }
 
     @DeleteMapping("/job")
     public ResponseEntity<Map<String, Object>> deleteJob(@RequestParam @NotBlank String id) throws ExecutionException, InterruptedException {
         logger.info("Received request to delete Job with id {}", id);
-        boolean deleted = entityService.deleteEntityById("job", ENTITY_VERSION, id);
-        if (!deleted) {
+        UUID technicalId = UUID.fromString(id);
+        UUID deletedId = entityService.deleteItem("job", ENTITY_VERSION, technicalId).get();
+        if (deletedId == null) {
             logger.error("Job delete failed: Job not found");
             throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Job not found");
         }
-        return ResponseEntity.ok(Map.of("id", id, "status", "Job deleted"));
+        return ResponseEntity.ok(Map.of("id", deletedId.toString(), "status", "Job deleted"));
     }
 
     // ====== PET CRUD ======
 
     @PostMapping("/pet")
-    public ResponseEntity<Map<String, Object>> createPet(@RequestBody @Valid PetInput petInput) throws ExecutionException, InterruptedException {
+    public ResponseEntity<Map<String, Object>> createPet(@RequestBody @Valid PetInput petInput) throws ExecutionException, InterruptedException, JsonProcessingException {
         logger.info("Received request to create Pet: {}", petInput);
-        try {
-            Pet pet = objectMapper.convertValue(petInput, Pet.class);
-            pet.setId(null);
-            pet.setTechnicalId(null);
-            UUID id = entityService.addItem("pet", ENTITY_VERSION, pet).get();
-            logger.info("Pet created with id {}", id);
-            return ResponseEntity.ok(Map.of("id", id.toString(), "status", "Pet created and processed"));
-        } catch (JsonProcessingException e) {
-            logger.error("Error mapping PetInput to Pet", e);
-            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid Pet input");
-        }
+        Pet pet = new Pet();
+        pet.setId(null);
+        pet.setTechnicalId(null);
+        pet.setName(petInput.getName());
+        pet.setType(petInput.getType());
+        pet.setStatus(null); // no status in DTO input
+        UUID id = entityService.addItem("pet", ENTITY_VERSION, pet).get();
+        logger.info("Pet created with id {}", id);
+        return ResponseEntity.ok(Map.of("id", id.toString(), "status", "Pet created and processed"));
     }
 
     @GetMapping("/pet")
-    public ResponseEntity<Pet> getPet(@Valid @ModelAttribute PetQuery query) throws ExecutionException, InterruptedException {
+    public ResponseEntity<Pet> getPet(@Valid @ModelAttribute PetQuery query) throws ExecutionException, InterruptedException, JsonProcessingException {
         String id = query.getId();
         logger.info("Received request to get Pet with id: {}", id);
-        Pet pet = entityService.searchEntityById("pet", ENTITY_VERSION, id, Pet.class);
-        if (pet == null) {
+        UUID technicalId = UUID.fromString(id);
+        ObjectNode node = entityService.getItem("pet", ENTITY_VERSION, technicalId).get();
+        if (node == null) {
             logger.error("Pet with id {} not found", id);
             throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Pet not found");
         }
+        Pet pet = objectMapper.treeToValue(node, Pet.class);
         return ResponseEntity.ok(pet);
     }
 
     @PutMapping("/pet")
-    public ResponseEntity<Map<String, Object>> updatePet(@RequestBody @Valid PetUpdate petUpdate) throws ExecutionException, InterruptedException {
+    public ResponseEntity<Map<String, Object>> updatePet(@RequestBody @Valid PetUpdate petUpdate) throws ExecutionException, InterruptedException, JsonProcessingException {
         String id = petUpdate.getId();
         logger.info("Received request to update Pet with id {}: {}", id, petUpdate);
-        try {
-            Pet pet = objectMapper.convertValue(petUpdate, Pet.class);
-            UUID petId = entityService.addItem("pet", ENTITY_VERSION, pet).get();
-            return ResponseEntity.ok(Map.of("id", petId.toString(), "status", "Pet updated and processed"));
-        } catch (JsonProcessingException e) {
-            logger.error("Error mapping PetUpdate to Pet", e);
-            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid Pet update input");
-        }
+        Pet pet = new Pet();
+        pet.setTechnicalId(UUID.fromString(id));
+        pet.setName(petUpdate.getName());
+        pet.setType(petUpdate.getType());
+        pet.setStatus(null); // no status in DTO update input
+        UUID petId = entityService.updateItem("pet", ENTITY_VERSION, pet).get();
+        return ResponseEntity.ok(Map.of("id", petId.toString(), "status", "Pet updated and processed"));
     }
 
     @DeleteMapping("/pet")
     public ResponseEntity<Map<String, Object>> deletePet(@RequestParam @NotBlank String id) throws ExecutionException, InterruptedException {
         logger.info("Received request to delete Pet with id {}", id);
-        boolean deleted = entityService.deleteEntityById("pet", ENTITY_VERSION, id);
-        if (!deleted) {
+        UUID technicalId = UUID.fromString(id);
+        UUID deletedId = entityService.deleteItem("pet", ENTITY_VERSION, technicalId).get();
+        if (deletedId == null) {
             logger.error("Pet delete failed: Pet not found");
             throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Pet not found");
         }
-        return ResponseEntity.ok(Map.of("id", id, "status", "Pet deleted"));
+        return ResponseEntity.ok(Map.of("id", deletedId.toString(), "status", "Pet deleted"));
     }
 
     // ====== ADOPTION REQUEST CRUD ======
 
     @PostMapping("/adoptionRequest")
-    public ResponseEntity<Map<String, Object>> createAdoptionRequest(@RequestBody @Valid AdoptionRequestInput input) throws ExecutionException, InterruptedException {
+    public ResponseEntity<Map<String, Object>> createAdoptionRequest(@RequestBody @Valid AdoptionRequestInput input) throws ExecutionException, InterruptedException, JsonProcessingException {
         logger.info("Received request to create AdoptionRequest: {}", input);
-        try {
-            AdoptionRequest request = objectMapper.convertValue(input, AdoptionRequest.class);
-            request.setId(null);
-            request.setTechnicalId(null);
-            UUID id = entityService.addItem("adoptionRequest", ENTITY_VERSION, request).get();
-            logger.info("AdoptionRequest created with id {}", id);
-            return ResponseEntity.ok(Map.of("id", id.toString(), "status", "AdoptionRequest created and processed"));
-        } catch (JsonProcessingException e) {
-            logger.error("Error mapping AdoptionRequestInput to AdoptionRequest", e);
-            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid AdoptionRequest input");
-        }
+        AdoptionRequest request = new AdoptionRequest();
+        request.setId(null);
+        request.setTechnicalId(null);
+        request.setPetId(input.getPetId());
+        request.setUserId(null); // no userId in DTO input
+        request.setStatus(input.getStatus());
+        UUID id = entityService.addItem("adoptionRequest", ENTITY_VERSION, request).get();
+        logger.info("AdoptionRequest created with id {}", id);
+        return ResponseEntity.ok(Map.of("id", id.toString(), "status", "AdoptionRequest created and processed"));
     }
 
     @GetMapping("/adoptionRequest")
-    public ResponseEntity<AdoptionRequest> getAdoptionRequest(@Valid @ModelAttribute AdoptionRequestQuery query) throws ExecutionException, InterruptedException {
+    public ResponseEntity<AdoptionRequest> getAdoptionRequest(@Valid @ModelAttribute AdoptionRequestQuery query) throws ExecutionException, InterruptedException, JsonProcessingException {
         String id = query.getId();
         logger.info("Received request to get AdoptionRequest with id: {}", id);
-        AdoptionRequest request = entityService.searchEntityById("adoptionRequest", ENTITY_VERSION, id, AdoptionRequest.class);
-        if (request == null) {
+        UUID technicalId = UUID.fromString(id);
+        ObjectNode node = entityService.getItem("adoptionRequest", ENTITY_VERSION, technicalId).get();
+        if (node == null) {
             logger.error("AdoptionRequest with id {} not found", id);
             throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "AdoptionRequest not found");
         }
+        AdoptionRequest request = objectMapper.treeToValue(node, AdoptionRequest.class);
         return ResponseEntity.ok(request);
     }
 
     @PutMapping("/adoptionRequest")
-    public ResponseEntity<Map<String, Object>> updateAdoptionRequest(@RequestBody @Valid AdoptionRequestUpdate input) throws ExecutionException, InterruptedException {
+    public ResponseEntity<Map<String, Object>> updateAdoptionRequest(@RequestBody @Valid AdoptionRequestUpdate input) throws ExecutionException, InterruptedException, JsonProcessingException {
         String id = input.getId();
         logger.info("Received request to update AdoptionRequest with id {}: {}", id, input);
-        try {
-            AdoptionRequest request = objectMapper.convertValue(input, AdoptionRequest.class);
-            UUID requestId = entityService.addItem("adoptionRequest", ENTITY_VERSION, request).get();
-            return ResponseEntity.ok(Map.of("id", requestId.toString(), "status", "AdoptionRequest updated and processed"));
-        } catch (JsonProcessingException e) {
-            logger.error("Error mapping AdoptionRequestUpdate to AdoptionRequest", e);
-            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid AdoptionRequest update input");
-        }
+        AdoptionRequest request = new AdoptionRequest();
+        request.setTechnicalId(UUID.fromString(id));
+        request.setPetId(input.getPetId());
+        request.setUserId(null); // no userId in DTO update input
+        request.setStatus(input.getStatus());
+        UUID requestId = entityService.updateItem("adoptionRequest", ENTITY_VERSION, request).get();
+        return ResponseEntity.ok(Map.of("id", requestId.toString(), "status", "AdoptionRequest updated and processed"));
     }
 
     @DeleteMapping("/adoptionRequest")
     public ResponseEntity<Map<String, Object>> deleteAdoptionRequest(@RequestParam @NotBlank String id) throws ExecutionException, InterruptedException {
         logger.info("Received request to delete AdoptionRequest with id {}", id);
-        boolean deleted = entityService.deleteEntityById("adoptionRequest", ENTITY_VERSION, id);
-        if (!deleted) {
+        UUID technicalId = UUID.fromString(id);
+        UUID deletedId = entityService.deleteItem("adoptionRequest", ENTITY_VERSION, technicalId).get();
+        if (deletedId == null) {
             logger.error("AdoptionRequest delete failed: AdoptionRequest not found");
             throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "AdoptionRequest not found");
         }
-        return ResponseEntity.ok(Map.of("id", id, "status", "AdoptionRequest deleted"));
+        return ResponseEntity.ok(Map.of("id", deletedId.toString(), "status", "AdoptionRequest deleted"));
     }
 
     // ====== DTO Classes for Validation ======
 
     public static class JobInput {
         @NotBlank
-        @Size(max = 100)
-        private String name;
-
-        @Size(max = 255)
-        private String description;
-
-        @NotBlank
-        @Pattern(regexp = "NEW|RUNNING|COMPLETED|FAILED")
         private String status;
 
-        public String getName() { return name; }
-        public void setName(String name) { this.name = name; }
-        public String getDescription() { return description; }
-        public void setDescription(String description) { this.description = description; }
+        private String description;
+
         public String getStatus() { return status; }
         public void setStatus(String status) { this.status = status; }
+        public String getDescription() { return description; }
+        public void setDescription(String description) { this.description = description; }
     }
 
     public static class JobUpdate extends JobInput {
@@ -246,22 +235,15 @@ public class Controller {
 
     public static class PetInput {
         @NotBlank
-        @Size(max = 50)
         private String name;
 
         @NotBlank
-        @Size(max = 30)
         private String type;
-
-        @NotNull
-        private Integer age;
 
         public String getName() { return name; }
         public void setName(String name) { this.name = name; }
         public String getType() { return type; }
         public void setType(String type) { this.type = type; }
-        public Integer getAge() { return age; }
-        public void setAge(Integer age) { this.age = age; }
     }
 
     public static class PetUpdate extends PetInput {
@@ -285,17 +267,10 @@ public class Controller {
         private String petId;
 
         @NotBlank
-        @Size(max = 100)
-        private String applicantName;
-
-        @NotBlank
-        @Pattern(regexp = "PENDING|APPROVED|REJECTED")
         private String status;
 
         public String getPetId() { return petId; }
         public void setPetId(String petId) { this.petId = petId; }
-        public String getApplicantName() { return applicantName; }
-        public void setApplicantName(String applicantName) { this.applicantName = applicantName; }
         public String getStatus() { return status; }
         public void setStatus(String status) { this.status = status; }
     }
