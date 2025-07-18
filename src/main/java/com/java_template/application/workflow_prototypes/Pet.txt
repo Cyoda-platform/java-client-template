@@ -1,0 +1,22 @@
+    private void processPet(Pet pet) {
+        log.info("Processing Pet with technicalId: {}", pet.getId());
+
+        if (pet.getName() == null || pet.getName().isBlank()) {
+            log.error("Pet name is invalid");
+            return;
+        }
+        if (pet.getStatus() == null || pet.getStatus().isBlank()) {
+            log.error("Pet status is invalid");
+            return;
+        }
+
+        if (pet.getTags() != null) {
+            List<String> normalizedTags = new ArrayList<>();
+            for (String tag : pet.getTags()) {
+                normalizedTags.add(tag.toLowerCase());
+            }
+            pet.setTags(normalizedTags);
+        }
+
+        log.info("Pet {} processed successfully", pet.getId());
+    }
