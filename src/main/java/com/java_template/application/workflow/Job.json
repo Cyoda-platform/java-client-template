@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "description": "Workflow FSM for Job entity with processing steps",
+  "initial_state": "none",
+  "workflow_name": "job_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_processing": {
+          "next": "processing",
+          "processors": [
+            {
+              "name": "JobProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "processing": {
+      "transitions": {
+        "complete": {
+          "next": "completed"
+        }
+      }
+    },
+    "completed": {
+      "transitions": {}
+    }
+  }
+}
