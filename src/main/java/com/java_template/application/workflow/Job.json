@@ -1,0 +1,23 @@
+{
+  "version": "1.0",
+  "description": "Workflow for Job entity processing",
+  "initial_state": "none",
+  "workflow_name": "job_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "create_or_update_job": {
+          "next": "processed",
+          "processors": [
+            {
+              "name": "JobProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "processed": {
+      "transitions": {}
+    }
+  }
+}
