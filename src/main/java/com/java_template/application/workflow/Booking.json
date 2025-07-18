@@ -1,0 +1,23 @@
+{
+  "version": "1.0",
+  "description": "Workflow FSM for Booking entity",
+  "initial_state": "none",
+  "workflow_name": "booking_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_processing": {
+          "next": "processed",
+          "processors": [
+            {
+              "name": "BookingProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "processed": {
+      "transitions": {}
+    }
+  }
+}
