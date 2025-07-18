@@ -1,0 +1,35 @@
+{
+  "version": "1.0",
+  "description": "Workflow for GameScore entity representing game score create and update processing",
+  "initial_state": "none",
+  "workflow_name": "GameScoreWorkflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "create_transition": {
+          "next": "created",
+          "processors": [
+            {
+              "name": "GameScoreProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "created": {
+      "transitions": {
+        "update_transition": {
+          "next": "updated",
+          "processors": [
+            {
+              "name": "GameScoreProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "updated": {
+      "transitions": {}
+    }
+  }
+}
