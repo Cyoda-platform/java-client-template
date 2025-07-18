@@ -64,7 +64,6 @@ public class Controller {
         jobRequest.setJobId(generatedId);
 
         log.info("Created PetUpdateJob with technicalId: {}", generatedId);
-        processPetUpdateJob(jobRequest);
 
         Map<String, String> response = new HashMap<>();
         response.put("jobId", generatedId);
@@ -119,7 +118,6 @@ public class Controller {
         petRequest.setPetId(generatedId);
 
         log.info("Created Pet with technicalId: {}", generatedId);
-        processPet(petRequest);
 
         Map<String, String> response = new HashMap<>();
         response.put("petId", generatedId);
@@ -150,79 +148,5 @@ public class Controller {
         return ResponseEntity.ok(pets);
     }
 
-    // --- Process methods implementing business logic ---
-
-    private void processPetUpdateJob(PetUpdateJob job) {
-        log.info("Processing PetUpdateJob with technicalId: {}", job.getId());
-
-        try {
-            job.setStatus("PROCESSING");
-
-            // Update job status in entityService as immutable pattern: create new version with updated status
-            try {
-                entityService.addItem("PetUpdateJob", ENTITY_VERSION, job).get();
-            } catch (Exception e) {
-                log.error("Failed to update PetUpdateJob status to PROCESSING: {}", e.getMessage());
-            }
-
-            // Simulate fetching data from Petstore API and creating Pet entities
-            // Create dummy Pet as in prototype
-
-            Pet dummyPet = new Pet();
-            dummyPet.setName("Simulated Pet");
-            dummyPet.setCategory("Cat");
-            dummyPet.setStatus("AVAILABLE");
-            dummyPet.setTags(Arrays.asList("simulated", "cat"));
-            dummyPet.setPhotoUrls(Arrays.asList("http://example.com/simulated.jpg"));
-
-            // Add dummy pet via entityService
-            CompletableFuture<java.util.UUID> petIdFuture = entityService.addItem("Pet", ENTITY_VERSION, dummyPet);
-            java.util.UUID petTechnicalId = petIdFuture.get();
-            String petId = petTechnicalId.toString();
-            dummyPet.setId(petId);
-            dummyPet.setPetId(petId);
-
-            processPet(dummyPet);
-
-            job.setStatus("COMPLETED");
-            try {
-                entityService.addItem("PetUpdateJob", ENTITY_VERSION, job).get();
-            } catch (Exception e) {
-                log.error("Failed to update PetUpdateJob status to COMPLETED: {}", e.getMessage());
-            }
-
-            log.info("PetUpdateJob {} completed successfully", job.getId());
-        } catch (Exception e) {
-            job.setStatus("FAILED");
-            try {
-                entityService.addItem("PetUpdateJob", ENTITY_VERSION, job).get();
-            } catch (Exception ex) {
-                log.error("Failed to update PetUpdateJob status to FAILED: {}", ex.getMessage());
-            }
-            log.error("Error processing PetUpdateJob {}: {}", job.getId(), e.getMessage());
-        }
-    }
-
-    private void processPet(Pet pet) {
-        log.info("Processing Pet with technicalId: {}", pet.getId());
-
-        if (pet.getName() == null || pet.getName().isBlank()) {
-            log.error("Pet name is invalid");
-            return;
-        }
-        if (pet.getStatus() == null || pet.getStatus().isBlank()) {
-            log.error("Pet status is invalid");
-            return;
-        }
-
-        if (pet.getTags() != null) {
-            List<String> normalizedTags = new ArrayList<>();
-            for (String tag : pet.getTags()) {
-                normalizedTags.add(tag.toLowerCase());
-            }
-            pet.setTags(normalizedTags);
-        }
-
-        log.info("Pet {} processed successfully", pet.getId());
-    }
+    // --- Other methods remain intact, process methods removed ---
 }
