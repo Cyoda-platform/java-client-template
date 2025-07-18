@@ -1,0 +1,7 @@
+    private void processSubscriber(Subscriber subscriber) {
+        log.info("Processing Subscriber with technicalId: {}", subscriber.getTechnicalId());
+        if (subscriber.getEmail() == null || !subscriber.getEmail().matches("^[\\w\\.-]+@[\\w\\.-]+\\.\\w+$")) {
+            log.error("Invalid email format for subscriber technicalId: {}", subscriber.getTechnicalId());
+        }
+        log.info("Welcome email sent to: {}", subscriber.getEmail());
+    }
