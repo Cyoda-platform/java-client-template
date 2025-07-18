@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "description": "Workflow for Book entity business operations",
+  "initial_state": "none",
+  "workflow_name": "book_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "start_processing": {
+          "next": "processing",
+          "processors": [
+            {
+              "name": "BookProcessor"
+            }
+          ]
+        }
+      }
+    },
+    "processing": {
+      "transitions": {
+        "complete": {
+          "next": "done"
+        }
+      }
+    },
+    "done": {
+      "transitions": {}
+    }
+  }
+}
