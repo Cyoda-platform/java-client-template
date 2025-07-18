@@ -1,0 +1,7 @@
+private void processFavorite(Favorite favorite) {
+    log.info("Processing Favorite with technicalId: {}", favorite.getTechnicalId());
+
+    // Validate that userId and petId exist in external service already checked in controller
+    // Update user favorite list - simulated by caching favorite entity
+    log.info("Favorite processed: technicalId={}, userId={}, petId={}, status={}", favorite.getTechnicalId(), favorite.getUserId(), favorite.getPetId(), favorite.getStatus());
+}
