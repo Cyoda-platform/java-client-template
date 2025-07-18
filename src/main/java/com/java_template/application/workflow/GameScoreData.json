@@ -1,0 +1,32 @@
+{
+  "version": "1.0",
+  "description": "Workflow for GameScoreData entity with no processors",
+  "initial_state": "none",
+  "workflow_name": "gameScoreData_workflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "add_game_score": {
+          "next": "recorded"
+        }
+      }
+    },
+    "recorded": {
+      "transitions": {
+        "update_score": {
+          "next": "updated"
+        }
+      }
+    },
+    "updated": {
+      "transitions": {
+        "delete_score": {
+          "next": "deleted"
+        }
+      }
+    },
+    "deleted": {
+      "transitions": {}
+    }
+  }
+}
