@@ -39,10 +39,10 @@ public class Controller {
     }
 
     @PostMapping
-    public ResponseEntity<Map<String, Object>> createJob(@RequestBody @Valid JobDTO jobDTO) {
+    public ResponseEntity<Map<String, Object>> createJob(@RequestBody @Valid JobDTO jobDTO) throws JsonProcessingException {
         Job job = fromJobDTO(jobDTO);
         try {
-            CompletableFuture<UUID> idFuture = entityService.addItem("Job", ENTITY_VERSION, job);
+            CompletableFuture<UUID> idFuture = entityService.addItem("job", ENTITY_VERSION, job);
             UUID technicalId = idFuture.get();
             job.setTechnicalId(technicalId);
             logger.info("Job created with technicalId {}", technicalId);
@@ -55,7 +55,7 @@ public class Controller {
     }
 
     @GetMapping
-    public ResponseEntity<Job> getJob(@RequestParam @NotBlank String id) {
+    public ResponseEntity<Job> getJob(@RequestParam @NotBlank String id) throws JsonProcessingException {
         UUID technicalId;
         try {
             technicalId = UUID.fromString(id);
@@ -63,19 +63,19 @@ public class Controller {
             throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
                     "Invalid UUID format for id");
         }
-        CompletableFuture<ObjectNode> itemFuture = entityService.getItem("Job", ENTITY_VERSION, technicalId);
+        CompletableFuture<ObjectNode> itemFuture = entityService.getItem("job", ENTITY_VERSION, technicalId);
         ObjectNode node = itemFuture.join();
         if (node == null || node.isEmpty()) {
             throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND,
                     "Job with id " + id + " not found");
         }
-        Job job = mapObjectNodeToJob(node);
+        Job job = objectMapper.treeToValue(node, Job.class);
         logger.info("Job retrieved with technicalId {}", id);
         return ResponseEntity.ok(job);
     }
 
     @PutMapping
-    public ResponseEntity<Map<String, Object>> updateJob(@RequestBody @Valid JobUpdateDTO jobUpdateDTO) {
+    public ResponseEntity<Map<String, Object>> updateJob(@RequestBody @Valid JobUpdateDTO jobUpdateDTO) throws JsonProcessingException {
         UUID technicalId;
         try {
             technicalId = UUID.fromString(jobUpdateDTO.getId());
@@ -83,16 +83,16 @@ public class Controller {
             throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
                     "Invalid UUID format for id");
         }
-        CompletableFuture<ObjectNode> existingItemFuture = entityService.getItem("Job", ENTITY_VERSION, technicalId);
+        CompletableFuture<ObjectNode> existingItemFuture = entityService.getItem("job", ENTITY_VERSION, technicalId);
         ObjectNode existingNode = existingItemFuture.join();
         if (existingNode == null || existingNode.isEmpty()) {
             throw new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND,
                     "Job with id " + jobUpdateDTO.getId() + " not found");
         }
-        Job existingJob = mapObjectNodeToJob(existingNode);
+        Job existingJob = objectMapper.treeToValue(existingNode, Job.class);
         Job updatedJob = fromJobUpdateDTO(jobUpdateDTO, existingJob);
         try {
-            CompletableFuture<UUID> updatedIdFuture = entityService.updateItem("Job", ENTITY_VERSION, technicalId, updatedJob);
+            CompletableFuture<UUID> updatedIdFuture = entityService.updateItem("job", ENTITY_VERSION, technicalId, updatedJob);
             UUID updatedTechnicalId = updatedIdFuture.get();
             logger.info("Job updated with technicalId {}", updatedTechnicalId);
             return ResponseEntity.ok(Map.of("id", updatedTechnicalId.toString(), "status", "processed"));
@@ -113,7 +113,7 @@ public class Controller {
                     "Invalid UUID format for id");
         }
         try {
-            CompletableFuture<UUID> deletedIdFuture = entityService.deleteItem("Job", ENTITY_VERSION, technicalId);
+            CompletableFuture<UUID> deletedIdFuture = entityService.deleteItem("job", ENTITY_VERSION, technicalId);
             UUID deletedTechnicalId = deletedIdFuture.get();
             logger.info("Job deleted with technicalId {}", deletedTechnicalId);
             return ResponseEntity.ok(Map.of("id", deletedTechnicalId.toString(), "status", "deleted"));
@@ -127,13 +127,13 @@ public class Controller {
     @Data
     public static class JobDTO {
         @NotBlank
-        private String name;
+        private String type;
 
         @NotBlank
-        private String schedule;
+        private String status;
 
         @NotBlank
-        private String description;
+        private String id;
     }
 
     @Data
@@ -142,49 +142,24 @@ public class Controller {
         private String id;
 
         @NotBlank
-        private String name;
+        private String type;
 
         @NotBlank
-        private String schedule;
-
-        @NotBlank
-        private String description;
+        private String status;
     }
 
     private Job fromJobDTO(JobDTO dto) {
         Job job = new Job();
-        job.setName(dto.getName());
-        job.setSchedule(dto.getSchedule());
-        job.setDescription(dto.getDescription());
+        job.setId(dto.getId());
+        job.setType(dto.getType());
+        job.setStatus(dto.getStatus());
         return job;
     }
 
     private Job fromJobUpdateDTO(JobUpdateDTO dto, Job existing) {
-        existing.setName(dto.getName());
-        existing.setSchedule(dto.getSchedule());
-        existing.setDescription(dto.getDescription());
+        existing.setId(dto.getId());
+        existing.setType(dto.getType());
+        existing.setStatus(dto.getStatus());
         return existing;
-    }
-
-    private Job mapObjectNodeToJob(ObjectNode node) {
-        Job job = new Job();
-        if (node.has("technicalId") && !node.get("technicalId").isNull()) {
-            try {
-                job.setTechnicalId(UUID.fromString(node.get("technicalId").asText()));
-            } catch (IllegalArgumentException e) {
-                logger.warn("Invalid technicalId UUID format in stored data");
-            }
-        }
-        if (node.has("name")) {
-            job.setName(node.get("name").asText());
-        }
-        if (node.has("schedule")) {
-            job.setSchedule(node.get("schedule").asText());
-        }
-        if (node.has("description")) {
-            job.setDescription(node.get("description").asText());
-        }
-        job.setId(job.getTechnicalId() != null ? job.getTechnicalId().toString() : null);
-        return job;
     }
 }
