@@ -1,0 +1,85 @@
+```json
+{
+  "version": "1.0",
+  "description": "DigestRequest processing workflow FSM",
+  "initial_state": "none",
+  "workflow_name": "DigestRequestProcessingWorkflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "check_linked_job_exists": {
+            "next": "linked_job_check",
+            "processors": [
+              {
+                "name": "DigestRequestProcessor"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "linked_job_check": {
+      "transitions": [
+        {
+          "linked_job_exists": {
+            "next": "job_found",
+            "criterion": {
+              "type": "function",
+              "function": {
+                "name": "LinkedDigestJobExistsCriterion"
+              }
+            }
+          }
+        },
+        {
+          "linked_job_not_exists": {
+            "next": "job_not_found",
+            "criterion": {
+              "type": "function",
+              "function": {
+                "name": "LinkedDigestJobNotExistsCriterion"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "job_not_found": {
+      "transitions": [
+        {
+          "create_digest_job": {
+            "next": "job_created",
+            "processors": [
+              {
+                "name": "DigestRequestProcessor"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "job_found": {
+      "transitions": [
+        {
+          "complete_workflow_from_found_job": {
+            "next": "completed"
+          }
+        }
+      ]
+    },
+    "job_created": {
+      "transitions": [
+        {
+          "complete_workflow_after_creation": {
+            "next": "completed"
+          }
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    }
+  }
+}
+```
