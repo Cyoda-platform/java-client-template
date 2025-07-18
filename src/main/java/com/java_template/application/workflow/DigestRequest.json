@@ -1,0 +1,25 @@
+{
+  "version": "1.0",
+  "description": "DigestRequest entity workflow with simple state transitions",
+  "initial_state": "none",
+  "workflow_name": "DigestRequestWorkflow",
+  "states": {
+    "none": {
+      "transitions": {
+        "cache": {
+          "next": "cached"
+        }
+      }
+    },
+    "cached": {
+      "transitions": {
+        "expire": {
+          "next": "expired"
+        }
+      }
+    },
+    "expired": {
+      "transitions": {}
+    }
+  }
+}
