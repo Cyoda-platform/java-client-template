@@ -11,8 +11,10 @@
             "transitions": [
                 {
                     "criterion": {
-                        "class": "CanProcessDigestDataCriterion",
-                        "type": "class"
+                        "function": {
+                            "name": "CanProcessDigestDataCriterion"
+                        },
+                        "type": "function"
                     },
                     "id": "transition_to_processed",
                     "next": "PROCESSED",
