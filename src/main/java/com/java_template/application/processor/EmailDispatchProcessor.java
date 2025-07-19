@@ -14,18 +14,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.util.concurrent.CompletableFuture;
-
 @Component
 public class EmailDispatchProcessor implements CyodaProcessor {
+
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final ProcessorSerializer serializer;
-    private final com.java_template.common.service.EntityService entityService;
 
-    public EmailDispatchProcessor(SerializerFactory serializerFactory, com.java_template.common.service.EntityService entityService) {
+    public EmailDispatchProcessor(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
-        this.entityService = entityService;
-        logger.info("EmailDispatchProcessor initialized with SerializerFactory and EntityService");
+        logger.info("EmailDispatchProcessor initialized with SerializerFactory");
     }
 
     @Override
@@ -34,30 +31,44 @@ public class EmailDispatchProcessor implements CyodaProcessor {
         logger.info("Processing EmailDispatch for request: {}", request.getId());
 
         return serializer.withRequest(request)
-            .toEntity(EmailDispatch.class)
-            .map(this::processEntityLogic)
-            .complete();
+                .toEntity(EmailDispatch.class)
+                .validate(EmailDispatch::isValid, "Invalid entity state")
+                .map(this::processEntityLogic)
+                .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "EmailDispatchProcessor".equals(modelSpec.operationName()) &&
-               "emaildispatch".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+                "emailDispatch".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
     private EmailDispatch processEntityLogic(EmailDispatch entity) {
-        logger.info("Processing EmailDispatch with technicalId: {}", entity.getTechnicalId());
+        // Business logic based on functional requirements:
+        // 1. Initial State: EmailDispatch created with QUEUED status.
+        // 2. Sending: Send compiled digest to the email address, using specified format.
+        // 3. Completion: Update EmailDispatch status to SENT or FAILED.
 
-        logger.info("Sending email for Job ID {} in format {}", entity.getJobId(), entity.getEmailFormat());
-        entity.setStatus(EmailDispatch.StatusEnum.SENT);
+        logger.info("Sending email for EmailDispatch ID: {}", entity.getId());
 
-        CompletableFuture<Void> updateFuture = entityService.updateItem(
-            "email_dispatch_model", Config.ENTITY_VERSION, entity.getTechnicalId(), entity)
-            .thenAccept(updatedId -> logger.info("Email sent successfully for EmailDispatch technicalId: {}", entity.getTechnicalId()));
+        // Simulate sending email logic
+        boolean emailSentSuccessfully = sendEmail(entity);
 
-        updateFuture.join();
+        if (emailSentSuccessfully) {
+            entity.setStatus(EmailDispatch.StatusEnum.SENT);
+            logger.info("Email sent successfully for EmailDispatch ID: {}", entity.getId());
+        } else {
+            entity.setStatus(EmailDispatch.StatusEnum.FAILED);
+            logger.error("Email sending failed for EmailDispatch ID: {}", entity.getId());
+        }
 
         return entity;
+    }
+
+    private boolean sendEmail(EmailDispatch entity) {
+        // Implementation of actual email sending logic should be here
+        // For now, simulate success
+        return true;
     }
 }
