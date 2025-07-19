@@ -1,6 +1,7 @@
 package com.java_template.application.processor;
 
 import com.java_template.application.entity.FetchJob;
+import com.java_template.common.serializer.ErrorInfo;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
@@ -13,15 +14,21 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Component
 public class FetchJobProcessor implements CyodaProcessor {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final ProcessorSerializer serializer;
+    private final com.java_template.common.service.EntityService entityService;
 
-    public FetchJobProcessor(SerializerFactory serializerFactory) {
+    public FetchJobProcessor(SerializerFactory serializerFactory, com.java_template.common.service.EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
-        logger.info("FetchJobProcessor initialized with SerializerFactory");
+        this.entityService = entityService;
+        logger.info("FetchJobProcessor initialized with SerializerFactory and EntityService");
     }
 
     @Override
@@ -31,7 +38,7 @@ public class FetchJobProcessor implements CyodaProcessor {
 
         return serializer.withRequest(request)
             .toEntity(FetchJob.class)
-            .validate(FetchJob::isValid, "Invalid entity state")
+            .validate(this::isValidEntity, "Invalid FetchJob entity state")
             .map(this::processFetchJobLogic)
             .complete();
     }
@@ -43,18 +50,40 @@ public class FetchJobProcessor implements CyodaProcessor {
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
+    private boolean isValidEntity(FetchJob fetchJob) {
+        return fetchJob != null && fetchJob.isValid();
+    }
+
     private FetchJob processFetchJobLogic(FetchJob fetchJob) {
-        logger.info("Processing FetchJob with id: {} and scheduledDate: {}", fetchJob.getId(), fetchJob.getScheduledDate());
+        // Step 1: Fetch NBA scores from external API for scheduledDate
+        // Note: External API call not implemented here; just simulate with dummy data
+        logger.info("Fetching NBA scores for scheduledDate: {}", fetchJob.getScheduledDate());
 
-        // Business logic based on functional requirements:
-        // 1. Fetch NBA scores for the scheduledDate (simulate or call external API)
-        // 2. Save fetched game data locally (not shown as no direct property or method)
-        // 3. Update status to COMPLETED or FAILED based on fetch result
-        // 4. Trigger Notification entities creation for all ACTIVE subscribers (not possible to do here directly)
+        // Step 2: Save fetched game data locally - simulate by setting resultSummary
+        String resultSummary = "20 games fetched"; // example summary
+        fetchJob.setResultSummary(resultSummary);
 
-        // Simulate fetch success and update status
+        // Step 3: Update status to COMPLETED (simulate success)
         fetchJob.setStatus(FetchJob.StatusEnum.COMPLETED);
-        fetchJob.setResultSummary("NBA scores fetched successfully for " + fetchJob.getScheduledDate());
+
+        // Step 4: Trigger Notifications for all ACTIVE Subscribers
+        // Fetch Subscribers with ACTIVE status
+        List<com.java_template.application.entity.Subscriber> activeSubscribers =
+            entityService.searchSubscribersByStatus(com.java_template.application.entity.Subscriber.StatusEnum.ACTIVE);
+
+        // Create Notification entities with PENDING status for each active subscriber
+        List<com.java_template.application.entity.Notification> notifications = activeSubscribers.stream()
+            .map(subscriber -> {
+                com.java_template.application.entity.Notification notification = new com.java_template.application.entity.Notification();
+                notification.setId(java.util.UUID.randomUUID().toString());
+                notification.setSubscriberId(subscriber.getId());
+                notification.setJobId(fetchJob.getId());
+                notification.setStatus(com.java_template.application.entity.Notification.StatusEnum.PENDING);
+                return notification;
+            })
+            .collect(Collectors.toList());
+
+        entityService.addNotifications(notifications);
 
         return fetchJob;
     }
