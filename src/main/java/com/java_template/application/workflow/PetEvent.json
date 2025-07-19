@@ -1,0 +1,79 @@
+{
+    "desc": "Workflow to process PetEvent entity lifecycle",
+    "id": "pet_event_workflow",
+    "initialState": "none",
+    "name": "PetEvent Workflow",
+    "states": {
+        "FAILED": {
+            "transitions": []
+        },
+        "PROCESSED": {
+            "transitions": []
+        },
+        "RECEIVED": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetExistsCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "validate_pet_exists_true",
+                    "next": "VALIDATED"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetNotExistsCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "validate_pet_exists_false",
+                    "next": "FAILED"
+                }
+            ]
+        },
+        "VALIDATED": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "EventPayloadAppliedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "apply_event_payload_success",
+                    "next": "PROCESSED",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetEventProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "EventPayloadNotAppliedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "apply_event_payload_failure",
+                    "next": "FAILED"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "transition_to_received",
+                    "next": "RECEIVED"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
