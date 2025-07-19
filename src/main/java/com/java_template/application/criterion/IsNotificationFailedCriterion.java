@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.Subscriber;
+import com.java_template.application.entity.Notification;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,7 +32,7 @@ public class IsNotificationFailedCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(Subscriber.class, this::validateEntity)
+            .evaluateEntity(Notification.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,16 +40,16 @@ public class IsNotificationFailedCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "IsNotificationFailedCriterion".equals(modelSpec.operationName()) &&
-               "subscriber".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "notification".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(Subscriber subscriber) {
-        if (subscriber.getStatus() == null) {
-            return EvaluationOutcome.fail("Subscriber status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+    private EvaluationOutcome validateEntity(Notification entity) {
+        if (entity.getStatus() == null) {
+            return EvaluationOutcome.fail("Status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (subscriber.getStatus() == Subscriber.StatusEnum.ACTIVE) {
-            return EvaluationOutcome.fail("Subscriber status is active, not failed", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        if (!Notification.StatusEnum.FAILED.equals(entity.getStatus())) {
+            return EvaluationOutcome.fail("Notification status must be FAILED", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
         return EvaluationOutcome.success();
     }
