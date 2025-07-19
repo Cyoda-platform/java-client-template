@@ -1,0 +1,74 @@
+private void processFetchJob(FetchJob fetchJob) throws ExecutionException, InterruptedException {
+    log.info("Processing FetchJob with technicalId: {}", fetchJob.getTechnicalId());
+    fetchJob.setStatus(FetchJob.StatusEnum.PROCESSING);
+
+    // Update status to PROCESSING as new entity version
+    entityService.addItem("FetchJob", ENTITY_VERSION, fetchJob).get();
+
+    // Simulate fetching NBA scores from external API for scheduledDate
+    try {
+        Thread.sleep(100); // simulate delay
+    } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+    }
+
+    // Update status and resultSummary - create new version
+    FetchJob updatedFetchJob = new FetchJob();
+    updatedFetchJob.setScheduledDate(fetchJob.getScheduledDate());
+    updatedFetchJob.setStatus(FetchJob.StatusEnum.COMPLETED);
+    updatedFetchJob.setResultSummary("Simulated fetch success for date " + fetchJob.getScheduledDate());
+
+    entityService.addItem("FetchJob", ENTITY_VERSION, updatedFetchJob).get();
+
+    // Trigger notifications for all active subscribers
+    CompletableFuture<ArrayNode> subscribersFuture = entityService.getItemsByCondition("Subscriber", ENTITY_VERSION,
+            SearchConditionRequest.group("AND",
+                    Condition.of("$.status", "EQUALS", "ACTIVE")));
+
+    ArrayNode subscribersArray = subscribersFuture.get();
+
+    for (int i = 0; i < subscribersArray.size(); i++) {
+        ObjectNode subscriberNode = (ObjectNode) subscribersArray.get(i);
+        Subscriber subscriber = new Subscriber();
+        subscriber.setTechnicalId(UUID.fromString(subscriberNode.get("technicalId").asText()));
+        subscriber.setId(subscriberNode.get("technicalId").asText());
+        subscriber.setEmail(subscriberNode.hasNonNull("email") ? subscriberNode.get("email").asText() : null);
+        subscriber.setStatus(Subscriber.StatusEnum.valueOf(subscriberNode.get("status").asText()));
+
+        Notification notification = new Notification();
+        notification.setSubscriberId(subscriber.getId());
+        notification.setJobId(fetchJob.getTechnicalId().toString());
+        notification.setStatus(Notification.StatusEnum.PENDING);
+        notification.setSentAt(null);
+
+        UUID notifTechnicalId = entityService.addItem("Notification", ENTITY_VERSION, notification).get();
+        notification.setTechnicalId(notifTechnicalId);
+        notification.setId(notifTechnicalId.toString());
+
+        processNotification(notification);
+    }
+}
+
+private void processNotification(Notification notification) {
+    log.info("Processing Notification with subscriberId: {}, for jobId: {}", notification.getSubscriberId(), notification.getJobId());
+
+    try {
+        Thread.sleep(50); // simulate delay
+    } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+    }
+
+    Notification updatedNotification = new Notification();
+    updatedNotification.setSubscriberId(notification.getSubscriberId());
+    updatedNotification.setJobId(notification.getJobId());
+    updatedNotification.setStatus(Notification.StatusEnum.SENT);
+    updatedNotification.setSentAt(OffsetDateTime.now());
+
+    try {
+        entityService.addItem("Notification", ENTITY_VERSION, updatedNotification).get();
+    } catch (Exception e) {
+        log.error("Failed to update Notification status to SENT: {}", e.getMessage());
+    }
+
+    log.info("Notification sent to subscriberId: {} for jobId: {}", notification.getSubscriberId(), notification.getJobId());
+}
