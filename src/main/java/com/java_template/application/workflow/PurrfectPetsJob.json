@@ -1,0 +1,127 @@
+{
+    "desc": "Workflow managing the lifecycle of a PurrfectPetsJob entity from creation to completion or failure.",
+    "id": "purrfectpetsjob_workflow",
+    "initialState": "none",
+    "name": "PurrfectPetsJob Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "ValidActionTypeCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "start_job_processing",
+                    "next": "pending"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "InvalidActionTypeCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "reject_invalid_action",
+                    "next": "failed"
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "FetchPetsActionCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "begin_processing_fetch_pets",
+                    "next": "processing_fetch_pets",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PurrfectPetsJobProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "UpdatePetStatusActionCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "begin_processing_update_pet_status",
+                    "next": "processing_update_pet_status",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PurrfectPetsJobProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "processing_fetch_pets": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "FetchPetsSuccessCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "complete_fetch_success",
+                    "next": "completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "FetchPetsFailureCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "fail_fetch_error",
+                    "next": "failed"
+                }
+            ]
+        },
+        "processing_update_pet_status": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "UpdatePetStatusSuccessCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "complete_update_success",
+                    "next": "completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "UpdatePetStatusFailureCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "fail_update_error",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
