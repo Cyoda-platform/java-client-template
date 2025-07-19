@@ -1,0 +1,116 @@
+{
+  "version": "1.0",
+  "id": "fetchjob_workflow",
+  "name": "FetchJob Workflow",
+  "desc": "Workflow representing the processing lifecycle of a FetchJob entity",
+  "initialState": "none",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "id": "start_from_none",
+          "next": "pending"
+        }
+      ]
+    },
+    "pending": {
+      "transitions": [
+        {
+          "id": "pending_to_processing_if_can_start",
+          "next": "processing",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "CanStartProcessingCriterion"
+            }
+          }
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "id": "processing_to_completed_if_success",
+          "next": "completed",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsFetchSuccessfulCriterion"
+            }
+          }
+        },
+        {
+          "id": "processing_to_failed_if_failure",
+          "next": "failed",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsFetchFailedCriterion"
+            }
+          }
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  }
+}
+{
+  "version": "1.0",
+  "id": "notification_workflow",
+  "name": "Notification Workflow",
+  "desc": "Workflow representing the notification lifecycle of a Notification entity",
+  "initialState": "none",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "id": "start_from_none",
+          "next": "pending"
+        }
+      ]
+    },
+    "pending": {
+      "transitions": [
+        {
+          "id": "pending_to_sent_if_can_send",
+          "next": "sent",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "CanSendNotificationCriterion"
+            }
+          },
+          "processors": [
+            {
+              "name": "NotificationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "id": "pending_to_failed_if_failure",
+          "next": "failed",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DidNotificationFailCriterion"
+            }
+          }
+        }
+      ]
+    },
+    "sent": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  }
+}
