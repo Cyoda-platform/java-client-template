@@ -57,8 +57,6 @@ public class Controller {
             UUID technicalId = idFuture.join();
             log.info("Created PetUpdateJob with technicalId {}", technicalId);
 
-            processPetUpdateJob(job);
-
             return ResponseEntity.status(HttpStatus.CREATED).body(job);
         } catch (Exception e) {
             log.error("Error creating PetUpdateJob: {}", e.getMessage());
@@ -102,8 +100,6 @@ public class Controller {
             CompletableFuture<UUID> idFuture = entityService.addItem(PET_ENTITY, ENTITY_VERSION, pet);
             UUID technicalId = idFuture.join();
             log.info("Created Pet with technicalId {}", technicalId);
-
-            processPet(pet);
 
             return ResponseEntity.status(HttpStatus.CREATED).body(pet);
         } catch (Exception e) {
@@ -153,8 +149,6 @@ public class Controller {
         petEventCache.put(event.getEventId(), event);
         log.info("Created PetEvent with eventId {}", event.getEventId());
 
-        processPetEvent(event);
-
         return ResponseEntity.status(HttpStatus.CREATED).body(event);
     }
 
@@ -167,82 +161,5 @@ public class Controller {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("PetEvent not found");
         }
         return ResponseEntity.ok(event);
-    }
-
-    // Business logic implementations for event-driven processing
-
-    private void processPetUpdateJob(PetUpdateJob job) {
-        log.info("Processing PetUpdateJob with ID: {}", job.getJobId());
-        if (job.getSource() == null || job.getSource().isBlank()) {
-            log.error("PetUpdateJob processing failed: source is blank");
-            job.setStatus("FAILED");
-            return;
-        }
-        job.setStatus("PROCESSING");
-
-        try {
-            for (int i = 0; i < 3; i++) {
-                Pet newPet = new Pet();
-                newPet.setPetId("pet-auto-" + UUID.randomUUID());
-                newPet.setName("AutoPet" + i);
-                newPet.setCategory(i % 2 == 0 ? "cat" : "dog");
-                newPet.setStatus("AVAILABLE");
-                newPet.setId(UUID.randomUUID().toString());
-                newPet.setTechnicalId(UUID.randomUUID());
-
-                CompletableFuture<UUID> petIdFuture = entityService.addItem(PET_ENTITY, ENTITY_VERSION, newPet);
-                petIdFuture.join();
-
-                processPet(newPet);
-
-                PetEvent petEvent = new PetEvent();
-                petEvent.setEventId("event-auto-" + UUID.randomUUID());
-                petEvent.setPetId(newPet.getPetId());
-                petEvent.setEventType("CREATED");
-                petEvent.setEventTimestamp(LocalDateTime.now());
-                petEvent.setPayload("{\"name\":\"" + newPet.getName() + "\"}");
-                petEvent.setStatus("RECEIVED");
-                petEvent.setId(UUID.randomUUID().toString());
-                petEvent.setTechnicalId(UUID.randomUUID());
-
-                petEventCache.put(petEvent.getEventId(), petEvent);
-                processPetEvent(petEvent);
-            }
-            job.setStatus("COMPLETED");
-            log.info("PetUpdateJob {} completed successfully", job.getJobId());
-        } catch (Exception e) {
-            log.error("Error processing PetUpdateJob {}: {}", job.getJobId(), e.getMessage());
-            job.setStatus("FAILED");
-        }
-    }
-
-    private void processPet(Pet pet) {
-        log.info("Processing Pet with ID: {}", pet.getPetId());
-        log.info("Pet {} is currently in status {}", pet.getPetId(), pet.getStatus());
-    }
-
-    private void processPetEvent(PetEvent event) {
-        log.info("Processing PetEvent with ID: {}", event.getEventId());
-        Pet relatedPet = null;
-        try {
-            SearchConditionRequest condition = SearchConditionRequest.group("AND",
-                    Condition.of("$.petId", "EQUALS", event.getPetId()));
-            CompletableFuture<ArrayNode> future = entityService.getItemsByCondition(PET_ENTITY, ENTITY_VERSION, condition);
-            ArrayNode resultArray = future.join();
-            if (resultArray != null && !resultArray.isEmpty()) {
-                ObjectNode obj = (ObjectNode) resultArray.get(0);
-                relatedPet = new Pet();
-                relatedPet.setPetId(obj.get("petId").asText());
-            }
-        } catch (Exception e) {
-            log.error("Error retrieving related Pet for PetEvent {}: {}", event.getEventId(), e.getMessage());
-        }
-        if (relatedPet == null) {
-            log.error("PetEvent {} processing failed: related Pet {} not found", event.getEventId(), event.getPetId());
-            event.setStatus("FAILED");
-            return;
-        }
-        event.setStatus("PROCESSED");
-        log.info("PetEvent {} processed successfully for Pet {}", event.getEventId(), event.getPetId());
     }
 }
