@@ -1,0 +1,109 @@
+{
+    "desc": "Workflow to manage Pet entity lifecycle from creation, validation, processing to completion",
+    "id": "pet_workflow",
+    "initialState": "none",
+    "name": "Pet entity workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "completion_failed": {
+            "transitions": []
+        },
+        "created": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "ValidatePetCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "created_to_validated",
+                    "next": "validated"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "InvalidatePetCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "created_to_invalid",
+                    "next": "invalid"
+                }
+            ]
+        },
+        "invalid": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "none_to_created",
+                    "next": "created"
+                }
+            ]
+        },
+        "processed": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "CompletePetProcessingCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "processed_to_completed",
+                    "next": "completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "CompletePetProcessingFailCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "processed_to_completion_failed",
+                    "next": "completion_failed"
+                }
+            ]
+        },
+        "processing_failed": {
+            "transitions": []
+        },
+        "validated": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "ProcessPetDetailsCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "validated_to_processed",
+                    "next": "processed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "ProcessPetDetailsFailCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "validated_to_processing_failed",
+                    "next": "processing_failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
