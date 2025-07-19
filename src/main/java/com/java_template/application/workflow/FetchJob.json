@@ -1,0 +1,104 @@
+{
+    "desc": "Workflow representing the lifecycle of FetchJob entity and its related Notifications",
+    "id": "fetchjob_workflow",
+    "initialState": "none",
+    "name": "FetchJob workflow",
+    "states": {
+        "completed": {
+            "transitions": [
+                {
+                    "id": "create_notifications",
+                    "next": "notifications_pending"
+                }
+            ]
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsFetchJobPendingCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "start_if_pending",
+                    "next": "pending"
+                }
+            ]
+        },
+        "notifications_failed": {
+            "transitions": []
+        },
+        "notifications_pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsNotificationPendingCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "send_notification",
+                    "next": "notifications_sent"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsNotificationFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "notification_failed",
+                    "next": "notifications_failed"
+                }
+            ]
+        },
+        "notifications_sent": {
+            "transitions": []
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "id": "start_processing",
+                    "next": "processing",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "FetchJobProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsFetchJobCompletedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "complete_successfully",
+                    "next": "completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsFetchJobFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "fail_processing",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
