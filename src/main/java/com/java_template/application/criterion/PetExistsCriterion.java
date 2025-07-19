@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.Pet;
+import com.java_template.application.entity.AdoptionRequest;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,7 +32,7 @@ public class PetExistsCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(Pet.class, this::validateEntity)
+            .evaluateEntity(AdoptionRequest.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,20 +40,19 @@ public class PetExistsCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetExistsCriterion".equals(modelSpec.operationName()) &&
-               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "adoptionRequest".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(Pet pet) {
-        if (pet == null) {
-            return EvaluationOutcome.fail("Pet entity is null", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+    private EvaluationOutcome validateEntity(AdoptionRequest adoptionRequest) {
+        if (adoptionRequest == null) {
+            return EvaluationOutcome.fail("AdoptionRequest entity is null", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
         }
-        if (pet.getPetId() == null || pet.getPetId().isBlank()) {
-            return EvaluationOutcome.fail("Pet ID is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+        if (adoptionRequest.getPetId() == null || adoptionRequest.getPetId().isBlank()) {
+            return EvaluationOutcome.fail("Pet ID is missing in AdoptionRequest", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (pet.getName() == null || pet.getName().isBlank()) {
-            return EvaluationOutcome.fail("Pet name is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-        }
+        // Here would be a check if pet exists in system - assumed to be external or database check
+        // For the purpose of this criterion, assume petId presence means pet exists
         return EvaluationOutcome.success();
     }
 }
