@@ -63,8 +63,6 @@ public class Controller {
         job.setId(techIdStr);
         job.setJobId(techIdStr);
 
-        processPurrfectPetsJob(job);
-
         return ResponseEntity.status(201).body(Map.of("jobId", techIdStr, "status", job.getStatus()));
     }
 
@@ -116,8 +114,6 @@ public class Controller {
         pet.setId(techIdStr);
         pet.setPetId(techIdStr);
 
-        processPet(pet);
-
         return ResponseEntity.status(201).body(Map.of("petId", techIdStr, "status", pet.getStatus()));
     }
 
@@ -144,51 +140,5 @@ public class Controller {
             return ResponseEntity.status(404).body("Pet not found");
         }
         return ResponseEntity.ok(petNode);
-    }
-
-    // -------- Process Methods --------
-
-    private void processPurrfectPetsJob(PurrfectPetsJob job) throws ExecutionException, InterruptedException {
-        logger.info("Processing PurrfectPetsJob with ID: {}", job.getId());
-        if (job.getAction() == null || job.getAction().isBlank()) {
-            logger.error("Job action is missing");
-            job.setStatus("FAILED");
-            return;
-        }
-        if ("ingestPetData".equals(job.getAction())) {
-            logger.info("Ingesting pet data from payload: {}", job.getPayload());
-
-            // Simulate creating one pet entity from ingestion
-            Pet newPet = new Pet();
-            newPet.setName("Sample Pet");
-            newPet.setCategory("cat");
-            newPet.setStatus("NEW");
-            newPet.setPhotoUrls(new ArrayList<>());
-            newPet.setTags(new ArrayList<>());
-
-            // Add newPet to entityService
-            CompletableFuture<UUID> petIdFuture = entityService.addItem("Pet", ENTITY_VERSION, newPet);
-            UUID petTechnicalId = petIdFuture.get();
-            String petTechIdStr = petTechnicalId.toString();
-            newPet.setId(petTechIdStr);
-            newPet.setPetId(petTechIdStr);
-
-            processPet(newPet);
-
-            logger.info("Created new pet '{}' from ingestion", newPet.getName());
-            job.setStatus("COMPLETED");
-        } else {
-            logger.error("Unknown job action: {}", job.getAction());
-            job.setStatus("FAILED");
-        }
-    }
-
-    private void processPet(Pet pet) {
-        logger.info("Processing Pet with ID: {}", pet.getId());
-        if ("NEW".equalsIgnoreCase(pet.getStatus())) {
-            pet.setStatus("ACTIVE");
-            logger.info("Pet {} status set to ACTIVE", pet.getId());
-        }
-        logger.info("Pet {} is ready for retrieval", pet.getId());
     }
 }
