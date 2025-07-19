@@ -1,0 +1,160 @@
+{
+  "version": "1.0",
+  "id": "purrfectpetsjob_workflow",
+  "name": "PurrfectPetsJob workflow",
+  "desc": "Workflow managing PurrfectPetsJob lifecycle from pending to completed or failed",
+  "initialState": "none",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "id": "start_processing_if_pending",
+          "next": "processing",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "CanStartProcessingCriterion"
+            }
+          }
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "id": "complete_if_successful",
+          "next": "completed",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsJobSuccessfulCriterion"
+            }
+          },
+          "processors": [
+            {
+              "name": "PurrfectPetsJobProcessor",
+              "config": {
+                "calculationNodesTags": "purrfectpets_jobs"
+              }
+            }
+          ]
+        },
+        {
+          "id": "fail_if_failed",
+          "next": "failed",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsJobFailedCriterion"
+            }
+          }
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  }
+},
+{
+  "version": "1.0",
+  "id": "pet_workflow",
+  "name": "Pet workflow",
+  "desc": "Workflow for Pet entity lifecycle validation and saving",
+  "initialState": "none",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "id": "validate_pet",
+          "next": "validated",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsPetValidCriterion"
+            }
+          }
+        }
+      ]
+    },
+    "validated": {
+      "transitions": [
+        {
+          "id": "save_pet",
+          "next": "processed",
+          "processors": [
+            {
+              "name": "PetProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "processed": {
+      "transitions": [
+        {
+          "id": "complete_pet_workflow",
+          "next": "completed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    }
+  }
+},
+{
+  "version": "1.0",
+  "id": "adoptionrequest_workflow",
+  "name": "AdoptionRequest workflow",
+  "desc": "Workflow managing adoption request approval or rejection",
+  "initialState": "none",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "id": "check_pet_availability",
+          "next": "approved",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsPetAvailableForAdoptionCriterion"
+            }
+          }
+        },
+        {
+          "id": "reject_if_pet_unavailable",
+          "next": "rejected",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsPetNotAvailableForAdoptionCriterion"
+            }
+          }
+        }
+      ]
+    },
+    "approved": {
+      "transitions": [
+        {
+          "id": "finalize_approved_request",
+          "next": "completed"
+        }
+      ]
+    },
+    "rejected": {
+      "transitions": [
+        {
+          "id": "finalize_rejected_request",
+          "next": "completed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    }
+  }
+}
