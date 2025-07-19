@@ -1,0 +1,100 @@
+{
+    "desc": "Workflow to process pet adoption requests, validating pet existence and availability, then approving or rejecting the request.",
+    "id": "adoption_request_workflow",
+    "initialState": "none",
+    "name": "Adoption Request Workflow",
+    "states": {
+        "approve_request": {
+            "transitions": [
+                {
+                    "id": "approve_and_complete",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "AdoptionRequestProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "completed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "start_validation_pet_exists",
+                    "next": "validate_pet_exists"
+                }
+            ]
+        },
+        "reject_request_pet_not_available": {
+            "transitions": [
+                {
+                    "id": "reject_and_complete_not_available",
+                    "next": "completed"
+                }
+            ]
+        },
+        "reject_request_pet_not_found": {
+            "transitions": [
+                {
+                    "id": "reject_and_complete_not_found",
+                    "next": "completed"
+                }
+            ]
+        },
+        "validate_pet_available": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetAvailableCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "pet_available_true",
+                    "next": "approve_request"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetNotAvailableCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "pet_available_false",
+                    "next": "reject_request_pet_not_available"
+                }
+            ]
+        },
+        "validate_pet_exists": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetExistsCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "pet_exists_true",
+                    "next": "validate_pet_available"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetNotExistsCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "pet_exists_false",
+                    "next": "reject_request_pet_not_found"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
