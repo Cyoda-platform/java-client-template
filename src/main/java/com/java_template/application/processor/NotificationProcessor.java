@@ -1,14 +1,14 @@
 package com.java_template.application.processor;
 
 import com.java_template.application.entity.Notification;
-import com.java_template.application.entity.Subscriber;
+import com.java_template.common.config.Config;
 import com.java_template.common.serializer.ErrorInfo;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.service.EntityService;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
-import com.java_template.common.config.Config;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
@@ -22,9 +22,9 @@ public class NotificationProcessor implements CyodaProcessor {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final ProcessorSerializer serializer;
-    private final com.java_template.common.service.EntityService entityService;
+    private final EntityService entityService;
 
-    public NotificationProcessor(SerializerFactory serializerFactory, com.java_template.common.service.EntityService entityService) {
+    public NotificationProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
         this.entityService = entityService;
         logger.info("NotificationProcessor initialized with SerializerFactory and EntityService");
@@ -36,44 +36,43 @@ public class NotificationProcessor implements CyodaProcessor {
         logger.info("Processing Notification for request: {}", request.getId());
 
         return serializer.withRequest(request)
-            .toEntity(Notification.class)
-            .validate(this::isValidEntity, "Invalid Notification entity state")
-            .map(this::processNotificationLogic)
-            .complete();
+                .toEntity(Notification.class)
+                .validate(Notification::isValid, "Invalid Notification state")
+                .map(this::processEntityLogic)
+                .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "NotificationProcessor".equals(modelSpec.operationName()) &&
-               "notification".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+                "notification".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private boolean isValidEntity(Notification notification) {
-        return notification != null && notification.isValid();
-    }
+    private Notification processEntityLogic(Notification notification) {
+        logger.info("Processing Notification with id: {}", notification.getId());
 
-    private Notification processNotificationLogic(Notification notification) {
-        // Step 1: Send email to subscriber
-        logger.info("Sending email to subscriber: {} for notification: {}", notification.getSubscriberId(), notification.getId());
-
-        boolean emailSent = sendEmail(notification);
-
-        // Step 2: Update status and sentAt timestamp
-        if (emailSent) {
-            notification.setStatus(Notification.StatusEnum.SENT);
-        } else {
-            notification.setStatus(Notification.StatusEnum.FAILED);
+        try {
+            Thread.sleep(50); // simulate delay
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
-        notification.setSentAt(OffsetDateTime.now());
+
+        Notification updatedNotification = new Notification();
+        updatedNotification.setId(notification.getId());
+        updatedNotification.setSubscriberId(notification.getSubscriberId());
+        updatedNotification.setJobId(notification.getJobId());
+        updatedNotification.setStatus(Notification.StatusEnum.SENT);
+        updatedNotification.setSentAt(OffsetDateTime.now());
+
+        try {
+            entityService.addItem("Notification", Config.ENTITY_VERSION, updatedNotification).get();
+        } catch (Exception e) {
+            logger.error("Failed to update Notification status to SENT: {}", e.getMessage());
+        }
+
+        logger.info("Notification sent to subscriberId: {} for jobId: {}", notification.getSubscriberId(), notification.getJobId());
 
         return notification;
-    }
-
-    private boolean sendEmail(Notification notification) {
-        // Simulate email sending logic
-        // In real scenario, integrate with email service
-        logger.info("Email sent to subscriberId: {}", notification.getSubscriberId());
-        return true; // simulate success
     }
 }
