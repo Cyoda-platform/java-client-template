@@ -1,85 +1,86 @@
 {
-    "desc": "Workflow for Pet entity lifecycle management",
-    "id": "pet_workflow",
-    "initialState": "none",
-    "name": "Pet entity workflow",
-    "states": {
-        "active": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetArchivalCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "active_to_archived",
-                    "next": "archived"
-                }
-            ]
-        },
-        "archived": {
-            "transitions": []
-        },
-        "new": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetActivationCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "new_to_active_valid",
-                    "next": "active",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetProcessor"
-                        }
-                    ]
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetActivationCriterionNegation"
-                        },
-                        "type": "function"
-                    },
-                    "id": "new_to_pending",
-                    "next": "pending"
-                }
-            ]
-        },
-        "none": {
-            "transitions": [
-                {
-                    "id": "none_to_new",
-                    "next": "new"
-                }
-            ]
-        },
-        "pending": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetActivationCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "pending_to_active",
-                    "next": "active",
-                    "processors": [
-                        {
-                            "name": "PetProcessor"
-                        }
-                    ]
-                }
-            ]
+  "desc": "Workflow for Pet entity lifecycle management",
+  "id": "pet_workflow",
+  "initialState": "none",
+  "name": "Pet entity workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "id": "none_to_new",
+          "next": "new"
         }
+      ]
     },
-    "version": "1.0"
+    "new": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "PetActivationCriterion"
+            },
+            "type": "function"
+          },
+          "id": "new_to_active_valid",
+          "next": "active",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "calculation_nodes_tags": "0a4afdac-2bae-11b2-944c-fac101f95347"
+              },
+              "name": "PetProcessor"
+            }
+          ]
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "PetActivationCriterionNegation"
+            },
+            "type": "function"
+          },
+          "id": "new_to_pending",
+          "next": "pending"
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "PetArchivalCriterion"
+            },
+            "type": "function"
+          },
+          "id": "active_to_archived",
+          "next": "archived"
+        }
+      ]
+    },
+    "archived": {
+      "transitions": []
+    },
+    "pending": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "PetActivationCriterion"
+            },
+            "type": "function"
+          },
+          "id": "pending_to_active",
+          "next": "active",
+          "processors": [
+            {
+              "name": "PetProcessor"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "version": "1.0"
 }
