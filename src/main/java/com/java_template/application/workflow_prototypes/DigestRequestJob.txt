@@ -1,0 +1,54 @@
+    private CompletableFuture<Void> processDigestRequestJob(DigestRequestJob entity) {
+        log.info("Processing DigestRequestJob with technicalId: {}", entity.getTechnicalId());
+        entity.setStatus(DigestRequestJob.StatusEnum.PROCESSING);
+        return entityService.updateItem(DIGEST_REQUEST_JOB_MODEL, ENTITY_VERSION, entity.getTechnicalId(), entity)
+            .thenCompose(updatedId -> {
+                // Simulate data retrieval from petstore API based on metadata or defaults
+                DigestData data = new DigestData();
+                data.setJobId(entity.getTechnicalId().toString());
+                data.setData("Sample data from petstore API based on metadata: " + (entity.getMetadata() != null ? entity.getMetadata().toString() : "{}"));
+                data.setStatus(DigestData.StatusEnum.RETRIEVED);
+                return entityService.addItem(DIGEST_DATA_MODEL, ENTITY_VERSION, data)
+                        .thenCompose(dataId -> {
+                            data.setTechnicalId(dataId);
+                            log.info("Triggered DigestData creation with technicalId: {}", dataId);
+                            return processDigestData(data);
+                        })
+                        .thenCompose(v -> {
+                            entity.setStatus(DigestRequestJob.StatusEnum.COMPLETED);
+                            return entityService.updateItem(DIGEST_REQUEST_JOB_MODEL, ENTITY_VERSION, entity.getTechnicalId(), entity)
+                                    .thenAccept(updated2 -> log.info("DigestRequestJob marked COMPLETED with technicalId: {}", entity.getTechnicalId()));
+                        });
+            });
+    }
+
+    private CompletableFuture<Void> processDigestData(DigestData entity) {
+        log.info("Processing DigestData with technicalId: {}", entity.getTechnicalId());
+        // Format or transform raw data into digest format (e.g. HTML)
+        String formattedData = "<html><body><h1>Digest Data</h1><p>" + entity.getData() + "</p></body></html>";
+        entity.setData(formattedData);
+        entity.setStatus(DigestData.StatusEnum.PROCESSED);
+        return entityService.updateItem(DIGEST_DATA_MODEL, ENTITY_VERSION, entity.getTechnicalId(), entity)
+                .thenCompose(updatedId -> {
+                    EmailDispatch dispatch = new EmailDispatch();
+                    dispatch.setJobId(entity.getJobId());
+                    dispatch.setEmailFormat(EmailDispatch.EmailFormatEnum.HTML);
+                    dispatch.setStatus(EmailDispatch.StatusEnum.QUEUED);
+                    return entityService.addItem(EMAIL_DISPATCH_MODEL, ENTITY_VERSION, dispatch)
+                            .thenCompose(dispatchId -> {
+                                dispatch.setTechnicalId(dispatchId);
+                                log.info("Triggered EmailDispatch creation with technicalId: {}", dispatchId);
+                                return processEmailDispatch(dispatch);
+                            });
+                });
+    }
+
+    private CompletableFuture<Void> processEmailDispatch(EmailDispatch entity) {
+        log.info("Processing EmailDispatch with technicalId: {}", entity.getTechnicalId());
+        // Simulate sending email (in real implementation, integrate mail service)
+        // Since exceptions should propagate, no try-catch here
+        log.info("Sending email for Job ID {} in format {}", entity.getJobId(), entity.getEmailFormat());
+        entity.setStatus(EmailDispatch.StatusEnum.SENT);
+        return entityService.updateItem(EMAIL_DISPATCH_MODEL, ENTITY_VERSION, entity.getTechnicalId(), entity)
+                .thenAccept(updatedId -> log.info("Email sent successfully for EmailDispatch technicalId: {}", entity.getTechnicalId()));
+    }
