@@ -1,0 +1,71 @@
+{
+    "desc": "Workflow for processing DigestRequestJob entity lifecycle",
+    "id": "digest_request_job_workflow",
+    "initialState": "none",
+    "name": "DigestRequestJob workflow",
+    "states": {
+        "COMPLETED": {
+            "transitions": []
+        },
+        "FAILED": {
+            "transitions": []
+        },
+        "PENDING": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "class": "CanProcessDigestRequestJobCriterion",
+                        "type": "class"
+                    },
+                    "id": "transition_to_processing",
+                    "next": "PROCESSING",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "DigestRequestJobProcessor"
+                        }
+                    ]
+                },
+                {
+                    "id": "transition_stay_pending",
+                    "next": "PENDING"
+                }
+            ]
+        },
+        "PROCESSING": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "class": "IsDigestRequestJobSuccessCriterion",
+                        "type": "class"
+                    },
+                    "id": "transition_to_completed",
+                    "next": "COMPLETED"
+                },
+                {
+                    "criterion": {
+                        "class": "IsDigestRequestJobFailedCriterion",
+                        "type": "class"
+                    },
+                    "id": "transition_to_failed",
+                    "next": "FAILED"
+                },
+                {
+                    "id": "transition_stay_processing",
+                    "next": "PROCESSING"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "transition_to_pending",
+                    "next": "PENDING"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
