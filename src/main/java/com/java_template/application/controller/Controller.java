@@ -1,5 +1,7 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Pet;
@@ -14,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.validation.Valid;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -28,13 +31,14 @@ import static com.java_template.common.config.Config.*;
 public class Controller {
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     private static final String PET_UPDATE_JOB_ENTITY = "PetUpdateJob";
     private static final String PET_ENTITY = "Pet";
 
     // PetUpdateJob POST
     @PostMapping("/petUpdateJob")
-    public ResponseEntity<?> createPetUpdateJob(@RequestBody PetUpdateJob job) {
+    public ResponseEntity<?> createPetUpdateJob(@Valid @RequestBody PetUpdateJob job) throws JsonProcessingException {
         if (job == null) {
             log.error("PetUpdateJob creation failed: request body is null");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Request body required");
@@ -65,23 +69,21 @@ public class Controller {
     }
 
     // PetUpdateJob GET
-    @GetMapping("/petUpdateJob/{jobId}")
-    public ResponseEntity<?> getPetUpdateJob(@PathVariable String jobId) {
-        SearchConditionRequest condition = SearchConditionRequest.group("AND",
-                Condition.of("$.jobId", "EQUALS", jobId));
-        CompletableFuture<ArrayNode> future = entityService.getItemsByCondition(PET_UPDATE_JOB_ENTITY, ENTITY_VERSION, condition);
-        ArrayNode resultArray = future.join();
-        if (resultArray == null || resultArray.isEmpty()) {
-            log.error("PetUpdateJob not found: {}", jobId);
+    @GetMapping("/petUpdateJob/{technicalId}")
+    public ResponseEntity<?> getPetUpdateJob(@PathVariable String technicalId) throws JsonProcessingException {
+        UUID uuid = UUID.fromString(technicalId);
+        ObjectNode objNode = entityService.getItem(PET_UPDATE_JOB_ENTITY, ENTITY_VERSION, uuid).join();
+        if (objNode == null) {
+            log.error("PetUpdateJob not found: {}", technicalId);
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("PetUpdateJob not found");
         }
-        ObjectNode obj = (ObjectNode) resultArray.get(0);
-        return ResponseEntity.ok(obj);
+        PetUpdateJob job = objectMapper.treeToValue(objNode, PetUpdateJob.class);
+        return ResponseEntity.ok(job);
     }
 
     // Pet POST
     @PostMapping("/pet")
-    public ResponseEntity<?> createPet(@RequestBody Pet pet) {
+    public ResponseEntity<?> createPet(@Valid @RequestBody Pet pet) throws JsonProcessingException {
         if (pet == null) {
             log.error("Pet creation failed: request body is null");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Request body required");
@@ -109,18 +111,16 @@ public class Controller {
     }
 
     // Pet GET
-    @GetMapping("/pet/{petId}")
-    public ResponseEntity<?> getPet(@PathVariable String petId) {
-        SearchConditionRequest condition = SearchConditionRequest.group("AND",
-                Condition.of("$.petId", "EQUALS", petId));
-        CompletableFuture<ArrayNode> future = entityService.getItemsByCondition(PET_ENTITY, ENTITY_VERSION, condition);
-        ArrayNode resultArray = future.join();
-        if (resultArray == null || resultArray.isEmpty()) {
-            log.error("Pet not found: {}", petId);
+    @GetMapping("/pet/{technicalId}")
+    public ResponseEntity<?> getPet(@PathVariable String technicalId) throws JsonProcessingException {
+        UUID uuid = UUID.fromString(technicalId);
+        ObjectNode objNode = entityService.getItem(PET_ENTITY, ENTITY_VERSION, uuid).join();
+        if (objNode == null) {
+            log.error("Pet not found: {}", technicalId);
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Pet not found");
         }
-        ObjectNode obj = (ObjectNode) resultArray.get(0);
-        return ResponseEntity.ok(obj);
+        Pet pet = objectMapper.treeToValue(objNode, Pet.class);
+        return ResponseEntity.ok(pet);
     }
 
     // PetEvent POST - minor entity, keep local cache behavior as is
