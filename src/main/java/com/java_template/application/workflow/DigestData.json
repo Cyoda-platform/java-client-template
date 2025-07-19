@@ -14,8 +14,10 @@
             "transitions": [
                 {
                     "criterion": {
-                        "class": "CanProcessDigestRequestJobCriterion",
-                        "type": "class"
+                        "function": {
+                            "name": "CanProcessDigestRequestJobCriterion"
+                        },
+                        "type": "function"
                     },
                     "id": "transition_to_processing",
                     "next": "PROCESSING",
@@ -38,16 +40,20 @@
             "transitions": [
                 {
                     "criterion": {
-                        "class": "IsDigestRequestJobSuccessCriterion",
-                        "type": "class"
+                        "function": {
+                            "name": "IsDigestRequestJobSuccessCriterion"
+                        },
+                        "type": "function"
                     },
                     "id": "transition_to_completed",
                     "next": "COMPLETED"
                 },
                 {
                     "criterion": {
-                        "class": "IsDigestRequestJobFailedCriterion",
-                        "type": "class"
+                        "function": {
+                            "name": "IsDigestRequestJobFailedCriterion"
+                        },
+                        "type": "function"
                     },
                     "id": "transition_to_failed",
                     "next": "FAILED"
