@@ -16,7 +16,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.UUID;
 
@@ -55,7 +54,7 @@ public class Controller {
         job.setId(businessId);
         job.setJobId(businessId);
 
-        processPurrfectPetsJob(job);
+        // processPurrfectPetsJob(job);  // Removed as per extraction
 
         // After processing, create new version with updated status
         entityService.addItem(ENTITY_NAME_JOB, ENTITY_VERSION, job).get();
@@ -83,29 +82,6 @@ public class Controller {
         return ResponseEntity.ok(job);
     }
 
-    private void processPurrfectPetsJob(PurrfectPetsJob job) {
-        log.info("Processing PurrfectPetsJob with jobId: {}", job.getJobId());
-        if (!job.getJobType().equals("PetDataSync") && !job.getJobType().equals("AdoptionProcessing")) {
-            job.setStatus("FAILED");
-            log.error("Invalid jobType: {}", job.getJobType());
-            return;
-        }
-        job.setStatus("PROCESSING");
-
-        try {
-            if (job.getJobType().equals("PetDataSync")) {
-                log.info("Syncing pet data from Petstore API...");
-            } else if (job.getJobType().equals("AdoptionProcessing")) {
-                log.info("Processing adoption requests...");
-            }
-            job.setStatus("COMPLETED");
-            log.info("Job {} completed successfully", job.getJobId());
-        } catch (Exception e) {
-            job.setStatus("FAILED");
-            log.error("Job {} failed processing: {}", job.getJobId(), e.getMessage());
-        }
-    }
-
     // -------------------- Pet Endpoints --------------------
 
     @PostMapping("/pets")
@@ -127,7 +103,7 @@ public class Controller {
         pet.setId(businessId);
         pet.setPetId(businessId);
 
-        processPet(pet);
+        // processPet(pet);  // Removed as per extraction
 
         entityService.addItem(ENTITY_NAME_PET, ENTITY_VERSION, pet).get();
 
@@ -153,11 +129,6 @@ public class Controller {
         return ResponseEntity.ok(pet);
     }
 
-    private void processPet(Pet pet) {
-        log.info("Processing Pet with petId: {}", pet.getPetId());
-        log.info("Pet {} is available for adoption", pet.getName());
-    }
-
     // -------------------- AdoptionRequest Endpoints --------------------
 
     @PostMapping("/adoption-requests")
@@ -178,7 +149,7 @@ public class Controller {
         request.setId(businessId);
         request.setRequestId(businessId);
 
-        processAdoptionRequest(request);
+        // processAdoptionRequest(request);  // Removed as per extraction
 
         entityService.addItem(ENTITY_NAME_ADOPTION_REQUEST, ENTITY_VERSION, request).get();
 
@@ -202,32 +173,6 @@ public class Controller {
         ObjectNode requestNode = (ObjectNode) results.get(0);
         AdoptionRequest request = entityService.getObjectMapper().treeToValue(requestNode, AdoptionRequest.class);
         return ResponseEntity.ok(request);
-    }
-
-    private void processAdoptionRequest(AdoptionRequest request) throws ExecutionException, InterruptedException {
-        log.info("Processing AdoptionRequest with requestId: {}", request.getRequestId());
-
-        SearchConditionRequest petCondition = SearchConditionRequest.group("AND",
-                Condition.of("$.petId", "EQUALS", request.getPetId()));
-        ArrayNode petResults = entityService.getItemsByCondition(ENTITY_NAME_PET, ENTITY_VERSION, petCondition).get();
-
-        if (petResults.isEmpty()) {
-            request.setStatus("REJECTED");
-            log.error("Adoption request rejected: pet not found {}", request.getPetId());
-        } else {
-            ObjectNode petNode = (ObjectNode) petResults.get(0);
-            Pet pet = entityService.getObjectMapper().treeToValue(petNode, Pet.class);
-
-            if (!"AVAILABLE".equals(pet.getStatus())) {
-                request.setStatus("REJECTED");
-                log.error("Adoption request rejected: pet not available {}", request.getPetId());
-            } else {
-                request.setStatus("APPROVED");
-                pet.setStatus("PENDING");
-                entityService.addItem(ENTITY_NAME_PET, ENTITY_VERSION, pet).get();
-                log.info("Adoption request approved for pet {}", pet.getName());
-            }
-        }
     }
 
 }
