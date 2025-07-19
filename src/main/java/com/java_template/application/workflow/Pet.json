@@ -8,8 +8,10 @@
             "transitions": [
                 {
                     "criterion": {
-                        "className": "PetArchivalCriterion",
-                        "type": "class"
+                        "function": {
+                            "name": "PetArchivalCriterion"
+                        },
+                        "type": "function"
                     },
                     "id": "active_to_archived",
                     "next": "archived"
@@ -23,8 +25,10 @@
             "transitions": [
                 {
                     "criterion": {
-                        "className": "PetActivationCriterion",
-                        "type": "class"
+                        "function": {
+                            "name": "PetActivationCriterion"
+                        },
+                        "type": "function"
                     },
                     "id": "new_to_active_valid",
                     "next": "active",
@@ -39,8 +43,10 @@
                 },
                 {
                     "criterion": {
-                        "className": "PetActivationCriterionNegation",
-                        "type": "class"
+                        "function": {
+                            "name": "PetActivationCriterionNegation"
+                        },
+                        "type": "function"
                     },
                     "id": "new_to_pending",
                     "next": "pending"
@@ -59,8 +65,10 @@
             "transitions": [
                 {
                     "criterion": {
-                        "className": "PetActivationCriterion",
-                        "type": "class"
+                        "function": {
+                            "name": "PetActivationCriterion"
+                        },
+                        "type": "function"
                     },
                     "id": "pending_to_active",
                     "next": "active",
