@@ -55,7 +55,7 @@ public class FetchJobProcessor implements CyodaProcessor {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "FetchJobProcessor".equals(modelSpec.operationName()) &&
-                "fetchJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+                "config_v2".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                 Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 

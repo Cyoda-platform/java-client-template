@@ -6,9 +6,24 @@ server:
   port: 8080
   forward-headers-strategy: framework
 
+# OAuth2 configuration disabled for local development
+
 springdoc:
   swagger-ui:
     use-root-path: true
     try-it-out-enabled: true
     csrf:
       enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
+# Disable Cyoda integration for local development
+cyoda:
+  enabled: false

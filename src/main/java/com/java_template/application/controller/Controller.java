@@ -62,7 +62,7 @@ public class Controller {
         fetchJob.setResultSummary("");
 
         CompletableFuture<UUID> idFuture = entityService.addItem(
-                "FetchJob",
+                "config_v2",
                 ENTITY_VERSION,
                 fetchJob
         );

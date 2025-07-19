@@ -26,7 +26,7 @@ import static com.java_template.common.config.Config.*;
 
 public class CyodaInit {
     private static final Logger logger = LoggerFactory.getLogger(CyodaInit.class);
-    private static final Path WORKFLOW_DTO_DIR = Paths.get(System.getProperty("user.dir")).resolve("src/main/java/com/java_template/cyoda_dto");
+    private static final Path WORKFLOW_DTO_DIR = Paths.get(System.getProperty("user.dir")).resolve("src/main/java/com/java_template/application/cyoda_dto");
 
     private final HttpUtils httpUtils;
     private final Authentication authentication;

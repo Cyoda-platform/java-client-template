@@ -21,6 +21,11 @@ import java.util.concurrent.ConcurrentMap;
 
 import static com.java_template.common.config.Config.*;
 
+/**
+ * Service for handling OAuth2 authentication with Cyoda.
+ * Manages access tokens and provides authentication capabilities for gRPC.
+ * Web endpoints are handled separately by SecurityConfig.
+ */
 @Service
 public class Authentication {
 
@@ -70,7 +75,7 @@ public class Authentication {
     }
 
     /**
-     * Returns a valid access token, reusing it if still fresh.
+     * Returns a valid OAuth2 access token for gRPC authentication, reusing it if still fresh.
      */
     public OAuth2AccessToken getAccessToken() {
         CachedToken token = tokenCache.compute(CACHE_KEY, (key, existing) -> {
@@ -78,7 +83,7 @@ public class Authentication {
                 return existing;
             }
 
-            logger.info("Fetching new OAuth2 access token");
+            logger.info("Fetching new OAuth2 access token for gRPC authentication");
             OAuth2AuthorizeRequest request = OAuth2AuthorizeRequest.withClientRegistrationId("cyoda")
                     .principal("cyoda-client")
                     .build();
@@ -89,35 +94,33 @@ public class Authentication {
             }
 
             OAuth2AccessToken accessToken = client.getAccessToken();
-            logger.info("New token fetched, expires at: {}", accessToken.getExpiresAt());
+            logger.info("New OAuth2 token fetched for gRPC, expires at: {}", accessToken.getExpiresAt());
             return new CachedToken(accessToken);
         });
 
         return token.oAuth2AccessToken;
     }
 
-
-
     /**
      * Clears cached token so next call re-authenticates.
      */
     public void invalidateTokens() {
         tokenCache.remove(CACHE_KEY);
-        logger.info("Manually invalidated cached token");
+        logger.info("Manually invalidated cached OAuth2 token");
     }
 
     /**
-         * Simple container for access token with expiry.
-         */
-        private record CachedToken(OAuth2AccessToken oAuth2AccessToken) {
+     * Simple container for access token with expiry.
+     */
+    private record CachedToken(OAuth2AccessToken oAuth2AccessToken) {
 
         public boolean isValid() {
-                Instant expiresAt = this.oAuth2AccessToken.getExpiresAt();
-                return expiresAt != null && Instant.now().isBefore(expiresAt.minusSeconds(60));
-            }
-
-            public String getTokenValue() {
-                return oAuth2AccessToken.getTokenValue();
-            }
+            Instant expiresAt = this.oAuth2AccessToken.getExpiresAt();
+            return expiresAt != null && Instant.now().isBefore(expiresAt.minusSeconds(60));
         }
+
+        public String getTokenValue() {
+            return this.oAuth2AccessToken.getTokenValue();
+        }
+    }
 }

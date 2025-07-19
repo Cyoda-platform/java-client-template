@@ -1,5 +1,8 @@
 package com.java_template.common.workflow;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import org.cyoda.cloud.api.event.common.EntityMetadata;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.statemachine.TransitionInfo;
@@ -13,10 +16,19 @@ import java.util.Optional;
 /**
  * ABOUTME: Sealed class hierarchy representing different types of operations.
  */
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+@JsonSubTypes({
+    @JsonSubTypes.Type(value = OperationSpecification.Entity.class, name = "entity"),
+    @JsonSubTypes.Type(value = OperationSpecification.Criterion.class, name = "criterion"),
+    @JsonSubTypes.Type(value = OperationSpecification.Processor.class, name = "processor")
+})
 public sealed class OperationSpecification
     permits OperationSpecification.Entity, OperationSpecification.Criterion, OperationSpecification.Processor {
 
+    @JsonProperty("modelKey")
     private final @NotNull ModelSpec modelKey;
+
+    @JsonProperty("operationName")
     private final @NotNull String operationName;
 
     protected OperationSpecification(@NotNull ModelSpec modelKey, @NotNull String operationName) {
@@ -24,11 +36,28 @@ public sealed class OperationSpecification
         this.operationName = operationName;
     }
 
+    // Default constructor for Jackson
+    protected OperationSpecification() {
+        this.modelKey = new ModelSpec();
+        this.operationName = "";
+    }
+
     public @NotNull ModelSpec modelKey() {
         return modelKey;
     }
 
     public @NotNull String operationName() {
+        return operationName;
+    }
+
+    // Jackson needs these getters for serialization
+    @JsonProperty("modelKey")
+    public @NotNull ModelSpec getModelKey() {
+        return modelKey;
+    }
+
+    @JsonProperty("operationName")
+    public @NotNull String getOperationName() {
         return operationName;
     }
 
@@ -40,14 +69,24 @@ public sealed class OperationSpecification
         public Entity(@NotNull ModelSpec modelKey, @NotNull String operationName) {
             super(modelKey, operationName);
         }
+
+        // Default constructor for Jackson
+        public Entity() {
+            super(new ModelSpec(), "");
+        }
     }
 
     /**
      * Represents a criterion-based transition operation.
      */
     public static final class Criterion extends OperationSpecification {
+        @JsonProperty("stateName")
         private final @NotNull String stateName;
+
+        @JsonProperty("transitionName")
         private final @NotNull String transitionName;
+
+        @JsonProperty("workflowName")
         private final @NotNull String workflowName;
 
         public Criterion(@NotNull ModelSpec modeKey,
@@ -59,6 +98,14 @@ public sealed class OperationSpecification
             this.stateName = stateName;
             this.transitionName = transitionName;
             this.workflowName = workflowName;
+        }
+
+        // Default constructor for Jackson
+        public Criterion() {
+            super(new ModelSpec(), "");
+            this.stateName = "";
+            this.transitionName = "";
+            this.workflowName = "";
         }
 
         public @NotNull String criterionName() {
@@ -84,14 +131,35 @@ public sealed class OperationSpecification
         public String getCriterionName() {
             return criterionName();
         }
+
+        // Jackson getters
+        @JsonProperty("stateName")
+        public @NotNull String getStateName() {
+            return stateName;
+        }
+
+        @JsonProperty("transitionName")
+        public @NotNull String getTransitionName() {
+            return transitionName;
+        }
+
+        @JsonProperty("workflowName")
+        public @NotNull String getWorkflowName() {
+            return workflowName;
+        }
     }
 
     /**
      * Represents a processor-based transition operation.
      */
     public static final class Processor extends OperationSpecification {
+        @JsonProperty("stateName")
         private final @NotNull String stateName;
+
+        @JsonProperty("transitionName")
         private final @NotNull String transitionName;
+
+        @JsonProperty("workflowName")
         private final @NotNull String workflowName;
 
         public Processor(@NotNull ModelSpec modelKey,
@@ -103,6 +171,14 @@ public sealed class OperationSpecification
             this.stateName = stateName;
             this.transitionName = transitionName;
             this.workflowName = workflowName;
+        }
+
+        // Default constructor for Jackson
+        public Processor() {
+            super(new ModelSpec(), "");
+            this.stateName = "";
+            this.transitionName = "";
+            this.workflowName = "";
         }
 
         public @NotNull String processorName() {
@@ -127,6 +203,22 @@ public sealed class OperationSpecification
          */
         public String getProcessorName() {
             return processorName();
+        }
+
+        // Jackson getters
+        @JsonProperty("stateName")
+        public @NotNull String getStateName() {
+            return stateName;
+        }
+
+        @JsonProperty("transitionName")
+        public @NotNull String getTransitionName() {
+            return transitionName;
+        }
+
+        @JsonProperty("workflowName")
+        public @NotNull String getWorkflowName() {
+            return workflowName;
         }
     }
 
