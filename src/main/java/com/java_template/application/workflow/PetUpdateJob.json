@@ -1,0 +1,89 @@
+{
+    "desc": "Workflow for processing PetUpdateJob entity with states and transitions.",
+    "id": "pet_update_job_workflow",
+    "initialState": "none",
+    "name": "Pet Update Job Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "transition_to_pending",
+                    "next": "pending"
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetUpdateJobValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "start_processing_when_valid",
+                    "next": "processing"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetUpdateJobInvalidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "fail_when_invalid",
+                    "next": "failed"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetUpdateJobHasMorePetsCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "process_next_pet",
+                    "next": "processing",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetUpdateJobProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetUpdateJobCompleteCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "complete_when_successful",
+                    "next": "completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetUpdateJobErrorCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "fail_when_error",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
