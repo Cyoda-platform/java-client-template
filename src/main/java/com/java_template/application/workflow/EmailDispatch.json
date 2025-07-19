@@ -1,0 +1,59 @@
+{
+    "desc": "Workflow for processing EmailDispatch entity lifecycle",
+    "id": "email_dispatch_workflow",
+    "initialState": "none",
+    "name": "EmailDispatch workflow",
+    "states": {
+        "FAILED": {
+            "transitions": []
+        },
+        "QUEUED": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsEmailSentCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "transition_to_sent",
+                    "next": "SENT",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "EmailDispatchProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsEmailFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "transition_to_failed",
+                    "next": "FAILED"
+                },
+                {
+                    "id": "transition_stay_queued",
+                    "next": "QUEUED"
+                }
+            ]
+        },
+        "SENT": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "transition_to_queued",
+                    "next": "QUEUED"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
