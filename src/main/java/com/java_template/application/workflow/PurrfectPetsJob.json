@@ -1,91 +1,97 @@
 {
-    "desc": "Workflow for processing PurrfectPetsJob entities with validation and processing steps",
-    "id": "purrfectpetsjob_workflow",
+    "desc": "Workflow to process pet adoption requests, validating pet existence and availability, then approving or rejecting the request.",
+    "id": "adoption_request_workflow",
     "initialState": "none",
-    "name": "PurrfectPetsJob workflow",
+    "name": "Adoption Request Workflow",
     "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
+        "approve_request": {
             "transitions": [
                 {
-                    "id": "start_validation",
-                    "next": "pending_validation"
-                }
-            ]
-        },
-        "pending_validation": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PurrfectPetsJobValidJobTypeCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "valid_job_type",
-                    "next": "processing"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PurrfectPetsJobInvalidJobTypeCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "invalid_job_type",
-                    "next": "failed"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PurrfectPetsJobIsPetDataSyncCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "process_pet_data_sync",
+                    "id": "approve_and_complete",
                     "next": "completed",
                     "processors": [
                         {
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "PurrfectPetsJobProcessor"
+                            "name": "AdoptionRequestProcessor"
                         }
                     ]
+                }
+            ]
+        },
+        "completed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "start_validation_pet_exists",
+                    "next": "validate_pet_exists"
+                }
+            ]
+        },
+        "reject_request_pet_not_available": {
+            "transitions": [
+                {
+                    "id": "reject_and_complete_not_available",
+                    "next": "completed"
+                }
+            ]
+        },
+        "reject_request_pet_not_found": {
+            "transitions": [
+                {
+                    "id": "reject_and_complete_not_found",
+                    "next": "completed"
+                }
+            ]
+        },
+        "validate_pet_available": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetAvailableCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "pet_available_true",
+                    "next": "approve_request"
                 },
                 {
                     "criterion": {
                         "function": {
-                            "name": "PurrfectPetsJobIsAdoptionProcessingCriterion"
+                            "name": "PetNotAvailableCriterion"
                         },
                         "type": "function"
                     },
-                    "id": "process_adoption_requests",
-                    "next": "completed",
-                    "processors": [
-                        {
-                            "name": "PurrfectPetsJobProcessor"
-                        }
-                    ]
+                    "id": "pet_available_false",
+                    "next": "reject_request_pet_not_available"
+                }
+            ]
+        },
+        "validate_pet_exists": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetExistsCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "pet_exists_true",
+                    "next": "validate_pet_available"
                 },
                 {
                     "criterion": {
                         "function": {
-                            "name": "PurrfectPetsJobProcessingFailedCriterion"
+                            "name": "PetNotExistsCriterion"
                         },
                         "type": "function"
                     },
-                    "id": "processing_error",
-                    "next": "failed"
+                    "id": "pet_exists_false",
+                    "next": "reject_request_pet_not_found"
                 }
             ]
         }
