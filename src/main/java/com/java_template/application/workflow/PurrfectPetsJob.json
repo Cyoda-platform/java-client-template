@@ -1,79 +1,80 @@
 {
-    "desc": "Workflow for processing PurrfectPetsJob entity from creation to completion or failure",
-    "id": "purrfectpetsjob_workflow",
-    "initialState": "none",
-    "name": "PurrfectPetsJob workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "id": "start_job_processing",
-                    "next": "pending"
-                }
-            ]
-        },
-        "pending": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PurrfectPetsJobActionValidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "validate_action_valid",
-                    "next": "processing"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PurrfectPetsJobActionInvalidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "fail_invalid_action",
-                    "next": "failed"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PurrfectPetsJobProcessingSuccessCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "complete_success",
-                    "next": "completed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PurrfectPetsJobProcessor"
-                        }
-                    ]
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PurrfectPetsJobProcessingFailureCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "fail_processing_error",
-                    "next": "failed"
-                }
-            ]
+  "desc": "Workflow for processing PurrfectPetsJob entity from creation to completion or failure",
+  "id": "purrfectpetsjob_workflow",
+  "initialState": "none",
+  "name": "PurrfectPetsJob workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "id": "start_job_processing",
+          "next": "pending"
         }
+      ]
     },
-    "version": "1.0"
+    "pending": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "PurrfectPetsJobActionValidCriterion"
+            },
+            "type": "function"
+          },
+          "id": "validate_action_valid",
+          "next": "processing"
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "PurrfectPetsJobActionInvalidCriterion"
+            },
+            "type": "function"
+          },
+          "id": "fail_invalid_action",
+          "next": "failed"
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "PurrfectPetsJobProcessingSuccessCriterion"
+            },
+            "type": "function"
+          },
+          "id": "complete_success",
+          "next": "completed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "calculation_nodes_tags": "0a4afdac-2bae-11b2-944c-fac101f95347"
+              },
+              "name": "PurrfectPetsJobProcessor"
+            }
+          ]
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "PurrfectPetsJobProcessingFailureCriterion"
+            },
+            "type": "function"
+          },
+          "id": "fail_processing_error",
+          "next": "failed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
