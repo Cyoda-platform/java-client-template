@@ -1,23 +1,22 @@
 package com.java_template.application.controller;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.DigestData;
 import com.java_template.application.entity.DigestRequestJob;
 import com.java_template.application.entity.EmailDispatch;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import java.util.List;
+
+import jakarta.validation.Valid;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-
-import static com.java_template.common.config.Config.*;
+import java.util.concurrent.ExecutionException;
 
 @RestController
 @RequestMapping(path = "/entities")
@@ -26,6 +25,7 @@ import static com.java_template.common.config.Config.*;
 public class Controller {
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     private static final String DIGEST_REQUEST_JOB_MODEL = "DigestRequestJob";
     private static final String DIGEST_DATA_MODEL = "DigestData";
@@ -34,7 +34,7 @@ public class Controller {
     // --- DigestRequestJob endpoints ---
 
     @PostMapping("/digest-request-job")
-    public CompletableFuture<ResponseEntity<?>> createDigestRequestJob(@RequestBody DigestRequestJob requestJob) {
+    public CompletableFuture<ResponseEntity<?>> createDigestRequestJob(@Valid @RequestBody DigestRequestJob requestJob) throws JsonProcessingException {
         if (requestJob == null) {
             return CompletableFuture.completedFuture(ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Request body cannot be null"));
         }
@@ -51,20 +51,27 @@ public class Controller {
     }
 
     @GetMapping("/digest-request-job/{id}")
-    public CompletableFuture<ResponseEntity<?>> getDigestRequestJob(@PathVariable("id") UUID id) {
-        return entityService.getItem(DIGEST_REQUEST_JOB_MODEL, ENTITY_VERSION, id)
+    public CompletableFuture<ResponseEntity<?>> getDigestRequestJob(@PathVariable("id") String id) throws JsonProcessingException {
+        UUID uuid = UUID.fromString(id);
+        return entityService.getItem(DIGEST_REQUEST_JOB_MODEL, ENTITY_VERSION, uuid)
                 .thenApply(itemNode -> {
                     if (itemNode == null || itemNode.isEmpty()) {
                         return ResponseEntity.status(HttpStatus.NOT_FOUND).body("DigestRequestJob not found");
                     }
-                    return ResponseEntity.ok(itemNode);
+                    try {
+                        DigestRequestJob entity = objectMapper.treeToValue(itemNode, DigestRequestJob.class);
+                        return ResponseEntity.ok(entity);
+                    } catch (JsonProcessingException e) {
+                        log.error("Error converting ObjectNode to DigestRequestJob", e);
+                        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error processing data");
+                    }
                 });
     }
 
     // --- DigestData endpoints ---
 
     @PostMapping("/digest-data")
-    public CompletableFuture<ResponseEntity<?>> createDigestData(@RequestBody DigestData digestData) {
+    public CompletableFuture<ResponseEntity<?>> createDigestData(@Valid @RequestBody DigestData digestData) throws JsonProcessingException {
         if (digestData == null) {
             return CompletableFuture.completedFuture(ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Request body cannot be null"));
         }
@@ -81,20 +88,27 @@ public class Controller {
     }
 
     @GetMapping("/digest-data/{id}")
-    public CompletableFuture<ResponseEntity<?>> getDigestData(@PathVariable("id") UUID id) {
-        return entityService.getItem(DIGEST_DATA_MODEL, ENTITY_VERSION, id)
+    public CompletableFuture<ResponseEntity<?>> getDigestData(@PathVariable("id") String id) throws JsonProcessingException {
+        UUID uuid = UUID.fromString(id);
+        return entityService.getItem(DIGEST_DATA_MODEL, ENTITY_VERSION, uuid)
                 .thenApply(itemNode -> {
                     if (itemNode == null || itemNode.isEmpty()) {
                         return ResponseEntity.status(HttpStatus.NOT_FOUND).body("DigestData not found");
                     }
-                    return ResponseEntity.ok(itemNode);
+                    try {
+                        DigestData entity = objectMapper.treeToValue(itemNode, DigestData.class);
+                        return ResponseEntity.ok(entity);
+                    } catch (JsonProcessingException e) {
+                        log.error("Error converting ObjectNode to DigestData", e);
+                        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error processing data");
+                    }
                 });
     }
 
     // --- EmailDispatch endpoints ---
 
     @PostMapping("/email-dispatch")
-    public CompletableFuture<ResponseEntity<?>> createEmailDispatch(@RequestBody EmailDispatch emailDispatch) {
+    public CompletableFuture<ResponseEntity<?>> createEmailDispatch(@Valid @RequestBody EmailDispatch emailDispatch) throws JsonProcessingException {
         if (emailDispatch == null) {
             return CompletableFuture.completedFuture(ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Request body cannot be null"));
         }
@@ -114,13 +128,20 @@ public class Controller {
     }
 
     @GetMapping("/email-dispatch/{id}")
-    public CompletableFuture<ResponseEntity<?>> getEmailDispatch(@PathVariable("id") UUID id) {
-        return entityService.getItem(EMAIL_DISPATCH_MODEL, ENTITY_VERSION, id)
+    public CompletableFuture<ResponseEntity<?>> getEmailDispatch(@PathVariable("id") String id) throws JsonProcessingException {
+        UUID uuid = UUID.fromString(id);
+        return entityService.getItem(EMAIL_DISPATCH_MODEL, ENTITY_VERSION, uuid)
                 .thenApply(itemNode -> {
                     if (itemNode == null || itemNode.isEmpty()) {
                         return ResponseEntity.status(HttpStatus.NOT_FOUND).body("EmailDispatch not found");
                     }
-                    return ResponseEntity.ok(itemNode);
+                    try {
+                        EmailDispatch entity = objectMapper.treeToValue(itemNode, EmailDispatch.class);
+                        return ResponseEntity.ok(entity);
+                    } catch (JsonProcessingException e) {
+                        log.error("Error converting ObjectNode to EmailDispatch", e);
+                        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error processing data");
+                    }
                 });
     }
 }
