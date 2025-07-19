@@ -22,16 +22,20 @@
             "transitions": [
                 {
                     "criterion": {
-                        "class": "PurrfectPetsJobActionValidCriterion",
-                        "type": "class"
+                        "function": {
+                            "name": "PurrfectPetsJobActionValidCriterion"
+                        },
+                        "type": "function"
                     },
                     "id": "validate_action_valid",
                     "next": "processing"
                 },
                 {
                     "criterion": {
-                        "class": "PurrfectPetsJobActionInvalidCriterion",
-                        "type": "class"
+                        "function": {
+                            "name": "PurrfectPetsJobActionInvalidCriterion"
+                        },
+                        "type": "function"
                     },
                     "id": "fail_invalid_action",
                     "next": "failed"
@@ -42,8 +46,10 @@
             "transitions": [
                 {
                     "criterion": {
-                        "class": "PurrfectPetsJobProcessingSuccessCriterion",
-                        "type": "class"
+                        "function": {
+                            "name": "PurrfectPetsJobProcessingSuccessCriterion"
+                        },
+                        "type": "function"
                     },
                     "id": "complete_success",
                     "next": "completed",
@@ -58,8 +64,10 @@
                 },
                 {
                     "criterion": {
-                        "class": "PurrfectPetsJobProcessingFailureCriterion",
-                        "type": "class"
+                        "function": {
+                            "name": "PurrfectPetsJobProcessingFailureCriterion"
+                        },
+                        "type": "function"
                     },
                     "id": "fail_processing_error",
                     "next": "failed"
