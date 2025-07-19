@@ -1,0 +1,4 @@
+private void processSubscriber(Subscriber subscriber) {
+    log.info("Processing Subscriber with id: {}", subscriber.getId());
+    // No additional logic on creation
+}
