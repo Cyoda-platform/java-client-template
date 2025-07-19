@@ -1,0 +1,44 @@
+{
+    "desc": "Workflow for processing DigestData entity lifecycle",
+    "id": "digest_data_workflow",
+    "initialState": "none",
+    "name": "DigestData workflow",
+    "states": {
+        "PROCESSED": {
+            "transitions": []
+        },
+        "RETRIEVED": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "class": "CanProcessDigestDataCriterion",
+                        "type": "class"
+                    },
+                    "id": "transition_to_processed",
+                    "next": "PROCESSED",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "DigestDataProcessor"
+                        }
+                    ]
+                },
+                {
+                    "id": "transition_stay_retrieved",
+                    "next": "RETRIEVED"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "transition_to_retrieved",
+                    "next": "RETRIEVED"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
