@@ -1,12 +1,12 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Pet;
 import com.java_template.application.entity.PurrfectPetsJob;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
@@ -14,12 +14,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.*;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/controller")
@@ -30,11 +30,12 @@ public class Controller {
     private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     // -------- PurrfectPetsJob Endpoints --------
 
     @PostMapping("/jobs")
-    public ResponseEntity<?> createPurrfectPetsJob(@RequestBody PurrfectPetsJob job) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> createPurrfectPetsJob(@RequestBody PurrfectPetsJob job) throws ExecutionException, InterruptedException, JsonProcessingException {
         if (job == null) {
             logger.error("Received null job request");
             return ResponseEntity.badRequest().body("Job data must be provided");
@@ -57,17 +58,18 @@ public class Controller {
         ObjectNode jobNode = jobNodeFuture.get();
 
         // Map ObjectNode to PurrfectPetsJob for processing
-        // But since technicalId is not in entity, set id and jobId accordingly
-        // We will just pass the original job with id fields set to technicalId string
-        String techIdStr = technicalId.toString();
-        job.setId(techIdStr);
-        job.setJobId(techIdStr);
+        PurrfectPetsJob storedJob = objectMapper.treeToValue(jobNode, PurrfectPetsJob.class);
 
-        return ResponseEntity.status(201).body(Map.of("jobId", techIdStr, "status", job.getStatus()));
+        // Set id and jobId to technicalId string for response consistency
+        String techIdStr = technicalId.toString();
+        storedJob.setId(techIdStr);
+        storedJob.setJobId(techIdStr);
+
+        return ResponseEntity.status(201).body(Map.of("jobId", techIdStr, "status", storedJob.getStatus()));
     }
 
     @GetMapping("/jobs/{id}")
-    public ResponseEntity<?> getPurrfectPetsJob(@PathVariable String id) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> getPurrfectPetsJob(@PathVariable String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         UUID technicalId;
         try {
             technicalId = UUID.fromString(id);
@@ -81,13 +83,20 @@ public class Controller {
             logger.error("PurrfectPetsJob not found for id {}", id);
             return ResponseEntity.status(404).body("Job not found");
         }
-        return ResponseEntity.ok(jobNode);
+        // Map ObjectNode to PurrfectPetsJob
+        PurrfectPetsJob job = objectMapper.treeToValue(jobNode, PurrfectPetsJob.class);
+        // Set id and jobId fields using technicalId
+        String techIdStr = technicalId.toString();
+        job.setId(techIdStr);
+        job.setJobId(techIdStr);
+
+        return ResponseEntity.ok(job);
     }
 
     // -------- Pet Endpoints --------
 
     @PostMapping("/pets")
-    public ResponseEntity<?> createPet(@RequestBody Pet pet) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> createPet(@RequestBody Pet pet) throws ExecutionException, InterruptedException, JsonProcessingException {
         if (pet == null) {
             logger.error("Received null pet request");
             return ResponseEntity.badRequest().body("Pet data must be provided");
@@ -105,16 +114,17 @@ public class Controller {
 
         logger.info("Created Pet with technicalId: {}", technicalId);
 
-        // Retrieve created pet entity to pass to processPet
+        // Retrieve created pet entity to map back fully
         CompletableFuture<ObjectNode> petNodeFuture = entityService.getItem("Pet", ENTITY_VERSION, technicalId);
         ObjectNode petNode = petNodeFuture.get();
 
-        // Map ObjectNode to Pet object for processing is complicated, so just set id fields on original pet
+        Pet storedPet = objectMapper.treeToValue(petNode, Pet.class);
+        // Set id and petId fields using technicalId string for response consistency
         String techIdStr = technicalId.toString();
-        pet.setId(techIdStr);
-        pet.setPetId(techIdStr);
+        storedPet.setId(techIdStr);
+        storedPet.setPetId(techIdStr);
 
-        return ResponseEntity.status(201).body(Map.of("petId", techIdStr, "status", pet.getStatus()));
+        return ResponseEntity.status(201).body(Map.of("petId", techIdStr, "status", storedPet.getStatus()));
     }
 
     @GetMapping("/pets")
@@ -125,7 +135,7 @@ public class Controller {
     }
 
     @GetMapping("/pets/{id}")
-    public ResponseEntity<?> getPetById(@PathVariable String id) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> getPetById(@PathVariable String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         UUID technicalId;
         try {
             technicalId = UUID.fromString(id);
@@ -139,6 +149,11 @@ public class Controller {
             logger.error("Pet not found for id {}", id);
             return ResponseEntity.status(404).body("Pet not found");
         }
-        return ResponseEntity.ok(petNode);
+        Pet pet = objectMapper.treeToValue(petNode, Pet.class);
+        String techIdStr = technicalId.toString();
+        pet.setId(techIdStr);
+        pet.setPetId(techIdStr);
+
+        return ResponseEntity.ok(pet);
     }
 }
