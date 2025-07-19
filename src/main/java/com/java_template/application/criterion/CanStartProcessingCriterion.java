@@ -44,12 +44,11 @@ public class CanStartProcessingCriterion implements CyodaCriterion {
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(FetchJob entity) {
-        // Business logic: Can start processing if status is PENDING
-        if (entity.getStatus() == null) {
-            return EvaluationOutcome.fail("Status is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
+    private EvaluationOutcome validateEntity(FetchJob fetchJob) {
+        if (fetchJob.getStatus() == null) {
+            return EvaluationOutcome.fail("FetchJob status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (entity.getStatus() != FetchJob.StatusEnum.PENDING) {
+        if (fetchJob.getStatus() != FetchJob.StatusEnum.PENDING) {
             return EvaluationOutcome.fail("FetchJob status must be PENDING to start processing", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
         return EvaluationOutcome.success();
