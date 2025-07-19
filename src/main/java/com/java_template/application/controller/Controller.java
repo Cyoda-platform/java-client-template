@@ -1,5 +1,7 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.FetchJob;
@@ -14,13 +16,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 
 import static com.java_template.common.config.Config.*;
 
@@ -31,11 +35,12 @@ import static com.java_template.common.config.Config.*;
 public class Controller {
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     // -------------------- FetchJob APIs --------------------
 
     @PostMapping("/fetch-jobs")
-    public ResponseEntity<?> createFetchJob(@RequestBody Map<String, String> body) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> createFetchJob(@Valid @RequestBody Map<String, @NotBlank String> body) throws ExecutionException, InterruptedException, JsonProcessingException {
         String scheduledDateStr = body.get("scheduledDate");
         if (scheduledDateStr == null || scheduledDateStr.isBlank()) {
             log.error("Missing or blank scheduledDate");
@@ -67,9 +72,7 @@ public class Controller {
         CompletableFuture<ObjectNode> savedJobFuture = entityService.getItem("FetchJob", ENTITY_VERSION, technicalId);
         ObjectNode savedJobNode = savedJobFuture.get();
 
-        // Set fields from ObjectNode to fetchJob to keep local copy
         fetchJob.setTechnicalId(UUID.fromString(savedJobNode.get("technicalId").asText()));
-        // Assign an id from technicalId for local use (string), since original id is missing
         fetchJob.setId(technicalId.toString());
 
         log.info("Created FetchJob with technicalId: {}", technicalId);
@@ -79,7 +82,7 @@ public class Controller {
     }
 
     @GetMapping("/fetch-jobs/{id}")
-    public ResponseEntity<?> getFetchJob(@PathVariable String id) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> getFetchJob(@PathVariable String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         UUID technicalId;
         try {
             technicalId = UUID.fromString(id);
@@ -107,7 +110,7 @@ public class Controller {
     // -------------------- Subscriber APIs --------------------
 
     @PostMapping("/subscribers")
-    public ResponseEntity<?> createSubscriber(@RequestBody Map<String, String> body) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> createSubscriber(@Valid @RequestBody Map<String, @NotBlank String> body) throws ExecutionException, InterruptedException, JsonProcessingException {
         String email = body.get("email");
         if (email == null || email.isBlank()) {
             log.error("Missing or blank email");
@@ -139,7 +142,7 @@ public class Controller {
     }
 
     @GetMapping("/subscribers/{id}")
-    public ResponseEntity<?> getSubscriber(@PathVariable String id) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> getSubscriber(@PathVariable String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         UUID technicalId;
         try {
             technicalId = UUID.fromString(id);
@@ -167,7 +170,7 @@ public class Controller {
     // -------------------- Notification APIs --------------------
 
     @GetMapping("/notifications/{subscriberId}")
-    public ResponseEntity<?> getNotificationsBySubscriber(@PathVariable String subscriberId) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> getNotificationsBySubscriber(@PathVariable String subscriberId) throws ExecutionException, InterruptedException, JsonProcessingException {
         UUID subscriberTechnicalId;
         try {
             subscriberTechnicalId = UUID.fromString(subscriberId);
