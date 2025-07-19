@@ -1,0 +1,8 @@
+private void processPet(Pet pet) {
+    logger.info("Processing Pet with ID: {}", pet.getId());
+    if ("NEW".equalsIgnoreCase(pet.getStatus())) {
+        pet.setStatus("ACTIVE");
+        logger.info("Pet {} status set to ACTIVE", pet.getId());
+    }
+    logger.info("Pet {} is ready for retrieval", pet.getId());
+}
