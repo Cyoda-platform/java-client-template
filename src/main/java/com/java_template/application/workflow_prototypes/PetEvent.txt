@@ -1,0 +1,24 @@
+private void processPetEvent(PetEvent event) {
+    log.info("Processing PetEvent with ID: {}", event.getEventId());
+    Pet relatedPet = null;
+    try {
+        SearchConditionRequest condition = SearchConditionRequest.group("AND",
+                Condition.of("$.petId", "EQUALS", event.getPetId()));
+        CompletableFuture<ArrayNode> future = entityService.getItemsByCondition(PET_ENTITY, ENTITY_VERSION, condition);
+        ArrayNode resultArray = future.join();
+        if (resultArray != null && !resultArray.isEmpty()) {
+            ObjectNode obj = (ObjectNode) resultArray.get(0);
+            relatedPet = new Pet();
+            relatedPet.setPetId(obj.get("petId").asText());
+        }
+    } catch (Exception e) {
+        log.error("Error retrieving related Pet for PetEvent {}: {}", event.getEventId(), e.getMessage());
+    }
+    if (relatedPet == null) {
+        log.error("PetEvent {} processing failed: related Pet {} not found", event.getEventId(), event.getPetId());
+        event.setStatus("FAILED");
+        return;
+    }
+    event.setStatus("PROCESSED");
+    log.info("PetEvent {} processed successfully for Pet {}", event.getEventId(), event.getPetId());
+}
