@@ -1,106 +1,72 @@
 {
-    "desc": "Workflow to manage Pet entity lifecycle from creation, validation, processing to completion",
-    "id": "pet_workflow",
+    "desc": "Workflow to manage PetUpdateJob processing from PENDING to COMPLETED or FAILED",
+    "id": "pet_update_job_workflow",
     "initialState": "none",
-    "name": "Pet entity workflow",
+    "name": "PetUpdateJob workflow",
     "states": {
-        "completed": {
+        "COMPLETED": {
             "transitions": []
         },
-        "completion_failed": {
+        "FAILED": {
             "transitions": []
         },
-        "created": {
+        "PENDING": {
             "transitions": [
                 {
                     "criterion": {
                         "function": {
-                            "name": "ValidatePetCriterion"
+                            "name": "isJobValid"
                         },
                         "type": "function"
                     },
-                    "id": "created_to_validated",
-                    "next": "validated"
+                    "id": "pending_to_processing",
+                    "next": "PROCESSING"
+                },
+                {
+                    "id": "pending_to_failed",
+                    "next": "FAILED"
+                }
+            ]
+        },
+        "PROCESSING": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "hasProcessingError"
+                        },
+                        "type": "function"
+                    },
+                    "id": "processing_to_failed",
+                    "next": "FAILED"
                 },
                 {
                     "criterion": {
                         "function": {
-                            "name": "InvalidatePetCriterion"
+                            "name": "hasMorePetsToProcess"
                         },
                         "type": "function"
                     },
-                    "id": "created_to_invalid",
-                    "next": "invalid"
+                    "id": "processing_to_processing",
+                    "next": "PROCESSING"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "isProcessingSuccessful"
+                        },
+                        "type": "function"
+                    },
+                    "id": "processing_to_completed",
+                    "next": "COMPLETED"
                 }
             ]
-        },
-        "invalid": {
-            "transitions": []
         },
         "none": {
             "transitions": [
                 {
-                    "id": "none_to_created",
-                    "next": "created"
-                }
-            ]
-        },
-        "processed": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "CompletePetProcessingCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "processed_to_completed",
-                    "next": "completed"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "CompletePetProcessingFailCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "processed_to_completion_failed",
-                    "next": "completion_failed"
-                }
-            ]
-        },
-        "processing_failed": {
-            "transitions": []
-        },
-        "validated": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "ProcessPetDetailsCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "validated_to_processed",
-                    "next": "processed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetProcessor"
-                        }
-                    ]
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "ProcessPetDetailsFailCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "validated_to_processing_failed",
-                    "next": "processing_failed"
+                    "id": "none_to_pending",
+                    "next": "PENDING"
                 }
             ]
         }
