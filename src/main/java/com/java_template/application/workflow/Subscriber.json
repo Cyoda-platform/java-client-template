@@ -1,0 +1,112 @@
+{
+    "desc": "Workflow for managing FetchJob lifecycle and notifications",
+    "id": "fetchjob_workflow",
+    "initialState": "none",
+    "name": "FetchJob workflow",
+    "states": {
+        "completed": {
+            "transitions": [
+                {
+                    "id": "create_notifications",
+                    "next": "notifications_pending"
+                }
+            ]
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "start_fetchjob_processing",
+                    "next": "pending",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "FetchJobProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "notifications_failed": {
+            "transitions": []
+        },
+        "notifications_pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "CanSendNotificationCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "send_notification_success",
+                    "next": "notifications_sent",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "SubscriberProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsNotificationFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "send_notification_failure",
+                    "next": "notifications_failed"
+                }
+            ]
+        },
+        "notifications_sent": {
+            "transitions": []
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "CanStartProcessingCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "begin_processing",
+                    "next": "processing"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsFetchSuccessfulCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "fetch_success",
+                    "next": "completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsFetchFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "fetch_failure",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
