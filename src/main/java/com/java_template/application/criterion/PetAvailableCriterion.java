@@ -49,10 +49,11 @@ public class PetAvailableCriterion implements CyodaCriterion {
             return EvaluationOutcome.fail("Pet entity is null", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
         }
         if (pet.getStatus() == null || pet.getStatus().isBlank()) {
-            return EvaluationOutcome.fail("Pet status is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("Pet status is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
         }
+        // Validate pet status is AVAILABLE
         if (!"AVAILABLE".equalsIgnoreCase(pet.getStatus())) {
-            return EvaluationOutcome.fail("Pet is not available", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+            return EvaluationOutcome.fail("Pet is not available for adoption", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
         return EvaluationOutcome.success();
     }
