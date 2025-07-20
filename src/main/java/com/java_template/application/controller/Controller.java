@@ -1,14 +1,13 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
 import lombok.extern.slf4j.Slf4j;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.ResponseEntity;
 import java.util.*;
@@ -16,7 +15,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.time.Instant;
 import java.util.UUID;
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/controller")
@@ -24,14 +23,16 @@ import static com.java_template.common.config.Config.*;
 public class Controller {
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
     private static final String ENTITY_MODEL = "HackerNewsItem";
 
-    public Controller(EntityService entityService) {
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @PostMapping("/hackernewsitem")
-    public ResponseEntity<Map<String, String>> createHackerNewsItem(@RequestBody Map<String, Object> content) throws ExecutionException, InterruptedException {
+    public ResponseEntity<Map<String, String>> createHackerNewsItem(@RequestBody Map<String, Object> content) throws ExecutionException, InterruptedException, JsonProcessingException {
         log.info("Received POST request to create HackerNewsItem");
 
         Object hnId = content.get("id");
@@ -46,8 +47,8 @@ public class Controller {
         }
 
         HackerNewsItem item = new HackerNewsItem();
-        item.setId(UUID.randomUUID().toString());
-        item.setContent(content);
+        item.setId(UUID.randomUUID());
+        item.setContent(objectMapper.writeValueAsString(content));
         item.setTimestamp(Instant.now());
         item.setStatus(status);
 
@@ -57,24 +58,22 @@ public class Controller {
                 item
         );
         UUID technicalId = idFuture.get();
-        item.setTechnicalId(technicalId.toString());
-
-        // processHackerNewsItem(item); // removed processing method
+        item.setTechnicalId(technicalId);
 
         Map<String, String> response = new HashMap<>();
-        response.put("uuid", item.getId());
+        response.put("uuid", item.getId().toString());
         response.put("status", status);
 
         return ResponseEntity.status(201).body(response);
     }
 
     @GetMapping("/hackernewsitem/{uuid}")
-    public ResponseEntity<?> getHackerNewsItem(@PathVariable String uuid) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> getHackerNewsItem(@PathVariable String uuid) throws ExecutionException, InterruptedException, JsonProcessingException {
         log.info("Received GET request for HackerNewsItem with UUID: {}", uuid);
 
         // create condition to find item with id = uuid
         SearchConditionRequest condition = SearchConditionRequest.group("AND",
-                Condition.of("$.id", "EQUALS", uuid)
+                Condition.of("$.id", "EQUALS", UUID.fromString(uuid))
         );
 
         CompletableFuture<ArrayNode> itemsFuture = entityService.getItemsByCondition(
@@ -93,50 +92,61 @@ public class Controller {
 
         ObjectNode obj = (ObjectNode) items.get(0);
 
-        HackerNewsItem item = new HackerNewsItem();
-        item.setTechnicalId(obj.get("technicalId").asText());
-        item.setId(obj.get("id").asText());
-        item.setStatus(obj.has("status") ? obj.get("status").asText() : null);
-        item.setTimestamp(obj.has("timestamp") ? Instant.parse(obj.get("timestamp").asText()) : null);
-        item.setContent(obj.has("content") ? JsonUtil.toMap(obj.get("content")) : new HashMap<>());
+        HackerNewsItem item = objectMapper.treeToValue(obj, HackerNewsItem.class);
 
         Map<String, Object> response = new HashMap<>();
-        response.put("content", item.getContent());
+        response.put("content", objectMapper.readValue(item.getContent(), Map.class));
         response.put("timestamp", item.getTimestamp() != null ? item.getTimestamp().toString() : null);
         response.put("status", item.getStatus());
 
         return ResponseEntity.ok(response);
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     static class HackerNewsItem {
-        private String id;  // business ID
-        private String technicalId; // technical database ID
-        private Map<String, Object> content; // parsed JSON content as map
+        private UUID id;  // business ID
+        private UUID technicalId; // technical database ID
+        private String content; // JSON content as string
         private Instant timestamp; // save timestamp
         private String status; // VALIDATED or INVALID
-    }
 
-    static class JsonUtil {
-        private static final com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-
-        static String toJson(Object obj) {
-            try {
-                return mapper.writeValueAsString(obj);
-            } catch (Exception e) {
-                return "{}";
-            }
+        public UUID getId() {
+            return id;
         }
 
-        @SuppressWarnings("unchecked")
-        static Map<String, Object> toMap(com.fasterxml.jackson.databind.JsonNode node) {
-            try {
-                return mapper.convertValue(node, Map.class);
-            } catch (Exception e) {
-                return new HashMap<>();
-            }
+        public void setId(UUID id) {
+            this.id = id;
+        }
+
+        public UUID getTechnicalId() {
+            return technicalId;
+        }
+
+        public void setTechnicalId(UUID technicalId) {
+            this.technicalId = technicalId;
+        }
+
+        public String getContent() {
+            return content;
+        }
+
+        public void setContent(String content) {
+            this.content = content;
+        }
+
+        public Instant getTimestamp() {
+            return timestamp;
+        }
+
+        public void setTimestamp(Instant timestamp) {
+            this.timestamp = timestamp;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
         }
     }
 }
