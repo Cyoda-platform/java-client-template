@@ -44,9 +44,11 @@ processHackerNewsItem() Flow:
   Response body:  
   ```json
   {
-    "id": 12345,
-    "type": "story",
-    "...": "other original fields",
+    "content": {
+      "id": 12345,
+      "type": "story",
+      "...": "other original fields"
+    },
     "timestamp": "2024-06-01T12:34:56Z",
     "status": "VALIDATED" | "INVALID"
   }
