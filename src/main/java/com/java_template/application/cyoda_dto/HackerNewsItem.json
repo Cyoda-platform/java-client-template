@@ -1,0 +1,579 @@
+{
+  "@bean": "com.cyoda.core.model.stateMachine.dto.FullWorkflowContainerDto",
+  "workflow": [
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "cb990cb8-6574-11f0-8c55-c616b839569f",
+      "name": "HackerNewsItem:1000:HackerNewsItem:1000:57ab3734-2c25-11b2-944c-fac101f95347",
+      "entityClassName": "HackerNewsItem.1000",
+      "creationDate": "2025-07-20T14:21:15.490+00:00",
+      "description": "Workflow for validating and setting status of HackerNewsItem entity",
+      "entityShortClassName": "TreeNodeEntity",
+      "transitionIds": [
+        "cb9917f8-6574-11f0-8c55-c616b839569f",
+        "cb99344a-6574-11f0-8c55-c616b839569f",
+        "cb994980-6574-11f0-8c55-c616b839569f"
+      ],
+      "criteriaIds": [
+        "cb990fec-6574-11f0-8c55-c616b839569f"
+      ],
+      "stateIds": [
+        "noneState"
+      ],
+      "active": true,
+      "useDecisionTree": false,
+      "decisionTrees": [],
+      "metaData": {
+        "documentLink": ""
+      }
+    }
+  ],
+  "transitions": [
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "cb9917f8-6574-11f0-8c55-c616b839569f",
+      "name": "none_to_validating",
+      "entityClassName": "HackerNewsItem.1000",
+      "creationDate": "2025-07-20T14:21:15.490+00:00",
+      "description": "",
+      "startStateId": "noneState",
+      "endStateId": "cb991a32-6574-11f0-8c55-c616b839569f",
+      "workflowId": "cb990cb8-6574-11f0-8c55-c616b839569f",
+      "criteriaIds": [],
+      "endProcessesIds": [
+        {
+          "persisted": true,
+          "persistedId": "cb991db6-6574-11f0-8c55-c616b839569f",
+          "runtimeId": 0
+        }
+      ],
+      "active": true,
+      "automated": true,
+      "logActivity": false
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "cb99344a-6574-11f0-8c55-c616b839569f",
+      "name": "validating_to_validated",
+      "entityClassName": "HackerNewsItem.1000",
+      "creationDate": "2025-07-20T14:21:15.491+00:00",
+      "description": "",
+      "startStateId": "cb991a32-6574-11f0-8c55-c616b839569f",
+      "endStateId": "cb9930f8-6574-11f0-8c55-c616b839569f",
+      "workflowId": "cb990cb8-6574-11f0-8c55-c616b839569f",
+      "criteriaIds": [
+        "cb9937c4-6574-11f0-8c55-c616b839569f"
+      ],
+      "endProcessesIds": [],
+      "active": true,
+      "automated": true,
+      "logActivity": false
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "cb994980-6574-11f0-8c55-c616b839569f",
+      "name": "validating_to_invalid",
+      "entityClassName": "HackerNewsItem.1000",
+      "creationDate": "2025-07-20T14:21:15.491+00:00",
+      "description": "",
+      "startStateId": "cb991a32-6574-11f0-8c55-c616b839569f",
+      "endStateId": "cb9913d4-6574-11f0-8c55-c616b839569f",
+      "workflowId": "cb990cb8-6574-11f0-8c55-c616b839569f",
+      "criteriaIds": [
+        "cb994cd2-6574-11f0-8c55-c616b839569f"
+      ],
+      "endProcessesIds": [],
+      "active": true,
+      "automated": true,
+      "logActivity": false
+    }
+  ],
+  "criterias": [
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "cb990fec-6574-11f0-8c55-c616b839569f",
+      "name": "HackerNewsItem:1000:HackerNewsItem:1000:57ab3734-2c25-11b2-944c-fac101f95347",
+      "entityClassName": "HackerNewsItem.1000",
+      "creationDate": "2025-07-20T14:21:15.490+00:00",
+      "description": "Workflow criteria",
+      "condition": {
+        "@bean": "com.cyoda.core.conditions.GroupCondition",
+        "operator": "AND",
+        "conditions": []
+      },
+      "aliasDefs": [],
+      "parameters": [],
+      "criteriaChecker": "ConditionCriteriaChecker",
+      "user": "CYODA"
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "cb9937c4-6574-11f0-8c55-c616b839569f",
+      "name": "HackerNewsItemIsValidCriterion",
+      "entityClassName": "HackerNewsItem.1000",
+      "creationDate": "2025-07-20T14:21:15.491+00:00",
+      "description": "",
+      "condition": {
+        "@bean": "com.cyoda.core.conditions.GroupCondition",
+        "operator": "AND",
+        "conditions": []
+      },
+      "aliasDefs": [],
+      "parameters": [
+        {
+          "persisted": true,
+          "owner": "CYODA",
+          "id": "cb9939d6-6574-11f0-8c55-c616b839569f",
+          "name": "Tags for filtering calculation nodes (separated by ',' or ';')",
+          "creationDate": "2025-07-20T14:21:15.491+00:00",
+          "valueType": "STRING",
+          "value": {
+            "@type": "String",
+            "value": "57ab3734-2c25-11b2-944c-fac101f95347"
+          }
+        },
+        {
+          "persisted": true,
+          "owner": "CYODA",
+          "id": "cb993c92-6574-11f0-8c55-c616b839569f",
+          "name": "Attach entity",
+          "creationDate": "2025-07-20T14:21:15.491+00:00",
+          "valueType": "STRING",
+          "value": {
+            "@type": "String",
+            "value": "true"
+          }
+        },
+        {
+          "persisted": true,
+          "owner": "CYODA",
+          "id": "cb993f58-6574-11f0-8c55-c616b839569f",
+          "name": "Calculation response timeout (ms)",
+          "creationDate": "2025-07-20T14:21:15.491+00:00",
+          "valueType": "INTEGER",
+          "value": {
+            "@type": "String",
+            "value": "300000"
+          }
+        },
+        {
+          "persisted": true,
+          "owner": "CYODA",
+          "id": "cb99421e-6574-11f0-8c55-c616b839569f",
+          "name": "Retry policy",
+          "creationDate": "2025-07-20T14:21:15.491+00:00",
+          "valueType": "STRING",
+          "value": {
+            "@type": "String",
+            "value": "FIXED"
+          }
+        },
+        {
+          "persisted": true,
+          "owner": "CYODA",
+          "id": "cb9945d4-6574-11f0-8c55-c616b839569f",
+          "name": "Parameter 'context'",
+          "creationDate": "2025-07-20T14:21:15.491+00:00",
+          "valueType": "STRING",
+          "value": {
+            "@type": "String",
+            "value": "{\"function\": {\"name\": \"HackerNewsItemIsValidCriterion\"}, \"type\": \"function\"}"
+          }
+        }
+      ],
+      "criteriaChecker": "ExternalizedCriteriaChecker",
+      "user": "CYODA"
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "cb994cd2-6574-11f0-8c55-c616b839569f",
+      "name": "HackerNewsItemIsInvalidCriterion",
+      "entityClassName": "HackerNewsItem.1000",
+      "creationDate": "2025-07-20T14:21:15.492+00:00",
+      "description": "",
+      "condition": {
+        "@bean": "com.cyoda.core.conditions.GroupCondition",
+        "operator": "AND",
+        "conditions": []
+      },
+      "aliasDefs": [],
+      "parameters": [
+        {
+          "persisted": true,
+          "owner": "CYODA",
+          "id": "cb994ed0-6574-11f0-8c55-c616b839569f",
+          "name": "Tags for filtering calculation nodes (separated by ',' or ';')",
+          "creationDate": "2025-07-20T14:21:15.491+00:00",
+          "valueType": "STRING",
+          "value": {
+            "@type": "String",
+            "value": "57ab3734-2c25-11b2-944c-fac101f95347"
+          }
+        },
+        {
+          "persisted": true,
+          "owner": "CYODA",
+          "id": "cb99518c-6574-11f0-8c55-c616b839569f",
+          "name": "Attach entity",
+          "creationDate": "2025-07-20T14:21:15.492+00:00",
+          "valueType": "STRING",
+          "value": {
+            "@type": "String",
+            "value": "true"
+          }
+        },
+        {
+          "persisted": true,
+          "owner": "CYODA",
+          "id": "cb99543e-6574-11f0-8c55-c616b839569f",
+          "name": "Calculation response timeout (ms)",
+          "creationDate": "2025-07-20T14:21:15.492+00:00",
+          "valueType": "INTEGER",
+          "value": {
+            "@type": "String",
+            "value": "300000"
+          }
+        },
+        {
+          "persisted": true,
+          "owner": "CYODA",
+          "id": "cb995704-6574-11f0-8c55-c616b839569f",
+          "name": "Retry policy",
+          "creationDate": "2025-07-20T14:21:15.492+00:00",
+          "valueType": "STRING",
+          "value": {
+            "@type": "String",
+            "value": "FIXED"
+          }
+        },
+        {
+          "persisted": true,
+          "owner": "CYODA",
+          "id": "cb995a9c-6574-11f0-8c55-c616b839569f",
+          "name": "Parameter 'context'",
+          "creationDate": "2025-07-20T14:21:15.492+00:00",
+          "valueType": "STRING",
+          "value": {
+            "@type": "String",
+            "value": "{\"function\": {\"name\": \"HackerNewsItemIsInvalidCriterion\"}, \"type\": \"function\"}"
+          }
+        }
+      ],
+      "criteriaChecker": "ExternalizedCriteriaChecker",
+      "user": "CYODA"
+    }
+  ],
+  "processes": [
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": {
+        "@bean": "com.cyoda.core.model.stateMachine.dto.ProcessIdDto",
+        "persisted": true,
+        "persistedId": "cb991db6-6574-11f0-8c55-c616b839569f",
+        "runtimeId": 0
+      },
+      "name": "HackerNewsItemProcessor",
+      "entityClassName": "HackerNewsItem.1000",
+      "creationDate": "2025-07-20T14:21:15.490+00:00",
+      "description": "",
+      "processorClassName": "net.cyoda.saas.externalize.processor.ExternalizedProcessor",
+      "parameters": [
+        {
+          "persisted": true,
+          "owner": "CYODA",
+          "id": "cb99211c-6574-11f0-8c55-c616b839569f",
+          "name": "Tags for filtering calculation nodes (separated by ',' or ';')",
+          "creationDate": "2025-07-20T14:21:15.490+00:00",
+          "valueType": "STRING",
+          "value": {
+            "@type": "String",
+            "value": "57ab3734-2c25-11b2-944c-fac101f95347"
+          }
+        },
+        {
+          "persisted": true,
+          "owner": "CYODA",
+          "id": "cb99240a-6574-11f0-8c55-c616b839569f",
+          "name": "Attach entity",
+          "creationDate": "2025-07-20T14:21:15.490+00:00",
+          "valueType": "STRING",
+          "value": {
+            "@type": "String",
+            "value": "true"
+          }
+        },
+        {
+          "persisted": true,
+          "owner": "CYODA",
+          "id": "cb9926da-6574-11f0-8c55-c616b839569f",
+          "name": "Calculation response timeout (ms)",
+          "creationDate": "2025-07-20T14:21:15.490+00:00",
+          "valueType": "INTEGER",
+          "value": {
+            "@type": "String",
+            "value": "300000"
+          }
+        },
+        {
+          "persisted": true,
+          "owner": "CYODA",
+          "id": "cb9929a0-6574-11f0-8c55-c616b839569f",
+          "name": "Retry policy",
+          "creationDate": "2025-07-20T14:21:15.490+00:00",
+          "valueType": "STRING",
+          "value": {
+            "@type": "String",
+            "value": "FIXED"
+          }
+        },
+        {
+          "persisted": true,
+          "owner": "CYODA",
+          "id": "cb992c5c-6574-11f0-8c55-c616b839569f",
+          "name": "Parameter 'context'",
+          "creationDate": "2025-07-20T14:21:15.491+00:00",
+          "valueType": "STRING",
+          "value": {
+            "@type": "String",
+            "value": "{\"calculationNodesTags\": \"cyoda_application\", \"calculation_nodes_tags\": \"57ab3734-2c25-11b2-944c-fac101f95347\"}"
+          }
+        }
+      ],
+      "fields": [],
+      "syncProcess": "false",
+      "newTransactionForAsync": "true",
+      "noneTransactionalForAsync": "false",
+      "isTemplate": false,
+      "criteriaIds": [],
+      "user": "CYODA"
+    }
+  ],
+  "states": [
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "cb9913d4-6574-11f0-8c55-c616b839569f",
+      "name": "invalid",
+      "entityClassName": "HackerNewsItem.1000",
+      "creationDate": "2025-07-20T14:21:15.490+00:00",
+      "description": ""
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "noneState",
+      "name": "none",
+      "entityClassName": "HackerNewsItem.1000",
+      "creationDate": "2025-07-20T14:21:15.490+00:00",
+      "description": ""
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "cb991a32-6574-11f0-8c55-c616b839569f",
+      "name": "validating",
+      "entityClassName": "HackerNewsItem.1000",
+      "creationDate": "2025-07-20T14:21:15.490+00:00",
+      "description": ""
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "cb9930f8-6574-11f0-8c55-c616b839569f",
+      "name": "validated",
+      "entityClassName": "HackerNewsItem.1000",
+      "creationDate": "2025-07-20T14:21:15.491+00:00",
+      "description": ""
+    }
+  ],
+  "processParams": [
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "cb99211c-6574-11f0-8c55-c616b839569f",
+      "name": "Tags for filtering calculation nodes (separated by ',' or ';')",
+      "creationDate": "2025-07-20T14:21:15.490+00:00",
+      "valueType": "STRING",
+      "value": {
+        "@type": "String",
+        "value": "57ab3734-2c25-11b2-944c-fac101f95347"
+      }
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "cb99240a-6574-11f0-8c55-c616b839569f",
+      "name": "Attach entity",
+      "creationDate": "2025-07-20T14:21:15.490+00:00",
+      "valueType": "STRING",
+      "value": {
+        "@type": "String",
+        "value": "true"
+      }
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "cb9926da-6574-11f0-8c55-c616b839569f",
+      "name": "Calculation response timeout (ms)",
+      "creationDate": "2025-07-20T14:21:15.490+00:00",
+      "valueType": "INTEGER",
+      "value": {
+        "@type": "String",
+        "value": "300000"
+      }
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "cb9929a0-6574-11f0-8c55-c616b839569f",
+      "name": "Retry policy",
+      "creationDate": "2025-07-20T14:21:15.490+00:00",
+      "valueType": "STRING",
+      "value": {
+        "@type": "String",
+        "value": "FIXED"
+      }
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "cb992c5c-6574-11f0-8c55-c616b839569f",
+      "name": "Parameter 'context'",
+      "creationDate": "2025-07-20T14:21:15.491+00:00",
+      "valueType": "STRING",
+      "value": {
+        "@type": "String",
+        "value": "{\"calculationNodesTags\": \"cyoda_application\", \"calculation_nodes_tags\": \"57ab3734-2c25-11b2-944c-fac101f95347\"}"
+      }
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "cb9939d6-6574-11f0-8c55-c616b839569f",
+      "name": "Tags for filtering calculation nodes (separated by ',' or ';')",
+      "creationDate": "2025-07-20T14:21:15.491+00:00",
+      "valueType": "STRING",
+      "value": {
+        "@type": "String",
+        "value": "57ab3734-2c25-11b2-944c-fac101f95347"
+      }
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "cb993c92-6574-11f0-8c55-c616b839569f",
+      "name": "Attach entity",
+      "creationDate": "2025-07-20T14:21:15.491+00:00",
+      "valueType": "STRING",
+      "value": {
+        "@type": "String",
+        "value": "true"
+      }
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "cb993f58-6574-11f0-8c55-c616b839569f",
+      "name": "Calculation response timeout (ms)",
+      "creationDate": "2025-07-20T14:21:15.491+00:00",
+      "valueType": "INTEGER",
+      "value": {
+        "@type": "String",
+        "value": "300000"
+      }
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "cb99421e-6574-11f0-8c55-c616b839569f",
+      "name": "Retry policy",
+      "creationDate": "2025-07-20T14:21:15.491+00:00",
+      "valueType": "STRING",
+      "value": {
+        "@type": "String",
+        "value": "FIXED"
+      }
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "cb9945d4-6574-11f0-8c55-c616b839569f",
+      "name": "Parameter 'context'",
+      "creationDate": "2025-07-20T14:21:15.491+00:00",
+      "valueType": "STRING",
+      "value": {
+        "@type": "String",
+        "value": "{\"function\": {\"name\": \"HackerNewsItemIsValidCriterion\"}, \"type\": \"function\"}"
+      }
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "cb994ed0-6574-11f0-8c55-c616b839569f",
+      "name": "Tags for filtering calculation nodes (separated by ',' or ';')",
+      "creationDate": "2025-07-20T14:21:15.491+00:00",
+      "valueType": "STRING",
+      "value": {
+        "@type": "String",
+        "value": "57ab3734-2c25-11b2-944c-fac101f95347"
+      }
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "cb99518c-6574-11f0-8c55-c616b839569f",
+      "name": "Attach entity",
+      "creationDate": "2025-07-20T14:21:15.492+00:00",
+      "valueType": "STRING",
+      "value": {
+        "@type": "String",
+        "value": "true"
+      }
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "cb99543e-6574-11f0-8c55-c616b839569f",
+      "name": "Calculation response timeout (ms)",
+      "creationDate": "2025-07-20T14:21:15.492+00:00",
+      "valueType": "INTEGER",
+      "value": {
+        "@type": "String",
+        "value": "300000"
+      }
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "cb995704-6574-11f0-8c55-c616b839569f",
+      "name": "Retry policy",
+      "creationDate": "2025-07-20T14:21:15.492+00:00",
+      "valueType": "STRING",
+      "value": {
+        "@type": "String",
+        "value": "FIXED"
+      }
+    },
+    {
+      "persisted": true,
+      "owner": "CYODA",
+      "id": "cb995a9c-6574-11f0-8c55-c616b839569f",
+      "name": "Parameter 'context'",
+      "creationDate": "2025-07-20T14:21:15.492+00:00",
+      "valueType": "STRING",
+      "value": {
+        "@type": "String",
+        "value": "{\"function\": {\"name\": \"HackerNewsItemIsInvalidCriterion\"}, \"type\": \"function\"}"
+      }
+    }
+  ]
+}
