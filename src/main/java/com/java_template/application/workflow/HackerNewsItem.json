@@ -1,0 +1,55 @@
+{
+    "desc": "Workflow for validating and setting status of HackerNewsItem entity",
+    "id": "hackernewsitem_workflow",
+    "initialState": "none",
+    "name": "HackerNewsItem workflow",
+    "states": {
+        "invalid": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "none_to_validating",
+                    "next": "validating",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "HackerNewsItemProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "validated": {
+            "transitions": []
+        },
+        "validating": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "HackerNewsItemIsValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "validating_to_validated",
+                    "next": "validated"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "HackerNewsItemIsInvalidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "validating_to_invalid",
+                    "next": "invalid"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
