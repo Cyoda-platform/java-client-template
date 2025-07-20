@@ -1,0 +1,7 @@
+private void processHackerNewsItem(HackerNewsItem entity) {
+    log.info("Processing HackerNewsItem with ID: {}", entity.getId());
+
+    // Business logic: Validation was done at creation, here we could enrich or notify
+    // For this prototype, no additional processing beyond validation status and timestamp
+    log.info("HackerNewsItem status: {}", entity.getStatus());
+}
