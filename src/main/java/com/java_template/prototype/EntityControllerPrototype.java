@@ -77,7 +77,7 @@ public class EntityControllerPrototype {
         if (contentMap == null) {
             contentMap = new HashMap<>();
         }
-        response.putAll(contentMap);
+        response.put("content", contentMap);
         response.put("timestamp", item.getTimestamp().toString());
         response.put("status", item.getStatus());
 
