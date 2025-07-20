@@ -59,7 +59,7 @@ public class Controller {
         UUID technicalId = idFuture.get();
         item.setTechnicalId(technicalId.toString());
 
-        processHackerNewsItem(item);
+        // processHackerNewsItem(item); // removed processing method
 
         Map<String, String> response = new HashMap<>();
         response.put("uuid", item.getId());
@@ -106,14 +106,6 @@ public class Controller {
         response.put("status", item.getStatus());
 
         return ResponseEntity.ok(response);
-    }
-
-    private void processHackerNewsItem(HackerNewsItem entity) {
-        log.info("Processing HackerNewsItem with ID: {}", entity.getId());
-
-        // Business logic: Validation was done at creation, here we could enrich or notify
-        // For this prototype, no additional processing beyond validation status and timestamp
-        log.info("HackerNewsItem status: {}", entity.getStatus());
     }
 
     @Data
