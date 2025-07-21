@@ -1,79 +1,79 @@
 {
-    "desc": "Workflow to manage PetJob lifecycle from creation to completion or failure",
-    "id": "petjob_workflow",
-    "initialState": "none",
-    "name": "PetJob Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "id": "transition_to_pending",
-                    "next": "pending"
-                }
-            ]
-        },
-        "pending": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetJobCanStartProcessingCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "transition_start_processing",
-                    "next": "processing"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetJobIsInvalidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "transition_fail_invalid_job",
-                    "next": "failed"
-                }
-            ]
-        },
-        "processing": {
-            "processors": [
-                {
-                    "config": {
-                        "calculationNodesTags": "cyoda_application"
-                    },
-                    "name": "PetJobProcessor"
-                }
-            ],
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetJobIsProcessingSuccessfulCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "transition_complete_success",
-                    "next": "completed"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetJobHasProcessingFailedCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "transition_fail_processing_error",
-                    "next": "failed"
-                }
-            ]
+  "desc": "Workflow to manage PetJob lifecycle from creation to completion or failure",
+  "id": "petjob_workflow",
+  "initialState": "none",
+  "name": "PetJob Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "id": "transition_to_pending",
+          "next": "pending"
         }
+      ]
     },
-    "version": "1.0"
+    "pending": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "PetJobCanStartProcessingCriterion"
+            },
+            "type": "function"
+          },
+          "id": "transition_start_processing",
+          "next": "processing"
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "PetJobIsInvalidCriterion"
+            },
+            "type": "function"
+          },
+          "id": "transition_fail_invalid_job",
+          "next": "failed"
+        }
+      ]
+    },
+    "processing": {
+      "processors": [
+        {
+          "config": {
+            "calculationNodesTags": "cyoda_application"
+          },
+          "name": "PetJobProcessor"
+        }
+      ],
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "PetJobIsProcessingSuccessfulCriterion"
+            },
+            "type": "function"
+          },
+          "id": "transition_complete_success",
+          "next": "completed"
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "PetJobHasProcessingFailedCriterion"
+            },
+            "type": "function"
+          },
+          "id": "transition_fail_processing_error",
+          "next": "failed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
