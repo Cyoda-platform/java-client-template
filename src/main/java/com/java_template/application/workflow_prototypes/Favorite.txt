@@ -1,0 +1,12 @@
+private void processFavorite(Favorite favorite) {
+    log.info("Processing Favorite with technicalId: {}", favorite.getTechnicalId());
+    if (favorite.getUserId() == null || favorite.getUserId().isBlank()) {
+        log.error("Favorite userId is invalid");
+        return;
+    }
+    if (favorite.getPetId() == null || favorite.getPetId().isBlank()) {
+        log.error("Favorite petId is invalid");
+        return;
+    }
+    log.info("User {} favorited pet {}", favorite.getUserId(), favorite.getPetId());
+}
