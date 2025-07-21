@@ -1,0 +1,10 @@
+private void processPet(Pet pet) {
+    log.info("Processing Pet with technicalId: {}", pet.getTechnicalId());
+    if (!pet.isValid()) {
+        log.error("Invalid pet data for pet technicalId: {}", pet.getTechnicalId());
+        return;
+    }
+    if ("ADOPTED".equalsIgnoreCase(pet.getStatus())) {
+        log.info("Pet {} is adopted.", pet.getName());
+    }
+}
