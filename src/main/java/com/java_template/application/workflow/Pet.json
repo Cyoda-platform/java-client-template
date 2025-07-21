@@ -14,8 +14,10 @@
             "transitions": [
                 {
                     "criterion": {
-                        "class": "PetJobCanProcessCriterion",
-                        "type": "class"
+                        "function": {
+                            "name": "PetJobCanProcessCriterion"
+                        },
+                        "type": "function"
                     },
                     "id": "pending_to_processing",
                     "next": "PROCESSING",
@@ -34,16 +36,20 @@
             "transitions": [
                 {
                     "criterion": {
-                        "class": "PetJobIsProcessingSuccessfulCriterion",
-                        "type": "class"
+                        "function": {
+                            "name": "PetJobIsProcessingSuccessfulCriterion"
+                        },
+                        "type": "function"
                     },
                     "id": "processing_to_completed",
                     "next": "COMPLETED"
                 },
                 {
                     "criterion": {
-                        "class": "PetJobIsProcessingFailedCriterion",
-                        "type": "class"
+                        "function": {
+                            "name": "PetJobIsProcessingFailedCriterion"
+                        },
+                        "type": "function"
                     },
                     "id": "processing_to_failed",
                     "next": "FAILED"
