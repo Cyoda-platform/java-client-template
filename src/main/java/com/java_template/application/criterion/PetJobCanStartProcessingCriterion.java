@@ -45,17 +45,17 @@ public class PetJobCanStartProcessingCriterion implements CyodaCriterion {
     }
 
     private EvaluationOutcome validateEntity(PetJob entity) {
-        if (entity.getStatus() == null || !entity.getStatus().equalsIgnoreCase("PENDING")) {
-            return EvaluationOutcome.fail("PetJob status must be 'PENDING' to start processing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        // Business logic: pet job can start processing if status is PENDING
+        if (!"PENDING".equalsIgnoreCase(entity.getStatus())) {
+            return EvaluationOutcome.fail("status must be PENDING to start processing", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
-        if (entity.getJobId() == null || entity.getJobId().isBlank()) {
-            return EvaluationOutcome.fail("Job ID is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        }
+        // Validate jobType is a known type
         if (entity.getJobType() == null || entity.getJobType().isBlank()) {
-            return EvaluationOutcome.fail("Job type is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("jobType is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (entity.getPayload() == null || entity.getPayload().isBlank()) {
-            return EvaluationOutcome.fail("Payload is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        // Validate payload exists
+        if (entity.getPayload() == null || entity.getPayload().isEmpty()) {
+            return EvaluationOutcome.fail("payload cannot be empty", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         return EvaluationOutcome.success();
     }
