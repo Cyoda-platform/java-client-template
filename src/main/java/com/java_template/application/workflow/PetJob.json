@@ -1,77 +1,78 @@
 {
-    "desc": "Workflow representing PetEvent processing lifecycle with validation and status updates",
-    "id": "pet_event_workflow",
-    "initialState": "none",
-    "name": "PetEvent Workflow",
-    "states": {
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "id": "transition_to_recorded",
-                    "next": "recorded"
-                }
-            ]
-        },
-        "processed": {
-            "transitions": []
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetIdMissingCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "transition_to_failed_if_petId_missing",
-                    "next": "failed"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "EventTypeMissingCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "transition_to_failed_if_eventType_missing",
-                    "next": "failed"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "EventTimestampMissingCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "transition_to_failed_if_eventTimestamp_missing",
-                    "next": "failed"
-                },
-                {
-                    "id": "transition_to_processed",
-                    "next": "processed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "recorded": {
-            "transitions": [
-                {
-                    "id": "transition_to_processing",
-                    "next": "processing"
-                }
-            ]
+  "desc": "Workflow representing PetEvent processing lifecycle with validation and status updates",
+  "id": "pet_event_workflow",
+  "initialState": "none",
+  "name": "PetEvent Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "id": "transition_to_recorded",
+          "next": "recorded"
         }
+      ]
     },
-    "version": "1.0"
+    "recorded": {
+      "transitions": [
+        {
+          "id": "transition_to_processing",
+          "next": "processing"
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "PetIdMissingCriterion"
+            },
+            "type": "function"
+          },
+          "id": "transition_to_failed_if_petId_missing",
+          "next": "failed"
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "EventTypeMissingCriterion"
+            },
+            "type": "function"
+          },
+          "id": "transition_to_failed_if_eventType_missing",
+          "next": "failed"
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "EventTimestampMissingCriterion"
+            },
+            "type": "function"
+          },
+          "id": "transition_to_failed_if_eventTimestamp_missing",
+          "next": "failed"
+        },
+        {
+          "id": "transition_to_processed",
+          "next": "processed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "calculation_nodes_tags": "52e21216-64e9-11b2-965a-2e0ad7d884c5"
+              },
+              "name": "PetProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "failed": {
+      "transitions": []
+    },
+    "processed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
