@@ -1,0 +1,71 @@
+{
+    "desc": "Workflow for processing PetJob entity from request validation to completion or failure",
+    "id": "petjob_workflow",
+    "initialState": "none",
+    "name": "PetJob processing workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "start_validation",
+                    "next": "validated"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "className": "PetJobFetchSuccessCriterion",
+                        "type": "class"
+                    },
+                    "id": "mark_processing_and_fetch",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetJobProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "className": "PetJobFetchFailedCriterion",
+                        "type": "class"
+                    },
+                    "id": "mark_processing_and_fail",
+                    "next": "failed"
+                }
+            ]
+        },
+        "validated": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "className": "PetJobIsValidRequestCriterion",
+                        "type": "class"
+                    },
+                    "id": "valid_request",
+                    "next": "processing"
+                },
+                {
+                    "criterion": {
+                        "className": "PetJobIsInvalidRequestCriterion",
+                        "type": "class"
+                    },
+                    "id": "invalid_request",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
