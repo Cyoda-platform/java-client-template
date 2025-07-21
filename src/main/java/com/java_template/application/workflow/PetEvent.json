@@ -1,0 +1,71 @@
+{
+    "desc": "Workflow representing PetEvent processing lifecycle with validation and status updates",
+    "id": "pet_event_workflow",
+    "initialState": "none",
+    "name": "PetEvent Workflow",
+    "states": {
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "transition_to_recorded",
+                    "next": "recorded"
+                }
+            ]
+        },
+        "processed": {
+            "transitions": []
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "className": "PetIdMissingCriterion",
+                        "type": "class"
+                    },
+                    "id": "transition_to_failed_due_to_missing_petId",
+                    "next": "failed"
+                },
+                {
+                    "criterion": {
+                        "className": "EventTypeMissingCriterion",
+                        "type": "class"
+                    },
+                    "id": "transition_to_failed_due_to_missing_eventType",
+                    "next": "failed"
+                },
+                {
+                    "criterion": {
+                        "className": "EventTimestampMissingCriterion",
+                        "type": "class"
+                    },
+                    "id": "transition_to_failed_due_to_missing_eventTimestamp",
+                    "next": "failed"
+                },
+                {
+                    "id": "transition_to_processed",
+                    "next": "processed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetEventProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "recorded": {
+            "transitions": [
+                {
+                    "id": "transition_to_processing",
+                    "next": "processing"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
