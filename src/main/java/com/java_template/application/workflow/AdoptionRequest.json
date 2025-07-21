@@ -1,0 +1,113 @@
+{
+    "desc": "Workflow for processing adoption requests including pet availability validation and status update",
+    "id": "adoption_request_workflow",
+    "initialState": "none",
+    "name": "Adoption Request Workflow",
+    "states": {
+        "approved": {
+            "transitions": [
+                {
+                    "id": "approved_to_completed",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "name": "AdoptionRequestProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "completed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "none_to_requested",
+                    "next": "requested"
+                }
+            ]
+        },
+        "pet_status_updated": {
+            "transitions": [
+                {
+                    "id": "pet_status_updated_to_waiting_approval",
+                    "next": "waiting_approval"
+                }
+            ]
+        },
+        "rejected": {
+            "transitions": [
+                {
+                    "id": "rejected_to_completed",
+                    "next": "completed"
+                }
+            ]
+        },
+        "requested": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetExistsAndAvailableCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "requested_to_validated_pet_exists_and_available",
+                    "next": "validated"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetNotAvailableOrNotFoundCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "requested_to_rejected_pet_not_available_or_not_found",
+                    "next": "rejected"
+                }
+            ]
+        },
+        "validated": {
+            "transitions": [
+                {
+                    "id": "validated_to_pet_status_updated",
+                    "next": "pet_status_updated",
+                    "processors": [
+                        {
+                            "config": {
+                                "description": "Updates pet status to PENDING_ADOPTION"
+                            },
+                            "name": "AdoptionRequestProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "waiting_approval": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "AdoptionApprovedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "waiting_approval_to_approved",
+                    "next": "approved"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "AdoptionRejectedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "waiting_approval_to_rejected",
+                    "next": "rejected"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
