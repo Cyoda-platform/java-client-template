@@ -44,21 +44,21 @@ public class PetValidityCriterion implements CyodaCriterion {
                 Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(Pet pet) {
-        if (pet.getPetId() == null || pet.getPetId().isBlank()) {
-            return EvaluationOutcome.fail("petId is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+    private EvaluationOutcome validateEntity(Pet entity) {
+        if (entity.getPetId() == null || entity.getPetId().isBlank()) {
+            return EvaluationOutcome.fail("Pet ID is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (pet.getName() == null || pet.getName().isBlank()) {
-            return EvaluationOutcome.fail("name is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (entity.getName() == null || entity.getName().isBlank()) {
+            return EvaluationOutcome.fail("Pet name is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (pet.getType() == null || pet.getType().isBlank()) {
-            return EvaluationOutcome.fail("type is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (entity.getType() == null || entity.getType().isBlank()) {
+            return EvaluationOutcome.fail("Pet type is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (pet.getAge() == null || pet.getAge() < 0) {
-            return EvaluationOutcome.fail("age must be non-negative", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (entity.getAge() == null || entity.getAge() < 0) {
+            return EvaluationOutcome.fail("Pet age must be non-negative", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (pet.getStatus() == null || pet.getStatus().isBlank()) {
-            return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (entity.getStatus() == null || entity.getStatus().isBlank()) {
+            return EvaluationOutcome.fail("Pet status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         return EvaluationOutcome.success();
     }
