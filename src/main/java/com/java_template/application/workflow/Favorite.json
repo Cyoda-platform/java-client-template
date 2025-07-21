@@ -1,9 +1,17 @@
 {
-    "desc": "Workflow for processing Favorite entity lifecycle",
-    "id": "favorite_workflow",
+    "desc": "Workflow for processing Pet entity lifecycle",
+    "id": "pet_workflow",
     "initialState": "none",
-    "name": "Favorite Workflow",
+    "name": "Pet Workflow",
     "states": {
+        "business_logic": {
+            "transitions": [
+                {
+                    "id": "business_logic_to_completed",
+                    "next": "completed"
+                }
+            ]
+        },
         "completed": {
             "transitions": [
                 {
@@ -17,7 +25,7 @@
                 {
                     "criterion": {
                         "function": {
-                            "name": "FavoriteValidityCriterion"
+                            "name": "PetValidityCriterion"
                         },
                         "type": "function"
                     },
@@ -27,7 +35,7 @@
                 {
                     "criterion": {
                         "function": {
-                            "name": "FavoriteInvalidityCriterion"
+                            "name": "PetInvalidityCriterion"
                         },
                         "type": "function"
                     },
@@ -43,7 +51,15 @@
             "transitions": [
                 {
                     "id": "invalid_to_terminated",
-                    "next": "terminated"
+                    "next": "terminated",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetProcessor"
+                        }
+                    ]
                 }
             ]
         },
@@ -52,14 +68,6 @@
                 {
                     "id": "none_to_created",
                     "next": "created"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "id": "processing_to_completed",
-                    "next": "completed"
                 }
             ]
         },
@@ -74,16 +82,8 @@
         "validated": {
             "transitions": [
                 {
-                    "id": "validated_to_processing",
-                    "next": "processing",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "FavoriteProcessor"
-                        }
-                    ]
+                    "id": "validated_to_business_logic",
+                    "next": "business_logic"
                 }
             ]
         }
