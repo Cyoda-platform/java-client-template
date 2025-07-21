@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.PetJob;
+import com.java_template.application.entity.Pet;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,7 +32,7 @@ public class PetJobIsInvalidCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(PetJob.class, this::validateEntity)
+            .evaluateEntity(Pet.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,14 +40,18 @@ public class PetJobIsInvalidCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetJobIsInvalidCriterion".equals(modelSpec.operationName()) &&
-               "petJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(PetJob entity) {
+    private EvaluationOutcome validateEntity(Pet entity) {
+        // Validate pet is invalid or status is not ACTIVE
         if (!entity.isValid()) {
-            return EvaluationOutcome.fail("PetJob is invalid: required fields missing or blank", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.success(); // invalid entity passes this criterion
         }
-        return EvaluationOutcome.success();
+        if (!"ACTIVE".equalsIgnoreCase(entity.getStatus())) {
+            return EvaluationOutcome.success(); // pet status not ACTIVE is invalid
+        }
+        return EvaluationOutcome.fail("Pet entity is valid and status is ACTIVE", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
     }
 }
