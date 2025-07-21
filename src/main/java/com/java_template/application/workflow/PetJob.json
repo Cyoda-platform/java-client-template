@@ -22,8 +22,10 @@
             "transitions": [
                 {
                     "criterion": {
-                        "className": "PetJobFetchSuccessCriterion",
-                        "type": "class"
+                        "function": {
+                            "name": "PetJobFetchSuccessCriterion"
+                        },
+                        "type": "function"
                     },
                     "id": "mark_processing_and_fetch",
                     "next": "completed",
@@ -32,14 +34,16 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "PetJobProcessor"
+                            "name": "PetProcessor"
                         }
                     ]
                 },
                 {
                     "criterion": {
-                        "className": "PetJobFetchFailedCriterion",
-                        "type": "class"
+                        "function": {
+                            "name": "PetJobFetchFailedCriterion"
+                        },
+                        "type": "function"
                     },
                     "id": "mark_processing_and_fail",
                     "next": "failed"
@@ -50,16 +54,20 @@
             "transitions": [
                 {
                     "criterion": {
-                        "className": "PetJobIsValidRequestCriterion",
-                        "type": "class"
+                        "function": {
+                            "name": "PetJobIsValidRequestCriterion"
+                        },
+                        "type": "function"
                     },
                     "id": "valid_request",
                     "next": "processing"
                 },
                 {
                     "criterion": {
-                        "className": "PetJobIsInvalidRequestCriterion",
-                        "type": "class"
+                        "function": {
+                            "name": "PetJobIsInvalidRequestCriterion"
+                        },
+                        "type": "function"
                     },
                     "id": "invalid_request",
                     "next": "failed"
