@@ -1,0 +1,75 @@
+    private void processPetJob(PetJob petJob) {
+        logger.info("Processing PetJob with technicalId: {}", petJob.getTechnicalId());
+
+        try {
+            petJob.setStatus(PetJob.StatusEnum.PROCESSING);
+            // Update PetJob status to PROCESSING by creating new version
+            entityService.addItem("PetJob", ENTITY_VERSION, petJob).get();
+
+            // Simulate calling Petstore API to fetch pets
+            List<Pet> fetchedPets = fetchPetsFromPetstore(petJob.getRequestType(), petJob.getPetType());
+
+            // Persist pets into entityService - each as new Pet entity with new technicalId
+            List<Pet> petsWithSetStatus = new ArrayList<>();
+            for (Pet pet : fetchedPets) {
+                pet.setStatus(Pet.StatusEnum.AVAILABLE);
+                petsWithSetStatus.add(pet);
+            }
+            CompletableFuture<List<UUID>> petsIdsFuture = entityService.addItems("Pet", ENTITY_VERSION, petsWithSetStatus);
+            List<UUID> petTechnicalIds = petsIdsFuture.get();
+
+            petJob.setResultCount(petTechnicalIds.size());
+            petJob.setStatus(PetJob.StatusEnum.COMPLETED);
+
+            // Save PetJob update with completed status and resultCount (create new version)
+            entityService.addItem("PetJob", ENTITY_VERSION, petJob).get();
+
+            logger.info("PetJob {} completed successfully with {} pets fetched", petJob.getTechnicalId(), petTechnicalIds.size());
+
+        } catch (Exception e) {
+            logger.error("Error processing PetJob {}: {}", petJob.getTechnicalId(), e.getMessage());
+            petJob.setStatus(PetJob.StatusEnum.FAILED);
+            try {
+                entityService.addItem("PetJob", ENTITY_VERSION, petJob).get();
+            } catch (Exception ex) {
+                logger.error("Failed to update PetJob status to FAILED for technicalId {}: {}", petJob.getTechnicalId(), ex.getMessage());
+            }
+        }
+    }
+
+    private List<Pet> fetchPetsFromPetstore(String requestType, String petType) {
+        // For prototype, simulate data retrieval with static or sample data
+        List<Pet> pets = new ArrayList<>();
+
+        Pet cat = new Pet();
+        cat.setName("Whiskers");
+        cat.setCategory("cat");
+        cat.setPhotoUrls(List.of("http://example.com/cat1.jpg"));
+        cat.setTags(List.of("playful", "indoor"));
+        cat.setStatus(Pet.StatusEnum.AVAILABLE);
+
+        Pet dog = new Pet();
+        dog.setName("Rex");
+        dog.setCategory("dog");
+        dog.setPhotoUrls(List.of("http://example.com/dog1.jpg"));
+        dog.setTags(List.of("friendly", "outdoor"));
+        dog.setStatus(Pet.StatusEnum.AVAILABLE);
+
+        if ("FETCH_ALL".equalsIgnoreCase(requestType)) {
+            if (petType == null || petType.isBlank()) {
+                pets.add(cat);
+                pets.add(dog);
+            } else if ("cat".equalsIgnoreCase(petType)) {
+                pets.add(cat);
+            } else if ("dog".equalsIgnoreCase(petType)) {
+                pets.add(dog);
+            }
+        } else if ("FETCH_BY_TYPE".equalsIgnoreCase(requestType) && petType != null && !petType.isBlank()) {
+            if ("cat".equalsIgnoreCase(petType)) {
+                pets.add(cat);
+            } else if ("dog".equalsIgnoreCase(petType)) {
+                pets.add(dog);
+            }
+        }
+        return pets;
+    }
