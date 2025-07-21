@@ -1,75 +1,76 @@
 {
-    "desc": "Workflow for processing PetJob entities including validation, processing pet and event creation",
-    "id": "petjob_workflow",
-    "initialState": "none",
-    "name": "PetJob Processing Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
+  "desc": "Workflow for processing PetJob entities including validation, processing pet and event creation",
+  "id": "petjob_workflow",
+  "initialState": "none",
+  "name": "PetJob Processing Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "PetJobTypeValidCriterion"
+            },
+            "type": "function"
+          },
+          "id": "start_validation",
+          "next": "validating"
         },
-        "event_creation": {
-            "transitions": [
-                {
-                    "id": "create_event",
-                    "next": "completed"
-                }
-            ]
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetJobTypeValidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "start_validation",
-                    "next": "validating"
-                },
-                {
-                    "id": "start_invalid_jobtype",
-                    "next": "failed"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "id": "process_pet",
-                    "next": "event_creation",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "validating": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetDataValidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "validation_passed",
-                    "next": "processing"
-                },
-                {
-                    "id": "validation_failed",
-                    "next": "failed"
-                }
-            ]
+        {
+          "id": "start_invalid_jobtype",
+          "next": "failed"
         }
+      ]
     },
-    "version": "1.0"
+    "validating": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "PetDataValidCriterion"
+            },
+            "type": "function"
+          },
+          "id": "validation_passed",
+          "next": "processing"
+        },
+        {
+          "id": "validation_failed",
+          "next": "failed"
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "id": "process_pet",
+          "next": "event_creation",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "calculation_nodes_tags": "52e21216-64e9-11b2-965a-2e0ad7d884c5"
+              },
+              "name": "PetProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "event_creation": {
+      "transitions": [
+        {
+          "id": "create_event",
+          "next": "completed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
