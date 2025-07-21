@@ -1,0 +1,120 @@
+{
+    "desc": "Workflow for orchestrating PurrfectPetsJob lifecycle",
+    "id": "purrfectpetsjob_workflow",
+    "initialState": "none",
+    "name": "Purrfect Pets Job Workflow",
+    "states": {
+        "archived": {
+            "transitions": []
+        },
+        "cancelled": {
+            "transitions": [
+                {
+                    "id": "cancelled_to_archived",
+                    "next": "archived"
+                }
+            ]
+        },
+        "completed": {
+            "transitions": [
+                {
+                    "id": "completed_to_archived",
+                    "next": "archived"
+                }
+            ]
+        },
+        "created": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "JobScheduleCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "created_to_scheduled",
+                    "next": "scheduled"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "JobCancelCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "created_to_cancelled",
+                    "next": "cancelled"
+                }
+            ]
+        },
+        "failed": {
+            "transitions": [
+                {
+                    "id": "failed_to_retrying",
+                    "next": "retrying"
+                },
+                {
+                    "id": "failed_to_cancelled",
+                    "next": "cancelled"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "none_to_created",
+                    "next": "created"
+                }
+            ]
+        },
+        "retrying": {
+            "transitions": [
+                {
+                    "id": "retrying_to_running",
+                    "next": "running"
+                }
+            ]
+        },
+        "running": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "JobCompletionCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "running_to_completed",
+                    "next": "completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "JobFailureCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "running_to_failed",
+                    "next": "failed"
+                }
+            ]
+        },
+        "scheduled": {
+            "transitions": [
+                {
+                    "id": "scheduled_to_running",
+                    "next": "running",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PurrfectPetsJobProcessor"
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
