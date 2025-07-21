@@ -1,76 +1,74 @@
 {
-    "desc": "Workflow for processing PetJob entities through their lifecycle",
-    "id": "petjob_workflow",
+    "desc": "Workflow representing PetEvent processing lifecycle with validation and status updates",
+    "id": "pet_event_workflow",
     "initialState": "none",
-    "name": "PetJob workflow",
+    "name": "PetEvent Workflow",
     "states": {
-        "completed": {
-            "transitions": []
-        },
         "failed": {
             "transitions": []
         },
         "none": {
             "transitions": [
                 {
-                    "id": "none_to_pending",
-                    "next": "pending"
+                    "id": "transition_to_recorded",
+                    "next": "recorded"
                 }
             ]
         },
-        "pending": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetJobValidationCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "pending_to_processing_valid_jobtype_payload",
-                    "next": "processing"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetJobInvalidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "pending_to_failed_invalid_jobtype_or_payload",
-                    "next": "failed"
-                }
-            ]
+        "processed": {
+            "transitions": []
         },
         "processing": {
             "transitions": [
                 {
                     "criterion": {
                         "function": {
-                            "name": "PetJobProcessingSuccessCriterion"
+                            "name": "PetIdMissingCriterion"
                         },
                         "type": "function"
                     },
-                    "id": "processing_to_completed_success",
-                    "next": "completed",
+                    "id": "transition_to_failed_if_petId_missing",
+                    "next": "failed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "EventTypeMissingCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "transition_to_failed_if_eventType_missing",
+                    "next": "failed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "EventTimestampMissingCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "transition_to_failed_if_eventTimestamp_missing",
+                    "next": "failed"
+                },
+                {
+                    "id": "transition_to_processed",
+                    "next": "processed",
                     "processors": [
                         {
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "PetJobProcessor"
+                            "name": "PetProcessor"
                         }
                     ]
-                },
+                }
+            ]
+        },
+        "recorded": {
+            "transitions": [
                 {
-                    "criterion": {
-                        "function": {
-                            "name": "PetJobProcessingFailedCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "processing_to_failed_error",
-                    "next": "failed"
+                    "id": "transition_to_processing",
+                    "next": "processing"
                 }
             ]
         }
