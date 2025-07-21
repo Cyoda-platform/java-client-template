@@ -22,24 +22,30 @@
             "transitions": [
                 {
                     "criterion": {
-                        "className": "PetIdMissingCriterion",
-                        "type": "class"
+                        "function": {
+                            "name": "PetIdMissingCriterion"
+                        },
+                        "type": "function"
                     },
                     "id": "transition_to_failed_due_to_missing_petId",
                     "next": "failed"
                 },
                 {
                     "criterion": {
-                        "className": "EventTypeMissingCriterion",
-                        "type": "class"
+                        "function": {
+                            "name": "EventTypeMissingCriterion"
+                        },
+                        "type": "function"
                     },
                     "id": "transition_to_failed_due_to_missing_eventType",
                     "next": "failed"
                 },
                 {
                     "criterion": {
-                        "className": "EventTimestampMissingCriterion",
-                        "type": "class"
+                        "function": {
+                            "name": "EventTimestampMissingCriterion"
+                        },
+                        "type": "function"
                     },
                     "id": "transition_to_failed_due_to_missing_eventTimestamp",
                     "next": "failed"
