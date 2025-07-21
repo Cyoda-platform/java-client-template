@@ -1,76 +1,109 @@
 {
-  "desc": "Workflow for processing PetJob entities including validation, processing pet and event creation",
-  "id": "petjob_workflow",
-  "initialState": "none",
-  "name": "PetJob Processing Workflow",
-  "states": {
-    "none": {
-      "transitions": [
-        {
-          "criterion": {
-            "function": {
-              "name": "PetJobTypeValidCriterion"
-            },
-            "type": "function"
-          },
-          "id": "start_validation",
-          "next": "validating"
+    "desc": "Workflow representing PetJob lifecycle and transitions",
+    "id": "petjob_workflow",
+    "initialState": "none",
+    "name": "PetJob workflow",
+    "states": {
+        "aborted": {
+            "transitions": []
         },
-        {
-          "id": "start_invalid_jobtype",
-          "next": "failed"
-        }
-      ]
-    },
-    "validating": {
-      "transitions": [
-        {
-          "criterion": {
-            "function": {
-              "name": "PetDataValidCriterion"
-            },
-            "type": "function"
-          },
-          "id": "validation_passed",
-          "next": "processing"
+        "completed": {
+            "transitions": []
         },
-        {
-          "id": "validation_failed",
-          "next": "failed"
+        "failed": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetJobCanRetryCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "retry_job",
+                    "next": "pending"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetJobCannotRetryCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "abort_job",
+                    "next": "aborted"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "ValidPetJobCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "start_validation",
+                    "next": "pending"
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetJobIsValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "start_processing_success",
+                    "next": "processing",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetJobIsInvalidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "start_processing_failure",
+                    "next": "failed"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetJobSuccessCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "processing_success",
+                    "next": "completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetJobFailureCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "processing_failure",
+                    "next": "failed"
+                }
+            ]
         }
-      ]
     },
-    "processing": {
-      "transitions": [
-        {
-          "id": "process_pet",
-          "next": "event_creation",
-          "processors": [
-            {
-              "config": {
-                "calculationNodesTags": "cyoda_application",
-                "calculation_nodes_tags": "52e21216-64e9-11b2-965a-2e0ad7d884c5"
-              },
-              "name": "PetProcessor"
-            }
-          ]
-        }
-      ]
-    },
-    "event_creation": {
-      "transitions": [
-        {
-          "id": "create_event",
-          "next": "completed"
-        }
-      ]
-    },
-    "completed": {
-      "transitions": []
-    },
-    "failed": {
-      "transitions": []
-    }
-  },
-  "version": "1.0"
+    "version": "1.0"
 }
