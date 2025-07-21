@@ -1,7 +1,6 @@
 package com.java_template.application.processor;
 
 import com.java_template.application.entity.PetEvent;
-import com.java_template.common.serializer.ErrorInfo;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
@@ -13,8 +12,6 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-
-import java.util.function.BiFunction;
 
 @Component
 public class PetEventProcessor implements CyodaProcessor {
@@ -32,49 +29,32 @@ public class PetEventProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing PetEvent for request: {}", request.getId());
 
+        // Fluent entity processing with validation
         return serializer.withRequest(request)
                 .toEntity(PetEvent.class)
-                .validate(this::isValidEntity, "Invalid PetEvent state")
-                .map(this::processEntityLogic)
-                .withErrorHandler(this::handleProcessingError)
+                .validate(PetEvent::isValid, "Invalid entity state")
+                .map(this::processPetEventLogic)
                 .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetEventProcessor".equals(modelSpec.operationName()) &&
-               "petEvent".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+                "petEvent".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private PetEvent processEntityLogic(PetEvent petEvent) {
-        logger.info("Processing PetEvent with ID: {}", petEvent.getId());
+    private PetEvent processPetEventLogic(PetEvent entity) {
+        // Business logic based on functional requirements for processPetEvent:
+        // 1. Initial State: PetEvent created with RECORDED status
+        // 2. Processing: Apply business rules or trigger further workflows if needed
+        // 3. Completion: Update PetEvent status to PROCESSED
 
-        if (petEvent.getPetId() == null || petEvent.getPetId().isBlank()) {
-            logger.error("PetEvent petId is missing or blank");
-            petEvent.setStatus("FAILED");
-            // Assuming cache update or persistence handled elsewhere
-            throw new IllegalArgumentException("petId is required");
-        }
-        if (petEvent.getEventType() == null || petEvent.getEventType().isBlank()) {
-            logger.error("PetEvent eventType is missing or blank");
-            petEvent.setStatus("FAILED");
-            throw new IllegalArgumentException("eventType is required");
-        }
-        if (petEvent.getEventTimestamp() == null) {
-            logger.error("PetEvent eventTimestamp is missing");
-            petEvent.setStatus("FAILED");
-            throw new IllegalArgumentException("eventTimestamp is required");
+        if ("RECORDED".equals(entity.getStatus())) {
+            // Mark the event as processed
+            entity.setStatus("PROCESSED");
         }
 
-        petEvent.setStatus("PROCESSED");
-        // Assuming cache update or persistence handled elsewhere
-        logger.info("PetEvent with ID: {} processed successfully", petEvent.getId());
-        return petEvent;
-    }
-
-    private ErrorInfo handleProcessingError(Throwable throwable, PetEvent petEvent) {
-        logger.error("Error processing PetEvent with ID: {}", petEvent != null ? petEvent.getId() : "unknown", throwable);
-        return new ErrorInfo("PROCESSING_ERROR", throwable.getMessage());
+        return entity;
     }
 }
