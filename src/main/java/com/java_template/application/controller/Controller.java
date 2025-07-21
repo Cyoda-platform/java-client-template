@@ -49,7 +49,7 @@ public class Controller {
         UUID technicalId = idFuture.get();
         petJob.setTechnicalId(technicalId);
 
-        processPetJob(petJob);
+        // processPetJob method removed as per extraction
 
         logger.info("Created PetJob with technicalId: {}", technicalId);
         return ResponseEntity.status(HttpStatus.CREATED).body(petJob);
@@ -138,7 +138,7 @@ public class Controller {
         UUID technicalId = idFuture.get();
         adoptionRequest.setTechnicalId(technicalId);
 
-        processAdoptionRequest(adoptionRequest);
+        // processAdoptionRequest method removed as per extraction
 
         logger.info("Created AdoptionRequest with technicalId: {}", technicalId);
         return ResponseEntity.status(HttpStatus.CREATED).body(adoptionRequest);
@@ -162,117 +162,6 @@ public class Controller {
         }
         AdoptionRequest adoptionRequest = convertObjectNodeToAdoptionRequest(item);
         return ResponseEntity.ok(adoptionRequest);
-    }
-
-    // ------------------- PROCESS METHODS -------------------
-
-    private void processPetJob(PetJob petJob) {
-        logger.info("Processing PetJob with technicalId: {}", petJob.getTechnicalId());
-
-        try {
-            petJob.setStatus(PetJob.StatusEnum.PROCESSING);
-            // Update PetJob status to PROCESSING by creating new version
-            entityService.addItem("PetJob", ENTITY_VERSION, petJob).get();
-
-            // Simulate calling Petstore API to fetch pets
-            List<Pet> fetchedPets = fetchPetsFromPetstore(petJob.getRequestType(), petJob.getPetType());
-
-            // Persist pets into entityService - each as new Pet entity with new technicalId
-            List<Pet> petsWithSetStatus = new ArrayList<>();
-            for (Pet pet : fetchedPets) {
-                pet.setStatus(Pet.StatusEnum.AVAILABLE);
-                petsWithSetStatus.add(pet);
-            }
-            CompletableFuture<List<UUID>> petsIdsFuture = entityService.addItems("Pet", ENTITY_VERSION, petsWithSetStatus);
-            List<UUID> petTechnicalIds = petsIdsFuture.get();
-
-            petJob.setResultCount(petTechnicalIds.size());
-            petJob.setStatus(PetJob.StatusEnum.COMPLETED);
-
-            // Save PetJob update with completed status and resultCount (create new version)
-            entityService.addItem("PetJob", ENTITY_VERSION, petJob).get();
-
-            logger.info("PetJob {} completed successfully with {} pets fetched", petJob.getTechnicalId(), petTechnicalIds.size());
-
-        } catch (Exception e) {
-            logger.error("Error processing PetJob {}: {}", petJob.getTechnicalId(), e.getMessage());
-            petJob.setStatus(PetJob.StatusEnum.FAILED);
-            try {
-                entityService.addItem("PetJob", ENTITY_VERSION, petJob).get();
-            } catch (Exception ex) {
-                logger.error("Failed to update PetJob status to FAILED for technicalId {}: {}", petJob.getTechnicalId(), ex.getMessage());
-            }
-        }
-    }
-
-    private List<Pet> fetchPetsFromPetstore(String requestType, String petType) {
-        // For prototype, simulate data retrieval with static or sample data
-        List<Pet> pets = new ArrayList<>();
-
-        Pet cat = new Pet();
-        cat.setName("Whiskers");
-        cat.setCategory("cat");
-        cat.setPhotoUrls(List.of("http://example.com/cat1.jpg"));
-        cat.setTags(List.of("playful", "indoor"));
-        cat.setStatus(Pet.StatusEnum.AVAILABLE);
-
-        Pet dog = new Pet();
-        dog.setName("Rex");
-        dog.setCategory("dog");
-        dog.setPhotoUrls(List.of("http://example.com/dog1.jpg"));
-        dog.setTags(List.of("friendly", "outdoor"));
-        dog.setStatus(Pet.StatusEnum.AVAILABLE);
-
-        if ("FETCH_ALL".equalsIgnoreCase(requestType)) {
-            if (petType == null || petType.isBlank()) {
-                pets.add(cat);
-                pets.add(dog);
-            } else if ("cat".equalsIgnoreCase(petType)) {
-                pets.add(cat);
-            } else if ("dog".equalsIgnoreCase(petType)) {
-                pets.add(dog);
-            }
-        } else if ("FETCH_BY_TYPE".equalsIgnoreCase(requestType) && petType != null && !petType.isBlank()) {
-            if ("cat".equalsIgnoreCase(petType)) {
-                pets.add(cat);
-            } else if ("dog".equalsIgnoreCase(petType)) {
-                pets.add(dog);
-            }
-        }
-        return pets;
-    }
-
-    private void processAdoptionRequest(AdoptionRequest adoptionRequest) throws ExecutionException, InterruptedException {
-        logger.info("Processing AdoptionRequest with technicalId: {}", adoptionRequest.getTechnicalId());
-
-        UUID petTechnicalId = UUID.fromString(adoptionRequest.getPetId());
-        CompletableFuture<ObjectNode> petFuture = entityService.getItem("Pet", ENTITY_VERSION, petTechnicalId);
-        ObjectNode petNode = petFuture.get();
-        if (petNode == null || petNode.isEmpty()) {
-            logger.error("AdoptionRequest processing failed: Pet not found with technicalId: {}", adoptionRequest.getPetId());
-            return;
-        }
-        Pet pet = convertObjectNodeToPet(petNode);
-
-        if (pet.getStatus() != Pet.StatusEnum.AVAILABLE) {
-            logger.error("AdoptionRequest processing failed: Pet with technicalId {} not available", petTechnicalId);
-            return;
-        }
-
-        // Update pet status to PENDING_ADOPTION by creating new version
-        Pet updatedPet = new Pet();
-        updatedPet.setTechnicalId(pet.getTechnicalId());
-        updatedPet.setId(pet.getId());
-        updatedPet.setName(pet.getName());
-        updatedPet.setCategory(pet.getCategory());
-        updatedPet.setPhotoUrls(pet.getPhotoUrls());
-        updatedPet.setTags(pet.getTags());
-        updatedPet.setStatus(Pet.StatusEnum.PENDING_ADOPTION);
-
-        entityService.addItem("Pet", ENTITY_VERSION, updatedPet).get();
-
-        // AdoptionRequest status remains REQUESTED awaiting approval
-        logger.info("AdoptionRequest {} processed: Pet {} status updated to PENDING_ADOPTION", adoptionRequest.getTechnicalId(), petTechnicalId);
     }
 
     // ------------- Conversion helpers -------------
