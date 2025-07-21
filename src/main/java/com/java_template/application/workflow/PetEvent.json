@@ -1,63 +1,64 @@
 {
-    "desc": "Workflow for processing PetEvent entities triggered by persistence events",
-    "id": "pet_event_workflow",
-    "initialState": "none",
-    "name": "PetEvent workflow",
-    "states": {
-        "FAILED": {
-            "transitions": []
-        },
-        "PROCESSED": {
-            "transitions": []
-        },
-        "PROCESSING": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetEventProcessingSuccessCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "transition_to_processed",
-                    "next": "PROCESSED"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetEventProcessingFailureCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "transition_to_failed",
-                    "next": "FAILED"
-                }
-            ]
-        },
-        "RECORDED": {
-            "transitions": [
-                {
-                    "id": "transition_to_processing",
-                    "next": "PROCESSING",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetEventProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "none": {
-            "transitions": [
-                {
-                    "id": "transition_to_recorded",
-                    "next": "RECORDED"
-                }
-            ]
+  "desc": "Workflow for processing PetEvent entities triggered by persistence events",
+  "id": "pet_event_workflow",
+  "initialState": "none",
+  "name": "PetEvent workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "id": "transition_to_recorded",
+          "next": "RECORDED"
         }
+      ]
     },
-    "version": "1.0"
+    "RECORDED": {
+      "transitions": [
+        {
+          "id": "transition_to_processing",
+          "next": "PROCESSING",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "calculation_nodes_tags": "52e21216-64e9-11b2-965a-2e0ad7d884c5"
+              },
+              "name": "PetEventProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "PROCESSING": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "PetEventProcessingSuccessCriterion"
+            },
+            "type": "function"
+          },
+          "id": "transition_to_processed",
+          "next": "PROCESSED"
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "PetEventProcessingFailureCriterion"
+            },
+            "type": "function"
+          },
+          "id": "transition_to_failed",
+          "next": "FAILED"
+        }
+      ]
+    },
+    "PROCESSED": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
