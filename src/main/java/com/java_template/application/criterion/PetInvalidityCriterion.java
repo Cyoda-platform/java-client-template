@@ -32,34 +32,36 @@ public class PetInvalidityCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-                .evaluateEntity(Pet.class, this::validateEntity)
-                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
-                .complete();
+            .evaluateEntity(Pet.class, this::validateEntity)
+            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+            .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetInvalidityCriterion".equals(modelSpec.operationName()) &&
-                "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
     private EvaluationOutcome validateEntity(Pet entity) {
-        if (entity.getPetId() != null && !entity.getPetId().isBlank()) {
-            return EvaluationOutcome.fail("Pet ID should be empty for invalid pets", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        // This criterion checks if the pet entity is invalid based on the inverted logic of validity
+        if (entity.getPetId() == null || entity.getPetId().isBlank()) {
+            return EvaluationOutcome.success(); // Invalid because petId is missing
         }
-        if (entity.getName() != null && !entity.getName().isBlank()) {
-            return EvaluationOutcome.fail("Pet name should be empty for invalid pets", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (entity.getName() == null || entity.getName().isBlank()) {
+            return EvaluationOutcome.success(); // Invalid because name is missing
         }
-        if (entity.getType() != null && !entity.getType().isBlank()) {
-            return EvaluationOutcome.fail("Pet type should be empty for invalid pets", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (entity.getType() == null || entity.getType().isBlank()) {
+            return EvaluationOutcome.success(); // Invalid because type is missing
         }
-        if (entity.getAge() != null && entity.getAge() >= 0) {
-            return EvaluationOutcome.fail("Pet age should be null or negative for invalid pets", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (entity.getAge() == null || entity.getAge() < 0) {
+            return EvaluationOutcome.success(); // Invalid because age is negative or missing
         }
-        if (entity.getStatus() != null && !entity.getStatus().isBlank()) {
-            return EvaluationOutcome.fail("Pet status should be empty for invalid pets", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (entity.getStatus() == null || entity.getStatus().isBlank()) {
+            return EvaluationOutcome.success(); // Invalid because status is missing
         }
-        return EvaluationOutcome.success();
+        // If all fields are valid, then the pet is not invalid
+        return EvaluationOutcome.fail("Pet entity is valid, not invalid", StandardEvalReasonCategories.VALIDATION_FAILURE);
     }
 }
