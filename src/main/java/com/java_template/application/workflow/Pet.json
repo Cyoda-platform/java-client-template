@@ -1,69 +1,70 @@
 {
-    "desc": "Workflow managing PetJob states from PENDING to PROCESSING, COMPLETED or FAILED",
-    "id": "purrfect_pets_petjob_workflow",
-    "initialState": "none",
-    "name": "PetJob Workflow",
-    "states": {
-        "COMPLETED": {
-            "transitions": []
-        },
-        "FAILED": {
-            "transitions": []
-        },
-        "PENDING": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetJobCanProcessCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "pending_to_processing",
-                    "next": "PROCESSING",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "PROCESSING": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetJobIsProcessingSuccessfulCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "processing_to_completed",
-                    "next": "COMPLETED"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetJobIsProcessingFailedCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "processing_to_failed",
-                    "next": "FAILED"
-                }
-            ]
-        },
-        "none": {
-            "transitions": [
-                {
-                    "id": "none_to_pending",
-                    "next": "PENDING"
-                }
-            ]
+  "desc": "Workflow managing PetJob states from PENDING to PROCESSING, COMPLETED or FAILED",
+  "id": "purrfect_pets_petjob_workflow",
+  "initialState": "none",
+  "name": "PetJob Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "id": "none_to_pending",
+          "next": "PENDING"
         }
+      ]
     },
-    "version": "1.0"
+    "PENDING": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "PetJobCanProcessCriterion"
+            },
+            "type": "function"
+          },
+          "id": "pending_to_processing",
+          "next": "PROCESSING",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "calculation_nodes_tags": "e04ea61e-64da-11b2-965a-2e0ad7d884c5"
+              },
+              "name": "PetProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "PROCESSING": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "PetJobIsProcessingSuccessfulCriterion"
+            },
+            "type": "function"
+          },
+          "id": "processing_to_completed",
+          "next": "COMPLETED"
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "PetJobIsProcessingFailedCriterion"
+            },
+            "type": "function"
+          },
+          "id": "processing_to_failed",
+          "next": "FAILED"
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
