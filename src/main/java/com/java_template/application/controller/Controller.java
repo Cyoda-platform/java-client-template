@@ -49,7 +49,7 @@ public class Controller {
         log.info("Created PetJob with technicalId: {}", technicalId);
 
         try {
-            processPetJob(petJob);
+            // processPetJob removed
         } catch (Exception e) {
             log.error("Error processing PetJob with technicalId: {}", technicalId, e);
             petJob.setStatus("FAILED");
@@ -87,7 +87,7 @@ public class Controller {
         log.info("Created Pet with technicalId: {}", technicalId);
 
         try {
-            processPet(pet);
+            // processPet removed
         } catch (Exception e) {
             log.error("Error processing Pet with technicalId: {}", technicalId, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error processing Pet");
@@ -125,7 +125,7 @@ public class Controller {
         log.info("Created PetEvent with ID: {}", id);
 
         try {
-            processPetEvent(petEvent);
+            // processPetEvent removed
         } catch (Exception e) {
             log.error("Error processing PetEvent with ID: {}", id, e);
             petEvent.setStatus("FAILED");
@@ -144,128 +144,6 @@ public class Controller {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("PetEvent not found");
         }
         return ResponseEntity.ok(petEvent);
-    }
-
-    private void processPetJob(PetJob petJob) throws ExecutionException, InterruptedException {
-        log.info("Processing PetJob with technicalId: {}", petJob.getTechnicalId());
-
-        String jobType = petJob.getJobType();
-        if (jobType == null || jobType.isBlank()) {
-            log.error("PetJob jobType is missing or blank");
-            petJob.setStatus("FAILED");
-            entityService.updateItem(ENTITY_MODEL_PETJOB, ENTITY_VERSION, petJob.getTechnicalId(), petJob).get();
-            throw new IllegalArgumentException("jobType is required");
-        }
-
-        Map<String, Object> payload = petJob.getPayload();
-        if (payload == null || payload.isEmpty()) {
-            log.error("PetJob payload is missing or empty");
-            petJob.setStatus("FAILED");
-            entityService.updateItem(ENTITY_MODEL_PETJOB, ENTITY_VERSION, petJob.getTechnicalId(), petJob).get();
-            throw new IllegalArgumentException("payload is required");
-        }
-
-        petJob.setStatus("PROCESSING");
-        entityService.updateItem(ENTITY_MODEL_PETJOB, ENTITY_VERSION, petJob.getTechnicalId(), petJob).get();
-
-        try {
-            if ("AddPet".equalsIgnoreCase(jobType)) {
-                String name = (String) payload.get("name");
-                String species = (String) payload.get("species");
-                Integer age = null;
-                Object ageObj = payload.get("age");
-                if (ageObj instanceof Integer) {
-                    age = (Integer) ageObj;
-                } else if (ageObj instanceof Number) {
-                    age = ((Number) ageObj).intValue();
-                }
-
-                if (name == null || name.isBlank() || species == null || species.isBlank() || age == null || age < 0) {
-                    log.error("Invalid pet data in PetJob payload");
-                    petJob.setStatus("FAILED");
-                    entityService.updateItem(ENTITY_MODEL_PETJOB, ENTITY_VERSION, petJob.getTechnicalId(), petJob).get();
-                    throw new IllegalArgumentException("Invalid pet data in payload");
-                }
-
-                Pet pet = new Pet();
-                pet.setName(name);
-                pet.setSpecies(species);
-                pet.setAge(age);
-                pet.setStatus("ACTIVE");
-                UUID petTechnicalId = entityService.addItem(ENTITY_MODEL_PET, ENTITY_VERSION, pet).get();
-                pet.setTechnicalId(petTechnicalId);
-                log.info("Created Pet with technicalId: {} via PetJob", petTechnicalId);
-
-                PetEvent petEvent = new PetEvent();
-                String eventId = "event-" + petEventIdCounter++;
-                petEvent.setId(eventId);
-                petEvent.setTechnicalId(UUID.randomUUID());
-                petEvent.setPetId(petTechnicalId.toString());
-                petEvent.setEventType("CREATED");
-                petEvent.setEventTimestamp(new Date());
-                petEvent.setStatus("RECORDED");
-                petEventCache.put(eventId, petEvent);
-                log.info("Created PetEvent with ID: {} for Pet technicalId: {}", eventId, petTechnicalId);
-
-                processPetEvent(petEvent);
-
-            } else if ("UpdatePetInfo".equalsIgnoreCase(jobType)) {
-                log.info("UpdatePetInfo jobType not implemented as this is prototype");
-            } else {
-                log.error("Unsupported jobType in PetJob: {}", jobType);
-                petJob.setStatus("FAILED");
-                entityService.updateItem(ENTITY_MODEL_PETJOB, ENTITY_VERSION, petJob.getTechnicalId(), petJob).get();
-                throw new IllegalArgumentException("Unsupported jobType: " + jobType);
-            }
-
-            petJob.setStatus("COMPLETED");
-            entityService.updateItem(ENTITY_MODEL_PETJOB, ENTITY_VERSION, petJob.getTechnicalId(), petJob).get();
-            log.info("PetJob with technicalId: {} completed successfully", petJob.getTechnicalId());
-
-        } catch (Exception e) {
-            petJob.setStatus("FAILED");
-            entityService.updateItem(ENTITY_MODEL_PETJOB, ENTITY_VERSION, petJob.getTechnicalId(), petJob).get();
-            log.error("Exception during processing PetJob with technicalId: {}", petJob.getTechnicalId(), e);
-            throw e;
-        }
-    }
-
-    private void processPetEvent(PetEvent petEvent) {
-        log.info("Processing PetEvent with ID: {}", petEvent.getId());
-
-        if (petEvent.getPetId() == null || petEvent.getPetId().isBlank()) {
-            log.error("PetEvent petId is missing or blank");
-            petEvent.setStatus("FAILED");
-            petEventCache.put(petEvent.getId(), petEvent);
-            throw new IllegalArgumentException("petId is required");
-        }
-        if (petEvent.getEventType() == null || petEvent.getEventType().isBlank()) {
-            log.error("PetEvent eventType is missing or blank");
-            petEvent.setStatus("FAILED");
-            petEventCache.put(petEvent.getId(), petEvent);
-            throw new IllegalArgumentException("eventType is required");
-        }
-        if (petEvent.getEventTimestamp() == null) {
-            log.error("PetEvent eventTimestamp is missing");
-            petEvent.setStatus("FAILED");
-            petEventCache.put(petEvent.getId(), petEvent);
-            throw new IllegalArgumentException("eventTimestamp is required");
-        }
-
-        petEvent.setStatus("PROCESSED");
-        petEventCache.put(petEvent.getId(), petEvent);
-        log.info("PetEvent with ID: {} processed successfully", petEvent.getId());
-    }
-
-    private void processPet(Pet pet) {
-        log.info("Processing Pet with technicalId: {}", pet.getTechnicalId());
-        if (pet.getName() == null || pet.getName().isBlank() ||
-            pet.getSpecies() == null || pet.getSpecies().isBlank() ||
-            pet.getAge() == null || pet.getAge() < 0) {
-            log.error("Invalid Pet data");
-            throw new IllegalArgumentException("Invalid Pet data");
-        }
-        log.info("Pet with technicalId: {} is valid and active", pet.getTechnicalId());
     }
 
     // Utility methods for JSON conversion (simulated) - you can implement these or use Jackson ObjectMapper
