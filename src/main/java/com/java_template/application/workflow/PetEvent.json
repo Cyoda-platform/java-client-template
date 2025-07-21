@@ -1,64 +1,85 @@
 {
-  "desc": "Workflow for processing PetEvent entities triggered by persistence events",
-  "id": "pet_event_workflow",
-  "initialState": "none",
-  "name": "PetEvent workflow",
-  "states": {
-    "none": {
-      "transitions": [
-        {
-          "id": "transition_to_recorded",
-          "next": "RECORDED"
-        }
-      ]
-    },
-    "RECORDED": {
-      "transitions": [
-        {
-          "id": "transition_to_processing",
-          "next": "PROCESSING",
-          "processors": [
-            {
-              "config": {
-                "calculationNodesTags": "cyoda_application",
-                "calculation_nodes_tags": "52e21216-64e9-11b2-965a-2e0ad7d884c5"
-              },
-              "name": "PetEventProcessor"
-            }
-          ]
-        }
-      ]
-    },
-    "PROCESSING": {
-      "transitions": [
-        {
-          "criterion": {
-            "function": {
-              "name": "PetEventProcessingSuccessCriterion"
-            },
-            "type": "function"
-          },
-          "id": "transition_to_processed",
-          "next": "PROCESSED"
+    "desc": "Workflow describing the lifecycle of PetJob processing",
+    "id": "petjob_workflow",
+    "initialState": "none",
+    "name": "PetJob Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
         },
-        {
-          "criterion": {
-            "function": {
-              "name": "PetEventProcessingFailureCriterion"
-            },
-            "type": "function"
-          },
-          "id": "transition_to_failed",
-          "next": "FAILED"
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetJobStartCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "start_job_processing",
+                    "next": "pending"
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetJobCanStartProcessingCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "start_processing",
+                    "next": "processing",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "add_application_resource"
+                            },
+                            "name": "PetJobProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetJobInvalidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "fail_due_to_invalid",
+                    "next": "failed"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetJobSuccessCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "complete_job",
+                    "next": "completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetJobErrorCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "fail_job",
+                    "next": "failed"
+                }
+            ]
         }
-      ]
     },
-    "PROCESSED": {
-      "transitions": []
-    },
-    "FAILED": {
-      "transitions": []
-    }
-  },
-  "version": "1.0"
+    "version": "1.0"
 }
