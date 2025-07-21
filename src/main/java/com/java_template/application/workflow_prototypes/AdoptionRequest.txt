@@ -1,0 +1,32 @@
+    private void processAdoptionRequest(AdoptionRequest adoptionRequest) throws ExecutionException, InterruptedException {
+        logger.info("Processing AdoptionRequest with technicalId: {}", adoptionRequest.getTechnicalId());
+
+        UUID petTechnicalId = UUID.fromString(adoptionRequest.getPetId());
+        CompletableFuture<ObjectNode> petFuture = entityService.getItem("Pet", ENTITY_VERSION, petTechnicalId);
+        ObjectNode petNode = petFuture.get();
+        if (petNode == null || petNode.isEmpty()) {
+            logger.error("AdoptionRequest processing failed: Pet not found with technicalId: {}", adoptionRequest.getPetId());
+            return;
+        }
+        Pet pet = convertObjectNodeToPet(petNode);
+
+        if (pet.getStatus() != Pet.StatusEnum.AVAILABLE) {
+            logger.error("AdoptionRequest processing failed: Pet with technicalId {} not available", petTechnicalId);
+            return;
+        }
+
+        // Update pet status to PENDING_ADOPTION by creating new version
+        Pet updatedPet = new Pet();
+        updatedPet.setTechnicalId(pet.getTechnicalId());
+        updatedPet.setId(pet.getId());
+        updatedPet.setName(pet.getName());
+        updatedPet.setCategory(pet.getCategory());
+        updatedPet.setPhotoUrls(pet.getPhotoUrls());
+        updatedPet.setTags(pet.getTags());
+        updatedPet.setStatus(Pet.StatusEnum.PENDING_ADOPTION);
+
+        entityService.addItem("Pet", ENTITY_VERSION, updatedPet).get();
+
+        // AdoptionRequest status remains REQUESTED awaiting approval
+        logger.info("AdoptionRequest {} processed: Pet {} status updated to PENDING_ADOPTION", adoptionRequest.getTechnicalId(), petTechnicalId);
+    }
