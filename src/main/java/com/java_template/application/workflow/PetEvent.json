@@ -1,85 +1,86 @@
 {
-    "desc": "Workflow describing the lifecycle of PetJob processing",
-    "id": "petjob_workflow",
-    "initialState": "none",
-    "name": "PetJob Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetJobStartCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "start_job_processing",
-                    "next": "pending"
-                }
-            ]
-        },
-        "pending": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetJobCanStartProcessingCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "start_processing",
-                    "next": "processing",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "add_application_resource"
-                            },
-                            "name": "PetJobProcessor"
-                        }
-                    ]
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetJobInvalidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "fail_due_to_invalid",
-                    "next": "failed"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetJobSuccessCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "complete_job",
-                    "next": "completed"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetJobErrorCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "fail_job",
-                    "next": "failed"
-                }
-            ]
+  "desc": "Workflow describing the lifecycle of PetJob processing",
+  "id": "petjob_workflow",
+  "initialState": "none",
+  "name": "PetJob Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "PetJobStartCriterion"
+            },
+            "type": "function"
+          },
+          "id": "start_job_processing",
+          "next": "pending"
         }
+      ]
     },
-    "version": "1.0"
+    "pending": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "PetJobCanStartProcessingCriterion"
+            },
+            "type": "function"
+          },
+          "id": "start_processing",
+          "next": "processing",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "add_application_resource",
+                "calculation_nodes_tags": "52e21216-64e9-11b2-965a-2e0ad7d884c5"
+              },
+              "name": "PetJobProcessor"
+            }
+          ]
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "PetJobInvalidCriterion"
+            },
+            "type": "function"
+          },
+          "id": "fail_due_to_invalid",
+          "next": "failed"
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "PetJobSuccessCriterion"
+            },
+            "type": "function"
+          },
+          "id": "complete_job",
+          "next": "completed"
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "PetJobErrorCriterion"
+            },
+            "type": "function"
+          },
+          "id": "fail_job",
+          "next": "failed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
