@@ -1,40 +1,44 @@
 package com.java_template.application.controller;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Pet;
 import com.java_template.application.entity.PetEvent;
 import com.java_template.application.entity.PetJob;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.*;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/entity")
-@RequiredArgsConstructor
-@Slf4j
 public class Controller {
 
     private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
+
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
+        this.entityService = entityService;
+        this.objectMapper = objectMapper;
+    }
 
     // POST /entity/petjob - create PetJob entity
     @PostMapping("/petjob")
-    public ResponseEntity<?> createPetJob(@RequestBody PetJob petJob) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> createPetJob(@Valid @RequestBody PetJob petJob) throws ExecutionException, InterruptedException, JsonProcessingException {
         if (petJob == null || petJob.getJobType() == null || petJob.getJobType().isBlank() || petJob.getPayload() == null) {
             logger.error("Invalid PetJob creation request: missing required fields");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Missing required fields: jobType and payload");
@@ -45,24 +49,26 @@ public class Controller {
         petJob.setTechnicalId(technicalId);
         logger.info("Created PetJob with technicalId: {}", technicalId);
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId, "status", petJob.getStatus()));
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString(), "status", petJob.getStatus()));
     }
 
     // GET /entity/petjob/{id} - get PetJob by technicalId
     @GetMapping("/petjob/{id}")
-    public ResponseEntity<?> getPetJob(@PathVariable UUID id) throws ExecutionException, InterruptedException {
-        CompletableFuture<ObjectNode> itemFuture = entityService.getItem("PetJob", ENTITY_VERSION, id);
+    public ResponseEntity<?> getPetJob(@PathVariable String id) throws ExecutionException, InterruptedException, JsonProcessingException {
+        UUID technicalId = UUID.fromString(id);
+        CompletableFuture<ObjectNode> itemFuture = entityService.getItem("PetJob", ENTITY_VERSION, technicalId);
         ObjectNode node = itemFuture.get();
         if (node == null || node.isEmpty()) {
-            logger.error("PetJob not found with technicalId: {}", id);
+            logger.error("PetJob not found with technicalId: {}", technicalId);
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("PetJob not found");
         }
-        return ResponseEntity.ok(node);
+        PetJob petJob = objectMapper.treeToValue(node, PetJob.class);
+        return ResponseEntity.ok(petJob);
     }
 
     // POST /entity/pet - create new Pet version (immutable)
     @PostMapping("/pet")
-    public ResponseEntity<?> createPet(@RequestBody Pet pet) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> createPet(@Valid @RequestBody Pet pet) throws ExecutionException, InterruptedException, JsonProcessingException {
         if (pet == null || pet.getName() == null || pet.getName().isBlank()
                 || pet.getSpecies() == null || pet.getSpecies().isBlank()
                 || pet.getAge() == null || pet.getAge() < 0) {
@@ -80,19 +86,21 @@ public class Controller {
 
     // GET /entity/pet/{id} - get Pet by technicalId
     @GetMapping("/pet/{id}")
-    public ResponseEntity<?> getPet(@PathVariable UUID id) throws ExecutionException, InterruptedException {
-        CompletableFuture<ObjectNode> itemFuture = entityService.getItem("Pet", ENTITY_VERSION, id);
+    public ResponseEntity<?> getPet(@PathVariable String id) throws ExecutionException, InterruptedException, JsonProcessingException {
+        UUID technicalId = UUID.fromString(id);
+        CompletableFuture<ObjectNode> itemFuture = entityService.getItem("Pet", ENTITY_VERSION, technicalId);
         ObjectNode node = itemFuture.get();
         if (node == null || node.isEmpty()) {
-            logger.error("Pet not found with technicalId: {}", id);
+            logger.error("Pet not found with technicalId: {}", technicalId);
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Pet not found");
         }
-        return ResponseEntity.ok(node);
+        Pet pet = objectMapper.treeToValue(node, Pet.class);
+        return ResponseEntity.ok(pet);
     }
 
     // POST /entity/petevent - create PetEvent entity (minor/utility, keep local cache)
     @PostMapping("/petevent")
-    public ResponseEntity<?> createPetEvent(@RequestBody PetEvent petEvent) {
+    public ResponseEntity<?> createPetEvent(@Valid @RequestBody PetEvent petEvent) {
         if (petEvent == null || petEvent.getPetId() == null || petEvent.getPetId().isBlank()
                 || petEvent.getEventType() == null || petEvent.getEventType().isBlank()
                 || petEvent.getEventTimestamp() == null) {
