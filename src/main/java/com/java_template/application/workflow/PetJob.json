@@ -1,79 +1,80 @@
 {
-    "desc": "Workflow for processing PetJob entity from request validation to completion or failure",
-    "id": "petjob_workflow",
-    "initialState": "none",
-    "name": "PetJob processing workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "id": "start_validation",
-                    "next": "validated"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetJobFetchSuccessCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "mark_processing_and_fetch",
-                    "next": "completed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetProcessor"
-                        }
-                    ]
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetJobFetchFailedCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "mark_processing_and_fail",
-                    "next": "failed"
-                }
-            ]
-        },
-        "validated": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetJobIsValidRequestCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "valid_request",
-                    "next": "processing"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetJobIsInvalidRequestCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "invalid_request",
-                    "next": "failed"
-                }
-            ]
+  "desc": "Workflow for processing PetJob entity from request validation to completion or failure",
+  "id": "petjob_workflow",
+  "initialState": "none",
+  "name": "PetJob processing workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "id": "start_validation",
+          "next": "validated"
         }
+      ]
     },
-    "version": "1.0"
+    "validated": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "PetJobIsValidRequestCriterion"
+            },
+            "type": "function"
+          },
+          "id": "valid_request",
+          "next": "processing"
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "PetJobIsInvalidRequestCriterion"
+            },
+            "type": "function"
+          },
+          "id": "invalid_request",
+          "next": "failed"
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "PetJobFetchSuccessCriterion"
+            },
+            "type": "function"
+          },
+          "id": "mark_processing_and_fetch",
+          "next": "completed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "calculation_nodes_tags": "e04ea61e-64da-11b2-965a-2e0ad7d884c5"
+              },
+              "name": "PetProcessor"
+            }
+          ]
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "PetJobFetchFailedCriterion"
+            },
+            "type": "function"
+          },
+          "id": "mark_processing_and_fail",
+          "next": "failed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
