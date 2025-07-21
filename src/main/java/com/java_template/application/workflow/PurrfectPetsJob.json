@@ -1,25 +1,22 @@
 {
-    "desc": "Workflow for orchestrating PurrfectPetsJob lifecycle",
-    "id": "purrfectpetsjob_workflow",
+    "desc": "Workflow for processing Pet entity lifecycle",
+    "id": "pet_workflow",
     "initialState": "none",
-    "name": "Purrfect Pets Job Workflow",
+    "name": "Pet Workflow",
     "states": {
-        "archived": {
-            "transitions": []
-        },
-        "cancelled": {
+        "business_logic": {
             "transitions": [
                 {
-                    "id": "cancelled_to_archived",
-                    "next": "archived"
+                    "id": "business_logic_to_completed",
+                    "next": "completed"
                 }
             ]
         },
         "completed": {
             "transitions": [
                 {
-                    "id": "completed_to_archived",
-                    "next": "archived"
+                    "id": "completed_to_end",
+                    "next": "end"
                 }
             ]
         },
@@ -28,34 +25,41 @@
                 {
                     "criterion": {
                         "function": {
-                            "name": "JobScheduleCriterion"
+                            "name": "PetValidityCriterion"
                         },
                         "type": "function"
                     },
-                    "id": "created_to_scheduled",
-                    "next": "scheduled"
+                    "id": "created_to_validated",
+                    "next": "validated"
                 },
                 {
                     "criterion": {
                         "function": {
-                            "name": "JobCancelCriterion"
+                            "name": "PetInvalidityCriterion"
                         },
                         "type": "function"
                     },
-                    "id": "created_to_cancelled",
-                    "next": "cancelled"
+                    "id": "created_to_invalid",
+                    "next": "invalid"
                 }
             ]
         },
-        "failed": {
+        "end": {
+            "transitions": []
+        },
+        "invalid": {
             "transitions": [
                 {
-                    "id": "failed_to_retrying",
-                    "next": "retrying"
-                },
-                {
-                    "id": "failed_to_cancelled",
-                    "next": "cancelled"
+                    "id": "invalid_to_terminated",
+                    "next": "terminated",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetProcessor"
+                        }
+                    ]
                 }
             ]
         },
@@ -67,51 +71,19 @@
                 }
             ]
         },
-        "retrying": {
+        "terminated": {
             "transitions": [
                 {
-                    "id": "retrying_to_running",
-                    "next": "running"
+                    "id": "terminated_to_end",
+                    "next": "end"
                 }
             ]
         },
-        "running": {
+        "validated": {
             "transitions": [
                 {
-                    "criterion": {
-                        "function": {
-                            "name": "JobCompletionCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "running_to_completed",
-                    "next": "completed"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "JobFailureCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "running_to_failed",
-                    "next": "failed"
-                }
-            ]
-        },
-        "scheduled": {
-            "transitions": [
-                {
-                    "id": "scheduled_to_running",
-                    "next": "running",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PurrfectPetsJobProcessor"
-                        }
-                    ]
+                    "id": "validated_to_business_logic",
+                    "next": "business_logic"
                 }
             ]
         }
