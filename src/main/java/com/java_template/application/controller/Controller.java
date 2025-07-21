@@ -1,5 +1,7 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.PurrfectPetsJob;
@@ -14,12 +16,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.*;
+import jakarta.validation.Valid;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/entities")
@@ -28,12 +31,13 @@ import static com.java_template.common.config.Config.*;
 public class Controller {
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     private final AtomicLong petIdCounter = new AtomicLong(1); // used internally for simulated pets in job processing
 
     // POST /entities/purrfectPetsJob
     @PostMapping("/purrfectPetsJob")
-    public ResponseEntity<?> createPurrfectPetsJob(@RequestBody PurrfectPetsJob job) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> createPurrfectPetsJob(@Valid @RequestBody PurrfectPetsJob job) throws ExecutionException, InterruptedException, JsonProcessingException {
         if (job == null) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Request body is missing");
         }
@@ -54,22 +58,19 @@ public class Controller {
 
     // GET /entities/purrfectPetsJob/{id}
     @GetMapping("/purrfectPetsJob/{id}")
-    public ResponseEntity<?> getPurrfectPetsJob(@PathVariable String id) throws ExecutionException, InterruptedException {
-        SearchConditionRequest condition = SearchConditionRequest.group("AND",
-                Condition.of("$.technicalId", "EQUALS", id));
-        CompletableFuture<ArrayNode> filteredItemsFuture = entityService.getItemsByCondition("PurrfectPetsJob", ENTITY_VERSION, condition);
-        ArrayNode items = filteredItemsFuture.get();
-        if (items == null || items.size() == 0) {
+    public ResponseEntity<?> getPurrfectPetsJob(@PathVariable String id) throws ExecutionException, InterruptedException, JsonProcessingException {
+        UUID technicalId = UUID.fromString(id);
+        ObjectNode node = entityService.getItem("PurrfectPetsJob", ENTITY_VERSION, technicalId).get();
+        if (node == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Job not found");
         }
-        ObjectNode node = (ObjectNode) items.get(0);
-        PurrfectPetsJob job = node.traverse().readValueAs(PurrfectPetsJob.class);
+        PurrfectPetsJob job = objectMapper.treeToValue(node, PurrfectPetsJob.class);
         return ResponseEntity.ok(job);
     }
 
     // POST /entities/pet
     @PostMapping("/pet")
-    public ResponseEntity<?> createPet(@RequestBody Pet pet) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> createPet(@Valid @RequestBody Pet pet) throws ExecutionException, InterruptedException, JsonProcessingException {
         if (pet == null) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Request body is missing");
         }
@@ -88,22 +89,19 @@ public class Controller {
 
     // GET /entities/pet/{id}
     @GetMapping("/pet/{id}")
-    public ResponseEntity<?> getPet(@PathVariable String id) throws ExecutionException, InterruptedException {
-        SearchConditionRequest condition = SearchConditionRequest.group("AND",
-                Condition.of("$.technicalId", "EQUALS", id));
-        CompletableFuture<ArrayNode> filteredItemsFuture = entityService.getItemsByCondition("Pet", ENTITY_VERSION, condition);
-        ArrayNode items = filteredItemsFuture.get();
-        if (items == null || items.size() == 0) {
+    public ResponseEntity<?> getPet(@PathVariable String id) throws ExecutionException, InterruptedException, JsonProcessingException {
+        UUID technicalId = UUID.fromString(id);
+        ObjectNode node = entityService.getItem("Pet", ENTITY_VERSION, technicalId).get();
+        if (node == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Pet not found");
         }
-        ObjectNode node = (ObjectNode) items.get(0);
-        Pet pet = node.traverse().readValueAs(Pet.class);
+        Pet pet = objectMapper.treeToValue(node, Pet.class);
         return ResponseEntity.ok(pet);
     }
 
     // POST /entities/favorite
     @PostMapping("/favorite")
-    public ResponseEntity<?> createFavorite(@RequestBody Favorite favorite) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> createFavorite(@Valid @RequestBody Favorite favorite) throws ExecutionException, InterruptedException, JsonProcessingException {
         if (favorite == null) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Request body is missing");
         }
@@ -128,16 +126,13 @@ public class Controller {
 
     // GET /entities/favorite/{id}
     @GetMapping("/favorite/{id}")
-    public ResponseEntity<?> getFavorite(@PathVariable String id) throws ExecutionException, InterruptedException {
-        SearchConditionRequest condition = SearchConditionRequest.group("AND",
-                Condition.of("$.technicalId", "EQUALS", id));
-        CompletableFuture<ArrayNode> filteredItemsFuture = entityService.getItemsByCondition("Favorite", ENTITY_VERSION, condition);
-        ArrayNode items = filteredItemsFuture.get();
-        if (items == null || items.size() == 0) {
+    public ResponseEntity<?> getFavorite(@PathVariable String id) throws ExecutionException, InterruptedException, JsonProcessingException {
+        UUID technicalId = UUID.fromString(id);
+        ObjectNode node = entityService.getItem("Favorite", ENTITY_VERSION, technicalId).get();
+        if (node == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Favorite not found");
         }
-        ObjectNode node = (ObjectNode) items.get(0);
-        Favorite favorite = node.traverse().readValueAs(Favorite.class);
+        Favorite favorite = objectMapper.treeToValue(node, Favorite.class);
         return ResponseEntity.ok(favorite);
     }
 }
