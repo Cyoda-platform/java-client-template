@@ -1,78 +1,63 @@
 {
-  "desc": "Workflow representing PetEvent processing lifecycle with validation and status updates",
-  "id": "pet_event_workflow",
-  "initialState": "none",
-  "name": "PetEvent Workflow",
-  "states": {
-    "none": {
-      "transitions": [
-        {
-          "id": "transition_to_recorded",
-          "next": "recorded"
-        }
-      ]
-    },
-    "recorded": {
-      "transitions": [
-        {
-          "id": "transition_to_processing",
-          "next": "processing"
-        }
-      ]
-    },
-    "processing": {
-      "transitions": [
-        {
-          "criterion": {
-            "function": {
-              "name": "PetIdMissingCriterion"
-            },
-            "type": "function"
-          },
-          "id": "transition_to_failed_due_to_missing_petId",
-          "next": "failed"
+    "desc": "Workflow for processing PetEvent entities triggered by persistence events",
+    "id": "pet_event_workflow",
+    "initialState": "none",
+    "name": "PetEvent workflow",
+    "states": {
+        "FAILED": {
+            "transitions": []
         },
-        {
-          "criterion": {
-            "function": {
-              "name": "EventTypeMissingCriterion"
-            },
-            "type": "function"
-          },
-          "id": "transition_to_failed_due_to_missing_eventType",
-          "next": "failed"
+        "PROCESSED": {
+            "transitions": []
         },
-        {
-          "criterion": {
-            "function": {
-              "name": "EventTimestampMissingCriterion"
-            },
-            "type": "function"
-          },
-          "id": "transition_to_failed_due_to_missing_eventTimestamp",
-          "next": "failed"
+        "PROCESSING": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetEventProcessingSuccessCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "transition_to_processed",
+                    "next": "PROCESSED"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetEventProcessingFailureCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "transition_to_failed",
+                    "next": "FAILED"
+                }
+            ]
         },
-        {
-          "id": "transition_to_processed",
-          "next": "processed",
-          "processors": [
-            {
-              "config": {
-                "calculationNodesTags": "cyoda_application",
-                "calculation_nodes_tags": "52e21216-64e9-11b2-965a-2e0ad7d884c5"
-              },
-              "name": "PetEventProcessor"
-            }
-          ]
+        "RECORDED": {
+            "transitions": [
+                {
+                    "id": "transition_to_processing",
+                    "next": "PROCESSING",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetEventProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "transition_to_recorded",
+                    "next": "RECORDED"
+                }
+            ]
         }
-      ]
     },
-    "failed": {
-      "transitions": []
-    },
-    "processed": {
-      "transitions": []
-    }
-  },
-  "version": "1.0"
+    "version": "1.0"
 }
