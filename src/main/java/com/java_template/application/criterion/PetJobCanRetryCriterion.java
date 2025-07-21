@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.Pet;
+import com.java_template.application.entity.PetJob;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,7 +32,7 @@ public class PetJobCanRetryCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(Pet.class, this::validateEntity)
+            .evaluateEntity(PetJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,18 +40,25 @@ public class PetJobCanRetryCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetJobCanRetryCriterion".equals(modelSpec.operationName()) &&
-               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "petJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(Pet entity) {
-        // Allow retry if status is FAILED
+    private EvaluationOutcome validateEntity(PetJob entity) {
+        // Can retry if status is FAILED and jobType is AddPet or UpdatePetInfo
         if (entity.getStatus() == null || entity.getStatus().isBlank()) {
             return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if ("FAILED".equalsIgnoreCase(entity.getStatus())) {
-            return EvaluationOutcome.success();
+        if (!"FAILED".equalsIgnoreCase(entity.getStatus())) {
+            return EvaluationOutcome.fail("status is not FAILED", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
-        return EvaluationOutcome.fail("Pet status is not FAILED, cannot retry", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        String jobType = entity.getJobType();
+        if (jobType == null || jobType.isBlank()) {
+            return EvaluationOutcome.fail("jobType is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (!jobType.equals("AddPet") && !jobType.equals("UpdatePetInfo")) {
+            return EvaluationOutcome.fail("Unsupported jobType for retry: " + jobType, StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        }
+        return EvaluationOutcome.success();
     }
 }
