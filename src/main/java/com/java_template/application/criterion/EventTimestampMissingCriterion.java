@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.Pet;
+import com.java_template.application.entity.PetEvent;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -15,6 +15,8 @@ import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+
+import java.time.LocalDateTime;
 
 @Component
 public class EventTimestampMissingCriterion implements CyodaCriterion {
@@ -32,7 +34,7 @@ public class EventTimestampMissingCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(Pet.class, this::validateEntity)
+            .evaluateEntity(PetEvent.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,12 +42,14 @@ public class EventTimestampMissingCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "EventTimestampMissingCriterion".equals(modelSpec.operationName()) &&
-               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "petEvent".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(Pet entity) {
-        // Pet entity does not have a timestamp field, so fail validation as data quality failure
-        return EvaluationOutcome.fail("Event timestamp is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+    private EvaluationOutcome validateEntity(PetEvent entity) {
+        if (entity.getEventTimestamp() == null) {
+            return EvaluationOutcome.fail("Event timestamp is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        return EvaluationOutcome.success();
     }
 }
