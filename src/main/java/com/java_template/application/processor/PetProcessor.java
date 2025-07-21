@@ -31,8 +31,8 @@ public class PetProcessor implements CyodaProcessor {
 
         return serializer.withRequest(request)
             .toEntity(Pet.class)
-            .validate(this::isValidPet, "Invalid pet data")
-            .map(this::processPetLogic)
+            .validate(this::isValidEntity, "Invalid entity state")
+            .map(this::processEntityLogic)
             .complete();
     }
 
@@ -43,13 +43,11 @@ public class PetProcessor implements CyodaProcessor {
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private boolean isValidPet(Pet pet) {
-        return pet.getName() != null && !pet.getName().isBlank() &&
-               pet.getSpecies() != null && !pet.getSpecies().isBlank() &&
-               pet.getAge() != null && pet.getAge() >= 0;
+    private boolean isValidEntity(Pet pet) {
+        return pet.isValid();
     }
 
-    private Pet processPetLogic(Pet pet) {
+    private Pet processEntityLogic(Pet pet) {
         logger.info("Processing Pet with technicalId: {}", pet.getTechnicalId());
         if (pet.getName() == null || pet.getName().isBlank() ||
             pet.getSpecies() == null || pet.getSpecies().isBlank() ||
