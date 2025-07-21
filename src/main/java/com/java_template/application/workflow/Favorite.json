@@ -1,0 +1,92 @@
+{
+    "desc": "Workflow for processing Favorite entity lifecycle",
+    "id": "favorite_workflow",
+    "initialState": "none",
+    "name": "Favorite Workflow",
+    "states": {
+        "completed": {
+            "transitions": [
+                {
+                    "id": "completed_to_end",
+                    "next": "end"
+                }
+            ]
+        },
+        "created": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "FavoriteValidityCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "created_to_validated",
+                    "next": "validated"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "FavoriteInvalidityCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "created_to_invalid",
+                    "next": "invalid"
+                }
+            ]
+        },
+        "end": {
+            "transitions": []
+        },
+        "invalid": {
+            "transitions": [
+                {
+                    "id": "invalid_to_terminated",
+                    "next": "terminated"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "none_to_created",
+                    "next": "created"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "id": "processing_to_completed",
+                    "next": "completed"
+                }
+            ]
+        },
+        "terminated": {
+            "transitions": [
+                {
+                    "id": "terminated_to_end",
+                    "next": "end"
+                }
+            ]
+        },
+        "validated": {
+            "transitions": [
+                {
+                    "id": "validated_to_processing",
+                    "next": "processing",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "FavoriteProcessor"
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
