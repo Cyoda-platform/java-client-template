@@ -1,78 +1,79 @@
 {
-  "desc": "Workflow representing PetEvent processing lifecycle with validation and status updates",
-  "id": "pet_event_workflow",
-  "initialState": "none",
-  "name": "PetEvent Workflow",
-  "states": {
-    "none": {
-      "transitions": [
-        {
-          "id": "transition_to_recorded",
-          "next": "recorded"
-        }
-      ]
-    },
-    "recorded": {
-      "transitions": [
-        {
-          "id": "transition_to_processing",
-          "next": "processing"
-        }
-      ]
-    },
-    "processing": {
-      "transitions": [
-        {
-          "criterion": {
-            "function": {
-              "name": "PetIdMissingCriterion"
-            },
-            "type": "function"
-          },
-          "id": "transition_to_failed_if_petId_missing",
-          "next": "failed"
+    "desc": "Workflow to manage PetJob lifecycle from creation to completion or failure",
+    "id": "petjob_workflow",
+    "initialState": "none",
+    "name": "PetJob Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
         },
-        {
-          "criterion": {
-            "function": {
-              "name": "EventTypeMissingCriterion"
-            },
-            "type": "function"
-          },
-          "id": "transition_to_failed_if_eventType_missing",
-          "next": "failed"
+        "failed": {
+            "transitions": []
         },
-        {
-          "criterion": {
-            "function": {
-              "name": "EventTimestampMissingCriterion"
-            },
-            "type": "function"
-          },
-          "id": "transition_to_failed_if_eventTimestamp_missing",
-          "next": "failed"
+        "none": {
+            "transitions": [
+                {
+                    "id": "transition_to_pending",
+                    "next": "pending"
+                }
+            ]
         },
-        {
-          "id": "transition_to_processed",
-          "next": "processed",
-          "processors": [
-            {
-              "config": {
-                "calculationNodesTags": "cyoda_application",
-                "calculation_nodes_tags": "52e21216-64e9-11b2-965a-2e0ad7d884c5"
-              },
-              "name": "PetProcessor"
-            }
-          ]
+        "pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetJobCanStartProcessingCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "transition_start_processing",
+                    "next": "processing"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetJobIsInvalidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "transition_fail_invalid_job",
+                    "next": "failed"
+                }
+            ]
+        },
+        "processing": {
+            "processors": [
+                {
+                    "config": {
+                        "calculationNodesTags": "cyoda_application"
+                    },
+                    "name": "PetJobProcessor"
+                }
+            ],
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetJobIsProcessingSuccessfulCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "transition_complete_success",
+                    "next": "completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetJobHasProcessingFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "transition_fail_processing_error",
+                    "next": "failed"
+                }
+            ]
         }
-      ]
     },
-    "failed": {
-      "transitions": []
-    },
-    "processed": {
-      "transitions": []
-    }
-  },
-  "version": "1.0"
+    "version": "1.0"
 }
