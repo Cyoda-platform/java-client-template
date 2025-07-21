@@ -44,15 +44,21 @@ public class PetInvalidityCriterion implements CyodaCriterion {
                 Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(Pet pet) {
-        // Check if pet is invalid based on business rules
-        // Example: pet status is not AVAILABLE or ADOPTED (only those are valid)
-        if (pet.getStatus() == null || pet.getStatus().isBlank()) {
-            return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+    private EvaluationOutcome validateEntity(Pet entity) {
+        if (entity.getPetId() != null && !entity.getPetId().isBlank()) {
+            return EvaluationOutcome.fail("Pet ID should be empty for invalid pets", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        String status = pet.getStatus().toUpperCase();
-        if (!status.equals("AVAILABLE") && !status.equals("ADOPTED")) {
-            return EvaluationOutcome.fail("invalid pet status: " + pet.getStatus(), StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        if (entity.getName() != null && !entity.getName().isBlank()) {
+            return EvaluationOutcome.fail("Pet name should be empty for invalid pets", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (entity.getType() != null && !entity.getType().isBlank()) {
+            return EvaluationOutcome.fail("Pet type should be empty for invalid pets", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (entity.getAge() != null && entity.getAge() >= 0) {
+            return EvaluationOutcome.fail("Pet age should be null or negative for invalid pets", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (entity.getStatus() != null && !entity.getStatus().isBlank()) {
+            return EvaluationOutcome.fail("Pet status should be empty for invalid pets", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         return EvaluationOutcome.success();
     }
