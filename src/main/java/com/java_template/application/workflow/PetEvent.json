@@ -1,85 +1,86 @@
 {
-    "desc": "Workflow for orchestrating PetJob entity lifecycle",
-    "id": "petjob_workflow",
-    "initialState": "none",
-    "name": "PetJob workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetJobHasValidJobTypeCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "start_processing",
-                    "next": "pending"
-                }
-            ]
-        },
-        "pending": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetJobPayloadValidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "start_processing_transition",
-                    "next": "processing",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "add_application_resource"
-                            },
-                            "name": "PetJobProcessor"
-                        }
-                    ]
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetJobPayloadInvalidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "fail_invalid_payload",
-                    "next": "failed"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetJobProcessingSucceededCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "complete_processing",
-                    "next": "completed"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetJobProcessingFailedCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "fail_processing",
-                    "next": "failed"
-                }
-            ]
+  "desc": "Workflow for orchestrating PetJob entity lifecycle",
+  "id": "petjob_workflow",
+  "initialState": "none",
+  "name": "PetJob workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "PetJobHasValidJobTypeCriterion"
+            },
+            "type": "function"
+          },
+          "id": "start_processing",
+          "next": "pending"
         }
+      ]
     },
-    "version": "1.0"
+    "pending": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "PetJobPayloadValidCriterion"
+            },
+            "type": "function"
+          },
+          "id": "start_processing_transition",
+          "next": "processing",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "add_application_resource",
+                "calculation_nodes_tags": "52e21216-64e9-11b2-965a-2e0ad7d884c5"
+              },
+              "name": "PetJobProcessor"
+            }
+          ]
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "PetJobPayloadInvalidCriterion"
+            },
+            "type": "function"
+          },
+          "id": "fail_invalid_payload",
+          "next": "failed"
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "PetJobProcessingSucceededCriterion"
+            },
+            "type": "function"
+          },
+          "id": "complete_processing",
+          "next": "completed"
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "PetJobProcessingFailedCriterion"
+            },
+            "type": "function"
+          },
+          "id": "fail_processing",
+          "next": "failed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
