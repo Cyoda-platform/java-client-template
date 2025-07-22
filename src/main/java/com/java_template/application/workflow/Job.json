@@ -1,63 +1,64 @@
 {
-    "desc": "Workflow for orchestrating Job entity processing and pet creation",
-    "id": "job_workflow",
-    "initialState": "none",
-    "name": "Job entity workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "id": "start_pending",
-                    "next": "pending"
-                }
-            ]
-        },
-        "pending": {
-            "transitions": [
-                {
-                    "id": "start_processing",
-                    "next": "processing",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "JobProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "JobSuccessCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "complete_success",
-                    "next": "completed"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "JobFailureCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "complete_failure",
-                    "next": "failed"
-                }
-            ]
+  "desc": "Workflow for orchestrating Job entity processing and pet creation",
+  "id": "job_workflow",
+  "initialState": "none",
+  "name": "Job entity workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "id": "start_pending",
+          "next": "pending"
         }
+      ]
     },
-    "version": "1.0"
+    "pending": {
+      "transitions": [
+        {
+          "id": "start_processing",
+          "next": "processing",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "calculation_nodes_tags": "4c498d6e-65aa-11b2-965a-2e0ad7d884c5"
+              },
+              "name": "JobProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "JobSuccessCriterion"
+            },
+            "type": "function"
+          },
+          "id": "complete_success",
+          "next": "completed"
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "JobFailureCriterion"
+            },
+            "type": "function"
+          },
+          "id": "complete_failure",
+          "next": "failed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
