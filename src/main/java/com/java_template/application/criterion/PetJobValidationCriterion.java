@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.PetJob;
+import com.java_template.application.entity.Pet;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,7 +32,7 @@ public class PetJobValidationCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(PetJob.class, this::validateEntity)
+            .evaluateEntity(Pet.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,30 +40,30 @@ public class PetJobValidationCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetJobValidationCriterion".equals(modelSpec.operationName()) &&
-               "petJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(PetJob entity) {
-        // Validate required fields: jobId, jobType, payload, status
-        if (entity.getJobId() == null || entity.getJobId().isBlank()) {
-            return EvaluationOutcome.fail("jobId is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+    private EvaluationOutcome validateEntity(Pet entity) {
+        // Business logic based on PetJob validation:
+        // Validate essential fields for a PetJob assuming Pet entity represents the job context
+        if (entity.getPetId() == null || entity.getPetId().isBlank()) {
+            return EvaluationOutcome.fail("petId is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (entity.getJobType() == null || entity.getJobType().isBlank()) {
-            return EvaluationOutcome.fail("jobType is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (entity.getName() == null || entity.getName().isBlank()) {
+            return EvaluationOutcome.fail("name is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (entity.getPayload() == null || entity.getPayload().isBlank()) {
-            return EvaluationOutcome.fail("payload is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (entity.getSpecies() == null || entity.getSpecies().isBlank()) {
+            return EvaluationOutcome.fail("species is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (entity.getAge() == null || entity.getAge() < 0) {
+            return EvaluationOutcome.fail("age must be a non-negative integer", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         if (entity.getStatus() == null || entity.getStatus().isBlank()) {
             return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        // Additional business validation: jobType should be one of expected types
-        // For simplicity, assume valid job types are: AddPet, UpdatePetInfo
-        String jobType = entity.getJobType();
-        if (!jobType.equals("AddPet") && !jobType.equals("UpdatePetInfo")) {
-            return EvaluationOutcome.fail("Unsupported jobType: " + jobType, StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-        }
+        // Additional business rules can be added here
+
         return EvaluationOutcome.success();
     }
 }
