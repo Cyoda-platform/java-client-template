@@ -1,0 +1,10 @@
+private void processPet(Pet pet) {
+    log.info("Processing Pet with technicalId: {}", pet.getTechnicalId());
+    if (pet.getName() == null || pet.getName().isBlank() ||
+        pet.getSpecies() == null || pet.getSpecies().isBlank() ||
+        pet.getAge() == null || pet.getAge() < 0) {
+        log.error("Invalid Pet data");
+        throw new IllegalArgumentException("Invalid Pet data");
+    }
+    log.info("Pet with technicalId: {} is valid and active", pet.getTechnicalId());
+}
