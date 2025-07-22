@@ -45,8 +45,8 @@ public class PetJobProcessingSucceededCriterion implements CyodaCriterion {
     }
 
     private EvaluationOutcome validateEntity(PetJob entity) {
-        if (!"COMPLETED".equalsIgnoreCase(entity.getStatus())) {
-            return EvaluationOutcome.fail("Job status must be COMPLETED", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        if (entity.getStatus() == null || !entity.getStatus().equals("COMPLETED")) {
+            return EvaluationOutcome.fail("Status must be COMPLETED for success", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
         return EvaluationOutcome.success();
     }
