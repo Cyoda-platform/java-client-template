@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.Pet;
+import com.java_template.application.entity.PetJob;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,7 +32,7 @@ public class PetJobPayloadValidCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(Pet.class, this::validateEntity)
+            .evaluateEntity(PetJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,20 +40,27 @@ public class PetJobPayloadValidCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetJobPayloadValidCriterion".equals(modelSpec.operationName()) &&
-               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "petJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(Pet entity) {
-        // Validate that the pet payload data is consistent and follows business rules
-        if (entity.getSpecies() != null && entity.getSpecies().equalsIgnoreCase("Cat") && (entity.getAge() == null || entity.getAge() < 0 || entity.getAge() > 20)) {
-            return EvaluationOutcome.fail("Cat age must be between 0 and 20", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+    private EvaluationOutcome validateEntity(PetJob entity) {
+        if (entity.getPayload() == null || entity.getPayload().isEmpty()) {
+            return EvaluationOutcome.fail("Payload cannot be empty", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (entity.getSpecies() != null && entity.getSpecies().equalsIgnoreCase("Dog") && (entity.getAge() == null || entity.getAge() < 0 || entity.getAge() > 15)) {
-            return EvaluationOutcome.fail("Dog age must be between 0 and 15", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-        }
-        if (entity.getStatus() == null || entity.getStatus().isBlank()) {
-            return EvaluationOutcome.fail("Status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        // Additional business logic pattern: payload must contain required keys depending on jobType
+        if (entity.getJobType() != null) {
+            switch (entity.getJobType()) {
+                case "AddPet":
+                case "UpdatePetInfo":
+                    // Example check for payload keys (assumed JSON keys)
+                    if (!entity.getPayload().containsKey("name") || !entity.getPayload().containsKey("species") || !entity.getPayload().containsKey("age")) {
+                        return EvaluationOutcome.fail("Payload must include 'name', 'species' and 'age'", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+                    }
+                    break;
+                default:
+                    return EvaluationOutcome.fail("Unsupported jobType for payload validation", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+            }
         }
         return EvaluationOutcome.success();
     }
