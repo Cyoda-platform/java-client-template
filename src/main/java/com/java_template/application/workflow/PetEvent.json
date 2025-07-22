@@ -1,86 +1,69 @@
 {
-  "desc": "Workflow describing the lifecycle of PetJob processing",
-  "id": "petjob_workflow",
-  "initialState": "none",
-  "name": "PetJob Workflow",
-  "states": {
-    "none": {
-      "transitions": [
-        {
-          "criterion": {
-            "function": {
-              "name": "PetJobStartCriterion"
-            },
-            "type": "function"
-          },
-          "id": "start_job_processing",
-          "next": "pending"
-        }
-      ]
-    },
-    "pending": {
-      "transitions": [
-        {
-          "criterion": {
-            "function": {
-              "name": "PetJobCanStartProcessingCriterion"
-            },
-            "type": "function"
-          },
-          "id": "start_processing",
-          "next": "processing",
-          "processors": [
-            {
-              "config": {
-                "calculationNodesTags": "add_application_resource",
-                "calculation_nodes_tags": "52e21216-64e9-11b2-965a-2e0ad7d884c5"
-              },
-              "name": "PetJobProcessor"
-            }
-          ]
+    "desc": "Workflow for processing PetJob entity lifecycle",
+    "id": "petjob_workflow",
+    "initialState": "none",
+    "name": "PetJob workflow",
+    "states": {
+        "COMPLETED": {
+            "transitions": []
         },
-        {
-          "criterion": {
-            "function": {
-              "name": "PetJobInvalidCriterion"
-            },
-            "type": "function"
-          },
-          "id": "fail_due_to_invalid",
-          "next": "failed"
-        }
-      ]
-    },
-    "processing": {
-      "transitions": [
-        {
-          "criterion": {
-            "function": {
-              "name": "PetJobSuccessCriterion"
-            },
-            "type": "function"
-          },
-          "id": "complete_job",
-          "next": "completed"
+        "FAILED": {
+            "transitions": []
         },
-        {
-          "criterion": {
-            "function": {
-              "name": "PetJobErrorCriterion"
-            },
-            "type": "function"
-          },
-          "id": "fail_job",
-          "next": "failed"
+        "PENDING": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "CanProcessPetJobCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "pending_to_processing_can_process",
+                    "next": "PROCESSING",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetJobStartProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "PROCESSING": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsPetJobSuccessfulCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "processing_to_completed_success",
+                    "next": "COMPLETED"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsPetJobFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "processing_to_failed_failure",
+                    "next": "FAILED"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "transition_to_pending",
+                    "next": "PENDING"
+                }
+            ]
         }
-      ]
     },
-    "completed": {
-      "transitions": []
-    },
-    "failed": {
-      "transitions": []
-    }
-  },
-  "version": "1.0"
+    "version": "1.0"
 }
