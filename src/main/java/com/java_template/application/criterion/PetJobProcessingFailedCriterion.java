@@ -32,21 +32,21 @@ public class PetJobProcessingFailedCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-                .evaluateEntity(PetJob.class, this::validateEntity)
-                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
-                .complete();
+            .evaluateEntity(PetJob.class, this::validateEntity)
+            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+            .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetJobProcessingFailedCriterion".equals(modelSpec.operationName()) &&
-                "petJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+               "petJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
     private EvaluationOutcome validateEntity(PetJob entity) {
-        if ("FAILED".equalsIgnoreCase(entity.getStatus())) {
-            return EvaluationOutcome.fail("PetJob is in failed status", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        if (!"FAILED".equalsIgnoreCase(entity.getStatus())) {
+            return EvaluationOutcome.fail("Job status must be FAILED", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
         return EvaluationOutcome.success();
     }
