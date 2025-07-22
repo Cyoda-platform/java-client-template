@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.Pet;
+import com.java_template.application.entity.PetJob;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,7 +32,7 @@ public class PetJobPayloadInvalidCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(Pet.class, this::validateEntity)
+            .evaluateEntity(PetJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,15 +40,27 @@ public class PetJobPayloadInvalidCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetJobPayloadInvalidCriterion".equals(modelSpec.operationName()) &&
-               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "petJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(Pet entity) {
-        // Fail if petId is missing or blank, indicating invalid payload
-        if (entity.getPetId() == null || entity.getPetId().isBlank()) {
-            return EvaluationOutcome.fail("Pet ID is missing or blank", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+    private EvaluationOutcome validateEntity(PetJob entity) {
+        if (entity.getPayload() == null || entity.getPayload().isEmpty()) {
+            return EvaluationOutcome.success(); // Not invalid if empty, handled elsewhere
         }
-        return EvaluationOutcome.success();
+        if (entity.getJobType() == null || entity.getJobType().isBlank()) {
+            return EvaluationOutcome.success(); // Invalidity depends on jobType validation
+        }
+        switch (entity.getJobType()) {
+            case "AddPet":
+            case "UpdatePetInfo":
+                if (!entity.getPayload().containsKey("name") || !entity.getPayload().containsKey("species") || !entity.getPayload().containsKey("age")) {
+                    return EvaluationOutcome.success(); // This criterion flags invalid explicitly elsewhere
+                }
+                break;
+            default:
+                return EvaluationOutcome.success();
+        }
+        return EvaluationOutcome.fail("Payload is invalid", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
     }
 }
