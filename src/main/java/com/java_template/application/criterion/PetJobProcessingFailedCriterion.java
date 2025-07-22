@@ -45,8 +45,8 @@ public class PetJobProcessingFailedCriterion implements CyodaCriterion {
     }
 
     private EvaluationOutcome validateEntity(PetJob entity) {
-        if (!"FAILED".equalsIgnoreCase(entity.getStatus())) {
-            return EvaluationOutcome.fail("Job status must be FAILED", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        if (entity.getStatus() == null || !entity.getStatus().equals("FAILED")) {
+            return EvaluationOutcome.fail("Status must be FAILED for failure", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
         return EvaluationOutcome.success();
     }
