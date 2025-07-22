@@ -46,9 +46,12 @@ public class PetJobHasValidJobTypeCriterion implements CyodaCriterion {
 
     private EvaluationOutcome validateEntity(PetJob entity) {
         if (entity.getJobType() == null || entity.getJobType().isBlank()) {
-            return EvaluationOutcome.fail("Job type is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("JobType is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        // Additional business logic can be added here if needed
+        // Business rule: jobType must be one of the allowed types
+        if (!entity.getJobType().equals("AddPet") && !entity.getJobType().equals("UpdatePetInfo")) {
+            return EvaluationOutcome.fail("JobType must be either 'AddPet' or 'UpdatePetInfo'", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        }
         return EvaluationOutcome.success();
     }
 }
