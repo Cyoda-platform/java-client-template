@@ -1,79 +1,80 @@
 {
-    "desc": "Workflow managing PetJob lifecycle from submission to completion or failure",
-    "id": "petjob_workflow",
-    "initialState": "none",
-    "name": "PetJob workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "id": "start_processing",
-                    "next": "pending",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetJobProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "pending": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "HasValidJobTypeAndPayloadCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "validate_job_type_and_payload",
-                    "next": "processing"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "InvalidJobTypeOrPayloadCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "invalid_job_type_or_payload",
-                    "next": "failed"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "IsAddPetJobTypeCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "process_add_pet",
-                    "next": "completed"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "UnsupportedJobTypeCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "unsupported_job_type",
-                    "next": "failed"
-                }
-            ]
+  "desc": "Workflow managing PetJob lifecycle from submission to completion or failure",
+  "id": "petjob_workflow",
+  "initialState": "none",
+  "name": "PetJob workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "id": "start_processing",
+          "next": "pending",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "calculation_nodes_tags": "52e21216-64e9-11b2-965a-2e0ad7d884c5"
+              },
+              "name": "PetJobProcessor"
+            }
+          ]
         }
+      ]
     },
-    "version": "1.0"
+    "pending": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "HasValidJobTypeAndPayloadCriterion"
+            },
+            "type": "function"
+          },
+          "id": "validate_job_type_and_payload",
+          "next": "processing"
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "InvalidJobTypeOrPayloadCriterion"
+            },
+            "type": "function"
+          },
+          "id": "invalid_job_type_or_payload",
+          "next": "failed"
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "IsAddPetJobTypeCriterion"
+            },
+            "type": "function"
+          },
+          "id": "process_add_pet",
+          "next": "completed"
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "UnsupportedJobTypeCriterion"
+            },
+            "type": "function"
+          },
+          "id": "unsupported_job_type",
+          "next": "failed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
