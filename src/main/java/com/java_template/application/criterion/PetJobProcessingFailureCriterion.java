@@ -45,9 +45,9 @@ public class PetJobProcessingFailureCriterion implements CyodaCriterion {
     }
 
     private EvaluationOutcome validateEntity(Pet entity) {
-        // Processing failure criterion example: fail if status is 'failed'
-        if (entity.getStatus() != null && entity.getStatus().equalsIgnoreCase("failed")) {
-            return EvaluationOutcome.fail("Pet processing failed", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        // Consider processing failure if status is FAILED
+        if (entity.getStatus() == null || !entity.getStatus().equalsIgnoreCase("FAILED")) {
+            return EvaluationOutcome.fail("Processing not failed", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
         return EvaluationOutcome.success();
     }
