@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.PetJob;
+import com.java_template.application.entity.Pet;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,7 +32,7 @@ public class PetJobStartCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(PetJob.class, this::validateEntity)
+            .evaluateEntity(Pet.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,25 +40,28 @@ public class PetJobStartCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetJobStartCriterion".equals(modelSpec.operationName()) &&
-               "petJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(PetJob entity) {
-        // Business logic: pet job can start if jobType and payload are valid
-        if (entity.getJobType() == null || entity.getJobType().isBlank()) {
-            return EvaluationOutcome.fail("jobType is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+    private EvaluationOutcome validateEntity(Pet entity) {
+        // Validate that petId, name, species, age, and status are present and valid
+        if (entity.getPetId() == null || entity.getPetId().isBlank()) {
+            return EvaluationOutcome.fail("Pet ID is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (entity.getPayload() == null || entity.getPayload().isEmpty()) {
-            return EvaluationOutcome.fail("payload cannot be empty", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (entity.getName() == null || entity.getName().isBlank()) {
+            return EvaluationOutcome.fail("Name is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (entity.getSpecies() == null || entity.getSpecies().isBlank()) {
+            return EvaluationOutcome.fail("Species is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (entity.getAge() == null || entity.getAge() < 0) {
+            return EvaluationOutcome.fail("Age must be a non-negative integer", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         if (entity.getStatus() == null || entity.getStatus().isBlank()) {
-            return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("Status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        // Additional rule: Only allow start if status is PENDING
-        if (!"PENDING".equalsIgnoreCase(entity.getStatus())) {
-            return EvaluationOutcome.fail("status must be PENDING to start", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-        }
+        // Additional business rules could be added here
         return EvaluationOutcome.success();
     }
 }
