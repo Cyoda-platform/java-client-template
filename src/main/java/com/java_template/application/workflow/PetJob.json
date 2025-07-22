@@ -1,74 +1,85 @@
 {
-  "desc": "Workflow for processing PetJob lifecycle and related PetEvent",
-  "id": "petjob_workflow",
-  "initialState": "none",
-  "name": "PetJob workflow",
-  "states": {
-    "none": {
-      "transitions": [
-        {
-          "id": "start_to_pending",
-          "next": "pending"
-        }
-      ]
-    },
-    "pending": {
-      "transitions": [
-        {
-          "criterion": {
-            "function": {
-              "name": "PetJobValidCriterion"
-            },
-            "type": "function"
-          },
-          "id": "pending_to_processing_valid",
-          "next": "processing"
+    "desc": "Workflow for processing PetJob entities",
+    "id": "petjob_workflow",
+    "initialState": "none",
+    "name": "PetJob workflow",
+    "states": {
+        "completed": {
+            "transitions": []
         },
-        {
-          "criterion": {
-            "function": {
-              "name": "PetJobInvalidCriterion"
-            },
-            "type": "function"
-          },
-          "id": "pending_to_failed_invalid",
-          "next": "failed"
-        }
-      ]
-    },
-    "processing": {
-      "transitions": [
-        {
-          "id": "processing_to_completed_success",
-          "next": "completed",
-          "processors": [
-            {
-              "config": {
-                "calculationNodesTags": "cyoda_application",
-                "calculation_nodes_tags": "52e21216-64e9-11b2-965a-2e0ad7d884c5"
-              },
-              "name": "PetJobProcessor"
-            }
-          ]
+        "failed": {
+            "transitions": []
         },
-        {
-          "criterion": {
-            "function": {
-              "name": "PetJobProcessingFailedCriterion"
-            },
-            "type": "function"
-          },
-          "id": "processing_to_failed_error",
-          "next": "failed"
+        "none": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetJobHasValidJobTypeCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "start_processing",
+                    "next": "pending"
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetJobPayloadNotEmptyCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "validate_and_start_processing",
+                    "next": "processing"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetJobPayloadEmptyCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "fail_due_to_invalid_payload",
+                    "next": "failed"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetJobProcessingSucceededCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "complete_successfully",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetJobProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetJobProcessingFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "fail_processing",
+                    "next": "failed"
+                }
+            ]
         }
-      ]
     },
-    "completed": {
-      "transitions": []
-    },
-    "failed": {
-      "transitions": []
-    }
-  },
-  "version": "1.0"
+    "version": "1.0"
 }
