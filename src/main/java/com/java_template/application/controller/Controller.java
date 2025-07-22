@@ -60,7 +60,7 @@ public class Controller {
                 .convertValue(jobNode, Job.class);
         createdJob.setTechnicalId(technicalId);
 
-        processJob(createdJob);
+        // processJob(createdJob);  // Removed processing method call
 
         return ResponseEntity.status(HttpStatus.CREATED).body(createdJob);
     }
@@ -154,7 +154,7 @@ public class Controller {
                 .convertValue(petNode, Pet.class);
         createdPet.setTechnicalId(technicalId);
 
-        processPet(createdPet);
+        // processPet(createdPet);  // Removed processing method call
 
         return ResponseEntity.status(HttpStatus.CREATED).body(createdPet);
     }
@@ -174,74 +174,4 @@ public class Controller {
         return ResponseEntity.ok(pet);
     }
 
-    // Process method for Job entity
-    private void processJob(Job job) throws ExecutionException, InterruptedException {
-        log.info("Processing Job with technicalId: {}", job.getTechnicalId());
-
-        String sourceUrl = job.getSourceUrl();
-        if (!sourceUrl.startsWith("http")) {
-            log.error("Job processing failed: invalid sourceUrl '{}'", sourceUrl);
-            job.setStatus(Job.JobStatusEnum.FAILED);
-            entityService.updateItem("Job", ENTITY_VERSION, job.getTechnicalId(), job).get();
-            return;
-        }
-
-        job.setStatus(Job.JobStatusEnum.PROCESSING);
-        entityService.updateItem("Job", ENTITY_VERSION, job.getTechnicalId(), job).get();
-
-        log.info("Fetching pet data from {}", sourceUrl);
-
-        // Simulate creating a new Pet entity from fetched data
-        Pet pet = new Pet();
-        pet.setName("ImportedPet");
-        pet.setCategory("cat");
-        pet.setPhotoUrls(Collections.emptyList());
-        pet.setTags(Collections.emptyList());
-        pet.setStatus(Pet.PetStatusEnum.AVAILABLE);
-        pet.setCreatedAt(LocalDateTime.now());
-
-        CompletableFuture<UUID> petIdFuture = entityService.addItem("Pet", ENTITY_VERSION, pet);
-        UUID petTechnicalId = petIdFuture.get();
-
-        CompletableFuture<ObjectNode> petNodeFuture = entityService.getItem("Pet", ENTITY_VERSION, petTechnicalId);
-        ObjectNode petNode = petNodeFuture.get();
-        Pet createdPet = com.fasterxml.jackson.databind.json.JsonMapper.builder().build()
-                .convertValue(petNode, Pet.class);
-        createdPet.setTechnicalId(petTechnicalId);
-        processPet(createdPet);
-
-        job.setStatus(Job.JobStatusEnum.COMPLETED);
-        entityService.updateItem("Job", ENTITY_VERSION, job.getTechnicalId(), job).get();
-
-        log.info("Completed processing Job with technicalId: {}", job.getTechnicalId());
-    }
-
-    // Process method for Pet entity
-    private void processPet(Pet pet) throws ExecutionException, InterruptedException {
-        log.info("Processing Pet with technicalId: {}", pet.getTechnicalId());
-
-        if (pet.getName().isBlank() || pet.getCategory().isBlank()) {
-            log.error("Pet processing failed: name or category is blank");
-            return;
-        }
-
-        boolean changed = false;
-        if (pet.getTags() == null || pet.getTags().isEmpty()) {
-            pet.setTags(Collections.singletonList("default"));
-            log.info("Added default tag to Pet technicalId: {}", pet.getTechnicalId());
-            changed = true;
-        }
-
-        if (pet.getPhotoUrls() == null || pet.getPhotoUrls().isEmpty()) {
-            pet.setPhotoUrls(Collections.singletonList("http://example.com/default-pet.jpg"));
-            log.info("Added default photo URL to Pet technicalId: {}", pet.getTechnicalId());
-            changed = true;
-        }
-
-        if (changed) {
-            entityService.updateItem("Pet", ENTITY_VERSION, pet.getTechnicalId(), pet).get();
-        }
-
-        log.info("Completed processing Pet with technicalId: {}", pet.getTechnicalId());
-    }
 }
