@@ -1,5 +1,5 @@
 {
-    "desc": "Workflow for processing PetJob entities",
+    "desc": "Workflow managing PetJob lifecycle from submission to completion or failure",
     "id": "petjob_workflow",
     "initialState": "none",
     "name": "PetJob workflow",
@@ -13,14 +13,16 @@
         "none": {
             "transitions": [
                 {
-                    "criterion": {
-                        "function": {
-                            "name": "PetJobHasValidJobTypeCriterion"
-                        },
-                        "type": "function"
-                    },
                     "id": "start_processing",
-                    "next": "pending"
+                    "next": "pending",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetJobProcessor"
+                        }
+                    ]
                 }
             ]
         },
@@ -29,21 +31,21 @@
                 {
                     "criterion": {
                         "function": {
-                            "name": "PetJobPayloadNotEmptyCriterion"
+                            "name": "HasValidJobTypeAndPayloadCriterion"
                         },
                         "type": "function"
                     },
-                    "id": "validate_and_start_processing",
+                    "id": "validate_job_type_and_payload",
                     "next": "processing"
                 },
                 {
                     "criterion": {
                         "function": {
-                            "name": "PetJobPayloadEmptyCriterion"
+                            "name": "InvalidJobTypeOrPayloadCriterion"
                         },
                         "type": "function"
                     },
-                    "id": "fail_due_to_invalid_payload",
+                    "id": "invalid_job_type_or_payload",
                     "next": "failed"
                 }
             ]
@@ -53,29 +55,21 @@
                 {
                     "criterion": {
                         "function": {
-                            "name": "PetJobProcessingSucceededCriterion"
+                            "name": "IsAddPetJobTypeCriterion"
                         },
                         "type": "function"
                     },
-                    "id": "complete_successfully",
-                    "next": "completed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetJobProcessor"
-                        }
-                    ]
+                    "id": "process_add_pet",
+                    "next": "completed"
                 },
                 {
                     "criterion": {
                         "function": {
-                            "name": "PetJobProcessingFailedCriterion"
+                            "name": "UnsupportedJobTypeCriterion"
                         },
                         "type": "function"
                     },
-                    "id": "fail_processing",
+                    "id": "unsupported_job_type",
                     "next": "failed"
                 }
             ]
