@@ -1,87 +1,88 @@
 {
-    "desc": "Workflow for processing Pet entity lifecycle from creation to persistence",
-    "id": "pet_workflow",
-    "initialState": "none",
-    "name": "Pet entity workflow",
-    "states": {
-        "created": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetValidityCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "validate_pet",
-                    "next": "validated"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetInvalidityCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "invalid_pet_terminate",
-                    "next": "terminated"
-                }
-            ]
-        },
-        "enriched": {
-            "transitions": [
-                {
-                    "id": "persist_pet",
-                    "next": "processed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "none": {
-            "transitions": [
-                {
-                    "id": "start_validation",
-                    "next": "created"
-                }
-            ]
-        },
-        "processed": {
-            "transitions": []
-        },
-        "terminated": {
-            "transitions": []
-        },
-        "validated": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetNeedsEnrichmentCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "need_enrichment",
-                    "next": "enriched"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetDoesNotNeedEnrichmentCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "skip_enrichment",
-                    "next": "processed"
-                }
-            ]
+  "desc": "Workflow for processing Pet entity lifecycle from creation to persistence",
+  "id": "pet_workflow",
+  "initialState": "none",
+  "name": "Pet entity workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "id": "start_validation",
+          "next": "created"
         }
+      ]
     },
-    "version": "1.0"
+    "created": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "PetValidityCriterion"
+            },
+            "type": "function"
+          },
+          "id": "validate_pet",
+          "next": "validated"
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "PetInvalidityCriterion"
+            },
+            "type": "function"
+          },
+          "id": "invalid_pet_terminate",
+          "next": "terminated"
+        }
+      ]
+    },
+    "validated": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "PetNeedsEnrichmentCriterion"
+            },
+            "type": "function"
+          },
+          "id": "need_enrichment",
+          "next": "enriched"
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "PetDoesNotNeedEnrichmentCriterion"
+            },
+            "type": "function"
+          },
+          "id": "skip_enrichment",
+          "next": "processed"
+        }
+      ]
+    },
+    "enriched": {
+      "transitions": [
+        {
+          "id": "persist_pet",
+          "next": "processed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "calculation_nodes_tags": "4c498d6e-65aa-11b2-965a-2e0ad7d884c5"
+              },
+              "name": "PetProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "processed": {
+      "transitions": []
+    },
+    "terminated": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
