@@ -1,74 +1,95 @@
 {
-  "desc": "Workflow for processing PetJob lifecycle and related PetEvent",
-  "id": "petjob_workflow",
-  "initialState": "none",
-  "name": "PetJob workflow",
-  "states": {
-    "none": {
-      "transitions": [
-        {
-          "id": "start_processing_petjob",
-          "next": "pending"
-        }
-      ]
-    },
-    "pending": {
-      "transitions": [
-        {
-          "criterion": {
-            "function": {
-              "name": "PetJobValidityCriterion"
-            },
-            "type": "function"
-          },
-          "id": "validate_petjob_valid",
-          "next": "processing"
+    "desc": "Workflow to process PetJob entity lifecycle from creation to completion",
+    "id": "petjob_workflow",
+    "initialState": "none",
+    "name": "PetJob processing workflow",
+    "states": {
+        "COMPLETED": {
+            "transitions": []
         },
-        {
-          "criterion": {
-            "function": {
-              "name": "PetJobInvalidityCriterion"
-            },
-            "type": "function"
-          },
-          "id": "validate_petjob_invalid",
-          "next": "failed"
-        }
-      ]
-    },
-    "processing": {
-      "transitions": [
-        {
-          "id": "process_petjob_success",
-          "next": "completed",
-          "processors": [
-            {
-              "config": {
-                "calculationNodesTags": "cyoda_application",
-                "calculation_nodes_tags": "52e21216-64e9-11b2-965a-2e0ad7d884c5"
-              },
-              "name": "PetProcessor"
-            }
-          ]
+        "EVENT_CREATED": {
+            "transitions": [
+                {
+                    "id": "complete_job_transition",
+                    "next": "COMPLETED"
+                }
+            ]
         },
-        {
-          "criterion": {
-            "function": {
-              "name": "PetJobProcessingFailureCriterion"
-            },
-            "type": "function"
-          },
-          "id": "process_petjob_fail",
-          "next": "failed"
+        "FAILED": {
+            "transitions": []
+        },
+        "PENDING": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetJobValidationCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "validate_job_transition",
+                    "next": "VALIDATED"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetJobInvalidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "fail_invalid_job_transition",
+                    "next": "FAILED"
+                }
+            ]
+        },
+        "PROCESSING": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetJobExecutionSuccessCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "job_success_transition",
+                    "next": "EVENT_CREATED"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetJobExecutionFailureCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "job_failure_transition",
+                    "next": "FAILED"
+                }
+            ]
+        },
+        "VALIDATED": {
+            "transitions": [
+                {
+                    "id": "execute_job_transition",
+                    "next": "PROCESSING",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "transition_to_pending",
+                    "next": "PENDING"
+                }
+            ]
         }
-      ]
     },
-    "completed": {
-      "transitions": []
-    },
-    "failed": {
-      "transitions": []
-    }
-  },
-  "version": "1.0"
+    "version": "1.0"
 }
