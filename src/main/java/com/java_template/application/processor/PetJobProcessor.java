@@ -1,8 +1,9 @@
 package com.java_template.application.processor;
 
-import com.java_template.application.entity.PetJob;
 import com.java_template.application.entity.Pet;
 import com.java_template.application.entity.PetEvent;
+import com.java_template.application.entity.PetJob;
+import com.java_template.common.serializer.ErrorInfo;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
@@ -14,19 +15,20 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-
+import com.java_template.common.service.EntityService;
 import java.util.Date;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 
 @Component
 public class PetJobProcessor implements CyodaProcessor {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final ProcessorSerializer serializer;
-    private final com.java_template.common.service.EntityService entityService;
+    private final EntityService entityService;
 
-    public PetJobProcessor(SerializerFactory serializerFactory, com.java_template.common.service.EntityService entityService) {
+    public PetJobProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
         this.entityService = entityService;
         logger.info("PetJobProcessor initialized with SerializerFactory and EntityService");
@@ -37,16 +39,11 @@ public class PetJobProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing PetJob for request: {}", request.getId());
 
+        // Fluent entity processing with validation
         return serializer.withRequest(request)
                 .toEntity(PetJob.class)
-                .validate(PetJob::isValid, "Invalid PetJob entity")
-                .map(entity -> {
-                    try {
-                        return processPetJob(entity);
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-                })
+                .validate(this::isValidEntity, "Invalid PetJob state")
+                .map(this::processEntityLogic)
                 .complete();
     }
 
@@ -57,40 +54,35 @@ public class PetJobProcessor implements CyodaProcessor {
                 Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private PetJob processPetJob(PetJob petJob) throws Exception {
-        logger.info("Processing PetJob with technicalId: {}", petJob.getTechnicalId());
+    private boolean isValidEntity(PetJob petJob) {
+        return petJob != null && petJob.isValid();
+    }
 
-        String jobType = petJob.getJobType();
-        if (jobType == null || jobType.isBlank()) {
-            logger.error("PetJob jobType is missing or blank");
-            petJob.setStatus("FAILED");
-            entityService.updateItem("PetJob", Config.ENTITY_VERSION, petJob.getTechnicalId(), petJob).get();
-            throw new IllegalArgumentException("jobType is required");
-        }
-
-        Map<String, Object> payload;
+    private PetJob processEntityLogic(PetJob petJob) {
         try {
-            payload = (Map<String, Object>)new com.fasterxml.jackson.databind.ObjectMapper().readValue(petJob.getPayload(), Map.class);
-        } catch (Exception e) {
-            logger.error("Failed to parse PetJob payload JSON", e);
-            petJob.setStatus("FAILED");
+            logger.info("Processing PetJob with technicalId: {}", petJob.getTechnicalId());
+
+            String jobType = petJob.getJobType();
+            if (jobType == null || jobType.isBlank()) {
+                logger.error("PetJob jobType is missing or blank");
+                petJob.setStatus("FAILED");
+                entityService.updateItem("PetJob", Config.ENTITY_VERSION, petJob.getTechnicalId(), petJob).get();
+                throw new IllegalArgumentException("jobType is required");
+            }
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> payload = (Map<String, Object>) (Object) petJob.getPayload();
+            if (payload == null || payload.isEmpty()) {
+                logger.error("PetJob payload is missing or empty");
+                petJob.setStatus("FAILED");
+                entityService.updateItem("PetJob", Config.ENTITY_VERSION, petJob.getTechnicalId(), petJob).get();
+                throw new IllegalArgumentException("payload is required");
+            }
+
+            petJob.setStatus("PROCESSING");
             entityService.updateItem("PetJob", Config.ENTITY_VERSION, petJob.getTechnicalId(), petJob).get();
-            throw new IllegalArgumentException("Invalid JSON payload");
-        }
 
-        if (payload == null || payload.isEmpty()) {
-            logger.error("PetJob payload is missing or empty");
-            petJob.setStatus("FAILED");
-            entityService.updateItem("PetJob", Config.ENTITY_VERSION, petJob.getTechnicalId(), petJob).get();
-            throw new IllegalArgumentException("payload is required");
-        }
-
-        petJob.setStatus("PROCESSING");
-        entityService.updateItem("PetJob", Config.ENTITY_VERSION, petJob.getTechnicalId(), petJob).get();
-
-        try {
             if ("AddPet".equalsIgnoreCase(jobType)) {
-                // Extract pet info from payload
                 String name = (String) payload.get("name");
                 String species = (String) payload.get("species");
                 Integer age = null;
@@ -108,9 +100,7 @@ public class PetJobProcessor implements CyodaProcessor {
                     throw new IllegalArgumentException("Invalid pet data in payload");
                 }
 
-                // Create new Pet entity
                 Pet pet = new Pet();
-                pet.setTechnicalId(UUID.randomUUID());
                 pet.setName(name);
                 pet.setSpecies(species);
                 pet.setAge(age);
@@ -118,21 +108,17 @@ public class PetJobProcessor implements CyodaProcessor {
 
                 UUID petTechnicalId = entityService.addItem("Pet", Config.ENTITY_VERSION, pet).get();
                 pet.setTechnicalId(petTechnicalId);
-
                 logger.info("Created Pet with technicalId: {} via PetJob", petTechnicalId);
 
-                // Create PetEvent for created pet
                 PetEvent petEvent = new PetEvent();
-                petEvent.setTechnicalId(UUID.randomUUID());
                 petEvent.setPetId(petTechnicalId.toString());
                 petEvent.setEventType("CREATED");
                 petEvent.setEventTimestamp(new Date());
                 petEvent.setStatus("RECORDED");
 
-                UUID petEventTechnicalId = entityService.addItem("PetEvent", Config.ENTITY_VERSION, petEvent).get();
-                petEvent.setTechnicalId(petEventTechnicalId);
-
-                logger.info("Created PetEvent with technicalId: {} for Pet technicalId: {}", petEventTechnicalId, petTechnicalId);
+                UUID eventTechnicalId = entityService.addItem("PetEvent", Config.ENTITY_VERSION, petEvent).get();
+                petEvent.setTechnicalId(eventTechnicalId);
+                logger.info("Created PetEvent with technicalId: {} for Pet technicalId: {}", eventTechnicalId, petTechnicalId);
 
                 processPetEvent(petEvent);
 
@@ -149,17 +135,20 @@ public class PetJobProcessor implements CyodaProcessor {
             entityService.updateItem("PetJob", Config.ENTITY_VERSION, petJob.getTechnicalId(), petJob).get();
             logger.info("PetJob with technicalId: {} completed successfully", petJob.getTechnicalId());
 
-        } catch (Exception e) {
+        } catch (ExecutionException | InterruptedException e) {
             petJob.setStatus("FAILED");
-            entityService.updateItem("PetJob", Config.ENTITY_VERSION, petJob.getTechnicalId(), petJob).get();
+            try {
+                entityService.updateItem("PetJob", Config.ENTITY_VERSION, petJob.getTechnicalId(), petJob).get();
+            } catch (Exception ex) {
+                logger.error("Failed to update PetJob status after exception", ex);
+            }
             logger.error("Exception during processing PetJob with technicalId: {}", petJob.getTechnicalId(), e);
-            throw e;
+            throw new RuntimeException(e);
         }
-
         return petJob;
     }
 
-    private void processPetEvent(PetEvent petEvent) throws Exception {
+    private void processPetEvent(PetEvent petEvent) throws ExecutionException, InterruptedException {
         logger.info("Processing PetEvent with technicalId: {}", petEvent.getTechnicalId());
 
         if (petEvent.getPetId() == null || petEvent.getPetId().isBlank()) {
@@ -181,11 +170,8 @@ public class PetJobProcessor implements CyodaProcessor {
             throw new IllegalArgumentException("eventTimestamp is required");
         }
 
-        // Example business logic: here could be workflow triggers, notifications, etc.
-        // For prototype, just mark as processed
         petEvent.setStatus("PROCESSED");
         entityService.updateItem("PetEvent", Config.ENTITY_VERSION, petEvent.getTechnicalId(), petEvent).get();
         logger.info("PetEvent with technicalId: {} processed successfully", petEvent.getTechnicalId());
     }
-
 }
