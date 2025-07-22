@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.PetJob;
+import com.java_template.application.entity.Pet;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,23 +32,36 @@ public class PetJobInvalidCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-                .evaluateEntity(PetJob.class, this::validateEntity)
-                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
-                .complete();
+            .evaluateEntity(Pet.class, this::validateEntity)
+            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+            .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetJobInvalidCriterion".equals(modelSpec.operationName()) &&
-                "petJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(PetJob entity) {
-        // The invalid criterion fails if the entity is valid (i.e., it is NOT invalid)
-        if (entity.isValid()) {
-            return EvaluationOutcome.fail("PetJob is valid, cannot be invalid", StandardEvalReasonCategories.VALIDATION_FAILURE);
+    private EvaluationOutcome validateEntity(Pet entity) {
+        // This criterion identifies invalid PetJobs that fail basic validation
+        if (entity.getPetId() == null || entity.getPetId().isBlank()) {
+            return EvaluationOutcome.success(); // This criterion flags invalid, so success means invalid detected
         }
-        return EvaluationOutcome.success();
+        if (entity.getName() == null || entity.getName().isBlank()) {
+            return EvaluationOutcome.success();
+        }
+        if (entity.getSpecies() == null || entity.getSpecies().isBlank()) {
+            return EvaluationOutcome.success();
+        }
+        if (entity.getAge() == null || entity.getAge() < 0) {
+            return EvaluationOutcome.success();
+        }
+        if (entity.getStatus() == null || entity.getStatus().isBlank()) {
+            return EvaluationOutcome.success();
+        }
+        // If none of the above failed, this criterion fails as PetJob is valid
+        return EvaluationOutcome.fail("PetJob is valid", StandardEvalReasonCategories.VALIDATION_FAILURE);
     }
 }
