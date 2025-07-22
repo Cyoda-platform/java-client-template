@@ -1,0 +1,63 @@
+{
+    "desc": "Workflow for orchestrating Job entity processing and pet creation",
+    "id": "job_workflow",
+    "initialState": "none",
+    "name": "Job entity workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "start_pending",
+                    "next": "pending"
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "id": "start_processing",
+                    "next": "processing",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "JobProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "JobSuccessCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "complete_success",
+                    "next": "completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "JobFailureCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "complete_failure",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
