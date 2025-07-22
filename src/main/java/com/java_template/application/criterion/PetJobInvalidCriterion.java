@@ -32,28 +32,22 @@ public class PetJobInvalidCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(PetJob.class, this::validateEntity)
-            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
-            .complete();
+                .evaluateEntity(PetJob.class, this::validateEntity)
+                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+                .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetJobInvalidCriterion".equals(modelSpec.operationName()) &&
-               "petJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+                "petJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
     private EvaluationOutcome validateEntity(PetJob entity) {
-        // Business logic: invalid if status is null or not one of the expected statuses
-        if (entity.getStatus() == null || entity.getStatus().isBlank()) {
-            return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        }
-        if (!entity.getStatus().equalsIgnoreCase("PENDING") &&
-            !entity.getStatus().equalsIgnoreCase("PROCESSING") &&
-            !entity.getStatus().equalsIgnoreCase("COMPLETED") &&
-            !entity.getStatus().equalsIgnoreCase("FAILED")) {
-            return EvaluationOutcome.fail("invalid status value", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+        // The invalid criterion fails if the entity is valid (i.e., it is NOT invalid)
+        if (entity.isValid()) {
+            return EvaluationOutcome.fail("PetJob is valid, cannot be invalid", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         return EvaluationOutcome.success();
     }
