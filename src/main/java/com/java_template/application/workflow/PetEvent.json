@@ -1,70 +1,146 @@
 {
-  "desc": "Workflow for processing PetJob entity lifecycle",
-  "id": "petjob_workflow",
-  "initialState": "none",
-  "name": "PetJob workflow",
-  "states": {
-    "none": {
-      "transitions": [
-        {
-          "id": "transition_to_pending",
-          "next": "PENDING"
-        }
-      ]
-    },
-    "PENDING": {
-      "transitions": [
-        {
-          "criterion": {
-            "function": {
-              "name": "CanProcessPetJobCriterion"
-            },
-            "type": "function"
-          },
-          "id": "pending_to_processing_can_process",
-          "next": "PROCESSING",
-          "processors": [
-            {
-              "config": {
-                "calculationNodesTags": "cyoda_application",
-                "calculation_nodes_tags": "52e21216-64e9-11b2-965a-2e0ad7d884c5"
-              },
-              "name": "PetJobStartProcessor"
-            }
-          ]
-        }
-      ]
-    },
-    "PROCESSING": {
-      "transitions": [
-        {
-          "criterion": {
-            "function": {
-              "name": "IsPetJobSuccessfulCriterion"
-            },
-            "type": "function"
-          },
-          "id": "processing_to_completed_success",
-          "next": "COMPLETED"
+    "desc": "Workflow for processing PetJob orchestration entity and PetEvent business entity",
+    "id": "petjob_workflow",
+    "initialState": "none",
+    "name": "PetJob and PetEvent workflow",
+    "states": {
+        "none": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsPetJobValid"
+                        },
+                        "type": "function"
+                    },
+                    "id": "start_petjob_processing",
+                    "next": "petjob_pending"
+                }
+            ]
         },
-        {
-          "criterion": {
-            "function": {
-              "name": "IsPetJobFailedCriterion"
-            },
-            "type": "function"
-          },
-          "id": "processing_to_failed_failure",
-          "next": "FAILED"
+        "petevent_failed": {
+            "transitions": []
+        },
+        "petevent_processed": {
+            "transitions": []
+        },
+        "petevent_processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsPetEventSuccessful"
+                        },
+                        "type": "function"
+                    },
+                    "id": "complete_petevent_success",
+                    "next": "petevent_processed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "add_application_resource"
+                            },
+                            "name": "PetEventProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsPetEventFailed"
+                        },
+                        "type": "function"
+                    },
+                    "id": "fail_petevent_processing",
+                    "next": "petevent_failed"
+                }
+            ]
+        },
+        "petevent_recorded": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsPetEventValid"
+                        },
+                        "type": "function"
+                    },
+                    "id": "start_processing_petevent",
+                    "next": "petevent_processing"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsPetEventInvalid"
+                        },
+                        "type": "function"
+                    },
+                    "id": "fail_invalid_petevent",
+                    "next": "petevent_failed"
+                }
+            ]
+        },
+        "petjob_completed": {
+            "transitions": [
+                {
+                    "id": "create_pet_event",
+                    "next": "petevent_recorded"
+                }
+            ]
+        },
+        "petjob_failed": {
+            "transitions": []
+        },
+        "petjob_pending": {
+            "transitions": [
+                {
+                    "id": "start_processing_petjob",
+                    "next": "petjob_processing",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "add_application_resource"
+                            },
+                            "name": "PetJobProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsPetJobInvalid"
+                        },
+                        "type": "function"
+                    },
+                    "id": "fail_invalid_petjob",
+                    "next": "petjob_failed"
+                }
+            ]
+        },
+        "petjob_processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsPetJobSuccessful"
+                        },
+                        "type": "function"
+                    },
+                    "id": "complete_petjob_success",
+                    "next": "petjob_completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsPetJobFailed"
+                        },
+                        "type": "function"
+                    },
+                    "id": "fail_petjob_execution",
+                    "next": "petjob_failed"
+                }
+            ]
         }
-      ]
     },
-    "COMPLETED": {
-      "transitions": []
-    },
-    "FAILED": {
-      "transitions": []
-    }
-  },
-  "version": "1.0"
+    "version": "1.0"
 }
