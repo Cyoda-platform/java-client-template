@@ -29,6 +29,7 @@ public class PetProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing Pet for request: {}", request.getId());
 
+        // Fluent entity processing with validation
         return serializer.withRequest(request)
                 .toEntity(Pet.class)
                 .validate(this::isValidEntity, "Invalid entity state")
@@ -39,23 +40,20 @@ public class PetProcessor implements CyodaProcessor {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetProcessor".equals(modelSpec.operationName()) &&
-                "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
     private boolean isValidEntity(Pet pet) {
-        return pet.getPetId() != null && !pet.getPetId().isBlank()
-                && pet.getName() != null && !pet.getName().isBlank()
-                && pet.getSpecies() != null && !pet.getSpecies().isBlank()
-                && pet.getAge() != null && pet.getAge() >= 0
-                && pet.getStatus() != null && !pet.getStatus().isBlank();
+        return pet.isValid();
     }
 
+    // Business logic from processPet method in prototype
     private Pet processEntityLogic(Pet pet) {
         logger.info("Processing Pet with technicalId: {}", pet.getTechnicalId());
         if (pet.getName() == null || pet.getName().isBlank() ||
-                pet.getSpecies() == null || pet.getSpecies().isBlank() ||
-                pet.getAge() == null || pet.getAge() < 0) {
+            pet.getSpecies() == null || pet.getSpecies().isBlank() ||
+            pet.getAge() == null || pet.getAge() < 0) {
             logger.error("Invalid Pet data");
             throw new IllegalArgumentException("Invalid Pet data");
         }
