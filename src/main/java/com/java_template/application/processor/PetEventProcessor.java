@@ -1,6 +1,7 @@
 package com.java_template.application.processor;
 
 import com.java_template.application.entity.PetEvent;
+import com.java_template.common.serializer.ErrorInfo;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
@@ -29,32 +30,34 @@ public class PetEventProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing PetEvent for request: {}", request.getId());
 
-        // Fluent entity processing with validation
         return serializer.withRequest(request)
-                .toEntity(PetEvent.class)
-                .validate(PetEvent::isValid, "Invalid PetEvent entity state")
-                .map(this::processPetEventLogic)
-                .complete();
+            .toEntity(PetEvent.class)
+            .validate(this::isValidEntity, "Invalid entity state")
+            .map(this::processEntityLogic)
+            .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetEventProcessor".equals(modelSpec.operationName()) &&
-                "petevent".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+               "petEvent".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private PetEvent processPetEventLogic(PetEvent petEvent) {
-        // Business logic derived from functional requirements for processPetEvent
-        // 1. Initial State: PetEvent created with RECORDED status
-        if ("RECORDED".equalsIgnoreCase(petEvent.getStatus())) {
-            petEvent.setStatus("PROCESSING");
-        }
+    private boolean isValidEntity(PetEvent entity) {
+        return entity != null && entity.isValid();
+    }
+
+    private PetEvent processEntityLogic(PetEvent entity) {
+        // Business logic from functional requirements:
+        // 1. Initial State: RECORDED assumed as status set before
         // 2. Processing: Apply business rules or trigger further workflows if needed
-        // 3. Completion: Update PetEvent status to PROCESSED
-        else if ("PROCESSING".equalsIgnoreCase(petEvent.getStatus())) {
-            petEvent.setStatus("PROCESSED");
+        // 3. Completion: Update status to PROCESSED
+
+        if ("RECORDED".equalsIgnoreCase(entity.getStatus())) {
+            // Perform processing logic here
+            entity.setStatus("PROCESSED");
         }
-        return petEvent;
+        return entity;
     }
 }
