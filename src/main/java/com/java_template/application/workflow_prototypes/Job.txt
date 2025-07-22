@@ -1,0 +1,41 @@
+    // Process method for Job entity
+    private void processJob(Job job) throws ExecutionException, InterruptedException {
+        log.info("Processing Job with technicalId: {}", job.getTechnicalId());
+
+        String sourceUrl = job.getSourceUrl();
+        if (!sourceUrl.startsWith("http")) {
+            log.error("Job processing failed: invalid sourceUrl '{}'", sourceUrl);
+            job.setStatus(Job.JobStatusEnum.FAILED);
+            entityService.updateItem("Job", ENTITY_VERSION, job.getTechnicalId(), job).get();
+            return;
+        }
+
+        job.setStatus(Job.JobStatusEnum.PROCESSING);
+        entityService.updateItem("Job", ENTITY_VERSION, job.getTechnicalId(), job).get();
+
+        log.info("Fetching pet data from {}", sourceUrl);
+
+        // Simulate creating a new Pet entity from fetched data
+        Pet pet = new Pet();
+        pet.setName("ImportedPet");
+        pet.setCategory("cat");
+        pet.setPhotoUrls(Collections.emptyList());
+        pet.setTags(Collections.emptyList());
+        pet.setStatus(Pet.PetStatusEnum.AVAILABLE);
+        pet.setCreatedAt(LocalDateTime.now());
+
+        CompletableFuture<UUID> petIdFuture = entityService.addItem("Pet", ENTITY_VERSION, pet);
+        UUID petTechnicalId = petIdFuture.get();
+
+        CompletableFuture<ObjectNode> petNodeFuture = entityService.getItem("Pet", ENTITY_VERSION, petTechnicalId);
+        ObjectNode petNode = petNodeFuture.get();
+        Pet createdPet = com.fasterxml.jackson.databind.json.JsonMapper.builder().build()
+                .convertValue(petNode, Pet.class);
+        createdPet.setTechnicalId(petTechnicalId);
+        processPet(createdPet);
+
+        job.setStatus(Job.JobStatusEnum.COMPLETED);
+        entityService.updateItem("Job", ENTITY_VERSION, job.getTechnicalId(), job).get();
+
+        log.info("Completed processing Job with technicalId: {}", job.getTechnicalId());
+    }
