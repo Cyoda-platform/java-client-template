@@ -30,10 +30,10 @@ public class PetProcessor implements CyodaProcessor {
         logger.info("Processing Pet for request: {}", request.getId());
 
         return serializer.withRequest(request)
-            .toEntity(Pet.class)
-            .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic)
-            .complete();
+                .toEntity(Pet.class)
+                .validate(this::isValidEntity, "Invalid entity state")
+                .map(this::processEntityLogic)
+                .complete();
     }
 
     @Override
