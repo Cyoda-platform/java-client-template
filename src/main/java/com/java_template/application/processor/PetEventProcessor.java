@@ -32,7 +32,7 @@ public class PetEventProcessor implements CyodaProcessor {
         // Fluent entity processing with validation
         return serializer.withRequest(request)
                 .toEntity(PetEvent.class)
-                .validate(PetEvent::isValid, "Invalid entity state")
+                .validate(PetEvent::isValid, "Invalid PetEvent entity state")
                 .map(this::processPetEventLogic)
                 .complete();
     }
@@ -40,21 +40,21 @@ public class PetEventProcessor implements CyodaProcessor {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetEventProcessor".equals(modelSpec.operationName()) &&
-                "petEvent".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+                "petevent".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                 Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private PetEvent processPetEventLogic(PetEvent entity) {
-        // Business logic based on functional requirements for processPetEvent:
+    private PetEvent processPetEventLogic(PetEvent petEvent) {
+        // Business logic derived from functional requirements for processPetEvent
         // 1. Initial State: PetEvent created with RECORDED status
+        if ("RECORDED".equalsIgnoreCase(petEvent.getStatus())) {
+            petEvent.setStatus("PROCESSING");
+        }
         // 2. Processing: Apply business rules or trigger further workflows if needed
         // 3. Completion: Update PetEvent status to PROCESSED
-
-        if ("RECORDED".equals(entity.getStatus())) {
-            // Mark the event as processed
-            entity.setStatus("PROCESSED");
+        else if ("PROCESSING".equalsIgnoreCase(petEvent.getStatus())) {
+            petEvent.setStatus("PROCESSED");
         }
-
-        return entity;
+        return petEvent;
     }
 }
