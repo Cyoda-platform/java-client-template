@@ -1,24 +1,22 @@
 package com.java_template.application.controller;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.PetIngestionJob;
 import com.java_template.application.entity.Pet;
 import com.java_template.application.entity.AdoptionRequest;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/api")
@@ -27,6 +25,7 @@ import static com.java_template.common.config.Config.*;
 public class Controller {
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     private static final String PET_INGESTION_JOB_MODEL = "PetIngestionJob";
     private static final String PET_MODEL = "Pet";
@@ -52,14 +51,22 @@ public class Controller {
     }
 
     @GetMapping("/jobs/pet-ingestion/{technicalId}")
-    public CompletableFuture<ResponseEntity<?>> getPetIngestionJob(@PathVariable UUID technicalId) {
-        return entityService.getItem(PET_INGESTION_JOB_MODEL, ENTITY_VERSION, technicalId)
+    public CompletableFuture<ResponseEntity<?>> getPetIngestionJob(@PathVariable String technicalId) throws JsonProcessingException {
+        UUID uuid = UUID.fromString(technicalId);
+        return entityService.getItem(PET_INGESTION_JOB_MODEL, ENTITY_VERSION, uuid)
                 .thenApply(objectNode -> {
                     if (objectNode == null || objectNode.isEmpty()) {
                         log.error("PetIngestionJob not found with technicalId: {}", technicalId);
                         return ResponseEntity.status(404).body("PetIngestionJob not found");
                     }
-                    return ResponseEntity.ok(objectNode);
+                    PetIngestionJob job;
+                    try {
+                        job = objectMapper.treeToValue(objectNode, PetIngestionJob.class);
+                    } catch (JsonProcessingException e) {
+                        log.error("Error converting PetIngestionJob ObjectNode to entity", e);
+                        throw new RuntimeException(e);
+                    }
+                    return ResponseEntity.ok(job);
                 });
     }
 
@@ -82,14 +89,22 @@ public class Controller {
     }
 
     @GetMapping("/pets/{technicalId}")
-    public CompletableFuture<ResponseEntity<?>> getPet(@PathVariable UUID technicalId) {
-        return entityService.getItem(PET_MODEL, ENTITY_VERSION, technicalId)
+    public CompletableFuture<ResponseEntity<?>> getPet(@PathVariable String technicalId) throws JsonProcessingException {
+        UUID uuid = UUID.fromString(technicalId);
+        return entityService.getItem(PET_MODEL, ENTITY_VERSION, uuid)
                 .thenApply(objectNode -> {
                     if (objectNode == null || objectNode.isEmpty()) {
                         log.error("Pet not found with technicalId: {}", technicalId);
                         return ResponseEntity.status(404).body("Pet not found");
                     }
-                    return ResponseEntity.ok(objectNode);
+                    Pet pet;
+                    try {
+                        pet = objectMapper.treeToValue(objectNode, Pet.class);
+                    } catch (JsonProcessingException e) {
+                        log.error("Error converting Pet ObjectNode to entity", e);
+                        throw new RuntimeException(e);
+                    }
+                    return ResponseEntity.ok(pet);
                 });
     }
 
@@ -136,14 +151,22 @@ public class Controller {
     }
 
     @GetMapping("/adoption-requests/{technicalId}")
-    public CompletableFuture<ResponseEntity<?>> getAdoptionRequest(@PathVariable UUID technicalId) {
-        return entityService.getItem(ADOPTION_REQUEST_MODEL, ENTITY_VERSION, technicalId)
+    public CompletableFuture<ResponseEntity<?>> getAdoptionRequest(@PathVariable String technicalId) throws JsonProcessingException {
+        UUID uuid = UUID.fromString(technicalId);
+        return entityService.getItem(ADOPTION_REQUEST_MODEL, ENTITY_VERSION, uuid)
                 .thenApply(objectNode -> {
                     if (objectNode == null || objectNode.isEmpty()) {
                         log.error("AdoptionRequest not found with technicalId: {}", technicalId);
                         return ResponseEntity.status(404).body("AdoptionRequest not found");
                     }
-                    return ResponseEntity.ok(objectNode);
+                    AdoptionRequest request;
+                    try {
+                        request = objectMapper.treeToValue(objectNode, AdoptionRequest.class);
+                    } catch (JsonProcessingException e) {
+                        log.error("Error converting AdoptionRequest ObjectNode to entity", e);
+                        throw new RuntimeException(e);
+                    }
+                    return ResponseEntity.ok(request);
                 });
     }
 }
