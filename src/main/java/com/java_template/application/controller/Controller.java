@@ -50,8 +50,6 @@ public class Controller {
             petJob.setId(generatedId);
             petJob.setJobId(generatedId);
 
-            processPetJob(petJob);
-
             return ResponseEntity.status(HttpStatus.CREATED).body(petJob);
         } catch (Exception e) {
             log.error("Failed to create PetJob: {}", e.getMessage());
@@ -93,8 +91,6 @@ public class Controller {
             String generatedId = technicalId.toString();
             pet.setId(generatedId);
             pet.setPetId(generatedId);
-
-            processPet(pet);
 
             return ResponseEntity.status(HttpStatus.CREATED).body(pet);
         } catch (Exception e) {
@@ -140,8 +136,6 @@ public class Controller {
         petEvent.setEventId(generatedId);
         petEventCache.put(generatedId, petEvent);
 
-        processPetEvent(petEvent);
-
         return ResponseEntity.status(HttpStatus.CREATED).body(petEvent);
     }
 
@@ -153,83 +147,5 @@ public class Controller {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("PetEvent not found");
         }
         return ResponseEntity.ok(petEvent);
-    }
-
-    // --- Process Methods ---
-
-    private void processPetJob(PetJob petJob) {
-        log.info("Processing PetJob with ID: {}", petJob.getId());
-
-        try {
-            petJob.setStatus("PROCESSING");
-
-            if (petJob.getSourceUrl() == null || petJob.getSourceUrl().isBlank()) {
-                throw new IllegalArgumentException("Source URL is blank");
-            }
-
-            // Simulate creating Pet entities from fetched data
-            Pet samplePet = new Pet();
-            samplePet.setName("SampleCat");
-            samplePet.setCategory("cat");
-            samplePet.setStatus("AVAILABLE");
-
-            CompletableFuture<UUID> petIdFuture = entityService.addItem(PET_ENTITY, ENTITY_VERSION, samplePet);
-            UUID petTechnicalId = petIdFuture.join();
-            String petId = petTechnicalId.toString();
-            samplePet.setId(petId);
-            samplePet.setPetId(petId);
-
-            processPet(samplePet);
-
-            petJob.setStatus("COMPLETED");
-            log.info("PetJob {} completed successfully", petJob.getId());
-        } catch (Exception e) {
-            petJob.setStatus("FAILED");
-            log.error("PetJob {} failed: {}", petJob.getId(), e.getMessage());
-        }
-
-        try {
-            UUID petJobTechId = UUID.fromString(petJob.getId());
-            entityService.updateItem(PET_JOB_ENTITY, ENTITY_VERSION, petJobTechId, petJob).join();
-        } catch (Exception e) {
-            log.error("Failed to update PetJob status for id {}: {}", petJob.getId(), e.getMessage());
-        }
-    }
-
-    private void processPet(Pet pet) {
-        log.info("Processing Pet with ID: {}", pet.getId());
-
-        if (!pet.isValid()) {
-            log.error("Pet validation failed for ID: {}", pet.getId());
-            return;
-        }
-
-        if ("cat".equalsIgnoreCase(pet.getCategory())) {
-            pet.setName(pet.getName() + " the Purrfect");
-        }
-
-        log.info("Pet {} is currently {}", pet.getId(), pet.getStatus());
-
-        PetEvent petEvent = new PetEvent();
-        petEvent.setId("PE" + petEventIdCounter.getAndIncrement());
-        petEvent.setEventId(petEvent.getId());
-        petEvent.setPetId(pet.getId());
-        petEvent.setEventType("CREATED");
-        petEvent.setTimestamp(LocalDateTime.now());
-        petEvent.setStatus("RECORDED");
-        petEventCache.put(petEvent.getId(), petEvent);
-
-        processPetEvent(petEvent);
-    }
-
-    private void processPetEvent(PetEvent petEvent) {
-        log.info("Processing PetEvent with ID: {}", petEvent.getId());
-
-        if (!petEvent.isValid()) {
-            log.error("PetEvent validation failed for ID: {}", petEvent.getId());
-            return;
-        }
-
-        log.info("Event {} for Pet {} of type {} recorded at {}", petEvent.getId(), petEvent.getPetId(), petEvent.getEventType(), petEvent.getTimestamp());
     }
 }
