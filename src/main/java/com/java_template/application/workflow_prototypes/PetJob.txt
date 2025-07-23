@@ -1,0 +1,41 @@
+private void petJobProcessing(UUID technicalId, String petType) {
+    // This method simulates processing asynchronously, but here we do synchronously for prototype.
+
+    try {
+        CompletableFuture<ObjectNode> itemFuture = entityService.getItem("PetJob", ENTITY_VERSION, technicalId);
+        ObjectNode petJobNode = itemFuture.get();
+        if (petJobNode == null) {
+            logger.error("PetJob not found during processing: {}", technicalId);
+            return;
+        }
+
+        // Validate petType
+        if (petType == null || petType.isBlank()) {
+            logger.error("Invalid petType in PetJob: {}", petType);
+            petJobNode.put("status", "FAILED");
+            entityService.updateItem("PetJob", ENTITY_VERSION, technicalId, petJobNode).get();
+            return;
+        }
+
+        petJobNode.put("status", "PROCESSING");
+        entityService.updateItem("PetJob", ENTITY_VERSION, technicalId, petJobNode).get();
+
+        // Simulate fetching pets from Petstore API filtered by petType (create dummy pet)
+        Pet dummyPet = new Pet();
+        dummyPet.setPetId(null); // id will be assigned by entityService
+        dummyPet.setName("DummyPet_" + UUID.randomUUID());
+        dummyPet.setType(petType);
+        dummyPet.setStatus("ACTIVE");
+
+        CompletableFuture<UUID> petIdFuture = entityService.addItem("Pet", ENTITY_VERSION, dummyPet);
+        UUID petTechnicalId = petIdFuture.get();
+        logger.info("PetJob processed: Created dummy Pet with technicalId {}", petTechnicalId);
+
+        petJobNode.put("status", "COMPLETED");
+        entityService.updateItem("PetJob", ENTITY_VERSION, technicalId, petJobNode).get();
+
+    } catch (Exception e) {
+        logger.error("Error processing PetJob with technicalId {}: {}", technicalId, e.getMessage());
+        // no try-catch propagation per instructions, but this is internal method
+    }
+}
