@@ -33,7 +33,13 @@ public class EntityControllerPrototype {
             HNItem hnItem = new HNItem();
             hnItem.setId(generatedId);
             hnItem.setType(hnItemPayload.get("type").toString());
-            hnItem.setContent(hnItemPayload);
+            // Serialize content map to JSON string
+            try {
+                hnItem.setContent(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(hnItemPayload));
+            } catch (Exception e) {
+                log.error("Failed to serialize content", e);
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid content format");
+            }
             hnItem.setStatus("INVALID"); // initial status
             hnItem.setTechnicalId(UUID.randomUUID());
 
@@ -75,16 +81,20 @@ public class EntityControllerPrototype {
         log.info("Processing HNItem with ID: {}", entity.getId());
 
         // Validation logic: check presence of "id" and "type" in content JSON
-        Object contentId = entity.getContent().get("id");
-        Object contentType = entity.getContent().get("type");
-        if (contentId == null || contentType == null || contentId.toString().isBlank() || contentType.toString().isBlank()) {
-            // Remain in INVALID state
+        try {
+            Map contentMap = new com.fasterxml.jackson.databind.ObjectMapper().readValue(entity.getContent(), Map.class);
+            Object contentId = contentMap.get("id");
+            Object contentType = contentMap.get("type");
+            if (contentId == null || contentType == null || contentId.toString().isBlank() || contentType.toString().isBlank()) {
+                entity.setStatus("INVALID");
+                log.info("HNItem ID {} validation failed - missing 'id' or 'type'", entity.getId());
+            } else {
+                entity.setStatus("VALIDATED");
+                log.info("HNItem ID {} validation succeeded - status set to VALIDATED", entity.getId());
+            }
+        } catch (Exception e) {
             entity.setStatus("INVALID");
-            log.info("HNItem ID {} validation failed - missing 'id' or 'type'", entity.getId());
-        } else {
-            // Update status to VALIDATED
-            entity.setStatus("VALIDATED");
-            log.info("HNItem ID {} validation succeeded - status set to VALIDATED", entity.getId());
+            log.error("Failed to parse content JSON for HNItem ID {}", entity.getId(), e);
         }
 
         // Update cache with new status
