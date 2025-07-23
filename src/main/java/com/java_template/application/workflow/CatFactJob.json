@@ -1,0 +1,82 @@
+{
+    "desc": "Workflow for processing CatFactJob entities",
+    "id": "catfactjob_workflow",
+    "initialState": "none",
+    "name": "CatFactJob workflow",
+    "states": {
+        "COMPLETED": {
+            "transitions": [
+                {
+                    "id": "end_completed",
+                    "next": "final"
+                }
+            ]
+        },
+        "FAILED": {
+            "transitions": [
+                {
+                    "id": "end_failed",
+                    "next": "final"
+                }
+            ]
+        },
+        "PENDING": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsPendingCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "start_processing_transition",
+                    "next": "PROCESSING",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "CatFactJobProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "PROCESSING": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsSuccessCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "processing_to_completed",
+                    "next": "COMPLETED"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "processing_to_failed",
+                    "next": "FAILED"
+                }
+            ]
+        },
+        "final": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "start_from_none",
+                    "next": "PENDING"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
