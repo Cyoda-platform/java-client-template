@@ -1,0 +1,45 @@
+    private void processPetIngestionJob(PetIngestionJob job) {
+        log.info("Processing PetIngestionJob with technicalId: {}", job.getTechnicalId());
+
+        if (job.getSource() == null || job.getSource().isBlank()) {
+            log.error("PetIngestionJob {} has invalid source", job.getTechnicalId());
+            job.setStatus("FAILED");
+            entityService.updateItem(PET_INGESTION_JOB_MODEL, ENTITY_VERSION, job.getTechnicalId(), job);
+            return;
+        }
+
+        job.setStatus("PROCESSING");
+        entityService.updateItem(PET_INGESTION_JOB_MODEL, ENTITY_VERSION, job.getTechnicalId(), job)
+                .thenAccept(updatedId -> {
+                    try {
+                        // Simulate fetching pets from external Petstore API
+                        Pet newPet = new Pet();
+                        newPet.setName("Sample Pet");
+                        newPet.setCategory("cat");
+                        newPet.setBreed("Siamese");
+                        newPet.setAge(1);
+                        newPet.setStatus("NEW");
+
+                        entityService.addItem(PET_MODEL, ENTITY_VERSION, newPet)
+                                .thenAccept(petTechId -> {
+                                    newPet.setTechnicalId(petTechId);
+                                    processPet(newPet);
+                                    job.setStatus("COMPLETED");
+                                    entityService.updateItem(PET_INGESTION_JOB_MODEL, ENTITY_VERSION, job.getTechnicalId(), job);
+                                    log.info("PetIngestionJob {} completed successfully", job.getTechnicalId());
+                                }).exceptionally(e -> {
+                                    job.setStatus("FAILED");
+                                    entityService.updateItem(PET_INGESTION_JOB_MODEL, ENTITY_VERSION, job.getTechnicalId(), job);
+                                    log.error("PetIngestionJob {} failed adding pet: {}", job.getTechnicalId(), e.getMessage());
+                                    return null;
+                                });
+                    } catch (Exception e) {
+                        job.setStatus("FAILED");
+                        entityService.updateItem(PET_INGESTION_JOB_MODEL, ENTITY_VERSION, job.getTechnicalId(), job);
+                        log.error("PetIngestionJob {} failed processing: {}", job.getTechnicalId(), e.getMessage());
+                    }
+                }).exceptionally(e -> {
+                    log.error("PetIngestionJob {} update failed: {}", job.getTechnicalId(), e.getMessage());
+                    return null;
+                });
+    }
