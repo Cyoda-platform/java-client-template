@@ -1,102 +1,104 @@
 {
-    "desc": "Workflow to process PetJob entities orchestrating Pet creation and update operations",
-    "id": "petjob_workflow",
-    "initialState": "none",
-    "name": "PetJob Processing Workflow",
-    "states": {
-        "complete_job": {
-            "transitions": [
-                {
-                    "id": "end_success",
-                    "next": "end"
-                }
-            ]
-        },
-        "end": {
-            "transitions": []
-        },
-        "fail_job": {
-            "transitions": [
-                {
-                    "id": "end_fail",
-                    "next": "end"
-                }
-            ]
-        },
-        "none": {
-            "transitions": [
-                {
-                    "id": "start_validation",
-                    "next": "validate_petjob"
-                }
-            ]
-        },
-        "process_addpet": {
-            "transitions": [
-                {
-                    "id": "process_addpet_transition",
-                    "next": "complete_job",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetJobAddProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "process_updatepetstatus": {
-            "transitions": [
-                {
-                    "id": "process_updatepetstatus_transition",
-                    "next": "complete_job",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetJobUpdateProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "validate_petjob": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetJobTypeIsAddPetCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "valid_petjob",
-                    "next": "process_addpet"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetJobTypeIsUpdatePetStatusCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "valid_petjob_update",
-                    "next": "process_updatepetstatus"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetJobInvalidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "invalid_petjob",
-                    "next": "fail_job"
-                }
-            ]
+  "desc": "Workflow to process PetJob entities orchestrating Pet creation and update operations",
+  "id": "petjob_workflow",
+  "initialState": "none",
+  "name": "PetJob Processing Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "id": "start_validation",
+          "next": "validate_petjob"
         }
+      ]
     },
-    "version": "1.0"
+    "validate_petjob": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "PetJobTypeIsAddPetCriterion"
+            },
+            "type": "function"
+          },
+          "id": "valid_petjob",
+          "next": "process_addpet"
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "PetJobTypeIsUpdatePetStatusCriterion"
+            },
+            "type": "function"
+          },
+          "id": "valid_petjob_update",
+          "next": "process_updatepetstatus"
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "PetJobInvalidCriterion"
+            },
+            "type": "function"
+          },
+          "id": "invalid_petjob",
+          "next": "fail_job"
+        }
+      ]
+    },
+    "process_addpet": {
+      "transitions": [
+        {
+          "id": "process_addpet_transition",
+          "next": "complete_job",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "calculation_nodes_tags": "cf094902-2f53-11b2-944c-fac101f95347"
+              },
+              "name": "PetJobAddProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "complete_job": {
+      "transitions": [
+        {
+          "id": "end_success",
+          "next": "end"
+        }
+      ]
+    },
+    "end": {
+      "transitions": []
+    },
+    "process_updatepetstatus": {
+      "transitions": [
+        {
+          "id": "process_updatepetstatus_transition",
+          "next": "complete_job",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "calculation_nodes_tags": "cf094902-2f53-11b2-944c-fac101f95347"
+              },
+              "name": "PetJobUpdateProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "fail_job": {
+      "transitions": [
+        {
+          "id": "end_fail",
+          "next": "end"
+        }
+      ]
+    }
+  },
+  "version": "1.0"
 }
