@@ -1,13 +1,11 @@
 package com.java_template.application.controller;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.java_template.application.entity.Pet;
-import com.java_template.application.entity.PetAdoptionJob;
 import com.java_template.application.entity.AdoptionRequest;
 import com.java_template.application.entity.JobStatusEnum;
+import com.java_template.application.entity.Pet;
+import com.java_template.application.entity.PetAdoptionJob;
 import com.java_template.application.entity.PetStatusEnum;
 import com.java_template.application.entity.RequestStatusEnum;
 import com.java_template.common.service.EntityService;
@@ -19,38 +17,34 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.util.Date;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
-import static com.java_template.common.config.Config.ENTITY_VERSION;
+import static com.java_template.common.config.Config.*;
 
 @RestController
 @RequestMapping(path = "/entity")
-@RequiredArgsConstructor
 @Slf4j
+@RequiredArgsConstructor
 public class Controller {
 
     private final EntityService entityService;
-    private final ObjectMapper objectMapper;
 
-    private final AtomicLong petAdoptionJobIdCounter = new AtomicLong(1);
-    private final AtomicLong petIdCounter = new AtomicLong(1);
-    private final AtomicLong adoptionRequestIdCounter = new AtomicLong(1);
+    // Local cache for Pet entity only (utility entity, minor logic)
+    private final Map<String, Pet> petCache = new HashMap<>();
+    private long petIdCounter = 1;
 
     // POST /entity/petAdoptionJob - create PetAdoptionJob
     @PostMapping("/petAdoptionJob")
-    public ResponseEntity<?> createPetAdoptionJob(@RequestBody PetAdoptionJob job) throws ExecutionException, InterruptedException, JsonProcessingException {
+    public ResponseEntity<?> createPetAdoptionJob(@RequestBody PetAdoptionJob job) throws ExecutionException, InterruptedException {
         if (job == null) {
             log.error("PetAdoptionJob payload is null");
             return ResponseEntity.badRequest().body("PetAdoptionJob payload cannot be null");
         }
         if (job.getId() == null || job.getId().isBlank()) {
-            job.setId("job-" + petAdoptionJobIdCounter.getAndIncrement());
+            job.setId("job-" + UUID.randomUUID());
         }
         if (job.getStatus() == null) {
             job.setStatus(JobStatusEnum.PENDING);
@@ -60,48 +54,49 @@ public class Controller {
             return ResponseEntity.badRequest().body("Invalid PetAdoptionJob data");
         }
 
-        CompletableFuture<UUID> idFuture = entityService.addItem("PetAdoptionJob", ENTITY_VERSION, job);
+        CompletableFuture<UUID> idFuture = entityService.addItem(
+                "PetAdoptionJob",
+                ENTITY_VERSION,
+                job
+        );
         UUID technicalId = idFuture.get();
-        job.setTechnicalId(technicalId);
-        log.info("Created PetAdoptionJob with technicalId {}", technicalId);
+        // Retrieve the persisted job with technicalId to ensure consistency
+        CompletableFuture<ObjectNode> jobNodeFuture = entityService.getItem("PetAdoptionJob", ENTITY_VERSION, technicalId);
+        ObjectNode jobNode = jobNodeFuture.get();
 
-        // processPetAdoptionJob removed
+        PetAdoptionJob persistedJob = job; // Use original job for processing since conversion is not trivial here
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(job);
+        processPetAdoptionJob(persistedJob);
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(persistedJob);
     }
 
-    // GET /entity/petAdoptionJob/{id} - retrieve PetAdoptionJob
+    // GET /entity/petAdoptionJob/{id} - retrieve PetAdoptionJob by business id (id field)
     @GetMapping("/petAdoptionJob/{id}")
-    public ResponseEntity<?> getPetAdoptionJob(@PathVariable String id) throws ExecutionException, InterruptedException, JsonProcessingException {
+    public ResponseEntity<?> getPetAdoptionJob(@PathVariable String id) throws ExecutionException, InterruptedException {
         if (id == null || id.isBlank()) {
             return ResponseEntity.badRequest().body("ID cannot be null or blank");
         }
-
-        Condition cond = Condition.of("$.id", "EQUALS", id);
-        SearchConditionRequest condition = SearchConditionRequest.group("AND", cond);
-
-        CompletableFuture<ArrayNode> itemsFuture = entityService.getItemsByCondition("PetAdoptionJob", ENTITY_VERSION, condition, true);
-        ArrayNode items = itemsFuture.get();
-
-        if (items.isEmpty()) {
+        SearchConditionRequest condition = SearchConditionRequest.group("AND",
+                Condition.of("$.id", "EQUALS", id));
+        CompletableFuture<ArrayNode> filteredItemsFuture = entityService.getItemsByCondition("PetAdoptionJob", ENTITY_VERSION, condition, true);
+        ArrayNode results = filteredItemsFuture.get();
+        if (results.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("PetAdoptionJob not found for ID: " + id);
         }
-
-        ObjectNode jobNode = (ObjectNode) items.get(0);
-        PetAdoptionJob job = objectMapper.treeToValue(jobNode, PetAdoptionJob.class);
-
-        return ResponseEntity.ok(job);
+        ObjectNode jobNode = (ObjectNode) results.get(0);
+        return ResponseEntity.ok(jobNode);
     }
 
-    // POST /entity/pet - create Pet
+    // POST /entity/pet - create Pet (keep local cache, minor logic)
     @PostMapping("/pet")
-    public ResponseEntity<?> createPet(@RequestBody Pet pet) throws ExecutionException, InterruptedException, JsonProcessingException {
+    public ResponseEntity<?> createPet(@RequestBody Pet pet) {
         if (pet == null) {
             log.error("Pet payload is null");
             return ResponseEntity.badRequest().body("Pet payload cannot be null");
         }
         if (pet.getId() == null || pet.getId().isBlank()) {
-            pet.setId("pet-" + petIdCounter.getAndIncrement());
+            pet.setId("pet-" + petIdCounter++);
         }
         if (pet.getStatus() == null) {
             pet.setStatus(PetStatusEnum.AVAILABLE);
@@ -110,49 +105,34 @@ public class Controller {
             log.error("Invalid Pet data: {}", pet);
             return ResponseEntity.badRequest().body("Invalid Pet data");
         }
-
-        CompletableFuture<UUID> idFuture = entityService.addItem("Pet", ENTITY_VERSION, pet);
-        UUID technicalId = idFuture.get();
-        pet.setTechnicalId(technicalId);
-        log.info("Created Pet with technicalId {}", technicalId);
-
-        // processPet removed
-
+        petCache.put(pet.getId(), pet);
+        processPet(pet);
+        log.info("Created Pet with ID {}", pet.getId());
         return ResponseEntity.status(HttpStatus.CREATED).body(pet);
     }
 
-    // GET /entity/pet/{id} - retrieve Pet
+    // GET /entity/pet/{id} - retrieve Pet from local cache
     @GetMapping("/pet/{id}")
-    public ResponseEntity<?> getPet(@PathVariable String id) throws ExecutionException, InterruptedException, JsonProcessingException {
+    public ResponseEntity<?> getPet(@PathVariable String id) {
         if (id == null || id.isBlank()) {
             return ResponseEntity.badRequest().body("ID cannot be null or blank");
         }
-
-        Condition cond = Condition.of("$.id", "EQUALS", id);
-        SearchConditionRequest condition = SearchConditionRequest.group("AND", cond);
-
-        CompletableFuture<ArrayNode> itemsFuture = entityService.getItemsByCondition("Pet", ENTITY_VERSION, condition, true);
-        ArrayNode items = itemsFuture.get();
-
-        if (items.isEmpty()) {
+        Pet pet = petCache.get(id);
+        if (pet == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Pet not found for ID: " + id);
         }
-
-        ObjectNode petNode = (ObjectNode) items.get(0);
-        Pet pet = objectMapper.treeToValue(petNode, Pet.class);
-
         return ResponseEntity.ok(pet);
     }
 
     // POST /entity/adoptionRequest - create AdoptionRequest
     @PostMapping("/adoptionRequest")
-    public ResponseEntity<?> createAdoptionRequest(@RequestBody AdoptionRequest request) throws ExecutionException, InterruptedException, JsonProcessingException {
+    public ResponseEntity<?> createAdoptionRequest(@RequestBody AdoptionRequest request) throws ExecutionException, InterruptedException {
         if (request == null) {
             log.error("AdoptionRequest payload is null");
             return ResponseEntity.badRequest().body("AdoptionRequest payload cannot be null");
         }
         if (request.getId() == null || request.getId().isBlank()) {
-            request.setId("request-" + adoptionRequestIdCounter.getAndIncrement());
+            request.setId("request-" + UUID.randomUUID());
         }
         if (request.getStatus() == null) {
             request.setStatus(RequestStatusEnum.PENDING);
@@ -162,36 +142,116 @@ public class Controller {
             return ResponseEntity.badRequest().body("Invalid AdoptionRequest data");
         }
 
-        CompletableFuture<UUID> idFuture = entityService.addItem("AdoptionRequest", ENTITY_VERSION, request);
+        CompletableFuture<UUID> idFuture = entityService.addItem(
+                "AdoptionRequest",
+                ENTITY_VERSION,
+                request
+        );
         UUID technicalId = idFuture.get();
-        request.setTechnicalId(technicalId);
-        log.info("Created AdoptionRequest with technicalId {}", technicalId);
 
-        // processAdoptionRequest removed
+        processAdoptionRequest(request);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(request);
     }
 
-    // GET /entity/adoptionRequest/{id} - retrieve AdoptionRequest
+    // GET /entity/adoptionRequest/{id} - retrieve AdoptionRequest by business id
     @GetMapping("/adoptionRequest/{id}")
-    public ResponseEntity<?> getAdoptionRequest(@PathVariable String id) throws ExecutionException, InterruptedException, JsonProcessingException {
+    public ResponseEntity<?> getAdoptionRequest(@PathVariable String id) throws ExecutionException, InterruptedException {
         if (id == null || id.isBlank()) {
             return ResponseEntity.badRequest().body("ID cannot be null or blank");
         }
-
-        Condition cond = Condition.of("$.id", "EQUALS", id);
-        SearchConditionRequest condition = SearchConditionRequest.group("AND", cond);
-
-        CompletableFuture<ArrayNode> itemsFuture = entityService.getItemsByCondition("AdoptionRequest", ENTITY_VERSION, condition, true);
-        ArrayNode items = itemsFuture.get();
-
-        if (items.isEmpty()) {
+        SearchConditionRequest condition = SearchConditionRequest.group("AND",
+                Condition.of("$.id", "EQUALS", id));
+        CompletableFuture<ArrayNode> filteredItemsFuture = entityService.getItemsByCondition("AdoptionRequest", ENTITY_VERSION, condition, true);
+        ArrayNode results = filteredItemsFuture.get();
+        if (results.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("AdoptionRequest not found for ID: " + id);
         }
+        ObjectNode requestNode = (ObjectNode) results.get(0);
+        return ResponseEntity.ok(requestNode);
+    }
 
-        ObjectNode requestNode = (ObjectNode) items.get(0);
-        AdoptionRequest request = objectMapper.treeToValue(requestNode, AdoptionRequest.class);
+    // Processing methods with real business logic
 
-        return ResponseEntity.ok(request);
+    private void processPetAdoptionJob(PetAdoptionJob job) throws ExecutionException, InterruptedException {
+        log.info("Processing PetAdoptionJob with ID: {}", job.getId());
+
+        // Retrieve Pet from local cache
+        Pet pet = petCache.get(job.getPetId());
+        if (pet == null) {
+            log.error("Pet with ID {} not found", job.getPetId());
+            job.setStatus(JobStatusEnum.FAILED);
+            // Save updated job status as a new version
+            entityService.addItem("PetAdoptionJob", ENTITY_VERSION, job).get();
+            return;
+        }
+        if (pet.getStatus() != PetStatusEnum.AVAILABLE) {
+            log.error("Pet with ID {} is not available for adoption", pet.getId());
+            job.setStatus(JobStatusEnum.FAILED);
+            entityService.addItem("PetAdoptionJob", ENTITY_VERSION, job).get();
+            return;
+        }
+
+        // Create AdoptionRequest entity and persist via EntityService
+        AdoptionRequest adoptionRequest = new AdoptionRequest();
+        adoptionRequest.setId("req-" + UUID.randomUUID());
+        adoptionRequest.setPetId(pet.getId());
+        adoptionRequest.setRequesterName(job.getAdopterName());
+        adoptionRequest.setRequestDate(new Date());
+        adoptionRequest.setStatus(RequestStatusEnum.PENDING);
+
+        entityService.addItem("AdoptionRequest", ENTITY_VERSION, adoptionRequest).get();
+
+        // Update pet status locally to ADOPTED
+        pet.setStatus(PetStatusEnum.ADOPTED);
+        petCache.put(pet.getId(), pet);
+
+        // Update job status to COMPLETED and save new version
+        job.setStatus(JobStatusEnum.COMPLETED);
+        entityService.addItem("PetAdoptionJob", ENTITY_VERSION, job).get();
+
+        log.info("PetAdoptionJob {} processed successfully", job.getId());
+    }
+
+    private void processPet(Pet pet) {
+        log.info("Processing Pet with ID: {}", pet.getId());
+
+        if (pet.getName() == null || pet.getName().isBlank()) {
+            log.error("Pet name is mandatory");
+            return;
+        }
+        if (pet.getCategory() == null || pet.getCategory().isBlank()) {
+            log.error("Pet category is mandatory");
+            return;
+        }
+        // Pet status already set to AVAILABLE in createPet()
+
+        log.info("Pet {} is ready for adoption", pet.getId());
+    }
+
+    private void processAdoptionRequest(AdoptionRequest request) throws ExecutionException, InterruptedException {
+        log.info("Processing AdoptionRequest with ID: {}", request.getId());
+
+        Pet pet = petCache.get(request.getPetId());
+        if (pet == null) {
+            log.error("Pet with ID {} not found for adoption request", request.getPetId());
+            request.setStatus(RequestStatusEnum.REJECTED);
+            entityService.addItem("AdoptionRequest", ENTITY_VERSION, request).get();
+            return;
+        }
+        if (pet.getStatus() != PetStatusEnum.AVAILABLE) {
+            log.error("Pet with ID {} is not available for adoption in request", pet.getId());
+            request.setStatus(RequestStatusEnum.REJECTED);
+            entityService.addItem("AdoptionRequest", ENTITY_VERSION, request).get();
+            return;
+        }
+
+        // Approve all valid requests
+        request.setStatus(RequestStatusEnum.APPROVED);
+        entityService.addItem("AdoptionRequest", ENTITY_VERSION, request).get();
+
+        log.info("AdoptionRequest {} approved", request.getId());
+
+        // Notification logic could be added here
     }
 }
