@@ -1,0 +1,55 @@
+{
+    "desc": "Workflow for processing PetRegistrationJob entity lifecycle",
+    "id": "pet_registration_job_workflow",
+    "initialState": "none",
+    "name": "Pet Registration Job Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "start_processing",
+                    "next": "processing"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "SourceNotSupportedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "check_source_supported",
+                    "next": "failed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "SourceSupportedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "fetch_and_process_pets",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetRegistrationJobProcessor"
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
