@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.Pet;
+import com.java_template.application.entity.AdoptionRequest;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,7 +32,7 @@ public class AdoptionRequestValidCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(Pet.class, this::validateEntity)
+            .evaluateEntity(AdoptionRequest.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,17 +40,26 @@ public class AdoptionRequestValidCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "AdoptionRequestValidCriterion".equals(modelSpec.operationName()) &&
-               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "adoptionRequest".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(Pet pet) {
-        // Validation: Check if pet is available and age is within reasonable adoption range (e.g., 0 to 15)
-        if (pet.getStatus() == null || !"AVAILABLE".equalsIgnoreCase(pet.getStatus())) {
-            return EvaluationOutcome.fail("Pet is not available for adoption", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+    private EvaluationOutcome validateEntity(AdoptionRequest entity) {
+        // Business logic: Validate the entire AdoptionRequest entity for completeness and correctness
+        if (entity.getRequestId() == null || entity.getRequestId().isBlank()) {
+            return EvaluationOutcome.fail("Request ID is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (pet.getAge() == null || pet.getAge() < 0 || pet.getAge() > 15) {
-            return EvaluationOutcome.fail("Pet age is not within valid adoption range", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (entity.getPetId() == null || entity.getPetId().isBlank()) {
+            return EvaluationOutcome.fail("Pet ID is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (entity.getRequesterName() == null || entity.getRequesterName().isBlank()) {
+            return EvaluationOutcome.fail("Requester name is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (entity.getRequestDate() == null) {
+            return EvaluationOutcome.fail("Request date is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (entity.getStatus() == null || entity.getStatus().isBlank()) {
+            return EvaluationOutcome.fail("Status is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         return EvaluationOutcome.success();
     }
