@@ -1,0 +1,10 @@
+    // Business logic for processing Pet entity
+    private void processPet(Pet pet) {
+        log.info("Processing Pet with technicalId: {}", pet.getTechnicalId());
+        if (pet.getName() == null || pet.getName().isBlank() || pet.getCategory() == null || pet.getCategory().isBlank()) {
+            log.error("Pet validation failed for technicalId: {}", pet.getTechnicalId());
+            throw new IllegalArgumentException("Pet must have non-blank name and category");
+        }
+        // Future scope: indexing, notifications, other processing workflows
+        log.info("Pet processing completed for technicalId: {}", pet.getTechnicalId());
+    }
