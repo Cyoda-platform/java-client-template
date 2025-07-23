@@ -1,0 +1,47 @@
+private void processPetAdoptionJob(PetAdoptionJob job) throws ExecutionException, InterruptedException {
+    logger.info("Processing PetAdoptionJob with ID: {}", job.getId());
+
+    // Retrieve Pet by id
+    Condition petCond = Condition.of("$.id", "EQUALS", job.getPetId());
+    SearchConditionRequest petCondition = SearchConditionRequest.group("AND", petCond);
+    CompletableFuture<ArrayNode> petItemsFuture = entityService.getItemsByCondition("Pet", ENTITY_VERSION, petCondition, true);
+    ArrayNode petItems = petItemsFuture.get();
+
+    if (petItems.isEmpty()) {
+        logger.error("Pet with ID {} not found", job.getPetId());
+        job.setStatus(JobStatusEnum.FAILED);
+        entityService.addItem("PetAdoptionJob", ENTITY_VERSION, job); // create new version with updated status
+        return;
+    }
+
+    ObjectNode petNode = (ObjectNode) petItems.get(0);
+    Pet pet = convertObjectNodeToPet(petNode);
+
+    if (pet.getStatus() != PetStatusEnum.AVAILABLE) {
+        logger.error("Pet with ID {} is not available for adoption", pet.getId());
+        job.setStatus(JobStatusEnum.FAILED);
+        entityService.addItem("PetAdoptionJob", ENTITY_VERSION, job);
+        return;
+    }
+
+    // Create AdoptionRequest entity
+    AdoptionRequest adoptionRequest = new AdoptionRequest();
+    adoptionRequest.setId("req-" + adoptionRequestIdCounter.getAndIncrement());
+    adoptionRequest.setPetId(pet.getId());
+    adoptionRequest.setRequesterName(job.getAdopterName());
+    adoptionRequest.setRequestDate(new Date());
+    adoptionRequest.setStatus(RequestStatusEnum.PENDING);
+
+    CompletableFuture<UUID> adoptionRequestIdFuture = entityService.addItem("AdoptionRequest", ENTITY_VERSION, adoptionRequest);
+    adoptionRequestIdFuture.get();
+
+    // Update pet status to ADOPTED (create new pet version)
+    pet.setStatus(PetStatusEnum.ADOPTED);
+    entityService.addItem("Pet", ENTITY_VERSION, pet).get();
+
+    // Update job status to COMPLETED (create new job version)
+    job.setStatus(JobStatusEnum.COMPLETED);
+    entityService.addItem("PetAdoptionJob", ENTITY_VERSION, job).get();
+
+    logger.info("PetAdoptionJob {} processed successfully", job.getId());
+}
