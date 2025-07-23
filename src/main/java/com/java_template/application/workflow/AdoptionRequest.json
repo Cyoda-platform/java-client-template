@@ -1,0 +1,88 @@
+{
+    "desc": "Workflow to process adoption requests from initial to completion, including validation and approval.",
+    "id": "adoption_request_workflow",
+    "initialState": "none",
+    "name": "Adoption Request Workflow",
+    "states": {
+        "approved": {
+            "transitions": [
+                {
+                    "id": "notify_approval",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "AdoptionRequestProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "completed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "start_validation",
+                    "next": "validate_pet_availability"
+                }
+            ]
+        },
+        "rejected": {
+            "transitions": [
+                {
+                    "id": "notify_rejection",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "AdoptionRequestProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "validate_pet_availability": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetAvailableCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "pet_available",
+                    "next": "validate_pet_status"
+                },
+                {
+                    "id": "pet_not_available",
+                    "next": "rejected"
+                }
+            ]
+        },
+        "validate_pet_status": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetStatusAcceptableCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "pet_status_acceptable",
+                    "next": "approved"
+                },
+                {
+                    "id": "pet_status_not_acceptable",
+                    "next": "rejected"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
