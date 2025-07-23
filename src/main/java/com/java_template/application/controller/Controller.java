@@ -1,6 +1,7 @@
 package com.java_template.application.controller;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.PetJob;
 import com.java_template.application.entity.Pet;
@@ -8,6 +9,7 @@ import com.java_template.application.entity.CatFact;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
@@ -16,11 +18,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/entities")
@@ -31,10 +33,11 @@ public class Controller {
     private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     // POST /entities/petjobs
     @PostMapping("/petjobs")
-    public CompletableFuture<ResponseEntity<?>> createPetJob(@RequestBody PetJob petJob) {
+    public CompletableFuture<ResponseEntity<?>> createPetJob(@Valid @RequestBody PetJob petJob) throws JsonProcessingException {
         if (petJob == null) {
             logger.error("Received null PetJob");
             return CompletableFuture.completedFuture(ResponseEntity.badRequest().body("PetJob cannot be null"));
@@ -55,20 +58,27 @@ public class Controller {
         return entityService.addItem("PetJob", ENTITY_VERSION, petJob)
                 .thenCompose(technicalId -> entityService.getItem("PetJob", ENTITY_VERSION, technicalId)
                         .thenCompose(itemNode -> {
-                            PetJob savedPetJob = JsonUtil.convertToPetJob(itemNode);
-                            // processPetJob(savedPetJob);  // Removed processing method call
-                            // After processing, create a new version with status COMPLETED
-                            PetJob completedPetJob = new PetJob(savedPetJob);
-                            completedPetJob.setStatus("COMPLETED");
-                            return entityService.addItem("PetJob", ENTITY_VERSION, completedPetJob)
-                                    .thenApply(newId -> ResponseEntity.status(201).body(completedPetJob));
+                            try {
+                                PetJob savedPetJob = objectMapper.treeToValue(itemNode, PetJob.class);
+                                // processPetJob(savedPetJob);  // Removed processing method call
+                                // After processing, create a new version with status COMPLETED
+                                PetJob completedPetJob = new PetJob(savedPetJob);
+                                completedPetJob.setStatus("COMPLETED");
+                                return entityService.addItem("PetJob", ENTITY_VERSION, completedPetJob)
+                                        .thenApply(newId -> ResponseEntity.status(201).body(completedPetJob));
+                            } catch (JsonProcessingException e) {
+                                logger.error("Failed to convert ObjectNode to PetJob", e);
+                                CompletableFuture<ResponseEntity<?>> failedFuture = new CompletableFuture<>();
+                                failedFuture.complete(ResponseEntity.internalServerError().body("Error processing PetJob"));
+                                return failedFuture;
+                            }
                         })
                 );
     }
 
     // GET /entities/petjobs/{id}
     @GetMapping("/petjobs/{id}")
-    public CompletableFuture<ResponseEntity<?>> getPetJob(@PathVariable String id) {
+    public CompletableFuture<ResponseEntity<?>> getPetJob(@PathVariable String id) throws JsonProcessingException {
         return findPetJobById(id)
                 .thenApply(petJob -> petJob != null ? ResponseEntity.ok(petJob) : ResponseEntity.status(404).body("PetJob not found"));
     }
@@ -81,13 +91,18 @@ public class Controller {
                 .thenApply(arrayNode -> {
                     if (arrayNode == null || arrayNode.size() == 0) return null;
                     ObjectNode node = (ObjectNode) arrayNode.get(0);
-                    return JsonUtil.convertToPetJob(node);
+                    try {
+                        return objectMapper.treeToValue(node, PetJob.class);
+                    } catch (JsonProcessingException e) {
+                        logger.error("Failed to convert ObjectNode to PetJob", e);
+                        return null;
+                    }
                 });
     }
 
     // POST /entities/pets
     @PostMapping("/pets")
-    public CompletableFuture<ResponseEntity<?>> createPet(@RequestBody Pet pet) {
+    public CompletableFuture<ResponseEntity<?>> createPet(@Valid @RequestBody Pet pet) throws JsonProcessingException {
         if (pet == null) {
             logger.error("Received null Pet");
             return CompletableFuture.completedFuture(ResponseEntity.badRequest().body("Pet cannot be null"));
@@ -105,17 +120,24 @@ public class Controller {
         return entityService.addItem("Pet", ENTITY_VERSION, pet)
                 .thenCompose(technicalId -> entityService.getItem("Pet", ENTITY_VERSION, technicalId)
                         .thenCompose(itemNode -> {
-                            Pet savedPet = JsonUtil.convertToPet(itemNode);
-                            // processPet(savedPet);  // Removed processing method call
-                            return entityService.addItem("Pet", ENTITY_VERSION, savedPet)
-                                    .thenApply(newId -> ResponseEntity.status(201).body(savedPet));
+                            try {
+                                Pet savedPet = objectMapper.treeToValue(itemNode, Pet.class);
+                                // processPet(savedPet);  // Removed processing method call
+                                return entityService.addItem("Pet", ENTITY_VERSION, savedPet)
+                                        .thenApply(newId -> ResponseEntity.status(201).body(savedPet));
+                            } catch (JsonProcessingException e) {
+                                logger.error("Failed to convert ObjectNode to Pet", e);
+                                CompletableFuture<ResponseEntity<?>> failedFuture = new CompletableFuture<>();
+                                failedFuture.complete(ResponseEntity.internalServerError().body("Error processing Pet"));
+                                return failedFuture;
+                            }
                         })
                 );
     }
 
     // GET /entities/pets/{id}
     @GetMapping("/pets/{id}")
-    public CompletableFuture<ResponseEntity<?>> getPet(@PathVariable String id) {
+    public CompletableFuture<ResponseEntity<?>> getPet(@PathVariable String id) throws JsonProcessingException {
         return findPetById(id)
                 .thenApply(pet -> pet != null ? ResponseEntity.ok(pet) : ResponseEntity.status(404).body("Pet not found"));
     }
@@ -127,13 +149,18 @@ public class Controller {
                 .thenApply(arrayNode -> {
                     if (arrayNode == null || arrayNode.size() == 0) return null;
                     ObjectNode node = (ObjectNode) arrayNode.get(0);
-                    return JsonUtil.convertToPet(node);
+                    try {
+                        return objectMapper.treeToValue(node, Pet.class);
+                    } catch (JsonProcessingException e) {
+                        logger.error("Failed to convert ObjectNode to Pet", e);
+                        return null;
+                    }
                 });
     }
 
     // POST /entities/catfacts
     @PostMapping("/catfacts")
-    public ResponseEntity<?> createCatFact(@RequestBody CatFact catFact) {
+    public ResponseEntity<?> createCatFact(@Valid @RequestBody CatFact catFact) {
         if (catFact == null) {
             logger.error("Received null CatFact");
             return ResponseEntity.badRequest().body("CatFact cannot be null");
@@ -158,29 +185,6 @@ public class Controller {
     public ResponseEntity<?> getCatFact(@PathVariable String id) {
         // Local cache not available, return 404 for prototype
         return ResponseEntity.status(404).body("CatFact not found");
-    }
-
-    // Utility class for JSON conversion
-    private static class JsonUtil {
-        static PetJob convertToPetJob(ObjectNode node) {
-            try {
-                return com.fasterxml.jackson.databind.json.JsonMapper.builder()
-                        .build().treeToValue(node, PetJob.class);
-            } catch (Exception e) {
-                logger.error("Failed to convert ObjectNode to PetJob", e);
-                return null;
-            }
-        }
-
-        static Pet convertToPet(ObjectNode node) {
-            try {
-                return com.fasterxml.jackson.databind.json.JsonMapper.builder()
-                        .build().treeToValue(node, Pet.class);
-            } catch (Exception e) {
-                logger.error("Failed to convert ObjectNode to Pet", e);
-                return null;
-            }
-        }
     }
 
 }
