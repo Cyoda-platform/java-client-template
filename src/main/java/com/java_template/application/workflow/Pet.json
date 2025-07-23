@@ -1,74 +1,75 @@
 {
-    "desc": "Workflow representing Pet lifecycle from none to NEW, then NEW to AVAILABLE with tag enrichment",
-    "id": "pet_workflow",
-    "initialState": "none",
-    "name": "Pet entity workflow",
-    "states": {
-        "ADOPTED": {
-            "transitions": [
-                {
-                    "id": "transition_to_end",
-                    "next": "end"
-                }
-            ]
-        },
-        "AVAILABLE": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "IsAdoptionEventCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "transition_to_adopted",
-                    "next": "ADOPTED"
-                }
-            ]
-        },
-        "NEW": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "HasEmptyTagsCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "transition_new_to_available_with_tags",
-                    "next": "AVAILABLE",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetProcessor"
-                        }
-                    ]
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "HasTagsCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "transition_new_to_available_without_tags",
-                    "next": "AVAILABLE"
-                }
-            ]
-        },
-        "end": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "id": "transition_to_new",
-                    "next": "NEW"
-                }
-            ]
+  "desc": "Workflow representing Pet lifecycle from none to NEW, then NEW to AVAILABLE with tag enrichment",
+  "id": "pet_workflow",
+  "initialState": "none",
+  "name": "Pet entity workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "id": "transition_to_new",
+          "next": "NEW"
         }
+      ]
     },
-    "version": "1.0"
+    "NEW": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "HasEmptyTagsCriterion"
+            },
+            "type": "function"
+          },
+          "id": "transition_new_to_available_with_tags",
+          "next": "AVAILABLE",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "calculation_nodes_tags": "c8b72332-65c0-11b2-965a-2e0ad7d884c5"
+              },
+              "name": "PetProcessor"
+            }
+          ]
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "HasTagsCriterion"
+            },
+            "type": "function"
+          },
+          "id": "transition_new_to_available_without_tags",
+          "next": "AVAILABLE"
+        }
+      ]
+    },
+    "AVAILABLE": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "IsAdoptionEventCriterion"
+            },
+            "type": "function"
+          },
+          "id": "transition_to_adopted",
+          "next": "ADOPTED"
+        }
+      ]
+    },
+    "ADOPTED": {
+      "transitions": [
+        {
+          "id": "transition_to_end",
+          "next": "end"
+        }
+      ]
+    },
+    "end": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
