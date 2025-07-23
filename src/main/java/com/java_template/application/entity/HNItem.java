@@ -4,6 +4,7 @@ import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import lombok.Data;
+import java.util.UUID;
 import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @Data
