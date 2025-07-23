@@ -1,34 +1,58 @@
 {
-    "desc": "Workflow representing processing of an Interaction entity",
-    "id": "interaction_workflow",
+    "desc": "Workflow representing processing of a Subscriber entity",
+    "id": "subscriber_workflow",
     "initialState": "none",
-    "name": "Interaction workflow",
+    "name": "Subscriber workflow",
     "states": {
-        "catfactjob_validation": {
+        "active": {
             "transitions": [
                 {
-                    "id": "catfactjob_valid",
-                    "next": "interaction_recording"
+                    "id": "unsubscribe",
+                    "next": "unsubscribed"
+                }
+            ]
+        },
+        "confirmed": {
+            "transitions": [
+                {
+                    "id": "activate_subscriber",
+                    "next": "active"
+                }
+            ]
+        },
+        "email_format_validation": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "isEmailFormatValid"
+                        },
+                        "type": "function"
+                    },
+                    "id": "email_format_valid",
+                    "next": "email_uniqueness_validation"
                 },
                 {
-                    "id": "catfactjob_invalid",
+                    "id": "email_format_invalid",
                     "next": "invalid"
                 }
             ]
         },
-        "interaction_recording": {
+        "email_uniqueness_validation": {
             "transitions": [
                 {
-                    "id": "record_interaction",
-                    "next": "recorded",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "InteractionProcessor"
-                        }
-                    ]
+                    "criterion": {
+                        "function": {
+                            "name": "isEmailUnique"
+                        },
+                        "type": "function"
+                    },
+                    "id": "email_unique",
+                    "next": "saved"
+                },
+                {
+                    "id": "email_not_unique",
+                    "next": "invalid"
                 }
             ]
         },
@@ -38,31 +62,21 @@
         "none": {
             "transitions": [
                 {
-                    "id": "transition_to_subscriber_validation",
-                    "next": "subscriber_validation"
+                    "id": "validate_email",
+                    "next": "email_format_validation"
                 }
             ]
         },
-        "recorded": {
-            "transitions": []
-        },
-        "subscriber_validation": {
+        "saved": {
             "transitions": [
                 {
-                    "criterion": {
-                        "function": {
-                            "name": "SubscriberValidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "subscriber_valid",
-                    "next": "catfactjob_validation"
-                },
-                {
-                    "id": "subscriber_invalid",
-                    "next": "invalid"
+                    "id": "send_confirmation_email",
+                    "next": "confirmed"
                 }
             ]
+        },
+        "unsubscribed": {
+            "transitions": []
         }
     },
     "version": "1.0"
