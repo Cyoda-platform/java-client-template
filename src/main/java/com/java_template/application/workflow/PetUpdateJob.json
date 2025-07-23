@@ -22,16 +22,20 @@
             "transitions": [
                 {
                     "criterion": {
-                        "className": "PetUpdateJobSourceUrlValidCriterion",
-                        "type": "class"
+                        "function": {
+                            "name": "PetUpdateJobSourceUrlValidCriterion"
+                        },
+                        "type": "function"
                     },
                     "id": "pending_to_processing_valid_source",
                     "next": "processing"
                 },
                 {
                     "criterion": {
-                        "className": "PetUpdateJobSourceUrlInvalidCriterion",
-                        "type": "class"
+                        "function": {
+                            "name": "PetUpdateJobSourceUrlInvalidCriterion"
+                        },
+                        "type": "function"
                     },
                     "id": "pending_to_failed_invalid_source",
                     "next": "failed"
@@ -42,8 +46,10 @@
             "transitions": [
                 {
                     "criterion": {
-                        "className": "PetUpdateJobProcessingSuccessCriterion",
-                        "type": "class"
+                        "function": {
+                            "name": "PetUpdateJobProcessingSuccessCriterion"
+                        },
+                        "type": "function"
                     },
                     "id": "processing_to_completed_success",
                     "next": "completed",
@@ -58,8 +64,10 @@
                 },
                 {
                     "criterion": {
-                        "className": "PetUpdateJobProcessingFailureCriterion",
-                        "type": "class"
+                        "function": {
+                            "name": "PetUpdateJobProcessingFailureCriterion"
+                        },
+                        "type": "function"
                     },
                     "id": "processing_to_failed_error",
                     "next": "failed"
