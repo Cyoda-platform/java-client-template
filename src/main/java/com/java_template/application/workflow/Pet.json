@@ -1,71 +1,72 @@
 {
-    "desc": "Workflow for processing CatFact entity from creation to completion or archiving",
-    "id": "catfact_workflow",
-    "initialState": "none",
-    "name": "CatFact workflow",
-    "states": {
-        "archived": {
-            "transitions": []
-        },
-        "completed": {
-            "transitions": []
-        },
-        "created": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "FactValidityCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "created_to_validated_valid",
-                    "next": "validated"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "FactInvalidityCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "created_to_archived_invalid",
-                    "next": "archived"
-                }
-            ]
-        },
-        "none": {
-            "transitions": [
-                {
-                    "id": "none_to_created",
-                    "next": "created"
-                }
-            ]
-        },
-        "processed": {
-            "transitions": [
-                {
-                    "id": "processed_to_completed",
-                    "next": "completed"
-                }
-            ]
-        },
-        "validated": {
-            "transitions": [
-                {
-                    "id": "validated_to_processed",
-                    "next": "processed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetProcessor"
-                        }
-                    ]
-                }
-            ]
+  "desc": "Workflow for processing CatFact entity from creation to completion or archiving",
+  "id": "catfact_workflow",
+  "initialState": "none",
+  "name": "CatFact workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "id": "none_to_created",
+          "next": "created"
         }
+      ]
     },
-    "version": "1.0"
+    "created": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "FactValidityCriterion"
+            },
+            "type": "function"
+          },
+          "id": "created_to_validated_valid",
+          "next": "validated"
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "FactInvalidityCriterion"
+            },
+            "type": "function"
+          },
+          "id": "created_to_archived_invalid",
+          "next": "archived"
+        }
+      ]
+    },
+    "validated": {
+      "transitions": [
+        {
+          "id": "validated_to_processed",
+          "next": "processed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "calculation_nodes_tags": "db2a3be8-6634-11b2-95b2-ca2f093e3d5b"
+              },
+              "name": "PetProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "processed": {
+      "transitions": [
+        {
+          "id": "processed_to_completed",
+          "next": "completed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "archived": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
