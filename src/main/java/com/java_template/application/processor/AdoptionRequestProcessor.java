@@ -1,12 +1,9 @@
 package com.java_template.application.processor;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.AdoptionRequest;
+import com.java_template.common.serializer.ErrorInfo;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -17,6 +14,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.java_template.common.service.EntityService;
+import com.java_template.common.util.Condition;
+import com.java_template.common.util.SearchConditionRequest;
+
 import java.util.concurrent.CompletableFuture;
 
 @Component
@@ -24,9 +27,9 @@ public class AdoptionRequestProcessor implements CyodaProcessor {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final ProcessorSerializer serializer;
-    private final com.java_template.common.service.EntityService entityService;
+    private final EntityService entityService;
 
-    public AdoptionRequestProcessor(SerializerFactory serializerFactory, com.java_template.common.service.EntityService entityService) {
+    public AdoptionRequestProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
         this.entityService = entityService;
         logger.info("AdoptionRequestProcessor initialized with SerializerFactory and EntityService");
@@ -39,7 +42,7 @@ public class AdoptionRequestProcessor implements CyodaProcessor {
 
         return serializer.withRequest(request)
             .toEntity(AdoptionRequest.class)
-            .validate(AdoptionRequest::isValid, "Invalid entity state")
+            .validate(this::isValidEntity, "Invalid AdoptionRequest state")
             .map(this::processEntityLogic)
             .complete();
     }
@@ -51,41 +54,43 @@ public class AdoptionRequestProcessor implements CyodaProcessor {
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private AdoptionRequest processEntityLogic(AdoptionRequest entity) {
-        try {
-            logger.info("Processing AdoptionRequest with ID: {}", entity.getRequestId());
+    private boolean isValidEntity(AdoptionRequest entity) {
+        return entity.isValid();
+    }
 
-            Condition condPetId = Condition.of("$.petId", "EQUALS", entity.getPetId());
+    private AdoptionRequest processEntityLogic(AdoptionRequest request) {
+        try {
+            logger.info("Processing AdoptionRequest with ID: {}", request.getRequestId());
+            Condition condPetId = Condition.of("$.petId", "EQUALS", request.getPetId());
             SearchConditionRequest condition = SearchConditionRequest.group("AND", condPetId);
 
-            CompletableFuture<ArrayNode> petsFuture = entityService.getItemsByCondition("Pet", Config.ENTITY_VERSION, condition);
+            CompletableFuture<ArrayNode> petsFuture = entityService.getItemsByCondition("Pet", Integer.parseInt(Config.ENTITY_VERSION), condition);
             ArrayNode pets = petsFuture.get();
             if (pets.isEmpty()) {
-                entity.setStatus("REJECTED");
-                updateAdoptionRequestStatus(entity);
-                logger.info("AdoptionRequest rejected due to pet unavailability for ID: {}", entity.getRequestId());
-                return entity;
+                request.setStatus("REJECTED");
+                updateAdoptionRequestStatus(request);
+                logger.info("AdoptionRequest rejected due to pet unavailability for ID: {}", request.getRequestId());
+                return request;
             }
             ObjectNode petObj = (ObjectNode) pets.get(0);
             String status = petObj.get("status").asText();
             if (!"NEW".equals(status) && !"AVAILABLE".equals(status)) {
-                entity.setStatus("REJECTED");
-                updateAdoptionRequestStatus(entity);
-                logger.info("AdoptionRequest rejected due to pet status for ID: {}", entity.getRequestId());
-                return entity;
+                request.setStatus("REJECTED");
+                updateAdoptionRequestStatus(request);
+                logger.info("AdoptionRequest rejected due to pet status for ID: {}", request.getRequestId());
+                return request;
             }
-            entity.setStatus("APPROVED");
-            updateAdoptionRequestStatus(entity);
-            logger.info("AdoptionRequest approved for ID: {}", entity.getRequestId());
-
-            // Optional: notify requester
+            request.setStatus("APPROVED");
+            updateAdoptionRequestStatus(request);
+            logger.info("AdoptionRequest approved for ID: {}", request.getRequestId());
+            return request;
         } catch (Exception e) {
-            logger.error("Error processing AdoptionRequest", e);
+            logger.error("Error processing AdoptionRequest with ID: {}", request.getRequestId(), e);
+            return request;
         }
-        return entity;
     }
 
-    private void updateAdoptionRequestStatus(AdoptionRequest entity) throws Exception {
-        entityService.updateItem("AdoptionRequest", Config.ENTITY_VERSION, entity.getTechnicalId(), entity).get();
+    private void updateAdoptionRequestStatus(AdoptionRequest request) throws Exception {
+        entityService.updateItem("AdoptionRequest", Integer.parseInt(Config.ENTITY_VERSION), request.getTechnicalId(), request).get();
     }
 }
