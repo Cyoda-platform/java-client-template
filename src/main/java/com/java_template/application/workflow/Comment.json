@@ -1,103 +1,104 @@
 {
-    "desc": "Workflow for managing lifecycle of CommentIngestionJob entity",
-    "id": "comment_ingestion_job_workflow",
-    "initialState": "none",
-    "name": "Comment Ingestion Job Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "JobExistsCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "start_validation",
-                    "next": "pending"
-                }
-            ]
-        },
-        "pending": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "ValidJobCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "validate_job_success",
-                    "next": "processing"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "InvalidJobCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "validate_job_failure",
-                    "next": "failed"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "id": "ingest_comments",
-                    "next": "processing_analysis",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "CommentProcessor"
-                        }
-                    ]
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "ProcessingFailedCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "handle_processing_failure",
-                    "next": "failed"
-                }
-            ]
-        },
-        "processing_analysis": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "AnalysisReportReadyCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "analysis_report_ready",
-                    "next": "completed"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "AnalysisReportFailedCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "analysis_report_not_ready",
-                    "next": "failed"
-                }
-            ]
+  "desc": "Workflow for managing lifecycle of CommentIngestionJob entity",
+  "id": "comment_ingestion_job_workflow",
+  "initialState": "none",
+  "name": "Comment Ingestion Job Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "JobExistsCriterion"
+            },
+            "type": "function"
+          },
+          "id": "start_validation",
+          "next": "pending"
         }
+      ]
     },
-    "version": "1.0"
+    "pending": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "ValidJobCriterion"
+            },
+            "type": "function"
+          },
+          "id": "validate_job_success",
+          "next": "processing"
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "InvalidJobCriterion"
+            },
+            "type": "function"
+          },
+          "id": "validate_job_failure",
+          "next": "failed"
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "id": "ingest_comments",
+          "next": "processing_analysis",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "calculation_nodes_tags": "e09bb2ec-2f6f-11b2-944c-fac101f95347"
+              },
+              "name": "CommentProcessor"
+            }
+          ]
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "ProcessingFailedCriterion"
+            },
+            "type": "function"
+          },
+          "id": "handle_processing_failure",
+          "next": "failed"
+        }
+      ]
+    },
+    "processing_analysis": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "AnalysisReportReadyCriterion"
+            },
+            "type": "function"
+          },
+          "id": "analysis_report_ready",
+          "next": "completed"
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "AnalysisReportFailedCriterion"
+            },
+            "type": "function"
+          },
+          "id": "analysis_report_not_ready",
+          "next": "failed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
