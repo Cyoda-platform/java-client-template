@@ -48,8 +48,6 @@ public class Controller {
         UUID technicalId = idFuture.get();
         petJob.setTechnicalId(technicalId);
 
-        processPetJob(petJob);
-
         return ResponseEntity.status(HttpStatus.CREATED).body(petJob);
     }
 
@@ -83,8 +81,6 @@ public class Controller {
         CompletableFuture<UUID> idFuture = entityService.addItem("Pet", ENTITY_VERSION, pet);
         UUID technicalId = idFuture.get();
         pet.setTechnicalId(technicalId);
-
-        processPet(pet);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(pet);
     }
@@ -133,8 +129,6 @@ public class Controller {
         UUID technicalId = idFuture.get();
         request.setTechnicalId(technicalId);
 
-        processAdoptionRequest(request);
-
         return ResponseEntity.status(HttpStatus.CREATED).body(request);
     }
 
@@ -150,95 +144,5 @@ public class Controller {
         ObjectNode obj = (ObjectNode) items.get(0);
         AdoptionRequest adoptionRequest = entityService.convertObjectNode(obj, AdoptionRequest.class);
         return ResponseEntity.ok(adoptionRequest);
-    }
-
-    // Business logic implementations
-
-    private void processPetJob(PetJob petJob) throws Exception {
-        logger.info("Processing PetJob with ID: {}", petJob.getId());
-        if (petJob.getSourceUrl() == null || petJob.getSourceUrl().isBlank()) {
-            petJob.setStatus("FAILED");
-            logger.error("PetJob sourceUrl is invalid");
-            updatePetJobStatus(petJob);
-            return;
-        }
-        petJob.setStatus("PROCESSING");
-        updatePetJobStatus(petJob);
-
-        // Simulate fetching pet data from external Petstore API by creating dummy pets
-        Pet pet1 = new Pet();
-        pet1.setPetId(UUID.randomUUID().toString());
-        pet1.setName("Fluffy");
-        pet1.setSpecies("Cat");
-        pet1.setBreed("Persian");
-        pet1.setAge(3);
-        pet1.setStatus("NEW");
-        CompletableFuture<UUID> pet1IdFuture = entityService.addItem("Pet", ENTITY_VERSION, pet1);
-        pet1.setTechnicalId(pet1IdFuture.get());
-        processPet(pet1);
-
-        Pet pet2 = new Pet();
-        pet2.setPetId(UUID.randomUUID().toString());
-        pet2.setName("Buddy");
-        pet2.setSpecies("Dog");
-        pet2.setBreed("Golden Retriever");
-        pet2.setAge(5);
-        pet2.setStatus("NEW");
-        CompletableFuture<UUID> pet2IdFuture = entityService.addItem("Pet", ENTITY_VERSION, pet2);
-        pet2.setTechnicalId(pet2IdFuture.get());
-        processPet(pet2);
-
-        petJob.setStatus("COMPLETED");
-        updatePetJobStatus(petJob);
-        logger.info("PetJob processing completed successfully for ID: {}", petJob.getId());
-    }
-
-    private void updatePetJobStatus(PetJob petJob) throws Exception {
-        // Instead of update, create new entity version with updated status, but here we use updateItem as allowed
-        entityService.updateItem("PetJob", ENTITY_VERSION, petJob.getTechnicalId(), petJob).get();
-    }
-
-    private void processPet(Pet pet) {
-        logger.info("Processing Pet with ID: {}", pet.getPetId());
-        if (pet.getName() == null || pet.getName().isBlank() ||
-                pet.getSpecies() == null || pet.getSpecies().isBlank()) {
-            logger.error("Pet validation failed for PetId: {}", pet.getPetId());
-            return;
-        }
-        // Additional business logic: e.g. notify systems, index for search, etc.
-        logger.info("Pet processed successfully with name: {}", pet.getName());
-    }
-
-    private void processAdoptionRequest(AdoptionRequest request) throws Exception {
-        logger.info("Processing AdoptionRequest with ID: {}", request.getRequestId());
-        // Validate pet availability again
-        Condition condPetId = Condition.of("$.petId", "EQUALS", request.getPetId());
-        SearchConditionRequest condition = SearchConditionRequest.group("AND", condPetId);
-
-        CompletableFuture<ArrayNode> petsFuture = entityService.getItemsByCondition("Pet", ENTITY_VERSION, condition);
-        ArrayNode pets = petsFuture.get();
-        if (pets.isEmpty()) {
-            request.setStatus("REJECTED");
-            updateAdoptionRequestStatus(request);
-            logger.info("AdoptionRequest rejected due to pet unavailability for ID: {}", request.getRequestId());
-            return;
-        }
-        ObjectNode petObj = (ObjectNode) pets.get(0);
-        String status = petObj.get("status").asText();
-        if (!"NEW".equals(status) && !"AVAILABLE".equals(status)) {
-            request.setStatus("REJECTED");
-            updateAdoptionRequestStatus(request);
-            logger.info("AdoptionRequest rejected due to pet status for ID: {}", request.getRequestId());
-            return;
-        }
-        // Simulate approval (in real case, some workflow or manual approval)
-        request.setStatus("APPROVED");
-        updateAdoptionRequestStatus(request);
-        logger.info("AdoptionRequest approved for ID: {}", request.getRequestId());
-        // Optional: notify requester
-    }
-
-    private void updateAdoptionRequestStatus(AdoptionRequest request) throws Exception {
-        entityService.updateItem("AdoptionRequest", ENTITY_VERSION, request.getTechnicalId(), request).get();
     }
 }
