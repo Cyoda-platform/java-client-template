@@ -1,0 +1,30 @@
+private void petProcessing(UUID technicalId) {
+    try {
+        CompletableFuture<ObjectNode> itemFuture = entityService.getItem("Pet", ENTITY_VERSION, technicalId);
+        ObjectNode petNode = itemFuture.get();
+        if (petNode == null) {
+            logger.error("Pet not found during processing: {}", technicalId);
+            return;
+        }
+
+        // Validate pet data completeness
+        String petId = petNode.path("petId").asText(null);
+        String name = petNode.path("name").asText(null);
+        String type = petNode.path("type").asText(null);
+        String status = petNode.path("status").asText(null);
+
+        if (petId == null || petId.isBlank() ||
+                name == null || name.isBlank() ||
+                type == null || type.isBlank() ||
+                status == null || status.isBlank()) {
+            logger.error("Pet entity validation failed for technicalId: {}", technicalId);
+            return;
+        }
+
+        // Enrich with fun facts (prototype static example)
+        logger.info("Enriched Pet {} with fun facts", technicalId);
+
+    } catch (Exception e) {
+        logger.error("Error processing Pet with technicalId {}: {}", technicalId, e.getMessage());
+    }
+}
