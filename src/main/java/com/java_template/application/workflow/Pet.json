@@ -1,0 +1,79 @@
+{
+    "desc": "Workflow for processing PetUpdateJob lifecycle",
+    "id": "pet_update_job_workflow",
+    "initialState": "none",
+    "name": "PetUpdateJob workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "to_pending",
+                    "next": "pending"
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "SourceUrlValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "start_processing_if_valid",
+                    "next": "processing"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "SourceUrlInvalidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "fail_if_invalid_source_url",
+                    "next": "failed"
+                }
+            ]
+        },
+        "processing": {
+            "processors": [
+                {
+                    "config": {
+                        "calculationNodesTags": "cyoda_application"
+                    },
+                    "name": "PetProcessor"
+                }
+            ],
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "ProcessingSuccessCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "complete_if_success",
+                    "next": "completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "ProcessingFailureCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "fail_if_error",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
