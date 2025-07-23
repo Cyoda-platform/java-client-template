@@ -1,9 +1,0 @@
-private void processInteraction(Interaction interaction) {
-    logger.info("Processing Interaction with technicalId: {}", interaction.getTechnicalId());
-
-    logger.info("Subscriber {} had interaction {} on CatFactJob {} at {}",
-            interaction.getSubscriberId(),
-            interaction.getInteractionType(),
-            interaction.getCatFactJobId(),
-            interaction.getInteractedAt());
-}
