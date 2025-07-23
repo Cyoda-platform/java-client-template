@@ -46,7 +46,6 @@ public class Controller {
         return entityService.addItem(PET_INGESTION_JOB_MODEL, ENTITY_VERSION, job)
                 .thenApply(techId -> {
                     job.setTechnicalId(techId);
-                    processPetIngestionJob(job);
                     log.info("Created PetIngestionJob with technicalId: {}", techId);
                     return ResponseEntity.status(201).body(job);
                 });
@@ -77,7 +76,6 @@ public class Controller {
         return entityService.addItem(PET_MODEL, ENTITY_VERSION, pet)
                 .thenApply(techId -> {
                     pet.setTechnicalId(techId);
-                    processPet(pet);
                     log.info("Created Pet with technicalId: {}", techId);
                     return ResponseEntity.status(201).body(pet);
                 });
@@ -131,7 +129,6 @@ public class Controller {
                     return entityService.addItem(ADOPTION_REQUEST_MODEL, ENTITY_VERSION, request)
                             .thenApply(adoptionTechId -> {
                                 request.setTechnicalId(adoptionTechId);
-                                processAdoptionRequest(request, petObjectNode, petTechId);
                                 log.info("Created AdoptionRequest with technicalId: {}", adoptionTechId);
                                 return ResponseEntity.status(201).body(request);
                             });
@@ -147,116 +144,6 @@ public class Controller {
                         return ResponseEntity.status(404).body("AdoptionRequest not found");
                     }
                     return ResponseEntity.ok(objectNode);
-                });
-    }
-
-    // -------- Process Methods --------
-
-    private void processPetIngestionJob(PetIngestionJob job) {
-        log.info("Processing PetIngestionJob with technicalId: {}", job.getTechnicalId());
-
-        if (job.getSource() == null || job.getSource().isBlank()) {
-            log.error("PetIngestionJob {} has invalid source", job.getTechnicalId());
-            job.setStatus("FAILED");
-            entityService.updateItem(PET_INGESTION_JOB_MODEL, ENTITY_VERSION, job.getTechnicalId(), job);
-            return;
-        }
-
-        job.setStatus("PROCESSING");
-        entityService.updateItem(PET_INGESTION_JOB_MODEL, ENTITY_VERSION, job.getTechnicalId(), job)
-                .thenAccept(updatedId -> {
-                    try {
-                        // Simulate fetching pets from external Petstore API
-                        Pet newPet = new Pet();
-                        newPet.setName("Sample Pet");
-                        newPet.setCategory("cat");
-                        newPet.setBreed("Siamese");
-                        newPet.setAge(1);
-                        newPet.setStatus("NEW");
-
-                        entityService.addItem(PET_MODEL, ENTITY_VERSION, newPet)
-                                .thenAccept(petTechId -> {
-                                    newPet.setTechnicalId(petTechId);
-                                    processPet(newPet);
-                                    job.setStatus("COMPLETED");
-                                    entityService.updateItem(PET_INGESTION_JOB_MODEL, ENTITY_VERSION, job.getTechnicalId(), job);
-                                    log.info("PetIngestionJob {} completed successfully", job.getTechnicalId());
-                                }).exceptionally(e -> {
-                                    job.setStatus("FAILED");
-                                    entityService.updateItem(PET_INGESTION_JOB_MODEL, ENTITY_VERSION, job.getTechnicalId(), job);
-                                    log.error("PetIngestionJob {} failed adding pet: {}", job.getTechnicalId(), e.getMessage());
-                                    return null;
-                                });
-                    } catch (Exception e) {
-                        job.setStatus("FAILED");
-                        entityService.updateItem(PET_INGESTION_JOB_MODEL, ENTITY_VERSION, job.getTechnicalId(), job);
-                        log.error("PetIngestionJob {} failed processing: {}", job.getTechnicalId(), e.getMessage());
-                    }
-                }).exceptionally(e -> {
-                    log.error("PetIngestionJob {} update failed: {}", job.getTechnicalId(), e.getMessage());
-                    return null;
-                });
-    }
-
-    private void processPet(Pet pet) {
-        log.info("Processing Pet with technicalId: {}", pet.getTechnicalId());
-
-        if (pet.getName() == null || pet.getName().isBlank() ||
-                pet.getCategory() == null || pet.getCategory().isBlank() ||
-                pet.getBreed() == null || pet.getBreed().isBlank() ||
-                pet.getAge() == null) {
-            log.error("Pet {} has invalid fields", pet.getTechnicalId());
-            return;
-        }
-
-        pet.setStatus("AVAILABLE");
-        entityService.updateItem(PET_MODEL, ENTITY_VERSION, pet.getTechnicalId(), pet)
-                .thenAccept(updatedId -> log.info("Pet {} is now AVAILABLE", pet.getTechnicalId()))
-                .exceptionally(e -> {
-                    log.error("Failed to update Pet {} status: {}", pet.getTechnicalId(), e.getMessage());
-                    return null;
-                });
-    }
-
-    private void processAdoptionRequest(AdoptionRequest request, ObjectNode petObjectNode, UUID petTechId) {
-        log.info("Processing AdoptionRequest with technicalId: {}", request.getTechnicalId());
-
-        if (petObjectNode == null || petObjectNode.isEmpty()) {
-            log.error("AdoptionRequest {} references unknown Pet technicalId: {}", request.getTechnicalId(), request.getPetId());
-            request.setStatus("REJECTED");
-            entityService.updateItem(ADOPTION_REQUEST_MODEL, ENTITY_VERSION, request.getTechnicalId(), request);
-            return;
-        }
-
-        String petStatus = petObjectNode.path("status").asText(null);
-        if (!"AVAILABLE".equalsIgnoreCase(petStatus)) {
-            log.error("AdoptionRequest {} rejected because Pet {} status is {}", request.getTechnicalId(), request.getPetId(), petStatus);
-            request.setStatus("REJECTED");
-            entityService.updateItem(ADOPTION_REQUEST_MODEL, ENTITY_VERSION, request.getTechnicalId(), request);
-            return;
-        }
-
-        if (request.getRequesterName() != null && !request.getRequesterName().isBlank()) {
-            request.setStatus("APPROVED");
-            // Update pet status to ADOPTED
-            Pet pet = new Pet();
-            pet.setTechnicalId(petTechId);
-            pet.setStatus("ADOPTED");
-            entityService.updateItem(PET_MODEL, ENTITY_VERSION, petTechId, pet)
-                    .thenAccept(updatedId -> log.info("Pet {} adopted", petTechId))
-                    .exceptionally(e -> {
-                        log.error("Failed to update Pet {} to ADOPTED: {}", petTechId, e.getMessage());
-                        return null;
-                    });
-            log.info("AdoptionRequest {} approved, Pet {} adopted", request.getTechnicalId(), petTechId);
-        } else {
-            request.setStatus("REJECTED");
-            log.info("AdoptionRequest {} rejected due to invalid requester name", request.getTechnicalId());
-        }
-        entityService.updateItem(ADOPTION_REQUEST_MODEL, ENTITY_VERSION, request.getTechnicalId(), request)
-                .exceptionally(e -> {
-                    log.error("Failed to update AdoptionRequest {} status: {}", request.getTechnicalId(), e.getMessage());
-                    return null;
                 });
     }
 }
