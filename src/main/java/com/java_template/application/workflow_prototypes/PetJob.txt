@@ -1,0 +1,12 @@
+    // Business logic for PetJob
+    private void processPetJob(PetJob petJob) {
+        logger.info("Processing PetJob with ID: {}", petJob.getId());
+
+        if ("AddPet".equalsIgnoreCase(petJob.getJobType())) {
+            logger.info("PetJob is AddPet job, triggering pet creation workflow for petId: {}", petJob.getPetId());
+        } else if ("UpdateStatus".equalsIgnoreCase(petJob.getJobType())) {
+            logger.info("PetJob is UpdateStatus job for petId: {}", petJob.getPetId());
+        } else {
+            logger.warn("PetJob has unknown jobType: {}", petJob.getJobType());
+        }
+    }
