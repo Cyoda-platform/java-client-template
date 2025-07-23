@@ -1,87 +1,88 @@
 {
-    "desc": "Workflow for processing subscriber entity lifecycle",
-    "id": "subscriber_workflow",
-    "initialState": "none",
-    "name": "Subscriber workflow",
-    "states": {
-        "active": {
-            "transitions": [
-                {
-                    "id": "active_to_unsubscribed",
-                    "next": "unsubscribed"
-                }
-            ]
-        },
-        "confirmed": {
-            "transitions": [
-                {
-                    "id": "confirmed_to_active",
-                    "next": "active"
-                }
-            ]
-        },
-        "created": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "EmailFormatAndUniquenessCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "created_to_validated",
-                    "next": "validated"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "EmailFormatOrUniquenessInvalidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "created_to_invalid",
-                    "next": "invalid"
-                }
-            ]
-        },
-        "invalid": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "id": "none_to_created",
-                    "next": "created"
-                }
-            ]
-        },
-        "saved": {
-            "transitions": [
-                {
-                    "id": "saved_to_confirmed",
-                    "next": "confirmed"
-                }
-            ]
-        },
-        "unsubscribed": {
-            "transitions": []
-        },
-        "validated": {
-            "transitions": [
-                {
-                    "id": "validated_to_saved",
-                    "next": "saved",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "SubscriberProcessor"
-                        }
-                    ]
-                }
-            ]
+  "desc": "Workflow for processing subscriber entity lifecycle",
+  "id": "subscriber_workflow",
+  "initialState": "none",
+  "name": "Subscriber workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "id": "none_to_created",
+          "next": "created"
         }
+      ]
     },
-    "version": "1.0"
+    "created": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "EmailFormatAndUniquenessCriterion"
+            },
+            "type": "function"
+          },
+          "id": "created_to_validated",
+          "next": "validated"
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "EmailFormatOrUniquenessInvalidCriterion"
+            },
+            "type": "function"
+          },
+          "id": "created_to_invalid",
+          "next": "invalid"
+        }
+      ]
+    },
+    "validated": {
+      "transitions": [
+        {
+          "id": "validated_to_saved",
+          "next": "saved",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "calculation_nodes_tags": "aaa7ded4-2f5d-11b2-944c-fac101f95347"
+              },
+              "name": "SubscriberProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "saved": {
+      "transitions": [
+        {
+          "id": "saved_to_confirmed",
+          "next": "confirmed"
+        }
+      ]
+    },
+    "confirmed": {
+      "transitions": [
+        {
+          "id": "confirmed_to_active",
+          "next": "active"
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "id": "active_to_unsubscribed",
+          "next": "unsubscribed"
+        }
+      ]
+    },
+    "unsubscribed": {
+      "transitions": []
+    },
+    "invalid": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
