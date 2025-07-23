@@ -1,0 +1,29 @@
+    private void processPet(Pet pet) {
+        log.info("Processing Pet with technicalId: {}", pet.getTechnicalId());
+        if (pet.getName() == null || pet.getName().isBlank() ||
+                pet.getCategory() == null || pet.getCategory().isBlank()) {
+            log.error("Pet validation failed for technicalId {}: Missing name or category", pet.getTechnicalId());
+            return;
+        }
+        if (pet.getTags() != null) {
+            List<String> normalizedTags = new ArrayList<>();
+            for (String tag : pet.getTags()) {
+                if (tag != null) {
+                    normalizedTags.add(tag.toLowerCase());
+                }
+            }
+            pet.setTags(normalizedTags);
+        }
+        if (pet.getPhotoUrls() != null) {
+            List<String> validUrls = new ArrayList<>();
+            for (String url : pet.getPhotoUrls()) {
+                if (url != null && url.startsWith("http")) {
+                    validUrls.add(url);
+                } else {
+                    log.warn("Invalid photo URL skipped for Pet technicalId {}: {}", pet.getTechnicalId(), url);
+                }
+            }
+            pet.setPhotoUrls(validUrls);
+        }
+        log.info("Pet with technicalId {} processed successfully", pet.getTechnicalId());
+    }
