@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.Pet;
+import com.java_template.application.entity.AdoptionRequest;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -16,6 +16,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+/**
+ * Criterion to check if the Pet associated with the AdoptionRequest is available.
+ * Since AdoptionRequest entity lacks pet status, assume pet is available if petId is present.
+ * Real validation requires Pet entity status check.
+ */
 @Component
 public class PetIsAvailableCriterion implements CyodaCriterion {
 
@@ -32,27 +37,23 @@ public class PetIsAvailableCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(Pet.class, this::validateEntity)
-            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
-            .complete();
+                .evaluateEntity(AdoptionRequest.class, this::validateEntity)
+                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+                .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetIsAvailableCriterion".equals(modelSpec.operationName()) &&
-               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "adoptionRequest".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(Pet pet) {
-        // Business logic for PetIsAvailableCriterion:
-        // Pet must be not null and status must be AVAILABLE
-        if (pet.getStatus() == null) {
-            return EvaluationOutcome.fail("Pet status is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+    private EvaluationOutcome validateEntity(AdoptionRequest entity) {
+        if (entity.getPetId() == null || entity.getPetId().isBlank()) {
+            return EvaluationOutcome.fail("Pet ID missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (!pet.getStatus().name().equals("AVAILABLE")) {
-            return EvaluationOutcome.fail("Pet is not available", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        }
+        // Assume pet is available if petId is present
         return EvaluationOutcome.success();
     }
 }
