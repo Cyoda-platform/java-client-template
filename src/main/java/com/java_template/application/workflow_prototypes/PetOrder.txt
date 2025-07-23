@@ -1,0 +1,13 @@
+    // Business logic for processing PetOrder entity
+    private void processPetOrder(PetOrder order) {
+        log.info("Processing PetOrder with technicalId: {}", order.getTechnicalId());
+        if (order.getPetTechnicalId() == null) {
+            log.error("Order processing failed: Pet technicalId is null");
+            return;
+        }
+        if (!"COMPLETED".equalsIgnoreCase(order.getStatus())) {
+            log.error("Order processing failed: Order status is not COMPLETED for technicalId: {}", order.getTechnicalId());
+            return;
+        }
+        log.info("Order {} completed successfully for pet technicalId {}", order.getTechnicalId(), order.getPetTechnicalId());
+    }
