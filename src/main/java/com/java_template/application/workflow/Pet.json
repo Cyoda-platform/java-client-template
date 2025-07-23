@@ -1,73 +1,70 @@
 {
-    "desc": "Workflow representing the lifecycle of a Pet entity from creation to ready for adoption status",
-    "id": "pet_workflow",
+    "desc": "Workflow for processing pet adoption jobs from creation to completion or failure",
+    "id": "pet_adoption_job_workflow",
     "initialState": "none",
-    "name": "Pet entity workflow",
+    "name": "Pet Adoption Job Workflow",
     "states": {
-        "created": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetValidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "validate_pet_success",
-                    "next": "validated"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetInvalidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "validate_pet_failure",
-                    "next": "invalid"
-                }
-            ]
-        },
-        "end": {
+        "completed": {
             "transitions": []
         },
-        "invalid": {
-            "transitions": [
-                {
-                    "id": "abort_processing",
-                    "next": "end"
-                }
-            ]
+        "failed": {
+            "transitions": []
         },
         "none": {
             "transitions": [
                 {
-                    "id": "create_pet",
-                    "next": "created"
-                }
-            ]
-        },
-        "ready_for_adoption": {
-            "transitions": [
-                {
-                    "id": "end_processing",
-                    "next": "end"
-                }
-            ]
-        },
-        "validated": {
-            "transitions": [
-                {
-                    "id": "ready_for_adoption",
-                    "next": "ready_for_adoption",
+                    "id": "start_processing",
+                    "next": "pending",
                     "processors": [
                         {
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "PetProcessor"
+                            "name": "PetAdoptionJobProcessor"
                         }
                     ]
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "id": "pending_to_processing",
+                    "next": "processing"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetAvailabilityCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "processing_to_completed",
+                    "next": "completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetNotFoundCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "processing_to_failed_not_found",
+                    "next": "failed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetNotAvailableCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "processing_to_failed_not_available",
+                    "next": "failed"
                 }
             ]
         }
