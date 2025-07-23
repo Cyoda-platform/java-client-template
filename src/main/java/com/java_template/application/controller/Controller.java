@@ -1,5 +1,7 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.AdoptionRequest;
@@ -17,12 +19,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/entity")
@@ -31,6 +34,7 @@ import static com.java_template.common.config.Config.*;
 public class Controller {
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     // Local cache for Pet entity only (utility entity, minor logic)
     private final Map<String, Pet> petCache = new HashMap<>();
@@ -38,7 +42,7 @@ public class Controller {
 
     // POST /entity/petAdoptionJob - create PetAdoptionJob
     @PostMapping("/petAdoptionJob")
-    public ResponseEntity<?> createPetAdoptionJob(@RequestBody PetAdoptionJob job) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> createPetAdoptionJob(@Valid @RequestBody PetAdoptionJob job) throws ExecutionException, InterruptedException, JsonProcessingException {
         if (job == null) {
             log.error("PetAdoptionJob payload is null");
             return ResponseEntity.badRequest().body("PetAdoptionJob payload cannot be null");
@@ -60,19 +64,16 @@ public class Controller {
                 job
         );
         UUID technicalId = idFuture.get();
-        // Retrieve the persisted job with technicalId to ensure consistency
         CompletableFuture<ObjectNode> jobNodeFuture = entityService.getItem("PetAdoptionJob", ENTITY_VERSION, technicalId);
         ObjectNode jobNode = jobNodeFuture.get();
+        PetAdoptionJob persistedJob = objectMapper.treeToValue(jobNode, PetAdoptionJob.class);
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(job);
+        return ResponseEntity.status(HttpStatus.CREATED).body(persistedJob);
     }
 
     // GET /entity/petAdoptionJob/{id} - retrieve PetAdoptionJob by business id (id field)
     @GetMapping("/petAdoptionJob/{id}")
-    public ResponseEntity<?> getPetAdoptionJob(@PathVariable String id) throws ExecutionException, InterruptedException {
-        if (id == null || id.isBlank()) {
-            return ResponseEntity.badRequest().body("ID cannot be null or blank");
-        }
+    public ResponseEntity<?> getPetAdoptionJob(@PathVariable @NotBlank String id) throws ExecutionException, InterruptedException {
         SearchConditionRequest condition = SearchConditionRequest.group("AND",
                 Condition.of("$.id", "EQUALS", id));
         CompletableFuture<ArrayNode> filteredItemsFuture = entityService.getItemsByCondition("PetAdoptionJob", ENTITY_VERSION, condition, true);
@@ -86,7 +87,7 @@ public class Controller {
 
     // POST /entity/pet - create Pet (keep local cache, minor logic)
     @PostMapping("/pet")
-    public ResponseEntity<?> createPet(@RequestBody Pet pet) {
+    public ResponseEntity<?> createPet(@Valid @RequestBody Pet pet) {
         if (pet == null) {
             log.error("Pet payload is null");
             return ResponseEntity.badRequest().body("Pet payload cannot be null");
@@ -108,10 +109,7 @@ public class Controller {
 
     // GET /entity/pet/{id} - retrieve Pet from local cache
     @GetMapping("/pet/{id}")
-    public ResponseEntity<?> getPet(@PathVariable String id) {
-        if (id == null || id.isBlank()) {
-            return ResponseEntity.badRequest().body("ID cannot be null or blank");
-        }
+    public ResponseEntity<?> getPet(@PathVariable @NotBlank String id) {
         Pet pet = petCache.get(id);
         if (pet == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Pet not found for ID: " + id);
@@ -121,7 +119,7 @@ public class Controller {
 
     // POST /entity/adoptionRequest - create AdoptionRequest
     @PostMapping("/adoptionRequest")
-    public ResponseEntity<?> createAdoptionRequest(@RequestBody AdoptionRequest request) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> createAdoptionRequest(@Valid @RequestBody AdoptionRequest request) throws ExecutionException, InterruptedException, JsonProcessingException {
         if (request == null) {
             log.error("AdoptionRequest payload is null");
             return ResponseEntity.badRequest().body("AdoptionRequest payload cannot be null");
@@ -143,16 +141,16 @@ public class Controller {
                 request
         );
         UUID technicalId = idFuture.get();
+        CompletableFuture<ObjectNode> requestNodeFuture = entityService.getItem("AdoptionRequest", ENTITY_VERSION, technicalId);
+        ObjectNode requestNode = requestNodeFuture.get();
+        AdoptionRequest persistedRequest = objectMapper.treeToValue(requestNode, AdoptionRequest.class);
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(persistedRequest);
     }
 
     // GET /entity/adoptionRequest/{id} - retrieve AdoptionRequest by business id
     @GetMapping("/adoptionRequest/{id}")
-    public ResponseEntity<?> getAdoptionRequest(@PathVariable String id) throws ExecutionException, InterruptedException {
-        if (id == null || id.isBlank()) {
-            return ResponseEntity.badRequest().body("ID cannot be null or blank");
-        }
+    public ResponseEntity<?> getAdoptionRequest(@PathVariable @NotBlank String id) throws ExecutionException, InterruptedException {
         SearchConditionRequest condition = SearchConditionRequest.group("AND",
                 Condition.of("$.id", "EQUALS", id));
         CompletableFuture<ArrayNode> filteredItemsFuture = entityService.getItemsByCondition("AdoptionRequest", ENTITY_VERSION, condition, true);
