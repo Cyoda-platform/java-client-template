@@ -1,5 +1,7 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -22,7 +24,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.UUID;
 
-import static com.java_template.common.config.Config.*;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/controller")
@@ -34,10 +39,12 @@ public class Controller {
 
     private final EntityService entityService;
 
+    private final ObjectMapper objectMapper;
+
     // --- CatFactJob Endpoints ---
 
     @PostMapping("/catFactJobs")
-    public ResponseEntity<?> createCatFactJob(@RequestBody CatFactJob catFactJob) throws Exception {
+    public ResponseEntity<?> createCatFactJob(@RequestBody @Valid CatFactJob catFactJob) throws ExecutionException, InterruptedException, JsonProcessingException {
         if (catFactJob == null || catFactJob.getScheduledAt() == null) {
             return ResponseEntity.badRequest().body("scheduledAt is required");
         }
@@ -58,16 +65,14 @@ public class Controller {
         ObjectNode storedNode = itemFuture.get();
 
         // Map storedNode back to CatFactJob object
-        CatFactJob storedJob = JsonUtils.convert(storedNode, CatFactJob.class);
+        CatFactJob storedJob = objectMapper.treeToValue(storedNode, CatFactJob.class);
         storedJob.setTechnicalId(technicalId);
-
-        // processCatFactJob removed
 
         return ResponseEntity.status(201).body(storedJob);
     }
 
     @GetMapping("/catFactJobs/{id}")
-    public ResponseEntity<?> getCatFactJob(@PathVariable String id) throws Exception {
+    public ResponseEntity<?> getCatFactJob(@PathVariable @NotBlank String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         UUID technicalId;
         try {
             technicalId = UUID.fromString(id);
@@ -83,7 +88,7 @@ public class Controller {
         if (node == null || node.isEmpty()) {
             return ResponseEntity.status(404).body("CatFactJob not found");
         }
-        CatFactJob job = JsonUtils.convert(node, CatFactJob.class);
+        CatFactJob job = objectMapper.treeToValue(node, CatFactJob.class);
         job.setTechnicalId(technicalId);
         return ResponseEntity.ok(job);
     }
@@ -91,7 +96,7 @@ public class Controller {
     // --- Subscriber Endpoints ---
 
     @PostMapping("/subscribers")
-    public ResponseEntity<?> createSubscriber(@RequestBody Subscriber subscriber) throws Exception {
+    public ResponseEntity<?> createSubscriber(@RequestBody @Valid Subscriber subscriber) throws ExecutionException, InterruptedException, JsonProcessingException {
         if (subscriber == null || subscriber.getEmail() == null || subscriber.getEmail().isBlank()) {
             return ResponseEntity.badRequest().body("Valid email is required");
         }
@@ -112,16 +117,14 @@ public class Controller {
         );
         ObjectNode storedNode = itemFuture.get();
 
-        Subscriber storedSubscriber = JsonUtils.convert(storedNode, Subscriber.class);
+        Subscriber storedSubscriber = objectMapper.treeToValue(storedNode, Subscriber.class);
         storedSubscriber.setTechnicalId(technicalId);
-
-        // processSubscriber removed
 
         return ResponseEntity.status(201).body(storedSubscriber);
     }
 
     @GetMapping("/subscribers/{id}")
-    public ResponseEntity<?> getSubscriber(@PathVariable String id) throws Exception {
+    public ResponseEntity<?> getSubscriber(@PathVariable @NotBlank String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         UUID technicalId;
         try {
             technicalId = UUID.fromString(id);
@@ -137,13 +140,13 @@ public class Controller {
         if (node == null || node.isEmpty()) {
             return ResponseEntity.status(404).body("Subscriber not found");
         }
-        Subscriber subscriber = JsonUtils.convert(node, Subscriber.class);
+        Subscriber subscriber = objectMapper.treeToValue(node, Subscriber.class);
         subscriber.setTechnicalId(technicalId);
         return ResponseEntity.ok(subscriber);
     }
 
     @GetMapping("/subscribers/count")
-    public ResponseEntity<?> getActiveSubscriberCount() throws Exception {
+    public ResponseEntity<?> getActiveSubscriberCount() throws ExecutionException, InterruptedException {
         SearchConditionRequest condition = SearchConditionRequest.group("AND",
                 Condition.of("$.status", "IEQUALS", "ACTIVE"));
         CompletableFuture<ArrayNode> filteredItemsFuture = entityService.getItemsByCondition(
@@ -161,7 +164,7 @@ public class Controller {
     // --- Interaction Endpoints ---
 
     @PostMapping("/interactions")
-    public ResponseEntity<?> createInteraction(@RequestBody Interaction interaction) throws Exception {
+    public ResponseEntity<?> createInteraction(@RequestBody @Valid Interaction interaction) throws ExecutionException, InterruptedException, JsonProcessingException {
         if (interaction == null ||
                 interaction.getSubscriberId() == null || interaction.getSubscriberId().isBlank() ||
                 interaction.getCatFactJobId() == null || interaction.getCatFactJobId().isBlank() ||
@@ -214,16 +217,14 @@ public class Controller {
                 technicalId
         );
         ObjectNode storedNode = storedNodeFuture.get();
-        Interaction storedInteraction = JsonUtils.convert(storedNode, Interaction.class);
+        Interaction storedInteraction = objectMapper.treeToValue(storedNode, Interaction.class);
         storedInteraction.setTechnicalId(technicalId);
-
-        // processInteraction removed
 
         return ResponseEntity.status(201).body(storedInteraction);
     }
 
     @GetMapping("/interactions/{id}")
-    public ResponseEntity<?> getInteraction(@PathVariable String id) throws Exception {
+    public ResponseEntity<?> getInteraction(@PathVariable @NotBlank String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         UUID technicalId;
         try {
             technicalId = UUID.fromString(id);
@@ -239,13 +240,13 @@ public class Controller {
         if (node == null || node.isEmpty()) {
             return ResponseEntity.status(404).body("Interaction not found");
         }
-        Interaction interaction = JsonUtils.convert(node, Interaction.class);
+        Interaction interaction = objectMapper.treeToValue(node, Interaction.class);
         interaction.setTechnicalId(technicalId);
         return ResponseEntity.ok(interaction);
     }
 
     @GetMapping("/interactions/count")
-    public ResponseEntity<?> getInteractionCounts() throws Exception {
+    public ResponseEntity<?> getInteractionCounts() throws ExecutionException, InterruptedException {
         CompletableFuture<ArrayNode> itemsFuture = entityService.getItems(
                 "Interaction",
                 ENTITY_VERSION
@@ -267,18 +268,5 @@ public class Controller {
         response.put("emailOpens", emailOpens);
         response.put("linkClicks", linkClicks);
         return ResponseEntity.ok(response);
-    }
-
-    // Utility class for conversions between ObjectNode and entity objects
-    private static class JsonUtils {
-        private static final com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-
-        static <T> T convert(JsonNode node, Class<T> clazz) {
-            try {
-                return mapper.treeToValue(node, clazz);
-            } catch (Exception e) {
-                throw new RuntimeException("Failed to convert JSON node to " + clazz.getSimpleName(), e);
-            }
-        }
     }
 }
