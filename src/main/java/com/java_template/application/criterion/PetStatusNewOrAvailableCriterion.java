@@ -44,13 +44,11 @@ public class PetStatusNewOrAvailableCriterion implements CyodaCriterion {
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(Pet pet) {
-        if (pet.getStatus() == null || pet.getStatus().isBlank()) {
-            return EvaluationOutcome.fail("Status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        }
-        // Validate if status is either NEW or AVAILABLE
-        if (!pet.getStatus().equals("NEW") && !pet.getStatus().equals("AVAILABLE")) {
-            return EvaluationOutcome.fail("Status must be NEW or AVAILABLE", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+    private EvaluationOutcome validateEntity(Pet entity) {
+        // Validate that the pet status is either NEW or AVAILABLE
+        String status = entity.getStatus();
+        if (status == null || (!status.equals("NEW") && !status.equals("AVAILABLE"))) {
+            return EvaluationOutcome.fail("Pet status must be NEW or AVAILABLE", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         return EvaluationOutcome.success();
     }
