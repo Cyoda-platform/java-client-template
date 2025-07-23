@@ -52,7 +52,7 @@ public class Controller {
         );
         UUID technicalId = idFuture.get();
 
-        petJobProcessing(technicalId, petJob.getPetType());
+        // Removed process method call petJobProcessing(technicalId, petJob.getPetType());
 
         Map<String, Object> response = new HashMap<>();
         response.put("jobId", technicalId.toString());
@@ -71,48 +71,6 @@ public class Controller {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("PetJob not found");
         }
         return ResponseEntity.ok(item);
-    }
-
-    private void petJobProcessing(UUID technicalId, String petType) {
-        // This method simulates processing asynchronously, but here we do synchronously for prototype.
-
-        try {
-            CompletableFuture<ObjectNode> itemFuture = entityService.getItem("PetJob", ENTITY_VERSION, technicalId);
-            ObjectNode petJobNode = itemFuture.get();
-            if (petJobNode == null) {
-                logger.error("PetJob not found during processing: {}", technicalId);
-                return;
-            }
-
-            // Validate petType
-            if (petType == null || petType.isBlank()) {
-                logger.error("Invalid petType in PetJob: {}", petType);
-                petJobNode.put("status", "FAILED");
-                entityService.updateItem("PetJob", ENTITY_VERSION, technicalId, petJobNode).get();
-                return;
-            }
-
-            petJobNode.put("status", "PROCESSING");
-            entityService.updateItem("PetJob", ENTITY_VERSION, technicalId, petJobNode).get();
-
-            // Simulate fetching pets from Petstore API filtered by petType (create dummy pet)
-            Pet dummyPet = new Pet();
-            dummyPet.setPetId(null); // id will be assigned by entityService
-            dummyPet.setName("DummyPet_" + UUID.randomUUID());
-            dummyPet.setType(petType);
-            dummyPet.setStatus("ACTIVE");
-
-            CompletableFuture<UUID> petIdFuture = entityService.addItem("Pet", ENTITY_VERSION, dummyPet);
-            UUID petTechnicalId = petIdFuture.get();
-            logger.info("PetJob processed: Created dummy Pet with technicalId {}", petTechnicalId);
-
-            petJobNode.put("status", "COMPLETED");
-            entityService.updateItem("PetJob", ENTITY_VERSION, technicalId, petJobNode).get();
-
-        } catch (Exception e) {
-            logger.error("Error processing PetJob with technicalId {}: {}", technicalId, e.getMessage());
-            // no try-catch propagation per instructions, but this is internal method
-        }
     }
 
     // --- Pet Endpoints ---
@@ -143,7 +101,7 @@ public class Controller {
         );
         UUID technicalId = idFuture.get();
 
-        petProcessing(technicalId);
+        // Removed process method call petProcessing(technicalId);
 
         CompletableFuture<ObjectNode> createdPetFuture = entityService.getItem("Pet", ENTITY_VERSION, technicalId);
         ObjectNode petNode = createdPetFuture.get();
@@ -162,37 +120,6 @@ public class Controller {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Pet not found");
         }
         return ResponseEntity.ok(item);
-    }
-
-    private void petProcessing(UUID technicalId) {
-        try {
-            CompletableFuture<ObjectNode> itemFuture = entityService.getItem("Pet", ENTITY_VERSION, technicalId);
-            ObjectNode petNode = itemFuture.get();
-            if (petNode == null) {
-                logger.error("Pet not found during processing: {}", technicalId);
-                return;
-            }
-
-            // Validate pet data completeness
-            String petId = petNode.path("petId").asText(null);
-            String name = petNode.path("name").asText(null);
-            String type = petNode.path("type").asText(null);
-            String status = petNode.path("status").asText(null);
-
-            if (petId == null || petId.isBlank() ||
-                    name == null || name.isBlank() ||
-                    type == null || type.isBlank() ||
-                    status == null || status.isBlank()) {
-                logger.error("Pet entity validation failed for technicalId: {}", technicalId);
-                return;
-            }
-
-            // Enrich with fun facts (prototype static example)
-            logger.info("Enriched Pet {} with fun facts", technicalId);
-
-        } catch (Exception e) {
-            logger.error("Error processing Pet with technicalId {}: {}", technicalId, e.getMessage());
-        }
     }
 
     // --- AdoptionRequest Endpoints ---
@@ -218,7 +145,7 @@ public class Controller {
         );
         UUID technicalId = idFuture.get();
 
-        adoptionRequestProcessing(technicalId, adoptionRequest.getPetId());
+        // Removed process method call adoptionRequestProcessing(technicalId, adoptionRequest.getPetId());
 
         Map<String, Object> response = new HashMap<>();
         response.put("requestId", technicalId.toString());
@@ -245,39 +172,5 @@ public class Controller {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("AdoptionRequest not found");
         }
         return ResponseEntity.ok(item);
-    }
-
-    private void adoptionRequestProcessing(UUID technicalId, String petId) {
-        try {
-            CompletableFuture<ObjectNode> adoptionRequestFuture = entityService.getItem("AdoptionRequest", ENTITY_VERSION, technicalId);
-            ObjectNode adoptionRequestNode = adoptionRequestFuture.get();
-            if (adoptionRequestNode == null) {
-                logger.error("AdoptionRequest not found during processing: {}", technicalId);
-                return;
-            }
-
-            // Check pet availability
-            // build condition for pet with petId and status ACTIVE (case insensitive)
-            SearchConditionRequest condition = SearchConditionRequest.group("AND",
-                    Condition.of("$.petId", "EQUALS", petId),
-                    Condition.of("$.status", "IEQUALS", "ACTIVE"));
-
-            CompletableFuture<ArrayNode> petsFuture = entityService.getItemsByCondition("Pet", ENTITY_VERSION, condition, true);
-            ArrayNode pets = petsFuture.get();
-
-            if (pets == null || pets.isEmpty()) {
-                adoptionRequestNode.put("status", "REJECTED");
-                logger.error("Pet not available for AdoptionRequest technicalId: {}", technicalId);
-            } else {
-                adoptionRequestNode.put("status", "APPROVED");
-            }
-
-            entityService.updateItem("AdoptionRequest", ENTITY_VERSION, technicalId, adoptionRequestNode).get();
-
-            logger.info("AdoptionRequest {} status set to {}", technicalId, adoptionRequestNode.get("status").asText());
-
-        } catch (Exception e) {
-            logger.error("Error processing AdoptionRequest with technicalId {}: {}", technicalId, e.getMessage());
-        }
     }
 }
