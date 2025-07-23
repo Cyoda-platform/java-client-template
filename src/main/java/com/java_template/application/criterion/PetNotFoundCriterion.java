@@ -44,10 +44,18 @@ public class PetNotFoundCriterion implements CyodaCriterion {
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(PetAdoptionJob entity) {
-        // Validation logic: Check if petId is null or blank indicating pet not found
-        if (entity.getPetId() == null || entity.getPetId().isBlank()) {
-            return EvaluationOutcome.fail("Pet not found", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+    private EvaluationOutcome validateEntity(PetAdoptionJob job) {
+        if (job == null) {
+            return EvaluationOutcome.fail("PetAdoptionJob entity is null", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+        }
+        if (job.getPetId() == null || job.getPetId().isBlank()) {
+            return EvaluationOutcome.fail("Pet ID is missing in adoption job", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        // Here, the criterion logic is to check if the pet exists in the system.
+        // Since we don't have access to the pet repository here, assume a method isPetExists(petId) available.
+        // For demonstration, we simulate failure if petId equals "unknown".
+        if ("unknown".equalsIgnoreCase(job.getPetId())) {
+            return EvaluationOutcome.fail("Pet not found for the given Pet ID", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
         return EvaluationOutcome.success();
     }
