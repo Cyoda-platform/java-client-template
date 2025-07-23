@@ -1,52 +1,100 @@
 {
-    "desc": "Workflow to manage pet adoption job processing from creation to completion or failure.",
-    "id": "pet_adoption_job_workflow",
+    "desc": "Workflow representing the life cycle of an AdoptionRequest entity",
+    "id": "adoption_request_workflow",
     "initialState": "none",
-    "name": "Pet Adoption Job Workflow",
+    "name": "Adoption Request Workflow",
     "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
+        "approved": {
             "transitions": []
         },
         "none": {
             "transitions": [
                 {
-                    "id": "start_processing",
-                    "next": "processing",
+                    "id": "start_to_pending",
+                    "next": "pending"
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetDoesNotExistCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "pending_to_rejected_pet_not_found",
+                    "next": "rejected"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetExistsCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "pending_to_valid_pet_exists",
+                    "next": "valid_pet_exists"
+                }
+            ]
+        },
+        "pet_available": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "RequesterIsNotValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "pet_available_to_rejected_invalid_requester",
+                    "next": "rejected"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "RequesterIsValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "pet_available_to_approved",
+                    "next": "approved",
                     "processors": [
                         {
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "AdoptionRequestProcessor"
+                            "name": "PetProcessor"
                         }
                     ]
                 }
             ]
         },
-        "processing": {
+        "rejected": {
+            "transitions": []
+        },
+        "valid_pet_exists": {
             "transitions": [
                 {
                     "criterion": {
                         "function": {
-                            "name": "PetFoundAndAvailableCriterion"
+                            "name": "PetIsNotAvailableCriterion"
                         },
                         "type": "function"
                     },
-                    "id": "pet_found_and_available",
-                    "next": "completed"
+                    "id": "valid_pet_to_rejected_not_available",
+                    "next": "rejected"
                 },
                 {
                     "criterion": {
                         "function": {
-                            "name": "PetNotFoundOrUnavailableCriterion"
+                            "name": "PetIsAvailableCriterion"
                         },
                         "type": "function"
                     },
-                    "id": "pet_not_found_or_unavailable",
-                    "next": "failed"
+                    "id": "valid_pet_to_pet_available",
+                    "next": "pet_available"
                 }
             ]
         }
