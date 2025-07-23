@@ -1,74 +1,55 @@
 {
-  "desc": "Workflow for processing pet adoption jobs from creation to completion or failure",
-  "id": "pet_adoption_job_workflow",
-  "initialState": "none",
-  "name": "Pet Adoption Job Workflow",
-  "states": {
-    "none": {
-      "transitions": [
-        {
-          "id": "start_processing",
-          "next": "pending",
-          "processors": [
-            {
-              "config": {
-                "calculationNodesTags": "cyoda_application",
-                "calculation_nodes_tags": "931db586-65d1-11b2-95b2-ca2f093e3d5b"
-              },
-              "name": "PetAdoptionJobProcessor"
-            }
-          ]
-        }
-      ]
-    },
-    "pending": {
-      "transitions": [
-        {
-          "id": "pending_to_processing",
-          "next": "processing"
-        }
-      ]
-    },
-    "processing": {
-      "transitions": [
-        {
-          "criterion": {
-            "function": {
-              "name": "PetAvailabilityCriterion"
-            },
-            "type": "function"
-          },
-          "id": "processing_to_completed",
-          "next": "completed"
+    "desc": "Workflow for processing pet adoption jobs from pending to completion or failure",
+    "id": "pet_adoption_job_workflow",
+    "initialState": "none",
+    "name": "Pet Adoption Job Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
         },
-        {
-          "criterion": {
-            "function": {
-              "name": "PetNotFoundCriterion"
-            },
-            "type": "function"
-          },
-          "id": "processing_to_failed_not_found",
-          "next": "failed"
+        "failed": {
+            "transitions": []
         },
-        {
-          "criterion": {
-            "function": {
-              "name": "PetNotAvailableCriterion"
-            },
-            "type": "function"
-          },
-          "id": "processing_to_failed_not_available",
-          "next": "failed"
+        "none": {
+            "transitions": [
+                {
+                    "id": "start_processing",
+                    "next": "processing",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetAdoptionJobProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetAvailableCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "pet_found_and_available",
+                    "next": "completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetUnavailableCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "pet_missing_or_unavailable",
+                    "next": "failed"
+                }
+            ]
         }
-      ]
     },
-    "completed": {
-      "transitions": []
-    },
-    "failed": {
-      "transitions": []
-    }
-  },
-  "version": "1.0"
+    "version": "1.0"
 }
