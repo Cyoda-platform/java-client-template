@@ -1,6 +1,7 @@
 package com.java_template.application.processor;
 
 import com.java_template.application.entity.CatFact;
+import com.java_template.common.serializer.ErrorInfo;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
@@ -29,29 +30,29 @@ public class CatFactProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing CatFact for request: {}", request.getId());
 
+        // Fluent entity processing with validation
         return serializer.withRequest(request)
             .toEntity(CatFact.class)
             .validate(CatFact::isValid, "Invalid entity state")
-            .map(this::processEntityLogic)
+            .map(this::processCatFactLogic)
             .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "CatFactProcessor".equals(modelSpec.operationName()) &&
-               "catFact".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "catfact".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private CatFact processEntityLogic(CatFact catFact) {
-        logger.info("Processing CatFact with ID: {}", catFact.getId());
+    private CatFact processCatFactLogic(CatFact entity) {
+        // Business logic for CatFact processing
+        logger.info("Processing CatFact with ID: {}", entity.getId());
 
-        if (catFact.getFact() != null && catFact.getFact().length() < 10) {
-            logger.error("CatFact fact is too short");
-            catFact.setStatus("ARCHIVED");
-        } else {
-            logger.info("CatFact fact is valid");
-        }
-        return catFact;
+        // Validation of fact and source fields is already done by isValid()
+        // Additional processing can be added here if needed
+
+        // For now, just return entity unchanged.
+        return entity;
     }
 }
