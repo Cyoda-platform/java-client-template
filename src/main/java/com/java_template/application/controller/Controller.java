@@ -1,12 +1,11 @@
 package com.java_template.application.controller;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Pet;
 import com.java_template.application.entity.PetIngestionJob;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
@@ -19,9 +18,8 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/entity")
@@ -32,11 +30,12 @@ public class Controller {
     private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     // ------------------ PetIngestionJob Endpoints ------------------
 
     @PostMapping("/petIngestionJob")
-    public ResponseEntity<?> createPetIngestionJob(@RequestBody PetIngestionJob jobRequest) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> createPetIngestionJob(@RequestBody PetIngestionJob jobRequest) throws ExecutionException, InterruptedException, JsonProcessingException {
         if (jobRequest == null || jobRequest.getSource() == null || jobRequest.getSource().isBlank()) {
             logger.error("Invalid PetIngestionJob creation request: missing source");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Missing required field: source");
@@ -49,7 +48,7 @@ public class Controller {
         newJob.setCreatedAt(LocalDateTime.now());
 
         CompletableFuture<UUID> idFuture = entityService.addItem(
-                "PetIngestionJob",
+                "petIngestionJob",
                 ENTITY_VERSION,
                 newJob
         );
@@ -60,6 +59,7 @@ public class Controller {
         String idString = technicalId.toString();
         newJob.setId(idString);
         newJob.setJobId(idString);
+        newJob.setTechnicalId(technicalId);
 
         logger.info("Created PetIngestionJob with technicalId: {}", idString);
 
@@ -67,7 +67,7 @@ public class Controller {
     }
 
     @GetMapping("/petIngestionJob/{id}")
-    public ResponseEntity<?> getPetIngestionJob(@PathVariable String id) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> getPetIngestionJob(@PathVariable String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         UUID technicalId;
         try {
             technicalId = UUID.fromString(id);
@@ -77,7 +77,7 @@ public class Controller {
         }
 
         CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
-                "PetIngestionJob",
+                "petIngestionJob",
                 ENTITY_VERSION,
                 technicalId
         );
@@ -89,9 +89,10 @@ public class Controller {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("PetIngestionJob not found");
         }
 
-        PetIngestionJob job = nodeToPetIngestionJob(node);
+        PetIngestionJob job = objectMapper.treeToValue(node, PetIngestionJob.class);
         job.setId(id);
         job.setJobId(id);
+        job.setTechnicalId(technicalId);
 
         return ResponseEntity.ok(job);
     }
@@ -99,7 +100,7 @@ public class Controller {
     // ------------------ Pet Endpoints ------------------
 
     @PostMapping("/pet")
-    public ResponseEntity<?> createPet(@RequestBody Pet petRequest) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> createPet(@RequestBody Pet petRequest) throws ExecutionException, InterruptedException, JsonProcessingException {
         if (petRequest == null || !validatePetRequest(petRequest)) {
             logger.error("Invalid Pet creation request");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Missing required pet fields");
@@ -114,7 +115,7 @@ public class Controller {
         newPet.setStatus("NEW");
 
         CompletableFuture<UUID> idFuture = entityService.addItem(
-                "Pet",
+                "pet",
                 ENTITY_VERSION,
                 newPet
         );
@@ -123,6 +124,7 @@ public class Controller {
         String idString = technicalId.toString();
         newPet.setId(idString);
         newPet.setPetId(idString);
+        newPet.setTechnicalId(technicalId);
 
         logger.info("Created Pet with technicalId: {}", idString);
 
@@ -130,7 +132,7 @@ public class Controller {
     }
 
     @GetMapping("/pet/{id}")
-    public ResponseEntity<?> getPet(@PathVariable String id) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> getPet(@PathVariable String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         UUID technicalId;
         try {
             technicalId = UUID.fromString(id);
@@ -140,7 +142,7 @@ public class Controller {
         }
 
         CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
-                "Pet",
+                "pet",
                 ENTITY_VERSION,
                 technicalId
         );
@@ -152,9 +154,10 @@ public class Controller {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Pet not found");
         }
 
-        Pet pet = nodeToPet(node);
+        Pet pet = objectMapper.treeToValue(node, Pet.class);
         pet.setId(id);
         pet.setPetId(id);
+        pet.setTechnicalId(technicalId);
 
         return ResponseEntity.ok(pet);
     }
@@ -165,39 +168,5 @@ public class Controller {
         return pet != null
                 && pet.getName() != null && !pet.getName().isBlank()
                 && pet.getCategory() != null && !pet.getCategory().isBlank();
-    }
-
-    private PetIngestionJob nodeToPetIngestionJob(ObjectNode node) {
-        PetIngestionJob job = new PetIngestionJob();
-        if (node.has("source")) job.setSource(node.get("source").asText(null));
-        if (node.has("status")) job.setStatus(node.get("status").asText(null));
-        if (node.has("createdAt")) {
-            try {
-                job.setCreatedAt(LocalDateTime.parse(node.get("createdAt").asText()));
-            } catch (Exception ignored) { }
-        }
-        return job;
-    }
-
-    private Pet nodeToPet(ObjectNode node) {
-        Pet pet = new Pet();
-        if (node.has("name")) pet.setName(node.get("name").asText(null));
-        if (node.has("category")) pet.setCategory(node.get("category").asText(null));
-        if (node.has("photoUrls") && node.get("photoUrls").isArray()) {
-            List<String> photoUrls = new ArrayList<>();
-            for (var item : node.withArray("photoUrls")) {
-                photoUrls.add(item.asText());
-            }
-            pet.setPhotoUrls(photoUrls);
-        }
-        if (node.has("tags") && node.get("tags").isArray()) {
-            List<String> tags = new ArrayList<>();
-            for (var item : node.withArray("tags")) {
-                tags.add(item.asText());
-            }
-            pet.setTags(tags);
-        }
-        if (node.has("status")) pet.setStatus(node.get("status").asText(null));
-        return pet;
     }
 }
