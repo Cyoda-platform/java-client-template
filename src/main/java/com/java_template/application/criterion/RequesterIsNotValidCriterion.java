@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.AdoptionRequest;
+import com.java_template.application.entity.Pet;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -16,10 +16,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-/**
- * Criterion to check if the requester in AdoptionRequest is NOT valid.
- * Validation logic: requesterName must be non-null and non-blank.
- */
 @Component
 public class RequesterIsNotValidCriterion implements CyodaCriterion {
 
@@ -36,21 +32,27 @@ public class RequesterIsNotValidCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-                .evaluateEntity(AdoptionRequest.class, this::validateEntity)
-                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
-                .complete();
+            .evaluateEntity(Pet.class, this::validateEntity)
+            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+            .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "RequesterIsNotValidCriterion".equals(modelSpec.operationName()) &&
-               "adoptionRequest".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(AdoptionRequest entity) {
-        if (entity.getRequesterName() == null || entity.getRequesterName().isBlank()) {
-            return EvaluationOutcome.fail("Requester name is missing or blank", StandardEvalReasonCategories.VALIDATION_FAILURE);
+    private EvaluationOutcome validateEntity(Pet pet) {
+        // Business logic for RequesterIsNotValidCriterion:
+        // Since no Requester entity is provided in input, simulate validation with pet's category as a proxy
+        if (pet.getCategory() == null || pet.getCategory().isBlank()) {
+            return EvaluationOutcome.fail("Requester category information missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        // Assume category "invalid" means not valid requester for demonstration
+        if (!"invalid".equalsIgnoreCase(pet.getCategory())) {
+            return EvaluationOutcome.fail("Requester is valid", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
         return EvaluationOutcome.success();
     }
