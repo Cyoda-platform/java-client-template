@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.Pet;
+import com.java_template.application.entity.PetAdoptionJob;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,7 +32,7 @@ public class RequesterIsNotValidCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(Pet.class, this::validateEntity)
+            .evaluateEntity(PetAdoptionJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,19 +40,17 @@ public class RequesterIsNotValidCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "RequesterIsNotValidCriterion".equals(modelSpec.operationName()) &&
-               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "petAdoptionJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(Pet pet) {
-        // Business logic for RequesterIsNotValidCriterion:
-        // Since no Requester entity is provided in input, simulate validation with pet's category as a proxy
-        if (pet.getCategory() == null || pet.getCategory().isBlank()) {
-            return EvaluationOutcome.fail("Requester category information missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+    private EvaluationOutcome validateEntity(PetAdoptionJob entity) {
+        // Business logic: requester is not valid if adopterName or adopterContact is null or blank
+        if (entity.getAdopterName() == null || entity.getAdopterName().isBlank()) {
+            return EvaluationOutcome.fail("Adopter name is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        // Assume category "invalid" means not valid requester for demonstration
-        if (!"invalid".equalsIgnoreCase(pet.getCategory())) {
-            return EvaluationOutcome.fail("Requester is valid", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        if (entity.getAdopterContact() == null || entity.getAdopterContact().isBlank()) {
+            return EvaluationOutcome.fail("Adopter contact is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         return EvaluationOutcome.success();
     }
