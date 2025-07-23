@@ -1,7 +1,6 @@
 package com.java_template.application.processor;
 
 import com.java_template.application.entity.Pet;
-import com.java_template.common.serializer.ErrorInfo;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
@@ -16,6 +15,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class PetProcessor implements CyodaProcessor {
+
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final ProcessorSerializer serializer;
 
@@ -30,20 +30,25 @@ public class PetProcessor implements CyodaProcessor {
         logger.info("Processing Pet for request: {}", request.getId());
 
         return serializer.withRequest(request)
-            .toEntity(Pet.class)
-            .validate(this::isValidEntity, "Invalid Pet entity state")
-            .map(this::processPetLogic)
-            .complete();
+                .toEntity(Pet.class)
+                .validate(this::isValidEntity, "Invalid entity state")
+                .map(this::processEntityLogic)
+                .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetProcessor".equals(modelSpec.operationName()) &&
-               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+                "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private Pet processPetLogic(Pet pet) {
+    private boolean isValidEntity(Pet pet) {
+        return pet.isValid();
+    }
+
+    private Pet processEntityLogic(Pet pet) {
+        // Business logic from processPet method in workflow prototype
         logger.info("Processing Pet with ID: {}", pet.getId());
 
         if (pet.getName() == null || pet.getName().isBlank()) {
@@ -54,15 +59,9 @@ public class PetProcessor implements CyodaProcessor {
             logger.error("Pet category is mandatory");
             return pet;
         }
+        // Pet status already set to AVAILABLE in createPet()
 
         logger.info("Pet {} is ready for adoption", pet.getId());
         return pet;
-    }
-
-    private boolean isValidEntity(Pet pet) {
-        return pet.getId() != null && !pet.getId().isBlank() &&
-               pet.getName() != null && !pet.getName().isBlank() &&
-               pet.getCategory() != null && !pet.getCategory().isBlank() &&
-               pet.getStatus() != null;
     }
 }
