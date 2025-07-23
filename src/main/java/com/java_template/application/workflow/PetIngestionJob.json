@@ -1,79 +1,80 @@
 {
-    "desc": "Workflow for processing PetIngestionJob entities from creation to completion or failure",
-    "id": "pet_ingestion_job_workflow",
-    "initialState": "none",
-    "name": "Pet Ingestion Job Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "id": "none_to_pending",
-                    "next": "pending"
-                }
-            ]
-        },
-        "pending": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "SourceValidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "pending_to_processing_if_source_valid",
-                    "next": "processing",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetIngestionJobProcessor"
-                        }
-                    ]
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "SourceInvalidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "pending_to_failed_if_source_invalid",
-                    "next": "failed"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "ProcessingSuccessCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "processing_to_completed_if_success",
-                    "next": "completed"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "ProcessingErrorCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "processing_to_failed_if_error",
-                    "next": "failed"
-                }
-            ]
+  "desc": "Workflow for processing PetIngestionJob entities from creation to completion or failure",
+  "id": "pet_ingestion_job_workflow",
+  "initialState": "none",
+  "name": "Pet Ingestion Job Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "id": "none_to_pending",
+          "next": "pending"
         }
+      ]
     },
-    "version": "1.0"
+    "pending": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "SourceValidCriterion"
+            },
+            "type": "function"
+          },
+          "id": "pending_to_processing_if_source_valid",
+          "next": "processing",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "calculation_nodes_tags": "b308f3b8-2ff0-11b2-ac6a-1297eff5fbfd"
+              },
+              "name": "PetIngestionJobProcessor"
+            }
+          ]
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "SourceInvalidCriterion"
+            },
+            "type": "function"
+          },
+          "id": "pending_to_failed_if_source_invalid",
+          "next": "failed"
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "ProcessingSuccessCriterion"
+            },
+            "type": "function"
+          },
+          "id": "processing_to_completed_if_success",
+          "next": "completed"
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "ProcessingErrorCriterion"
+            },
+            "type": "function"
+          },
+          "id": "processing_to_failed_if_error",
+          "next": "failed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
