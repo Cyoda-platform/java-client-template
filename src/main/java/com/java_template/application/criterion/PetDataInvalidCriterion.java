@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.PetCreationJob;
+import com.java_template.application.entity.Pet;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,7 +32,7 @@ public class PetDataInvalidCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(PetCreationJob.class, this::validateEntity)
+            .evaluateEntity(Pet.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,32 +40,18 @@ public class PetDataInvalidCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetDataInvalidCriterion".equals(modelSpec.operationName()) &&
-               "petCreationJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(PetCreationJob entity) {
-        // Business Logic:
-        // Fail if petData is missing required fields or is invalid JSON
-        if (entity == null) {
-            return EvaluationOutcome.fail("Entity is null", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+    private EvaluationOutcome validateEntity(Pet entity) {
+        // Business logic for PetDataInvalidCriterion:
+        // Validate that name, category, and status are null or blank (invalid state)
+        if (entity.getName() == null || entity.getName().isBlank()
+            || entity.getCategory() == null || entity.getCategory().isBlank()
+            || entity.getStatus() == null || entity.getStatus().isBlank()) {
+            return EvaluationOutcome.success();
         }
-        String petData = entity.getPetData();
-        if (petData == null || petData.isBlank()) {
-            return EvaluationOutcome.fail("Pet data must not be null or blank", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-        }
-        try {
-            com.fasterxml.jackson.databind.JsonNode root = new com.fasterxml.jackson.databind.ObjectMapper().readTree(petData);
-            if (!root.hasNonNull("name") || root.get("name").asText().isBlank() ||
-                !root.hasNonNull("category") || root.get("category").asText().isBlank() ||
-                !root.hasNonNull("status") || root.get("status").asText().isBlank()) {
-                return EvaluationOutcome.fail("Pet data missing one or more required fields", StandardEvalReasonCategories.VALIDATION_FAILURE);
-            }
-        } catch (Exception e) {
-            // Invalid JSON
-            return EvaluationOutcome.fail("Invalid petData JSON: " + e.getMessage(), StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-        }
-        // If we reach here, the petData is valid, so this criterion should fail (invalid) only if petData is invalid
-        return EvaluationOutcome.fail("Pet data is valid, this criterion expects invalid data", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        return EvaluationOutcome.fail("Pet data is valid", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
     }
 }
