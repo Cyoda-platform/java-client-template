@@ -1,145 +1,146 @@
 {
-    "desc": "Workflow for processing PetUpdateEvent entity lifecycle",
-    "id": "pet_update_workflow",
-    "initialState": "none",
-    "name": "Pet Update Event Workflow",
-    "states": {
-        "failed": {
-            "transitions": []
-        },
-        "fetched": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "InvalidUpdatedFieldsCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "transition_to_failed_if_invalid_updates",
-                    "next": "failed"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "ValidUpdatedFieldsCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "transition_to_updated",
-                    "next": "updated"
-                }
-            ]
-        },
-        "none": {
-            "transitions": [
-                {
-                    "id": "transition_to_validated",
-                    "next": "validated"
-                }
-            ]
-        },
-        "pet_exists_check": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetNotFoundCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "transition_to_failed_if_pet_not_found",
-                    "next": "failed"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetFoundCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "transition_to_fetched",
-                    "next": "fetched"
-                }
-            ]
-        },
-        "petid_format_check": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "InvalidPetIdFormatCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "transition_to_failed_if_invalid_petid_format",
-                    "next": "failed"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "ValidPetIdFormatCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "transition_to_pet_exists_check",
-                    "next": "pet_exists_check"
-                }
-            ]
-        },
-        "processed": {
-            "transitions": []
-        },
-        "updated": {
-            "transitions": [
-                {
-                    "id": "transition_to_processed_successfully",
-                    "next": "processed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetUpdateEventProcessor"
-                        }
-                    ]
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetSaveFailedCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "transition_to_failed_on_save_error",
-                    "next": "failed"
-                }
-            ]
-        },
-        "validated": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "InvalidPetUpdateEventCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "transition_to_failed_if_invalid_event",
-                    "next": "failed"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "ValidPetUpdateEventCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "transition_to_petid_format_check",
-                    "next": "petid_format_check"
-                }
-            ]
+  "desc": "Workflow for processing PetUpdateEvent entity lifecycle",
+  "id": "pet_update_workflow",
+  "initialState": "none",
+  "name": "Pet Update Event Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "id": "transition_to_validated",
+          "next": "validated"
         }
+      ]
     },
-    "version": "1.0"
+    "validated": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "InvalidPetUpdateEventCriterion"
+            },
+            "type": "function"
+          },
+          "id": "transition_to_failed_if_invalid_event",
+          "next": "failed"
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "ValidPetUpdateEventCriterion"
+            },
+            "type": "function"
+          },
+          "id": "transition_to_petid_format_check",
+          "next": "petid_format_check"
+        }
+      ]
+    },
+    "failed": {
+      "transitions": []
+    },
+    "petid_format_check": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "InvalidPetIdFormatCriterion"
+            },
+            "type": "function"
+          },
+          "id": "transition_to_failed_if_invalid_petid_format",
+          "next": "failed"
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "ValidPetIdFormatCriterion"
+            },
+            "type": "function"
+          },
+          "id": "transition_to_pet_exists_check",
+          "next": "pet_exists_check"
+        }
+      ]
+    },
+    "pet_exists_check": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "PetNotFoundCriterion"
+            },
+            "type": "function"
+          },
+          "id": "transition_to_failed_if_pet_not_found",
+          "next": "failed"
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "PetFoundCriterion"
+            },
+            "type": "function"
+          },
+          "id": "transition_to_fetched",
+          "next": "fetched"
+        }
+      ]
+    },
+    "fetched": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "InvalidUpdatedFieldsCriterion"
+            },
+            "type": "function"
+          },
+          "id": "transition_to_failed_if_invalid_updates",
+          "next": "failed"
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "ValidUpdatedFieldsCriterion"
+            },
+            "type": "function"
+          },
+          "id": "transition_to_updated",
+          "next": "updated"
+        }
+      ]
+    },
+    "updated": {
+      "transitions": [
+        {
+          "id": "transition_to_processed_successfully",
+          "next": "processed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "calculation_nodes_tags": "a3f07724-2ff6-11b2-ac6a-1297eff5fbfd"
+              },
+              "name": "PetUpdateEventProcessor"
+            }
+          ]
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "PetSaveFailedCriterion"
+            },
+            "type": "function"
+          },
+          "id": "transition_to_failed_on_save_error",
+          "next": "failed"
+        }
+      ]
+    },
+    "processed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
