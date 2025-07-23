@@ -1,8 +1,6 @@
 package com.java_template.application.processor;
 
 import com.java_template.application.entity.PetAdoptionJob;
-import com.java_template.application.entity.Pet;
-import com.java_template.application.entity.AdoptionRequest;
 import com.java_template.common.serializer.ErrorInfo;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
@@ -49,11 +47,10 @@ public class PetAdoptionJobProcessor implements CyodaProcessor {
     private PetAdoptionJob processPetAdoptionJobLogic(PetAdoptionJob job) {
         logger.info("Processing PetAdoptionJob with jobId: {}", job.getJobId());
 
-        // According to functional requirements:
-        // 1. Validate pet availability and adopter info
+        // Validate mandatory fields
         if (job.getPetId() == null || job.getPetId().isBlank()) {
             logger.error("Pet ID is mandatory");
-            return job; // early return, no changes
+            return job;
         }
         if (job.getAdopterName() == null || job.getAdopterName().isBlank()) {
             logger.error("Adopter name is mandatory");
@@ -64,24 +61,15 @@ public class PetAdoptionJobProcessor implements CyodaProcessor {
             return job;
         }
 
-        // Here you would typically check pet availability from a data source using EntityService
-        // Since no EntityService or data access is allowed, just simulate success
-
-        // Simulate creating an AdoptionRequest and updating Pet status
-        // Note: We cannot update Pet or AdoptionRequest entities directly without service
-        // But business logic would be here if allowed
-
-        // Update job status to PROCESSING or COMPLETED depending on logic
-        // Since job has no setter for status in POJO, assume mutable or use reflection (not allowed)
-        // So here we just return job unchanged
+        // Business logic would go here to create AdoptionRequest and update Pet status
+        // Since no EntityService access is allowed, logic is limited here
 
         logger.info("PetAdoptionJob processing complete for jobId: {}", job.getJobId());
         return job;
     }
 
     private boolean isValidEntity(PetAdoptionJob job) {
-        // Minimal validation: check jobId and petId presence
-        return job.getJobId() != null && !job.getJobId().isBlank()
-            && job.getPetId() != null && !job.getPetId().isBlank();
+        return job.getJobId() != null && !job.getJobId().isBlank() &&
+               job.getPetId() != null && !job.getPetId().isBlank();
     }
 }
