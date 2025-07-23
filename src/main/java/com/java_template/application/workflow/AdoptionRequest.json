@@ -1,22 +1,24 @@
 {
-    "desc": "Workflow to process adoption requests from initial to completion, including validation and approval.",
-    "id": "adoption_request_workflow",
+    "desc": "Workflow for processing Pet entities on persistence events",
+    "id": "pet_workflow",
     "initialState": "none",
-    "name": "Adoption Request Workflow",
+    "name": "Pet entity workflow",
     "states": {
-        "approved": {
+        "check_status": {
             "transitions": [
                 {
-                    "id": "notify_approval",
-                    "next": "completed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "AdoptionRequestProcessor"
-                        }
-                    ]
+                    "criterion": {
+                        "function": {
+                            "name": "PetStatusNewOrAvailableCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "transition_status_new_or_available",
+                    "next": "validate_pet"
+                },
+                {
+                    "id": "transition_status_other",
+                    "next": "skip_processing"
                 }
             ]
         },
@@ -26,62 +28,50 @@
         "none": {
             "transitions": [
                 {
-                    "id": "start_validation",
-                    "next": "validate_pet_availability"
+                    "id": "transition_to_check_status",
+                    "next": "check_status"
                 }
             ]
         },
-        "rejected": {
+        "process_pet": {
             "transitions": [
                 {
-                    "id": "notify_rejection",
+                    "id": "transition_pet_processed",
                     "next": "completed",
                     "processors": [
                         {
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "AdoptionRequestProcessor"
+                            "name": "PetJobProcessor"
                         }
                     ]
                 }
             ]
         },
-        "validate_pet_availability": {
+        "skip_processing": {
+            "transitions": []
+        },
+        "validate_pet": {
             "transitions": [
                 {
                     "criterion": {
                         "function": {
-                            "name": "PetAvailableCriterion"
+                            "name": "PetValidityCriterion"
                         },
                         "type": "function"
                     },
-                    "id": "pet_available",
-                    "next": "validate_pet_status"
+                    "id": "transition_pet_valid",
+                    "next": "process_pet"
                 },
                 {
-                    "id": "pet_not_available",
-                    "next": "rejected"
+                    "id": "transition_pet_invalid",
+                    "next": "validation_failed"
                 }
             ]
         },
-        "validate_pet_status": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetStatusAcceptableCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "pet_status_acceptable",
-                    "next": "approved"
-                },
-                {
-                    "id": "pet_status_not_acceptable",
-                    "next": "rejected"
-                }
-            ]
+        "validation_failed": {
+            "transitions": []
         }
     },
     "version": "1.0"
