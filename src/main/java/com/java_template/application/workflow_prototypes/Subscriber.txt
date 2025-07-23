@@ -1,0 +1,10 @@
+private void processSubscriber(Subscriber subscriber) {
+    logger.info("Processing Subscriber with technicalId: {}", subscriber.getTechnicalId());
+
+    if (!subscriber.getEmail().contains("@")) {
+        logger.error("Invalid email format for subscriber {}", subscriber.getTechnicalId());
+        throw new IllegalArgumentException("Invalid email format");
+    }
+
+    logger.info("Subscriber {} validated and saved", subscriber.getEmail());
+}
