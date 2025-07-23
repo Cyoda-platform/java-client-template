@@ -58,7 +58,6 @@ public class Controller {
                 .thenCompose(technicalId -> entityService.getItem(PET_ENTITY, ENTITY_VERSION, technicalId))
                 .thenApply(objectNode -> {
                     Pet pet = JsonUtil.toPet(objectNode);
-                    processPet(pet);
                     log.info("Created Pet with technicalId: {}", technicalIdFromObjectNode(objectNode));
                     return pet;
                 });
@@ -140,7 +139,6 @@ public class Controller {
                                                             entityService.getItem(PET_ORDER_ENTITY, ENTITY_VERSION, orderCompletedTechnicalId))
                                                     .thenApply(orderCompletedNode -> {
                                                         PetOrder completedOrder = JsonUtil.toPetOrder(orderCompletedNode);
-                                                        processPetOrder(completedOrder);
                                                         log.info("Order {} completed successfully for pet technicalId {}", 
                                                                 orderCompletedTechnicalId, orderRequest.getPetTechnicalId());
                                                         return completedOrder;
@@ -162,31 +160,6 @@ public class Controller {
                     }
                     return JsonUtil.toPetOrder(objectNode);
                 });
-    }
-
-    // Business logic for processing Pet entity
-    private void processPet(Pet pet) {
-        log.info("Processing Pet with technicalId: {}", pet.getTechnicalId());
-        if (pet.getName() == null || pet.getName().isBlank() ||
-            pet.getType() == null || pet.getType().isBlank()) {
-            log.error("Pet validation failed for technicalId: {}", pet.getTechnicalId());
-            return;
-        }
-        log.info("Pet {} is available for orders", pet.getTechnicalId());
-    }
-
-    // Business logic for processing PetOrder entity
-    private void processPetOrder(PetOrder order) {
-        log.info("Processing PetOrder with technicalId: {}", order.getTechnicalId());
-        if (order.getPetTechnicalId() == null) {
-            log.error("Order processing failed: Pet technicalId is null");
-            return;
-        }
-        if (!"COMPLETED".equalsIgnoreCase(order.getStatus())) {
-            log.error("Order processing failed: Order status is not COMPLETED for technicalId: {}", order.getTechnicalId());
-            return;
-        }
-        log.info("Order {} completed successfully for pet technicalId {}", order.getTechnicalId(), order.getPetTechnicalId());
     }
 
     private UUID technicalIdFromObjectNode(ObjectNode objectNode) {
