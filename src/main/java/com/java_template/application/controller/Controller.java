@@ -63,9 +63,6 @@ public class Controller {
         CompletableFuture<ObjectNode> jobFuture = entityService.getItem("PetRegistrationJob", ENTITY_VERSION, technicalId);
         ObjectNode savedJobNode = jobFuture.get();
 
-        // process job asynchronously, using original job object (with assigned id)
-        processPetRegistrationJob(job);
-
         return ResponseEntity.status(HttpStatus.CREATED).body(job);
     }
 
@@ -116,8 +113,6 @@ public class Controller {
 
         CompletableFuture<ObjectNode> petFuture = entityService.getItem("Pet", ENTITY_VERSION, technicalId);
         ObjectNode savedPetNode = petFuture.get();
-
-        processPet(pet);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(pet);
     }
@@ -178,8 +173,6 @@ public class Controller {
         CompletableFuture<ObjectNode> eventFuture = entityService.getItem("PetEvent", ENTITY_VERSION, technicalId);
         ObjectNode savedEventNode = eventFuture.get();
 
-        processPetEvent(event);
-
         return ResponseEntity.status(HttpStatus.CREATED).body(event);
     }
 
@@ -200,70 +193,5 @@ public class Controller {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("PetEvent not found");
         }
         return ResponseEntity.ok(eventNode);
-    }
-
-    // Business logic for PetRegistrationJob
-    private void processPetRegistrationJob(PetRegistrationJob job) throws ExecutionException, InterruptedException {
-        log.info("Processing PetRegistrationJob with ID: {}", job.getId());
-        if (!job.isValid()) {
-            log.error("Invalid PetRegistrationJob during processing: {}", job);
-            job.setStatus("FAILED");
-            // Update job by adding new version instead of update (event-driven approach)
-            entityService.addItem("PetRegistrationJob", ENTITY_VERSION, job).get();
-            return;
-        }
-        // Create Pet entity from job
-        Pet pet = new Pet();
-        String petId = "pet-" + petIdCounter.getAndIncrement();
-        pet.setPetId(petId);
-        pet.setId(petId);
-        pet.setName(job.getPetName());
-        pet.setType(job.getPetType());
-        pet.setOwner(job.getOwnerName());
-        pet.setRegisteredAt(Instant.now().toString());
-        pet.setStatus("ACTIVE");
-
-        entityService.addItem("Pet", ENTITY_VERSION, pet).get();
-        log.info("Created Pet {} from Job {}", pet.getId(), job.getId());
-
-        // Create PetEvent entity for creation event
-        PetEvent event = new PetEvent();
-        String eventId = "event-" + petEventIdCounter.getAndIncrement();
-        event.setEventId(eventId);
-        event.setId(eventId);
-        event.setPetId(pet.getId());
-        event.setEventType("CREATED");
-        event.setEventTimestamp(Instant.now().toString());
-        event.setStatus("RECORDED");
-
-        entityService.addItem("PetEvent", ENTITY_VERSION, event).get();
-        log.info("Created PetEvent {} for Pet {}", event.getId(), pet.getId());
-
-        // Update job status to COMPLETED (add new version)
-        job.setStatus("COMPLETED");
-        entityService.addItem("PetRegistrationJob", ENTITY_VERSION, job).get();
-        log.info("PetRegistrationJob {} completed", job.getId());
-    }
-
-    // Business logic for Pet entity
-    private void processPet(Pet pet) {
-        log.info("Processing Pet with ID: {}", pet.getId());
-        // Example business logic: enrich pet data, trigger notifications, etc.
-        log.info("Pet {} processed successfully", pet.getId());
-    }
-
-    // Business logic for PetEvent entity
-    private void processPetEvent(PetEvent event) throws ExecutionException, InterruptedException {
-        log.info("Processing PetEvent with ID: {}", event.getId());
-        if (!event.isValid()) {
-            log.error("Invalid PetEvent during processing: {}", event);
-            event.setStatus("FAILED");
-            entityService.addItem("PetEvent", ENTITY_VERSION, event).get();
-            return;
-        }
-        // Example: Notify owner or trigger workflows here
-        event.setStatus("PROCESSED");
-        entityService.addItem("PetEvent", ENTITY_VERSION, event).get();
-        log.info("PetEvent {} processed successfully", event.getId());
     }
 }
