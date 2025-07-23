@@ -1,0 +1,67 @@
+{
+    "desc": "Workflow for Pet entity validation and enrichment processing",
+    "id": "pet_workflow",
+    "initialState": "none",
+    "name": "Pet workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "enriching": {
+            "transitions": [
+                {
+                    "id": "enrichment_success",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetProcessor"
+                        }
+                    ]
+                },
+                {
+                    "id": "enrichment_failure",
+                    "next": "failed"
+                }
+            ]
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "start_validation",
+                    "next": "validating"
+                }
+            ]
+        },
+        "validating": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetValidationCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "validation_success",
+                    "next": "enriching"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetValidationFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "validation_failure",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
