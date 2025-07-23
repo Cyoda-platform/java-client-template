@@ -1,84 +1,68 @@
 {
-    "desc": "Workflow for processing PetJob entity, validating and executing job types",
-    "id": "petjob_workflow",
+    "desc": "Business workflow for CatFact entity processing and validation",
+    "id": "catfact_workflow",
     "initialState": "none",
-    "name": "PetJob workflow",
+    "name": "CatFact workflow",
     "states": {
+        "archived": {
+            "transitions": []
+        },
         "completed": {
             "transitions": []
         },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "id": "to_pending",
-                    "next": "pending"
-                }
-            ]
-        },
-        "pending": {
+        "created": {
             "transitions": [
                 {
                     "criterion": {
                         "function": {
-                            "name": "PetJobValidationCriterion"
+                            "name": "CatFactValidityCriterion"
                         },
                         "type": "function"
                     },
-                    "id": "validate_jobtype_and_petid",
+                    "id": "created_to_validated",
                     "next": "validated"
                 },
                 {
                     "criterion": {
                         "function": {
-                            "name": "PetJobInvalidCriterion"
+                            "name": "CatFactInvalidityCriterion"
                         },
                         "type": "function"
                     },
-                    "id": "invalid_jobtype_or_petid",
-                    "next": "failed"
+                    "id": "created_to_archived",
+                    "next": "archived"
                 }
             ]
         },
-        "processing": {
+        "none": {
             "transitions": [
                 {
-                    "criterion": {
-                        "function": {
-                            "name": "PetJobProcessSuccessCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "process_success",
-                    "next": "completed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetJobProcessor"
-                        }
-                    ]
-                },
+                    "id": "none_to_created",
+                    "next": "created"
+                }
+            ]
+        },
+        "processed": {
+            "transitions": [
                 {
-                    "criterion": {
-                        "function": {
-                            "name": "PetJobProcessFailureCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "process_failure",
-                    "next": "failed"
+                    "id": "processed_to_completed",
+                    "next": "completed"
                 }
             ]
         },
         "validated": {
             "transitions": [
                 {
-                    "id": "to_processing",
-                    "next": "processing"
+                    "id": "validated_to_processed",
+                    "next": "processed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "CatFactProcessor"
+                        }
+                    ]
                 }
             ]
         }
