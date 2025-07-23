@@ -1,0 +1,69 @@
+{
+    "desc": "Workflow representing processing of an Interaction entity",
+    "id": "interaction_workflow",
+    "initialState": "none",
+    "name": "Interaction workflow",
+    "states": {
+        "catfactjob_validation": {
+            "transitions": [
+                {
+                    "id": "catfactjob_valid",
+                    "next": "interaction_recording"
+                },
+                {
+                    "id": "catfactjob_invalid",
+                    "next": "invalid"
+                }
+            ]
+        },
+        "interaction_recording": {
+            "transitions": [
+                {
+                    "id": "record_interaction",
+                    "next": "recorded",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "InteractionProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "invalid": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "transition_to_subscriber_validation",
+                    "next": "subscriber_validation"
+                }
+            ]
+        },
+        "recorded": {
+            "transitions": []
+        },
+        "subscriber_validation": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "SubscriberValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "subscriber_valid",
+                    "next": "catfactjob_validation"
+                },
+                {
+                    "id": "subscriber_invalid",
+                    "next": "invalid"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
