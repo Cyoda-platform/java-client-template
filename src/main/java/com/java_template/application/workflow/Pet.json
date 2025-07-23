@@ -1,78 +1,79 @@
 {
-    "desc": "Workflow for processing Pet entities on persistence events",
-    "id": "pet_workflow",
-    "initialState": "none",
-    "name": "Pet entity workflow",
-    "states": {
-        "check_status": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetStatusNewOrAvailableCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "transition_status_new_or_available",
-                    "next": "validate_pet"
-                },
-                {
-                    "id": "transition_status_other",
-                    "next": "skip_processing"
-                }
-            ]
-        },
-        "completed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "id": "transition_to_check_status",
-                    "next": "check_status"
-                }
-            ]
-        },
-        "process_pet": {
-            "transitions": [
-                {
-                    "id": "transition_pet_processed",
-                    "next": "completed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "skip_processing": {
-            "transitions": []
-        },
-        "validate_pet": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetValidityCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "transition_pet_valid",
-                    "next": "process_pet"
-                },
-                {
-                    "id": "transition_pet_invalid",
-                    "next": "validation_failed"
-                }
-            ]
-        },
-        "validation_failed": {
-            "transitions": []
+  "desc": "Workflow for processing Pet entities on persistence events",
+  "id": "pet_workflow",
+  "initialState": "none",
+  "name": "Pet entity workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "id": "transition_to_check_status",
+          "next": "check_status"
         }
+      ]
     },
-    "version": "1.0"
+    "check_status": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "PetStatusNewOrAvailableCriterion"
+            },
+            "type": "function"
+          },
+          "id": "transition_status_new_or_available",
+          "next": "validate_pet"
+        },
+        {
+          "id": "transition_status_other",
+          "next": "skip_processing"
+        }
+      ]
+    },
+    "validate_pet": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "PetValidityCriterion"
+            },
+            "type": "function"
+          },
+          "id": "transition_pet_valid",
+          "next": "process_pet"
+        },
+        {
+          "id": "transition_pet_invalid",
+          "next": "validation_failed"
+        }
+      ]
+    },
+    "process_pet": {
+      "transitions": [
+        {
+          "id": "transition_pet_processed",
+          "next": "completed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "calculation_nodes_tags": "97164c6c-65c1-11b2-965a-2e0ad7d884c5"
+              },
+              "name": "PetProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "validation_failed": {
+      "transitions": []
+    },
+    "skip_processing": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
