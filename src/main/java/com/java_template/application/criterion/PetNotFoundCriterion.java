@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.PetAdoptionJob;
+import com.java_template.application.entity.Pet;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,7 +32,7 @@ public class PetNotFoundCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(PetAdoptionJob.class, this::validateEntity)
+            .evaluateEntity(Pet.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,22 +40,17 @@ public class PetNotFoundCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetNotFoundCriterion".equals(modelSpec.operationName()) &&
-               "petAdoptionJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(PetAdoptionJob job) {
-        if (job == null) {
-            return EvaluationOutcome.fail("PetAdoptionJob entity is null", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+    private EvaluationOutcome validateEntity(Pet pet) {
+        // Business logic: Validate that pet is found (exists)
+        if (pet == null) {
+            return EvaluationOutcome.fail("Pet entity not found", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
         }
-        if (job.getPetId() == null || job.getPetId().isBlank()) {
-            return EvaluationOutcome.fail("Pet ID is missing in adoption job", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        }
-        // Here, the criterion logic is to check if the pet exists in the system.
-        // Since we don't have access to the pet repository here, assume a method isPetExists(petId) available.
-        // For demonstration, we simulate failure if petId equals "unknown".
-        if ("unknown".equalsIgnoreCase(job.getPetId())) {
-            return EvaluationOutcome.fail("Pet not found for the given Pet ID", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        if (pet.getId() == null || pet.getId().isBlank()) {
+            return EvaluationOutcome.fail("Pet ID is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
         }
         return EvaluationOutcome.success();
     }
