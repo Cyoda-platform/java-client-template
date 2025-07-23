@@ -1,0 +1,79 @@
+{
+    "desc": "Workflow for processing PetRegistrationJob entity",
+    "id": "pet_registration_job_workflow",
+    "initialState": "none",
+    "name": "PetRegistrationJob Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "start_processing_transition",
+                    "next": "pending"
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsJobPendingCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "start_processing_if_pending",
+                    "next": "processing",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetRegistrationJobProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsNotJobPendingCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "skip_if_not_pending",
+                    "next": "failed"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsJobValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "complete_if_valid",
+                    "next": "completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsJobInvalidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "fail_if_invalid",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
