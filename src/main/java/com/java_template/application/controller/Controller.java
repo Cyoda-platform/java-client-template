@@ -64,7 +64,7 @@ public class Controller {
         UUID technicalId = idFuture.get();
         logger.info("Created PetAdoptionJob with technicalId {}", technicalId);
 
-        processPetAdoptionJob(job);
+        // processPetAdoptionJob removed
 
         return ResponseEntity.status(HttpStatus.CREATED).body(job);
     }
@@ -115,7 +115,7 @@ public class Controller {
         UUID technicalId = idFuture.get();
         logger.info("Created Pet with technicalId {}", technicalId);
 
-        processPet(pet);
+        // processPet removed
 
         return ResponseEntity.status(HttpStatus.CREATED).body(pet);
     }
@@ -165,7 +165,7 @@ public class Controller {
         UUID technicalId = idFuture.get();
         logger.info("Created AdoptionRequest with technicalId {}", technicalId);
 
-        processAdoptionRequest(request);
+        // processAdoptionRequest removed
 
         return ResponseEntity.status(HttpStatus.CREATED).body(request);
     }
@@ -191,106 +191,6 @@ public class Controller {
         AdoptionRequest request = convertObjectNodeToAdoptionRequest(requestNode);
 
         return ResponseEntity.ok(request);
-    }
-
-    // Processing methods with real business logic
-
-    private void processPetAdoptionJob(PetAdoptionJob job) throws ExecutionException, InterruptedException {
-        logger.info("Processing PetAdoptionJob with ID: {}", job.getId());
-
-        // Retrieve Pet by id
-        Condition petCond = Condition.of("$.id", "EQUALS", job.getPetId());
-        SearchConditionRequest petCondition = SearchConditionRequest.group("AND", petCond);
-        CompletableFuture<ArrayNode> petItemsFuture = entityService.getItemsByCondition("Pet", ENTITY_VERSION, petCondition, true);
-        ArrayNode petItems = petItemsFuture.get();
-
-        if (petItems.isEmpty()) {
-            logger.error("Pet with ID {} not found", job.getPetId());
-            job.setStatus(JobStatusEnum.FAILED);
-            entityService.addItem("PetAdoptionJob", ENTITY_VERSION, job); // create new version with updated status
-            return;
-        }
-
-        ObjectNode petNode = (ObjectNode) petItems.get(0);
-        Pet pet = convertObjectNodeToPet(petNode);
-
-        if (pet.getStatus() != PetStatusEnum.AVAILABLE) {
-            logger.error("Pet with ID {} is not available for adoption", pet.getId());
-            job.setStatus(JobStatusEnum.FAILED);
-            entityService.addItem("PetAdoptionJob", ENTITY_VERSION, job);
-            return;
-        }
-
-        // Create AdoptionRequest entity
-        AdoptionRequest adoptionRequest = new AdoptionRequest();
-        adoptionRequest.setId("req-" + adoptionRequestIdCounter.getAndIncrement());
-        adoptionRequest.setPetId(pet.getId());
-        adoptionRequest.setRequesterName(job.getAdopterName());
-        adoptionRequest.setRequestDate(new Date());
-        adoptionRequest.setStatus(RequestStatusEnum.PENDING);
-
-        CompletableFuture<UUID> adoptionRequestIdFuture = entityService.addItem("AdoptionRequest", ENTITY_VERSION, adoptionRequest);
-        adoptionRequestIdFuture.get();
-
-        // Update pet status to ADOPTED (create new pet version)
-        pet.setStatus(PetStatusEnum.ADOPTED);
-        entityService.addItem("Pet", ENTITY_VERSION, pet).get();
-
-        // Update job status to COMPLETED (create new job version)
-        job.setStatus(JobStatusEnum.COMPLETED);
-        entityService.addItem("PetAdoptionJob", ENTITY_VERSION, job).get();
-
-        logger.info("PetAdoptionJob {} processed successfully", job.getId());
-    }
-
-    private void processPet(Pet pet) {
-        logger.info("Processing Pet with ID: {}", pet.getId());
-
-        if (pet.getName() == null || pet.getName().isBlank()) {
-            logger.error("Pet name is mandatory");
-            return;
-        }
-        if (pet.getCategory() == null || pet.getCategory().isBlank()) {
-            logger.error("Pet category is mandatory");
-            return;
-        }
-
-        logger.info("Pet {} is ready for adoption", pet.getId());
-    }
-
-    private void processAdoptionRequest(AdoptionRequest request) throws ExecutionException, InterruptedException {
-        logger.info("Processing AdoptionRequest with ID: {}", request.getId());
-
-        // Retrieve Pet by id
-        Condition petCond = Condition.of("$.id", "EQUALS", request.getPetId());
-        SearchConditionRequest petCondition = SearchConditionRequest.group("AND", petCond);
-        CompletableFuture<ArrayNode> petItemsFuture = entityService.getItemsByCondition("Pet", ENTITY_VERSION, petCondition, true);
-        ArrayNode petItems = petItemsFuture.get();
-
-        if (petItems.isEmpty()) {
-            logger.error("Pet with ID {} not found for adoption request", request.getPetId());
-            request.setStatus(RequestStatusEnum.REJECTED);
-            entityService.addItem("AdoptionRequest", ENTITY_VERSION, request).get();
-            return;
-        }
-
-        ObjectNode petNode = (ObjectNode) petItems.get(0);
-        Pet pet = convertObjectNodeToPet(petNode);
-
-        if (pet.getStatus() != PetStatusEnum.AVAILABLE) {
-            logger.error("Pet with ID {} is not available for adoption in request", pet.getId());
-            request.setStatus(RequestStatusEnum.REJECTED);
-            entityService.addItem("AdoptionRequest", ENTITY_VERSION, request).get();
-            return;
-        }
-
-        // For simplicity approve all valid requests
-        request.setStatus(RequestStatusEnum.APPROVED);
-        entityService.addItem("AdoptionRequest", ENTITY_VERSION, request).get();
-
-        logger.info("AdoptionRequest {} approved", request.getId());
-
-        // Notification logic could be added here
     }
 
     // Helper methods to convert ObjectNode to entities
