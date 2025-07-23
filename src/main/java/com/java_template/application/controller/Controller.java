@@ -63,8 +63,6 @@ public class Controller {
 
         logger.info("Created PetIngestionJob with technicalId: {}", idString);
 
-        processPetIngestionJob(newJob);
-
         return ResponseEntity.status(HttpStatus.CREATED).body(newJob);
     }
 
@@ -128,8 +126,6 @@ public class Controller {
 
         logger.info("Created Pet with technicalId: {}", idString);
 
-        processPet(newPet);
-
         return ResponseEntity.status(HttpStatus.CREATED).body(newPet);
     }
 
@@ -161,127 +157,6 @@ public class Controller {
         pet.setPetId(id);
 
         return ResponseEntity.ok(pet);
-    }
-
-    // ------------------ Process Methods ------------------
-
-    private void processPetIngestionJob(PetIngestionJob job) throws ExecutionException, InterruptedException {
-        logger.info("Processing PetIngestionJob with ID: {}", job.getId());
-
-        // 2. Update status to PROCESSING by creating new version (event-driven, so create new entity version)
-        PetIngestionJob processingJob = new PetIngestionJob();
-        processingJob.setSource(job.getSource());
-        processingJob.setStatus("PROCESSING");
-        processingJob.setCreatedAt(job.getCreatedAt());
-
-        CompletableFuture<UUID> updateFuture = entityService.addItem(
-                "PetIngestionJob",
-                ENTITY_VERSION,
-                processingJob
-        );
-        UUID processingId = updateFuture.get();
-        String processingIdStr = processingId.toString();
-        processingJob.setId(processingIdStr);
-        processingJob.setJobId(processingIdStr);
-
-        logger.info("PetIngestionJob {} status updated to PROCESSING", processingJob.getId());
-
-        // 3. Fetch data from Petstore API (simulated here)
-        List<Pet> fetchedPets = new ArrayList<>();
-
-        Pet pet1 = new Pet();
-        pet1.setName("Whiskers");
-        pet1.setCategory("cat");
-        pet1.setPhotoUrls(Arrays.asList("http://image1.jpg", "http://image2.jpg"));
-        pet1.setTags(Arrays.asList("cute", "playful"));
-        pet1.setStatus("NEW");
-
-        Pet pet2 = new Pet();
-        pet2.setName("Barkley");
-        pet2.setCategory("dog");
-        pet2.setPhotoUrls(Arrays.asList("http://dogimage1.jpg"));
-        pet2.setTags(Arrays.asList("friendly", "energetic"));
-        pet2.setStatus("NEW");
-
-        fetchedPets.add(pet1);
-        fetchedPets.add(pet2);
-
-        // 4. Persist pets and process each
-        List<CompletableFuture<UUID>> futures = new ArrayList<>();
-        for (Pet pet : fetchedPets) {
-            CompletableFuture<UUID> petIdFuture = entityService.addItem(
-                    "Pet",
-                    ENTITY_VERSION,
-                    pet
-            );
-            futures.add(petIdFuture);
-        }
-
-        List<UUID> petIds = new ArrayList<>();
-        for (CompletableFuture<UUID> fut : futures) {
-            petIds.add(fut.get());
-        }
-
-        for (int i = 0; i < fetchedPets.size(); i++) {
-            Pet pet = fetchedPets.get(i);
-            UUID petId = petIds.get(i);
-            String petIdStr = petId.toString();
-            pet.setId(petIdStr);
-            pet.setPetId(petIdStr);
-            logger.info("Persisted Pet from ingestion: {}", pet.getId());
-            processPet(pet);
-        }
-
-        // 5. Update job status to COMPLETED by creating new version
-        PetIngestionJob completedJob = new PetIngestionJob();
-        completedJob.setSource(job.getSource());
-        completedJob.setStatus("COMPLETED");
-        completedJob.setCreatedAt(job.getCreatedAt());
-
-        CompletableFuture<UUID> completedFuture = entityService.addItem(
-                "PetIngestionJob",
-                ENTITY_VERSION,
-                completedJob
-        );
-        UUID completedId = completedFuture.get();
-        String completedIdStr = completedId.toString();
-        completedJob.setId(completedIdStr);
-        completedJob.setJobId(completedIdStr);
-
-        logger.info("PetIngestionJob {} status updated to COMPLETED", completedJob.getId());
-    }
-
-    private void processPet(Pet pet) throws ExecutionException, InterruptedException {
-        logger.info("Processing Pet with ID: {}", pet.getId());
-
-        if (pet.getTags() == null || pet.getTags().isEmpty()) {
-            pet.setTags(new ArrayList<>(Collections.singletonList("fun pet")));
-            logger.info("Added default fun pet tag to Pet {}", pet.getId());
-        }
-
-        if ("NEW".equalsIgnoreCase(pet.getStatus())) {
-            // Create new version with status AVAILABLE
-            Pet updatedPet = new Pet();
-            updatedPet.setName(pet.getName());
-            updatedPet.setCategory(pet.getCategory());
-            updatedPet.setPhotoUrls(pet.getPhotoUrls());
-            updatedPet.setTags(pet.getTags());
-            updatedPet.setStatus("AVAILABLE");
-
-            CompletableFuture<UUID> updatedIdFuture = entityService.addItem(
-                    "Pet",
-                    ENTITY_VERSION,
-                    updatedPet
-            );
-            UUID updatedId = updatedIdFuture.get();
-            String updatedIdStr = updatedId.toString();
-            updatedPet.setId(updatedIdStr);
-            updatedPet.setPetId(updatedIdStr);
-
-            logger.info("Pet {} status updated to AVAILABLE", updatedPet.getId());
-        }
-
-        // Finalize pet entity state (no further action)
     }
 
     // ------------------ Helper Methods ------------------
