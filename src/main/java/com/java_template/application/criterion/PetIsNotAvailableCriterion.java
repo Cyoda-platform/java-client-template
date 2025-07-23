@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.Pet;
+import com.java_template.application.entity.PetAdoptionJob;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,7 +32,7 @@ public class PetIsNotAvailableCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(Pet.class, this::validateEntity)
+            .evaluateEntity(PetAdoptionJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,18 +40,17 @@ public class PetIsNotAvailableCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetIsNotAvailableCriterion".equals(modelSpec.operationName()) &&
-               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "petAdoptionJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(Pet pet) {
-        // Business logic for PetIsNotAvailableCriterion:
-        // Pet must have status not AVAILABLE
-        if (pet.getStatus() == null) {
-            return EvaluationOutcome.fail("Pet status is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+    private EvaluationOutcome validateEntity(PetAdoptionJob entity) {
+        // Business logic: pet is NOT available if status is not AVAILABLE
+        if (entity.getStatus() == null) {
+            return EvaluationOutcome.fail("Pet status unknown", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
         }
-        if (pet.getStatus().name().equals("AVAILABLE")) {
-            return EvaluationOutcome.fail("Pet is available", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (entity.getStatus().toString().equalsIgnoreCase("AVAILABLE")) {
+            return EvaluationOutcome.fail("Pet is available, expected not available", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         return EvaluationOutcome.success();
     }
