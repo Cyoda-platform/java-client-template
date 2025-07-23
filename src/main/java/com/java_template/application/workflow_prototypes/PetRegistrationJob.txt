@@ -1,0 +1,42 @@
+    // Business logic for PetRegistrationJob
+    private void processPetRegistrationJob(PetRegistrationJob job) throws ExecutionException, InterruptedException {
+        log.info("Processing PetRegistrationJob with ID: {}", job.getId());
+        if (!job.isValid()) {
+            log.error("Invalid PetRegistrationJob during processing: {}", job);
+            job.setStatus("FAILED");
+            // Update job by adding new version instead of update (event-driven approach)
+            entityService.addItem("PetRegistrationJob", ENTITY_VERSION, job).get();
+            return;
+        }
+        // Create Pet entity from job
+        Pet pet = new Pet();
+        String petId = "pet-" + petIdCounter.getAndIncrement();
+        pet.setPetId(petId);
+        pet.setId(petId);
+        pet.setName(job.getPetName());
+        pet.setType(job.getPetType());
+        pet.setOwner(job.getOwnerName());
+        pet.setRegisteredAt(Instant.now().toString());
+        pet.setStatus("ACTIVE");
+
+        entityService.addItem("Pet", ENTITY_VERSION, pet).get();
+        log.info("Created Pet {} from Job {}", pet.getId(), job.getId());
+
+        // Create PetEvent entity for creation event
+        PetEvent event = new PetEvent();
+        String eventId = "event-" + petEventIdCounter.getAndIncrement();
+        event.setEventId(eventId);
+        event.setId(eventId);
+        event.setPetId(pet.getId());
+        event.setEventType("CREATED");
+        event.setEventTimestamp(Instant.now().toString());
+        event.setStatus("RECORDED");
+
+        entityService.addItem("PetEvent", ENTITY_VERSION, event).get();
+        log.info("Created PetEvent {} for Pet {}", event.getId(), pet.getId());
+
+        // Update job status to COMPLETED (add new version)
+        job.setStatus("COMPLETED");
+        entityService.addItem("PetRegistrationJob", ENTITY_VERSION, job).get();
+        log.info("PetRegistrationJob {} completed", job.getId());
+    }
