@@ -1,0 +1,14 @@
+private void processPet(Pet pet) {
+    logger.info("Processing Pet with ID: {}", pet.getId());
+
+    if (pet.getName() == null || pet.getName().isBlank()) {
+        logger.error("Pet name is mandatory");
+        return;
+    }
+    if (pet.getCategory() == null || pet.getCategory().isBlank()) {
+        logger.error("Pet category is mandatory");
+        return;
+    }
+
+    logger.info("Pet {} is ready for adoption", pet.getId());
+}
