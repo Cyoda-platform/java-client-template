@@ -1,0 +1,91 @@
+{
+    "desc": "Workflow for processing Pet entity lifecycle events",
+    "id": "pet_workflow",
+    "initialState": "none",
+    "name": "Pet entity workflow",
+    "states": {
+        "create_pet_event": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetAvailableCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "created_event_transition",
+                    "next": "end_created"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetAdoptedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "adopted_event_transition",
+                    "next": "end_adopted"
+                },
+                {
+                    "id": "updated_event_transition",
+                    "next": "end_updated"
+                }
+            ]
+        },
+        "end_adopted": {
+            "transitions": []
+        },
+        "end_created": {
+            "transitions": []
+        },
+        "end_invalid": {
+            "transitions": []
+        },
+        "end_updated": {
+            "transitions": []
+        },
+        "enrich_pet": {
+            "transitions": [
+                {
+                    "id": "enrich_and_route",
+                    "next": "create_pet_event",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "transition_to_validation",
+                    "next": "validate_pet"
+                }
+            ]
+        },
+        "validate_pet": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "valid_pet_transition",
+                    "next": "enrich_pet"
+                },
+                {
+                    "id": "invalid_pet_transition",
+                    "next": "end_invalid"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
