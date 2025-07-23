@@ -1,91 +1,92 @@
 {
-    "desc": "Workflow for processing PetOrder entity from creation to completion or failure",
-    "id": "petorder_workflow",
-    "initialState": "none",
-    "name": "PetOrder Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "id": "create_order",
-                    "next": "pending"
-                }
-            ]
-        },
-        "pending": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "ValidateOrderCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "validate_order_success",
-                    "next": "validated"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "ValidateOrderCriterionNegation"
-                        },
-                        "type": "function"
-                    },
-                    "id": "validate_order_failure",
-                    "next": "failed"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "id": "complete_order",
-                    "next": "completed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetOrderProcessor"
-                        }
-                    ]
-                },
-                {
-                    "id": "fail_order",
-                    "next": "failed"
-                }
-            ]
-        },
-        "validated": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "ReservePetsCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "reserve_pet_success",
-                    "next": "processing"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "ReservePetsCriterionNegation"
-                        },
-                        "type": "function"
-                    },
-                    "id": "reserve_pet_failure",
-                    "next": "failed"
-                }
-            ]
+  "desc": "Workflow for processing PetOrder entity from creation to completion or failure",
+  "id": "petorder_workflow",
+  "initialState": "none",
+  "name": "PetOrder Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "id": "create_order",
+          "next": "pending"
         }
+      ]
     },
-    "version": "1.0"
+    "pending": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "ValidateOrderCriterion"
+            },
+            "type": "function"
+          },
+          "id": "validate_order_success",
+          "next": "validated"
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "ValidateOrderCriterionNegation"
+            },
+            "type": "function"
+          },
+          "id": "validate_order_failure",
+          "next": "failed"
+        }
+      ]
+    },
+    "validated": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "ReservePetsCriterion"
+            },
+            "type": "function"
+          },
+          "id": "reserve_pet_success",
+          "next": "processing"
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "ReservePetsCriterionNegation"
+            },
+            "type": "function"
+          },
+          "id": "reserve_pet_failure",
+          "next": "failed"
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "id": "complete_order",
+          "next": "completed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "calculation_nodes_tags": "4a353e3a-6648-11b2-ac06-6eb89e09e22c"
+              },
+              "name": "PetOrderProcessor"
+            }
+          ]
+        },
+        {
+          "id": "fail_order",
+          "next": "failed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
