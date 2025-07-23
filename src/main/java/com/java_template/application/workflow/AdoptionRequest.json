@@ -1,0 +1,70 @@
+{
+    "desc": "Business workflow for processing AdoptionRequest entity from creation to completion",
+    "id": "adoption_request_workflow",
+    "initialState": "none",
+    "name": "Adoption Request workflow",
+    "states": {
+        "completed": {
+            "transitions": [
+                {
+                    "id": "completed_to_end",
+                    "next": "end"
+                }
+            ]
+        },
+        "end": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "transition_to_validate",
+                    "next": "validate_request"
+                }
+            ]
+        },
+        "process_request": {
+            "transitions": [
+                {
+                    "id": "process_and_save",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "AdoptionRequestProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "rejected": {
+            "transitions": [
+                {
+                    "id": "rejected_to_end",
+                    "next": "end"
+                }
+            ]
+        },
+        "validate_request": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "AdoptionRequestValidationCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "valid_request_transition",
+                    "next": "process_request"
+                },
+                {
+                    "id": "invalid_request_transition",
+                    "next": "rejected"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
