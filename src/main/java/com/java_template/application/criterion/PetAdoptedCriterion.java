@@ -40,13 +40,12 @@ public class PetAdoptedCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetAdoptedCriterion".equals(modelSpec.operationName()) &&
-            "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-            Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
     private EvaluationOutcome validateEntity(Pet entity) {
-        // Business Logic: Pet must be in ADOPTED status
-        if (entity.getStatus() == null || !"ADOPTED".equalsIgnoreCase(entity.getStatus())) {
+        if (!"ADOPTED".equalsIgnoreCase(entity.getStatus())) {
             return EvaluationOutcome.fail("Pet status must be ADOPTED", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
         return EvaluationOutcome.success();
