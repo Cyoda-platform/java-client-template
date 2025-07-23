@@ -47,7 +47,6 @@ public class Controller {
         petCreationJob.setTechnicalId(technicalId); // set technicalId for further reference
 
         log.info("PetCreationJob created with technicalId: {}", technicalId);
-        processPetCreationJob(petCreationJob);
 
         Map<String, Object> response = new HashMap<>();
         response.put("jobId", technicalId.toString());
@@ -93,7 +92,6 @@ public class Controller {
         pet.setTechnicalId(technicalId);
 
         log.info("Pet created with technicalId: {}", technicalId);
-        processPet(pet);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(pet);
     }
@@ -147,7 +145,6 @@ public class Controller {
         petUpdate.setTechnicalId(newTechnicalId);
 
         log.info("Created new Pet version with technicalId: {}", newTechnicalId);
-        processPet(petUpdate);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(petUpdate);
     }
@@ -176,71 +173,5 @@ public class Controller {
         UUID newTechnicalId = idFuture.get();
         log.info("Pet deactivated with new technicalId: {}", newTechnicalId);
         return ResponseEntity.ok("Pet deactivation recorded");
-    }
-
-    private void processPetCreationJob(PetCreationJob job) throws ExecutionException, InterruptedException {
-        log.info("Processing PetCreationJob with technicalId: {}", job.getTechnicalId());
-        Map<String, Object> petData = job.getPetData();
-        if (petData == null || !petData.containsKey("name") || !petData.containsKey("category")) {
-            log.error("PetCreationJob {} validation failed: missing required petData fields", job.getTechnicalId());
-            job.setStatus("FAILED");
-            CompletableFuture<UUID> updateFuture = entityService.updateItem(
-                    PET_CREATION_JOB_ENTITY,
-                    ENTITY_VERSION,
-                    job.getTechnicalId(),
-                    job
-            );
-            updateFuture.get();
-            return;
-        }
-        try {
-            Pet pet = new Pet();
-            pet.setName((String) petData.get("name"));
-            pet.setCategory((String) petData.get("category"));
-            Object photosObj = petData.get("photoUrls");
-            if (photosObj instanceof List) {
-                pet.setPhotoUrls((List<String>) photosObj);
-            }
-            Object tagsObj = petData.get("tags");
-            if (tagsObj instanceof List) {
-                pet.setTags((List<String>) tagsObj);
-            }
-            String status = (String) petData.getOrDefault("status", "AVAILABLE");
-            pet.setStatus(status);
-
-            CompletableFuture<UUID> idFuture = entityService.addItem(
-                    PET_ENTITY,
-                    ENTITY_VERSION,
-                    pet
-            );
-            UUID petTechnicalId = idFuture.get();
-            pet.setTechnicalId(petTechnicalId);
-
-            log.info("Pet entity created with technicalId: {} from PetCreationJob: {}", petTechnicalId, job.getTechnicalId());
-
-            job.setStatus("COMPLETED");
-            CompletableFuture<UUID> updateJobFuture = entityService.updateItem(
-                    PET_CREATION_JOB_ENTITY,
-                    ENTITY_VERSION,
-                    job.getTechnicalId(),
-                    job
-            );
-            updateJobFuture.get();
-        } catch (Exception e) {
-            log.error("Error processing PetCreationJob {}: {}", job.getTechnicalId(), e.getMessage());
-            job.setStatus("FAILED");
-            CompletableFuture<UUID> updateJobFuture = entityService.updateItem(
-                    PET_CREATION_JOB_ENTITY,
-                    ENTITY_VERSION,
-                    job.getTechnicalId(),
-                    job
-            );
-            updateJobFuture.get();
-        }
-    }
-
-    private void processPet(Pet pet) {
-        log.info("Processing Pet with technicalId: {}", pet.getTechnicalId());
-        log.info("Pet {} processed with status: {}", pet.getTechnicalId(), pet.getStatus());
     }
 }
