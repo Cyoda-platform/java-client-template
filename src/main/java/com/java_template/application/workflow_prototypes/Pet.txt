@@ -1,0 +1,6 @@
+    // Business logic for Pet entity
+    private void processPet(Pet pet) {
+        log.info("Processing Pet with ID: {}", pet.getId());
+        // Example business logic: enrich pet data, trigger notifications, etc.
+        log.info("Pet {} processed successfully", pet.getId());
+    }
