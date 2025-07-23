@@ -1,13 +1,13 @@
 {
-    "desc": "Business workflow for processing AdoptionRequest entity from creation to completion",
-    "id": "adoption_request_workflow",
+    "desc": "Business workflow for processing Pet entity from creation to completion",
+    "id": "pet_workflow",
     "initialState": "none",
-    "name": "Adoption Request workflow",
+    "name": "Pet workflow",
     "states": {
-        "completed": {
+        "complete": {
             "transitions": [
                 {
-                    "id": "completed_to_end",
+                    "id": "complete_to_end",
                     "next": "end"
                 }
             ]
@@ -15,53 +15,53 @@
         "end": {
             "transitions": []
         },
-        "none": {
+        "enrich_pet": {
             "transitions": [
                 {
-                    "id": "transition_to_validate",
-                    "next": "validate_request"
-                }
-            ]
-        },
-        "process_request": {
-            "transitions": [
-                {
-                    "id": "process_and_save",
-                    "next": "completed",
+                    "id": "enrich_and_save",
+                    "next": "complete",
                     "processors": [
                         {
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "AdoptionRequestProcessor"
+                            "name": "PetProcessor"
                         }
                     ]
                 }
             ]
         },
-        "rejected": {
+        "failed": {
             "transitions": [
                 {
-                    "id": "rejected_to_end",
+                    "id": "failed_to_end",
                     "next": "end"
                 }
             ]
         },
-        "validate_request": {
+        "none": {
+            "transitions": [
+                {
+                    "id": "transition_to_validate",
+                    "next": "validate_pet"
+                }
+            ]
+        },
+        "validate_pet": {
             "transitions": [
                 {
                     "criterion": {
                         "function": {
-                            "name": "AdoptionRequestValidationCriterion"
+                            "name": "PetValidationCriterion"
                         },
                         "type": "function"
                     },
-                    "id": "valid_request_transition",
-                    "next": "process_request"
+                    "id": "valid_pet_transition",
+                    "next": "enrich_pet"
                 },
                 {
-                    "id": "invalid_request_transition",
-                    "next": "rejected"
+                    "id": "invalid_pet_transition",
+                    "next": "failed"
                 }
             ]
         }
