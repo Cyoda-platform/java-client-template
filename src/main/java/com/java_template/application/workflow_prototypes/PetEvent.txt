@@ -1,0 +1,10 @@
+private void processPetEvent(PetEvent petEvent) {
+    log.info("Processing PetEvent with ID: {}", petEvent.getId());
+
+    if (!petEvent.isValid()) {
+        log.error("PetEvent validation failed for ID: {}", petEvent.getId());
+        return;
+    }
+
+    log.info("Event {} for Pet {} of type {} recorded at {}", petEvent.getId(), petEvent.getPetId(), petEvent.getEventType(), petEvent.getTimestamp());
+}
