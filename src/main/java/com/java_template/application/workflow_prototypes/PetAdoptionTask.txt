@@ -1,0 +1,30 @@
+    // Business logic for PetAdoptionTask processing
+    private CompletableFuture<Void> processPetAdoptionTask(PetAdoptionTask task) {
+        log.info("Processing PetAdoptionTask with technicalId: {}", task.getTechnicalId());
+        task.setStatus("PROCESSING");
+        return CompletableFuture.runAsync(() -> {
+            if (task.getPetId() == null || task.getPetId().isBlank()) {
+                log.error("PetAdoptionTask {} validation failed: petId is blank", task.getTechnicalId());
+                task.setStatus("FAILED");
+                entityService.updateItem(PETADOPTIONTASK_ENTITY, ENTITY_VERSION, task.getTechnicalId(), task);
+                return;
+            }
+            if (task.getTaskType() == null || task.getTaskType().isBlank()) {
+                log.error("PetAdoptionTask {} validation failed: taskType is blank", task.getTechnicalId());
+                task.setStatus("FAILED");
+                entityService.updateItem(PETADOPTIONTASK_ENTITY, ENTITY_VERSION, task.getTechnicalId(), task);
+                return;
+            }
+
+            try {
+                log.info("PetAdoptionTask {} processing task type: {}", task.getTechnicalId(), task.getTaskType());
+                // Simulate processing delay or external calls here if needed
+                task.setStatus("COMPLETED");
+                entityService.updateItem(PETADOPTIONTASK_ENTITY, ENTITY_VERSION, task.getTechnicalId(), task);
+            } catch (Exception e) {
+                log.error("PetAdoptionTask {} processing error: {}", task.getTechnicalId(), e.getMessage());
+                task.setStatus("FAILED");
+                entityService.updateItem(PETADOPTIONTASK_ENTITY, ENTITY_VERSION, task.getTechnicalId(), task);
+            }
+        });
+    }
