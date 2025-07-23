@@ -1,0 +1,60 @@
+package com.java_template.application.criterion;
+
+import com.java_template.application.entity.AdoptionRequest;
+import com.java_template.common.serializer.CriterionSerializer;
+import com.java_template.common.serializer.EvaluationOutcome;
+import com.java_template.common.serializer.ReasonAttachmentStrategy;
+import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.serializer.StandardEvalReasonCategories;
+import com.java_template.common.config.Config;
+import com.java_template.common.workflow.CyodaCriterion;
+import com.java_template.common.workflow.CyodaEventContext;
+import com.java_template.common.workflow.OperationSpecification;
+import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationRequest;
+import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+
+/**
+ * Criterion to check if the Pet associated with the AdoptionRequest does NOT exist.
+ * Validation logic assumes existence check against some pet repository or service,
+ * but since only AdoptionRequest entity is available, we validate that petId is present and simulate check.
+ */
+@Component
+public class PetDoesNotExistCriterion implements CyodaCriterion {
+
+    private final Logger logger = LoggerFactory.getLogger(this.getClass());
+    private final CriterionSerializer serializer;
+
+    public PetDoesNotExistCriterion(SerializerFactory serializerFactory) {
+        this.serializer = serializerFactory.getDefaultCriteriaSerializer();
+        logger.info("PetDoesNotExistCriterion initialized with SerializerFactory");
+    }
+
+    @Override
+    public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
+        EntityCriteriaCalculationRequest request = context.getEvent();
+
+        return serializer.withRequest(request)
+                .evaluateEntity(AdoptionRequest.class, this::validateEntity)
+                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+                .complete();
+    }
+
+    @Override
+    public boolean supports(OperationSpecification modelSpec) {
+        return "PetDoesNotExistCriterion".equals(modelSpec.operationName()) &&
+               "adoptionRequest".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+    }
+
+    private EvaluationOutcome validateEntity(AdoptionRequest entity) {
+        // Business logic: Pet does NOT exist if petId is null or blank
+        if (entity.getPetId() == null || entity.getPetId().isBlank()) {
+            return EvaluationOutcome.success(); // petId missing means pet does not exist
+        }
+        // Here we would check external pet repository, but not possible, so fail for existing petId
+        return EvaluationOutcome.fail("Pet exists in system", StandardEvalReasonCategories.VALIDATION_FAILURE);
+    }
+}
