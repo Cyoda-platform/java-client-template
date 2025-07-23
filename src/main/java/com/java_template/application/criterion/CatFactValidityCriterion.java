@@ -45,20 +45,17 @@ public class CatFactValidityCriterion implements CyodaCriterion {
     }
 
     private EvaluationOutcome validateEntity(CatFact entity) {
-        if (entity.getId() == null || entity.getId().isBlank()) {
-            return EvaluationOutcome.fail("ID is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        }
-        if (entity.getTechnicalId() == null) {
-            return EvaluationOutcome.fail("Technical ID is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (entity.getId() == null) {
+            return EvaluationOutcome.fail("id is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         if (entity.getFact() == null || entity.getFact().isBlank()) {
-            return EvaluationOutcome.fail("Fact content is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("fact is required and cannot be blank", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         if (entity.getSource() == null || entity.getSource().isBlank()) {
-            return EvaluationOutcome.fail("Source is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("source is required and cannot be blank", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (entity.getStatus() == null || entity.getStatus().isBlank()) {
-            return EvaluationOutcome.fail("Status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (entity.getStatus() == null) {
+            return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         return EvaluationOutcome.success();
     }
