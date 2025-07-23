@@ -1,0 +1,11 @@
+    // Business logic for CatFact (local cache retained)
+    private void processCatFact(CatFact catFact) {
+        logger.info("Processing CatFact with ID: {}", catFact.getId());
+
+        if (catFact.getFact().length() < 10) {
+            logger.error("CatFact fact is too short");
+            catFact.setStatus("ARCHIVED");
+        } else {
+            logger.info("CatFact fact is valid");
+        }
+    }
