@@ -1,17 +1,18 @@
 package com.java_template.application.controller;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Pet;
 import com.java_template.application.entity.PetUpdateJob;
 import com.java_template.common.service.EntityService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -24,11 +25,12 @@ import static com.java_template.common.config.Config.ENTITY_VERSION;
 public class Controller {
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     // ------------------- PetUpdateJob Endpoints -------------------
 
     @PostMapping("/petUpdateJob")
-    public ResponseEntity<?> createPetUpdateJob(@RequestBody PetUpdateJob job) {
+    public ResponseEntity<?> createPetUpdateJob(@Valid @RequestBody PetUpdateJob job) throws JsonProcessingException {
         if (job == null) {
             log.error("Received null PetUpdateJob");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("PetUpdateJob cannot be null");
@@ -46,50 +48,41 @@ public class Controller {
             job.setStatus("PENDING");
         }
 
-        try {
-            CompletableFuture<UUID> idFuture = entityService.addItem(
-                    "PetUpdateJob",
-                    ENTITY_VERSION,
-                    job
-            );
-            UUID technicalId = idFuture.join();
-            job.setTechnicalId(technicalId);
+        CompletableFuture<UUID> idFuture = entityService.addItem(
+                "PetUpdateJob",
+                ENTITY_VERSION,
+                job
+        );
+        UUID technicalId = idFuture.join();
+        job.setTechnicalId(technicalId);
 
-            return ResponseEntity.status(HttpStatus.CREATED).body(job);
-        } catch (Exception e) {
-            log.error("Error creating PetUpdateJob", e);
-            throw e;
-        }
+        return ResponseEntity.status(HttpStatus.CREATED).body(job);
     }
 
     @GetMapping("/petUpdateJob/{id}")
-    public ResponseEntity<?> getPetUpdateJob(@PathVariable("id") UUID id) {
-        try {
-            CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
-                    "PetUpdateJob",
-                    ENTITY_VERSION,
-                    id
-            );
-            ObjectNode node = itemFuture.join();
-            if (node == null || node.isEmpty()) {
-                log.error("PetUpdateJob not found with technicalId: {}", id);
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("PetUpdateJob not found");
-            }
-
-            PetUpdateJob job = entityService.getObjectMapper().treeToValue(node, PetUpdateJob.class);
-            job.setTechnicalId(id);
-
-            return ResponseEntity.ok(job);
-        } catch (Exception e) {
-            log.error("Error fetching PetUpdateJob with technicalId: {}", id, e);
-            throw e;
+    public ResponseEntity<?> getPetUpdateJob(@PathVariable("id") String id) throws JsonProcessingException {
+        UUID uuid = UUID.fromString(id);
+        CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
+                "PetUpdateJob",
+                ENTITY_VERSION,
+                uuid
+        );
+        ObjectNode node = itemFuture.join();
+        if (node == null || node.isEmpty()) {
+            log.error("PetUpdateJob not found with technicalId: {}", uuid);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("PetUpdateJob not found");
         }
+
+        PetUpdateJob job = objectMapper.treeToValue(node, PetUpdateJob.class);
+        job.setTechnicalId(uuid);
+
+        return ResponseEntity.ok(job);
     }
 
     // ------------------- Pet Endpoints -------------------
 
     @PostMapping("/pet")
-    public ResponseEntity<?> createPet(@RequestBody Pet pet) {
+    public ResponseEntity<?> createPet(@Valid @RequestBody Pet pet) throws JsonProcessingException {
         if (pet == null) {
             log.error("Received null Pet");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Pet cannot be null");
@@ -112,43 +105,34 @@ public class Controller {
             pet.setStatus("AVAILABLE");
         }
 
-        try {
-            CompletableFuture<UUID> idFuture = entityService.addItem(
-                    "Pet",
-                    ENTITY_VERSION,
-                    pet
-            );
-            UUID technicalId = idFuture.join();
-            pet.setTechnicalId(technicalId);
+        CompletableFuture<UUID> idFuture = entityService.addItem(
+                "Pet",
+                ENTITY_VERSION,
+                pet
+        );
+        UUID technicalId = idFuture.join();
+        pet.setTechnicalId(technicalId);
 
-            return ResponseEntity.status(HttpStatus.CREATED).body(pet);
-        } catch (Exception e) {
-            log.error("Error creating Pet", e);
-            throw e;
-        }
+        return ResponseEntity.status(HttpStatus.CREATED).body(pet);
     }
 
     @GetMapping("/pet/{id}")
-    public ResponseEntity<?> getPet(@PathVariable("id") UUID id) {
-        try {
-            CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
-                    "Pet",
-                    ENTITY_VERSION,
-                    id
-            );
-            ObjectNode node = itemFuture.join();
-            if (node == null || node.isEmpty()) {
-                log.error("Pet not found with technicalId: {}", id);
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Pet not found");
-            }
-
-            Pet pet = entityService.getObjectMapper().treeToValue(node, Pet.class);
-            pet.setTechnicalId(id);
-
-            return ResponseEntity.ok(pet);
-        } catch (Exception e) {
-            log.error("Error fetching Pet with technicalId: {}", id, e);
-            throw e;
+    public ResponseEntity<?> getPet(@PathVariable("id") String id) throws JsonProcessingException {
+        UUID uuid = UUID.fromString(id);
+        CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
+                "Pet",
+                ENTITY_VERSION,
+                uuid
+        );
+        ObjectNode node = itemFuture.join();
+        if (node == null || node.isEmpty()) {
+            log.error("Pet not found with technicalId: {}", uuid);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Pet not found");
         }
+
+        Pet pet = objectMapper.treeToValue(node, Pet.class);
+        pet.setTechnicalId(uuid);
+
+        return ResponseEntity.ok(pet);
     }
 }
