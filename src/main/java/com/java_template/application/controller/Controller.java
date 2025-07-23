@@ -49,7 +49,6 @@ public class Controller {
         ObjectNode jobNode = jobFuture.get();
         // Convert ObjectNode back to PetRegistrationJob to process
         PetRegistrationJob savedJob = JsonUtil.convert(jobNode, PetRegistrationJob.class);
-        processPetRegistrationJob(savedJob);
         return ResponseEntity.status(HttpStatus.CREATED).body(savedJob);
     }
 
@@ -84,7 +83,6 @@ public class Controller {
         CompletableFuture<ObjectNode> petFuture = entityService.getItem(PET_MODEL, ENTITY_VERSION, technicalId);
         ObjectNode petNode = petFuture.get();
         Pet savedPet = JsonUtil.convert(petNode, Pet.class);
-        processPet(savedPet);
         return ResponseEntity.status(HttpStatus.CREATED).body(savedPet);
     }
 
@@ -136,90 +134,6 @@ public class Controller {
             }
         }
         return ResponseEntity.ok(pets);
-    }
-
-    private void processPetRegistrationJob(PetRegistrationJob job) {
-        log.info("Processing PetRegistrationJob with technicalId: {}", job.getTechnicalId());
-        try {
-            // Update status to PROCESSING by creating new version (immutable update)
-            job.setStatus("PROCESSING");
-            entityService.addItem(PET_REGISTRATION_JOB_MODEL, ENTITY_VERSION, job).get();
-
-            // Validate source connectivity (simulate)
-            if (!"PetstoreAPI".equalsIgnoreCase(job.getSource())) {
-                log.error("Unsupported source: {}", job.getSource());
-                job.setStatus("FAILED");
-                entityService.addItem(PET_REGISTRATION_JOB_MODEL, ENTITY_VERSION, job).get();
-                return;
-            }
-            // Simulate fetching pets from Petstore API
-            List<Pet> fetchedPets = new ArrayList<>();
-            Pet samplePet = new Pet();
-            samplePet.setName("Whiskers");
-            samplePet.setCategory("cat");
-            samplePet.setPhotoUrls(List.of("http://example.com/whiskers.jpg"));
-            samplePet.setTags(List.of("fluffy", "gray"));
-            samplePet.setStatus("available");
-            fetchedPets.add(samplePet);
-
-            // Save new Pet entities immutably
-            for (Pet pet : fetchedPets) {
-                // Check existence by searching with pet name and category ignoring case
-                SearchConditionRequest searchCondition = SearchConditionRequest.group("AND",
-                        Condition.of("$.name", "IEQUALS", pet.getName()),
-                        Condition.of("$.category", "IEQUALS", pet.getCategory()));
-                ArrayNode existingPets = entityService.getItemsByCondition(PET_MODEL, ENTITY_VERSION, searchCondition, true).get();
-                if (existingPets == null || existingPets.size() == 0) {
-                    CompletableFuture<UUID> petIdFuture = entityService.addItem(PET_MODEL, ENTITY_VERSION, pet);
-                    UUID petId = petIdFuture.get();
-                    CompletableFuture<ObjectNode> petNodeFuture = entityService.getItem(PET_MODEL, ENTITY_VERSION, petId);
-                    Pet savedPet = JsonUtil.convert(petNodeFuture.get(), Pet.class);
-                    processPet(savedPet);
-                    log.info("Imported Pet with technicalId: {}", petId);
-                } else {
-                    log.info("Pet with name '{}' and category '{}' already exists. Skipping import.", pet.getName(), pet.getCategory());
-                }
-            }
-            job.setStatus("COMPLETED");
-            entityService.addItem(PET_REGISTRATION_JOB_MODEL, ENTITY_VERSION, job).get();
-        } catch (Exception e) {
-            log.error("Error processing PetRegistrationJob with technicalId {}: {}", job.getTechnicalId(), e.getMessage());
-            try {
-                job.setStatus("FAILED");
-                entityService.addItem(PET_REGISTRATION_JOB_MODEL, ENTITY_VERSION, job).get();
-            } catch (Exception ignored) {
-            }
-        }
-    }
-
-    private void processPet(Pet pet) {
-        log.info("Processing Pet with technicalId: {}", pet.getTechnicalId());
-        if (pet.getName() == null || pet.getName().isBlank() ||
-                pet.getCategory() == null || pet.getCategory().isBlank()) {
-            log.error("Pet validation failed for technicalId {}: Missing name or category", pet.getTechnicalId());
-            return;
-        }
-        if (pet.getTags() != null) {
-            List<String> normalizedTags = new ArrayList<>();
-            for (String tag : pet.getTags()) {
-                if (tag != null) {
-                    normalizedTags.add(tag.toLowerCase());
-                }
-            }
-            pet.setTags(normalizedTags);
-        }
-        if (pet.getPhotoUrls() != null) {
-            List<String> validUrls = new ArrayList<>();
-            for (String url : pet.getPhotoUrls()) {
-                if (url != null && url.startsWith("http")) {
-                    validUrls.add(url);
-                } else {
-                    log.warn("Invalid photo URL skipped for Pet technicalId {}: {}", pet.getTechnicalId(), url);
-                }
-            }
-            pet.setPhotoUrls(validUrls);
-        }
-        log.info("Pet with technicalId {} processed successfully", pet.getTechnicalId());
     }
 
     // Utility class for JSON conversions (ObjectNode <-> Java POJO)
