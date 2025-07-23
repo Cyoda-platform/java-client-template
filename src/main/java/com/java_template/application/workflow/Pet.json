@@ -1,75 +1,76 @@
 {
-    "desc": "Workflow to handle adoption request processing with pet availability and requester validation",
-    "id": "adoption_request_workflow",
-    "initialState": "none",
-    "name": "Adoption Request Workflow",
-    "states": {
-        "approved": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "id": "init_to_pending",
-                    "next": "pending"
-                }
-            ]
-        },
-        "pending": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetUnknownCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "pending_to_rejected_unknown_pet",
-                    "next": "rejected"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetNotAvailableCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "pending_to_rejected_pet_not_available",
-                    "next": "rejected"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "RequesterNameInvalidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "pending_to_rejected_invalid_requester_name",
-                    "next": "rejected"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "AdoptionRequestValidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "pending_to_approved",
-                    "next": "approved",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "adoption_request"
-                            },
-                            "name": "AdoptionRequestProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "rejected": {
-            "transitions": []
+  "desc": "Workflow to handle adoption request processing with pet availability and requester validation",
+  "id": "adoption_request_workflow",
+  "initialState": "none",
+  "name": "Adoption Request Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "id": "init_to_pending",
+          "next": "pending"
         }
+      ]
     },
-    "version": "1.0"
+    "pending": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "PetUnknownCriterion"
+            },
+            "type": "function"
+          },
+          "id": "pending_to_rejected_unknown_pet",
+          "next": "rejected"
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "PetNotAvailableCriterion"
+            },
+            "type": "function"
+          },
+          "id": "pending_to_rejected_pet_not_available",
+          "next": "rejected"
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "RequesterNameInvalidCriterion"
+            },
+            "type": "function"
+          },
+          "id": "pending_to_rejected_invalid_requester_name",
+          "next": "rejected"
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "AdoptionRequestValidCriterion"
+            },
+            "type": "function"
+          },
+          "id": "pending_to_approved",
+          "next": "approved",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "adoption_request",
+                "calculation_nodes_tags": "b308f3b8-2ff0-11b2-ac6a-1297eff5fbfd"
+              },
+              "name": "AdoptionRequestProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "rejected": {
+      "transitions": []
+    },
+    "approved": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
