@@ -18,7 +18,6 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 import static com.java_template.common.config.Config.*;
@@ -57,7 +56,7 @@ public class Controller {
                 .thenCompose(technicalId -> entityService.getItem("PetJob", ENTITY_VERSION, technicalId)
                         .thenCompose(itemNode -> {
                             PetJob savedPetJob = JsonUtil.convertToPetJob(itemNode);
-                            processPetJob(savedPetJob);
+                            // processPetJob(savedPetJob);  // Removed processing method call
                             // After processing, create a new version with status COMPLETED
                             PetJob completedPetJob = new PetJob(savedPetJob);
                             completedPetJob.setStatus("COMPLETED");
@@ -107,7 +106,7 @@ public class Controller {
                 .thenCompose(technicalId -> entityService.getItem("Pet", ENTITY_VERSION, technicalId)
                         .thenCompose(itemNode -> {
                             Pet savedPet = JsonUtil.convertToPet(itemNode);
-                            processPet(savedPet);
+                            // processPet(savedPet);  // Removed processing method call
                             return entityService.addItem("Pet", ENTITY_VERSION, savedPet)
                                     .thenApply(newId -> ResponseEntity.status(201).body(savedPet));
                         })
@@ -150,7 +149,7 @@ public class Controller {
         }
 
         // Keep local cache for CatFact per instructions (minor/utility entity)
-        processCatFact(catFact);
+        // processCatFact(catFact);  // Removed processing method call
         return ResponseEntity.status(201).body(catFact);
     }
 
@@ -159,44 +158,6 @@ public class Controller {
     public ResponseEntity<?> getCatFact(@PathVariable String id) {
         // Local cache not available, return 404 for prototype
         return ResponseEntity.status(404).body("CatFact not found");
-    }
-
-    // Business logic for PetJob
-    private void processPetJob(PetJob petJob) {
-        logger.info("Processing PetJob with ID: {}", petJob.getId());
-
-        if ("AddPet".equalsIgnoreCase(petJob.getJobType())) {
-            logger.info("PetJob is AddPet job, triggering pet creation workflow for petId: {}", petJob.getPetId());
-        } else if ("UpdateStatus".equalsIgnoreCase(petJob.getJobType())) {
-            logger.info("PetJob is UpdateStatus job for petId: {}", petJob.getPetId());
-        } else {
-            logger.warn("PetJob has unknown jobType: {}", petJob.getJobType());
-        }
-    }
-
-    // Business logic for Pet
-    private void processPet(Pet pet) {
-        logger.info("Processing Pet with ID: {}", pet.getId());
-
-        List<String> supportedTypes = Arrays.asList("Cat", "Dog");
-        if (!supportedTypes.contains(pet.getType())) {
-            logger.error("Unsupported pet type: {}", pet.getType());
-            pet.setStatus("INACTIVE");
-        } else {
-            logger.info("Pet type {} is supported", pet.getType());
-        }
-    }
-
-    // Business logic for CatFact (local cache retained)
-    private void processCatFact(CatFact catFact) {
-        logger.info("Processing CatFact with ID: {}", catFact.getId());
-
-        if (catFact.getFact().length() < 10) {
-            logger.error("CatFact fact is too short");
-            catFact.setStatus("ARCHIVED");
-        } else {
-            logger.info("CatFact fact is valid");
-        }
     }
 
     // Utility class for JSON conversion
