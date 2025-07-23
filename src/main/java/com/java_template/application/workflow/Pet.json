@@ -1,74 +1,104 @@
 {
-  "desc": "Workflow for processing pet adoption jobs from creation to completion or failure",
-  "id": "pet_adoption_job_workflow",
-  "initialState": "none",
-  "name": "Pet Adoption Job Workflow",
-  "states": {
-    "none": {
-      "transitions": [
-        {
-          "id": "start_processing",
-          "next": "pending",
-          "processors": [
-            {
-              "config": {
-                "calculationNodesTags": "cyoda_application",
-                "calculation_nodes_tags": "931db586-65d1-11b2-95b2-ca2f093e3d5b"
-              },
-              "name": "PetAdoptionJobProcessor"
-            }
-          ]
-        }
-      ]
-    },
-    "pending": {
-      "transitions": [
-        {
-          "id": "pending_to_processing",
-          "next": "processing"
-        }
-      ]
-    },
-    "processing": {
-      "transitions": [
-        {
-          "criterion": {
-            "function": {
-              "name": "PetAvailabilityCriterion"
-            },
-            "type": "function"
-          },
-          "id": "processing_to_completed",
-          "next": "completed"
+    "desc": "Workflow representing the life cycle of an AdoptionRequest entity",
+    "id": "adoption_request_workflow",
+    "initialState": "none",
+    "name": "Adoption Request Workflow",
+    "states": {
+        "approved": {
+            "transitions": []
         },
-        {
-          "criterion": {
-            "function": {
-              "name": "PetNotFoundCriterion"
-            },
-            "type": "function"
-          },
-          "id": "processing_to_failed_not_found",
-          "next": "failed"
+        "none": {
+            "transitions": [
+                {
+                    "id": "start_to_pending",
+                    "next": "pending"
+                }
+            ]
         },
-        {
-          "criterion": {
-            "function": {
-              "name": "PetNotAvailableCriterion"
-            },
-            "type": "function"
-          },
-          "id": "processing_to_failed_not_available",
-          "next": "failed"
+        "pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetExistsCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "pending_to_rejected_pet_not_found",
+                    "next": "rejected",
+                    "processors": []
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetDoesNotExistCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "pending_to_pet_exists",
+                    "next": "valid_pet_exists"
+                }
+            ]
+        },
+        "pet_available": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "RequesterIsValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "pet_available_to_rejected_invalid_requester",
+                    "next": "rejected"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "RequesterIsNotValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "pet_available_to_approved",
+                    "next": "approved",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "rejected": {
+            "transitions": []
+        },
+        "valid_pet_exists": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetIsAvailableCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "valid_pet_to_rejected_not_available",
+                    "next": "rejected"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetIsNotAvailableCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "valid_pet_to_pet_available",
+                    "next": "pet_available"
+                }
+            ]
         }
-      ]
     },
-    "completed": {
-      "transitions": []
-    },
-    "failed": {
-      "transitions": []
-    }
-  },
-  "version": "1.0"
+    "version": "1.0"
 }
