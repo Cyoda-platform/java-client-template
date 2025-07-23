@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.Pet;
+import com.java_template.application.entity.AdoptionRequest;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,7 +32,7 @@ public class RequesterNameInvalidCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(Pet.class, this::validateEntity)
+            .evaluateEntity(AdoptionRequest.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,16 +40,16 @@ public class RequesterNameInvalidCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "RequesterNameInvalidCriterion".equals(modelSpec.operationName()) &&
-               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "adoptionRequest".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(Pet pet) {
-        // Validation: In real scenario, this should validate requesterName from AdoptionRequest entity
-        // But current entity is Pet, so we fail if name is null or blank as a placeholder for requesterName check
-        if (pet.getName() == null || pet.getName().isBlank()) {
-            return EvaluationOutcome.fail("Requester name is invalid", StandardEvalReasonCategories.VALIDATION_FAILURE);
+    private EvaluationOutcome validateEntity(AdoptionRequest entity) {
+        // Business logic: Validate that requesterName is not null, not blank, and meets any specific rules
+        if (entity.getRequesterName() == null || entity.getRequesterName().isBlank()) {
+            return EvaluationOutcome.fail("Requester name is invalid or missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
+        // Additional validations can be added here (e.g., format checks)
         return EvaluationOutcome.success();
     }
 }
