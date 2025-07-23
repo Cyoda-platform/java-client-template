@@ -1,0 +1,69 @@
+{
+    "desc": "Workflow for orchestrating PetCreationJob entity processing",
+    "id": "pet_creation_job_workflow",
+    "initialState": "none",
+    "name": "Pet Creation Job Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetCreationJobReadyToProcessCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "start_processing",
+                    "next": "pending"
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "id": "begin_processing",
+                    "next": "processing",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetCreationJobProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetDataValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "valid_pet_data",
+                    "next": "completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetDataInvalidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "invalid_pet_data",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
