@@ -1,0 +1,15 @@
+    private void processPet(Pet pet) {
+        log.info("Processing Pet with ID: {}", pet.getId());
+
+        if (pet.getName() == null || pet.getName().isBlank()) {
+            log.error("Pet name is mandatory");
+            return;
+        }
+        if (pet.getCategory() == null || pet.getCategory().isBlank()) {
+            log.error("Pet category is mandatory");
+            return;
+        }
+        // Pet status already set to AVAILABLE in createPet()
+
+        log.info("Pet {} is ready for adoption", pet.getId());
+    }
