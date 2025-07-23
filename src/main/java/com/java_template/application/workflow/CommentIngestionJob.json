@@ -1,89 +1,90 @@
 {
-    "desc": "Workflow to manage the lifecycle of comment ingestion jobs from validation to completion or failure.",
-    "id": "comment_ingestion_job_workflow",
-    "initialState": "none",
-    "name": "Comment Ingestion Job Workflow",
-    "states": {
-        "completed": {
-            "transitions": [
-                {
-                    "id": "finalize",
-                    "next": "none"
-                }
-            ]
-        },
-        "failed": {
-            "transitions": [
-                {
-                    "id": "finalize_fail",
-                    "next": "none"
-                }
-            ]
-        },
-        "none": {
-            "transitions": [
-                {
-                    "id": "start_validation",
-                    "next": "pending"
-                }
-            ]
-        },
-        "pending": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "CommentIngestionJobValidationCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "validate_job_success",
-                    "next": "processing"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "CommentIngestionJobValidationFailCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "validate_job_fail",
-                    "next": "failed"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "CommentIngestionJobProcessingSuccessCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "process_job_success",
-                    "next": "completed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "CommentIngestionJobProcessor"
-                        }
-                    ]
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "CommentIngestionJobProcessingFailCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "process_job_fail",
-                    "next": "failed"
-                }
-            ]
+  "desc": "Workflow to manage the lifecycle of comment ingestion jobs from validation to completion or failure.",
+  "id": "comment_ingestion_job_workflow",
+  "initialState": "none",
+  "name": "Comment Ingestion Job Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "id": "start_validation",
+          "next": "pending"
         }
+      ]
     },
-    "version": "1.0"
+    "pending": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "CommentIngestionJobValidationCriterion"
+            },
+            "type": "function"
+          },
+          "id": "validate_job_success",
+          "next": "processing"
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "CommentIngestionJobValidationFailCriterion"
+            },
+            "type": "function"
+          },
+          "id": "validate_job_fail",
+          "next": "failed"
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "CommentIngestionJobProcessingSuccessCriterion"
+            },
+            "type": "function"
+          },
+          "id": "process_job_success",
+          "next": "completed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "calculation_nodes_tags": "e09bb2ec-2f6f-11b2-944c-fac101f95347"
+              },
+              "name": "CommentIngestionJobProcessor"
+            }
+          ]
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "CommentIngestionJobProcessingFailCriterion"
+            },
+            "type": "function"
+          },
+          "id": "process_job_fail",
+          "next": "failed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": [
+        {
+          "id": "finalize",
+          "next": "none"
+        }
+      ]
+    },
+    "failed": {
+      "transitions": [
+        {
+          "id": "finalize_fail",
+          "next": "none"
+        }
+      ]
+    }
+  },
+  "version": "1.0"
 }
