@@ -1,13 +1,12 @@
 package com.java_template.application.controller;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Comment;
 import com.java_template.application.entity.CommentAnalysisReport;
 import com.java_template.application.entity.CommentIngestionJob;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -15,11 +14,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/entity")
@@ -28,6 +28,7 @@ import static com.java_template.common.config.Config.*;
 public class Controller {
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     private static final String COMMENT_INGESTION_JOB_ENTITY = "CommentIngestionJob";
     private static final String COMMENT_ENTITY = "Comment";
@@ -57,8 +58,6 @@ public class Controller {
         CompletableFuture<UUID> idFuture = entityService.addItem(COMMENT_INGESTION_JOB_ENTITY, ENTITY_VERSION, job);
         UUID technicalId = idFuture.get();
 
-        // Removed processCommentIngestionJob call
-
         Map<String, Object> response = new HashMap<>();
         response.put("technicalId", technicalId.toString());
         response.put("status", job.getStatus());
@@ -86,7 +85,7 @@ public class Controller {
     // --- Comment Endpoints ---
 
     @PostMapping("/comment")
-    public ResponseEntity<?> createComment(@RequestBody Comment comment) throws Exception {
+    public ResponseEntity<?> createComment(@RequestBody Comment comment) throws JsonProcessingException, Exception {
         log.info("Received create Comment request: {}", comment);
         if (comment == null) {
             log.error("Request body is null");
@@ -117,15 +116,11 @@ public class Controller {
             return ResponseEntity.badRequest().body("ingestionJobId is required");
         }
 
-        // In original code business id was used as id, here we pass the entire comment to entityService and get UUID technicalId
         comment.setStatus("RAW");
 
         CompletableFuture<UUID> idFuture = entityService.addItem(COMMENT_ENTITY, ENTITY_VERSION, comment);
         UUID technicalId = idFuture.get();
 
-        // Removed processComment call
-
-        // Return the created comment with technicalId added
         ObjectNode createdNode = entityService.getItem(COMMENT_ENTITY, ENTITY_VERSION, technicalId).get();
 
         return ResponseEntity.status(HttpStatus.CREATED).body(createdNode);
@@ -152,7 +147,7 @@ public class Controller {
     // --- CommentAnalysisReport Endpoints ---
 
     @PostMapping("/commentAnalysisReport")
-    public ResponseEntity<?> createCommentAnalysisReport(@RequestBody CommentAnalysisReport report) throws Exception {
+    public ResponseEntity<?> createCommentAnalysisReport(@RequestBody CommentAnalysisReport report) throws JsonProcessingException, Exception {
         log.info("Received create CommentAnalysisReport request: {}", report);
         if (report == null) {
             log.error("Request body is null");
@@ -180,8 +175,6 @@ public class Controller {
 
         CompletableFuture<UUID> idFuture = entityService.addItem(COMMENT_ANALYSIS_REPORT_ENTITY, ENTITY_VERSION, report);
         UUID technicalId = idFuture.get();
-
-        // Removed processCommentAnalysisReport call
 
         ObjectNode createdNode = entityService.getItem(COMMENT_ANALYSIS_REPORT_ENTITY, ENTITY_VERSION, technicalId).get();
 
