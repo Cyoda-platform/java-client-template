@@ -1,6 +1,8 @@
 package com.java_template.application.processor;
 
+import com.java_template.application.entity.AdoptionRequest;
 import com.java_template.application.entity.Pet;
+import com.java_template.application.entity.RequestStatusEnum;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
@@ -13,25 +15,28 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.concurrent.ExecutionException;
+
 @Component
 public class PetProcessor implements CyodaProcessor {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final ProcessorSerializer serializer;
+    private final EntityService entityService;
 
-    public PetProcessor(SerializerFactory serializerFactory) {
+    public PetProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
-        logger.info("PetProcessor initialized with SerializerFactory");
+        this.entityService = entityService;
+        logger.info("PetProcessor initialized with SerializerFactory and EntityService");
     }
 
     @Override
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
-        logger.info("Processing Pet for request: {}", request.getId());
+        logger.info("Processing AdoptionRequest for request: {}", request.getId());
 
         return serializer.withRequest(request)
-                .toEntity(Pet.class)
-                .validate(this::isValidEntity, "Invalid entity state")
+                .toEntity(AdoptionRequest.class)
                 .map(this::processEntityLogic)
                 .complete();
     }
@@ -39,29 +44,40 @@ public class PetProcessor implements CyodaProcessor {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetProcessor".equals(modelSpec.operationName()) &&
-                "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+                "adoptionRequest".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                 Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private boolean isValidEntity(Pet pet) {
-        return pet.isValid();
-    }
+    private AdoptionRequest processEntityLogic(AdoptionRequest request) {
+        try {
+            logger.info("Processing AdoptionRequest with ID: {}", request.getId());
 
-    private Pet processEntityLogic(Pet pet) {
-        // Business logic from processPet method in workflow prototype
-        logger.info("Processing Pet with ID: {}", pet.getId());
+            Pet pet = entityService.getItem("Pet", Config.ENTITY_VERSION, request.getPetId()).get();
+            if (pet == null) {
+                logger.error("Pet with ID {} not found for adoption request", request.getPetId());
+                request.setStatus(RequestStatusEnum.REJECTED);
+                entityService.addItem("AdoptionRequest", Config.ENTITY_VERSION, request).get();
+                return request;
+            }
 
-        if (pet.getName() == null || pet.getName().isBlank()) {
-            logger.error("Pet name is mandatory");
-            return pet;
+            if (pet.getStatus() != PetStatusEnum.AVAILABLE) {
+                logger.error("Pet with ID {} is not available for adoption in request", pet.getPetId());
+                request.setStatus(RequestStatusEnum.REJECTED);
+                entityService.addItem("AdoptionRequest", Config.ENTITY_VERSION, request).get();
+                return request;
+            }
+
+            request.setStatus(RequestStatusEnum.APPROVED);
+            entityService.addItem("AdoptionRequest", Config.ENTITY_VERSION, request).get();
+
+            logger.info("AdoptionRequest {} approved", request.getId());
+
+            // Notification logic could be added here
+
+            return request;
+        } catch (InterruptedException | ExecutionException e) {
+            logger.error("Error processing AdoptionRequest", e);
+            throw new RuntimeException(e);
         }
-        if (pet.getCategory() == null || pet.getCategory().isBlank()) {
-            logger.error("Pet category is mandatory");
-            return pet;
-        }
-        // Pet status already set to AVAILABLE in createPet()
-
-        logger.info("Pet {} is ready for adoption", pet.getId());
-        return pet;
     }
 }
