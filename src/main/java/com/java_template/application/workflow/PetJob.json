@@ -1,0 +1,91 @@
+{
+    "desc": "Workflow for processing PetJob orchestration entity lifecycle events",
+    "id": "pet_job_workflow",
+    "initialState": "none",
+    "name": "PetJob entity workflow",
+    "states": {
+        "end_completed": {
+            "transitions": []
+        },
+        "end_error": {
+            "transitions": []
+        },
+        "end_failed": {
+            "transitions": []
+        },
+        "end_invalid": {
+            "transitions": []
+        },
+        "initialize_job": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "JobInitializationCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "init_to_validate",
+                    "next": "validate_job"
+                },
+                {
+                    "id": "init_to_error",
+                    "next": "end_error"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "start_to_init",
+                    "next": "initialize_job",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetJobProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "process_job": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "JobCompletionCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "processing_to_completed",
+                    "next": "end_completed"
+                },
+                {
+                    "id": "processing_to_failed",
+                    "next": "end_failed"
+                }
+            ]
+        },
+        "validate_job": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "JobValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "validate_to_processing",
+                    "next": "process_job"
+                },
+                {
+                    "id": "validate_to_end_invalid",
+                    "next": "end_invalid"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
