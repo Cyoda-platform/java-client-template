@@ -1,63 +1,63 @@
 {
-    "desc": "Workflow for Pet entity lifecycle from creation to completion with validation and enrichment",
-    "id": "pet_workflow",
-    "initialState": "none",
-    "name": "Pet entity workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "enrichment": {
-            "transitions": [
-                {
-                    "id": "enrich_and_save",
-                    "next": "completed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetJobProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "id": "start_validation",
-                    "next": "validation"
-                }
-            ]
-        },
-        "validation": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetValidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "valid_pet",
-                    "next": "enrichment"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetInvalidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "invalid_pet",
-                    "next": "failed"
-                }
-            ]
+  "desc": "Workflow for Pet entity lifecycle from creation to completion with validation and enrichment",
+  "id": "pet_workflow",
+  "initialState": "none",
+  "name": "Pet entity workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "id": "start_validation",
+          "next": "validation"
         }
+      ]
     },
-    "version": "1.0"
+    "validation": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "PetValidCriterion"
+            },
+            "type": "function"
+          },
+          "id": "valid_pet",
+          "next": "enrichment"
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "PetInvalidCriterion"
+            },
+            "type": "function"
+          },
+          "id": "invalid_pet",
+          "next": "failed"
+        }
+      ]
+    },
+    "enrichment": {
+      "transitions": [
+        {
+          "id": "enrich_and_save",
+          "next": "completed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "PetJobProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
