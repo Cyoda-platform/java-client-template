@@ -1,0 +1,39 @@
+private void processCatFactJob(CatFactJob catFactJob) {
+    logger.info("Processing CatFactJob with technicalId: {}", catFactJob.getTechnicalId());
+
+    try {
+        // Simulate API call - replace with actual HTTP call in real implementation
+        String fetchedFact = "Cats sleep 70% of their lives."; // placeholder fact
+        catFactJob.setCatFactText(fetchedFact);
+        catFactJob.setStatus("PROCESSING");
+        logger.info("Fetched cat fact: {}", fetchedFact);
+
+        // Send emails to all active subscribers
+        try {
+            SearchConditionRequest condition = SearchConditionRequest.group("AND",
+                    Condition.of("$.status", "IEQUALS", "ACTIVE"));
+            CompletableFuture<ArrayNode> activeSubsFuture = entityService.getItemsByCondition(
+                    "Subscriber",
+                    ENTITY_VERSION,
+                    condition,
+                    true
+            );
+            ArrayNode activeSubscribers = activeSubsFuture.get();
+
+            for (JsonNode node : activeSubscribers) {
+                String email = node.get("email") != null ? node.get("email").asText() : null;
+                if (email != null) {
+                    logger.info("Sending cat fact email to subscriber: {}", email);
+                }
+            }
+        } catch (Exception e) {
+            logger.error("Error sending emails to subscribers: {}", e.getMessage());
+        }
+
+        catFactJob.setStatus("COMPLETED");
+        logger.info("CatFactJob {} completed successfully", catFactJob.getTechnicalId());
+    } catch (Exception e) {
+        catFactJob.setStatus("FAILED");
+        logger.error("Failed to process CatFactJob {}: {}", catFactJob.getTechnicalId(), e.getMessage());
+    }
+}
