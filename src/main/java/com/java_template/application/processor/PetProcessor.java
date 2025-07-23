@@ -1,7 +1,6 @@
 package com.java_template.application.processor;
 
 import com.java_template.application.entity.Pet;
-import com.java_template.common.serializer.ErrorInfo;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
@@ -13,8 +12,6 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-
-import java.util.function.BiFunction;
 
 @Component
 public class PetProcessor implements CyodaProcessor {
@@ -48,14 +45,26 @@ public class PetProcessor implements CyodaProcessor {
 
     private boolean isValidEntity(Pet pet) {
         return pet.getName() != null && !pet.getName().isBlank() &&
-               pet.getCategory() != null && !pet.getCategory().isBlank();
+               pet.getCategory() != null && !pet.getCategory().isBlank() &&
+               pet.getStatus() != null && !pet.getStatus().isBlank();
     }
 
     private Pet processPet(Pet pet) {
         logger.info("Processing Pet with ID: {}", pet.getId());
 
-        // Example enrichment or business logic could be added here.
-        // For now, just return the pet unchanged.
+        if (!isValidEntity(pet)) {
+            logger.error("Pet validation failed for ID: {}", pet.getId());
+            return pet;
+        }
+
+        // Enrichment logic from prototype: add " the Purrfect" to cat names
+        if ("cat".equalsIgnoreCase(pet.getCategory())) {
+            if (!pet.getName().endsWith(" the Purrfect")) {
+                pet.setName(pet.getName() + " the Purrfect");
+            }
+        }
+
+        logger.info("Pet {} is currently {}", pet.getId(), pet.getStatus());
 
         return pet;
     }
