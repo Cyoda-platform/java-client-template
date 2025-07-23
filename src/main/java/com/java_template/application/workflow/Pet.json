@@ -1,78 +1,74 @@
 {
-    "desc": "Workflow representing the lifecycle of a Pet entity from none to AVAILABLE and ADOPTED",
-    "id": "pet_workflow",
+    "desc": "Workflow to handle adoption request processing with pet availability and requester validation",
+    "id": "adoption_request_workflow",
     "initialState": "none",
-    "name": "Pet lifecycle workflow",
+    "name": "Adoption Request Workflow",
     "states": {
-        "adopted": {
+        "approved": {
             "transitions": []
-        },
-        "available": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "AdoptionApprovalCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "transition_to_adopted_approved",
-                    "next": "adopted"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "AdoptionPendingCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "transition_to_available_pending",
-                    "next": "available"
-                }
-            ]
-        },
-        "error": {
-            "transitions": []
-        },
-        "new": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetValidationCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "transition_to_available_valid",
-                    "next": "available",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetProcessor"
-                        }
-                    ]
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetValidationFailCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "transition_to_error_invalid",
-                    "next": "error"
-                }
-            ]
         },
         "none": {
             "transitions": [
                 {
-                    "id": "transition_to_new",
-                    "next": "new"
+                    "id": "init_to_pending",
+                    "next": "pending"
                 }
             ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetUnknownCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "pending_to_rejected_unknown_pet",
+                    "next": "rejected"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetNotAvailableCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "pending_to_rejected_pet_not_available",
+                    "next": "rejected"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "RequesterNameInvalidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "pending_to_rejected_invalid_requester_name",
+                    "next": "rejected"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "AdoptionRequestValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "pending_to_approved",
+                    "next": "approved",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "adoption_request"
+                            },
+                            "name": "AdoptionRequestProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "rejected": {
+            "transitions": []
         }
     },
     "version": "1.0"
