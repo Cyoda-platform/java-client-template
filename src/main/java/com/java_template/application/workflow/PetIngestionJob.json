@@ -1,0 +1,71 @@
+{
+    "desc": "Workflow for processing PetIngestionJob entities from creation to completion or failure",
+    "id": "pet_ingestion_job_workflow",
+    "initialState": "none",
+    "name": "Pet Ingestion Job Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "none_to_pending",
+                    "next": "pending"
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "class": "SourceValidCriterion",
+                        "type": "class"
+                    },
+                    "id": "pending_to_processing_if_source_valid",
+                    "next": "processing",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetIngestionJobProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "class": "SourceInvalidCriterion",
+                        "type": "class"
+                    },
+                    "id": "pending_to_failed_if_source_invalid",
+                    "next": "failed"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "class": "ProcessingSuccessCriterion",
+                        "type": "class"
+                    },
+                    "id": "processing_to_completed_if_success",
+                    "next": "completed"
+                },
+                {
+                    "criterion": {
+                        "class": "ProcessingErrorCriterion",
+                        "type": "class"
+                    },
+                    "id": "processing_to_failed_if_error",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
