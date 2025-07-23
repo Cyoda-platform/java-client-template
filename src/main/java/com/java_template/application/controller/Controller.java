@@ -57,7 +57,7 @@ public class Controller {
         CompletableFuture<UUID> idFuture = entityService.addItem(COMMENT_INGESTION_JOB_ENTITY, ENTITY_VERSION, job);
         UUID technicalId = idFuture.get();
 
-        processCommentIngestionJob(technicalId, job);
+        // Removed processCommentIngestionJob call
 
         Map<String, Object> response = new HashMap<>();
         response.put("technicalId", technicalId.toString());
@@ -123,7 +123,7 @@ public class Controller {
         CompletableFuture<UUID> idFuture = entityService.addItem(COMMENT_ENTITY, ENTITY_VERSION, comment);
         UUID technicalId = idFuture.get();
 
-        processComment(technicalId, comment);
+        // Removed processComment call
 
         // Return the created comment with technicalId added
         ObjectNode createdNode = entityService.getItem(COMMENT_ENTITY, ENTITY_VERSION, technicalId).get();
@@ -181,7 +181,7 @@ public class Controller {
         CompletableFuture<UUID> idFuture = entityService.addItem(COMMENT_ANALYSIS_REPORT_ENTITY, ENTITY_VERSION, report);
         UUID technicalId = idFuture.get();
 
-        processCommentAnalysisReport(technicalId, report);
+        // Removed processCommentAnalysisReport call
 
         ObjectNode createdNode = entityService.getItem(COMMENT_ANALYSIS_REPORT_ENTITY, ENTITY_VERSION, technicalId).get();
 
@@ -206,76 +206,5 @@ public class Controller {
         return ResponseEntity.ok(item);
     }
 
-    // --- Processing methods ---
-
-    private void processCommentIngestionJob(UUID technicalId, CommentIngestionJob job) throws Exception {
-        log.info("Processing CommentIngestionJob with technicalId: {}", technicalId);
-        // Validate job fields
-        if (job.getPostId() == null || job.getReportEmail() == null || job.getReportEmail().isBlank()) {
-            log.error("Invalid CommentIngestionJob: missing postId or reportEmail");
-            job.setStatus("FAILED");
-            entityService.updateItem(COMMENT_INGESTION_JOB_ENTITY, ENTITY_VERSION, technicalId, job).get();
-            return;
-        }
-        job.setStatus("PROCESSING");
-        entityService.updateItem(COMMENT_INGESTION_JOB_ENTITY, ENTITY_VERSION, technicalId, job).get();
-
-        // Simulate fetching comments from external API
-        List<Comment> newComments = new ArrayList<>();
-        for (int i = 1; i <= 3; i++) {
-            Comment comment = new Comment();
-            comment.setId(UUID.randomUUID().toString());
-            comment.setPostId(job.getPostId());
-            comment.setName("User " + i);
-            comment.setEmail("user" + i + "@example.com");
-            comment.setBody("Sample comment body " + i);
-            comment.setIngestionJobId(technicalId.toString());
-            comment.setStatus("RAW");
-            newComments.add(comment);
-        }
-
-        CompletableFuture<List<UUID>> addCommentsFuture = entityService.addItems(COMMENT_ENTITY, ENTITY_VERSION, newComments);
-        List<UUID> commentTechnicalIds = addCommentsFuture.get();
-
-        // Process each comment
-        for (int i = 0; i < commentTechnicalIds.size(); i++) {
-            processComment(commentTechnicalIds.get(i), newComments.get(i));
-        }
-
-        // Trigger report generation after comments are ingested
-        CommentAnalysisReport report = new CommentAnalysisReport();
-        report.setId(UUID.randomUUID().toString());
-        report.setIngestionJobId(technicalId.toString());
-        report.setKeywordCounts(new HashMap<>());
-        report.setTotalComments(3);
-        report.setSentimentSummary("Neutral");
-        report.setStatus("CREATED");
-        report.setGeneratedAt(LocalDateTime.now());
-
-        UUID reportTechnicalId = entityService.addItem(COMMENT_ANALYSIS_REPORT_ENTITY, ENTITY_VERSION, report).get();
-
-        processCommentAnalysisReport(reportTechnicalId, report);
-
-        job.setStatus("COMPLETED");
-        job.setCompletedAt(LocalDateTime.now());
-        entityService.updateItem(COMMENT_INGESTION_JOB_ENTITY, ENTITY_VERSION, technicalId, job).get();
-
-        // Simulate sending notification email
-        log.info("Sending report email to {}", job.getReportEmail());
-    }
-
-    private void processComment(UUID technicalId, Comment comment) throws Exception {
-        log.info("Processing Comment with technicalId: {}", technicalId);
-        // Example: mark comment as analyzed immediately for demo
-        comment.setStatus("ANALYZED");
-        entityService.updateItem(COMMENT_ENTITY, ENTITY_VERSION, technicalId, comment).get();
-    }
-
-    private void processCommentAnalysisReport(UUID technicalId, CommentAnalysisReport report) throws Exception {
-        log.info("Processing CommentAnalysisReport with technicalId: {}", technicalId);
-        // Example: simulate sending email and mark report as sent
-        report.setStatus("SENT");
-        entityService.updateItem(COMMENT_ANALYSIS_REPORT_ENTITY, ENTITY_VERSION, technicalId, report).get();
-        log.info("Report sent for CommentAnalysisReport technicalId: {}", technicalId);
-    }
+    // Removed process methods
 }
