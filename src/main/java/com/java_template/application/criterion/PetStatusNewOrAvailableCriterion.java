@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.PetJob;
+import com.java_template.application.entity.Pet;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,7 +32,7 @@ public class PetStatusNewOrAvailableCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(PetJob.class, this::validateEntity)
+            .evaluateEntity(Pet.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,17 +40,16 @@ public class PetStatusNewOrAvailableCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetStatusNewOrAvailableCriterion".equals(modelSpec.operationName()) &&
-               "petJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(PetJob entity) {
-        // Business logic: Validate status is either NEW or AVAILABLE
-        if (entity.getStatus() == null || entity.getStatus().isBlank()) {
+    private EvaluationOutcome validateEntity(Pet pet) {
+        if (pet.getStatus() == null || pet.getStatus().isBlank()) {
             return EvaluationOutcome.fail("Status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        String status = entity.getStatus().toUpperCase();
-        if (!status.equals("NEW") && !status.equals("AVAILABLE")) {
+        // Validate if status is either NEW or AVAILABLE
+        if (!pet.getStatus().equals("NEW") && !pet.getStatus().equals("AVAILABLE")) {
             return EvaluationOutcome.fail("Status must be NEW or AVAILABLE", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
         return EvaluationOutcome.success();
