@@ -1,0 +1,69 @@
+{
+    "desc": "Workflow for managing Pet lifecycle from creation to availability and sale",
+    "id": "pet_workflow",
+    "initialState": "none",
+    "name": "Pet Entity Workflow",
+    "states": {
+        "available": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetOrderPlacedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "to_sold_when_order_placed",
+                    "next": "sold"
+                }
+            ]
+        },
+        "invalid": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "to_pet_created",
+                    "next": "pet_created"
+                }
+            ]
+        },
+        "pet_created": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetDataValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "to_pet_available_if_valid",
+                    "next": "available",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetDataInvalidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "to_pet_invalid_if_not_valid",
+                    "next": "invalid"
+                }
+            ]
+        },
+        "sold": {
+            "transitions": []
+        }
+    },
+    "version": "1.0"
+}
