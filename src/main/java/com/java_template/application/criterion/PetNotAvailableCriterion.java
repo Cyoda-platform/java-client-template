@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.PetAdoptionJob;
+import com.java_template.application.entity.Pet;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,7 +32,7 @@ public class PetNotAvailableCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(PetAdoptionJob.class, this::validateEntity)
+            .evaluateEntity(Pet.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,23 +40,20 @@ public class PetNotAvailableCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetNotAvailableCriterion".equals(modelSpec.operationName()) &&
-               "petAdoptionJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(PetAdoptionJob job) {
-        if (job == null) {
-            return EvaluationOutcome.fail("PetAdoptionJob entity is null", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+    private EvaluationOutcome validateEntity(Pet pet) {
+        // Business logic: Validate that pet is not available
+        if (pet == null) {
+            return EvaluationOutcome.fail("Pet entity is null", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
         }
-        if (job.getPetId() == null || job.getPetId().isBlank()) {
-            return EvaluationOutcome.fail("Pet ID is missing in adoption job", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (pet.getStatus() == null) {
+            return EvaluationOutcome.fail("Pet status is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (job.getStatus() == null) {
-            return EvaluationOutcome.fail("Job status is not set", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        }
-        // Criterion logic: Pet must not be available if job status is PROCESSING (example business rule)
-        if (job.getStatus().name().equalsIgnoreCase("PROCESSING")) {
-            return EvaluationOutcome.fail("Pet is currently not available due to ongoing processing", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        if ("AVAILABLE".equalsIgnoreCase(pet.getStatus().name())) {
+            return EvaluationOutcome.fail("Pet is still available for adoption", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
         return EvaluationOutcome.success();
     }
