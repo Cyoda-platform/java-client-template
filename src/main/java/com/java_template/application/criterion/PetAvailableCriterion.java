@@ -40,13 +40,12 @@ public class PetAvailableCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetAvailableCriterion".equals(modelSpec.operationName()) &&
-            "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-            Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
     private EvaluationOutcome validateEntity(Pet entity) {
-        // Business Logic: Pet must be in AVAILABLE status
-        if (entity.getStatus() == null || !"AVAILABLE".equalsIgnoreCase(entity.getStatus())) {
+        if (!"AVAILABLE".equalsIgnoreCase(entity.getStatus())) {
             return EvaluationOutcome.fail("Pet status must be AVAILABLE", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
         return EvaluationOutcome.success();
