@@ -1,79 +1,80 @@
 {
-    "desc": "Workflow managing the lifecycle of a PetRegistrationJob entity",
-    "id": "pet_registration_job_workflow",
-    "initialState": "none",
-    "name": "PetRegistrationJob workflow",
-    "states": {
-        "COMPLETED": {
-            "transitions": []
-        },
-        "FAILED": {
-            "transitions": []
-        },
-        "PENDING": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetRegistrationJobValidationCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "pending_to_processing_valid",
-                    "next": "PROCESSING",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetEventProcessor"
-                        }
-                    ]
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetRegistrationJobInvalidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "pending_to_failed_invalid",
-                    "next": "FAILED"
-                }
-            ]
-        },
-        "PROCESSING": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetRegistrationJobProcessingSuccessCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "processing_to_completed_success",
-                    "next": "COMPLETED"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetRegistrationJobProcessingFailureCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "processing_to_failed_error",
-                    "next": "FAILED"
-                }
-            ]
-        },
-        "none": {
-            "transitions": [
-                {
-                    "id": "transition_to_pending",
-                    "next": "PENDING"
-                }
-            ]
+  "desc": "Workflow managing the lifecycle of a PetRegistrationJob entity",
+  "id": "pet_registration_job_workflow",
+  "initialState": "none",
+  "name": "PetRegistrationJob workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "id": "transition_to_pending",
+          "next": "PENDING"
         }
+      ]
     },
-    "version": "1.0"
+    "PENDING": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "PetRegistrationJobValidationCriterion"
+            },
+            "type": "function"
+          },
+          "id": "pending_to_processing_valid",
+          "next": "PROCESSING",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "calculation_nodes_tags": "e544957c-6631-11b2-95b2-ca2f093e3d5b"
+              },
+              "name": "PetEventProcessor"
+            }
+          ]
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "PetRegistrationJobInvalidCriterion"
+            },
+            "type": "function"
+          },
+          "id": "pending_to_failed_invalid",
+          "next": "FAILED"
+        }
+      ]
+    },
+    "PROCESSING": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "PetRegistrationJobProcessingSuccessCriterion"
+            },
+            "type": "function"
+          },
+          "id": "processing_to_completed_success",
+          "next": "COMPLETED"
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "PetRegistrationJobProcessingFailureCriterion"
+            },
+            "type": "function"
+          },
+          "id": "processing_to_failed_error",
+          "next": "FAILED"
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
