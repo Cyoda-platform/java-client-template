@@ -14,16 +14,20 @@
             "transitions": [
                 {
                     "criterion": {
-                        "class": "CatFactValidityCriterion",
-                        "type": "class"
+                        "function": {
+                            "name": "CatFactValidityCriterion"
+                        },
+                        "type": "function"
                     },
                     "id": "created_to_validated_valid",
                     "next": "validated"
                 },
                 {
                     "criterion": {
-                        "class": "CatFactInvalidityCriterion",
-                        "type": "class"
+                        "function": {
+                            "name": "CatFactInvalidityCriterion"
+                        },
+                        "type": "function"
                     },
                     "id": "created_to_archived_invalid",
                     "next": "archived"
