@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class PetValidityCriterion implements CyodaCriterion {
 
-    private final org.slf4j.Logger logger = LoggerFactory.getLogger(this.getClass());
+    private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final CriterionSerializer serializer;
 
     public PetValidityCriterion(SerializerFactory serializerFactory) {
@@ -45,24 +45,26 @@ public class PetValidityCriterion implements CyodaCriterion {
     }
 
     private EvaluationOutcome validateEntity(Pet entity) {
-        // Validate mandatory fields: name, species, breed, age
+        // Validate mandatory fields based on functional requirements
+        if (entity.getPetId() == null) {
+            return EvaluationOutcome.fail("Pet ID is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
         if (entity.getName() == null || entity.getName().isBlank()) {
-            return EvaluationOutcome.fail("Pet name is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("Name is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         if (entity.getSpecies() == null || entity.getSpecies().isBlank()) {
-            return EvaluationOutcome.fail("Pet species is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("Species is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         if (entity.getBreed() == null || entity.getBreed().isBlank()) {
-            return EvaluationOutcome.fail("Pet breed is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("Breed is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         if (entity.getAge() == null || entity.getAge() < 0) {
-            return EvaluationOutcome.fail("Pet age must be non-negative", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("Age must be non-negative", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        // Validate status is not null and is a valid enum value (NEW, AVAILABLE, ADOPTED)
-        String status = entity.getStatus();
-        if (status == null || !(status.equals("NEW") || status.equals("AVAILABLE") || status.equals("ADOPTED"))) {
-            return EvaluationOutcome.fail("Pet status must be NEW, AVAILABLE, or ADOPTED", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (entity.getStatus() == null) {
+            return EvaluationOutcome.fail("Status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
+        // Additional business logic could be added here
         return EvaluationOutcome.success();
     }
 }
