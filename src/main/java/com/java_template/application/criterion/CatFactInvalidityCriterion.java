@@ -45,23 +45,10 @@ public class CatFactInvalidityCriterion implements CyodaCriterion {
     }
 
     private EvaluationOutcome validateEntity(CatFact entity) {
-        // This criterion ensures that the CatFact entity is invalid, so it expects validation failures
-        if (entity.getId() == null || entity.getId().isBlank()) {
-            return EvaluationOutcome.success();
+        if (entity.getId() == null || entity.getFact() == null || entity.getFact().isBlank()
+            || entity.getSource() == null || entity.getSource().isBlank() || entity.getStatus() == null) {
+            return EvaluationOutcome.success(); // entity is invalid
         }
-        if (entity.getTechnicalId() == null) {
-            return EvaluationOutcome.success();
-        }
-        if (entity.getFact() == null || entity.getFact().isBlank()) {
-            return EvaluationOutcome.success();
-        }
-        if (entity.getSource() == null || entity.getSource().isBlank()) {
-            return EvaluationOutcome.success();
-        }
-        if (entity.getStatus() == null || entity.getStatus().isBlank()) {
-            return EvaluationOutcome.success();
-        }
-        // If all fields are valid, then it is not invalid, so fail this criterion
-        return EvaluationOutcome.fail("CatFact entity is valid", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+        return EvaluationOutcome.fail("entity is not invalid", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
     }
 }
