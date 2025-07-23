@@ -1,0 +1,41 @@
+    private void processAdoptionRequest(AdoptionRequest request, ObjectNode petObjectNode, UUID petTechId) {
+        log.info("Processing AdoptionRequest with technicalId: {}", request.getTechnicalId());
+
+        if (petObjectNode == null || petObjectNode.isEmpty()) {
+            log.error("AdoptionRequest {} references unknown Pet technicalId: {}", request.getTechnicalId(), request.getPetId());
+            request.setStatus("REJECTED");
+            entityService.updateItem(ADOPTION_REQUEST_MODEL, ENTITY_VERSION, request.getTechnicalId(), request);
+            return;
+        }
+
+        String petStatus = petObjectNode.path("status").asText(null);
+        if (!"AVAILABLE".equalsIgnoreCase(petStatus)) {
+            log.error("AdoptionRequest {} rejected because Pet {} status is {}", request.getTechnicalId(), request.getPetId(), petStatus);
+            request.setStatus("REJECTED");
+            entityService.updateItem(ADOPTION_REQUEST_MODEL, ENTITY_VERSION, request.getTechnicalId(), request);
+            return;
+        }
+
+        if (request.getRequesterName() != null && !request.getRequesterName().isBlank()) {
+            request.setStatus("APPROVED");
+            // Update pet status to ADOPTED
+            Pet pet = new Pet();
+            pet.setTechnicalId(petTechId);
+            pet.setStatus("ADOPTED");
+            entityService.updateItem(PET_MODEL, ENTITY_VERSION, petTechId, pet)
+                    .thenAccept(updatedId -> log.info("Pet {} adopted", petTechId))
+                    .exceptionally(e -> {
+                        log.error("Failed to update Pet {} to ADOPTED: {}", petTechId, e.getMessage());
+                        return null;
+                    });
+            log.info("AdoptionRequest {} approved, Pet {} adopted", request.getTechnicalId(), petTechId);
+        } else {
+            request.setStatus("REJECTED");
+            log.info("AdoptionRequest {} rejected due to invalid requester name", request.getTechnicalId());
+        }
+        entityService.updateItem(ADOPTION_REQUEST_MODEL, ENTITY_VERSION, request.getTechnicalId(), request)
+                .exceptionally(e -> {
+                    log.error("Failed to update AdoptionRequest {} status: {}", request.getTechnicalId(), e.getMessage());
+                    return null;
+                });
+    }
