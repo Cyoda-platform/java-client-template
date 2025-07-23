@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.Pet;
+import com.java_template.application.entity.AdoptionRequest;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,7 +32,7 @@ public class PetUnknownCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(Pet.class, this::validateEntity)
+            .evaluateEntity(AdoptionRequest.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,15 +40,18 @@ public class PetUnknownCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetUnknownCriterion".equals(modelSpec.operationName()) &&
-               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "adoptionRequest".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(Pet pet) {
-        // Validation: Check if petId is null or blank, which means pet is unknown
-        if (pet.getPetId() == null || pet.getPetId().isBlank()) {
-            return EvaluationOutcome.fail("Pet ID is unknown", StandardEvalReasonCategories.VALIDATION_FAILURE);
+    private EvaluationOutcome validateEntity(AdoptionRequest entity) {
+        // Business logic: Validate that the referenced petId exists and is known.
+        // Since only AdoptionRequest entity is available, assume a method exists to check pet existence
+        // But we must use only existing properties and no external services, so we validate petId presence
+        if (entity.getPetId() == null || entity.getPetId().isBlank()) {
+            return EvaluationOutcome.fail("Pet ID is unknown or missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
         }
+        // Additional pet existence check cannot be implemented without Pet entity or repository
         return EvaluationOutcome.success();
     }
 }
