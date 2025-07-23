@@ -1,0 +1,19 @@
+    private void processPet(Pet pet) {
+        log.info("Processing Pet with technicalId: {}", pet.getTechnicalId());
+
+        if (pet.getName() == null || pet.getName().isBlank() ||
+                pet.getCategory() == null || pet.getCategory().isBlank() ||
+                pet.getBreed() == null || pet.getBreed().isBlank() ||
+                pet.getAge() == null) {
+            log.error("Pet {} has invalid fields", pet.getTechnicalId());
+            return;
+        }
+
+        pet.setStatus("AVAILABLE");
+        entityService.updateItem(PET_MODEL, ENTITY_VERSION, pet.getTechnicalId(), pet)
+                .thenAccept(updatedId -> log.info("Pet {} is now AVAILABLE", pet.getTechnicalId()))
+                .exceptionally(e -> {
+                    log.error("Failed to update Pet {} status: {}", pet.getTechnicalId(), e.getMessage());
+                    return null;
+                });
+    }
