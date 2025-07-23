@@ -1,0 +1,39 @@
+    private void processPetAdoptionJob(PetAdoptionJob job) throws ExecutionException, InterruptedException {
+        log.info("Processing PetAdoptionJob with ID: {}", job.getId());
+
+        // Retrieve Pet from local cache
+        Pet pet = petCache.get(job.getPetId());
+        if (pet == null) {
+            log.error("Pet with ID {} not found", job.getPetId());
+            job.setStatus(JobStatusEnum.FAILED);
+            // Save updated job status as a new version
+            entityService.addItem("PetAdoptionJob", ENTITY_VERSION, job).get();
+            return;
+        }
+        if (pet.getStatus() != PetStatusEnum.AVAILABLE) {
+            log.error("Pet with ID {} is not available for adoption", pet.getId());
+            job.setStatus(JobStatusEnum.FAILED);
+            entityService.addItem("PetAdoptionJob", ENTITY_VERSION, job).get();
+            return;
+        }
+
+        // Create AdoptionRequest entity and persist via EntityService
+        AdoptionRequest adoptionRequest = new AdoptionRequest();
+        adoptionRequest.setId("req-" + UUID.randomUUID());
+        adoptionRequest.setPetId(pet.getId());
+        adoptionRequest.setRequesterName(job.getAdopterName());
+        adoptionRequest.setRequestDate(new Date());
+        adoptionRequest.setStatus(RequestStatusEnum.PENDING);
+
+        entityService.addItem("AdoptionRequest", ENTITY_VERSION, adoptionRequest).get();
+
+        // Update pet status locally to ADOPTED
+        pet.setStatus(PetStatusEnum.ADOPTED);
+        petCache.put(pet.getId(), pet);
+
+        // Update job status to COMPLETED and save new version
+        job.setStatus(JobStatusEnum.COMPLETED);
+        entityService.addItem("PetAdoptionJob", ENTITY_VERSION, job).get();
+
+        log.info("PetAdoptionJob {} processed successfully", job.getId());
+    }
