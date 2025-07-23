@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.Pet;
+import com.java_template.application.entity.AdoptionRequest;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -16,6 +16,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+/**
+ * Criterion to check if the Pet associated with the AdoptionRequest exists.
+ * Validation assumes petId is non-null and non-blank to indicate existence.
+ */
 @Component
 public class PetExistsCriterion implements CyodaCriterion {
 
@@ -32,27 +36,22 @@ public class PetExistsCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(Pet.class, this::validateEntity)
-            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
-            .complete();
+                .evaluateEntity(AdoptionRequest.class, this::validateEntity)
+                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+                .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetExistsCriterion".equals(modelSpec.operationName()) &&
-               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "adoptionRequest".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(Pet pet) {
-        // Business logic for PetExistsCriterion:
-        // Check that the pet's id (business ID) is present and not blank
-        if (pet.getId() == null || pet.getId().isBlank()) {
-            return EvaluationOutcome.fail("Pet ID is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        }
-        // Also ensure pet name is present
-        if (pet.getName() == null || pet.getName().isBlank()) {
-            return EvaluationOutcome.fail("Pet name is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+    private EvaluationOutcome validateEntity(AdoptionRequest entity) {
+        // Business logic: Pet exists if petId is non-null and not blank
+        if (entity.getPetId() == null || entity.getPetId().isBlank()) {
+            return EvaluationOutcome.fail("Pet does not exist", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         return EvaluationOutcome.success();
     }
