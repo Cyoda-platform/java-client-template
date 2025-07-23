@@ -1,0 +1,87 @@
+{
+    "desc": "Workflow for processing PetIngestionJob lifecycle from validation to completion",
+    "id": "pet_ingestion_job_workflow",
+    "initialState": "none",
+    "name": "Pet Ingestion Job Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "start_validation",
+                    "next": "validate_job"
+                }
+            ]
+        },
+        "persist_pets": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "AllPetsPersistedSuccessfullyCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "pets_persisted_success",
+                    "next": "completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetsPersistedFailureCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "pets_persisted_failure",
+                    "next": "failed"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "id": "fetch_and_persist_pets",
+                    "next": "persist_pets",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetIngestionJobProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "validate_job": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetIngestionJobValidationCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "validation_success",
+                    "next": "processing"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetIngestionJobValidationFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "validation_failed",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
