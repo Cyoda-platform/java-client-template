@@ -1,0 +1,10 @@
+    // Business logic for Pet processing
+    private CompletableFuture<Void> processPet(Pet pet) {
+        log.info("Processing Pet with technicalId: {}", pet.getTechnicalId());
+        return CompletableFuture.runAsync(() -> {
+            // Validate pet fields - already done in isValid()
+            // Enrich pet data if necessary
+            // External API calls can be simulated here if required
+            log.info("Pet {} processed successfully", pet.getTechnicalId());
+        });
+    }
