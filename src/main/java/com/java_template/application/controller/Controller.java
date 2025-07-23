@@ -61,7 +61,7 @@ public class Controller {
         CatFactJob storedJob = JsonUtils.convert(storedNode, CatFactJob.class);
         storedJob.setTechnicalId(technicalId);
 
-        processCatFactJob(storedJob);
+        // processCatFactJob removed
 
         return ResponseEntity.status(201).body(storedJob);
     }
@@ -115,7 +115,7 @@ public class Controller {
         Subscriber storedSubscriber = JsonUtils.convert(storedNode, Subscriber.class);
         storedSubscriber.setTechnicalId(technicalId);
 
-        processSubscriber(storedSubscriber);
+        // processSubscriber removed
 
         return ResponseEntity.status(201).body(storedSubscriber);
     }
@@ -217,7 +217,7 @@ public class Controller {
         Interaction storedInteraction = JsonUtils.convert(storedNode, Interaction.class);
         storedInteraction.setTechnicalId(technicalId);
 
-        processInteraction(storedInteraction);
+        // processInteraction removed
 
         return ResponseEntity.status(201).body(storedInteraction);
     }
@@ -267,69 +267,6 @@ public class Controller {
         response.put("emailOpens", emailOpens);
         response.put("linkClicks", linkClicks);
         return ResponseEntity.ok(response);
-    }
-
-    // --- Process Methods ---
-
-    private void processCatFactJob(CatFactJob catFactJob) {
-        logger.info("Processing CatFactJob with technicalId: {}", catFactJob.getTechnicalId());
-
-        try {
-            // Simulate API call - replace with actual HTTP call in real implementation
-            String fetchedFact = "Cats sleep 70% of their lives."; // placeholder fact
-            catFactJob.setCatFactText(fetchedFact);
-            catFactJob.setStatus("PROCESSING");
-            logger.info("Fetched cat fact: {}", fetchedFact);
-
-            // Send emails to all active subscribers
-            try {
-                SearchConditionRequest condition = SearchConditionRequest.group("AND",
-                        Condition.of("$.status", "IEQUALS", "ACTIVE"));
-                CompletableFuture<ArrayNode> activeSubsFuture = entityService.getItemsByCondition(
-                        "Subscriber",
-                        ENTITY_VERSION,
-                        condition,
-                        true
-                );
-                ArrayNode activeSubscribers = activeSubsFuture.get();
-
-                for (JsonNode node : activeSubscribers) {
-                    String email = node.get("email") != null ? node.get("email").asText() : null;
-                    if (email != null) {
-                        logger.info("Sending cat fact email to subscriber: {}", email);
-                    }
-                }
-            } catch (Exception e) {
-                logger.error("Error sending emails to subscribers: {}", e.getMessage());
-            }
-
-            catFactJob.setStatus("COMPLETED");
-            logger.info("CatFactJob {} completed successfully", catFactJob.getTechnicalId());
-        } catch (Exception e) {
-            catFactJob.setStatus("FAILED");
-            logger.error("Failed to process CatFactJob {}: {}", catFactJob.getTechnicalId(), e.getMessage());
-        }
-    }
-
-    private void processSubscriber(Subscriber subscriber) {
-        logger.info("Processing Subscriber with technicalId: {}", subscriber.getTechnicalId());
-
-        if (!subscriber.getEmail().contains("@")) {
-            logger.error("Invalid email format for subscriber {}", subscriber.getTechnicalId());
-            throw new IllegalArgumentException("Invalid email format");
-        }
-
-        logger.info("Subscriber {} validated and saved", subscriber.getEmail());
-    }
-
-    private void processInteraction(Interaction interaction) {
-        logger.info("Processing Interaction with technicalId: {}", interaction.getTechnicalId());
-
-        logger.info("Subscriber {} had interaction {} on CatFactJob {} at {}",
-                interaction.getSubscriberId(),
-                interaction.getInteractionType(),
-                interaction.getCatFactJobId(),
-                interaction.getInteractedAt());
     }
 
     // Utility class for conversions between ObjectNode and entity objects
