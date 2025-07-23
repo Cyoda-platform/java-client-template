@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.Pet;
+import com.java_template.application.entity.PetAdoptionJob;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,7 +32,7 @@ public class PetDoesNotExistCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(Pet.class, this::validateEntity)
+            .evaluateEntity(PetAdoptionJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,16 +40,16 @@ public class PetDoesNotExistCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetDoesNotExistCriterion".equals(modelSpec.operationName()) &&
-               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "petAdoptionJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(Pet pet) {
-        // Business logic for PetDoesNotExistCriterion:
-        // Check that the pet's id is null or blank, meaning it does not exist
-        if (pet.getId() == null || pet.getId().isBlank()) {
+    private EvaluationOutcome validateEntity(PetAdoptionJob entity) {
+        // Business logic: Pet does NOT exist means petId in job is null or blank
+        if (entity.getPetId() == null || entity.getPetId().isBlank()) {
             return EvaluationOutcome.success();
         }
-        return EvaluationOutcome.fail("Pet exists", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        // PetId present means pet exists, so fail
+        return EvaluationOutcome.fail("Pet exists, expected non-existence", StandardEvalReasonCategories.VALIDATION_FAILURE);
     }
 }
