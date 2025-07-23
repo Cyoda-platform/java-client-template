@@ -1,0 +1,119 @@
+{
+    "desc": "Workflow to process PetJob entity through validation and execution steps",
+    "id": "petjob_workflow",
+    "initialState": "none",
+    "name": "PetJob processing workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "start_processing",
+                    "next": "validating_type"
+                }
+            ]
+        },
+        "processing_addpet_payload": {
+            "transitions": [
+                {
+                    "id": "process_addpet",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "type": "AddPet"
+                            },
+                            "name": "PetJobProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "processing_updatepet_payload": {
+            "transitions": [
+                {
+                    "id": "process_updatepet",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "type": "UpdatePetStatus"
+                            },
+                            "name": "PetJobProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "validating_payload": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetJobPayloadPresentCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "has_payload",
+                    "next": "validating_payload_details"
+                },
+                {
+                    "id": "no_payload",
+                    "next": "failed"
+                }
+            ]
+        },
+        "validating_payload_details": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "AddPetPayloadValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "valid_addpet_payload",
+                    "next": "processing_addpet_payload"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "UpdatePetStatusPayloadValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "valid_updatepet_payload",
+                    "next": "processing_updatepet_payload"
+                },
+                {
+                    "id": "invalid_payload",
+                    "next": "failed"
+                }
+            ]
+        },
+        "validating_type": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetJobTypeValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "valid_type",
+                    "next": "validating_payload"
+                },
+                {
+                    "id": "invalid_type",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
