@@ -1,0 +1,67 @@
+{
+    "desc": "Business workflow for CatFact entity processing and validation",
+    "id": "catfact_workflow",
+    "initialState": "none",
+    "name": "CatFact workflow",
+    "states": {
+        "archived": {
+            "transitions": []
+        },
+        "completed": {
+            "transitions": []
+        },
+        "created": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "class": "CatFactValidityCriterion",
+                        "type": "class"
+                    },
+                    "id": "created_to_validated_valid",
+                    "next": "validated"
+                },
+                {
+                    "criterion": {
+                        "class": "CatFactInvalidityCriterion",
+                        "type": "class"
+                    },
+                    "id": "created_to_archived_invalid",
+                    "next": "archived"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "none_to_created",
+                    "next": "created"
+                }
+            ]
+        },
+        "processed": {
+            "transitions": [
+                {
+                    "id": "processed_to_completed",
+                    "next": "completed"
+                }
+            ]
+        },
+        "validated": {
+            "transitions": [
+                {
+                    "id": "validated_to_processed",
+                    "next": "processed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "CatFactProcessor"
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
