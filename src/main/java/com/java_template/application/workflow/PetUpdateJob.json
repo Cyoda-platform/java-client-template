@@ -1,0 +1,71 @@
+{
+    "desc": "Workflow for processing PetUpdateJob entity from creation to completion or failure",
+    "id": "pet_update_job_workflow",
+    "initialState": "none",
+    "name": "PetUpdateJob workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "transition_to_pending",
+                    "next": "pending"
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "className": "PetUpdateJobSourceUrlValidCriterion",
+                        "type": "class"
+                    },
+                    "id": "pending_to_processing_valid_source",
+                    "next": "processing"
+                },
+                {
+                    "criterion": {
+                        "className": "PetUpdateJobSourceUrlInvalidCriterion",
+                        "type": "class"
+                    },
+                    "id": "pending_to_failed_invalid_source",
+                    "next": "failed"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "className": "PetUpdateJobProcessingSuccessCriterion",
+                        "type": "class"
+                    },
+                    "id": "processing_to_completed_success",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetUpdateJobProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "className": "PetUpdateJobProcessingFailureCriterion",
+                        "type": "class"
+                    },
+                    "id": "processing_to_failed_error",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
