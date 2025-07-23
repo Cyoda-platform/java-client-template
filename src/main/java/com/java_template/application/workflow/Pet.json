@@ -1,0 +1,79 @@
+{
+    "desc": "Workflow representing processing lifecycle of a PetCreationJob entity",
+    "id": "pet_creation_job_workflow",
+    "initialState": "none",
+    "name": "PetCreationJob workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "transition_pending",
+                    "next": "pending"
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "JobIsPendingCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "transition_to_processing_if_pending",
+                    "next": "processing"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "JobIsNotPendingCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "transition_fail_if_not_pending",
+                    "next": "failed"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetDataValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "transition_to_completed_if_valid",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetCreationJobProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "PetDataInvalidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "transition_to_failed_if_invalid",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
