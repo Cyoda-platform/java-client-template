@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.PetAdoptionJob;
+import com.java_template.application.entity.Pet;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,7 +32,7 @@ public class PetAvailabilityCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(PetAdoptionJob.class, this::validateEntity)
+            .evaluateEntity(Pet.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,22 +40,20 @@ public class PetAvailabilityCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetAvailabilityCriterion".equals(modelSpec.operationName()) &&
-               "petAdoptionJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(PetAdoptionJob entity) {
-        // Validation logic: Check that the petId is not null or blank and simulate pet availability check
-        if (entity.getPetId() == null || entity.getPetId().isBlank()) {
-            return EvaluationOutcome.fail("Pet ID is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+    private EvaluationOutcome validateEntity(Pet pet) {
+        if (pet == null) {
+            return EvaluationOutcome.fail("Pet entity is null", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
         }
-        // In real scenario, would check external Pet entity status (e.g., PetStatusEnum.AVAILABLE)
-        // Here, we simulate the pet is available if petId is set (example logic)
-        // For demonstration, assume pet is available if petId starts with 'p'
-        if (!entity.getPetId().startsWith("p")) {
-            return EvaluationOutcome.fail("Pet is not available", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        if (pet.getStatus() == null) {
+            return EvaluationOutcome.fail("Pet status is not set", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-
+        if (!"AVAILABLE".equalsIgnoreCase(pet.getStatus().name())) {
+            return EvaluationOutcome.fail("Pet is not available for adoption", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        }
         return EvaluationOutcome.success();
     }
 }
