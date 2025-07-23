@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.PetJob;
+import com.java_template.application.entity.Pet;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,7 +32,7 @@ public class PetValidityCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(PetJob.class, this::validateEntity)
+            .evaluateEntity(Pet.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,22 +40,27 @@ public class PetValidityCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetValidityCriterion".equals(modelSpec.operationName()) &&
-               "petJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(PetJob entity) {
-        // Business logic: Validate all mandatory fields according to PetJob entity
-        if (entity.getJobId() == null || entity.getJobId().isBlank()) {
-            return EvaluationOutcome.fail("Job ID is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+    private EvaluationOutcome validateEntity(Pet pet) {
+        if (pet.getPetId() == null || pet.getPetId().isBlank()) {
+            return EvaluationOutcome.fail("Pet ID is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (entity.getCreatedAt() == null) {
-            return EvaluationOutcome.fail("Creation date is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (pet.getName() == null || pet.getName().isBlank()) {
+            return EvaluationOutcome.fail("Name is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (entity.getSourceUrl() == null || entity.getSourceUrl().isBlank()) {
-            return EvaluationOutcome.fail("Source URL is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (pet.getSpecies() == null || pet.getSpecies().isBlank()) {
+            return EvaluationOutcome.fail("Species is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (entity.getStatus() == null || entity.getStatus().isBlank()) {
+        if (pet.getBreed() == null || pet.getBreed().isBlank()) {
+            return EvaluationOutcome.fail("Breed is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (pet.getAge() == null) {
+            return EvaluationOutcome.fail("Age is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (pet.getStatus() == null || pet.getStatus().isBlank()) {
             return EvaluationOutcome.fail("Status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         return EvaluationOutcome.success();
