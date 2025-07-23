@@ -1,13 +1,12 @@
 package com.java_template.application.controller;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.PetJob;
 import com.java_template.application.entity.Pet;
 import com.java_template.application.entity.PetUpdateEvent;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -17,9 +16,9 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.UUID;
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/entity")
@@ -28,6 +27,7 @@ import static com.java_template.common.config.Config.*;
 public class Controller {
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     // Keep petUpdateEventCache and counter locally as PetUpdateEvent has minor logic only
     private final Map<String, PetUpdateEvent> petUpdateEventCache = new HashMap<>();
@@ -38,7 +38,7 @@ public class Controller {
     // ------------------- PetJob Endpoints -------------------
 
     @PostMapping("/jobs")
-    public ResponseEntity<?> createPetJob(@RequestBody PetJob petJob) throws Exception {
+    public ResponseEntity<?> createPetJob(@Valid @RequestBody PetJob petJob) throws ExecutionException, InterruptedException {
         if (petJob == null || petJob.getJobId() == null || petJob.getJobId().isBlank()) {
             log.error("PetJob creation failed: Missing or blank jobId");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("jobId is required");
@@ -61,7 +61,7 @@ public class Controller {
     }
 
     @GetMapping("/jobs/{id}")
-    public ResponseEntity<?> getPetJob(@PathVariable String id) throws Exception {
+    public ResponseEntity<?> getPetJob(@PathVariable String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         UUID technicalId;
         try {
             technicalId = UUID.fromString(id);
@@ -81,7 +81,7 @@ public class Controller {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("PetJob not found");
         }
 
-        PetJob petJob = entityService.getObjectMapper().treeToValue(node, PetJob.class);
+        PetJob petJob = objectMapper.treeToValue(node, PetJob.class);
         petJob.setId(node.get("technicalId").asText());
         return ResponseEntity.ok(petJob);
     }
@@ -89,7 +89,7 @@ public class Controller {
     // ------------------- Pet Endpoints -------------------
 
     @PostMapping("/pets")
-    public ResponseEntity<?> createPet(@RequestBody Pet pet) throws Exception {
+    public ResponseEntity<?> createPet(@Valid @RequestBody Pet pet) throws ExecutionException, InterruptedException {
         if (pet == null) {
             log.error("Pet creation failed: Request body is null");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Pet data is required");
@@ -119,7 +119,7 @@ public class Controller {
     }
 
     @GetMapping("/pets/{id}")
-    public ResponseEntity<?> getPet(@PathVariable String id) throws Exception {
+    public ResponseEntity<?> getPet(@PathVariable String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         UUID technicalId;
         try {
             technicalId = UUID.fromString(id);
@@ -139,7 +139,7 @@ public class Controller {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Pet not found");
         }
 
-        Pet pet = entityService.getObjectMapper().treeToValue(node, Pet.class);
+        Pet pet = objectMapper.treeToValue(node, Pet.class);
         pet.setId(node.get("technicalId").asText());
         return ResponseEntity.ok(pet);
     }
@@ -147,7 +147,7 @@ public class Controller {
     // ------------------- PetUpdateEvent Endpoints -------------------
 
     @PostMapping("/pets/update")
-    public ResponseEntity<?> createPetUpdateEvent(@RequestBody PetUpdateEvent petUpdateEvent) {
+    public ResponseEntity<?> createPetUpdateEvent(@Valid @RequestBody PetUpdateEvent petUpdateEvent) {
         if (petUpdateEvent == null) {
             log.error("PetUpdateEvent creation failed: Request body is null");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("PetUpdateEvent data is required");
