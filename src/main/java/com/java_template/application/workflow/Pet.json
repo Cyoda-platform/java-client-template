@@ -1,67 +1,68 @@
 {
-    "desc": "Workflow for Pet entity validation and enrichment processing",
-    "id": "pet_workflow",
-    "initialState": "none",
-    "name": "Pet workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "enriching": {
-            "transitions": [
-                {
-                    "id": "enrichment_success",
-                    "next": "completed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetProcessor"
-                        }
-                    ]
-                },
-                {
-                    "id": "enrichment_failure",
-                    "next": "failed"
-                }
-            ]
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "id": "start_validation",
-                    "next": "validating"
-                }
-            ]
-        },
-        "validating": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetValidationCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "validation_success",
-                    "next": "enriching"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "PetValidationFailedCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "id": "validation_failure",
-                    "next": "failed"
-                }
-            ]
+  "desc": "Workflow for Pet entity validation and enrichment processing",
+  "id": "pet_workflow",
+  "initialState": "none",
+  "name": "Pet workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "id": "start_validation",
+          "next": "validating"
         }
+      ]
     },
-    "version": "1.0"
+    "validating": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "PetValidationCriterion"
+            },
+            "type": "function"
+          },
+          "id": "validation_success",
+          "next": "enriching"
+        },
+        {
+          "criterion": {
+            "function": {
+              "name": "PetValidationFailedCriterion"
+            },
+            "type": "function"
+          },
+          "id": "validation_failure",
+          "next": "failed"
+        }
+      ]
+    },
+    "enriching": {
+      "transitions": [
+        {
+          "id": "enrichment_success",
+          "next": "completed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "calculation_nodes_tags": "9d3e1b0e-663b-11b2-ac06-6eb89e09e22c"
+              },
+              "name": "PetProcessor"
+            }
+          ]
+        },
+        {
+          "id": "enrichment_failure",
+          "next": "failed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
