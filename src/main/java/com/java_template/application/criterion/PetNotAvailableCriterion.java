@@ -44,15 +44,19 @@ public class PetNotAvailableCriterion implements CyodaCriterion {
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(PetAdoptionJob entity) {
-        // Validation logic: Check if pet status is not AVAILABLE
-        // Since PetAdoptionJob does not have direct pet status, simulate check by petId pattern
-        if (entity.getPetId() == null || entity.getPetId().isBlank()) {
-            return EvaluationOutcome.fail("Pet ID is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+    private EvaluationOutcome validateEntity(PetAdoptionJob job) {
+        if (job == null) {
+            return EvaluationOutcome.fail("PetAdoptionJob entity is null", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
         }
-        // Simulate pet not available if petId does not start with 'a' (example logic)
-        if (!entity.getPetId().startsWith("a")) {
-            return EvaluationOutcome.fail("Pet not available", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        if (job.getPetId() == null || job.getPetId().isBlank()) {
+            return EvaluationOutcome.fail("Pet ID is missing in adoption job", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (job.getStatus() == null) {
+            return EvaluationOutcome.fail("Job status is not set", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        // Criterion logic: Pet must not be available if job status is PROCESSING (example business rule)
+        if (job.getStatus().name().equalsIgnoreCase("PROCESSING")) {
+            return EvaluationOutcome.fail("Pet is currently not available due to ongoing processing", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
         return EvaluationOutcome.success();
     }
