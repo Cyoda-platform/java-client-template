@@ -1,0 +1,99 @@
+    // Business logic for PetJob processing
+    private CompletableFuture<Void> processPetJob(PetJob petJob) {
+        log.info("Processing PetJob with technicalId: {}", petJob.getTechnicalId());
+        petJob.setStatus("PROCESSING");
+        return CompletableFuture.runAsync(() -> {
+            if (petJob.getPetId() == null || petJob.getPetId().isBlank()) {
+                log.error("PetJob {} validation failed: petId is blank", petJob.getTechnicalId());
+                petJob.setStatus("FAILED");
+                entityService.updateItem(PETJOB_ENTITY, ENTITY_VERSION, petJob.getTechnicalId(), petJob);
+                return;
+            }
+            if (petJob.getAction() == null || petJob.getAction().isBlank()) {
+                log.error("PetJob {} validation failed: action is blank", petJob.getTechnicalId());
+                petJob.setStatus("FAILED");
+                entityService.updateItem(PETJOB_ENTITY, ENTITY_VERSION, petJob.getTechnicalId(), petJob);
+                return;
+            }
+
+            try {
+                switch (petJob.getAction()) {
+                    case "CREATE":
+                        Pet newPet = new Pet();
+                        newPet.setName("New Pet"); // placeholder; in real case should come from input or external source
+                        newPet.setSpecies("Unknown");
+                        newPet.setBreed("Unknown");
+                        newPet.setAge(0);
+                        newPet.setAdoptionStatus("AVAILABLE");
+                        newPet.setStatus("ACTIVE");
+                        entityService.addItem(PET_ENTITY, ENTITY_VERSION, newPet).join();
+                        log.info("Created new Pet from PetJob {}", petJob.getTechnicalId());
+                        break;
+                    case "UPDATE":
+                        UUID petTechnicalId;
+                        try {
+                            petTechnicalId = UUID.fromString(petJob.getPetId());
+                        } catch (IllegalArgumentException e) {
+                            log.error("PetJob {} update failed: Invalid petId format", petJob.getTechnicalId());
+                            petJob.setStatus("FAILED");
+                            entityService.updateItem(PETJOB_ENTITY, ENTITY_VERSION, petJob.getTechnicalId(), petJob);
+                            return;
+                        }
+                        ObjectNode existingPetNode = entityService.getItem(PET_ENTITY, ENTITY_VERSION, petTechnicalId).join();
+                        if (existingPetNode == null || existingPetNode.isEmpty()) {
+                            log.error("PetJob {} update failed: Pet not found", petJob.getTechnicalId());
+                            petJob.setStatus("FAILED");
+                            entityService.updateItem(PETJOB_ENTITY, ENTITY_VERSION, petJob.getTechnicalId(), petJob);
+                            return;
+                        }
+                        Pet updatedPet = new Pet();
+                        updatedPet.setName(existingPetNode.get("name").asText(null));
+                        updatedPet.setSpecies(existingPetNode.get("species").asText(null));
+                        updatedPet.setBreed(existingPetNode.get("breed").asText(null));
+                        updatedPet.setAge(existingPetNode.has("age") ? existingPetNode.get("age").asInt() : 0);
+                        updatedPet.setAdoptionStatus(existingPetNode.get("adoptionStatus").asText(null));
+                        updatedPet.setStatus(existingPetNode.get("status").asText(null));
+                        entityService.addItem(PET_ENTITY, ENTITY_VERSION, updatedPet).join();
+                        log.info("Created updated Pet version from PetJob {}", petJob.getTechnicalId());
+                        break;
+                    case "STATUS_CHANGE":
+                        try {
+                            petTechnicalId = UUID.fromString(petJob.getPetId());
+                        } catch (IllegalArgumentException e) {
+                            log.error("PetJob {} status change failed: Invalid petId format", petJob.getTechnicalId());
+                            petJob.setStatus("FAILED");
+                            entityService.updateItem(PETJOB_ENTITY, ENTITY_VERSION, petJob.getTechnicalId(), petJob);
+                            return;
+                        }
+                        ObjectNode petToChangeNode = entityService.getItem(PET_ENTITY, ENTITY_VERSION, petTechnicalId).join();
+                        if (petToChangeNode == null || petToChangeNode.isEmpty()) {
+                            log.error("PetJob {} status change failed: Pet not found", petJob.getTechnicalId());
+                            petJob.setStatus("FAILED");
+                            entityService.updateItem(PETJOB_ENTITY, ENTITY_VERSION, petJob.getTechnicalId(), petJob);
+                            return;
+                        }
+                        Pet statusChangedPet = new Pet();
+                        statusChangedPet.setName(petToChangeNode.get("name").asText(null));
+                        statusChangedPet.setSpecies(petToChangeNode.get("species").asText(null));
+                        statusChangedPet.setBreed(petToChangeNode.get("breed").asText(null));
+                        statusChangedPet.setAge(petToChangeNode.has("age") ? petToChangeNode.get("age").asInt() : 0);
+                        statusChangedPet.setAdoptionStatus("ADOPTED"); // example status change
+                        statusChangedPet.setStatus(petToChangeNode.get("status").asText(null));
+                        entityService.addItem(PET_ENTITY, ENTITY_VERSION, statusChangedPet).join();
+                        log.info("Created Pet status changed version from PetJob {}", petJob.getTechnicalId());
+                        break;
+                    default:
+                        log.error("PetJob {} unknown action: {}", petJob.getTechnicalId(), petJob.getAction());
+                        petJob.setStatus("FAILED");
+                        entityService.updateItem(PETJOB_ENTITY, ENTITY_VERSION, petJob.getTechnicalId(), petJob);
+                        return;
+                }
+                petJob.setStatus("COMPLETED");
+                entityService.updateItem(PETJOB_ENTITY, ENTITY_VERSION, petJob.getTechnicalId(), petJob);
+            } catch (Exception e) {
+                log.error("PetJob {} processing error: {}", petJob.getTechnicalId(), e.getMessage());
+                petJob.setStatus("FAILED");
+                entityService.updateItem(PETJOB_ENTITY, ENTITY_VERSION, petJob.getTechnicalId(), petJob);
+            }
+        });
+    }
