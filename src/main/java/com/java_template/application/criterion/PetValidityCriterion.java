@@ -45,6 +45,7 @@ public class PetValidityCriterion implements CyodaCriterion {
     }
 
     private EvaluationOutcome validateEntity(Pet pet) {
+        // Validate mandatory fields as per Pet.isValid method
         if (pet.getPetId() == null || pet.getPetId().isBlank()) {
             return EvaluationOutcome.fail("Pet ID is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
