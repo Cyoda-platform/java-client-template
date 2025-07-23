@@ -1,0 +1,83 @@
+{
+    "desc": "Workflow managing the lifecycle of CommentIngestionJob and associated CommentAnalysisReport entities",
+    "id": "comment_ingestion_job_workflow",
+    "initialState": "none",
+    "name": "Comment Ingestion Job Workflow",
+    "states": {
+        "completed": {
+            "transitions": [
+                {
+                    "id": "create_analysis_report",
+                    "next": "created_report",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "CommentAnalysisReportProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "created_report": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsEmailSentSuccessfullyCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "send_report_email",
+                    "next": "sent_report"
+                }
+            ]
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "CanStartProcessingCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "start_processing",
+                    "next": "processing"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsProcessingSuccessfulCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "processing_successful",
+                    "next": "completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsProcessingFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "processing_failed",
+                    "next": "failed"
+                }
+            ]
+        },
+        "sent_report": {
+            "transitions": []
+        }
+    },
+    "version": "1.0"
+}
