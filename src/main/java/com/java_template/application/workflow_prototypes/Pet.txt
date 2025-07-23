@@ -1,0 +1,12 @@
+    // Business logic for Pet
+    private void processPet(Pet pet) {
+        logger.info("Processing Pet with ID: {}", pet.getId());
+
+        List<String> supportedTypes = Arrays.asList("Cat", "Dog");
+        if (!supportedTypes.contains(pet.getType())) {
+            logger.error("Unsupported pet type: {}", pet.getType());
+            pet.setStatus("INACTIVE");
+        } else {
+            logger.info("Pet type {} is supported", pet.getType());
+        }
+    }
