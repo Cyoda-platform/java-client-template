@@ -1,0 +1,79 @@
+{
+    "desc": "Workflow for handling PetRegistrationJob lifecycle from pending to completed or failed",
+    "id": "pet_registration_job_workflow",
+    "initialState": "none",
+    "name": "Pet Registration Job Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "start_processing",
+                    "next": "pending",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsValidPetRegistrationJobCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "to_processing_valid",
+                    "next": "processing"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsInvalidPetRegistrationJobCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "to_failed_invalid",
+                    "next": "failed"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "IsProcessingSuccessfulCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "to_completed_success",
+                    "next": "completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "HasProcessingFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "to_failed_error",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
