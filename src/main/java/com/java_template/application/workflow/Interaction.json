@@ -1,83 +1,83 @@
 {
-    "desc": "Workflow representing processing of a Subscriber entity",
-    "id": "subscriber_workflow",
-    "initialState": "none",
-    "name": "Subscriber workflow",
-    "states": {
-        "active": {
-            "transitions": [
-                {
-                    "id": "unsubscribe",
-                    "next": "unsubscribed"
-                }
-            ]
-        },
-        "confirmed": {
-            "transitions": [
-                {
-                    "id": "activate_subscriber",
-                    "next": "active"
-                }
-            ]
-        },
-        "email_format_validation": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "isEmailFormatValid"
-                        },
-                        "type": "function"
-                    },
-                    "id": "email_format_valid",
-                    "next": "email_uniqueness_validation"
-                },
-                {
-                    "id": "email_format_invalid",
-                    "next": "invalid"
-                }
-            ]
-        },
-        "email_uniqueness_validation": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "name": "isEmailUnique"
-                        },
-                        "type": "function"
-                    },
-                    "id": "email_unique",
-                    "next": "saved"
-                },
-                {
-                    "id": "email_not_unique",
-                    "next": "invalid"
-                }
-            ]
-        },
-        "invalid": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "id": "validate_email",
-                    "next": "email_format_validation"
-                }
-            ]
-        },
-        "saved": {
-            "transitions": [
-                {
-                    "id": "send_confirmation_email",
-                    "next": "confirmed"
-                }
-            ]
-        },
-        "unsubscribed": {
-            "transitions": []
+  "desc": "Workflow representing processing of a Subscriber entity",
+  "id": "subscriber_workflow",
+  "initialState": "none",
+  "name": "Subscriber workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "id": "validate_email",
+          "next": "email_format_validation"
         }
+      ]
     },
-    "version": "1.0"
+    "email_format_validation": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "isEmailFormatValid"
+            },
+            "type": "function"
+          },
+          "id": "email_format_valid",
+          "next": "email_uniqueness_validation"
+        },
+        {
+          "id": "email_format_invalid",
+          "next": "invalid"
+        }
+      ]
+    },
+    "email_uniqueness_validation": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "name": "isEmailUnique"
+            },
+            "type": "function"
+          },
+          "id": "email_unique",
+          "next": "saved"
+        },
+        {
+          "id": "email_not_unique",
+          "next": "invalid"
+        }
+      ]
+    },
+    "saved": {
+      "transitions": [
+        {
+          "id": "send_confirmation_email",
+          "next": "confirmed"
+        }
+      ]
+    },
+    "confirmed": {
+      "transitions": [
+        {
+          "id": "activate_subscriber",
+          "next": "active"
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "id": "unsubscribe",
+          "next": "unsubscribed"
+        }
+      ]
+    },
+    "unsubscribed": {
+      "transitions": []
+    },
+    "invalid": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
