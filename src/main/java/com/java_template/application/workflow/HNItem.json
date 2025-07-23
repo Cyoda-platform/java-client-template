@@ -1,0 +1,52 @@
+{
+    "desc": "Workflow to validate HNItem entity content and update status accordingly",
+    "id": "hnitem_workflow",
+    "initialState": "none",
+    "name": "HNItem Validation Workflow",
+    "states": {
+        "invalid": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "ContentValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "validate_content_success",
+                    "next": "validated",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "HNItemProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "name": "ContentInvalidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "id": "validate_content_failure",
+                    "next": "invalid"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "id": "start_validation",
+                    "next": "invalid"
+                }
+            ]
+        },
+        "validated": {
+            "transitions": []
+        }
+    },
+    "version": "1.0"
+}
