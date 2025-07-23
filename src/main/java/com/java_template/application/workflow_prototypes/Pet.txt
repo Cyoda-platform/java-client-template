@@ -1,0 +1,25 @@
+private void processPet(Pet pet) {
+    log.info("Processing Pet with ID: {}", pet.getId());
+
+    if (!pet.isValid()) {
+        log.error("Pet validation failed for ID: {}", pet.getId());
+        return;
+    }
+
+    if ("cat".equalsIgnoreCase(pet.getCategory())) {
+        pet.setName(pet.getName() + " the Purrfect");
+    }
+
+    log.info("Pet {} is currently {}", pet.getId(), pet.getStatus());
+
+    PetEvent petEvent = new PetEvent();
+    petEvent.setId("PE" + petEventIdCounter.getAndIncrement());
+    petEvent.setEventId(petEvent.getId());
+    petEvent.setPetId(pet.getId());
+    petEvent.setEventType("CREATED");
+    petEvent.setTimestamp(LocalDateTime.now());
+    petEvent.setStatus("RECORDED");
+    petEventCache.put(petEvent.getId(), petEvent);
+
+    processPetEvent(petEvent);
+}
