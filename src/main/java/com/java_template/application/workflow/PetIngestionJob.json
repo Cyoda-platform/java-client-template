@@ -22,8 +22,10 @@
             "transitions": [
                 {
                     "criterion": {
-                        "class": "SourceValidCriterion",
-                        "type": "class"
+                        "function": {
+                            "name": "SourceValidCriterion"
+                        },
+                        "type": "function"
                     },
                     "id": "pending_to_processing_if_source_valid",
                     "next": "processing",
@@ -38,8 +40,10 @@
                 },
                 {
                     "criterion": {
-                        "class": "SourceInvalidCriterion",
-                        "type": "class"
+                        "function": {
+                            "name": "SourceInvalidCriterion"
+                        },
+                        "type": "function"
                     },
                     "id": "pending_to_failed_if_source_invalid",
                     "next": "failed"
@@ -50,16 +54,20 @@
             "transitions": [
                 {
                     "criterion": {
-                        "class": "ProcessingSuccessCriterion",
-                        "type": "class"
+                        "function": {
+                            "name": "ProcessingSuccessCriterion"
+                        },
+                        "type": "function"
                     },
                     "id": "processing_to_completed_if_success",
                     "next": "completed"
                 },
                 {
                     "criterion": {
-                        "class": "ProcessingErrorCriterion",
-                        "type": "class"
+                        "function": {
+                            "name": "ProcessingErrorCriterion"
+                        },
+                        "type": "function"
                     },
                     "id": "processing_to_failed_if_error",
                     "next": "failed"
