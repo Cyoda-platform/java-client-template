@@ -1,0 +1,4 @@
+private void processPet(Pet pet) {
+    log.info("Processing Pet with technicalId: {}", pet.getTechnicalId());
+    log.info("Pet {} processed with status: {}", pet.getTechnicalId(), pet.getStatus());
+}
