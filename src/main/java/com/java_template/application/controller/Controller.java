@@ -59,9 +59,6 @@ public class Controller {
         // Deserialize to HNItem for processing
         HNItem storedItem = objectMapper.convertValue(storedNode, HNItem.class);
 
-        // Process validation logic on content JSON
-        processHNItem(storedItem);
-
         // Store updated entity with updated status as a new entity version (event-driven architecture)
         CompletableFuture<UUID> updatedIdFuture = entityService.addItem(ENTITY_NAME, ENTITY_VERSION, storedItem);
         UUID updatedTechnicalId = updatedIdFuture.get();
@@ -141,23 +138,4 @@ public class Controller {
         return ResponseEntity.ok(response);
     }
 
-    private void processHNItem(HNItem entity) {
-        log.info("Processing HNItem with technicalId: {}", entity.getTechnicalId());
-
-        try {
-            Map<?, ?> contentMap = objectMapper.readValue(entity.getContent(), Map.class);
-            Object contentId = contentMap.get("id");
-            Object contentType = contentMap.get("type");
-            if (contentId == null || contentType == null || contentId.toString().isBlank() || contentType.toString().isBlank()) {
-                entity.setStatus("INVALID");
-                log.info("HNItem technicalId {} validation failed - missing 'id' or 'type'", entity.getTechnicalId());
-            } else {
-                entity.setStatus("VALIDATED");
-                log.info("HNItem technicalId {} validation succeeded - status set to VALIDATED", entity.getTechnicalId());
-            }
-        } catch (Exception e) {
-            entity.setStatus("INVALID");
-            log.error("Failed to parse content JSON for HNItem technicalId {}", entity.getTechnicalId(), e);
-        }
-    }
 }
