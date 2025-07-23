@@ -1,0 +1,14 @@
+    // Business logic for PetEvent entity
+    private void processPetEvent(PetEvent event) throws ExecutionException, InterruptedException {
+        log.info("Processing PetEvent with ID: {}", event.getId());
+        if (!event.isValid()) {
+            log.error("Invalid PetEvent during processing: {}", event);
+            event.setStatus("FAILED");
+            entityService.addItem("PetEvent", ENTITY_VERSION, event).get();
+            return;
+        }
+        // Example: Notify owner or trigger workflows here
+        event.setStatus("PROCESSED");
+        entityService.addItem("PetEvent", ENTITY_VERSION, event).get();
+        log.info("PetEvent {} processed successfully", event.getId());
+    }
