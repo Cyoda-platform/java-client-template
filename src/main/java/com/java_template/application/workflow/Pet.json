@@ -8,8 +8,10 @@
             "transitions": [
                 {
                     "criterion": {
-                        "class": "PetStatusNewOrAvailableCriterion",
-                        "type": "class"
+                        "function": {
+                            "name": "PetStatusNewOrAvailableCriterion"
+                        },
+                        "type": "function"
                     },
                     "id": "transition_status_new_or_available",
                     "next": "validate_pet"
@@ -54,8 +56,10 @@
             "transitions": [
                 {
                     "criterion": {
-                        "class": "PetValidityCriterion",
-                        "type": "class"
+                        "function": {
+                            "name": "PetValidityCriterion"
+                        },
+                        "type": "function"
                     },
                     "id": "transition_pet_valid",
                     "next": "process_pet"
