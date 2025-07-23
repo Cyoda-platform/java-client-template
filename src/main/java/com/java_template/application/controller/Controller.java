@@ -55,7 +55,6 @@ public class Controller {
         UUID technicalId = idFuture.get();
         petJob.setId(technicalId.toString()); // set id from technicalId
 
-        processPetJob(petJob);
         log.info("PetJob created with technicalId: {}", technicalId);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(petJob);
@@ -114,7 +113,6 @@ public class Controller {
         UUID technicalId = idFuture.get();
         pet.setId(technicalId.toString());
 
-        processPet(pet);
         log.info("Pet created with technicalId: {}", technicalId);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(pet);
@@ -167,8 +165,6 @@ public class Controller {
         petUpdateEvent.setStatus("PENDING");
         petUpdateEventCache.put(id, petUpdateEvent);
 
-        processPetUpdateEvent(petUpdateEvent);
-
         log.info("PetUpdateEvent created with ID: {}", id);
         return ResponseEntity.status(HttpStatus.CREATED).body(petUpdateEvent);
     }
@@ -181,142 +177,5 @@ public class Controller {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("PetUpdateEvent not found");
         }
         return ResponseEntity.ok(petUpdateEvent);
-    }
-
-    // ------------------- Process Methods -------------------
-
-    private void processPetJob(PetJob petJob) {
-        log.info("Processing PetJob with ID: {}", petJob.getId());
-
-        if (petJob.getJobId() == null || petJob.getJobId().isBlank()) {
-            petJob.setStatus("FAILED");
-            log.error("PetJob validation failed: jobId is blank");
-            return;
-        }
-
-        try {
-            log.info("PetJob {} processing started", petJob.getJobId());
-            petJob.setStatus("COMPLETED");
-            log.info("PetJob {} processing completed successfully", petJob.getJobId());
-
-            // Update PetJob status immutably: create new version with updated status
-            PetJob updatedJob = new PetJob();
-            updatedJob.setJobId(petJob.getJobId());
-            updatedJob.setStatus(petJob.getStatus());
-            updatedJob.setSubmittedAt(petJob.getSubmittedAt());
-            // preserve other fields if any
-
-            entityService.addItem("PetJob", ENTITY_VERSION, updatedJob).get();
-
-        } catch (Exception e) {
-            petJob.setStatus("FAILED");
-            log.error("PetJob processing failed: {}", e.getMessage());
-        }
-    }
-
-    private void processPet(Pet pet) {
-        log.info("Processing Pet with technicalId: {}", pet.getId());
-
-        if (pet.getName() == null || pet.getName().isBlank() ||
-            pet.getSpecies() == null || pet.getSpecies().isBlank()) {
-            log.error("Pet validation failed: name or species is blank");
-            return;
-        }
-
-        log.info("Pet {} persisted with status: {}", pet.getId(), pet.getStatus());
-    }
-
-    private void processPetUpdateEvent(PetUpdateEvent petUpdateEvent) {
-        log.info("Processing PetUpdateEvent with ID: {}", petUpdateEvent.getId());
-
-        if (petUpdateEvent.getPetId() == null || petUpdateEvent.getPetId().isBlank()) {
-            petUpdateEvent.setStatus("FAILED");
-            log.error("PetUpdateEvent validation failed: petId is blank");
-            return;
-        }
-        if (petUpdateEvent.getUpdatedFields() == null || petUpdateEvent.getUpdatedFields().isEmpty()) {
-            petUpdateEvent.setStatus("FAILED");
-            log.error("PetUpdateEvent validation failed: updatedFields empty");
-            return;
-        }
-
-        UUID petTechnicalId;
-        try {
-            petTechnicalId = UUID.fromString(petUpdateEvent.getPetId());
-        } catch (IllegalArgumentException e) {
-            petUpdateEvent.setStatus("FAILED");
-            log.error("PetUpdateEvent processing failed: invalid petId format");
-            return;
-        }
-
-        Pet existingPet;
-        try {
-            CompletableFuture<ObjectNode> petNodeFuture = entityService.getItem("Pet", ENTITY_VERSION, petTechnicalId);
-            ObjectNode petNode = petNodeFuture.get();
-            if (petNode == null) {
-                petUpdateEvent.setStatus("FAILED");
-                log.error("PetUpdateEvent processing failed: referenced Pet not found");
-                return;
-            }
-            existingPet = entityService.getObjectMapper().treeToValue(petNode, Pet.class);
-            existingPet.setId(petNode.get("technicalId").asText());
-        } catch (Exception e) {
-            petUpdateEvent.setStatus("FAILED");
-            log.error("PetUpdateEvent processing failed: error fetching Pet - {}", e.getMessage());
-            return;
-        }
-
-        Pet updatedPet = new Pet();
-        updatedPet.setId(null); // id will be assigned by entityService on addItem
-        updatedPet.setName(existingPet.getName());
-        updatedPet.setSpecies(existingPet.getSpecies());
-        updatedPet.setBreed(existingPet.getBreed());
-        updatedPet.setAge(existingPet.getAge());
-        updatedPet.setStatus(existingPet.getStatus());
-
-        Map<String, Object> updates = petUpdateEvent.getUpdatedFields();
-        if (updates.containsKey("name")) {
-            Object nameVal = updates.get("name");
-            if (nameVal instanceof String && !((String) nameVal).isBlank()) {
-                updatedPet.setName((String) nameVal);
-            }
-        }
-        if (updates.containsKey("species")) {
-            Object speciesVal = updates.get("species");
-            if (speciesVal instanceof String && !((String) speciesVal).isBlank()) {
-                updatedPet.setSpecies((String) speciesVal);
-            }
-        }
-        if (updates.containsKey("breed")) {
-            Object breedVal = updates.get("breed");
-            if (breedVal instanceof String) {
-                updatedPet.setBreed((String) breedVal);
-            }
-        }
-        if (updates.containsKey("age")) {
-            Object ageVal = updates.get("age");
-            if (ageVal instanceof Number) {
-                updatedPet.setAge(((Number) ageVal).intValue());
-            }
-        }
-        if (updates.containsKey("status")) {
-            Object statusVal = updates.get("status");
-            if (statusVal instanceof String && !((String) statusVal).isBlank()) {
-                updatedPet.setStatus((String) statusVal);
-            }
-        }
-
-        try {
-            CompletableFuture<UUID> addPetFuture = entityService.addItem("Pet", ENTITY_VERSION, updatedPet);
-            UUID newPetId = addPetFuture.get();
-            updatedPet.setId(newPetId.toString());
-
-            petUpdateEvent.setStatus("PROCESSED");
-            petUpdateEventCache.put(petUpdateEvent.getId(), petUpdateEvent);
-            log.info("PetUpdateEvent {} processed successfully, created Pet version {}", petUpdateEvent.getId(), updatedPet.getId());
-        } catch (Exception e) {
-            petUpdateEvent.setStatus("FAILED");
-            log.error("PetUpdateEvent processing failed: error saving updated Pet - {}", e.getMessage());
-        }
     }
 }
