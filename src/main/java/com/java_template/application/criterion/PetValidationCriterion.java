@@ -44,24 +44,23 @@ public class PetValidationCriterion implements CyodaCriterion {
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(Pet pet) {
-        if (pet.getPetId() == null || pet.getPetId().isBlank()) {
+    private EvaluationOutcome validateEntity(Pet entity) {
+        if (entity.getPetId() == null || entity.getPetId().isBlank()) {
             return EvaluationOutcome.fail("Pet ID is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (pet.getName() == null || pet.getName().isBlank()) {
+        if (entity.getName() == null || entity.getName().isBlank()) {
             return EvaluationOutcome.fail("Pet name is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (pet.getType() == null || pet.getType().isBlank()) {
+        if (entity.getType() == null || entity.getType().isBlank()) {
             return EvaluationOutcome.fail("Pet type is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (pet.getStatus() == null || pet.getStatus().isBlank()) {
+        if (entity.getStatus() == null || entity.getStatus().isBlank()) {
             return EvaluationOutcome.fail("Pet status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        // Business rule: status must be ACTIVE or INACTIVE
-        String status = pet.getStatus();
-        if (!status.equals("ACTIVE") && !status.equals("INACTIVE")) {
+        // Additional business rule: status must be ACTIVE or INACTIVE
+        if (!entity.getStatus().equals("ACTIVE") && !entity.getStatus().equals("INACTIVE")) {
             return EvaluationOutcome.fail("Pet status must be ACTIVE or INACTIVE", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
         return EvaluationOutcome.success();
     }
-}
+}}
