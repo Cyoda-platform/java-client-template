@@ -1,92 +1,92 @@
 {
-    "active": true,
-    "desc": "Workflow for processing ReportJob entity from fetching rates to sending email",
-    "initialState": "none",
-    "name": "ReportJob Workflow",
-    "states": {
-        "failed": {
-            "transitions": []
-        },
-        "fetched": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "CanSendEmailCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "send_email_success",
-                    "next": "sent"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "HasSendEmailFailedCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "send_email_failure",
-                    "next": "failed"
-                }
-            ]
-        },
-        "none": {
-            "transitions": [
-                {
-                    "name": "start_processing",
-                    "next": "pending"
-                }
-            ]
-        },
-        "pending": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "CanFetchRatesCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "fetch_rates_success",
-                    "next": "fetched",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "ReportJobProcessor"
-                        }
-                    ]
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "HasFetchFailedCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "fetch_rates_failure",
-                    "next": "failed"
-                }
-            ]
-        },
-        "sent": {
-            "transitions": []
+  "active": true,
+  "desc": "Workflow for processing ReportJob entity from fetching rates to sending email",
+  "initialState": "none",
+  "name": "ReportJob Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "start_processing",
+          "next": "pending"
         }
+      ]
     },
-    "version": "1.0"
+    "pending": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "CanFetchRatesCriterion"
+            },
+            "type": "function"
+          },
+          "name": "fetch_rates_success",
+          "next": "fetched",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "ReportJobProcessor"
+            }
+          ]
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "HasFetchFailedCriterion"
+            },
+            "type": "function"
+          },
+          "name": "fetch_rates_failure",
+          "next": "failed"
+        }
+      ]
+    },
+    "fetched": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "CanSendEmailCriterion"
+            },
+            "type": "function"
+          },
+          "name": "send_email_success",
+          "next": "sent"
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "HasSendEmailFailedCriterion"
+            },
+            "type": "function"
+          },
+          "name": "send_email_failure",
+          "next": "failed"
+        }
+      ]
+    },
+    "sent": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
