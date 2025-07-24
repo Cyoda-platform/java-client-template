@@ -1,6 +1,6 @@
 package com.java_template.application.controller;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -16,17 +16,18 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
 
-import javax.annotation.PostConstruct;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.regex.Pattern;
+import java.util.UUID;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/entity")
@@ -37,21 +38,19 @@ public class Controller {
 
     private final EntityService entityService;
     private final ObjectMapper objectMapper;
-    private final RestTemplate restTemplate;
 
     private static final String NBA_SCORES_FETCH_JOB = "NbaScoresFetchJob";
     private static final String NBA_GAME = "NbaGame";
 
-    public Controller(EntityService entityService) {
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
-        this.objectMapper = new ObjectMapper();
-        this.restTemplate = new RestTemplate();
+        this.objectMapper = objectMapper;
     }
 
     // ------------------ NbaScoresFetchJob Endpoints ------------------
 
     @PostMapping("/jobs/fetch-scores")
-    public ResponseEntity<?> createNbaScoresFetchJob(@RequestBody Map<String, String> request) {
+    public ResponseEntity<?> createNbaScoresFetchJob(@RequestBody Map<String, String> request) throws JsonProcessingException, ExecutionException, InterruptedException {
         try {
             String scheduledDateStr = request.get("scheduledDate");
             if (scheduledDateStr == null || scheduledDateStr.isBlank()) {
@@ -76,9 +75,6 @@ public class Controller {
             CompletableFuture<UUID> idFuture = entityService.addItem(NBA_SCORES_FETCH_JOB, ENTITY_VERSION, jobNode);
             UUID technicalId = idFuture.get();
 
-            // Trigger processing asynchronously
-            // processNbaScoresFetchJobAsync removed for extraction
-
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException e) {
             logger.error("Illegal argument: {}", e.getMessage());
@@ -90,7 +86,7 @@ public class Controller {
     }
 
     @GetMapping("/jobs/fetch-scores/{technicalId}")
-    public ResponseEntity<?> getNbaScoresFetchJobById(@PathVariable String technicalId) {
+    public ResponseEntity<?> getNbaScoresFetchJobById(@PathVariable String technicalId) throws JsonProcessingException, ExecutionException, InterruptedException {
         try {
             UUID id = UUID.fromString(technicalId);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(NBA_SCORES_FETCH_JOB, ENTITY_VERSION, id);
@@ -143,9 +139,6 @@ public class Controller {
 
             subscriberCache.put(id, subscriber);
 
-            // Trigger processing
-            // processSubscriber removed for extraction
-
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", id));
         } catch (IllegalArgumentException e) {
             logger.error("Illegal argument: {}", e.getMessage());
@@ -176,7 +169,7 @@ public class Controller {
     // ------------------ NbaGame Endpoints ------------------
 
     @GetMapping("/games/{date}")
-    public ResponseEntity<?> getGamesByDate(@PathVariable String date) {
+    public ResponseEntity<?> getGamesByDate(@PathVariable String date) throws JsonProcessingException, ExecutionException, InterruptedException {
         try {
             LocalDate queryDate;
             try {
@@ -193,7 +186,7 @@ public class Controller {
             ArrayNode gamesArray = gamesFuture.get();
 
             List<ObjectNode> result = new ArrayList<>();
-            for (JsonNode node : gamesArray) {
+            for (var node : gamesArray) {
                 result.add((ObjectNode) node);
             }
 
@@ -209,13 +202,13 @@ public class Controller {
 
     @GetMapping("/games/all")
     public ResponseEntity<?> getAllGames(@RequestParam(required = false) Integer page,
-                                         @RequestParam(required = false) Integer size) {
+                                         @RequestParam(required = false) Integer size) throws JsonProcessingException, ExecutionException, InterruptedException {
         try {
             CompletableFuture<ArrayNode> gamesFuture = entityService.getItems(NBA_GAME, ENTITY_VERSION);
             ArrayNode gamesArray = gamesFuture.get();
 
             List<ObjectNode> resultList = new ArrayList<>();
-            for (JsonNode node : gamesArray) {
+            for (var node : gamesArray) {
                 resultList.add((ObjectNode) node);
             }
 
