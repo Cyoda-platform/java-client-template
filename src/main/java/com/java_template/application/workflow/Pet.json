@@ -1,0 +1,83 @@
+{
+    "active": true,
+    "desc": "Workflow representing the lifecycle and validation of a Pet entity",
+    "initialState": "none",
+    "name": "Pet Processing Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "invalid_data": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetDataValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "start_validation",
+                    "next": "validating"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetDataInvalidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "start_invalid_data",
+                    "next": "invalid_data"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "name": "save_pet",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "PetProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "validating": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetStatusValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "valid_status",
+                    "next": "processing"
+                },
+                {
+                    "name": "invalid_status",
+                    "next": "processing"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
