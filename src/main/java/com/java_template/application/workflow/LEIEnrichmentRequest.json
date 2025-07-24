@@ -1,0 +1,92 @@
+{
+    "active": true,
+    "desc": "Workflow for processing CompanySearchJob entity including LEI enrichment orchestration",
+    "initialState": "none",
+    "name": "CompanySearchJob Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "CompanySearchJobValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "start_validation",
+                    "next": "pending"
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "name": "validate_and_start_processing",
+                    "next": "processing",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "CompanySearchJobProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "CompanySearchJobInvalidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "fail_due_to_invalid_input",
+                    "next": "failed"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "AllLEIEnrichmentsCompletedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "all_leienrichment_completed",
+                    "next": "completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "CompanySearchJobProcessingErrorCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "processing_failure_detected",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
