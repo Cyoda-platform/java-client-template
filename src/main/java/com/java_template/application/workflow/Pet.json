@@ -1,10 +1,24 @@
 {
     "active": true,
-    "desc": "Workflow representing validation and processing of Pet entity",
+    "desc": "Workflow for processing PetIngestionJob entities from ingestion to completion",
     "initialState": "none",
-    "name": "Pet Entity Workflow",
+    "name": "PetIngestionJob Workflow",
     "states": {
-        "available": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "start_validation",
+                    "next": "validateSourceUrl"
+                }
+            ]
+        },
+        "processing": {
             "transitions": [
                 {
                     "criterion": {
@@ -12,12 +26,21 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "PetValidityCriterion"
+                            "name": "ProcessPetsSuccessCriterion"
                         },
                         "type": "function"
                     },
-                    "name": "validate_pet_success",
-                    "next": "validated"
+                    "name": "process_success",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "PetIngestionJobProcessor"
+                        }
+                    ]
                 },
                 {
                     "criterion": {
@@ -25,43 +48,42 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "PetInvalidCriterion"
+                            "name": "ProcessPetsFailureCriterion"
                         },
                         "type": "function"
                     },
-                    "name": "validate_pet_failure",
-                    "next": "error"
+                    "name": "process_failure",
+                    "next": "failed"
                 }
             ]
         },
-        "error": {
-            "transitions": []
-        },
-        "none": {
+        "validateSourceUrl": {
             "transitions": [
                 {
-                    "name": "start_processing",
-                    "next": "available"
-                }
-            ]
-        },
-        "processed": {
-            "transitions": []
-        },
-        "validated": {
-            "transitions": [
-                {
-                    "name": "apply_business_rules",
-                    "next": "processed",
-                    "processors": [
-                        {
+                    "criterion": {
+                        "function": {
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "executionMode": "SYNC",
-                            "name": "PetProcessor"
-                        }
-                    ]
+                            "name": "SourceUrlValidationCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "valid_sourceUrl",
+                    "next": "processing"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "SourceUrlInvalidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "invalid_sourceUrl",
+                    "next": "failed"
                 }
             ]
         }
