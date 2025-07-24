@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.ReportJob;
+import com.java_template.application.entity.Report;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,7 +32,7 @@ public class CanSendEmailCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(ReportJob.class, this::validateEntity)
+            .evaluateEntity(Report.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,19 +40,16 @@ public class CanSendEmailCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "CanSendEmailCriterion".equals(modelSpec.operationName()) &&
-               "reportJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "report".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(ReportJob entity) {
-        // Validate that the job is in FETCHED status and email not sent yet
-        if (entity.getStatus() == null || entity.getStatus().isBlank()) {
-            return EvaluationOutcome.fail("status must not be blank", StandardEvalReasonCategories.VALIDATION_FAILURE);
+    private EvaluationOutcome validateEntity(Report entity) {
+        // Business logic: Allow sending email only if emailSent is false (not sent yet)
+        if (entity.getEmailSent() == null) {
+            return EvaluationOutcome.fail("Email sent status is unknown", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (!entity.getStatus().equalsIgnoreCase("FETCHED")) {
-            return EvaluationOutcome.fail("status must be FETCHED to send email", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-        }
-        if (entity.getEmailSentAt() != null) {
+        if (entity.getEmailSent()) {
             return EvaluationOutcome.fail("Email already sent", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
         return EvaluationOutcome.success();
