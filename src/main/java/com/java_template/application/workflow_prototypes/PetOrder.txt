@@ -1,0 +1,10 @@
+private void processPetOrder(PetOrder petOrder) {
+    logger.info("Processing PetOrder for petId: {}", petOrder.getPetId());
+    // Validate pet availability (simulate by querying Pet entity)
+    // Already checked in createPetOrder, so just approve here
+    if (!"CANCELLED".equalsIgnoreCase(petOrder.getStatus())) {
+        petOrder.setStatus("APPROVED");
+        logger.info("PetOrder approved for petId: {}", petOrder.getPetId());
+        // Additional: Could trigger notification here
+    }
+}
