@@ -1,79 +1,79 @@
 {
-    "active": true,
-    "desc": "Workflow for processing ScoreFetchJob entity from pending to completion with error handling",
-    "initialState": "none",
-    "name": "ScoreFetchJob Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "name": "start_if_pending",
-                    "next": "pending"
-                }
-            ]
-        },
-        "pending": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IsPendingCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "start_processing",
-                    "next": "running"
-                }
-            ]
-        },
-        "running": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "CanCompleteCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "complete_if_success",
-                    "next": "completed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "ScoreFetchJobProcessor"
-                        }
-                    ]
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "HasFailedCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "fail_if_error",
-                    "next": "failed"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow for processing ScoreFetchJob entity from pending to completion with error handling",
+  "initialState": "none",
+  "name": "ScoreFetchJob Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "start_if_pending",
+          "next": "pending"
         }
+      ]
     },
-    "version": "1.0"
+    "pending": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IsPendingCriterion"
+            },
+            "type": "function"
+          },
+          "name": "start_processing",
+          "next": "running"
+        }
+      ]
+    },
+    "running": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "CanCompleteCriterion"
+            },
+            "type": "function"
+          },
+          "name": "complete_if_success",
+          "next": "completed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "ScoreFetchJobProcessor"
+            }
+          ]
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "HasFailedCriterion"
+            },
+            "type": "function"
+          },
+          "name": "fail_if_error",
+          "next": "failed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
