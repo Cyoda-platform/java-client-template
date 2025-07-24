@@ -1,6 +1,7 @@
 package com.java_template.application.processor;
 
 import com.java_template.application.entity.PurrfectPetsJob;
+import com.java_template.application.entity.Pet;
 import com.java_template.common.serializer.ErrorInfo;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
@@ -15,9 +16,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import java.time.Instant;
 import java.util.List;
-import java.util.stream.Collectors;
 import com.java_template.common.service.EntityService;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Component
 public class PurrfectPetsJobProcessor implements CyodaProcessor {
@@ -25,13 +24,11 @@ public class PurrfectPetsJobProcessor implements CyodaProcessor {
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final ProcessorSerializer serializer;
     private final EntityService entityService;
-    private final ObjectMapper objectMapper;
 
-    public PurrfectPetsJobProcessor(SerializerFactory serializerFactory, EntityService entityService, ObjectMapper objectMapper) {
+    public PurrfectPetsJobProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
         this.entityService = entityService;
-        this.objectMapper = objectMapper;
-        logger.info("PurrfectPetsJobProcessor initialized with SerializerFactory, EntityService and ObjectMapper");
+        logger.info("PurrfectPetsJobProcessor initialized with SerializerFactory and EntityService");
     }
 
     @Override
@@ -76,11 +73,9 @@ public class PurrfectPetsJobProcessor implements CyodaProcessor {
                 newPet.setStatus(pet.getStatus());
                 newPet.setIngestedAt(ingestedAt);
 
-                // Add the new Pet entity to datastore
                 entityService.addItem(newPet);
             }
 
-            // Update job status to COMPLETED and fill resultSummary
             job.setStatus("COMPLETED");
             job.setResultSummary("Ingested " + pets.size() + " pets");
 
