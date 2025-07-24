@@ -32,26 +32,24 @@ public class CompanySearchJobInvalidInputCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(CompanySearchJob.class, this::validateEntity)
-            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
-            .complete();
+                .evaluateEntity(CompanySearchJob.class, this::validateEntity)
+                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+                .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "CompanySearchJobInvalidInputCriterion".equals(modelSpec.operationName()) &&
-               "companySearchJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+                "companySearchJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
     private EvaluationOutcome validateEntity(CompanySearchJob entity) {
-        // For this criterion, let's say we fail if status is not one of the expected states
-        if (entity.getStatus() == null || entity.getStatus().isBlank()) {
-            return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        }
-        String status = entity.getStatus().toUpperCase();
-        if (!status.equals("PENDING") && !status.equals("PROCESSING") && !status.equals("COMPLETED") && !status.equals("FAILED")) {
-            return EvaluationOutcome.fail("status must be one of PENDING, PROCESSING, COMPLETED, FAILED", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (entity.getStatus() != null) {
+            String status = entity.getStatus().toUpperCase();
+            if (!(status.equals("PENDING") || status.equals("PROCESSING") || status.equals("COMPLETED") || status.equals("FAILED"))) {
+                return EvaluationOutcome.fail("Invalid status value", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+            }
         }
         return EvaluationOutcome.success();
     }
