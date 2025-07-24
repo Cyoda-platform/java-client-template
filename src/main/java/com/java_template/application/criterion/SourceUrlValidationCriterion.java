@@ -30,7 +30,6 @@ public class SourceUrlValidationCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-
         return serializer.withRequest(request)
             .evaluateEntity(PetIngestionJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -40,15 +39,14 @@ public class SourceUrlValidationCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "SourceUrlValidationCriterion".equals(modelSpec.operationName()) &&
-               "petIngestionJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "petingestionjob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(PetIngestionJob entity) {
-        if (entity.getSourceUrl() == null || entity.getSourceUrl().isBlank()) {
-            return EvaluationOutcome.fail("Source URL is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+    private EvaluationOutcome validateEntity(PetIngestionJob job) {
+        if (job.getSourceUrl() == null || job.getSourceUrl().isBlank()) {
+            return EvaluationOutcome.fail("sourceUrl is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        // Additional validation can include URL format check, but here we keep it simple
         return EvaluationOutcome.success();
     }
 }
