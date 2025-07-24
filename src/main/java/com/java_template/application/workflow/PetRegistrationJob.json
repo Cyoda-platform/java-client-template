@@ -1,92 +1,92 @@
 {
-    "active": true,
-    "desc": "Workflow for processing PetRegistrationJob entity lifecycle from validation to completion or failure",
-    "initialState": "none",
-    "name": "PetRegistrationJob Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "name": "start_validation",
-                    "next": "pending"
-                }
-            ]
-        },
-        "pending": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetRegistrationJobValidationCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "validate_data_success",
-                    "next": "processing"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetRegistrationJobValidationFailedCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "validate_data_failure",
-                    "next": "failed"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetRegistrationJobFetchAndSaveSuccessCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "fetch_and_save_pets_success",
-                    "next": "completed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "PetRegistrationJobProcessor"
-                        }
-                    ]
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetRegistrationJobFetchAndSaveFailedCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "fetch_and_save_pets_failure",
-                    "next": "failed"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow for processing PetRegistrationJob entity lifecycle from validation to completion or failure",
+  "initialState": "none",
+  "name": "PetRegistrationJob Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "start_validation",
+          "next": "pending"
         }
+      ]
     },
-    "version": "1.0"
+    "pending": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "PetRegistrationJobValidationCriterion"
+            },
+            "type": "function"
+          },
+          "name": "validate_data_success",
+          "next": "processing"
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "PetRegistrationJobValidationFailedCriterion"
+            },
+            "type": "function"
+          },
+          "name": "validate_data_failure",
+          "next": "failed"
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "PetRegistrationJobFetchAndSaveSuccessCriterion"
+            },
+            "type": "function"
+          },
+          "name": "fetch_and_save_pets_success",
+          "next": "completed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "PetRegistrationJobProcessor"
+            }
+          ]
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "PetRegistrationJobFetchAndSaveFailedCriterion"
+            },
+            "type": "function"
+          },
+          "name": "fetch_and_save_pets_failure",
+          "next": "failed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
