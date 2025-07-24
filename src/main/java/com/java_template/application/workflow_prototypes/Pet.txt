@@ -1,0 +1,18 @@
+// Business Logic for processing Pet entity
+private void processPet(Pet pet) {
+    logger.info("Processing Pet with id: {}", pet.getId());
+
+    if (!pet.isValid()) {
+        logger.error("Invalid pet data for pet id: {}", pet.getId());
+        return;
+    }
+
+    if (pet.getPhotoUrls() == null || pet.getPhotoUrls().isEmpty()) {
+        pet.setPhotoUrls(Collections.singletonList("http://default.photo.url/image.jpg"));
+        logger.info("Added default photo URL for pet id: {}", pet.getId());
+    }
+
+    pet.setLifecycleStatus(Pet.StatusEnum.PROCESSED);
+
+    logger.info("Completed processing Pet with id: {}", pet.getId());
+}
