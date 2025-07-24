@@ -25,7 +25,7 @@ import java.util.concurrent.ExecutionException;
 import static com.java_template.common.config.Config.*;
 
 @RestController
-@RequestMapping(path = "/api")
+@RequestMapping(path = "/entity")
 @RequiredArgsConstructor
 @Slf4j
 public class Controller {
@@ -34,7 +34,7 @@ public class Controller {
 
     private final EntityService entityService;
 
-    // Minor entity Subscription remains in local cache
+    // Keep subscription cache locally as minor entity (per instruction)
     private final Map<String, Subscription> subscriptionCache = new HashMap<>();
     private long subscriptionIdCounter = 1L;
 
@@ -49,34 +49,31 @@ public class Controller {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(Map.of("error", "scheduledDate is required"));
             }
-            LocalDate scheduledDate;
+            NbaScoreFetchJob job = new NbaScoreFetchJob();
             try {
-                scheduledDate = LocalDate.parse(scheduledDateStr);
+                job.setScheduledDate(LocalDate.parse(scheduledDateStr));
             } catch (Exception e) {
                 logger.error("Invalid scheduledDate format: {}", scheduledDateStr);
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(Map.of("error", "scheduledDate must be in YYYY-MM-DD format"));
             }
-
-            NbaScoreFetchJob job = new NbaScoreFetchJob();
-            job.setScheduledDate(scheduledDate);
             job.setStatus("PENDING");
             job.setCreatedAt(LocalDateTime.now());
 
+            // Persist job via EntityService
             CompletableFuture<UUID> idFuture = entityService.addItem("NbaScoreFetchJob", ENTITY_VERSION, job);
             UUID technicalId = idFuture.get();
-
-            // Set jobId in job object and update job - but update not supported, so TODO
-            job.setJobId(technicalId.toString());
+            String technicalIdStr = technicalId.toString();
+            job.setJobId(technicalIdStr);
 
             processNbaScoreFetchJob(job, technicalId);
 
-            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
+            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalIdStr));
         } catch (IllegalArgumentException e) {
-            logger.error("Illegal argument: {}", e.getMessage());
+            logger.error("Illegal argument in createNbaScoreFetchJob: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            logger.error("Failed to create NbaScoreFetchJob: {}", e.getMessage());
+            logger.error("Error creating NbaScoreFetchJob: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
         }
     }
@@ -87,16 +84,16 @@ public class Controller {
             UUID technicalId = UUID.fromString(id);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem("NbaScoreFetchJob", ENTITY_VERSION, technicalId);
             ObjectNode node = itemFuture.get();
-            if (node == null) {
+            if (node == null || node.isEmpty()) {
                 logger.error("NbaScoreFetchJob not found with id: {}", id);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Job not found"));
             }
             return ResponseEntity.ok(node);
         } catch (IllegalArgumentException e) {
-            logger.error("Invalid UUID format for id: {}", id);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Invalid job id format"));
+            logger.error("Invalid UUID format for NbaScoreFetchJob id: {}", id);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Invalid id format"));
         } catch (Exception e) {
-            logger.error("Failed to get NbaScoreFetchJob {}: {}", id, e.getMessage());
+            logger.error("Error fetching NbaScoreFetchJob {}: {}", id, e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
         }
     }
@@ -109,21 +106,21 @@ public class Controller {
             UUID technicalId = UUID.fromString(id);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem("GameScore", ENTITY_VERSION, technicalId);
             ObjectNode node = itemFuture.get();
-            if (node == null) {
+            if (node == null || node.isEmpty()) {
                 logger.error("GameScore not found with id: {}", id);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "GameScore not found"));
             }
             return ResponseEntity.ok(node);
         } catch (IllegalArgumentException e) {
-            logger.error("Invalid UUID format for gameScore id: {}", id);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Invalid gameScore id format"));
+            logger.error("Invalid UUID format for GameScore id: {}", id);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Invalid id format"));
         } catch (Exception e) {
-            logger.error("Failed to get GameScore {}: {}", id, e.getMessage());
+            logger.error("Error fetching GameScore {}: {}", id, e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
         }
     }
 
-    // No POST endpoint for GameScore as per original design
+    // No POST endpoint for GameScore as per original design and EDA principle.
 
     // -------------------- Subscription Endpoints --------------------
 
@@ -154,16 +151,17 @@ public class Controller {
             subscription.setStatus("ACTIVE");
             subscription.setCreatedAt(LocalDateTime.now());
 
+            // Keep subscription locally per instruction (minor entity)
             subscriptionCache.put(technicalId, subscription);
 
             processSubscription(subscription);
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId));
         } catch (IllegalArgumentException e) {
-            logger.error("Illegal argument: {}", e.getMessage());
+            logger.error("Illegal argument in createSubscription: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            logger.error("Failed to create Subscription: {}", e.getMessage());
+            logger.error("Error creating Subscription: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
         }
     }
@@ -178,47 +176,54 @@ public class Controller {
             }
             return ResponseEntity.ok(subscription);
         } catch (Exception e) {
-            logger.error("Failed to get Subscription {}: {}", id, e.getMessage());
+            logger.error("Error fetching Subscription {}: {}", id, e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
         }
     }
 
     // -------------------- Process Methods --------------------
 
-    private void processNbaScoreFetchJob(NbaScoreFetchJob job, UUID jobTechnicalId) {
-        logger.info("Processing NbaScoreFetchJob with ID: {}", jobTechnicalId);
+    private void processNbaScoreFetchJob(NbaScoreFetchJob job, UUID technicalId) {
+        logger.info("Processing NbaScoreFetchJob with ID: {}", technicalId);
         try {
             job.setStatus("RUNNING");
-            // TODO: update job status in entityService (not supported)
+            // TODO: Update status to RUNNING in EntityService - no update method, so skip
 
+            // Simulate external NBA API call to fetch scores for scheduledDate
             List<GameScore> fetchedGameScores = fetchGameScoresFromExternalApi(job.getScheduledDate());
 
-            // Persist each GameScore entity via entityService.addItem
+            // Persist each GameScore entity via EntityService
             List<CompletableFuture<UUID>> futures = new ArrayList<>();
             for (GameScore gs : fetchedGameScores) {
+                gs.setGameId(null); // clear any local ID before persisting
                 futures.add(entityService.addItem("GameScore", ENTITY_VERSION, gs));
             }
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get();
 
-            // After persistence, process each GameScore (some logic inside)
+            // Wait for all to complete
+            List<UUID> technicalIds = new ArrayList<>();
+            for (CompletableFuture<UUID> f : futures) {
+                technicalIds.add(f.get());
+            }
+
+            // Set IDs back for further processing and notifications
             for (int i = 0; i < fetchedGameScores.size(); i++) {
-                GameScore gs = fetchedGameScores.get(i);
-                // We don't have technicalId assigned to gs here, but processing does not depend on it
-                processGameScore(gs);
+                fetchedGameScores.get(i).setGameId(technicalIds.get(i).toString());
+                processGameScore(fetchedGameScores.get(i));
             }
 
             job.setStatus("COMPLETED");
-            // TODO: update job status in entityService (not supported)
-            logger.info("NbaScoreFetchJob {} completed successfully with {} games fetched.", jobTechnicalId, fetchedGameScores.size());
+            // TODO: Update status to COMPLETED in EntityService - no update method, so skip
+
+            logger.info("NbaScoreFetchJob {} completed successfully with {} games fetched.", technicalId, fetchedGameScores.size());
 
             // Trigger notifications for each GameScore and active subscriptions
             for (GameScore gs : fetchedGameScores) {
                 triggerNotifications(gs);
             }
         } catch (Exception e) {
-            logger.error("Failed to process NbaScoreFetchJob {}: {}", jobTechnicalId, e.getMessage());
+            logger.error("Failed to process NbaScoreFetchJob {}: {}", technicalId, e.getMessage());
             job.setStatus("FAILED");
-            // TODO: update job status in entityService (not supported)
+            // TODO: Update status to FAILED in EntityService - no update method, so skip
         }
     }
 
@@ -248,7 +253,7 @@ public class Controller {
     }
 
     private void processGameScore(GameScore gameScore) {
-        logger.info("Processing GameScore");
+        logger.info("Processing GameScore with ID: {}", gameScore.getGameId());
         if (gameScore.getHomeTeam() == null || gameScore.getHomeTeam().isBlank()
                 || gameScore.getAwayTeam() == null || gameScore.getAwayTeam().isBlank()) {
             logger.error("Invalid GameScore data: missing team names");
@@ -258,7 +263,7 @@ public class Controller {
             logger.error("Invalid GameScore data: missing scores");
             return;
         }
-        logger.info("GameScore processed successfully");
+        logger.info("GameScore {} processed successfully", gameScore.getGameId());
     }
 
     private void processSubscription(Subscription subscription) {
@@ -279,7 +284,7 @@ public class Controller {
     }
 
     private void triggerNotifications(GameScore gameScore) {
-        logger.info("Triggering notifications for GameScore");
+        logger.info("Triggering notifications for GameScore ID: {}", gameScore.getGameId());
         subscriptionCache.values().stream()
                 .filter(sub -> "ACTIVE".equals(sub.getStatus()))
                 .forEach(sub -> {
@@ -305,6 +310,5 @@ public class Controller {
                 gameScore.getAwayTeam(),
                 gameScore.getHomeScore(),
                 gameScore.getAwayScore());
-        // Real notification integration omitted
     }
 }
