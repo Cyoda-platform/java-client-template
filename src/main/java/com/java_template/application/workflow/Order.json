@@ -1,0 +1,74 @@
+{
+    "active": true,
+    "desc": "Workflow for processing PurrfectPetsJob orchestration entity",
+    "initialState": "none",
+    "name": "PurrfectPetsJob Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "start_validation",
+                    "next": "validating_parameters"
+                }
+            ]
+        },
+        "processing_pet_data": {
+            "processors": [
+                {
+                    "config": {
+                        "calculationNodesTags": "cyoda_application"
+                    },
+                    "executionMode": "SYNC",
+                    "name": "OrderProcessor"
+                }
+            ],
+            "transitions": [
+                {
+                    "name": "pet_data_fetch_succeeded",
+                    "next": "completed"
+                },
+                {
+                    "name": "pet_data_fetch_failed",
+                    "next": "failed"
+                }
+            ]
+        },
+        "validating_parameters": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "JobParametersValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "parameters_valid",
+                    "next": "processing_pet_data"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "JobParametersInvalidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "parameters_invalid",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
