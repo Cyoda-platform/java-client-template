@@ -1,0 +1,94 @@
+// Business logic for processing DigestRequestJob
+private void processDigestRequestJob(String technicalId, DigestRequestJob job) {
+    logger.info("Processing DigestRequestJob with ID: {}", technicalId);
+
+    // Validate email format (simple check)
+    if (job.getEmail().isBlank() || !job.getEmail().contains("@")) {
+        logger.error("Invalid email format for job ID: {}", technicalId);
+        job.setStatus("FAILED");
+        job.setCompletedAt(Instant.now().toString());
+        // TODO: update job status in EntityService - skipping update as per instruction
+        return;
+    }
+
+    // Retrieve data from external API
+    String apiDataPayload = "";
+    try {
+        apiDataPayload = fetchExternalApiData();
+    } catch (Exception e) {
+        logger.error("Failed to fetch external API data for job ID: {} - {}", technicalId, e.getMessage());
+        job.setStatus("FAILED");
+        job.setCompletedAt(Instant.now().toString());
+        // TODO: update job status in EntityService - skipping update as per instruction
+        return;
+    }
+
+    // Save ExternalApiData entity
+    ExternalApiData apiData = new ExternalApiData();
+    apiData.setJobTechnicalId(technicalId);
+    apiData.setDataPayload(apiDataPayload);
+    apiData.setRetrievedAt(Instant.now().toString());
+    try {
+        entityService.addItem("ExternalApiData", ENTITY_VERSION, apiData).get();
+        logger.info("Saved ExternalApiData for job ID: {}", technicalId);
+    } catch (Exception e) {
+        logger.error("Failed to save ExternalApiData for job ID: {} - {}", technicalId, e.getMessage());
+        // Continue processing despite failure to save API data
+    }
+
+    // Proceed with email dispatch
+    EmailDispatchRecord emailRecord = new EmailDispatchRecord();
+    emailRecord.setJobTechnicalId(technicalId);
+    emailRecord.setEmail(job.getEmail());
+    emailRecord.setDispatchStatus("PENDING");
+    try {
+        entityService.addItem("EmailDispatchRecord", ENTITY_VERSION, emailRecord).get();
+        logger.info("Created EmailDispatchRecord for job ID: {}", technicalId);
+    } catch (Exception e) {
+        logger.error("Failed to create EmailDispatchRecord for job ID: {} - {}", technicalId, e.getMessage());
+        // Continue processing despite failure to save email record
+    }
+
+    processEmailDispatchRecord(technicalId, emailRecord);
+
+    // Update job status to COMPLETED
+    job.setStatus("COMPLETED");
+    job.setCompletedAt(Instant.now().toString());
+    // TODO: update job status in EntityService - skipping update as per instruction
+    logger.info("DigestRequestJob with ID: {} completed successfully", technicalId);
+}
+
+// Fetch data from external API (petstore.swagger.io)
+private String fetchExternalApiData() throws IOException, InterruptedException {
+    HttpClient client = HttpClient.newHttpClient();
+    // Example endpoint: GET /pet/findByStatus?status=available
+    HttpRequest request = HttpRequest.newBuilder()
+            .uri(URI.create("https://petstore.swagger.io/v2/pet/findByStatus?status=available"))
+            .GET()
+            .build();
+    HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+    if (response.statusCode() != 200) {
+        throw new IOException("External API call failed with status: " + response.statusCode());
+    }
+    return response.body();
+}
+
+// Business logic for processing EmailDispatchRecord
+private void processEmailDispatchRecord(String technicalId, EmailDispatchRecord record) {
+    logger.info("Processing EmailDispatchRecord with job ID: {}", technicalId);
+
+    // Simulate email sending (in real app, integrate with email service)
+    try {
+        // Simulate sending delay
+        Thread.sleep(500);
+        // Mark as SENT
+        record.setDispatchStatus("SENT");
+        record.setSentAt(Instant.now().toString());
+        // TODO: update email dispatch record in EntityService - skipping update as per instruction
+        logger.info("Email sent successfully to {} for job ID: {}", record.getEmail(), technicalId);
+    } catch (InterruptedException e) {
+        logger.error("Email sending interrupted for job ID: {}", technicalId);
+        record.setDispatchStatus("FAILED");
+        // TODO: update email dispatch record in EntityService - skipping update as per instruction
+    }
+}
