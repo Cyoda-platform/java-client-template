@@ -1,0 +1,78 @@
+{
+    "active": true,
+    "desc": "Workflow for processing pet orders from creation to completion",
+    "initialState": "none",
+    "name": "PetOrderWorkflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "created": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ValidManualTriggerCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "validate_trigger_manual",
+                    "next": "processing"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ValidScheduledTriggerCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "validate_trigger_scheduled",
+                    "next": "processing"
+                },
+                {
+                    "name": "invalid_trigger_fail",
+                    "next": "failed"
+                }
+            ]
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "transition_to_created",
+                    "next": "created"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "name": "process_workflow",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "WorkflowProcessor"
+                        }
+                    ]
+                },
+                {
+                    "name": "processing_failed",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
