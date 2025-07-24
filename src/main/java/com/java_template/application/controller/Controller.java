@@ -46,7 +46,6 @@ public class Controller {
             UUID technicalId = idFuture.get();
             // We can set technicalId as id (string form) if needed, but original code used string IDs, here we keep technicalId usage internally
             // Processing asynchronously / after creation:
-            processPetIngestionJob(petIngestionJob);
             return ResponseEntity.status(HttpStatus.CREATED).body(petIngestionJob);
         } catch (Exception e) {
             log.error("Failed to create PetIngestionJob: {}", e.getMessage());
@@ -87,7 +86,6 @@ public class Controller {
             CompletableFuture<UUID> idFuture = entityService.addItem(PET_MODEL, ENTITY_VERSION, pet);
             UUID technicalId = idFuture.get();
             // processPet expects Pet object, so call directly
-            processPet(pet);
             return ResponseEntity.status(HttpStatus.CREATED).body(pet);
         } catch (Exception e) {
             log.error("Failed to create Pet: {}", e.getMessage());
@@ -133,7 +131,6 @@ public class Controller {
             newPetVersion.setCreatedAt(LocalDateTime.now());
             CompletableFuture<UUID> idFuture = entityService.addItem(PET_MODEL, ENTITY_VERSION, newPetVersion);
             UUID technicalId = idFuture.get();
-            processPet(newPetVersion);
             return ResponseEntity.status(HttpStatus.CREATED).body(newPetVersion);
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().body("Invalid Pet id format");
@@ -200,8 +197,6 @@ public class Controller {
             CompletableFuture<UUID> idFuture = entityService.addItem(ADOPTION_REQUEST_MODEL, ENTITY_VERSION, adoptionRequest);
             UUID technicalId = idFuture.get();
 
-            processAdoptionRequest(adoptionRequest);
-
             return ResponseEntity.status(HttpStatus.CREATED).body(adoptionRequest);
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().body("Invalid Pet id format");
@@ -227,83 +222,6 @@ public class Controller {
         } catch (Exception e) {
             log.error("Failed to get AdoptionRequest {}: {}", id, e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to get AdoptionRequest");
-        }
-    }
-
-    // process methods with real business logic
-
-    private void processPetIngestionJob(PetIngestionJob job) {
-        log.info("Processing PetIngestionJob");
-        job.setStatus("PROCESSING");
-        try {
-            if (!job.getSource().startsWith("http")) {
-                throw new IllegalArgumentException("Invalid source URL");
-            }
-            // Simulate fetching pet data from Petstore API - create dummy pets for demo
-            Pet pet1 = new Pet();
-            pet1.setName("Fluffy");
-            pet1.setType("Cat");
-            pet1.setStatus("AVAILABLE");
-            pet1.setCreatedAt(LocalDateTime.now());
-            entityService.addItem(PET_MODEL, ENTITY_VERSION, pet1).get();
-            processPet(pet1);
-
-            Pet pet2 = new Pet();
-            pet2.setName("Buddy");
-            pet2.setType("Dog");
-            pet2.setStatus("AVAILABLE");
-            pet2.setCreatedAt(LocalDateTime.now());
-            entityService.addItem(PET_MODEL, ENTITY_VERSION, pet2).get();
-            processPet(pet2);
-
-            job.setStatus("COMPLETED");
-            log.info("PetIngestionJob completed successfully");
-        } catch (Exception e) {
-            job.setStatus("FAILED");
-            log.error("PetIngestionJob failed: {}", e.getMessage());
-        }
-    }
-
-    private void processPet(Pet pet) {
-        log.info("Processing Pet");
-        if (!pet.isValid()) {
-            log.error("Pet is invalid");
-            return;
-        }
-        log.info("Pet is ready and available with status {}", pet.getStatus());
-    }
-
-    private void processAdoptionRequest(AdoptionRequest request) {
-        log.info("Processing AdoptionRequest");
-        try {
-            UUID petUuid = UUID.fromString(request.getPetId());
-            CompletableFuture<ObjectNode> petNodeFuture = entityService.getItem(PET_MODEL, ENTITY_VERSION, petUuid);
-            ObjectNode petNode = petNodeFuture.get();
-            if (petNode == null || petNode.isEmpty()) {
-                log.error("Referenced pet does not exist for adoption request");
-                request.setStatus("REJECTED");
-                return;
-            }
-            Pet pet = entityService.getObjectMapper().treeToValue(petNode, Pet.class);
-            if (!"AVAILABLE".equalsIgnoreCase(pet.getStatus())) {
-                log.info("Pet is not available for adoption, rejecting request");
-                request.setStatus("REJECTED");
-                return;
-            }
-            request.setStatus("APPROVED");
-            log.info("AdoptionRequest approved for pet");
-
-            Pet adoptedPet = new Pet();
-            adoptedPet.setName(pet.getName());
-            adoptedPet.setType(pet.getType());
-            adoptedPet.setStatus("ADOPTED");
-            adoptedPet.setCreatedAt(LocalDateTime.now());
-            entityService.addItem(PET_MODEL, ENTITY_VERSION, adoptedPet).get();
-
-            log.info("Pet status updated to ADOPTED by creating new entity");
-        } catch (Exception e) {
-            log.error("Failed processing adoption request: {}", e.getMessage());
-            request.setStatus("REJECTED");
         }
     }
 }
