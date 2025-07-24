@@ -1,0 +1,4 @@
+    private void processNBAGameScore(UUID scoreId, NBAGameScore score) {
+        logger.info("Processing NBAGameScore with technicalId: {}", scoreId);
+        // No extra processing required as per requirements (immutable records)
+    }
