@@ -1,0 +1,118 @@
+private void processDigestRequestJob(String technicalId, DigestRequestJob job) {
+    logger.info("Processing DigestRequestJob with ID: {}", technicalId);
+
+    try {
+        // Step 1: Validation (already done on input, but double-check)
+        if (!job.isValid()) {
+            logger.error("DigestRequestJob {} validation failed during processing", technicalId);
+            job.setStatus("FAILED");
+            updateDigestRequestJobStatus(technicalId, job);
+            return;
+        }
+
+        job.setStatus("PROCESSING");
+        updateDigestRequestJobStatus(technicalId, job);
+
+        // Step 2: Call external API
+        String endpoint = "https://petstore.swagger.io/v2/pet/findByStatus?status=available";
+        if (job.getRequestMetadata() != null && !job.getRequestMetadata().isBlank()) {
+            String metadata = job.getRequestMetadata().trim();
+            if (metadata.startsWith("status=")) {
+                String statusValue = metadata.substring(7);
+                endpoint = "https://petstore.swagger.io/v2/pet/findByStatus?status=" + statusValue;
+            }
+        }
+
+        ExternalApiData apiData = new ExternalApiData();
+        apiData.setJobTechnicalId(technicalId);
+        apiData.setApiEndpoint(endpoint);
+        apiData.setFetchedAt(Instant.now());
+
+        logger.info("Calling external API at {}", endpoint);
+        String response = restTemplate.getForObject(endpoint, String.class);
+        apiData.setResponseData(response);
+
+        if (!apiData.isValid()) {
+            throw new RuntimeException("ExternalApiData validation failed");
+        }
+
+        CompletableFuture<UUID> apiDataIdFuture = entityService.addItem(
+                "ExternalApiData",
+                ENTITY_VERSION,
+                apiData
+        );
+        UUID apiDataId = apiDataIdFuture.get();
+        logger.info("ExternalApiData saved with ID: {}", apiDataId.toString());
+
+        // Step 3: Compile digest email content
+        String emailContent = compileDigestContent(response);
+
+        DigestEmail digestEmail = new DigestEmail();
+        digestEmail.setJobTechnicalId(technicalId);
+        digestEmail.setEmailContent(emailContent);
+        digestEmail.setSentAt(null);
+        digestEmail.setDeliveryStatus("PENDING");
+
+        if (!digestEmail.isValid()) {
+            throw new RuntimeException("DigestEmail validation failed");
+        }
+
+        CompletableFuture<UUID> digestEmailIdFuture = entityService.addItem(
+                "DigestEmail",
+                ENTITY_VERSION,
+                digestEmail
+        );
+        UUID digestEmailId = digestEmailIdFuture.get();
+        String digestEmailIdStr = digestEmailId.toString();
+        logger.info("DigestEmail saved with ID: {}", digestEmailIdStr);
+
+        // Step 4: Send email
+        boolean emailSent = sendEmail(job.getEmail(), emailContent);
+        if (emailSent) {
+            digestEmail.setSentAt(Instant.now());
+            digestEmail.setDeliveryStatus("SENT");
+            logger.info("Email sent successfully to {}", job.getEmail());
+        } else {
+            digestEmail.setDeliveryStatus("FAILED");
+            logger.error("Failed to send email to {}", job.getEmail());
+        }
+
+        // TODO: Update DigestEmail entity with sentAt and deliveryStatus (update operation not supported by EntityService)
+        // For now, skipping update.
+
+        // Step 5: Finalize job status
+        job.setStatus(emailSent ? "COMPLETED" : "FAILED");
+        updateDigestRequestJobStatus(technicalId, job);
+
+    } catch (Exception e) {
+        logger.error("Error processing DigestRequestJob {}: {}", technicalId, e.getMessage());
+        job.setStatus("FAILED");
+        try {
+            updateDigestRequestJobStatus(technicalId, job);
+        } catch (Exception ex) {
+            logger.error("Error updating DigestRequestJob status to FAILED for ID {}: {}", technicalId, ex.getMessage());
+        }
+    }
+}
+
+private void updateDigestRequestJobStatus(String technicalId, DigestRequestJob job) throws ExecutionException, InterruptedException {
+    // TODO: Update operation is not supported by EntityService, skipping update.
+    // This is a placeholder to note that update is needed here.
+}
+
+private String compileDigestContent(String apiResponse) {
+    if (apiResponse == null || apiResponse.isBlank()) {
+        return "<html><body><p>No data available for digest.</p></body></html>";
+    }
+    return "<html><body><h3>Your Digest</h3><pre>" + apiResponse + "</pre></body></html>";
+}
+
+private boolean sendEmail(String recipientEmail, String content) {
+    if (recipientEmail == null || recipientEmail.isBlank()) {
+        logger.error("Recipient email is blank, cannot send email");
+        return false;
+    }
+    logger.info("Simulating sending email to: {}", recipientEmail);
+    // In real implementation, integrate with email service here
+    return true;
+}
