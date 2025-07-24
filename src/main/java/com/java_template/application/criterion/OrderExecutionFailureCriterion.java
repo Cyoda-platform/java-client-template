@@ -32,16 +32,16 @@ public class OrderExecutionFailureCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-                .evaluateEntity(Order.class, this::validateEntity)
-                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
-                .complete();
+            .evaluateEntity(Order.class, this::validateEntity)
+            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+            .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "OrderExecutionFailureCriterion".equals(modelSpec.operationName()) &&
-                "order".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+               "order".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
     private EvaluationOutcome validateEntity(Order entity) {
