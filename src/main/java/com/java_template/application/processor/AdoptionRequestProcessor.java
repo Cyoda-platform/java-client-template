@@ -1,10 +1,14 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.AdoptionRequest;
 import com.java_template.application.entity.Pet;
-import com.java_template.common.serializer.ErrorInfo;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.util.Condition;
+import com.java_template.common.util.SearchConditionRequest;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -14,12 +18,6 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -28,14 +26,14 @@ public class AdoptionRequestProcessor implements CyodaProcessor {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final ProcessorSerializer serializer;
-    private final EntityService entityService;
     private final ObjectMapper mapper;
+    private final com.java_template.common.service.EntityService entityService;
 
-    public AdoptionRequestProcessor(SerializerFactory serializerFactory, EntityService entityService, ObjectMapper mapper) {
+    public AdoptionRequestProcessor(SerializerFactory serializerFactory, ObjectMapper mapper, com.java_template.common.service.EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
-        this.entityService = entityService;
         this.mapper = mapper;
-        logger.info("AdoptionRequestProcessor initialized with SerializerFactory, EntityService, and ObjectMapper");
+        this.entityService = entityService;
+        logger.info("AdoptionRequestProcessor initialized with SerializerFactory, ObjectMapper and EntityService");
     }
 
     @Override
@@ -45,23 +43,18 @@ public class AdoptionRequestProcessor implements CyodaProcessor {
 
         return serializer.withRequest(request)
                 .toEntity(AdoptionRequest.class)
-                .validate(this::isValidEntity)
-                .map(this::processEntityLogic)
+                .map(this::processAdoptionRequest)
                 .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "AdoptionRequestProcessor".equals(modelSpec.operationName()) &&
-                "adoptionRequest".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+               "adoptionrequest".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private boolean isValidEntity(AdoptionRequest entity) {
-        return entity.isValid();
-    }
-
-    private AdoptionRequest processEntityLogic(AdoptionRequest request) {
+    private AdoptionRequest processAdoptionRequest(AdoptionRequest request) {
         logger.info("Processing AdoptionRequest with technicalId: {}", request.getTechnicalId());
 
         Condition condition = Condition.of("$.petId", "EQUALS", request.getPetId());
@@ -101,7 +94,7 @@ public class AdoptionRequestProcessor implements CyodaProcessor {
         entityService.addItem("Pet", Config.ENTITY_VERSION, pet).join();
 
         logger.info("AdoptionRequest {} approved and Pet {} marked as ADOPTED", request.getTechnicalId(), pet.getTechnicalId());
-
         return request;
     }
+
 }
