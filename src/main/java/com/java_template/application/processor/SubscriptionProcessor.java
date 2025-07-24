@@ -1,6 +1,7 @@
 package com.java_template.application.processor;
 
 import com.java_template.application.entity.Subscription;
+import com.java_template.common.serializer.ErrorInfo;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
@@ -12,6 +13,8 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+
+import java.util.function.Function;
 
 @Component
 public class SubscriptionProcessor implements CyodaProcessor {
@@ -31,39 +34,30 @@ public class SubscriptionProcessor implements CyodaProcessor {
 
         // Fluent entity processing with validation
         return serializer.withRequest(request)
-            .toEntity(Subscription.class)
-            .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic)
-            .complete();
+                .toEntity(Subscription.class)
+                .validate(Subscription::isValid, "Invalid subscription state")
+                .map(this::processSubscriptionLogic)
+                .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "SubscriptionProcessor".equals(modelSpec.operationName()) &&
-               "subscription".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+                "subscription".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private boolean isValidEntity(Subscription entity) {
-        return entity.isValid();
-    }
+    private Subscription processSubscriptionLogic(Subscription subscription) {
+        logger.info("Processing subscription with ID: {}", subscription.getSubscriptionId());
+        // Business logic copied from processSubscription flow:
+        // Initial State: Subscription entity created with ACTIVE status.
+        // Validation: Check subscription fields (valid userId, team exists, etc.).
+        // Processing: Register subscription for event notifications.
+        // Completion: Subscription ready to receive notifications.
 
-    private Subscription processEntityLogic(Subscription subscription) {
-        logger.info("Processing Subscription with ID: {}", subscription.getSubscriptionId());
-        if (subscription.getUserId() == null || subscription.getUserId().isBlank()) {
-            logger.error("Subscription userId is invalid");
-            return subscription;
-        }
-        if (subscription.getNotificationType() == null || subscription.getNotificationType().isBlank()) {
-            logger.error("Subscription notificationType is invalid");
-            return subscription;
-        }
-        if (subscription.getChannel() == null || subscription.getChannel().isBlank()) {
-            logger.error("Subscription channel is invalid");
-            return subscription;
-        }
-        logger.info("Subscription {} processed successfully", subscription.getSubscriptionId());
+        // Since no specific business logic methods were provided in the prototype for Subscription processing,
+        // we assume the subscription is valid and ready to be registered.
+        // No modifications done to subscription entity here.
         return subscription;
     }
-
 }
