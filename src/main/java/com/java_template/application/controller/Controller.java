@@ -1,11 +1,10 @@
 package com.java_template.application.controller;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Mail;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
@@ -14,12 +13,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/mail")
@@ -30,6 +28,7 @@ public class Controller {
     private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     @PostMapping
     public ResponseEntity<?> createMail(@RequestBody Mail mail) {
@@ -52,16 +51,14 @@ public class Controller {
                 }
             }
 
-            // addItem returns CompletableFuture<UUID>
             CompletableFuture<UUID> idFuture = entityService.addItem(
                     "mail",
                     ENTITY_VERSION,
                     mail
             );
 
-            UUID technicalId = idFuture.join(); // blocking here for simplicity
+            UUID technicalId = idFuture.join();
 
-            // Set id field for internal use (string form of UUID)
             mail.setId(technicalId.toString());
 
             logger.info("Mail entity created with ID: {}", technicalId);
@@ -81,7 +78,7 @@ public class Controller {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<?> getMailById(@PathVariable("id") String id) {
+    public ResponseEntity<?> getMailById(@PathVariable("id") String id) throws JsonProcessingException {
         try {
             UUID technicalId;
             try {
@@ -98,7 +95,7 @@ public class Controller {
                     technicalId
             );
 
-            ObjectNode node = itemFuture.join(); // blocking here
+            ObjectNode node = itemFuture.join();
 
             if (node == null || node.isEmpty()) {
                 logger.error("Mail not found with ID: {}", id);
@@ -106,18 +103,7 @@ public class Controller {
                         .body(Map.of("error", "Mail not found for technicalId: " + id));
             }
 
-            // Convert ObjectNode to Mail
-            Mail mail = null;
-            try {
-                mail = com.fasterxml.jackson.databind.json.JsonMapper.builder()
-                        .findAndAddModules()
-                        .build()
-                        .treeToValue(node, Mail.class);
-            } catch (Exception e) {
-                logger.error("Failed to deserialize mail entity", e);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body(Map.of("error", "Failed to parse mail entity"));
-            }
+            Mail mail = objectMapper.treeToValue(node, Mail.class);
 
             return ResponseEntity.ok(mail);
 
@@ -125,11 +111,14 @@ public class Controller {
             logger.error("Invalid argument in getMailById", e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of("error", e.getMessage()));
+        } catch (JsonProcessingException e) {
+            logger.error("Failed to deserialize mail entity", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to parse mail entity"));
         } catch (Exception e) {
             logger.error("Exception in getMailById", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Internal server error"));
         }
     }
-
 }
