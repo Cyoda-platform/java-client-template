@@ -47,12 +47,13 @@ public class IsScheduledDateValidCriterion implements CyodaCriterion {
     }
 
     private EvaluationOutcome validateEntity(NbaScoresFetchJob entity) {
-        // Validate scheduledDate is not null and not in the future
-        if (entity.getScheduledDate() == null) {
-            return EvaluationOutcome.fail("Scheduled date is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        LocalDate scheduledDate = entity.getScheduledDate();
+        if (scheduledDate == null) {
+            return EvaluationOutcome.fail("Scheduled date must not be null", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (entity.getScheduledDate().isAfter(LocalDate.now())) {
-            return EvaluationOutcome.fail("Scheduled date cannot be in the future", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        // Business rule: scheduledDate must not be in the future
+        if (scheduledDate.isAfter(LocalDate.now())) {
+            return EvaluationOutcome.fail("Scheduled date cannot be in the future", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
         return EvaluationOutcome.success();
     }
