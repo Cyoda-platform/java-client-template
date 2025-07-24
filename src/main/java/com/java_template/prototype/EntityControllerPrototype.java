@@ -7,28 +7,29 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.*;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.http.ResponseEntity as HttpResponseEntity;
 
 @RestController
 @RequestMapping(path = "/prototype")
 @Slf4j
 public class EntityControllerPrototype {
 
-    // Cache and Id counters for PetRegistrationJob entity
     private final ConcurrentHashMap<String, com.java_template.application.entity.PetRegistrationJob> petRegistrationJobCache = new ConcurrentHashMap<>();
     private final AtomicLong petRegistrationJobIdCounter = new AtomicLong(1);
 
-    // Cache and Id counters for Pet entity
     private final ConcurrentHashMap<String, com.java_template.application.entity.Pet> petCache = new ConcurrentHashMap<>();
     private final AtomicLong petIdCounter = new AtomicLong(1);
 
-    // Cache and Id counters for Order entity
     private final ConcurrentHashMap<String, com.java_template.application.entity.Order> orderCache = new ConcurrentHashMap<>();
     private final AtomicLong orderIdCounter = new AtomicLong(1);
+
+    private final RestTemplate restTemplate = new RestTemplate();
 
     // ----------- PetRegistrationJob endpoints -----------
 
     @PostMapping("/pet-registration-jobs")
-    public ResponseEntity<?> createPetRegistrationJob(@RequestBody com.java_template.application.entity.PetRegistrationJob job) {
+    public ResponseEntity<Map<String, Object>> createPetRegistrationJob(@RequestBody com.java_template.application.entity.PetRegistrationJob job) {
         if (job == null || job.getPetName() == null || job.getPetName().isBlank()
                 || job.getPetType() == null || job.getPetType().isBlank()
                 || job.getPetStatus() == null || job.getPetStatus().isBlank()
@@ -44,11 +45,16 @@ public class EntityControllerPrototype {
 
         log.info("Created PetRegistrationJob with ID: {}", technicalId);
 
-        processPetRegistrationJob(job);
+        try {
+            processPetRegistrationJob(job);
+        } catch (Exception e) {
+            log.error("Error processing PetRegistrationJob: {}", e.getMessage());
+            job.setStatus("FAILED");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Processing failed"));
+        }
 
-        // Return current pets list from public pets API simulation
-        Collection<com.java_template.application.entity.Pet> pets = petCache.values();
-        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId, "pets", pets));
+        // Return job id and current pets
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId, "pets", petCache.values()));
     }
 
     @GetMapping("/pet-registration-jobs/{id}")
@@ -63,7 +69,6 @@ public class EntityControllerPrototype {
 
     private void processPetRegistrationJob(com.java_template.application.entity.PetRegistrationJob job) {
         log.info("Processing PetRegistrationJob with petName: {}", job.getPetName());
-        // Validation
         if (job.getPetName().isBlank() || job.getPetType().isBlank() || job.getOwnerName().isBlank()) {
             job.setStatus("FAILED");
             log.error("PetRegistrationJob validation failed for petName: {}", job.getPetName());
@@ -71,30 +76,39 @@ public class EntityControllerPrototype {
         }
         job.setStatus("PROCESSING");
 
-        // Implement logic to fetch data from public pets API and save them as pets
-        // Simulated here by creating a new Pet entity from job data and adding to cache
-        String petTechnicalId = "pet-" + petIdCounter.getAndIncrement();
-        com.java_template.application.entity.Pet pet = new com.java_template.application.entity.Pet();
-        pet.setPetId(petTechnicalId);
-        pet.setName(job.getPetName());
-        pet.setCategory(job.getPetType());
-        pet.setStatus(job.getPetStatus());
-        pet.setPhotoUrls(Collections.emptyList());
-        pet.setTags(Collections.emptyList());
-        petCache.put(petTechnicalId, pet);
+        // Fetch pets from public API (Petstore Swagger)
+        String url = "https://petstore.swagger.io/v2/pet/findByStatus?status=available";
+        com.java_template.application.entity.Pet newPet;
 
-        log.info("Fetched and saved pet from public API simulation with ID: {}", petTechnicalId);
+        try {
+            HttpResponseEntity<com.java_template.application.entity.Pet[]> response = restTemplate.getForEntity(url, com.java_template.application.entity.Pet[].class);
+            com.java_template.application.entity.Pet[] petsFromApi = response.getBody();
+            if (petsFromApi != null) {
+                for (com.java_template.application.entity.Pet apiPet : petsFromApi) {
+                    // Assign unique petId if not present
+                    String petId = apiPet.getPetId();
+                    if (petId == null || petId.isBlank()) {
+                        petId = "pet-" + petIdCounter.getAndIncrement();
+                        apiPet.setPetId(petId);
+                    }
+                    petCache.put(petId, apiPet);
+                    log.info("Saved Pet from public API with ID: {}", petId);
+                }
+            }
+        } catch (Exception e) {
+            log.error("Failed to fetch pets from public API: {}", e.getMessage());
+            job.setStatus("FAILED");
+            return;
+        }
 
         job.setStatus("COMPLETED");
-        log.info("PetRegistrationJob processing completed for petName: {}", job.getPetName());
+        log.info("PetRegistrationJob processed successfully for petName: {}", job.getPetName());
     }
 
     // ----------- Pet endpoints -----------
 
-    // Removed POST /pets endpoint as pet creation should happen via job submission
-
     @GetMapping("/pets")
-    public ResponseEntity<Collection<com.java_template.application.entity.Pet>> getAllPets() {
+    public ResponseEntity<Collection<com.java_template.application.entity.Pet>> getPets() {
         return ResponseEntity.ok(petCache.values());
     }
 
@@ -110,13 +124,11 @@ public class EntityControllerPrototype {
 
     private void processPet(com.java_template.application.entity.Pet pet) {
         log.info("Processing Pet with ID: {}", pet.getPetId());
-        // Validate required fields
         if (pet.getName().isBlank() || pet.getCategory().isBlank() || pet.getStatus().isBlank()) {
             log.error("Pet validation failed for ID: {}", pet.getPetId());
             return;
         }
-        // No additional processing for now per requirements
-        log.info("Pet processed and marked as available: {}", pet.getPetId());
+        log.info("Pet processed and available: {}", pet.getPetId());
     }
 
     // ----------- Order endpoints -----------
@@ -162,9 +174,7 @@ public class EntityControllerPrototype {
             order.setStatus("FAILED");
             return;
         }
-        // For simplicity, assume stock is always sufficient
         order.setStatus("APPROVED");
         log.info("Order approved for ID: {}", order.getOrderId());
-        // Notification or shipment logic could be added here
     }
 }
