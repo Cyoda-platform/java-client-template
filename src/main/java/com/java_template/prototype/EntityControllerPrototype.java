@@ -15,7 +15,10 @@ import java.util.UUID;
 @Slf4j
 public class EntityControllerPrototype {
 
+    // Cache keyed by business id
     private final ConcurrentHashMap<String, Mail> mailCache = new ConcurrentHashMap<>();
+    // Additional cache keyed by technicalId as string for lookup by technicalId
+    private final ConcurrentHashMap<String, Mail> mailCacheByTechnicalId = new ConcurrentHashMap<>();
     private final AtomicLong mailIdCounter = new AtomicLong(1);
 
     @PostMapping("/mails")
@@ -45,26 +48,34 @@ public class EntityControllerPrototype {
         // Generate business id and technical id
         String generatedId = "M-" + mailIdCounter.getAndIncrement();
         mail.setId(generatedId);
-        mail.setTechnicalId(UUID.randomUUID());
+        UUID generatedTechnicalId = UUID.randomUUID();
+        mail.setTechnicalId(generatedTechnicalId);
         mail.setStatus("PENDING");
 
         mailCache.put(generatedId, mail);
+        mailCacheByTechnicalId.put(generatedTechnicalId.toString(), mail);
 
         // Trigger event-driven processing
         processMail(mail);
 
         // Return only technical id as per spec
-        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("id", mail.getTechnicalId().toString()));
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("id", generatedTechnicalId.toString()));
     }
 
     @GetMapping("/mails/{id}")
     public ResponseEntity<?> getMail(@PathVariable String id) {
+        // Try to find by business id first
         Mail mail = mailCache.get(id);
-        if (mail == null) {
-            log.error("Mail with id {} not found", id);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Mail not found"));
+        if (mail != null) {
+            return ResponseEntity.ok(mail);
         }
-        return ResponseEntity.ok(mail);
+        // If not found, try by technicalId
+        mail = mailCacheByTechnicalId.get(id);
+        if (mail != null) {
+            return ResponseEntity.ok(mail);
+        }
+        log.error("Mail with id {} not found by business id or technical id", id);
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Mail not found"));
     }
 
     private void processMail(Mail mail) {
