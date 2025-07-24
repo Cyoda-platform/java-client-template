@@ -1,25 +1,26 @@
 package com.java_template.application.controller;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.GameScore;
 import com.java_template.application.entity.ScoreFetchJob;
 import com.java_template.application.entity.Subscriber;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import static com.java_template.common.config.Config.*;
 
+import jakarta.validation.Valid;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.util.*;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/controller")
@@ -28,10 +29,11 @@ import java.util.concurrent.ExecutionException;
 public class Controller {
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     // POST /controller/scoreFetchJob - create ScoreFetchJob entity
     @PostMapping("/scoreFetchJob")
-    public ResponseEntity<?> createScoreFetchJob(@RequestBody ScoreFetchJob job) {
+    public ResponseEntity<?> createScoreFetchJob(@Valid @RequestBody ScoreFetchJob job) throws ExecutionException, InterruptedException {
         try {
             if (job == null || job.getJobDate() == null || job.getStatus() == null || job.getStatus().isBlank()) {
                 log.error("Invalid ScoreFetchJob input");
@@ -60,7 +62,7 @@ public class Controller {
 
     // GET /controller/scoreFetchJob/{id} - retrieve ScoreFetchJob by technicalId
     @GetMapping("/scoreFetchJob/{id}")
-    public ResponseEntity<?> getScoreFetchJob(@PathVariable String id) {
+    public ResponseEntity<?> getScoreFetchJob(@PathVariable String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         try {
             UUID technicalId = UUID.fromString(id);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem("ScoreFetchJob", ENTITY_VERSION, technicalId);
@@ -70,7 +72,7 @@ public class Controller {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "ScoreFetchJob not found"));
             }
             // Convert ObjectNode to ScoreFetchJob
-            ScoreFetchJob job = entityService.getObjectMapper().treeToValue(item, ScoreFetchJob.class);
+            ScoreFetchJob job = objectMapper.treeToValue(item, ScoreFetchJob.class);
             return ResponseEntity.ok(job);
         } catch (IllegalArgumentException e) {
             log.error("IllegalArgumentException in getScoreFetchJob", e);
@@ -83,7 +85,7 @@ public class Controller {
 
     // POST /controller/subscriber - create Subscriber entity (local cache remains)
     @PostMapping("/subscriber")
-    public ResponseEntity<?> createSubscriber(@RequestBody Subscriber subscriber) {
+    public ResponseEntity<?> createSubscriber(@Valid @RequestBody Subscriber subscriber) {
         try {
             if (subscriber == null || subscriber.getEmail() == null || subscriber.getEmail().isBlank()
                     || subscriber.getStatus() == null || subscriber.getStatus().isBlank()) {
@@ -126,7 +128,7 @@ public class Controller {
 
     // POST /controller/gameScore - create GameScore entity
     @PostMapping("/gameScore")
-    public ResponseEntity<?> createGameScore(@RequestBody GameScore gameScore) {
+    public ResponseEntity<?> createGameScore(@Valid @RequestBody GameScore gameScore) throws ExecutionException, InterruptedException {
         try {
             if (gameScore == null || gameScore.getGameDate() == null || gameScore.getHomeTeam() == null || gameScore.getHomeTeam().isBlank()
                     || gameScore.getAwayTeam() == null || gameScore.getAwayTeam().isBlank()
@@ -154,7 +156,7 @@ public class Controller {
 
     // GET /controller/gameScore/{id} - get GameScore by technicalId
     @GetMapping("/gameScore/{id}")
-    public ResponseEntity<?> getGameScore(@PathVariable String id) {
+    public ResponseEntity<?> getGameScore(@PathVariable String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         try {
             UUID technicalId = UUID.fromString(id);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem("GameScore", ENTITY_VERSION, technicalId);
@@ -163,7 +165,7 @@ public class Controller {
                 log.error("GameScore not found with technicalId: {}", id);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "GameScore not found"));
             }
-            GameScore gameScore = entityService.getObjectMapper().treeToValue(item, GameScore.class);
+            GameScore gameScore = objectMapper.treeToValue(item, GameScore.class);
             return ResponseEntity.ok(gameScore);
         } catch (IllegalArgumentException e) {
             log.error("IllegalArgumentException in getGameScore", e);
