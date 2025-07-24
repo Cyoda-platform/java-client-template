@@ -6,37 +6,18 @@
   "states": {
     "none": {
       "transitions": [
-        {
-          "name": "start_validation",
-          "next": "validateSourceUrl"
-        }
+        { "name": "start_validation", "next": "validateSourceUrl" }
       ]
     },
     "validateSourceUrl": {
       "transitions": [
         {
-          "criterion": {
-            "function": {
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              },
-              "name": "SourceUrlValidationCriterion"
-            },
-            "type": "function"
-          },
+          "criterion": { "function": { "config": { "calculationNodesTags": "cyoda_application" }, "name": "SourceUrlValidationCriterion" }, "type": "function" },
           "name": "valid_sourceUrl",
           "next": "processing"
         },
         {
-          "criterion": {
-            "function": {
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              },
-              "name": "SourceUrlInvalidCriterion"
-            },
-            "type": "function"
-          },
+          "criterion": { "function": { "config": { "calculationNodesTags": "cyoda_application" }, "name": "SourceUrlInvalidCriterion" }, "type": "function" },
           "name": "invalid_sourceUrl",
           "next": "failed"
         }
@@ -45,48 +26,22 @@
     "processing": {
       "transitions": [
         {
-          "criterion": {
-            "function": {
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              },
-              "name": "ProcessPetsSuccessCriterion"
-            },
-            "type": "function"
-          },
+          "criterion": { "function": { "config": { "calculationNodesTags": "cyoda_application" }, "name": "ProcessPetsSuccessCriterion" }, "type": "function" },
           "name": "process_success",
           "next": "completed",
           "processors": [
-            {
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              },
-              "executionMode": "SYNC",
-              "name": "PetIngestionJobProcessor"
-            }
+            { "config": { "calculationNodesTags": "cyoda_application" }, "executionMode": "SYNC", "name": "PetIngestionJobProcessor" }
           ]
         },
         {
-          "criterion": {
-            "function": {
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              },
-              "name": "ProcessPetsFailureCriterion"
-            },
-            "type": "function"
-          },
+          "criterion": { "function": { "config": { "calculationNodesTags": "cyoda_application" }, "name": "ProcessPetsFailureCriterion" }, "type": "function" },
           "name": "process_failure",
           "next": "failed"
         }
       ]
     },
-    "completed": {
-      "transitions": []
-    },
-    "failed": {
-      "transitions": []
-    }
+    "completed": { "transitions": [] },
+    "failed": { "transitions": [] }
   },
   "version": "1.0"
 }
