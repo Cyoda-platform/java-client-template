@@ -8,7 +8,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.*;
 import com.java_template.application.entity.Mail;
-import com.java_template.application.entity.MailStatusEnum;
 
 @RestController
 @RequestMapping(path = "/prototype")
@@ -43,7 +42,7 @@ public class EntityControllerPrototype {
             mail.setIsHappy(null);
             mail.setIsGloomy(null);
             mail.setCriteriaResults(new HashMap<>());
-            mail.setStatus(MailStatusEnum.CREATED);
+            mail.setStatus(null);
 
             mailCache.put(id, mail);
             log.info("Created Mail with ID: {}", id);
@@ -53,7 +52,7 @@ public class EntityControllerPrototype {
 
             Map<String, String> response = new HashMap<>();
             response.put("id", id);
-            response.put("status", mail.getStatus().name());
+            response.put("status", mail.getStatus() == null ? "null" : mail.getStatus());
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
 
         } catch (Exception e) {
@@ -102,7 +101,7 @@ public class EntityControllerPrototype {
             newMailVersion.setIsHappy(null);
             newMailVersion.setIsGloomy(null);
             newMailVersion.setCriteriaResults(new HashMap<>());
-            newMailVersion.setStatus(MailStatusEnum.CREATED);
+            newMailVersion.setStatus(null);
 
             mailCache.put(newId, newMailVersion);
             log.info("Created new version Mail with ID: {}", newId);
@@ -112,7 +111,7 @@ public class EntityControllerPrototype {
 
             Map<String, String> response = new HashMap<>();
             response.put("id", newId);
-            response.put("status", newMailVersion.getStatus().name());
+            response.put("status", newMailVersion.getStatus() == null ? "null" : newMailVersion.getStatus());
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
 
         } catch (Exception e) {
@@ -130,7 +129,7 @@ public class EntityControllerPrototype {
                     .body("Mail with ID " + id + " not found");
         }
         try {
-            // Create deactivation record as a new entity version with status DEACTIVATED
+            // Create deactivation record as a new entity version with no status
             Mail deactivationRecord = new Mail();
             String newId = String.valueOf(mailIdCounter.getAndIncrement());
             deactivationRecord.setId(newId);
@@ -139,7 +138,7 @@ public class EntityControllerPrototype {
             deactivationRecord.setIsHappy(existingMail.getIsHappy());
             deactivationRecord.setIsGloomy(existingMail.getIsGloomy());
             deactivationRecord.setCriteriaResults(existingMail.getCriteriaResults());
-            deactivationRecord.setStatus(null); // No DEACTIVATED in enum
+            deactivationRecord.setStatus(null);
 
             mailCache.put(newId, deactivationRecord);
             log.info("Deactivated Mail with new record ID: {}", newId);
@@ -174,28 +173,28 @@ public class EntityControllerPrototype {
         if (happyCount > gloomyCount) {
             mail.setIsHappy(true);
             mail.setIsGloomy(false);
-            mail.setStatus(MailStatusEnum.PROCESSING);
+            mail.setStatus(null);
         } else {
             mail.setIsHappy(false);
             mail.setIsGloomy(true);
-            mail.setStatus(MailStatusEnum.PROCESSING);
+            mail.setStatus(null);
         }
 
         // Step 3: Send mail via appropriate processor (simulated)
         boolean sendSuccess = true;
-        if (mail.getIsHappy()) {
+        if (mail.getIsHappy() != null && mail.getIsHappy()) {
             // simulate sendHappyMail
             log.info("Sending happy mail to recipients: {}", mail.getMailList());
-            mail.setStatus(MailStatusEnum.SENT_HAPPY);
+            mail.setStatus(null);
         } else {
             // simulate sendGloomyMail
             log.info("Sending gloomy mail to recipients: {}", mail.getMailList());
-            mail.setStatus(MailStatusEnum.SENT_GLOOMY);
+            mail.setStatus(null);
         }
 
         // Step 4: Handle send failure (simulated always success here)
         if (!sendSuccess) {
-            mail.setStatus(MailStatusEnum.FAILED);
+            mail.setStatus(null);
             log.error("Failed to send mail with ID: {}", mail.getId());
         }
     }
