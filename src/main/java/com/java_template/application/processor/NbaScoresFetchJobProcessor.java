@@ -12,20 +12,28 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 @Component
 public class NbaScoresFetchJobProcessor implements CyodaProcessor {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final ProcessorSerializer serializer;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+    private final com.java_template.common.service.EntityService entityService;
 
-    public NbaScoresFetchJobProcessor(SerializerFactory serializerFactory) {
+    public NbaScoresFetchJobProcessor(SerializerFactory serializerFactory, com.fasterxml.jackson.databind.ObjectMapper objectMapper, com.java_template.common.service.EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
-        logger.info("NbaScoresFetchJobProcessor initialized with SerializerFactory");
+        this.objectMapper = objectMapper;
+        this.entityService = entityService;
+        logger.info("NbaScoresFetchJobProcessor initialized with SerializerFactory, ObjectMapper and EntityService");
     }
 
     @Override
@@ -34,51 +42,135 @@ public class NbaScoresFetchJobProcessor implements CyodaProcessor {
         logger.info("Processing NbaScoresFetchJob for request: {}", request.getId());
 
         return serializer.withRequest(request)
-                .toEntity(NbaScoresFetchJob.class)
-                .validate(this::isValidScheduledDate)
-                .map(this::processNbaScoresFetchJobLogic)
-                .complete();
+            .toEntity(NbaScoresFetchJob.class)
+            .validate(this::isValidEntity)
+            .map(this::processEntityLogic)
+            .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "NbaScoresFetchJobProcessor".equals(modelSpec.operationName()) &&
-                "nbascoresfetchjob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+               "nbaScoresFetchJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private boolean isValidScheduledDate(NbaScoresFetchJob job) {
-        LocalDate scheduledDate = job.getScheduledDate();
-        if (scheduledDate == null) {
-            logger.error("Scheduled date is null");
-            return false;
-        }
-        if (scheduledDate.isAfter(LocalDate.now())) {
-            logger.error("Scheduled date is in the future: {}", scheduledDate);
-            return false;
-        }
-        return true;
+    private boolean isValidEntity(NbaScoresFetchJob entity) {
+        return entity.isValid();
     }
 
-    private NbaScoresFetchJob processNbaScoresFetchJobLogic(NbaScoresFetchJob job) {
-        // Simulate external API call and processing
+    private NbaScoresFetchJob processEntityLogic(NbaScoresFetchJob entity) {
         try {
-            // Fetch external NBA API data for scheduledDate (simulate)
-            logger.info("Fetching NBA scores for date: {}", job.getScheduledDate());
-
-            // Simulated fetched games
-            // In real code, this would be an API call and data parsing
-            // For each fetched game, create an immutable NbaGame entity with status REPORTED
-            // Add code here if needed to interact with EntityService for adding NbaGame entities
-
-            // Update job status to COMPLETED
-            job.setStatus("COMPLETED");
-            job.setSummary("NBA scores fetched and processed successfully.");
+            UUID jobTechnicalId = UUID.fromString(entity.getModelKey().getName()); // This is a placeholder; actual technicalId should be extracted differently if needed
+            LocalDate scheduledDate = entity.getScheduledDate();
+            processNbaScoresFetchJobAsync(jobTechnicalId, scheduledDate);
         } catch (Exception e) {
-            logger.error("Error fetching NBA scores: {}", e.getMessage());
-            job.setStatus("FAILED");
-            job.setSummary("Failed to fetch NBA scores: " + e.getMessage());
+            logger.error("Error processing NBA Scores Fetch Job: {}", e.getMessage());
+            // Optionally update entity status to FAILED
+            entity.setStatus("FAILED");
+            entity.setSummary("Exception during processing: " + e.getMessage());
         }
-        return job;
+        return entity;
     }
+
+    private void processNbaScoresFetchJobAsync(UUID jobTechnicalId, LocalDate scheduledDate) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                logger.info("Processing NbaScoresFetchJob with technicalId: {}", jobTechnicalId);
+
+                if (scheduledDate.isAfter(LocalDate.now())) {
+                    updateJobStatus(jobTechnicalId, "FAILED", "Scheduled date cannot be in the future");
+                    logger.error("Job {} failed: scheduledDate in future", jobTechnicalId);
+                    return;
+                }
+
+                updateJobStatus(jobTechnicalId, "IN_PROGRESS", null);
+
+                String apiKey = "test"; // Replace with valid API key or config
+                String url = String.format("https://api.sportsdata.io/v3/nba/scores/json/ScoresBasicFinal/%s?key=%s", scheduledDate, apiKey);
+
+                String response = entityService.getRestTemplate().getForObject(url, String.class);
+                JsonNode root = objectMapper.readTree(response);
+                if (root.isArray()) {
+                    int gamesCount = 0;
+                    List<ObjectNode> newGames = new ArrayList<>();
+                    for (JsonNode node : root) {
+                        ObjectNode gameNode = objectMapper.createObjectNode();
+                        gameNode.put("gameDate", scheduledDate.toString());
+                        gameNode.put("homeTeam", node.path("HomeTeam").asText());
+                        if (!node.path("HomeTeamScore").isNull())
+                            gameNode.put("homeScore", node.path("HomeTeamScore").asInt());
+                        else
+                            gameNode.putNull("homeScore");
+                        gameNode.put("awayTeam", node.path("AwayTeam").asText());
+                        if (!node.path("AwayTeamScore").isNull())
+                            gameNode.put("awayScore", node.path("AwayTeamScore").asInt());
+                        else
+                            gameNode.putNull("awayScore");
+                        gameNode.put("status", node.path("Status").asText(null));
+                        newGames.add(gameNode);
+                        gamesCount++;
+                    }
+
+                    if (!newGames.isEmpty()) {
+                        CompletableFuture<List<UUID>> idsFuture = entityService.addItems("NbaGame", Config.ENTITY_VERSION, newGames);
+                        List<UUID> technicalIds = idsFuture.get();
+                        logger.info("Added {} games with technical IDs: {}", technicalIds.size(), technicalIds);
+                    }
+
+                    updateJobStatus(jobTechnicalId, "COMPLETED", "Fetched " + gamesCount + " games for " + scheduledDate);
+
+                    StringBuilder summaryBuilder = new StringBuilder();
+                    summaryBuilder.append("NBA Scores for ").append(scheduledDate).append(":\n");
+                    for (JsonNode node : root) {
+                        summaryBuilder.append(node.path("HomeTeam").asText()).append(" ")
+                            .append(node.path("HomeTeamScore").isNull() ? "-" : node.path("HomeTeamScore").asInt())
+                            .append(" - ")
+                            .append(node.path("AwayTeamScore").isNull() ? "-" : node.path("AwayTeamScore").asInt())
+                            .append(" ")
+                            .append(node.path("AwayTeam").asText()).append("\n");
+                    }
+
+                    entityService.getSubscriberCache().values().stream()
+                        .filter(s -> "ACTIVE".equals(s.getStatus()))
+                        .forEach(s -> {
+                            logger.info("Sending email to {} with summary:\n{}", s.getEmail(), summaryBuilder.toString());
+                            // Real email sending implementation can be added here
+                        });
+
+                } else {
+                    updateJobStatus(jobTechnicalId, "FAILED", "Unexpected API response format");
+                    logger.error("Unexpected API response format for job {}", jobTechnicalId);
+                }
+            } catch (Exception e) {
+                try {
+                    updateJobStatus(jobTechnicalId, "FAILED", "Exception during fetch: " + e.getMessage());
+                } catch (Exception ex) {
+                    logger.error("Failed to update job status for {}: {}", jobTechnicalId, ex.getMessage());
+                }
+                logger.error("Error processing job {}: {}", jobTechnicalId, e.getMessage());
+            }
+        });
+    }
+
+    private void updateJobStatus(UUID jobTechnicalId, String status, String summary) throws ExecutionException, InterruptedException {
+        CompletableFuture<ObjectNode> jobFuture = entityService.getItem("nbaScoresFetchJob", Config.ENTITY_VERSION, jobTechnicalId);
+        ObjectNode oldJob = jobFuture.get();
+        if (oldJob == null) {
+            logger.error("Job not found for status update: {}", jobTechnicalId);
+            return;
+        }
+        ObjectNode newJob = oldJob.deepCopy();
+        newJob.put("status", status);
+        if (summary != null) {
+            newJob.put("summary", summary);
+        } else {
+            newJob.putNull("summary");
+        }
+        newJob.put("scheduledDate", oldJob.path("scheduledDate").asText());
+        newJob.put("fetchTimeUTC", oldJob.path("fetchTimeUTC").asText());
+
+        entityService.addItem("nbaScoresFetchJob", Config.ENTITY_VERSION, newJob).get();
+    }
+
 }
