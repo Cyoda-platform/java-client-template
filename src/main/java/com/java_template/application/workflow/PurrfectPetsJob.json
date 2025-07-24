@@ -1,0 +1,75 @@
+{
+    "active": true,
+    "desc": "Workflow for orchestrating PurrfectPetsJob processing lifecycle",
+    "initialState": "none",
+    "name": "PurrfectPetsJob Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsPetStatusValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "start_if_pet_status_valid",
+                    "next": "processing",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "PurrfectPetsJobProcessor"
+                        }
+                    ]
+                },
+                {
+                    "name": "fail_if_pet_status_invalid",
+                    "next": "failed"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsProcessingSuccessCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "complete_if_processing_success",
+                    "next": "completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsProcessingFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "fail_if_processing_failed",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
