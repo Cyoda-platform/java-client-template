@@ -34,24 +34,24 @@ public class IsScheduledDateValidCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-                .evaluateEntity(NbaScoresFetchJob.class, this::validateEntity)
-                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
-                .complete();
+            .evaluateEntity(NbaScoresFetchJob.class, this::validateEntity)
+            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+            .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "IsScheduledDateValidCriterion".equals(modelSpec.operationName()) &&
-                "nbaScoresFetchJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+               "nbaScoresFetchJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
     private EvaluationOutcome validateEntity(NbaScoresFetchJob entity) {
-        LocalDate scheduledDate = entity.getScheduledDate();
-        if (scheduledDate == null) {
+        // Validate scheduledDate is not null and not in the future
+        if (entity.getScheduledDate() == null) {
             return EvaluationOutcome.fail("Scheduled date is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (scheduledDate.isAfter(LocalDate.now())) {
+        if (entity.getScheduledDate().isAfter(LocalDate.now())) {
             return EvaluationOutcome.fail("Scheduled date cannot be in the future", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         return EvaluationOutcome.success();
