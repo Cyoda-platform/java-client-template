@@ -1,9 +1,12 @@
 package com.java_template.application.controller;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Mail;
 import com.java_template.common.service.EntityService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -12,8 +15,9 @@ import org.springframework.web.bind.annotation.*;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.UUID;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/mails")
@@ -22,11 +26,12 @@ import static com.java_template.common.config.Config.*;
 public class Controller {
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     private static final String ENTITY_NAME = "Mail";
 
     @PostMapping
-    public ResponseEntity<?> createMail(@RequestBody Map<String, Object> requestBody) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> createMail(@RequestBody Map<String, Object> requestBody) throws ExecutionException, InterruptedException, JsonProcessingException {
         Object mailListObj = requestBody.get("mailList");
         if (mailListObj == null || !(mailListObj instanceof List)) {
             return ResponseEntity.badRequest().body("Invalid or missing 'mailList' field");
@@ -64,7 +69,7 @@ public class Controller {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<?> getMail(@PathVariable String id) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> getMail(@PathVariable String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         UUID technicalId;
         try {
             technicalId = UUID.fromString(id);
@@ -77,12 +82,12 @@ public class Controller {
             return ResponseEntity.status(404).body("Mail with ID " + id + " not found");
         }
         // convert ObjectNode to Mail
-        Mail mail = entityService.getObjectMapper().convertValue(result, Mail.class);
+        Mail mail = objectMapper.treeToValue(result, Mail.class);
         return ResponseEntity.ok(mail);
     }
 
     @PostMapping("/{id}/update")
-    public ResponseEntity<?> updateMail(@PathVariable String id, @RequestBody Map<String, Object> requestBody) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> updateMail(@PathVariable String id, @RequestBody Map<String, Object> requestBody) throws ExecutionException, InterruptedException, JsonProcessingException {
         UUID technicalId;
         try {
             technicalId = UUID.fromString(id);
@@ -107,7 +112,7 @@ public class Controller {
             mailList.add((String) obj);
         }
 
-        Mail newMailVersion = entityService.getObjectMapper().convertValue(existingNode, Mail.class);
+        Mail newMailVersion = objectMapper.treeToValue(existingNode, Mail.class);
         newMailVersion.setTechnicalId(null); // clear technicalId to create new entity version
         newMailVersion.setMailList(mailList);
         newMailVersion.setIsHappy(null);
@@ -133,7 +138,7 @@ public class Controller {
     }
 
     @PostMapping("/{id}/deactivate")
-    public ResponseEntity<?> deactivateMail(@PathVariable String id) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> deactivateMail(@PathVariable String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         UUID technicalId;
         try {
             technicalId = UUID.fromString(id);
@@ -146,7 +151,7 @@ public class Controller {
             return ResponseEntity.status(404).body("Mail with ID " + id + " not found");
         }
 
-        Mail existingMail = entityService.getObjectMapper().convertValue(existingNode, Mail.class);
+        Mail existingMail = objectMapper.treeToValue(existingNode, Mail.class);
 
         Mail deactivationRecord = new Mail();
         deactivationRecord.setMailList(existingMail.getMailList());
