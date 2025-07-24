@@ -1,0 +1,83 @@
+{
+    "active": true,
+    "desc": "Workflow for processing customer entity from creation through validation and enrichment to completion or failure.",
+    "initialState": "none",
+    "name": "Customer Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "start_processing",
+                    "next": "validating"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "name": "complete_enrichment",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "OrderProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ProcessingFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "processing_failed",
+                    "next": "failed"
+                }
+            ]
+        },
+        "validating": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ValidateCustomerCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "valid_email_and_unique",
+                    "next": "processing"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "InvalidCustomerCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "invalid_or_not_unique_email",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
