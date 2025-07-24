@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.ReportJob;
+import com.java_template.application.entity.Report;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,7 +32,7 @@ public class HasFetchFailedCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(ReportJob.class, this::validateEntity)
+            .evaluateEntity(Report.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,21 +40,25 @@ public class HasFetchFailedCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "HasFetchFailedCriterion".equals(modelSpec.operationName()) &&
-               "reportJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "report".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(ReportJob entity) {
-        // Validate failure state after fetching rates
-        if (entity.getStatus() == null || entity.getStatus().isBlank()) {
-            return EvaluationOutcome.fail("status must not be blank", StandardEvalReasonCategories.VALIDATION_FAILURE);
+    private EvaluationOutcome validateEntity(Report entity) {
+        // Business logic: Fail if any critical field for fetch is missing or invalid
+        if (entity.getJobTechnicalId() == null || entity.getJobTechnicalId().isBlank()) {
+            return EvaluationOutcome.fail("JobTechnicalId is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (!entity.getStatus().equalsIgnoreCase("FAILED")) {
-            return EvaluationOutcome.fail("status must be FAILED to indicate fetch failure", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        if (entity.getGeneratedAt() == null) {
+            return EvaluationOutcome.fail("GeneratedAt timestamp is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
         }
-        if (entity.getBtcUsdRate() != null || entity.getBtcEurRate() != null) {
-            return EvaluationOutcome.fail("Rates should not be present when fetch has failed", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+        if (entity.getBtcUsdRate() == null || entity.getBtcEurRate() == null) {
+            return EvaluationOutcome.fail("BTC rates are incomplete", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
         }
+        if (entity.getEmailSent() == null) {
+            return EvaluationOutcome.fail("EmailSent flag is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        // Additional logic could be added here to detect fetch failure conditions
         return EvaluationOutcome.success();
     }
 }
