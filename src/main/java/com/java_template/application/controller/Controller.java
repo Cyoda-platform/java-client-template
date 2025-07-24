@@ -1,5 +1,7 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Mail;
@@ -12,10 +14,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 import static com.java_template.common.config.Config.*;
 
@@ -26,10 +30,11 @@ import static com.java_template.common.config.Config.*;
 public class Controller {
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
     private static final String ENTITY_NAME = "Mail";
 
     @PostMapping
-    public ResponseEntity<?> createMail(@RequestBody Mail mail) {
+    public ResponseEntity<?> createMail(@Valid @RequestBody Mail mail) throws JsonProcessingException {
         try {
             log.info("Received request to create Mail");
 
@@ -60,7 +65,7 @@ public class Controller {
                     mail
             );
 
-            UUID technicalId = idFuture.join();
+            UUID technicalId = idFuture.get();
 
             Mail createdMail = getMailByTechnicalId(technicalId.toString());
 
@@ -68,6 +73,10 @@ public class Controller {
         } catch (IllegalArgumentException e) {
             log.error("IllegalArgumentException in createMail: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
+        } catch (InterruptedException | ExecutionException e) {
+            log.error("Execution exception in createMail", e);
+            Thread.currentThread().interrupt();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Exception in createMail", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
@@ -75,7 +84,7 @@ public class Controller {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<?> getMail(@PathVariable String id) {
+    public ResponseEntity<?> getMail(@PathVariable @Valid @NotBlank String id) throws JsonProcessingException {
         try {
             // Try to get by technicalId first
             Mail mail = getMailByTechnicalId(id);
@@ -88,10 +97,10 @@ public class Controller {
                     Condition.of("$.id", "EQUALS", id));
             CompletableFuture<ArrayNode> itemsFuture = entityService.getItemsByCondition(
                     ENTITY_NAME, ENTITY_VERSION, condition, true);
-            ArrayNode filteredItems = itemsFuture.join();
+            ArrayNode filteredItems = itemsFuture.get();
             if (filteredItems != null && filteredItems.size() > 0) {
                 ObjectNode node = (ObjectNode) filteredItems.get(0);
-                Mail result = node.traverse(entityService.getObjectMapper()).readValueAs(Mail.class);
+                Mail result = objectMapper.treeToValue(node, Mail.class);
                 return ResponseEntity.ok(result);
             }
 
@@ -100,23 +109,27 @@ public class Controller {
         } catch (IllegalArgumentException e) {
             log.error("IllegalArgumentException in getMail: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
+        } catch (InterruptedException | ExecutionException e) {
+            log.error("Execution exception in getMail", e);
+            Thread.currentThread().interrupt();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Exception in getMail", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
         }
     }
 
-    private Mail getMailByTechnicalId(String technicalId) {
+    private Mail getMailByTechnicalId(String technicalId) throws JsonProcessingException {
         try {
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
                     ENTITY_NAME,
                     ENTITY_VERSION,
                     UUID.fromString(technicalId));
-            ObjectNode node = itemFuture.join();
+            ObjectNode node = itemFuture.get();
             if (node == null || node.isEmpty()) {
                 return null;
             }
-            return node.traverse(entityService.getObjectMapper()).readValueAs(Mail.class);
+            return objectMapper.treeToValue(node, Mail.class);
         } catch (Exception e) {
             return null;
         }
