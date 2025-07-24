@@ -1,54 +1,29 @@
 {
     "active": true,
-    "desc": "Workflow to process Pet entity lifecycle from ingestion to ready-for-retrieval",
+    "desc": "Workflow for processing PetEvent entities",
     "initialState": "none",
-    "name": "Pet Workflow",
+    "name": "PetEvent Workflow",
     "states": {
-        "enriching_pet": {
+        "FAILED": {
+            "transitions": []
+        },
+        "PROCESSED": {
+            "transitions": []
+        },
+        "PROCESSING": {
             "transitions": [
                 {
-                    "name": "enrich_pet_data",
-                    "next": "ready_for_retrieval",
+                    "name": "to_processed_success",
+                    "next": "PROCESSED",
                     "processors": [
                         {
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
                             "executionMode": "SYNC",
-                            "name": "PetProcessor"
+                            "name": "PetEventProcessor"
                         }
                     ]
-                }
-            ]
-        },
-        "failed_validation": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "name": "start_validation",
-                    "next": "validating_pet"
-                }
-            ]
-        },
-        "ready_for_retrieval": {
-            "transitions": []
-        },
-        "validating_pet": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetDataValidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "pet_data_valid",
-                    "next": "enriching_pet"
                 },
                 {
                     "criterion": {
@@ -56,12 +31,50 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "PetDataInvalidCriterion"
+                            "name": "ProcessingFailedCriterion"
                         },
                         "type": "function"
                     },
-                    "name": "pet_data_invalid",
-                    "next": "failed_validation"
+                    "name": "to_failed_if_processing_failed",
+                    "next": "FAILED"
+                }
+            ]
+        },
+        "RECORDED": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "CanProcessEventCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "to_processing_if_can_process",
+                    "next": "PROCESSING"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "CannotProcessEventCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "stay_if_cannot_process",
+                    "next": "RECORDED"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "recorded_transition",
+                    "next": "RECORDED"
                 }
             ]
         }
