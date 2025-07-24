@@ -1,0 +1,108 @@
+{
+    "active": true,
+    "desc": "FSM workflow for Workflow entity processing lifecycle",
+    "initialState": "none",
+    "name": "Workflow Entity Lifecycle",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "start_validation",
+                    "next": "validation"
+                }
+            ]
+        },
+        "notification_preparing": {
+            "transitions": [
+                {
+                    "name": "prepare_notification",
+                    "next": "sending_email"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "name": "process_scores",
+                    "next": "notification_preparing",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "NBAGameScoreProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "sending_email": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "EmailSentCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "email_sent_success",
+                    "next": "completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "EmailSentCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "email_sent_failed",
+                    "next": "failed"
+                }
+            ]
+        },
+        "validation": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ValidateInputsCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "valid_inputs",
+                    "next": "processing"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ValidateInputsCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "invalid_inputs",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
