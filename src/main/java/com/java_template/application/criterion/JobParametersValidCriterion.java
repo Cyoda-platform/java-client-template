@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.PurrfectPetsJob;
+import com.java_template.application.entity.Pet;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,29 +32,32 @@ public class JobParametersValidCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(PurrfectPetsJob.class, this::validateEntity)
-            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
-            .complete();
+                .evaluateEntity(Pet.class, this::validateEntity)
+                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+                .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "JobParametersValidCriterion".equals(modelSpec.operationName()) &&
-                "purrfectPetsJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+                "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                 Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(PurrfectPetsJob entity) {
-        // Validation logic: parameters field must be a non-empty JSON string if present
-        String params = entity.getParameters();
-        if (params == null || params.isBlank()) {
-            return EvaluationOutcome.fail("Parameters must not be empty", StandardEvalReasonCategories.VALIDATION_FAILURE);
+    private EvaluationOutcome validateEntity(Pet entity) {
+        if (entity.getName() == null || entity.getName().isBlank()) {
+            return EvaluationOutcome.fail("Pet name is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        // Basic JSON validation could be attempted
-        try {
-            new com.fasterxml.jackson.databind.ObjectMapper().readTree(params);
-        } catch (Exception e) {
-            return EvaluationOutcome.fail("Parameters must be valid JSON", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+        if (entity.getCategory() == null || entity.getCategory().isBlank()) {
+            return EvaluationOutcome.fail("Pet category is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (entity.getStatus() == null || entity.getStatus().isBlank()) {
+            return EvaluationOutcome.fail("Pet status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        // Additional business rule: status must be one of allowed values
+        String status = entity.getStatus().toLowerCase();
+        if (!(status.equals("available") || status.equals("pending") || status.equals("sold"))) {
+            return EvaluationOutcome.fail("Pet status must be 'available', 'pending', or 'sold'", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
         return EvaluationOutcome.success();
     }
