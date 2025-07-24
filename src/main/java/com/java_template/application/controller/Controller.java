@@ -64,7 +64,7 @@ public class Controller {
             logger.info("Mail created with technicalId {}", technicalId);
 
             // Trigger processing event asynchronously
-            processMail(technicalId, mail);
+            // processMail(technicalId, mail); -- removed process method call
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException e) {
@@ -123,58 +123,4 @@ public class Controller {
         }
     }
 
-    private void processMail(UUID technicalId, Mail mail) {
-        logger.info("Processing Mail with ID: {}", technicalId);
-
-        // Step 1: Validation already done on creation
-
-        // Step 2: Criteria Evaluation - simple keyword-based sentiment check (example)
-        boolean isHappy = evaluateMailContentForHappiness(mail.getContent());
-        mail.setIsHappy(isHappy);
-
-        // Step 3: Processing based on isHappy flag
-        try {
-            if (isHappy) {
-                sendHappyMail(mail);
-                mail.setStatus("SENT_HAPPY");
-                logger.info("Mail {} sent as happy mail", technicalId);
-            } else {
-                sendGloomyMail(mail);
-                mail.setStatus("SENT_GLOOMY");
-                logger.info("Mail {} sent as gloomy mail", technicalId);
-            }
-        } catch (Exception e) {
-            mail.setStatus("FAILED");
-            logger.error("Failed to send mail {}: {}", technicalId, e.getMessage());
-        }
-
-        // TODO: Update entity in external service - update operation not supported, so skip
-        // Log current mail state for visibility
-        logger.info("Mail processing completed for id {} with status {} and isHappy {}", technicalId, mail.getStatus(), mail.getIsHappy());
-    }
-
-    private boolean evaluateMailContentForHappiness(String content) {
-        String lowerContent = content.toLowerCase(Locale.ROOT);
-        List<String> positiveKeywords = Arrays.asList("happy", "wonderful", "great", "joy", "love");
-        for (String keyword : positiveKeywords) {
-            if (lowerContent.contains(keyword)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private void sendHappyMail(Mail mail) {
-        for (String recipient : mail.getMailList()) {
-            logger.info("Sending HAPPY mail to {}", recipient);
-            // Real mail sending logic would go here
-        }
-    }
-
-    private void sendGloomyMail(Mail mail) {
-        for (String recipient : mail.getMailList()) {
-            logger.info("Sending GLOOMY mail to {}", recipient);
-            // Real mail sending logic would go here
-        }
-    }
 }
