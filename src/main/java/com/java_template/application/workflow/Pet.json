@@ -1,92 +1,92 @@
 {
-    "active": true,
-    "desc": "Workflow representing the lifecycle of a Pet entity from creation to persistence with validation and error handling.",
-    "initialState": "none",
-    "name": "Pet Workflow",
-    "states": {
-        "failed": {
-            "transitions": [
-                {
-                    "name": "end_after_fail",
-                    "next": "none"
-                }
-            ]
-        },
-        "none": {
-            "transitions": [
-                {
-                    "name": "start_processing",
-                    "next": "pet_created"
-                }
-            ]
-        },
-        "persisted": {
-            "transitions": [
-                {
-                    "name": "end",
-                    "next": "none"
-                }
-            ]
-        },
-        "pet_created": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetExistsCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "pet_exists_check",
-                    "next": "validating"
-                },
-                {
-                    "name": "pet_not_exists_fail",
-                    "next": "failed"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "name": "enrich_and_persist",
-                    "next": "persisted",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "PetProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "validating": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetValidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "pet_valid_check",
-                    "next": "processing"
-                },
-                {
-                    "name": "pet_invalid_fail",
-                    "next": "failed"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow representing the lifecycle of a Pet entity from creation to persistence with validation and error handling.",
+  "initialState": "none",
+  "name": "Pet Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "start_processing",
+          "next": "pet_created"
         }
+      ]
     },
-    "version": "1.0"
+    "pet_created": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "PetExistsCriterion"
+            },
+            "type": "function"
+          },
+          "name": "pet_exists_check",
+          "next": "validating"
+        },
+        {
+          "name": "pet_not_exists_fail",
+          "next": "failed"
+        }
+      ]
+    },
+    "validating": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "PetValidCriterion"
+            },
+            "type": "function"
+          },
+          "name": "pet_valid_check",
+          "next": "processing"
+        },
+        {
+          "name": "pet_invalid_fail",
+          "next": "failed"
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "name": "enrich_and_persist",
+          "next": "persisted",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "PetProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "persisted": {
+      "transitions": [
+        {
+          "name": "end",
+          "next": "none"
+        }
+      ]
+    },
+    "failed": {
+      "transitions": [
+        {
+          "name": "end_after_fail",
+          "next": "none"
+        }
+      ]
+    }
+  },
+  "version": "1.0"
 }
