@@ -45,13 +45,11 @@ public class InvalidAdopterCriterion implements CyodaCriterion {
     }
 
     private EvaluationOutcome validateEntity(AdoptionRequest entity) {
-        // Validate that requesterName is not null or blank
         if (entity.getRequesterName() == null || entity.getRequesterName().isBlank()) {
-            return EvaluationOutcome.fail("Requester name must be provided", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("Requester name is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        // Simulate invalid adopter names (e.g., names with digits or special chars)
-        if (!entity.getRequesterName().matches("^[a-zA-Z\s]+$")) {
-            return EvaluationOutcome.fail("Requester name contains invalid characters", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+        if (entity.getPetId() == null || entity.getPetId().isBlank()) {
+            return EvaluationOutcome.fail("Pet ID is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         return EvaluationOutcome.success();
     }
