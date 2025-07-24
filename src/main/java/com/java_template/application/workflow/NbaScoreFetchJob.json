@@ -1,0 +1,79 @@
+{
+    "active": true,
+    "desc": "Workflow for managing the lifecycle of an NbaScoreFetchJob entity with processing and conditional transitions",
+    "initialState": "none",
+    "name": "NbaScoreFetchJob Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "start_job_transition",
+                    "next": "pending"
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "CanStartCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "start_if_can_start",
+                    "next": "running",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "NbaScoreFetchJobProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "running": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "CanCompleteCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "complete_if_can_complete",
+                    "next": "completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "HasErrorCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "fail_if_has_error",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
