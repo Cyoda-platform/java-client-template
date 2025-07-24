@@ -50,7 +50,7 @@ public class Controller {
         UUID technicalId = idFuture.get(); // wait for completion
         mail.setTechnicalId(technicalId);
 
-        processMail(mail);
+        // processMail(mail); // removed process method call
 
         // Save processed mail as new version
         CompletableFuture<UUID> updatedIdFuture = entityService.addItem(ENTITY_NAME, ENTITY_VERSION, mail);
@@ -119,7 +119,7 @@ public class Controller {
         UUID newTechnicalId = newIdFuture.get();
         newMailVersion.setTechnicalId(newTechnicalId);
 
-        processMail(newMailVersion);
+        // processMail(newMailVersion); // removed process method call
 
         // Save processed mail as new version
         CompletableFuture<UUID> processedIdFuture = entityService.addItem(ENTITY_NAME, ENTITY_VERSION, newMailVersion);
@@ -164,40 +164,5 @@ public class Controller {
         return ResponseEntity.ok(response);
     }
 
-    private void processMail(Mail mail) {
-        log.info("Processing Mail with technicalId: {}", mail.getTechnicalId());
-        Map<String, String> criteriaResults = new HashMap<>();
-        int happyCount = 0;
-        int gloomyCount = 0;
-        for (int i = 1; i <= 22; i++) {
-            String result = (i % 2 == 0) ? "isHappy" : "isGloomy";
-            criteriaResults.put("criteria" + i, result);
-            if ("isHappy".equals(result)) happyCount++;
-            else gloomyCount++;
-        }
-        mail.setCriteriaResults(criteriaResults);
-
-        if (happyCount > gloomyCount) {
-            mail.setIsHappy(true);
-            mail.setIsGloomy(false);
-            mail.setStatus(null);
-        } else {
-            mail.setIsHappy(false);
-            mail.setIsGloomy(true);
-            mail.setStatus(null);
-        }
-
-        boolean sendSuccess = true;
-        if (mail.getIsHappy() != null && mail.getIsHappy()) {
-            log.info("Sending happy mail to recipients: {}", mail.getMailList());
-            mail.setStatus(null);
-        } else {
-            log.info("Sending gloomy mail to recipients: {}", mail.getMailList());
-            mail.setStatus(null);
-        }
-        if (!sendSuccess) {
-            mail.setStatus(null);
-            log.error("Failed to send mail with technicalId: {}", mail.getTechnicalId());
-        }
-    }
+    // Removed processMail and its helper methods
 }
