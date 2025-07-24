@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.PurrfectPetsJob;
+import com.java_template.application.entity.Pet;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,7 +32,7 @@ public class IsPetStatusValidCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(PurrfectPetsJob.class, this::validateEntity)
+            .evaluateEntity(Pet.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,14 +40,19 @@ public class IsPetStatusValidCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "IsPetStatusValidCriterion".equals(modelSpec.operationName()) &&
-               "purrfectPetsJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(PurrfectPetsJob entity) {
-        // Validate petStatus is non-null and not blank
-        if (entity.getPetStatus() == null || entity.getPetStatus().isBlank()) {
-            return EvaluationOutcome.fail("petStatus is required and cannot be blank", StandardEvalReasonCategories.VALIDATION_FAILURE);
+    private EvaluationOutcome validateEntity(Pet entity) {
+        // Validate pet status is not null or blank
+        if (entity.getStatus() == null || entity.getStatus().isBlank()) {
+            return EvaluationOutcome.fail("Pet status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        // Validate pet status is one of the allowed statuses
+        String status = entity.getStatus();
+        if (!("available".equalsIgnoreCase(status) || "pending".equalsIgnoreCase(status) || "sold".equalsIgnoreCase(status))) {
+            return EvaluationOutcome.fail("Pet status must be 'available', 'pending', or 'sold'", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         return EvaluationOutcome.success();
     }
