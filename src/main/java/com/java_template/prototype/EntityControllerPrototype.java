@@ -42,7 +42,7 @@ public class EntityControllerPrototype {
             mail.setIsHappy(null);
             mail.setIsGloomy(null);
             mail.setCriteriaResults(new HashMap<>());
-            mail.setStatus(null != null ? null : null); // Keep as null initially
+            mail.setStatus(null); // keep as null initially due to package-private enum
 
             mailCache.put(id, mail);
             log.info("Created Mail with ID: {}", id);
@@ -101,7 +101,7 @@ public class EntityControllerPrototype {
             newMailVersion.setIsHappy(null);
             newMailVersion.setIsGloomy(null);
             newMailVersion.setCriteriaResults(new HashMap<>());
-            newMailVersion.setStatus(null != null ? null : null); // Keep as null initially
+            newMailVersion.setStatus(null); // keep as null initially due to package-private enum
 
             mailCache.put(newId, newMailVersion);
             log.info("Created new version Mail with ID: {}", newId);
@@ -138,8 +138,7 @@ public class EntityControllerPrototype {
             deactivationRecord.setIsHappy(existingMail.getIsHappy());
             deactivationRecord.setIsGloomy(existingMail.getIsGloomy());
             deactivationRecord.setCriteriaResults(existingMail.getCriteriaResults());
-            // DEACTIVATED status is not in enum, so set to null or handle differently
-            deactivationRecord.setStatus(null);
+            deactivationRecord.setStatus(null); // DEACTIVATED status not accessible
 
             mailCache.put(newId, deactivationRecord);
             log.info("Deactivated Mail with new record ID: {}", newId);
@@ -157,12 +156,11 @@ public class EntityControllerPrototype {
 
     private void processMail(Mail mail) {
         log.info("Processing Mail with ID: {}", mail.getId());
-        // Step 1: Evaluate all 22 criteria, for prototype we simulate evaluation:
+        // Simulate evaluation of 22 criteria
         Map<String, String> criteriaResults = new HashMap<>();
         int happyCount = 0;
         int gloomyCount = 0;
         for (int i = 1; i <= 22; i++) {
-            // Simulated logic: even criteria are "isHappy", odd criteria "isGloomy"
             String result = (i % 2 == 0) ? "isHappy" : "isGloomy";
             criteriaResults.put("criteria" + i, result);
             if ("isHappy".equals(result)) happyCount++;
@@ -170,32 +168,29 @@ public class EntityControllerPrototype {
         }
         mail.setCriteriaResults(criteriaResults);
 
-        // Step 2: Determine overall mood
+        // Determine overall mood
         if (happyCount > gloomyCount) {
             mail.setIsHappy(true);
             mail.setIsGloomy(false);
-            mail.setStatus(null); // cannot set PROCESSING because enum is not accessible
+            mail.setStatus(null); // cannot set PROCESSING due to enum access
         } else {
             mail.setIsHappy(false);
             mail.setIsGloomy(true);
-            mail.setStatus(null); // cannot set PROCESSING because enum is not accessible
+            mail.setStatus(null); // cannot set PROCESSING due to enum access
         }
 
-        // Step 3: Send mail via appropriate processor (simulated)
+        // Simulate sending mail
         boolean sendSuccess = true;
         if (mail.getIsHappy()) {
-            // simulate sendHappyMail
             log.info("Sending happy mail to recipients: {}", mail.getMailList());
-            mail.setStatus(null); // cannot set SENT_HAPPY because enum is not accessible
+            mail.setStatus(null); // cannot set SENT_HAPPY due to enum access
         } else {
-            // simulate sendGloomyMail
             log.info("Sending gloomy mail to recipients: {}", mail.getMailList());
-            mail.setStatus(null); // cannot set SENT_GLOOMY because enum is not accessible
+            mail.setStatus(null); // cannot set SENT_GLOOMY due to enum access
         }
 
-        // Step 4: Handle send failure (simulated always success here)
         if (!sendSuccess) {
-            mail.setStatus(null); // cannot set FAILED because enum is not accessible
+            mail.setStatus(null); // cannot set FAILED due to enum access
             log.error("Failed to send mail with ID: {}", mail.getId());
         }
     }
