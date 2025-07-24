@@ -16,8 +16,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
-
 @Component
 public class AllLEIEnrichmentsCompletedCriterion implements CyodaCriterion {
 
@@ -34,26 +32,25 @@ public class AllLEIEnrichmentsCompletedCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(LEIEnrichmentRequest.class, this::validateEntity)
-            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
-            .complete();
+                .evaluateEntity(LEIEnrichmentRequest.class, this::validateEntity)
+                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+                .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "AllLEIEnrichmentsCompletedCriterion".equals(modelSpec.operationName()) &&
-               "lEIEnrichmentRequest".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+                "lEIEnrichmentRequest".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
     private EvaluationOutcome validateEntity(LEIEnrichmentRequest entity) {
-        // Validate that enrichment status is completed or failed (done processing)
-        String status = entity.getStatus();
-        if (status == null) {
-            return EvaluationOutcome.fail("Enrichment status is null", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+        if (entity.getStatus() == null) {
+            return EvaluationOutcome.fail("Status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (!(status.equalsIgnoreCase("COMPLETED") || status.equalsIgnoreCase("FAILED"))) {
-            return EvaluationOutcome.fail("Enrichment not completed", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        String status = entity.getStatus().toUpperCase();
+        if (!(status.equals("COMPLETED") || status.equals("FAILED"))) {
+            return EvaluationOutcome.fail("LEI enrichment not completed", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
         return EvaluationOutcome.success();
     }
