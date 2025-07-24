@@ -1,7 +1,0 @@
-private boolean checkEntityIsHappy(Mail mail) {
-    return mail.getMailList() != null && mail.getMailList().size() > 1;
-}
-
-private boolean checkEntityIsGloomy(Mail mail) {
-    return mail.getMailList() != null && mail.getMailList().size() == 1;
-}
