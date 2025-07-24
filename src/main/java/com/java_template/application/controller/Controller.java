@@ -1,5 +1,7 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Mail;
@@ -19,6 +21,8 @@ import java.util.concurrent.ExecutionException;
 
 import static com.java_template.common.config.Config.*;
 
+import jakarta.validation.Valid;
+
 @RestController
 @RequestMapping(path = "/mail")
 @Slf4j
@@ -28,9 +32,10 @@ public class Controller {
     private static final String ENTITY_NAME = "Mail";
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     @PostMapping
-    public ResponseEntity<Map<String, String>> createMail(@RequestBody Mail mail) {
+    public ResponseEntity<Map<String, String>> createMail(@Valid @RequestBody Mail mail) {
         log.info("Received request to create Mail");
         if (mail == null) {
             log.error("Mail entity is null");
@@ -50,8 +55,6 @@ public class Controller {
                     mail
             );
             UUID technicalId = idFuture.get();
-
-            // processMail removed
 
             log.info("Mail created with technicalId: {}", technicalId);
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
@@ -74,7 +77,7 @@ public class Controller {
     }
 
     @GetMapping("/{technicalId}")
-    public ResponseEntity<?> getMailById(@PathVariable String technicalId) {
+    public ResponseEntity<?> getMailById(@PathVariable String technicalId) throws JsonProcessingException {
         log.info("Received request to get Mail with technicalId: {}", technicalId);
 
         try {
@@ -89,7 +92,7 @@ public class Controller {
                 log.error("Mail with technicalId {} not found", technicalId);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Mail not found"));
             }
-            Mail mail = entityNode.traverse().readValueAs(Mail.class);
+            Mail mail = objectMapper.treeToValue(entityNode, Mail.class);
             return ResponseEntity.ok(mail);
         } catch (IllegalArgumentException e) {
             log.error("Invalid UUID format: {}", technicalId);
@@ -113,7 +116,7 @@ public class Controller {
     }
 
     @GetMapping(params = "isHappy")
-    public ResponseEntity<?> getMailsByIsHappy(@RequestParam boolean isHappy) {
+    public ResponseEntity<?> getMailsByIsHappy(@RequestParam boolean isHappy) throws JsonProcessingException {
         log.info("Received request to get Mails filtered by isHappy={}", isHappy);
 
         try {
@@ -131,9 +134,9 @@ public class Controller {
             List<Mail> mails = new ArrayList<>();
             filteredNodes.forEach(node -> {
                 try {
-                    Mail mail = node.traverse().readValueAs(Mail.class);
+                    Mail mail = objectMapper.treeToValue(node, Mail.class);
                     mails.add(mail);
-                } catch (Exception ex) {
+                } catch (JsonProcessingException ex) {
                     log.error("Error deserializing Mail: {}", ex.getMessage());
                 }
             });
