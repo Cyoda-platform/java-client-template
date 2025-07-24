@@ -1,71 +1,71 @@
 {
-    "active": true,
-    "desc": "Workflow for processing PurrfectPetsJob entity lifecycle",
-    "initialState": "none",
-    "name": "PurrfectPetsJob Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PurrfectPetsJobStartCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "start_processing",
-                    "next": "processing"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PurrfectPetsJobFetchActionCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "process_fetch_action",
-                    "next": "completed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "PurrfectPetsJobProcessor"
-                        }
-                    ]
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PurrfectPetsJobFailCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "process_fail_action",
-                    "next": "failed"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow for processing PurrfectPetsJob entity lifecycle",
+  "initialState": "none",
+  "name": "PurrfectPetsJob Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "PurrfectPetsJobStartCriterion"
+            },
+            "type": "function"
+          },
+          "name": "start_processing",
+          "next": "processing"
         }
+      ]
     },
-    "version": "1.0"
+    "processing": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "PurrfectPetsJobFetchActionCriterion"
+            },
+            "type": "function"
+          },
+          "name": "process_fetch_action",
+          "next": "completed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "PurrfectPetsJobProcessor"
+            }
+          ]
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "PurrfectPetsJobFailCriterion"
+            },
+            "type": "function"
+          },
+          "name": "process_fail_action",
+          "next": "failed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
