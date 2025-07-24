@@ -1,0 +1,66 @@
+{
+    "active": true,
+    "desc": "Business workflow for processing Pet entities",
+    "initialState": "none",
+    "name": "Pet Workflow",
+    "states": {
+        "complete": {
+            "transitions": [
+                {
+                    "name": "finish",
+                    "next": "end"
+                }
+            ]
+        },
+        "end": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "start_validation",
+                    "next": "validate_pet"
+                }
+            ]
+        },
+        "process_pet": {
+            "transitions": [
+                {
+                    "name": "process_transition",
+                    "next": "complete",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "PetProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "validate_pet": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetValidityCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "valid_pet",
+                    "next": "process_pet"
+                },
+                {
+                    "name": "invalid_pet",
+                    "next": "end"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
