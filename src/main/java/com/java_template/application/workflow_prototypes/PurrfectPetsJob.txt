@@ -1,0 +1,134 @@
+    // processPurrfectPetsJob - main business logic for job processing
+    private void processPurrfectPetsJob(String technicalId) {
+        try {
+            CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
+                    ENTITY_PURRECT_PETS_JOB,
+                    ENTITY_VERSION,
+                    UUID.fromString(technicalId)
+            );
+            ObjectNode jobNode = itemFuture.join();
+            if (jobNode == null || jobNode.isEmpty()) {
+                log.error("Job not found during processing with ID: {}", technicalId);
+                return;
+            }
+            String status = jobNode.get("status").asText();
+            if (!"PENDING".equals(status)) {
+                log.warn("Job with ID {} is not in PENDING status, skipping processing", technicalId);
+                return;
+            }
+
+            log.info("Processing PurrfectPetsJob with ID: {}", technicalId);
+
+            // Update status to PROCESSING by creating new version
+            ObjectNode processingJobNode = jobNode.deepCopy();
+            processingJobNode.put("status", "PROCESSING");
+
+            // Add new entity version for PROCESSING status
+            CompletableFuture<UUID> processingIdFuture = entityService.addItem(
+                    ENTITY_PURRECT_PETS_JOB,
+                    ENTITY_VERSION,
+                    processingJobNode
+            );
+            UUID processingTechnicalId = processingIdFuture.join();
+
+            String action = null;
+            if (jobNode.has("requestedAction") && !jobNode.get("requestedAction").isNull()) {
+                action = jobNode.get("requestedAction").asText();
+            }
+            if (action == null || action.isBlank()) {
+                log.error("requestedAction is null or blank");
+                // Update to FAILED
+                ObjectNode failedJobNode = processingJobNode.deepCopy();
+                failedJobNode.put("status", "FAILED");
+                entityService.addItem(ENTITY_PURRECT_PETS_JOB, ENTITY_VERSION, failedJobNode).join();
+                return;
+            }
+            String actionUpper = action.toUpperCase(Locale.ROOT);
+
+            if ("LOAD_PETS".equals(actionUpper)) {
+                loadPetsAndSave();
+                // Update to COMPLETED
+                ObjectNode completedJobNode = processingJobNode.deepCopy();
+                completedJobNode.put("status", "COMPLETED");
+                entityService.addItem(ENTITY_PURRECT_PETS_JOB, ENTITY_VERSION, completedJobNode).join();
+                log.info("Completed LOAD_PETS action for job ID: {}", technicalId);
+            } else if ("SAVE_PET".equals(actionUpper)) {
+                log.info("SAVE_PET action requested but no pet data in job - skipping actual save");
+                // Update to COMPLETED
+                ObjectNode completedJobNode = processingJobNode.deepCopy();
+                completedJobNode.put("status", "COMPLETED");
+                entityService.addItem(ENTITY_PURRECT_PETS_JOB, ENTITY_VERSION, completedJobNode).join();
+            } else {
+                log.error("Unknown requestedAction: {}", action);
+                // Update to FAILED
+                ObjectNode failedJobNode = processingJobNode.deepCopy();
+                failedJobNode.put("status", "FAILED");
+                entityService.addItem(ENTITY_PURRECT_PETS_JOB, ENTITY_VERSION, failedJobNode).join();
+            }
+        } catch (Exception ex) {
+            log.error("Exception processing PurrfectPetsJob ID {}: {}", technicalId, ex.getMessage());
+            try {
+                CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
+                        ENTITY_PURRECT_PETS_JOB,
+                        ENTITY_VERSION,
+                        UUID.fromString(technicalId)
+                );
+                ObjectNode jobNode = itemFuture.join();
+                if (jobNode != null && !jobNode.isEmpty()) {
+                    ObjectNode failedJobNode = jobNode.deepCopy();
+                    failedJobNode.put("status", "FAILED");
+                    entityService.addItem(ENTITY_PURRECT_PETS_JOB, ENTITY_VERSION, failedJobNode).join();
+                }
+            } catch (Exception e) {
+                log.error("Error updating job status to FAILED for ID {}: {}", technicalId, e.getMessage());
+            }
+        }
+    }
+
+    // loadPetsAndSave - fetch pets from external Petstore API and save immutably
+    private void loadPetsAndSave() {
+        try {
+            // Perform external call to Petstore API
+            var restTemplate = new org.springframework.web.client.RestTemplate();
+            String url = "https://petstore.swagger.io/v2/pet/findByStatus?status=available";
+            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+            headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
+            org.springframework.http.HttpEntity<String> entity = new org.springframework.http.HttpEntity<>(headers);
+
+            org.springframework.http.ResponseEntity<Pet[]> response = restTemplate.exchange(
+                    url,
+                    org.springframework.http.HttpMethod.GET,
+                    entity,
+                    Pet[].class
+            );
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                Pet[] pets = response.getBody();
+                for (Pet pet : pets) {
+                    savePetImmutable(pet);
+                }
+                log.info("Loaded and saved {} pets from Petstore API", pets.length);
+            } else {
+                log.error("Failed to load pets from Petstore API, status: {}", response.getStatusCode());
+            }
+        } catch (Exception e) {
+            log.error("Exception loading pets from Petstore API: {}", e.getMessage());
+        }
+    }
+
+    // savePetImmutable - save pet by creating new entity, then process pet
+    private void savePetImmutable(Pet pet) {
+        try {
+            CompletableFuture<UUID> idFuture = entityService.addItem(
+                    ENTITY_PET,
+                    ENTITY_VERSION,
+                    pet
+            );
+            UUID technicalId = idFuture.join();
+
+            processPet(technicalId.toString());
+
+        } catch (Exception e) {
+            log.error("Error saving pet immutably: {}", e.getMessage());
+        }
+    }
