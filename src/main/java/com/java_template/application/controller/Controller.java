@@ -1,5 +1,7 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Workflow;
@@ -16,11 +18,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.*;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
-import static com.java_template.common.config.Config.*;
+import jakarta.validation.Valid;
+
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/main")
@@ -31,22 +36,21 @@ public class Controller {
     private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     // --- Workflow endpoints ---
 
     @PostMapping("/workflows")
-    public ResponseEntity<?> createWorkflow(@RequestBody Workflow workflow) {
+    public ResponseEntity<?> createWorkflow(@Valid @RequestBody Workflow workflow) throws JsonProcessingException {
         try {
             if (workflow == null || !workflow.isValid()) {
                 logger.error("Invalid Workflow creation request");
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Invalid workflow data"));
             }
-            // Add workflow via entityService
             CompletableFuture<UUID> idFuture = entityService.addItem("Workflow", ENTITY_VERSION, workflow);
             UUID technicalId = idFuture.get();
 
             logger.info("Created Workflow with technicalId: {}", technicalId);
-            // processWorkflow(workflow);  // Removed processing method
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException e) {
@@ -62,7 +66,7 @@ public class Controller {
     }
 
     @GetMapping("/workflows/{id}")
-    public ResponseEntity<?> getWorkflow(@PathVariable String id) {
+    public ResponseEntity<?> getWorkflow(@PathVariable String id) throws JsonProcessingException {
         try {
             UUID technicalId = UUID.fromString(id);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem("Workflow", ENTITY_VERSION, technicalId);
@@ -71,7 +75,8 @@ public class Controller {
                 logger.error("Workflow not found with technicalId: {}", id);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Workflow not found"));
             }
-            return ResponseEntity.ok(node);
+            Workflow workflow = objectMapper.treeToValue(node, Workflow.class);
+            return ResponseEntity.ok(workflow);
         } catch (IllegalArgumentException e) {
             logger.error("Invalid UUID for workflow id: {}", id);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Invalid workflow ID"));
@@ -87,14 +92,13 @@ public class Controller {
     // --- PetOrder endpoints ---
 
     @PostMapping("/petOrders")
-    public ResponseEntity<?> createPetOrder(@RequestBody PetOrder petOrder) {
+    public ResponseEntity<?> createPetOrder(@Valid @RequestBody PetOrder petOrder) throws JsonProcessingException {
         try {
             if (petOrder == null || !petOrder.isValid()) {
                 logger.error("Invalid PetOrder creation request");
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Invalid pet order data"));
             }
 
-            // Check pet availability via entityService (simulate by querying pet with petOrder.petId and status AVAILABLE)
             SearchConditionRequest condition = SearchConditionRequest.group("AND",
                     Condition.of("$.petId", "EQUALS", petOrder.getPetId()),
                     Condition.of("$.status", "IEQUALS", "AVAILABLE"));
@@ -104,7 +108,6 @@ public class Controller {
             if (pets == null || pets.size() == 0) {
                 logger.error("Pet with ID {} is not available for order", petOrder.getPetId());
                 petOrder.setStatus("CANCELLED");
-                // Skipping entityService update, just return CANCELLED state response
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Pet not available for order"));
             }
 
@@ -112,8 +115,6 @@ public class Controller {
             UUID technicalId = idFuture.get();
 
             logger.info("Created PetOrder with technicalId: {}", technicalId);
-
-            // processPetOrder(petOrder);  // Removed processing method
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException e) {
@@ -129,7 +130,7 @@ public class Controller {
     }
 
     @GetMapping("/petOrders/{id}")
-    public ResponseEntity<?> getPetOrder(@PathVariable String id) {
+    public ResponseEntity<?> getPetOrder(@PathVariable String id) throws JsonProcessingException {
         try {
             UUID technicalId = UUID.fromString(id);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem("PetOrder", ENTITY_VERSION, technicalId);
@@ -138,7 +139,8 @@ public class Controller {
                 logger.error("PetOrder not found with technicalId: {}", id);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "PetOrder not found"));
             }
-            return ResponseEntity.ok(node);
+            PetOrder petOrder = objectMapper.treeToValue(node, PetOrder.class);
+            return ResponseEntity.ok(petOrder);
         } catch (IllegalArgumentException e) {
             logger.error("Invalid UUID for pet order id: {}", id);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Invalid pet order ID"));
@@ -154,7 +156,7 @@ public class Controller {
     // --- Pet endpoints ---
 
     @PostMapping("/pets")
-    public ResponseEntity<?> createPet(@RequestBody Pet pet) {
+    public ResponseEntity<?> createPet(@Valid @RequestBody Pet pet) throws JsonProcessingException {
         try {
             if (pet == null || !pet.isValid()) {
                 logger.error("Invalid Pet creation request");
@@ -163,8 +165,6 @@ public class Controller {
             CompletableFuture<UUID> idFuture = entityService.addItem("Pet", ENTITY_VERSION, pet);
             UUID technicalId = idFuture.get();
             logger.info("Created Pet with technicalId: {}", technicalId);
-
-            // processPet(pet);  // Removed processing method
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException e) {
@@ -180,7 +180,7 @@ public class Controller {
     }
 
     @GetMapping("/pets/{id}")
-    public ResponseEntity<?> getPet(@PathVariable String id) {
+    public ResponseEntity<?> getPet(@PathVariable String id) throws JsonProcessingException {
         try {
             UUID technicalId = UUID.fromString(id);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem("Pet", ENTITY_VERSION, technicalId);
@@ -189,7 +189,8 @@ public class Controller {
                 logger.error("Pet not found with technicalId: {}", id);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Pet not found"));
             }
-            return ResponseEntity.ok(node);
+            Pet pet = objectMapper.treeToValue(node, Pet.class);
+            return ResponseEntity.ok(pet);
         } catch (IllegalArgumentException e) {
             logger.error("Invalid UUID for pet id: {}", id);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Invalid pet ID"));
