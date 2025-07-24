@@ -1,4 +1,0 @@
-private void processOrder(Order order) {
-    logger.info("Processing Order with orderId: {}, petId: {}", order.getOrderId(), order.getPetId());
-    logger.info("Order {} processed and stored", order.getOrderId());
-}
