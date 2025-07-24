@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.PurrfectPetsJob;
+import com.java_template.application.entity.Pet;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,7 +32,7 @@ public class IsProcessingSuccessCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(PurrfectPetsJob.class, this::validateEntity)
+            .evaluateEntity(Pet.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,15 +40,19 @@ public class IsProcessingSuccessCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "IsProcessingSuccessCriterion".equals(modelSpec.operationName()) &&
-               "purrfectPetsJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(PurrfectPetsJob entity) {
-        // Validate that status equals COMPLETED
-        if (entity.getStatus() == null || !entity.getStatus().equals("COMPLETED")) {
-            return EvaluationOutcome.fail("Processing not completed successfully", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+    private EvaluationOutcome validateEntity(Pet entity) {
+        // Assuming processing success means pet status is "available" or "pending" or "sold" (valid statuses)
+        String status = entity.getStatus();
+        if (status == null || status.isBlank()) {
+            return EvaluationOutcome.fail("Pet status is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        return EvaluationOutcome.success();
+        if ("available".equalsIgnoreCase(status) || "pending".equalsIgnoreCase(status) || "sold".equalsIgnoreCase(status)) {
+            return EvaluationOutcome.success();
+        }
+        return EvaluationOutcome.fail("Pet status is invalid for processing success", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
     }
 }
