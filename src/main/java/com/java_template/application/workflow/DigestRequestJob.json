@@ -1,79 +1,79 @@
 {
-    "active": true,
-    "desc": "Workflow for processing DigestRequestJob entity from creation to completion or failure",
-    "initialState": "none",
-    "name": "DigestRequestJob Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "name": "start_processing",
-                    "next": "processing"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "DigestRequestJobEmailValidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "email_invalid",
-                    "next": "failed"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "DigestRequestJobExternalApiFetchCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "fetch_external_api_failed",
-                    "next": "failed"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "DigestRequestJobEmailDispatchCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "email_dispatch_failed",
-                    "next": "failed"
-                },
-                {
-                    "name": "all_checks_passed",
-                    "next": "completed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "DigestRequestJobProcessor"
-                        }
-                    ]
-                }
-            ]
+  "active": true,
+  "desc": "Workflow for processing DigestRequestJob entity from creation to completion or failure",
+  "initialState": "none",
+  "name": "DigestRequestJob Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "start_processing",
+          "next": "processing"
         }
+      ]
     },
-    "version": "1.0"
+    "processing": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "DigestRequestJobEmailValidCriterion"
+            },
+            "type": "function"
+          },
+          "name": "email_invalid",
+          "next": "failed"
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "DigestRequestJobExternalApiFetchCriterion"
+            },
+            "type": "function"
+          },
+          "name": "fetch_external_api_failed",
+          "next": "failed"
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "DigestRequestJobEmailDispatchCriterion"
+            },
+            "type": "function"
+          },
+          "name": "email_dispatch_failed",
+          "next": "failed"
+        },
+        {
+          "name": "all_checks_passed",
+          "next": "completed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "DigestRequestJobProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "failed": {
+      "transitions": []
+    },
+    "completed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
