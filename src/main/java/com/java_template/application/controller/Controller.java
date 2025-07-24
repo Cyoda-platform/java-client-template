@@ -55,8 +55,6 @@ public class Controller {
 
             logger.info("Created PurrfectPetsJob with technicalId: {}", techIdStr);
 
-            processPurrfectPetsJob(job);
-
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", techIdStr));
         } catch (IllegalArgumentException e) {
             logger.error("Invalid argument in createJob: {}", e.getMessage());
@@ -98,8 +96,6 @@ public class Controller {
             String techIdStr = "pet-" + petIdCounter.getAndIncrement();
 
             logger.info("Created Pet with technicalId: {}", techIdStr);
-
-            processPet(pet);
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", techIdStr));
         } catch (IllegalArgumentException e) {
@@ -185,8 +181,6 @@ public class Controller {
 
             logger.info("Created Order with technicalId: {}", techIdStr);
 
-            processOrder(order);
-
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", techIdStr));
         } catch (IllegalArgumentException e) {
             logger.error("Invalid argument in createOrder: {}", e.getMessage());
@@ -213,49 +207,4 @@ public class Controller {
         }
     }
 
-    // PROCESS METHODS
-
-    private void processPurrfectPetsJob(PurrfectPetsJob job) {
-        logger.info("Processing PurrfectPetsJob with jobName: {}", job.getJobName());
-        try {
-            // Simulate fetching pet data from Petstore API
-            // For demo, just log and create a dummy pet entity
-            Pet demoPet = new Pet();
-            demoPet.setPetId(999L);
-            demoPet.setName("DemoPet");
-            demoPet.setCategory("cat");
-            demoPet.setStatus("available");
-            demoPet.setPhotoUrls("http://example.com/photo1.jpg");
-            demoPet.setTags("demo,example");
-
-            // Create new pet event (immutable) using entityService
-            CompletableFuture<UUID> petIdFuture = entityService.addItem("Pet", ENTITY_VERSION, demoPet);
-            UUID petTechnicalId = petIdFuture.get();
-            String petTechIdStr = "pet-" + petIdCounter.getAndIncrement();
-            logger.info("Ingested Pet with technicalId: {}", petTechIdStr);
-
-            // Optionally create orders similarly if parameters request (skipped here)
-
-            job.setStatus("COMPLETED");
-            logger.info("PurrfectPetsJob {} completed successfully", job.getJobName());
-        } catch (Exception e) {
-            logger.error("Failed processing PurrfectPetsJob {}: {}", job.getJobName(), e.getMessage(), e);
-            job.setStatus("FAILED");
-        }
-    }
-
-    private void processPet(Pet pet) {
-        logger.info("Processing Pet with petId: {}", pet.getPetId());
-        List<String> allowedStatuses = Arrays.asList("available", "pending", "sold");
-        if (pet.getStatus() == null || !allowedStatuses.contains(pet.getStatus().toLowerCase())) {
-            logger.error("Invalid pet status: {}", pet.getStatus());
-            // Possibly handle error or mark pet invalid in real impl
-        }
-        logger.info("Pet {} processed and stored", pet.getName());
-    }
-
-    private void processOrder(Order order) {
-        logger.info("Processing Order with orderId: {}, petId: {}", order.getOrderId(), order.getPetId());
-        logger.info("Order {} processed and stored", order.getOrderId());
-    }
 }
