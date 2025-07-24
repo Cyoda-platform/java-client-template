@@ -45,17 +45,16 @@ public class CannotProcessEventCriterion implements CyodaCriterion {
     }
 
     private EvaluationOutcome validateEntity(PetEvent entity) {
-        // Business logic for CannotProcessEventCriterion:
-        // Fail if status is not RECORDED or eventType is null/blank
+        // Business logic: Cannot process event if status is not RECORDED or eventType is not CREATED or UPDATED
         if (entity.getStatus() == null) {
-            return EvaluationOutcome.fail("Status is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        }
-        if (entity.getStatus() != PetEvent.StatusEnum.RECORDED) {
-            return EvaluationOutcome.success(); // This criterion is for cannot process, so success means cannot process
+            return EvaluationOutcome.fail("Status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         if (entity.getEventType() == null || entity.getEventType().isBlank()) {
-            return EvaluationOutcome.success(); // This criterion is for cannot process, so success means cannot process
+            return EvaluationOutcome.fail("Event type is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        return EvaluationOutcome.fail("Event is processable", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        if ("RECORDED".equals(entity.getStatus()) && ("CREATED".equals(entity.getEventType()) || "UPDATED".equals(entity.getEventType()))) {
+            return EvaluationOutcome.fail("Event can be processed, so this criterion fails", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        }
+        return EvaluationOutcome.success();
     }
 }
