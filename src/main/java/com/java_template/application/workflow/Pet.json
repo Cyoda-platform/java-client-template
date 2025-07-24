@@ -1,92 +1,92 @@
 {
-    "active": true,
-    "desc": "Workflow for processing PetIngestionJob entities from ingestion to completion",
-    "initialState": "none",
-    "name": "PetIngestionJob Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "name": "start_validation",
-                    "next": "validateSourceUrl"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "ProcessPetsSuccessCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "process_success",
-                    "next": "completed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "PetIngestionJobProcessor"
-                        }
-                    ]
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "ProcessPetsFailureCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "process_failure",
-                    "next": "failed"
-                }
-            ]
-        },
-        "validateSourceUrl": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "SourceUrlValidationCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "valid_sourceUrl",
-                    "next": "processing"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "SourceUrlInvalidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "invalid_sourceUrl",
-                    "next": "failed"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow for processing PetIngestionJob entities from ingestion to completion",
+  "initialState": "none",
+  "name": "PetIngestionJob Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "start_validation",
+          "next": "validateSourceUrl"
         }
+      ]
     },
-    "version": "1.0"
+    "validateSourceUrl": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "SourceUrlValidationCriterion"
+            },
+            "type": "function"
+          },
+          "name": "valid_sourceUrl",
+          "next": "processing"
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "SourceUrlInvalidCriterion"
+            },
+            "type": "function"
+          },
+          "name": "invalid_sourceUrl",
+          "next": "failed"
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "ProcessPetsSuccessCriterion"
+            },
+            "type": "function"
+          },
+          "name": "process_success",
+          "next": "completed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "PetIngestionJobProcessor"
+            }
+          ]
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "ProcessPetsFailureCriterion"
+            },
+            "type": "function"
+          },
+          "name": "process_failure",
+          "next": "failed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
