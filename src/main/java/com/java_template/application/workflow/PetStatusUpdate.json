@@ -1,16 +1,28 @@
 {
     "active": true,
-    "desc": "Workflow to process PetStatusUpdate entity from validation to processed state",
+    "desc": "Workflow for processing PetIngestionJob entities",
     "initialState": "none",
-    "name": "PetStatusUpdate Workflow",
+    "name": "PetIngestionJob Workflow",
     "states": {
+        "completed": {
+            "transitions": []
+        },
         "failed": {
             "transitions": []
         },
         "none": {
             "transitions": [
                 {
-                    "name": "start_processing",
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetIngestionJobIsPendingCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "start_job_if_pending",
                     "next": "pending"
                 }
             ]
@@ -18,62 +30,21 @@
         "pending": {
             "transitions": [
                 {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetStatusUpdateValidationCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "validate_data",
-                    "next": "validated"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetStatusUpdateInvalidDataCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "fail_invalid_data",
-                    "next": "failed"
-                }
-            ]
-        },
-        "pet_exists": {
-            "transitions": [
-                {
-                    "name": "update_pet_status",
-                    "next": "updated",
+                    "name": "start_processing",
+                    "next": "processing",
                     "processors": [
                         {
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
                             "executionMode": "SYNC",
-                            "name": "PetStatusUpdateProcessor"
+                            "name": "PetIngestionJobProcessor"
                         }
                     ]
                 }
             ]
         },
-        "processed": {
-            "transitions": []
-        },
-        "updated": {
-            "transitions": [
-                {
-                    "name": "mark_processed",
-                    "next": "processed"
-                }
-            ]
-        },
-        "validated": {
+        "processing": {
             "transitions": [
                 {
                     "criterion": {
@@ -81,12 +52,12 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "PetExistsCriterion"
+                            "name": "PetIngestionJobProcessingSuccessfulCriterion"
                         },
                         "type": "function"
                     },
-                    "name": "check_pet_exists",
-                    "next": "pet_exists"
+                    "name": "complete_if_successful",
+                    "next": "completed"
                 },
                 {
                     "criterion": {
@@ -94,11 +65,11 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "PetNotFoundCriterion"
+                            "name": "PetIngestionJobProcessingFailedCriterion"
                         },
                         "type": "function"
                     },
-                    "name": "fail_pet_not_found",
+                    "name": "fail_if_error",
                     "next": "failed"
                 }
             ]
