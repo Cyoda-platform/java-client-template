@@ -1,19 +1,19 @@
 package com.java_template.application.controller;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Pet;
 import com.java_template.application.entity.PurrfectPetsJob;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.*;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 import static com.java_template.common.config.Config.ENTITY_VERSION;
@@ -25,6 +25,7 @@ import static com.java_template.common.config.Config.ENTITY_VERSION;
 public class Controller {
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     private static final String ENTITY_PURRECT_PETS_JOB = "PurrfectPetsJob";
     private static final String ENTITY_PET = "Pet";
@@ -65,7 +66,7 @@ public class Controller {
 
     // GET /api/jobs/{id} - retrieve job by technicalId
     @GetMapping("/jobs/{id}")
-    public ResponseEntity<?> getJob(@PathVariable String id) {
+    public ResponseEntity<?> getJob(@PathVariable String id) throws JsonProcessingException {
         try {
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
                     ENTITY_PURRECT_PETS_JOB,
@@ -77,7 +78,8 @@ public class Controller {
                 log.error("Job not found with ID: {}", id);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Job not found"));
             }
-            return ResponseEntity.ok(jobNode);
+            PurrfectPetsJob job = objectMapper.treeToValue(jobNode, PurrfectPetsJob.class);
+            return ResponseEntity.ok(job);
         } catch (IllegalArgumentException e) {
             log.error("Illegal argument error in getJob: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
@@ -89,7 +91,7 @@ public class Controller {
 
     // GET /api/pets/{id} - retrieve pet by technicalId
     @GetMapping("/pets/{id}")
-    public ResponseEntity<?> getPet(@PathVariable String id) {
+    public ResponseEntity<?> getPet(@PathVariable String id) throws JsonProcessingException {
         try {
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
                     ENTITY_PET,
@@ -101,7 +103,8 @@ public class Controller {
                 log.error("Pet not found with ID: {}", id);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Pet not found"));
             }
-            return ResponseEntity.ok(petNode);
+            Pet pet = objectMapper.treeToValue(petNode, Pet.class);
+            return ResponseEntity.ok(pet);
         } catch (IllegalArgumentException e) {
             log.error("Illegal argument error in getPet: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
