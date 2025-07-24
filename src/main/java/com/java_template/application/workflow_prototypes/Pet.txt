@@ -1,0 +1,7 @@
+private void processPet(Pet pet) {
+    logger.info("Processing Pet with ID: {}", pet.getId());
+    if (pet.getStatus() == null || pet.getStatus().isBlank()) {
+        pet.setStatus("available");
+    }
+    logger.info("Pet processing completed with status: {}", pet.getStatus());
+}
