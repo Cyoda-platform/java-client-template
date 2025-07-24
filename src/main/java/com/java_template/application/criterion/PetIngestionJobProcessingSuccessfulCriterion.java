@@ -45,16 +45,12 @@ public class PetIngestionJobProcessingSuccessfulCriterion implements CyodaCriter
     }
 
     private EvaluationOutcome validateEntity(PetIngestionJob entity) {
-        // Validate that status is COMPLETED
-        if (entity.getStatus() == null || !entity.getStatus().equalsIgnoreCase("COMPLETED")) {
-            return EvaluationOutcome.fail("Job status is not COMPLETED", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (entity.getStatus() == null) {
+            return EvaluationOutcome.fail("Status must not be null", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        // Validate required fields presence
-        if (entity.getId() == null || entity.getId().isBlank()) {
-            return EvaluationOutcome.fail("Job id is missing or blank", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-        }
-        if (entity.getSource() == null || entity.getSource().isBlank()) {
-            return EvaluationOutcome.fail("Job source is missing or blank", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+        // Status must be COMPLETED to be successful
+        if (!"COMPLETED".equalsIgnoreCase(entity.getStatus().toString())) {
+            return EvaluationOutcome.fail("Processing not successful", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
         return EvaluationOutcome.success();
     }
