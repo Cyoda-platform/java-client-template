@@ -1,9 +1,0 @@
-private void processGameScore(GameScore gameScore) {
-    logger.info("Processing GameScore: {} vs {} on {}", gameScore.getHomeTeam(),
-            gameScore.getAwayTeam(), gameScore.getDate());
-
-    // Optional: Validate scores and gameStatus consistency
-    if (gameScore.getHomeScore() < 0 || gameScore.getAwayScore() < 0) {
-        logger.error("Invalid score values for GameScore: {} vs {}", gameScore.getHomeTeam(), gameScore.getAwayTeam());
-    }
-}

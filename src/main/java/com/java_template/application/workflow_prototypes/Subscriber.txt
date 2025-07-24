@@ -1,9 +1,0 @@
-private void processSubscriber(Subscriber subscriber) {
-    logger.info("Processing Subscriber with email: {}", subscriber.getEmail());
-
-    // Validate email format simple check
-    if (!subscriber.getEmail().contains("@")) {
-        logger.error("Invalid email format for subscriber: {}", subscriber.getEmail());
-    }
-    // No further processing needed immediately
-}
