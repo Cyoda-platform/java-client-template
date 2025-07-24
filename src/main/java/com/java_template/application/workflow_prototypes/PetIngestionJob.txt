@@ -1,0 +1,40 @@
+private void processPetIngestionJob(PetIngestionJob job) {
+    log.info("Processing PetIngestionJob");
+    job.setStatus("PROCESSING");
+    try {
+        if (!job.getSource().startsWith("http")) {
+            throw new IllegalArgumentException("Invalid source URL");
+        }
+        // Simulate fetching pet data from Petstore API - create dummy pets for demo
+        Pet pet1 = new Pet();
+        pet1.setName("Fluffy");
+        pet1.setType("Cat");
+        pet1.setStatus("AVAILABLE");
+        pet1.setCreatedAt(LocalDateTime.now());
+        entityService.addItem(PET_MODEL, ENTITY_VERSION, pet1).get();
+        processPet(pet1);
+
+        Pet pet2 = new Pet();
+        pet2.setName("Buddy");
+        pet2.setType("Dog");
+        pet2.setStatus("AVAILABLE");
+        pet2.setCreatedAt(LocalDateTime.now());
+        entityService.addItem(PET_MODEL, ENTITY_VERSION, pet2).get();
+        processPet(pet2);
+
+        job.setStatus("COMPLETED");
+        log.info("PetIngestionJob completed successfully");
+    } catch (Exception e) {
+        job.setStatus("FAILED");
+        log.error("PetIngestionJob failed: {}", e.getMessage());
+    }
+}
+
+private void processPet(Pet pet) {
+    log.info("Processing Pet");
+    if (!pet.isValid()) {
+        log.error("Pet is invalid");
+        return;
+    }
+    log.info("Pet is ready and available with status {}", pet.getStatus());
+}
