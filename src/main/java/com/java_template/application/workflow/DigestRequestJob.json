@@ -1,0 +1,184 @@
+{
+    "active": true,
+    "desc": "Workflow for processing DigestRequestJob from creation to completion or failure",
+    "initialState": "none",
+    "name": "DigestRequestJob Workflow",
+    "states": {
+        "api_data_persisted": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "DigestEmailPreparedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "digest_email_prepared",
+                    "next": "email_prepared"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "DigestEmailPreparationFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "digest_email_preparation_failed",
+                    "next": "failed"
+                }
+            ]
+        },
+        "completed": {
+            "transitions": []
+        },
+        "created": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "DigestRequestJobValidationPassedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "validate_job_passed",
+                    "next": "validated"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "DigestRequestJobValidationFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "validate_job_failed",
+                    "next": "validation_failed"
+                }
+            ]
+        },
+        "email_failed_state": {
+            "transitions": [
+                {
+                    "name": "fail_job",
+                    "next": "failed"
+                }
+            ]
+        },
+        "email_prepared": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "DigestEmailSentCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "email_sent",
+                    "next": "email_sent_state"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "DigestEmailFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "email_failed",
+                    "next": "email_failed_state"
+                }
+            ]
+        },
+        "email_sent_state": {
+            "transitions": [
+                {
+                    "name": "complete_job",
+                    "next": "completed"
+                }
+            ]
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "transition_to_created",
+                    "next": "created"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ExternalApiDataSavedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "external_api_data_saved",
+                    "next": "api_data_persisted"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ExternalApiDataFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "external_api_data_failed",
+                    "next": "failed"
+                }
+            ]
+        },
+        "validated": {
+            "transitions": [
+                {
+                    "name": "start_processing",
+                    "next": "processing",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "DigestRequestJobProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "validation_failed": {
+            "transitions": [
+                {
+                    "name": "fail_job",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
