@@ -1,0 +1,42 @@
+    private void processPetIngestionJob(PetIngestionJob job) throws ExecutionException, InterruptedException {
+        logger.info("Processing PetIngestionJob with technicalId: {}", job.getTechnicalId());
+        // 1. Update status to PROCESSING
+        job.setStatus("PROCESSING");
+        entityService.updateItem("PetIngestionJob", ENTITY_VERSION, job.getTechnicalId(), job).get();
+
+        try {
+            // 2. Simulate fetching pet data from external Petstore API
+            // Here, for prototype, we simulate adding a pet
+            Pet newPet = new Pet();
+            newPet.setName("Simulated Pet");
+            newPet.setCategory("cat");
+            newPet.setPhotoUrls(Collections.emptyList());
+            newPet.setTags(Collections.singletonList("simulated"));
+            newPet.setStatus("AVAILABLE");
+
+            CompletableFuture<UUID> petIdFuture = entityService.addItem("Pet", ENTITY_VERSION, newPet);
+            UUID petTechnicalId = petIdFuture.get();
+            newPet.setTechnicalId(petTechnicalId);
+            processPet(newPet);
+
+            // 3. Update job status to COMPLETED
+            job.setStatus("COMPLETED");
+            entityService.updateItem("PetIngestionJob", ENTITY_VERSION, job.getTechnicalId(), job).get();
+
+            logger.info("PetIngestionJob {} completed successfully", job.getTechnicalId());
+        } catch (Exception e) {
+            job.setStatus("FAILED");
+            entityService.updateItem("PetIngestionJob", ENTITY_VERSION, job.getTechnicalId(), job).get();
+            logger.error("PetIngestionJob {} failed: {}", job.getTechnicalId(), e.getMessage());
+        }
+    }
+
+    private void processPet(Pet pet) throws ExecutionException, InterruptedException {
+        logger.info("Processing Pet with technicalId: {}", pet.getTechnicalId());
+        // Enrichment example: add a tag "processed"
+        if (!pet.getTags().contains("processed")) {
+            pet.getTags().add("processed");
+        }
+        entityService.updateItem("Pet", ENTITY_VERSION, pet.getTechnicalId(), pet).get();
+        logger.info("Pet {} processed and enriched", pet.getTechnicalId());
+    }
