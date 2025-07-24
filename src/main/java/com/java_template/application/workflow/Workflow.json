@@ -1,61 +1,49 @@
 {
     "active": true,
-    "desc": "Workflow for processing pet orders from creation to completion",
+    "desc": "Workflow representing the lifecycle and validation of a Pet entity",
     "initialState": "none",
-    "name": "PetOrderWorkflow",
+    "name": "Pet Processing Workflow",
     "states": {
         "completed": {
             "transitions": []
         },
-        "created": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "ValidManualTriggerCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "validate_trigger_manual",
-                    "next": "processing"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "ValidScheduledTriggerCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "validate_trigger_scheduled",
-                    "next": "processing"
-                },
-                {
-                    "name": "invalid_trigger_fail",
-                    "next": "failed"
-                }
-            ]
-        },
-        "failed": {
+        "invalid_data": {
             "transitions": []
         },
         "none": {
             "transitions": [
                 {
-                    "name": "transition_to_created",
-                    "next": "created"
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetDataValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "start_validation",
+                    "next": "validating"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetDataInvalidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "start_invalid_data",
+                    "next": "invalid_data"
                 }
             ]
         },
         "processing": {
             "transitions": [
                 {
-                    "name": "process_workflow",
+                    "name": "save_pet",
                     "next": "completed",
                     "processors": [
                         {
@@ -63,13 +51,30 @@
                                 "calculationNodesTags": "cyoda_application"
                             },
                             "executionMode": "SYNC",
-                            "name": "WorkflowProcessor"
+                            "name": "PetProcessor"
                         }
                     ]
+                }
+            ]
+        },
+        "validating": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetStatusValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "valid_status",
+                    "next": "processing"
                 },
                 {
-                    "name": "processing_failed",
-                    "next": "failed"
+                    "name": "invalid_status",
+                    "next": "processing"
                 }
             ]
         }
