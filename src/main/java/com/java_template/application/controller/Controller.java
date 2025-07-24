@@ -18,7 +18,6 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 
 import static com.java_template.common.config.Config.*;
 
@@ -59,8 +58,6 @@ public class Controller {
         petJob.setTechnicalId(technicalId);
 
         logger.info("PetJob created with technicalId: {}", technicalId);
-
-        processPetJob(petJob);
 
         Map<String, String> resp = new HashMap<>();
         resp.put("jobId", petJob.getId());
@@ -111,8 +108,6 @@ public class Controller {
 
         logger.info("Pet created with technicalId: {}", technicalId);
 
-        processPet(pet);
-
         Map<String, Object> resp = new HashMap<>();
         resp.put("id", pet.getId());
         resp.put("status", pet.getStatus());
@@ -135,122 +130,6 @@ public class Controller {
         Pet pet = JsonUtil.toPet(node);
 
         return ResponseEntity.ok(pet);
-    }
-
-    // --------- Process Methods ---------
-
-    private void processPetJob(PetJob petJob) throws ExecutionException, InterruptedException {
-        logger.info("Processing PetJob with ID: {}", petJob.getId());
-
-        petJob.setStatus("PROCESSING");
-
-        String operation = petJob.getOperation() != null ? petJob.getOperation().toUpperCase(Locale.ROOT) : "";
-
-        switch (operation) {
-            case "CREATE":
-                Pet newPet = JsonUtil.fromJson(petJob.getRequestPayload(), Pet.class);
-                if (newPet == null || !newPet.isValid()) {
-                    petJob.setStatus("FAILED");
-                    logger.error("PetJob CREATE operation failed: invalid pet data in payload");
-                    updatePetJobStatus(petJob);
-                    return;
-                }
-                newPet.setId(petIdCounter.getAndIncrement());
-                newPet.setTechnicalId(UUID.randomUUID());
-                UUID petTechId = entityService.addItem("Pet", ENTITY_VERSION, newPet).get();
-                newPet.setTechnicalId(petTechId);
-                processPet(newPet);
-                petJob.setStatus("COMPLETED");
-                updatePetJobStatus(petJob);
-                logger.info("PetJob CREATE operation completed: Pet technicalId {}", petTechId);
-                break;
-
-            case "PROCESS":
-                if (petJob.getPetId() == null) {
-                    petJob.setStatus("FAILED");
-                    logger.error("PetJob PROCESS operation failed: petId is missing");
-                    updatePetJobStatus(petJob);
-                    return;
-                }
-                // Find Pet by business id petJob.getPetId()
-                Condition cond = Condition.of("$.id", "EQUALS", petJob.getPetId());
-                SearchConditionRequest conditionRequest = SearchConditionRequest.group("AND", cond);
-                ArrayNode petsNode = entityService.getItemsByCondition("Pet", ENTITY_VERSION, conditionRequest, true).get();
-                if (petsNode == null || petsNode.isEmpty()) {
-                    petJob.setStatus("FAILED");
-                    logger.error("PetJob PROCESS operation failed: Pet not found with ID {}", petJob.getPetId());
-                    updatePetJobStatus(petJob);
-                    return;
-                }
-                Pet petToProcess = JsonUtil.toPet((ObjectNode) petsNode.get(0));
-                if (petToProcess.getTags() == null) {
-                    petToProcess.setTags(new ArrayList<>());
-                }
-                if (!petToProcess.getTags().contains("processed")) {
-                    petToProcess.getTags().add("processed");
-                    // Instead of update, create new Pet version (EDA principle)
-                    petToProcess.setTechnicalId(UUID.randomUUID());
-                    entityService.addItem("Pet", ENTITY_VERSION, petToProcess).get();
-                }
-                petJob.setStatus("COMPLETED");
-                updatePetJobStatus(petJob);
-                logger.info("PetJob PROCESS operation completed for Pet ID {}", petToProcess.getId());
-                break;
-
-            case "SEARCH":
-                Map<String, String> criteria = JsonUtil.fromJson(petJob.getRequestPayload(), Map.class);
-                if (criteria == null || criteria.isEmpty()) {
-                    petJob.setStatus("FAILED");
-                    logger.error("PetJob SEARCH operation failed: empty or invalid criteria");
-                    updatePetJobStatus(petJob);
-                    return;
-                }
-
-                List<Condition> condList = new ArrayList<>();
-                for (Map.Entry<String, String> entry : criteria.entrySet()) {
-                    String key = entry.getKey().toLowerCase(Locale.ROOT);
-                    String value = entry.getValue();
-                    switch (key) {
-                        case "category":
-                            condList.add(Condition.of("$.category", "IEQUALS", value));
-                            break;
-                        case "status":
-                            condList.add(Condition.of("$.status", "IEQUALS", value));
-                            break;
-                        case "name":
-                            condList.add(Condition.of("$.name", "ICONTAINS", value));
-                            break;
-                        default:
-                            // ignore unknown criteria
-                    }
-                }
-                SearchConditionRequest searchCond = SearchConditionRequest.group("AND", condList.toArray(new Condition[0]));
-                ArrayNode matchedPetsNode = entityService.getItemsByCondition("Pet", ENTITY_VERSION, searchCond, true).get();
-
-                logger.info("PetJob SEARCH operation found {} pets matching criteria", matchedPetsNode.size());
-                petJob.setStatus("COMPLETED");
-                updatePetJobStatus(petJob);
-                break;
-
-            default:
-                petJob.setStatus("FAILED");
-                logger.error("PetJob operation '{}' is not supported", operation);
-                updatePetJobStatus(petJob);
-        }
-    }
-
-    private void updatePetJobStatus(PetJob petJob) throws ExecutionException, InterruptedException {
-        // Create a new version of PetJob with updated status per EDA principle
-        petJob.setTechnicalId(UUID.randomUUID());
-        entityService.addItem("PetJob", ENTITY_VERSION, petJob).get();
-    }
-
-    private void processPet(Pet pet) {
-        logger.info("Processing Pet with ID: {}", pet.getId());
-        if (pet.getStatus() == null || pet.getStatus().isBlank()) {
-            pet.setStatus("available");
-        }
-        logger.info("Pet processing completed with status: {}", pet.getStatus());
     }
 
     // Utility JSON conversions (to/from ObjectNode)
