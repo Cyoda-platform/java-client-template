@@ -1,0 +1,142 @@
+{
+    "active": true,
+    "desc": "Workflow for processing AdoptionRequest entities from submission to approval or rejection",
+    "initialState": "none",
+    "name": "AdoptionRequest Workflow",
+    "states": {
+        "approve_request": {
+            "transitions": [
+                {
+                    "name": "approve_and_create_adopted_pet",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "AdoptionRequestProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "completed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "submit_request",
+                    "next": "validate_pet_exists"
+                }
+            ]
+        },
+        "reject_request_no_pet": {
+            "transitions": [
+                {
+                    "name": "reject_due_to_no_pet",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "AdoptionRequestProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "reject_request_not_eligible": {
+            "transitions": [
+                {
+                    "name": "reject_due_to_ineligible_adopter",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "AdoptionRequestProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "reject_request_pet_unavailable": {
+            "transitions": [
+                {
+                    "name": "reject_due_to_pet_unavailable",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "AdoptionRequestProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "validate_adopter_eligible": {
+            "transitions": [
+                {
+                    "name": "adopter_eligible",
+                    "next": "approve_request"
+                },
+                {
+                    "name": "adopter_not_eligible",
+                    "next": "reject_request_not_eligible"
+                }
+            ]
+        },
+        "validate_pet_available": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetAvailableCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "pet_available",
+                    "next": "validate_adopter_eligible"
+                },
+                {
+                    "name": "pet_not_available",
+                    "next": "reject_request_pet_unavailable"
+                }
+            ]
+        },
+        "validate_pet_exists": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetExistsCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "pet_exists",
+                    "next": "validate_pet_available"
+                },
+                {
+                    "name": "pet_not_exists",
+                    "next": "reject_request_no_pet"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
