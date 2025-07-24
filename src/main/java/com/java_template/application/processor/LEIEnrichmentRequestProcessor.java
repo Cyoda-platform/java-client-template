@@ -1,6 +1,7 @@
 package com.java_template.application.processor;
 
 import com.java_template.application.entity.LEIEnrichmentRequest;
+import com.java_template.application.entity.Company;
 import com.java_template.common.serializer.ErrorInfo;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
@@ -8,29 +9,29 @@ import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import com.java_template.common.config.Config;
+import com.java_template.common.service.EntityService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
-import com.java_template.common.service.EntityService;
-import com.java_template.common.util.SearchConditionRequest;
-import com.java_template.common.util.Condition;
+import java.util.concurrent.CompletableFuture;
 
 @Component
 public class LEIEnrichmentRequestProcessor implements CyodaProcessor {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final ProcessorSerializer serializer;
+    private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
-    public LEIEnrichmentRequestProcessor(SerializerFactory serializerFactory) {
+    public LEIEnrichmentRequestProcessor(SerializerFactory serializerFactory, EntityService entityService, ObjectMapper objectMapper) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
-        logger.info("LEIEnrichmentRequestProcessor initialized with SerializerFactory");
+        this.entityService = entityService;
+        this.objectMapper = objectMapper;
+        logger.info("LEIEnrichmentRequestProcessor initialized with SerializerFactory, EntityService and ObjectMapper");
     }
 
     @Override
@@ -40,8 +41,8 @@ public class LEIEnrichmentRequestProcessor implements CyodaProcessor {
 
         return serializer.withRequest(request)
                 .toEntity(LEIEnrichmentRequest.class)
-                .validate(this::isValidEntity, "Invalid entity state")
-                .map(this::processLEIEnrichmentRequestLogic)
+                .validate(this::isValidEntity, "Invalid LEIEnrichmentRequest entity state")
+                .map(this::processEntityLogic)
                 .complete();
     }
 
@@ -55,39 +56,23 @@ public class LEIEnrichmentRequestProcessor implements CyodaProcessor {
     private boolean isValidEntity(LEIEnrichmentRequest entity) {
         if (entity.getBusinessId() == null || entity.getBusinessId().isBlank()) return false;
         if (entity.getStatus() == null || entity.getStatus().isBlank()) return false;
-        if (entity.getLei() == null) return false;
         return true;
     }
 
-    private LEIEnrichmentRequest processLEIEnrichmentRequestLogic(LEIEnrichmentRequest entity) {
-        logger.info("Processing LEIEnrichmentRequest entity for businessId: {}", entity.getBusinessId());
+    private LEIEnrichmentRequest processEntityLogic(LEIEnrichmentRequest entity) {
+        // Simulate LEI enrichment lookup by businessId
+        logger.info("Enriching LEI for businessId: {}", entity.getBusinessId());
 
-        try {
-            String lei = fetchLEIForBusinessId(entity.getBusinessId());
+        // For demonstration, assume LEI found if businessId ends with '8', else not available
+        String lei = entity.getBusinessId().endsWith("8") ? "5493001KJTIIGC8Y1R12" : "Not Available";
+        entity.setLei(lei);
 
-            if (lei == null || lei.isBlank()) {
-                entity.setLei("Not Available");
-            } else {
-                entity.setLei(lei);
-                entity.setLeiSource("GLEIF");
-            }
-            entity.setStatus("COMPLETED");
+        // Update status accordingly
+        entity.setStatus("COMPLETED");
 
-            logger.info("Completed LEI enrichment for businessId: {}", entity.getBusinessId());
-        } catch (Exception e) {
-            logger.error("Error processing LEIEnrichmentRequest for businessId: {}", entity.getBusinessId(), e);
-            entity.setStatus("FAILED");
-        }
+        // In a real scenario, persist enriched Company entity here via entityService.addItem if needed
+        // But do not update the current LEIEnrichmentRequest entity via entityService
 
         return entity;
-    }
-
-    private String fetchLEIForBusinessId(String businessId) {
-        logger.info("Simulating LEI API call for businessId: {}", businessId);
-
-        if ("1234567-8".equals(businessId)) {
-            return "5493001KJTIIGC8Y1R12";
-        }
-        return null;
     }
 }
