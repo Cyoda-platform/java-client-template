@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.Workflow;
+import com.java_template.application.entity.PetOrder;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,25 +32,30 @@ public class PetDataValidCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-                .evaluateEntity(Workflow.class, this::validateEntity)
-                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
-                .complete();
+            .evaluateEntity(PetOrder.class, this::validateEntity)
+            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+            .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetDataValidCriterion".equals(modelSpec.operationName()) &&
-                "workflow".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+               "petOrder".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(Workflow entity) {
-        // Validation logic for Workflow entity fields
-        if (entity.getWorkflowName() == null || entity.getWorkflowName().isBlank()) {
-            return EvaluationOutcome.fail("Workflow name is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+    private EvaluationOutcome validateEntity(PetOrder entity) {
+        if (entity.getPetId() == null) {
+            return EvaluationOutcome.fail("Pet ID is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (entity.getTriggerType() == null || entity.getTriggerType().isBlank()) {
-            return EvaluationOutcome.fail("Trigger type is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (entity.getCustomerName() == null || entity.getCustomerName().isBlank()) {
+            return EvaluationOutcome.fail("Customer name is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (entity.getQuantity() == null || entity.getQuantity() <= 0) {
+            return EvaluationOutcome.fail("Quantity must be greater than zero", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (entity.getOrderDate() == null) {
+            return EvaluationOutcome.fail("Order date is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         if (entity.getStatus() == null || entity.getStatus().isBlank()) {
             return EvaluationOutcome.fail("Status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
