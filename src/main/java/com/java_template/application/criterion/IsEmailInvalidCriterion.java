@@ -47,13 +47,13 @@ public class IsEmailInvalidCriterion implements CyodaCriterion {
     private EvaluationOutcome validateEntity(Subscriber entity) {
         String email = entity.getEmail();
         if (email == null || email.isBlank()) {
-            return EvaluationOutcome.success(); // It's invalid because empty
+            return EvaluationOutcome.success(); // Email missing but this criterion checks invalidity, so pass
         }
-        // Simple regex for email validation
+        // Basic email format validation regex
         String emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$";
         if (!email.matches(emailRegex)) {
-            return EvaluationOutcome.success(); // It's invalid because format is wrong
+            return EvaluationOutcome.success(); // This criterion expects invalid email to be true for success
         }
-        return EvaluationOutcome.fail("Email is valid", StandardEvalReasonCategories.VALIDATION_FAILURE); // Fail this if email is valid
+        return EvaluationOutcome.fail("Email format is valid", StandardEvalReasonCategories.VALIDATION_FAILURE);
     }
 }
