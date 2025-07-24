@@ -1,0 +1,70 @@
+{
+    "active": true,
+    "desc": "Workflow to process Pet entity lifecycle from ingestion to ready-for-retrieval",
+    "initialState": "none",
+    "name": "Pet Workflow",
+    "states": {
+        "enriching_pet": {
+            "transitions": [
+                {
+                    "name": "enrich_pet_data",
+                    "next": "ready_for_retrieval",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "PetProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "failed_validation": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "start_validation",
+                    "next": "validating_pet"
+                }
+            ]
+        },
+        "ready_for_retrieval": {
+            "transitions": []
+        },
+        "validating_pet": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetDataValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "pet_data_valid",
+                    "next": "enriching_pet"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetDataInvalidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "pet_data_invalid",
+                    "next": "failed_validation"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
