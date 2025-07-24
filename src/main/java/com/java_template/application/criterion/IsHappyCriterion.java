@@ -1,6 +1,7 @@
 package com.java_template.application.criterion;
 
 import com.java_template.application.entity.Mail;
+import com.java_template.application.entity.MailStatusEnum;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -45,11 +46,9 @@ public class IsHappyCriterion implements CyodaCriterion {
     }
 
     private EvaluationOutcome validateEntity(Mail mail) {
-        if (mail.getIsHappy() == null) {
-            return EvaluationOutcome.fail("isHappy flag must be set", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        }
-        if (!Boolean.TRUE.equals(mail.getIsHappy())) {
-            return EvaluationOutcome.fail("Mail is not happy", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        // Validation: mail must be marked as happy
+        if (mail.getIsHappy() == null || !mail.getIsHappy()) {
+            return EvaluationOutcome.fail("Mail is not marked as happy", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         return EvaluationOutcome.success();
     }
