@@ -1,8 +1,0 @@
-private void processPet(Pet pet) {
-    log.info("Processing Pet");
-    if (!pet.isValid()) {
-        log.error("Pet is invalid");
-        return;
-    }
-    log.info("Pet is ready and available with status {}", pet.getStatus());
-}
