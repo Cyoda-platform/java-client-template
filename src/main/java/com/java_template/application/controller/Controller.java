@@ -46,7 +46,7 @@ public class Controller {
             UUID technicalId = idFuture.get();
 
             logger.info("Created Workflow with technicalId: {}", technicalId);
-            processWorkflow(workflow);
+            // processWorkflow(workflow);  // Removed processing method
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException e) {
@@ -113,7 +113,7 @@ public class Controller {
 
             logger.info("Created PetOrder with technicalId: {}", technicalId);
 
-            processPetOrder(petOrder);
+            // processPetOrder(petOrder);  // Removed processing method
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException e) {
@@ -164,7 +164,7 @@ public class Controller {
             UUID technicalId = idFuture.get();
             logger.info("Created Pet with technicalId: {}", technicalId);
 
-            processPet(pet);
+            // processPet(pet);  // Removed processing method
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException e) {
@@ -200,46 +200,5 @@ public class Controller {
             logger.error("Unexpected error retrieving pet with id: {}", id, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
         }
-    }
-
-    // --- Process methods with business logic ---
-
-    private void processWorkflow(Workflow workflow) {
-        logger.info("Processing Workflow with name: {}", workflow.getWorkflowName());
-        // Validate and start orchestration
-        if ("CREATED".equalsIgnoreCase(workflow.getStatus())) {
-            logger.info("Starting orchestration for Workflow: {}", workflow.getWorkflowName());
-            // Example: Ingest pet data and process orders (simulate)
-            // On success:
-            workflow.setStatus("COMPLETED");
-            logger.info("Workflow {} completed successfully", workflow.getWorkflowName());
-        } else {
-            logger.error("Workflow {} is in invalid status: {}", workflow.getWorkflowName(), workflow.getStatus());
-            workflow.setStatus("FAILED");
-        }
-    }
-
-    private void processPetOrder(PetOrder petOrder) {
-        logger.info("Processing PetOrder for petId: {}", petOrder.getPetId());
-        // Validate pet availability (simulate by querying Pet entity)
-        // Already checked in createPetOrder, so just approve here
-        if (!"CANCELLED".equalsIgnoreCase(petOrder.getStatus())) {
-            petOrder.setStatus("APPROVED");
-            logger.info("PetOrder approved for petId: {}", petOrder.getPetId());
-            // Additional: Could trigger notification here
-        }
-    }
-
-    private void processPet(Pet pet) {
-        logger.info("Processing Pet with petId: {}", pet.getPetId());
-        if ("AVAILABLE".equalsIgnoreCase(pet.getStatus()) ||
-                "PENDING".equalsIgnoreCase(pet.getStatus()) ||
-                "SOLD".equalsIgnoreCase(pet.getStatus())) {
-            logger.info("Pet {} status is valid: {}", pet.getName(), pet.getStatus());
-        } else {
-            logger.error("Pet {} has invalid status: {}", pet.getName(), pet.getStatus());
-            pet.setStatus("AVAILABLE"); // default fallback
-        }
-        // Notify listeners or trigger events if needed
     }
 }
