@@ -45,16 +45,18 @@ public class CanProcessEventCriterion implements CyodaCriterion {
     }
 
     private EvaluationOutcome validateEntity(PetEvent entity) {
-        // Business logic for CanProcessEventCriterion:
-        // Allow processing only if status is RECORDED and eventType is not null or blank
+        // Business logic: Can process event if status is RECORDED and eventType is either CREATED or UPDATED
         if (entity.getStatus() == null) {
-            return EvaluationOutcome.fail("Status is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        }
-        if (entity.getStatus() != PetEvent.StatusEnum.RECORDED) {
-            return EvaluationOutcome.fail("Event status is not RECORDED", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+            return EvaluationOutcome.fail("Status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         if (entity.getEventType() == null || entity.getEventType().isBlank()) {
-            return EvaluationOutcome.fail("Event type is missing or blank", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("Event type is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (!"RECORDED".equals(entity.getStatus())) {
+            return EvaluationOutcome.fail("Event status must be RECORDED to process", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        }
+        if (!("CREATED".equals(entity.getEventType()) || "UPDATED".equals(entity.getEventType()))) {
+            return EvaluationOutcome.fail("Event type must be CREATED or UPDATED", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
         return EvaluationOutcome.success();
     }
