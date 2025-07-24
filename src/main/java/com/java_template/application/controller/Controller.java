@@ -60,8 +60,6 @@ public class Controller {
         UUID technicalId = idFuture.get();
         logger.info("Created PurrfectPetsJob with technicalId: {}", technicalId);
 
-        processPurrfectPetsJob(job);
-
         return ResponseEntity.status(HttpStatus.CREATED).body(job);
     }
 
@@ -105,8 +103,6 @@ public class Controller {
         UUID technicalId = idFuture.get();
         logger.info("Created Pet with technicalId: {}", technicalId);
 
-        processPet(pet);
-
         return ResponseEntity.status(HttpStatus.CREATED).body(pet);
     }
 
@@ -149,8 +145,6 @@ public class Controller {
         UUID technicalId = idFuture.get();
         logger.info("Created new version of PurrfectPetsJob with technicalId: {}", technicalId);
 
-        processPurrfectPetsJob(updatedJob);
-
         return ResponseEntity.status(HttpStatus.CREATED).body(updatedJob);
     }
 
@@ -179,8 +173,6 @@ public class Controller {
         CompletableFuture<UUID> idFuture = entityService.addItem("Pet", ENTITY_VERSION, updatedPet);
         UUID technicalId = idFuture.get();
         logger.info("Created new version of Pet with technicalId: {}", technicalId);
-
-        processPet(updatedPet);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(updatedPet);
     }
@@ -243,83 +235,6 @@ public class Controller {
         logger.info("Deactivated Pet with new technicalId: {}", technicalId);
 
         return ResponseEntity.ok("Pet deactivated");
-    }
-
-    // Business Logic for processing PurrfectPetsJob entity
-    private void processPurrfectPetsJob(PurrfectPetsJob job) throws Exception {
-        logger.info("Processing PurrfectPetsJob with id: {}", job.getId());
-
-        job.setStatus(PurrfectPetsJob.StatusEnum.PROCESSING);
-
-        if (job.getPetType() == null || job.getPetType().isBlank()) {
-            logger.error("Invalid petType in job {}", job.getId());
-            job.setStatus(PurrfectPetsJob.StatusEnum.FAILED);
-            return;
-        }
-        if (job.getAction() == null || job.getAction().isBlank()) {
-            logger.error("Invalid action in job {}", job.getId());
-            job.setStatus(PurrfectPetsJob.StatusEnum.FAILED);
-            return;
-        }
-
-        if ("fetch".equalsIgnoreCase(job.getAction())) {
-            List<Pet> fetchedPets = new ArrayList<>();
-
-            Pet pet1 = new Pet();
-            pet1.setId("pet-" + petIdCounter.getAndIncrement());
-            pet1.setPetId(UUID.randomUUID().toString());
-            pet1.setName("SamplePet1");
-            pet1.setCategory(job.getPetType());
-            pet1.setStatus("available");
-            pet1.setPhotoUrls(Collections.emptyList());
-            pet1.setLifecycleStatus(Pet.StatusEnum.NEW);
-            pet1.setCreatedAt(LocalDateTime.now());
-
-            Pet pet2 = new Pet();
-            pet2.setId("pet-" + petIdCounter.getAndIncrement());
-            pet2.setPetId(UUID.randomUUID().toString());
-            pet2.setName("SamplePet2");
-            pet2.setCategory(job.getPetType());
-            pet2.setStatus("available");
-            pet2.setPhotoUrls(Collections.emptyList());
-            pet2.setLifecycleStatus(Pet.StatusEnum.NEW);
-            pet2.setCreatedAt(LocalDateTime.now());
-
-            fetchedPets.add(pet1);
-            fetchedPets.add(pet2);
-
-            for (Pet pet : fetchedPets) {
-                CompletableFuture<UUID> addPetFuture = entityService.addItem("Pet", ENTITY_VERSION, pet);
-                UUID technicalId = addPetFuture.get();
-                logger.info("Added Pet with technicalId: {}", technicalId);
-                processPet(pet);
-            }
-
-            job.setStatus(PurrfectPetsJob.StatusEnum.COMPLETED);
-            logger.info("Completed processing PurrfectPetsJob with id: {}", job.getId());
-        } else {
-            logger.error("Unsupported action '{}' in job {}", job.getAction(), job.getId());
-            job.setStatus(PurrfectPetsJob.StatusEnum.FAILED);
-        }
-    }
-
-    // Business Logic for processing Pet entity
-    private void processPet(Pet pet) {
-        logger.info("Processing Pet with id: {}", pet.getId());
-
-        if (!pet.isValid()) {
-            logger.error("Invalid pet data for pet id: {}", pet.getId());
-            return;
-        }
-
-        if (pet.getPhotoUrls() == null || pet.getPhotoUrls().isEmpty()) {
-            pet.setPhotoUrls(Collections.singletonList("http://default.photo.url/image.jpg"));
-            logger.info("Added default photo URL for pet id: {}", pet.getId());
-        }
-
-        pet.setLifecycleStatus(Pet.StatusEnum.PROCESSED);
-
-        logger.info("Completed processing Pet with id: {}", pet.getId());
     }
 
 }
