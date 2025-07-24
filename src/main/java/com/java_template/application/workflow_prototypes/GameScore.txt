@@ -1,0 +1,5 @@
+// Private helper: processGameScore business logic
+private void processGameScore(GameScore gameScore) {
+    log.info("Processing GameScore for game: {} vs {} on {}", gameScore.getHomeTeam(), gameScore.getAwayTeam(), gameScore.getGameDate());
+    // Placeholder for enrichment or validation logic
+}
