@@ -1,0 +1,114 @@
+{
+    "active": true,
+    "desc": "Workflow for processing PurrfectPetsJob entity lifecycle",
+    "initialState": "none",
+    "name": "PurrfectPetsJob Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsJobPendingCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "start_job_if_pending",
+                    "next": "pending"
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "HasValidRequestedActionCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "start_processing",
+                    "next": "processing",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "PurrfectPetsJobProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsInvalidActionCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "fail_due_to_invalid_action",
+                    "next": "failed"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsActionLoadPetsCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "complete_load_pets",
+                    "next": "completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsActionSavePetCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "complete_save_pet",
+                    "next": "completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ProcessingFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "fail_processing",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
