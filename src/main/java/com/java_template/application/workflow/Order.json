@@ -1,27 +1,25 @@
 {
     "active": true,
-    "desc": "Workflow for processing customer entity from creation through validation and enrichment to completion or failure.",
+    "desc": "Workflow for processing an Order entity from creation to completion or failure",
     "initialState": "none",
-    "name": "Customer Workflow",
+    "name": "Order Workflow",
     "states": {
         "completed": {
             "transitions": []
         },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
+        "executing": {
             "transitions": [
                 {
-                    "name": "start_processing",
-                    "next": "validating"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "name": "complete_enrichment",
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "OrderExecutionSuccessCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "execute_order",
                     "next": "completed",
                     "processors": [
                         {
@@ -29,7 +27,7 @@
                                 "calculationNodesTags": "cyoda_application"
                             },
                             "executionMode": "SYNC",
-                            "name": "OrderProcessor"
+                            "name": "WorkflowProcessor"
                         }
                     ]
                 },
@@ -39,12 +37,23 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "ProcessingFailedCriterion"
+                            "name": "OrderExecutionFailureCriterion"
                         },
                         "type": "function"
                     },
-                    "name": "processing_failed",
+                    "name": "execute_order_failed",
                     "next": "failed"
+                }
+            ]
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "start_validation",
+                    "next": "validating"
                 }
             ]
         },
@@ -56,12 +65,12 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "ValidateCustomerCriterion"
+                            "name": "OrderParametersValidCriterion"
                         },
                         "type": "function"
                     },
-                    "name": "valid_email_and_unique",
-                    "next": "processing"
+                    "name": "valid_params",
+                    "next": "executing"
                 },
                 {
                     "criterion": {
@@ -69,11 +78,11 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "InvalidCustomerCriterion"
+                            "name": "OrderParametersInvalidCriterion"
                         },
                         "type": "function"
                     },
-                    "name": "invalid_or_not_unique_email",
+                    "name": "invalid_params",
                     "next": "failed"
                 }
             ]
