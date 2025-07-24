@@ -1,0 +1,92 @@
+{
+    "active": true,
+    "desc": "Workflow for orchestrating NBA scores fetching job processing",
+    "initialState": "none",
+    "name": "NbaScoresFetchJob Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "in_progress": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsApiResponseValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "fetch_success",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "NbaScoresFetchJobProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsApiResponseInvalidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "fetch_failure",
+                    "next": "failed"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "start_validation",
+                    "next": "validate_scheduled_date"
+                }
+            ]
+        },
+        "validate_scheduled_date": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsScheduledDateValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "valid_date",
+                    "next": "in_progress"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsScheduledDateInvalidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "invalid_date",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
