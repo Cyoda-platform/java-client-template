@@ -1,12 +1,9 @@
 package com.java_template.application.controller;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Pet;
 import com.java_template.application.entity.PetIngestionJob;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
@@ -17,10 +14,8 @@ import org.springframework.web.bind.annotation.*;
 import static com.java_template.common.config.Config.*;
 
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping(path = "/controller")
@@ -52,7 +47,7 @@ public class Controller {
         job.setTechnicalId(technicalId);
 
         try {
-            processPetIngestionJob(job);
+            // processPetIngestionJob(job); // removed processing method
         } catch (Exception e) {
             logger.error("Error processing PetIngestionJob technicalId {}: {}", technicalId, e.getMessage());
             job.setStatus("FAILED");
@@ -109,7 +104,7 @@ public class Controller {
         pet.setTechnicalId(technicalId);
 
         try {
-            processPet(pet);
+            // processPet(pet); // removed processing method
         } catch (Exception e) {
             logger.error("Error processing Pet technicalId {}: {}", technicalId, e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to process Pet");
@@ -180,7 +175,7 @@ public class Controller {
         updatedPet.setTechnicalId(newTechnicalId);
 
         try {
-            processPet(updatedPet);
+            // processPet(updatedPet); // removed processing method
         } catch (Exception e) {
             logger.error("Error processing updated Pet technicalId {}: {}", newTechnicalId, e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to process updated Pet");
@@ -222,56 +217,5 @@ public class Controller {
 
         logger.info("Deactivated Pet with new version technicalId: {}", deactivatedTechnicalId);
         return ResponseEntity.ok("Pet deactivated with new version technicalId: " + deactivatedTechnicalId);
-    }
-
-    private void processPetIngestionJob(PetIngestionJob job) throws Exception {
-        logger.info("Processing PetIngestionJob with technicalId: {}", job.getTechnicalId());
-
-        if (job.getSourceUrl() == null || job.getSourceUrl().isBlank()) {
-            job.setStatus("FAILED");
-            entityService.updateItem("PetIngestionJob", ENTITY_VERSION, job.getTechnicalId(), job).get();
-            logger.error("PetIngestionJob failed validation: sourceUrl is blank");
-            throw new IllegalArgumentException("sourceUrl must not be blank");
-        }
-
-        job.setStatus("PROCESSING");
-        entityService.updateItem("PetIngestionJob", ENTITY_VERSION, job.getTechnicalId(), job).get();
-
-        // Simulate fetching data from Petstore API (simplified for prototype)
-        Pet newPet = new Pet();
-        newPet.setName("SamplePetFromIngestion");
-        newPet.setCategory("cat");
-        newPet.setStatus("AVAILABLE");
-
-        CompletableFuture<UUID> petIdFuture = entityService.addItem("Pet", ENTITY_VERSION, newPet);
-        UUID petTechnicalId = petIdFuture.get();
-        newPet.setTechnicalId(petTechnicalId);
-
-        processPet(newPet);
-
-        job.setStatus("COMPLETED");
-        entityService.updateItem("PetIngestionJob", ENTITY_VERSION, job.getTechnicalId(), job).get();
-
-        logger.info("Completed processing PetIngestionJob with technicalId: {}", job.getTechnicalId());
-    }
-
-    private void processPet(Pet pet) {
-        logger.info("Processing Pet with technicalId: {}", pet.getTechnicalId());
-
-        if (!pet.isValid()) {
-            logger.error("Invalid Pet entity with technicalId: {}", pet.getTechnicalId());
-            throw new IllegalArgumentException("Pet entity validation failed");
-        }
-
-        if ("cat".equalsIgnoreCase(pet.getCategory())) {
-            if (pet.getTags() == null) {
-                pet.setTags(new ArrayList<>());
-            }
-            if (!pet.getTags().contains("feline")) {
-                pet.getTags().add("feline");
-            }
-        }
-
-        logger.info("Pet processing complete for technicalId: {}", pet.getTechnicalId());
     }
 }
