@@ -1,0 +1,62 @@
+{
+    "active": true,
+    "desc": "Workflow for processing Pet entity from creation to processed state",
+    "initialState": "none",
+    "name": "Pet Workflow",
+    "states": {
+        "error": {
+            "transitions": []
+        },
+        "new": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetValidityCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "valid_pet_transition",
+                    "next": "processed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "PetProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetInvalidityCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "invalid_pet_transition",
+                    "next": "error"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "start_processing",
+                    "next": "new"
+                }
+            ]
+        },
+        "processed": {
+            "transitions": []
+        }
+    },
+    "version": "1.0"
+}
