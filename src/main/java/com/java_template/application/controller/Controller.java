@@ -63,7 +63,6 @@ public class Controller {
             UUID technicalId = idFuture.join();
 
             Mail createdMail = getMailByTechnicalId(technicalId.toString());
-            processMail(createdMail);
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("id", technicalId.toString()));
         } catch (IllegalArgumentException e) {
@@ -121,38 +120,5 @@ public class Controller {
         } catch (Exception e) {
             return null;
         }
-    }
-
-    private void processMail(Mail mail) {
-        log.info("Processing Mail with technicalId: {}", mail.getTechnicalId());
-
-        if (checkMailIsHappy(mail)) {
-            sendHappyMail(mail);
-        } else if (checkMailIsGloomy(mail)) {
-            sendGloomyMail(mail);
-        } else {
-            log.error("Mail with technicalId {} does not meet happy or gloomy criteria", mail.getTechnicalId());
-            mail.setStatus("FAILED");
-        }
-    }
-
-    private boolean checkMailIsHappy(Mail mail) {
-        return Boolean.TRUE.equals(mail.getIsHappy());
-    }
-
-    private boolean checkMailIsGloomy(Mail mail) {
-        return Boolean.FALSE.equals(mail.getIsHappy());
-    }
-
-    private void sendHappyMail(Mail mail) {
-        log.info("Sending happy mail to {}", mail.getMailList());
-        mail.setStatus("SENT_HAPPY");
-        log.info("Happy mail sent for Mail technicalId: {}", mail.getTechnicalId());
-    }
-
-    private void sendGloomyMail(Mail mail) {
-        log.info("Sending gloomy mail to {}", mail.getMailList());
-        mail.setStatus("SENT_GLOOMY");
-        log.info("Gloomy mail sent for Mail technicalId: {}", mail.getTechnicalId());
     }
 }
