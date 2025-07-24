@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.Order;
+import com.java_template.application.entity.PurrfectPetsJob;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,7 +32,7 @@ public class JobParametersValidCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(Order.class, this::validateEntity)
+            .evaluateEntity(PurrfectPetsJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,26 +40,21 @@ public class JobParametersValidCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "JobParametersValidCriterion".equals(modelSpec.operationName()) &&
-               "order".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+                "purrfectPetsJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(Order entity) {
-        // Validate that orderId, petId, quantity, status, and complete are set and quantity > 0
-        if (entity.getOrderId() == null) {
-            return EvaluationOutcome.fail("orderId is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+    private EvaluationOutcome validateEntity(PurrfectPetsJob entity) {
+        // Validation logic: parameters field must be a non-empty JSON string if present
+        String params = entity.getParameters();
+        if (params == null || params.isBlank()) {
+            return EvaluationOutcome.fail("Parameters must not be empty", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (entity.getPetId() == null) {
-            return EvaluationOutcome.fail("petId is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        }
-        if (entity.getQuantity() == null || entity.getQuantity() <= 0) {
-            return EvaluationOutcome.fail("quantity must be greater than 0", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        }
-        if (entity.getStatus() == null || entity.getStatus().isBlank()) {
-            return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        }
-        if (entity.getComplete() == null) {
-            return EvaluationOutcome.fail("complete flag is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        // Basic JSON validation could be attempted
+        try {
+            new com.fasterxml.jackson.databind.ObjectMapper().readTree(params);
+        } catch (Exception e) {
+            return EvaluationOutcome.fail("Parameters must be valid JSON", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
         }
         return EvaluationOutcome.success();
     }
