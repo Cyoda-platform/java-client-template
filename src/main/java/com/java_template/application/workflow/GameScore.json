@@ -1,0 +1,83 @@
+{
+    "active": true,
+    "desc": "Workflow for processing GameScore entity including score validation",
+    "initialState": "none",
+    "name": "GameScore Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "created": {
+            "transitions": [
+                {
+                    "name": "transition_to_validating_score",
+                    "next": "validating_score",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "GameScoreProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "transition_to_created",
+                    "next": "created"
+                }
+            ]
+        },
+        "score_invalid": {
+            "transitions": [
+                {
+                    "name": "handle_invalid_score_and_complete",
+                    "next": "completed"
+                }
+            ]
+        },
+        "score_valid": {
+            "transitions": [
+                {
+                    "name": "complete_processing",
+                    "next": "completed"
+                }
+            ]
+        },
+        "validating_score": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsScoreValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "score_is_valid",
+                    "next": "score_valid"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsScoreInvalidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "score_is_invalid",
+                    "next": "score_invalid"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
