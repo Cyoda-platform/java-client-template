@@ -1,0 +1,108 @@
+{
+    "active": true,
+    "desc": "Workflow to process PetStatusUpdate entity from validation to processed state",
+    "initialState": "none",
+    "name": "PetStatusUpdate Workflow",
+    "states": {
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "start_processing",
+                    "next": "pending"
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetStatusUpdateValidationCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "validate_data",
+                    "next": "validated"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetStatusUpdateInvalidDataCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "fail_invalid_data",
+                    "next": "failed"
+                }
+            ]
+        },
+        "pet_exists": {
+            "transitions": [
+                {
+                    "name": "update_pet_status",
+                    "next": "updated",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "PetStatusUpdateProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "processed": {
+            "transitions": []
+        },
+        "updated": {
+            "transitions": [
+                {
+                    "name": "mark_processed",
+                    "next": "processed"
+                }
+            ]
+        },
+        "validated": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetExistsCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "check_pet_exists",
+                    "next": "pet_exists"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetNotFoundCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "fail_pet_not_found",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
