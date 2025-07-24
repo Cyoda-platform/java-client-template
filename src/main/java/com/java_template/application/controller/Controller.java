@@ -66,9 +66,6 @@ public class Controller {
 
             logger.info("Mail entity created with ID: {}", technicalId);
 
-            // Trigger processing
-            processMail(mail);
-
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(Map.of("technicalId", technicalId.toString()));
 
@@ -135,55 +132,4 @@ public class Controller {
         }
     }
 
-    // Core business logic as per event-driven architecture
-    private void processMail(Mail mail) {
-        logger.info("Processing Mail with ID: {}", mail.getId());
-
-        // Validation criteria (if explicitly requested - here always executed)
-        boolean isHappyValid = checkMailHappy(mail);
-        boolean isGloomyValid = checkMailGloomy(mail);
-
-        // Routing based on criteria results
-        if (isHappyValid) {
-            processMailSendHappyMail(mail);
-        } else if (isGloomyValid) {
-            processMailSendGloomyMail(mail);
-        } else {
-            logger.error("Mail with ID {} does not meet any criteria for processing", mail.getId());
-        }
-    }
-
-    private boolean checkMailHappy(Mail mail) {
-        // Criteria: isHappy == true
-        boolean result = Boolean.TRUE.equals(mail.getIsHappy());
-        logger.info("checkMailHappy for ID {}: {}", mail.getId(), result);
-        return result;
-    }
-
-    private boolean checkMailGloomy(Mail mail) {
-        // Criteria: isHappy == false
-        boolean result = Boolean.FALSE.equals(mail.getIsHappy());
-        logger.info("checkMailGloomy for ID {}: {}", mail.getId(), result);
-        return result;
-    }
-
-    private void processMailSendHappyMail(Mail mail) {
-        // Business logic: send happy mail
-        logger.info("Sending HAPPY mail to recipients: {} for Mail ID: {}", mail.getMailList(), mail.getId());
-
-        // Simulate sending mail - in real app, integrate with mail service
-        for (String recipient : mail.getMailList()) {
-            logger.info("Happy mail sent to {}", recipient);
-        }
-    }
-
-    private void processMailSendGloomyMail(Mail mail) {
-        // Business logic: send gloomy mail
-        logger.info("Sending GLOOMY mail to recipients: {} for Mail ID: {}", mail.getMailList(), mail.getId());
-
-        // Simulate sending mail - in real app, integrate with mail service
-        for (String recipient : mail.getMailList()) {
-            logger.info("Gloomy mail sent to {}", recipient);
-        }
-    }
 }
