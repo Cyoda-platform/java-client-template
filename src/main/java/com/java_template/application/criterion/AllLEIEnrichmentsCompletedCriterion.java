@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.CompanySearchJob;
+import com.java_template.application.entity.LEIEnrichmentRequest;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -15,6 +15,8 @@ import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
 
 @Component
 public class AllLEIEnrichmentsCompletedCriterion implements CyodaCriterion {
@@ -32,7 +34,7 @@ public class AllLEIEnrichmentsCompletedCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(CompanySearchJob.class, this::validateEntity)
+            .evaluateEntity(LEIEnrichmentRequest.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,17 +42,18 @@ public class AllLEIEnrichmentsCompletedCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "AllLEIEnrichmentsCompletedCriterion".equals(modelSpec.operationName()) &&
-               "companySearchJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "lEIEnrichmentRequest".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(CompanySearchJob entity) {
-        // Business logic: status must be PROCESSING and completedAt must be set (non-null and not blank) to consider all LEI enrichments done
-        if (entity.getStatus() == null || !entity.getStatus().equalsIgnoreCase("PROCESSING")) {
-            return EvaluationOutcome.fail("Job is not in PROCESSING status", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+    private EvaluationOutcome validateEntity(LEIEnrichmentRequest entity) {
+        // Validate that enrichment status is completed or failed (done processing)
+        String status = entity.getStatus();
+        if (status == null) {
+            return EvaluationOutcome.fail("Enrichment status is null", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
         }
-        if (entity.getCompletedAt() == null || entity.getCompletedAt().isBlank()) {
-            return EvaluationOutcome.fail("completedAt timestamp is required to mark completion", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        if (!(status.equalsIgnoreCase("COMPLETED") || status.equalsIgnoreCase("FAILED"))) {
+            return EvaluationOutcome.fail("Enrichment not completed", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         return EvaluationOutcome.success();
     }
