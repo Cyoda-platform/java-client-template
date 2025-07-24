@@ -1,79 +1,79 @@
 {
-    "active": true,
-    "desc": "Workflow for PetRegistrationJob orchestration entity",
-    "initialState": "none",
-    "name": "PetRegistrationJob Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "name": "start_processing",
-                    "next": "pending",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "PetRegistrationJobProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "pending": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetRegistrationJobValidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "validate_and_process",
-                    "next": "processing"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetCreatedSuccessfullyCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "complete_successfully",
-                    "next": "completed"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetCreationFailedCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "fail_processing",
-                    "next": "failed"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow for PetRegistrationJob orchestration entity",
+  "initialState": "none",
+  "name": "PetRegistrationJob Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "start_processing",
+          "next": "pending",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "PetRegistrationJobProcessor"
+            }
+          ]
         }
+      ]
     },
-    "version": "1.0"
+    "pending": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "PetRegistrationJobValidCriterion"
+            },
+            "type": "function"
+          },
+          "name": "validate_and_process",
+          "next": "processing"
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "PetCreatedSuccessfullyCriterion"
+            },
+            "type": "function"
+          },
+          "name": "complete_successfully",
+          "next": "completed"
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "PetCreationFailedCriterion"
+            },
+            "type": "function"
+          },
+          "name": "fail_processing",
+          "next": "failed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
