@@ -66,7 +66,7 @@ public class Controller {
             String technicalIdStr = technicalId.toString();
             job.setJobId(technicalIdStr);
 
-            processNbaScoreFetchJob(job, technicalId);
+            // processNbaScoreFetchJob(job, technicalId); // Removed per extraction
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalIdStr));
         } catch (IllegalArgumentException e) {
@@ -154,7 +154,7 @@ public class Controller {
             // Keep subscription locally per instruction (minor entity)
             subscriptionCache.put(technicalId, subscription);
 
-            processSubscription(subscription);
+            // processSubscription(subscription); // Removed per extraction
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId));
         } catch (IllegalArgumentException e) {
@@ -179,136 +179,5 @@ public class Controller {
             logger.error("Error fetching Subscription {}: {}", id, e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
         }
-    }
-
-    // -------------------- Process Methods --------------------
-
-    private void processNbaScoreFetchJob(NbaScoreFetchJob job, UUID technicalId) {
-        logger.info("Processing NbaScoreFetchJob with ID: {}", technicalId);
-        try {
-            job.setStatus("RUNNING");
-            // TODO: Update status to RUNNING in EntityService - no update method, so skip
-
-            // Simulate external NBA API call to fetch scores for scheduledDate
-            List<GameScore> fetchedGameScores = fetchGameScoresFromExternalApi(job.getScheduledDate());
-
-            // Persist each GameScore entity via EntityService
-            List<CompletableFuture<UUID>> futures = new ArrayList<>();
-            for (GameScore gs : fetchedGameScores) {
-                gs.setGameId(null); // clear any local ID before persisting
-                futures.add(entityService.addItem("GameScore", ENTITY_VERSION, gs));
-            }
-
-            // Wait for all to complete
-            List<UUID> technicalIds = new ArrayList<>();
-            for (CompletableFuture<UUID> f : futures) {
-                technicalIds.add(f.get());
-            }
-
-            // Set IDs back for further processing and notifications
-            for (int i = 0; i < fetchedGameScores.size(); i++) {
-                fetchedGameScores.get(i).setGameId(technicalIds.get(i).toString());
-                processGameScore(fetchedGameScores.get(i));
-            }
-
-            job.setStatus("COMPLETED");
-            // TODO: Update status to COMPLETED in EntityService - no update method, so skip
-
-            logger.info("NbaScoreFetchJob {} completed successfully with {} games fetched.", technicalId, fetchedGameScores.size());
-
-            // Trigger notifications for each GameScore and active subscriptions
-            for (GameScore gs : fetchedGameScores) {
-                triggerNotifications(gs);
-            }
-        } catch (Exception e) {
-            logger.error("Failed to process NbaScoreFetchJob {}: {}", technicalId, e.getMessage());
-            job.setStatus("FAILED");
-            // TODO: Update status to FAILED in EntityService - no update method, so skip
-        }
-    }
-
-    private List<GameScore> fetchGameScoresFromExternalApi(LocalDate date) {
-        logger.info("Fetching NBA game scores for date {}", date);
-        List<GameScore> gameScores = new ArrayList<>();
-
-        GameScore gs1 = new GameScore();
-        gs1.setGameDate(date);
-        gs1.setHomeTeam("Lakers");
-        gs1.setAwayTeam("Warriors");
-        gs1.setHomeScore(102);
-        gs1.setAwayScore(99);
-        gs1.setStatus("COMPLETED");
-        gameScores.add(gs1);
-
-        GameScore gs2 = new GameScore();
-        gs2.setGameDate(date);
-        gs2.setHomeTeam("Celtics");
-        gs2.setAwayTeam("Bulls");
-        gs2.setHomeScore(110);
-        gs2.setAwayScore(105);
-        gs2.setStatus("COMPLETED");
-        gameScores.add(gs2);
-
-        return gameScores;
-    }
-
-    private void processGameScore(GameScore gameScore) {
-        logger.info("Processing GameScore with ID: {}", gameScore.getGameId());
-        if (gameScore.getHomeTeam() == null || gameScore.getHomeTeam().isBlank()
-                || gameScore.getAwayTeam() == null || gameScore.getAwayTeam().isBlank()) {
-            logger.error("Invalid GameScore data: missing team names");
-            return;
-        }
-        if (gameScore.getHomeScore() == null || gameScore.getAwayScore() == null) {
-            logger.error("Invalid GameScore data: missing scores");
-            return;
-        }
-        logger.info("GameScore {} processed successfully", gameScore.getGameId());
-    }
-
-    private void processSubscription(Subscription subscription) {
-        logger.info("Processing Subscription with ID: {}", subscription.getSubscriptionId());
-        if (subscription.getUserId() == null || subscription.getUserId().isBlank()) {
-            logger.error("Subscription userId is invalid");
-            return;
-        }
-        if (subscription.getNotificationType() == null || subscription.getNotificationType().isBlank()) {
-            logger.error("Subscription notificationType is invalid");
-            return;
-        }
-        if (subscription.getChannel() == null || subscription.getChannel().isBlank()) {
-            logger.error("Subscription channel is invalid");
-            return;
-        }
-        logger.info("Subscription {} processed successfully", subscription.getSubscriptionId());
-    }
-
-    private void triggerNotifications(GameScore gameScore) {
-        logger.info("Triggering notifications for GameScore ID: {}", gameScore.getGameId());
-        subscriptionCache.values().stream()
-                .filter(sub -> "ACTIVE".equals(sub.getStatus()))
-                .forEach(sub -> {
-                    boolean notify = false;
-                    if (sub.getTeam() == null || sub.getTeam().isBlank()) {
-                        notify = true;
-                    } else if (sub.getTeam().equalsIgnoreCase(gameScore.getHomeTeam())
-                            || sub.getTeam().equalsIgnoreCase(gameScore.getAwayTeam())) {
-                        notify = true;
-                    }
-                    if (notify) {
-                        sendNotification(sub, gameScore);
-                    }
-                });
-    }
-
-    private void sendNotification(Subscription subscription, GameScore gameScore) {
-        logger.info("Sending {} notification to user {} via {} for game {} vs {} with scores {}-{}",
-                subscription.getNotificationType(),
-                subscription.getUserId(),
-                subscription.getChannel(),
-                gameScore.getHomeTeam(),
-                gameScore.getAwayTeam(),
-                gameScore.getHomeScore(),
-                gameScore.getAwayScore());
     }
 }
