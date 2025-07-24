@@ -1,6 +1,7 @@
 package com.java_template.application.criterion;
 
 import com.java_template.application.entity.Mail;
+import com.java_template.application.entity.MailStatusEnum;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -45,11 +46,9 @@ public class IsGloomyCriterion implements CyodaCriterion {
     }
 
     private EvaluationOutcome validateEntity(Mail mail) {
-        if (mail.getIsGloomy() == null) {
-            return EvaluationOutcome.fail("isGloomy flag must be set", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        }
-        if (!Boolean.TRUE.equals(mail.getIsGloomy())) {
-            return EvaluationOutcome.fail("Mail is not gloomy", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        // Validation: mail must be marked as gloomy
+        if (mail.getIsGloomy() == null || !mail.getIsGloomy()) {
+            return EvaluationOutcome.fail("Mail is not marked as gloomy", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         return EvaluationOutcome.success();
     }
