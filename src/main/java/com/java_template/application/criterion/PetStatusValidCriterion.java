@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.Workflow;
+import com.java_template.application.entity.PetOrder;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,27 +32,32 @@ public class PetStatusValidCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-                .evaluateEntity(Workflow.class, this::validateEntity)
-                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
-                .complete();
+            .evaluateEntity(PetOrder.class, this::validateEntity)
+            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+            .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetStatusValidCriterion".equals(modelSpec.operationName()) &&
-                "workflow".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+               "petOrder".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(Workflow entity) {
+    private EvaluationOutcome validateEntity(PetOrder entity) {
         if (entity.getStatus() == null || entity.getStatus().isBlank()) {
             return EvaluationOutcome.fail("Status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        // Check if status is one of the allowed values
-        String status = entity.getStatus();
-        if (!("CREATED".equalsIgnoreCase(status) || "PROCESSING".equalsIgnoreCase(status) || "COMPLETED".equalsIgnoreCase(status) || "FAILED".equalsIgnoreCase(status))) {
-            return EvaluationOutcome.fail("Invalid status value", StandardEvalReasonCategories.VALIDATION_FAILURE);
+
+        String status = entity.getStatus().toUpperCase();
+        switch (status) {
+            case "PENDING":
+            case "APPROVED":
+            case "FULFILLED":
+            case "CANCELLED":
+                return EvaluationOutcome.success();
+            default:
+                return EvaluationOutcome.fail("Invalid status value", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        return EvaluationOutcome.success();
     }
 }
