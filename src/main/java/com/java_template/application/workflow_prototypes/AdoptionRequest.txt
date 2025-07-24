@@ -1,0 +1,42 @@
+private void processAdoptionRequest(AdoptionRequest request) {
+    log.info("Processing AdoptionRequest with technicalId: {}", request.getTechnicalId());
+
+    // Search Pet by petId (business id), we need to find pet with matching petId field
+    Condition condition = Condition.of("$.petId", "EQUALS", request.getPetId());
+    SearchConditionRequest searchRequest = SearchConditionRequest.group("AND", condition);
+    CompletableFuture<ArrayNode> petsFuture = entityService.getItemsByCondition("Pet", ENTITY_VERSION, searchRequest, true);
+    ArrayNode petsArray = petsFuture.join();
+
+    if (petsArray == null || petsArray.isEmpty()) {
+        log.error("Pet with petId {} not found for adoption request {}", request.getPetId(), request.getTechnicalId());
+        request.setStatus("REJECTED");
+        entityService.addItem("AdoptionRequest", ENTITY_VERSION, request).join();
+        return;
+    }
+
+    Pet pet = null;
+    try {
+        ObjectNode petNode = (ObjectNode) petsArray.get(0);
+        pet = mapper.treeToValue(petNode, Pet.class);
+    } catch (Exception e) {
+        log.error("Error deserializing Pet for adoption request {}: {}", request.getTechnicalId(), e.getMessage());
+        request.setStatus("REJECTED");
+        entityService.addItem("AdoptionRequest", ENTITY_VERSION, request).join();
+        return;
+    }
+
+    if (!"AVAILABLE".equalsIgnoreCase(pet.getStatus())) {
+        log.warn("Pet {} is not available for adoption", pet.getTechnicalId());
+        request.setStatus("REJECTED");
+        entityService.addItem("AdoptionRequest", ENTITY_VERSION, request).join();
+        return;
+    }
+
+    request.setStatus("APPROVED");
+    entityService.addItem("AdoptionRequest", ENTITY_VERSION, request).join();
+
+    pet.setStatus("ADOPTED");
+    entityService.addItem("Pet", ENTITY_VERSION, pet).join();
+
+    log.info("AdoptionRequest {} approved and Pet {} marked as ADOPTED", request.getTechnicalId(), pet.getTechnicalId());
+}
