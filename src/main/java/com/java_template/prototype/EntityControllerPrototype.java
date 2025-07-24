@@ -10,11 +10,20 @@ import java.util.*;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.regex.Pattern;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @RestController
 @RequestMapping(path = "/prototype")
 @Slf4j
 public class EntityControllerPrototype {
+
+    private final RestTemplate restTemplate = new RestTemplate();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     // Cache and ID counters for NbaScoresFetchJob
     private final ConcurrentHashMap<String, NbaScoresFetchJob> nbaScoresFetchJobCache = new ConcurrentHashMap<>();
@@ -167,7 +176,6 @@ public class EntityControllerPrototype {
     private void processNbaScoresFetchJob(NbaScoresFetchJob job) {
         log.info("Processing NbaScoresFetchJob with ID: {}", job.getId());
 
-        // Validation - scheduledDate not in future
         if (job.getScheduledDate().isAfter(LocalDate.now())) {
             job.setStatus("FAILED");
             job.setSummary("Scheduled date cannot be in the future");
@@ -177,54 +185,56 @@ public class EntityControllerPrototype {
 
         job.setStatus("IN_PROGRESS");
 
-        // Simulate external API call to fetch NBA scores
+        String apiKey = "test"; // Replace with valid API key or config
+        String url = String.format("https://api.sportsdata.io/v3/nba/scores/json/ScoresBasicFinal/%s?key=%s", job.getScheduledDate(), apiKey);
+
         try {
-            // Example: fetch data from https://api.sportsdata.io/v3/nba/scores/json/ScoresBasicFinal/{date}?key=test
-            // Here we simulate with dummy data
+            // Call external API
+            String response = restTemplate.getForObject(url, String.class);
+            JsonNode root = objectMapper.readTree(response);
+            if (root.isArray()) {
+                int gamesCount = 0;
+                for (JsonNode node : root) {
+                    NbaGame game = new NbaGame();
+                    String gameId = "game-" + nbaGameIdCounter.getAndIncrement();
+                    game.setId(gameId);
+                    game.setGameDate(job.getScheduledDate());
+                    game.setHomeTeam(node.path("HomeTeam").asText());
+                    game.setAwayTeam(node.path("AwayTeam").asText());
+                    game.setHomeScore(node.path("HomeTeamScore").isNull() ? null : node.path("HomeTeamScore").asInt());
+                    game.setAwayScore(node.path("AwayTeamScore").isNull() ? null : node.path("AwayTeamScore").asInt());
+                    game.setStatus(node.path("Status").asText(null));
+                    nbaGameCache.put(gameId, game);
+                    gamesCount++;
+                }
+                job.setStatus("COMPLETED");
+                job.setSummary("Fetched " + gamesCount + " games for " + job.getScheduledDate());
 
-            // Clear existing games for that date (immutable approach would add new entries, but for demo we skip)
-            // For demo, just add 2 games
-            NbaGame game1 = new NbaGame();
-            String gameId1 = "game-" + nbaGameIdCounter.getAndIncrement();
-            game1.setId(gameId1);
-            game1.setGameDate(job.getScheduledDate());
-            game1.setHomeTeam("Lakers");
-            game1.setAwayTeam("Warriors");
-            game1.setHomeScore(102);
-            game1.setAwayScore(99);
-            game1.setStatus("REPORTED");
-            nbaGameCache.put(gameId1, game1);
+                // Notify subscribers
+                StringBuilder summaryBuilder = new StringBuilder();
+                summaryBuilder.append("NBA Scores for ").append(job.getScheduledDate()).append(":\n");
 
-            NbaGame game2 = new NbaGame();
-            String gameId2 = "game-" + nbaGameIdCounter.getAndIncrement();
-            game2.setId(gameId2);
-            game2.setGameDate(job.getScheduledDate());
-            game2.setHomeTeam("Celtics");
-            game2.setAwayTeam("Nets");
-            game2.setHomeScore(110);
-            game2.setAwayScore(115);
-            game2.setStatus("REPORTED");
-            nbaGameCache.put(gameId2, game2);
+                for (JsonNode node : root) {
+                    summaryBuilder.append(node.path("HomeTeam").asText()).append(" ")
+                            .append(node.path("HomeTeamScore").isNull() ? "-" : node.path("HomeTeamScore").asInt())
+                            .append(" - ")
+                            .append(node.path("AwayTeamScore").isNull() ? "-" : node.path("AwayTeamScore").asInt())
+                            .append(" ")
+                            .append(node.path("AwayTeam").asText()).append("\n");
+                }
 
-            job.setStatus("COMPLETED");
-            job.setSummary("Fetched 2 games for " + job.getScheduledDate());
+                subscriberCache.values().stream()
+                        .filter(s -> "ACTIVE".equals(s.getStatus()))
+                        .forEach(s -> {
+                            log.info("Sending email to {} with summary:\n{}", s.getEmail(), summaryBuilder.toString());
+                            // Implement real email sending here if available
+                        });
 
-            // Prepare summary for email notification
-            StringBuilder summaryBuilder = new StringBuilder();
-            summaryBuilder.append("NBA Scores for ").append(job.getScheduledDate()).append(":\n");
-            summaryBuilder.append(game1.getHomeTeam()).append(" ").append(game1.getHomeScore())
-                    .append(" - ").append(game1.getAwayScore()).append(" ").append(game1.getAwayTeam()).append("\n");
-            summaryBuilder.append(game2.getHomeTeam()).append(" ").append(game2.getHomeScore())
-                    .append(" - ").append(game2.getAwayScore()).append(" ").append(game2.getAwayTeam()).append("\n");
-
-            // Send notifications to all active subscribers
-            subscriberCache.values().stream()
-                    .filter(s -> "ACTIVE".equals(s.getStatus()))
-                    .forEach(s -> {
-                        log.info("Sending email to {} with summary:\n{}", s.getEmail(), summaryBuilder.toString());
-                        // Simulate email sending here
-                    });
-
+            } else {
+                job.setStatus("FAILED");
+                job.setSummary("Unexpected API response format");
+                log.error("Unexpected API response format for job {}", job.getId());
+            }
         } catch (Exception e) {
             job.setStatus("FAILED");
             job.setSummary("Exception during fetch: " + e.getMessage());
@@ -234,23 +244,15 @@ public class EntityControllerPrototype {
 
     private void processSubscriber(Subscriber subscriber) {
         log.info("Processing Subscriber with ID: {}", subscriber.getId());
-        // Validate email format already done in controller
-        // Enforce uniqueness already done
-
-        // No additional processing needed currently
+        // No additional processing currently
     }
 
-    // ------------------ Helper Methods ------------------
-
     private boolean isValidEmail(String email) {
-        // Simple regex for email validation
         String emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$";
         return Pattern.compile(emailRegex).matcher(email).matches();
     }
 
     // ------------------ Entity Classes for Prototype ------------------
-
-    // Minimal classes to allow compilation and demonstration
 
     public static class NbaScoresFetchJob {
         private String id;
