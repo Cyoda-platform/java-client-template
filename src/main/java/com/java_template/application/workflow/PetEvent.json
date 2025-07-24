@@ -1,0 +1,83 @@
+{
+    "active": true,
+    "desc": "Workflow for processing PetEvent entities",
+    "initialState": "none",
+    "name": "PetEvent Workflow",
+    "states": {
+        "FAILED": {
+            "transitions": []
+        },
+        "PROCESSED": {
+            "transitions": []
+        },
+        "PROCESSING": {
+            "transitions": [
+                {
+                    "name": "to_processed_success",
+                    "next": "PROCESSED",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "PetEventProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ProcessingFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "to_failed_if_processing_failed",
+                    "next": "FAILED"
+                }
+            ]
+        },
+        "RECORDED": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "CanProcessEventCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "to_processing_if_can_process",
+                    "next": "PROCESSING"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "CannotProcessEventCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "stay_if_cannot_process",
+                    "next": "RECORDED"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "recorded_transition",
+                    "next": "RECORDED"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
