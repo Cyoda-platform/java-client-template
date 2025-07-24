@@ -1,0 +1,61 @@
+package com.java_template.application.criterion;
+
+import com.java_template.application.entity.PetJob;
+import com.java_template.common.serializer.CriterionSerializer;
+import com.java_template.common.serializer.EvaluationOutcome;
+import com.java_template.common.serializer.ReasonAttachmentStrategy;
+import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.serializer.StandardEvalReasonCategories;
+import com.java_template.common.config.Config;
+import com.java_template.common.workflow.CyodaCriterion;
+import com.java_template.common.workflow.CyodaEventContext;
+import com.java_template.common.workflow.OperationSpecification;
+import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationRequest;
+import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+
+@Component
+public class ProcessPetNotFoundCriterion implements CyodaCriterion {
+
+    private final Logger logger = LoggerFactory.getLogger(this.getClass());
+    private final CriterionSerializer serializer;
+
+    public ProcessPetNotFoundCriterion(SerializerFactory serializerFactory) {
+        this.serializer = serializerFactory.getDefaultCriteriaSerializer();
+        logger.info("ProcessPetNotFoundCriterion initialized with SerializerFactory");
+    }
+
+    @Override
+    public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
+        EntityCriteriaCalculationRequest request = context.getEvent();
+
+        return serializer.withRequest(request)
+            .evaluateEntity(PetJob.class, this::validateEntity)
+            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+            .complete();
+    }
+
+    @Override
+    public boolean supports(OperationSpecification modelSpec) {
+        return "ProcessPetNotFoundCriterion".equals(modelSpec.operationName()) &&
+               "petJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+    }
+
+    private EvaluationOutcome validateEntity(PetJob entity) {
+        // This criterion assumes an external check is done prior to the criterion
+        // For demonstration, let's assume we can check if petId is negative to simulate not found
+        if (entity.getOperation() == null || entity.getOperation().isBlank()) {
+            return EvaluationOutcome.fail("Operation must be specified", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (!entity.getOperation().equalsIgnoreCase("PROCESS")) {
+            return EvaluationOutcome.fail("Operation is not PROCESS", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (entity.getPetId() == null || entity.getPetId() < 0) {
+            return EvaluationOutcome.fail("Referenced pet not found", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+        }
+        return EvaluationOutcome.success();
+    }
+}
