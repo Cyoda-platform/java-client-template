@@ -1,92 +1,92 @@
 {
-    "active": true,
-    "desc": "Workflow for processing CompanySearchJob entity including validation, processing and completion",
-    "initialState": "none",
-    "name": "CompanySearchJob Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "name": "start_to_pending",
-                    "next": "pending"
-                }
-            ]
-        },
-        "pending": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "CompanySearchJobValidationCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "validate_and_process",
-                    "next": "processing",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "CompanySearchJobProcessor"
-                        }
-                    ]
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "CompanySearchJobInvalidInputCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "fail_due_to_invalid_input",
-                    "next": "failed"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "AllLEIEnrichmentsCompletedCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "complete_if_all_lei_enriched",
-                    "next": "completed"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "ProcessingErrorOccurredCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "fail_if_processing_error",
-                    "next": "failed"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow for processing CompanySearchJob entity including validation, processing and completion",
+  "initialState": "none",
+  "name": "CompanySearchJob Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "start_to_pending",
+          "next": "pending"
         }
+      ]
     },
-    "version": "1.0"
+    "pending": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "CompanySearchJobValidationCriterion"
+            },
+            "type": "function"
+          },
+          "name": "validate_and_process",
+          "next": "processing",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "CompanySearchJobProcessor"
+            }
+          ]
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "CompanySearchJobInvalidInputCriterion"
+            },
+            "type": "function"
+          },
+          "name": "fail_due_to_invalid_input",
+          "next": "failed"
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "AllLEIEnrichmentsCompletedCriterion"
+            },
+            "type": "function"
+          },
+          "name": "complete_if_all_lei_enriched",
+          "next": "completed"
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "ProcessingErrorOccurredCriterion"
+            },
+            "type": "function"
+          },
+          "name": "fail_if_processing_error",
+          "next": "failed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
