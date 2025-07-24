@@ -14,8 +14,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.util.function.Function;
-
 @Component
 public class SubscriptionProcessor implements CyodaProcessor {
 
@@ -32,32 +30,34 @@ public class SubscriptionProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing Subscription for request: {}", request.getId());
 
-        // Fluent entity processing with validation
         return serializer.withRequest(request)
-                .toEntity(Subscription.class)
-                .validate(Subscription::isValid, "Invalid subscription state")
-                .map(this::processSubscriptionLogic)
-                .complete();
+            .toEntity(Subscription.class)
+            .validate(this::isValidSubscription, "Invalid subscription state")
+            .map(this::processSubscriptionLogic)
+            .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "SubscriptionProcessor".equals(modelSpec.operationName()) &&
-                "subscription".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+               "subscription".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+    }
+
+    private boolean isValidSubscription(Subscription subscription) {
+        if (subscription.getUserId() == null || subscription.getUserId().isBlank()) {
+            logger.error("Invalid Subscription: userId is null or blank");
+            return false;
+        }
+        // Additional validation can be added here
+        return true;
     }
 
     private Subscription processSubscriptionLogic(Subscription subscription) {
-        logger.info("Processing subscription with ID: {}", subscription.getSubscriptionId());
-        // Business logic copied from processSubscription flow:
-        // Initial State: Subscription entity created with ACTIVE status.
-        // Validation: Check subscription fields (valid userId, team exists, etc.).
-        // Processing: Register subscription for event notifications.
-        // Completion: Subscription ready to receive notifications.
-
-        // Since no specific business logic methods were provided in the prototype for Subscription processing,
-        // we assume the subscription is valid and ready to be registered.
-        // No modifications done to subscription entity here.
+        logger.info("Registering subscription with ID: {}", subscription.getSubscriptionId());
+        // As per prototype, this method should register the subscription for event notifications
+        // There is no external call or update on the current entity required here.
+        // The subscription is considered ready to receive notifications post this processing.
         return subscription;
     }
 }
