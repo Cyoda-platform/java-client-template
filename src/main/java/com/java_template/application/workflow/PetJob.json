@@ -1,27 +1,27 @@
 {
     "active": true,
-    "desc": "Workflow for orchestrating PetJob entities",
+    "desc": "Workflow for processing PetEvent entities",
     "initialState": "none",
-    "name": "PetJob Workflow",
+    "name": "PetEvent Workflow",
     "states": {
-        "COMPLETED": {
+        "FAILED": {
             "transitions": []
         },
-        "FAILED": {
+        "PROCESSED": {
             "transitions": []
         },
         "PROCESSING": {
             "transitions": [
                 {
-                    "name": "complete_successfully",
-                    "next": "COMPLETED",
+                    "name": "to_processed_success",
+                    "next": "PROCESSED",
                     "processors": [
                         {
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
                             "executionMode": "SYNC",
-                            "name": "PetJobProcessor"
+                            "name": "PetEventProcessor"
                         }
                     ]
                 },
@@ -31,11 +31,11 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "PetJobErrorCriterion"
+                            "name": "ProcessingFailedCriterion"
                         },
                         "type": "function"
                     },
-                    "name": "fail_if_error",
+                    "name": "to_failed_if_processing_failed",
                     "next": "FAILED"
                 }
             ]
@@ -48,11 +48,11 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "PetJobReadyCriterion"
+                            "name": "CanProcessEventCriterion"
                         },
                         "type": "function"
                     },
-                    "name": "start_processing_if_ready",
+                    "name": "to_processing_if_can_process",
                     "next": "PROCESSING"
                 },
                 {
@@ -61,11 +61,11 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "PetJobNotReadyCriterion"
+                            "name": "CannotProcessEventCriterion"
                         },
                         "type": "function"
                     },
-                    "name": "defer_processing_if_not_ready",
+                    "name": "stay_if_cannot_process",
                     "next": "RECORDED"
                 }
             ]
@@ -73,7 +73,7 @@
         "none": {
             "transitions": [
                 {
-                    "name": "start_recorded",
+                    "name": "recorded_transition",
                     "next": "RECORDED"
                 }
             ]
