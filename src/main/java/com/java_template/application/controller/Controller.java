@@ -1,10 +1,9 @@
 package com.java_template.application.controller;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import com.java_template.application.entity.Mail;
 import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +16,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/mails")
@@ -26,10 +25,11 @@ import static com.java_template.common.config.Config.*;
 public class Controller {
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
     private static final String ENTITY_NAME = "Mail";
 
     @PostMapping
-    public ResponseEntity<?> createMail(@RequestBody Mail mail) {
+    public ResponseEntity<?> createMail(@RequestBody Mail mail) throws JsonProcessingException {
         try {
             if (mail.getMailList() == null || mail.getMailList().isEmpty()) {
                 log.error("Mail list is empty");
@@ -61,7 +61,7 @@ public class Controller {
     }
 
     @GetMapping("/{technicalId}")
-    public ResponseEntity<?> getMailById(@PathVariable String technicalId) {
+    public ResponseEntity<?> getMailById(@PathVariable String technicalId) throws JsonProcessingException {
         try {
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
                     ENTITY_NAME,
@@ -73,7 +73,8 @@ public class Controller {
                 log.error("Mail with technicalId {} not found", technicalId);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Mail not found"));
             }
-            return ResponseEntity.ok(item);
+            Mail mail = objectMapper.treeToValue(item, Mail.class);
+            return ResponseEntity.ok(mail);
         } catch (IllegalArgumentException ex) {
             log.error("Invalid technicalId format: {}", ex.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", ex.getMessage()));
