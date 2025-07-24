@@ -1,86 +1,86 @@
 {
-    "active": true,
-    "desc": "Workflow for processing AdoptionRequest entities on persistence event",
-    "initialState": "none",
-    "name": "AdoptionRequest Entity Workflow",
-    "states": {
-        "approved": {
-            "transitions": []
-        },
-        "check_availability": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IsPetAvailableCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "pet_available",
-                    "next": "approved"
-                },
-                {
-                    "name": "pet_not_available",
-                    "next": "rejected"
-                }
-            ]
-        },
-        "none": {
-            "transitions": [
-                {
-                    "name": "start_validation",
-                    "next": "pending"
-                }
-            ]
-        },
-        "pending": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IsValidAdopterCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "valid_adopter",
-                    "next": "validated"
-                },
-                {
-                    "name": "invalid_adopter",
-                    "next": "rejected"
-                }
-            ]
-        },
-        "rejected": {
-            "transitions": []
-        },
-        "validated": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetExistsCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "pet_exists",
-                    "next": "check_availability"
-                },
-                {
-                    "name": "pet_not_found",
-                    "next": "rejected"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow for processing AdoptionRequest entities on persistence event",
+  "initialState": "none",
+  "name": "AdoptionRequest Entity Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "start_validation",
+          "next": "pending"
         }
+      ]
     },
-    "version": "1.0"
+    "pending": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IsValidAdopterCriterion"
+            },
+            "type": "function"
+          },
+          "name": "valid_adopter",
+          "next": "validated"
+        },
+        {
+          "name": "invalid_adopter",
+          "next": "rejected"
+        }
+      ]
+    },
+    "validated": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "PetExistsCriterion"
+            },
+            "type": "function"
+          },
+          "name": "pet_exists",
+          "next": "check_availability"
+        },
+        {
+          "name": "pet_not_found",
+          "next": "rejected"
+        }
+      ]
+    },
+    "check_availability": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IsPetAvailableCriterion"
+            },
+            "type": "function"
+          },
+          "name": "pet_available",
+          "next": "approved"
+        },
+        {
+          "name": "pet_not_available",
+          "next": "rejected"
+        }
+      ]
+    },
+    "approved": {
+      "transitions": []
+    },
+    "rejected": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
