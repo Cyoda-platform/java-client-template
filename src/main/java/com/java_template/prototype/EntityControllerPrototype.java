@@ -82,15 +82,12 @@ public class EntityControllerPrototype {
             // Validate requestedAction
             String action = job.getRequestedAction().toUpperCase(Locale.ROOT);
             if ("LOAD_PETS".equals(action)) {
-                // Simulate fetching pets from Petstore API filtered by status "available"
-                // For prototype, create dummy pets and save immutably
-                List<Pet> fetchedPets = fetchPetsFromPetstoreAPI("available");
-                for (Pet pet : fetchedPets) {
-                    savePetImmutable(pet);
-                }
+                // Remove simulated external API call
+                log.info("LOAD_PETS action requested - no external API call simulated in this prototype");
+                
+                // Here you would trigger actual processing logic such as reading from internal sources or queues
+                // For demonstration, just log
             } else if ("SAVE_PET".equals(action)) {
-                // For SAVE_PET, normally would save a pet entity passed externally
-                // Here we simulate by logging (no pet passed in job)
                 log.info("SAVE_PET action requested but no pet data in job - skipping actual save");
             } else {
                 log.error("Unknown requestedAction: {}", action);
@@ -112,19 +109,16 @@ public class EntityControllerPrototype {
     // processPet - business logic for pet processing
     private void processPet(String petId, Pet pet) {
         log.info("Processing Pet with ID: {}", petId);
-        // Validate pet fields
         if (!pet.isValid()) {
             log.error("Invalid pet data for ID: {}", petId);
             return;
         }
-        // Enrich pet by adding default tag "Purrfect" if not present
         if (pet.getTags() == null) {
             pet.setTags(new ArrayList<>());
         }
         if (!pet.getTags().contains("Purrfect")) {
             pet.getTags().add("Purrfect");
         }
-        // Pet status remains immutable in this prototype
         log.info("Processed Pet with ID: {}", petId);
     }
 
@@ -136,31 +130,4 @@ public class EntityControllerPrototype {
         processPet(id, pet);
     }
 
-    // Simulated external API call to Petstore API to fetch pets by status
-    private List<Pet> fetchPetsFromPetstoreAPI(String status) {
-        // Prototype: create dummy pets to simulate external API call response
-        List<Pet> pets = new ArrayList<>();
-
-        Pet pet1 = new Pet();
-        pet1.setPetId(101L);
-        pet1.setName("Fluffy");
-        pet1.setCategory("Cat");
-        pet1.setStatus(status);
-        pet1.setPhotoUrls(List.of("http://example.com/photo1.jpg"));
-        pet1.setTags(new ArrayList<>(List.of("Cute")));
-
-        Pet pet2 = new Pet();
-        pet2.setPetId(102L);
-        pet2.setName("Barky");
-        pet2.setCategory("Dog");
-        pet2.setStatus(status);
-        pet2.setPhotoUrls(List.of("http://example.com/photo2.jpg"));
-        pet2.setTags(new ArrayList<>(List.of("Friendly")));
-
-        pets.add(pet1);
-        pets.add(pet2);
-
-        log.info("Fetched {} pets from Petstore API with status '{}'", pets.size(), status);
-        return pets;
-    }
 }
