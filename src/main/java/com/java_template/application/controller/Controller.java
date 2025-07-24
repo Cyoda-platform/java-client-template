@@ -1,12 +1,15 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.java_template.application.entity.PurrfectPetsJob;
 import com.java_template.application.entity.Pet;
+import com.java_template.application.entity.PurrfectPetsJob;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
@@ -16,12 +19,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/controller")
@@ -33,12 +36,14 @@ public class Controller {
 
     private final EntityService entityService;
 
+    private final ObjectMapper objectMapper;
+
     private final AtomicLong purrfectPetsJobIdCounter = new AtomicLong(1);
     private final AtomicLong petIdCounter = new AtomicLong(1);
 
     // POST /controller/purrfectPetsJob - create new job and trigger processing
     @PostMapping("/purrfectPetsJob")
-    public ResponseEntity<?> createPurrfectPetsJob(@RequestBody PurrfectPetsJob job) throws Exception {
+    public ResponseEntity<?> createPurrfectPetsJob(@Valid @RequestBody PurrfectPetsJob job) throws ExecutionException, InterruptedException, JsonProcessingException {
         if (job == null) {
             return ResponseEntity.badRequest().body("Job cannot be null");
         }
@@ -65,8 +70,7 @@ public class Controller {
 
     // GET /controller/purrfectPetsJob/{id} - get job by ID
     @GetMapping("/purrfectPetsJob/{id}")
-    public ResponseEntity<?> getPurrfectPetsJob(@PathVariable String id) throws Exception {
-        // Search by condition on id field
+    public ResponseEntity<?> getPurrfectPetsJob(@PathVariable String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         SearchConditionRequest condition = SearchConditionRequest.group("AND",
                 Condition.of("$.id", "EQUALS", id));
         CompletableFuture<ArrayNode> itemsFuture = entityService.getItemsByCondition("PurrfectPetsJob", ENTITY_VERSION, condition, true);
@@ -75,14 +79,13 @@ public class Controller {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Job not found");
         }
         ObjectNode objNode = (ObjectNode) items.get(0);
-        // Convert ObjectNode to PurrfectPetsJob using Jackson or manual mapping
-        PurrfectPetsJob job = objNode.traverse().readValueAs(PurrfectPetsJob.class);
+        PurrfectPetsJob job = objectMapper.treeToValue(objNode, PurrfectPetsJob.class);
         return ResponseEntity.ok(job);
     }
 
     // POST /controller/pet - create new pet and trigger processing
     @PostMapping("/pet")
-    public ResponseEntity<?> createPet(@RequestBody Pet pet) throws Exception {
+    public ResponseEntity<?> createPet(@Valid @RequestBody Pet pet) throws ExecutionException, InterruptedException, JsonProcessingException {
         if (pet == null) {
             return ResponseEntity.badRequest().body("Pet cannot be null");
         }
@@ -108,7 +111,7 @@ public class Controller {
 
     // GET /controller/pet/{id} - get pet by ID
     @GetMapping("/pet/{id}")
-    public ResponseEntity<?> getPet(@PathVariable String id) throws Exception {
+    public ResponseEntity<?> getPet(@PathVariable String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         SearchConditionRequest condition = SearchConditionRequest.group("AND",
                 Condition.of("$.id", "EQUALS", id));
         CompletableFuture<ArrayNode> itemsFuture = entityService.getItemsByCondition("Pet", ENTITY_VERSION, condition, true);
@@ -117,13 +120,13 @@ public class Controller {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Pet not found");
         }
         ObjectNode objNode = (ObjectNode) items.get(0);
-        Pet pet = objNode.traverse().readValueAs(Pet.class);
+        Pet pet = objectMapper.treeToValue(objNode, Pet.class);
         return ResponseEntity.ok(pet);
     }
 
-    // POST /controller/purrfectPetsJob/{id}/update - create new job version (optional, avoid if possible)
+    // POST /controller/purrfectPetsJob/{id}/update - update existing job by technicalId
     @PostMapping("/purrfectPetsJob/{id}/update")
-    public ResponseEntity<?> updatePurrfectPetsJob(@PathVariable String id, @RequestBody PurrfectPetsJob updatedJob) throws Exception {
+    public ResponseEntity<?> updatePurrfectPetsJob(@PathVariable String id, @Valid @RequestBody PurrfectPetsJob updatedJob) throws ExecutionException, InterruptedException, JsonProcessingException {
         SearchConditionRequest condition = SearchConditionRequest.group("AND",
                 Condition.of("$.id", "EQUALS", id));
         CompletableFuture<ArrayNode> itemsFuture = entityService.getItemsByCondition("PurrfectPetsJob", ENTITY_VERSION, condition, true);
@@ -131,26 +134,28 @@ public class Controller {
         if (items == null || items.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Job not found");
         }
+        ObjectNode objNode = (ObjectNode) items.get(0);
+        PurrfectPetsJob existingJob = objectMapper.treeToValue(objNode, PurrfectPetsJob.class);
 
-        updatedJob.setId("job-" + purrfectPetsJobIdCounter.getAndIncrement());
-        if (updatedJob.getCreatedAt() == null) {
-            updatedJob.setCreatedAt(LocalDateTime.now());
-        }
         if (!updatedJob.isValid()) {
             return ResponseEntity.badRequest().body("Invalid updated job data");
         }
+        updatedJob.setTechnicalId(existingJob.getTechnicalId());
+        if (updatedJob.getCreatedAt() == null) {
+            updatedJob.setCreatedAt(LocalDateTime.now());
+        }
         updatedJob.setStatus(PurrfectPetsJob.StatusEnum.PENDING);
 
-        CompletableFuture<UUID> idFuture = entityService.addItem("PurrfectPetsJob", ENTITY_VERSION, updatedJob);
+        CompletableFuture<UUID> idFuture = entityService.updateItem("PurrfectPetsJob", ENTITY_VERSION, existingJob.getTechnicalId(), updatedJob);
         UUID technicalId = idFuture.get();
-        logger.info("Created new version of PurrfectPetsJob with technicalId: {}", technicalId);
+        logger.info("Updated PurrfectPetsJob with technicalId: {}", technicalId);
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(updatedJob);
+        return ResponseEntity.ok(updatedJob);
     }
 
-    // POST /controller/pet/{id}/update - create new pet version (optional)
+    // POST /controller/pet/{id}/update - update existing pet by technicalId
     @PostMapping("/pet/{id}/update")
-    public ResponseEntity<?> updatePet(@PathVariable String id, @RequestBody Pet updatedPet) throws Exception {
+    public ResponseEntity<?> updatePet(@PathVariable String id, @Valid @RequestBody Pet updatedPet) throws ExecutionException, InterruptedException, JsonProcessingException {
         SearchConditionRequest condition = SearchConditionRequest.group("AND",
                 Condition.of("$.id", "EQUALS", id));
         CompletableFuture<ArrayNode> itemsFuture = entityService.getItemsByCondition("Pet", ENTITY_VERSION, condition, true);
@@ -158,28 +163,30 @@ public class Controller {
         if (items == null || items.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Pet not found");
         }
+        ObjectNode objNode = (ObjectNode) items.get(0);
+        Pet existingPet = objectMapper.treeToValue(objNode, Pet.class);
 
-        updatedPet.setId("pet-" + petIdCounter.getAndIncrement());
-        if (updatedPet.getCreatedAt() == null) {
-            updatedPet.setCreatedAt(LocalDateTime.now());
-        }
         if (!updatedPet.isValid()) {
             return ResponseEntity.badRequest().body("Invalid updated pet data");
+        }
+        updatedPet.setTechnicalId(existingPet.getTechnicalId());
+        if (updatedPet.getCreatedAt() == null) {
+            updatedPet.setCreatedAt(LocalDateTime.now());
         }
         if (updatedPet.getLifecycleStatus() == null) {
             updatedPet.setLifecycleStatus(Pet.StatusEnum.NEW);
         }
 
-        CompletableFuture<UUID> idFuture = entityService.addItem("Pet", ENTITY_VERSION, updatedPet);
+        CompletableFuture<UUID> idFuture = entityService.updateItem("Pet", ENTITY_VERSION, existingPet.getTechnicalId(), updatedPet);
         UUID technicalId = idFuture.get();
-        logger.info("Created new version of Pet with technicalId: {}", technicalId);
+        logger.info("Updated Pet with technicalId: {}", technicalId);
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(updatedPet);
+        return ResponseEntity.ok(updatedPet);
     }
 
     // POST /controller/purrfectPetsJob/{id}/deactivate - create deactivation event (optional)
     @PostMapping("/purrfectPetsJob/{id}/deactivate")
-    public ResponseEntity<?> deactivatePurrfectPetsJob(@PathVariable String id) throws Exception {
+    public ResponseEntity<?> deactivatePurrfectPetsJob(@PathVariable String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         SearchConditionRequest condition = SearchConditionRequest.group("AND",
                 Condition.of("$.id", "EQUALS", id));
         CompletableFuture<ArrayNode> itemsFuture = entityService.getItemsByCondition("PurrfectPetsJob", ENTITY_VERSION, condition, true);
@@ -188,7 +195,7 @@ public class Controller {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Job not found");
         }
         ObjectNode objNode = (ObjectNode) items.get(0);
-        PurrfectPetsJob existingJob = objNode.traverse().readValueAs(PurrfectPetsJob.class);
+        PurrfectPetsJob existingJob = objectMapper.treeToValue(objNode, PurrfectPetsJob.class);
 
         PurrfectPetsJob deactivatedJob = new PurrfectPetsJob();
         deactivatedJob.setId("job-" + purrfectPetsJobIdCounter.getAndIncrement());
@@ -208,7 +215,7 @@ public class Controller {
 
     // POST /controller/pet/{id}/deactivate - create deactivation event (optional)
     @PostMapping("/pet/{id}/deactivate")
-    public ResponseEntity<?> deactivatePet(@PathVariable String id) throws Exception {
+    public ResponseEntity<?> deactivatePet(@PathVariable String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         SearchConditionRequest condition = SearchConditionRequest.group("AND",
                 Condition.of("$.id", "EQUALS", id));
         CompletableFuture<ArrayNode> itemsFuture = entityService.getItemsByCondition("Pet", ENTITY_VERSION, condition, true);
@@ -217,7 +224,7 @@ public class Controller {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Pet not found");
         }
         ObjectNode objNode = (ObjectNode) items.get(0);
-        Pet existingPet = objNode.traverse().readValueAs(Pet.class);
+        Pet existingPet = objectMapper.treeToValue(objNode, Pet.class);
 
         Pet deactivatedPet = new Pet();
         deactivatedPet.setId("pet-" + petIdCounter.getAndIncrement());
