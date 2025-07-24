@@ -1,0 +1,150 @@
+{
+    "active": true,
+    "desc": "Workflow for processing PetJob orchestration entity handling create, process, and search operations",
+    "initialState": "none",
+    "name": "PetJob Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "start_to_pending",
+                    "next": "pending"
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetJobValidationCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "validate_petjob",
+                    "next": "validated"
+                },
+                {
+                    "name": "fail_validation",
+                    "next": "failed"
+                }
+            ]
+        },
+        "processing_create": {
+            "transitions": [
+                {
+                    "name": "process_create",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "PetProcessor"
+                        }
+                    ]
+                },
+                {
+                    "name": "fail_create",
+                    "next": "failed"
+                }
+            ]
+        },
+        "processing_process": {
+            "transitions": [
+                {
+                    "name": "process_process",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "PetProcessor"
+                        }
+                    ]
+                },
+                {
+                    "name": "fail_process",
+                    "next": "failed"
+                }
+            ]
+        },
+        "processing_search": {
+            "transitions": [
+                {
+                    "name": "process_search",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "PetProcessor"
+                        }
+                    ]
+                },
+                {
+                    "name": "fail_search",
+                    "next": "failed"
+                }
+            ]
+        },
+        "validated": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetJobCreateOperationCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "operation_create",
+                    "next": "processing_create"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetJobProcessOperationCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "operation_process",
+                    "next": "processing_process"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetJobSearchOperationCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "operation_search",
+                    "next": "processing_search"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
