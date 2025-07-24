@@ -1,0 +1,28 @@
+private void processPurrfectPetsJob(PurrfectPetsJob job) {
+    logger.info("Processing PurrfectPetsJob with jobName: {}", job.getJobName());
+    try {
+        // Simulate fetching pet data from Petstore API
+        // For demo, just log and create a dummy pet entity
+        Pet demoPet = new Pet();
+        demoPet.setPetId(999L);
+        demoPet.setName("DemoPet");
+        demoPet.setCategory("cat");
+        demoPet.setStatus("available");
+        demoPet.setPhotoUrls("http://example.com/photo1.jpg");
+        demoPet.setTags("demo,example");
+
+        // Create new pet event (immutable) using entityService
+        CompletableFuture<UUID> petIdFuture = entityService.addItem("Pet", ENTITY_VERSION, demoPet);
+        UUID petTechnicalId = petIdFuture.get();
+        String petTechIdStr = "pet-" + petIdCounter.getAndIncrement();
+        logger.info("Ingested Pet with technicalId: {}", petTechIdStr);
+
+        // Optionally create orders similarly if parameters request (skipped here)
+
+        job.setStatus("COMPLETED");
+        logger.info("PurrfectPetsJob {} completed successfully", job.getJobName());
+    } catch (Exception e) {
+        logger.error("Failed processing PurrfectPetsJob {}: {}", job.getJobName(), e.getMessage(), e);
+        job.setStatus("FAILED");
+    }
+}
