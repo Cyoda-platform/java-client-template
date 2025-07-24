@@ -32,22 +32,29 @@ public class ExternalApiCallFailureCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(ExternalApiData.class, this::validateEntity)
-            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
-            .complete();
+                .evaluateEntity(ExternalApiData.class, this::validateEntity)
+                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+                .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "ExternalApiCallFailureCriterion".equals(modelSpec.operationName()) &&
-               "externalApiData".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+                "externalApiData".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
     private EvaluationOutcome validateEntity(ExternalApiData entity) {
         if (entity.getResponseData() == null || entity.getResponseData().isBlank()) {
-            return EvaluationOutcome.success(); // If no response data, consider failure condition met
+            return EvaluationOutcome.fail("responseData is missing or empty, indicating a failure", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
         }
-        return EvaluationOutcome.fail("Response data exists, so failure criterion not met", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        // Example failure condition: fetchedAt is null or in the future
+        if (entity.getFetchedAt() == null) {
+            return EvaluationOutcome.fail("fetchedAt timestamp is missing, indicating a failure", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+        }
+        if (entity.getFetchedAt().isAfter(java.time.Instant.now())) {
+            return EvaluationOutcome.fail("fetchedAt timestamp is in the future, indicating invalid data", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+        }
+        return EvaluationOutcome.success();
     }
 }
