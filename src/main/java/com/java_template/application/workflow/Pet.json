@@ -1,0 +1,92 @@
+{
+    "active": true,
+    "desc": "Workflow for processing PetIngestionJob entity from ingestion to completion or failure",
+    "initialState": "none",
+    "name": "PetIngestionJob Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "start_processing_transition",
+                    "next": "pending"
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "CanStartProcessingCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "to_processing_if_source_valid",
+                    "next": "processing"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "InvalidSourceCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "fail_due_to_invalid_source",
+                    "next": "failed"
+                }
+            ]
+        },
+        "processing": {
+            "processors": [
+                {
+                    "config": {
+                        "calculationNodesTags": "cyoda_application"
+                    },
+                    "executionMode": "SYNC",
+                    "name": "PetProcessor"
+                }
+            ],
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "CanCompleteCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "complete_processing",
+                    "next": "completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "CanFailCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "fail_processing",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
