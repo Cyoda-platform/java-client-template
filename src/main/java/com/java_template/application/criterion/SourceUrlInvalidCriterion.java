@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.Pet;
+import com.java_template.application.entity.PetIngestionJob;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -30,9 +30,8 @@ public class SourceUrlInvalidCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-
         return serializer.withRequest(request)
-            .evaluateEntity(Pet.class, this::validateEntity)
+            .evaluateEntity(PetIngestionJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,20 +39,14 @@ public class SourceUrlInvalidCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "SourceUrlInvalidCriterion".equals(modelSpec.operationName()) &&
-               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "petingestionjob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(Pet entity) {
-        // This criterion should fail if the sourceUrl is invalid
-        // Pet entity does not have sourceUrl, so fail if mandatory fields missing
-        if (entity.getName() == null || entity.getName().isBlank()) {
-            return EvaluationOutcome.fail("Pet name is missing or blank", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+    private EvaluationOutcome validateEntity(PetIngestionJob job) {
+        if (job.getSourceUrl() == null || job.getSourceUrl().isBlank()) {
+            return EvaluationOutcome.fail("sourceUrl is missing or blank", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (entity.getCategory() == null || entity.getCategory().isBlank()) {
-            return EvaluationOutcome.fail("Pet category is missing or blank", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-        }
-        // If mandatory fields are present, then this criterion does not fail
-        return EvaluationOutcome.fail("Unknown source URL invalid condition", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+        return EvaluationOutcome.success();
     }
 }
