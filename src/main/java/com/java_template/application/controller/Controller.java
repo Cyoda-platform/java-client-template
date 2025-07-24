@@ -1,12 +1,11 @@
 package com.java_template.application.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Order;
-import com.java_template.application.entity.Pet;
 import com.java_template.application.entity.PetRegistrationJob;
+import com.java_template.application.entity.Pet;
 import com.java_template.common.service.EntityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,10 +13,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.*;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.UUID;
 
 import static com.java_template.common.config.Config.ENTITY_VERSION;
 
@@ -28,7 +27,6 @@ import static com.java_template.common.config.Config.ENTITY_VERSION;
 public class Controller {
 
     private final EntityService entityService;
-    private final ObjectMapper objectMapper;
 
     private static final String PET_REGISTRATION_JOB_MODEL = "PetRegistrationJob";
     private static final String PET_MODEL = "Pet";
@@ -37,7 +35,7 @@ public class Controller {
     // ----------- PetRegistrationJob endpoints -----------
 
     @PostMapping("/pet-registration-jobs")
-    public ResponseEntity<?> createPetRegistrationJob(@RequestBody PetRegistrationJob job) throws JsonProcessingException {
+    public ResponseEntity<?> createPetRegistrationJob(@RequestBody PetRegistrationJob job) {
         try {
             if (job == null || job.getPetName() == null || job.getPetName().isBlank()
                     || job.getPetType() == null || job.getPetType().isBlank()
@@ -55,11 +53,9 @@ public class Controller {
 
             log.info("Created PetRegistrationJob with ID: {}", technicalId);
 
-            // Fetch current pets from external service
             CompletableFuture<ArrayNode> petsFuture = entityService.getItems(PET_MODEL, ENTITY_VERSION);
             ArrayNode petsNode = petsFuture.get();
 
-            // Return only technicalId and pets as raw ObjectNodes
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString(), "pets", petsNode));
         } catch (IllegalArgumentException e) {
             log.error("Invalid argument: {}", e.getMessage());
@@ -71,7 +67,7 @@ public class Controller {
     }
 
     @GetMapping("/pet-registration-jobs/{id}")
-    public ResponseEntity<?> getPetRegistrationJob(@PathVariable String id) throws JsonProcessingException {
+    public ResponseEntity<?> getPetRegistrationJob(@PathVariable String id) {
         try {
             UUID technicalId = UUID.fromString(id);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(PET_REGISTRATION_JOB_MODEL, ENTITY_VERSION, technicalId);
@@ -129,7 +125,7 @@ public class Controller {
     // ----------- Order endpoints -----------
 
     @PostMapping("/orders")
-    public ResponseEntity<?> createOrder(@RequestBody Order order) throws JsonProcessingException {
+    public ResponseEntity<?> createOrder(@RequestBody Order order) {
         try {
             if (order == null || order.getPetId() == null || order.getPetId().isBlank()
                     || order.getQuantity() == null || order.getQuantity() <= 0
@@ -138,24 +134,6 @@ public class Controller {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Missing or invalid required fields"));
             }
 
-            // Validate pet availability
-            UUID petTechnicalId = UUID.fromString(order.getPetId());
-            CompletableFuture<ObjectNode> petFuture = entityService.getItem(PET_MODEL, ENTITY_VERSION, petTechnicalId);
-            ObjectNode petNode = petFuture.get();
-            if (petNode == null || petNode.isEmpty()) {
-                log.error("Order processing failed: Pet not found with ID: {}", order.getPetId());
-                order.setStatus("FAILED");
-            } else {
-                String petStatus = petNode.path("status").asText();
-                if (!"AVAILABLE".equalsIgnoreCase(petStatus)) {
-                    log.error("Order processing failed: Pet not available with ID: {}", order.getPetId());
-                    order.setStatus("FAILED");
-                } else {
-                    order.setStatus("APPROVED");
-                }
-            }
-
-            // Add order entity
             CompletableFuture<UUID> idFuture = entityService.addItem(ORDER_MODEL, ENTITY_VERSION, order);
             UUID technicalId = idFuture.get();
 
