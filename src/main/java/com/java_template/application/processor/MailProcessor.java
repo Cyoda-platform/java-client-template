@@ -46,19 +46,18 @@ public class MailProcessor implements CyodaProcessor {
     private Mail processMail(Mail mail) {
         logger.info("Processing Mail with technicalId: {}", mail.getTechnicalId());
 
-        boolean happyCriteriaMet = checkEntityIsHappy(mail);
-        boolean gloomyCriteriaMet = checkEntityIsGloomy(mail);
-
-        if (happyCriteriaMet) {
-            mail.setIsHappy(true);
-            processMailSendHappyMail(mail);
-            mail.setStatus("SENT_HAPPY");
-            logger.info("Mail technicalId {} sent as Happy", mail.getTechnicalId());
-        } else if (gloomyCriteriaMet) {
-            mail.setIsHappy(false);
-            processMailSendGloomyMail(mail);
-            mail.setStatus("SENT_GLOOMY");
-            logger.info("Mail technicalId {} sent as Gloomy", mail.getTechnicalId());
+        // Use criteria results (assumed to be set externally in mail entity) to decide processing
+        Boolean isHappy = mail.getIsHappy();
+        if (isHappy != null) {
+            if (isHappy) {
+                processMailSendHappyMail(mail);
+                mail.setStatus("SENT_HAPPY");
+                logger.info("Mail technicalId {} sent as Happy", mail.getTechnicalId());
+            } else {
+                processMailSendGloomyMail(mail);
+                mail.setStatus("SENT_GLOOMY");
+                logger.info("Mail technicalId {} sent as Gloomy", mail.getTechnicalId());
+            }
         } else {
             mail.setStatus("FAILED");
             logger.error("Mail technicalId {} does not meet any criteria for sending", mail.getTechnicalId());
@@ -66,18 +65,6 @@ public class MailProcessor implements CyodaProcessor {
         }
 
         return mail;
-    }
-
-    private boolean checkEntityIsHappy(Mail mail) {
-        // Implement actual happy criteria logic here
-        // Since criteria are ignored, return false
-        return false;
-    }
-
-    private boolean checkEntityIsGloomy(Mail mail) {
-        // Implement actual gloomy criteria logic here
-        // Since criteria are ignored, return false
-        return false;
     }
 
     private void processMailSendHappyMail(Mail mail) {
