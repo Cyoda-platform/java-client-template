@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.Pet;
+import com.java_template.application.entity.PetIngestionJob;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,23 +32,41 @@ public class CanStartProcessingCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-                .evaluateEntity(Pet.class, this::validateEntity)
-                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
-                .complete();
+            .evaluateEntity(PetIngestionJob.class, this::validateEntity)
+            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+            .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "CanStartProcessingCriterion".equals(modelSpec.operationName()) &&
-                "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+               "petIngestionJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(Pet entity) {
-        // Business logic: Allow start processing only if pet status is PENDING
-        if (entity.getStatus() == null || !entity.getStatus().equalsIgnoreCase("PENDING")) {
-            return EvaluationOutcome.fail("Pet status must be PENDING to start processing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+    private EvaluationOutcome validateEntity(PetIngestionJob entity) {
+        // Business logic for starting processing:
+        // Job can start processing if status is PENDING and jobId, source, createdAt, status are all valid
+
+        if (entity.getStatus() == null || entity.getStatus().isBlank()) {
+            return EvaluationOutcome.fail("Status is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
+        if (!"PENDING".equalsIgnoreCase(entity.getStatus())) {
+            return EvaluationOutcome.fail("Job status must be PENDING to start processing", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        }
+
+        if (entity.getJobId() == null || entity.getJobId().isBlank()) {
+            return EvaluationOutcome.fail("Job ID is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+
+        if (entity.getSource() == null || entity.getSource().isBlank()) {
+            return EvaluationOutcome.fail("Source is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+
+        if (entity.getCreatedAt() == null) {
+            return EvaluationOutcome.fail("Creation timestamp is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+
         return EvaluationOutcome.success();
     }
 }
