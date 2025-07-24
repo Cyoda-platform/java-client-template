@@ -1,54 +1,13 @@
 {
     "active": true,
-    "desc": "Workflow for processing Pet entities on persistence event",
+    "desc": "Workflow for processing AdoptionRequest entities on persistence event",
     "initialState": "none",
-    "name": "Pet Entity Workflow",
+    "name": "AdoptionRequest Entity Workflow",
     "states": {
-        "complete": {
+        "approved": {
             "transitions": []
         },
-        "none": {
-            "transitions": [
-                {
-                    "name": "start_validation",
-                    "next": "validate"
-                }
-            ]
-        },
-        "persist_final": {
-            "transitions": [
-                {
-                    "name": "persist_final_pet",
-                    "next": "complete"
-                }
-            ]
-        },
-        "persist_pending": {
-            "transitions": [
-                {
-                    "name": "persist_pending_pet",
-                    "next": "complete"
-                }
-            ]
-        },
-        "process_status": {
-            "transitions": [
-                {
-                    "name": "assign_status_and_persist",
-                    "next": "persist_final",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "PetProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "validate": {
+        "check_availability": {
             "transitions": [
                 {
                     "criterion": {
@@ -56,16 +15,69 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "MandatoryFieldsPresentCriterion"
+                            "name": "IsPetAvailableCriterion"
                         },
                         "type": "function"
                     },
-                    "name": "mandatory_fields_present",
-                    "next": "process_status"
+                    "name": "pet_available",
+                    "next": "approved"
                 },
                 {
-                    "name": "mandatory_fields_missing",
-                    "next": "persist_pending"
+                    "name": "pet_not_available",
+                    "next": "rejected"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "start_validation",
+                    "next": "pending"
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsValidAdopterCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "valid_adopter",
+                    "next": "validated"
+                },
+                {
+                    "name": "invalid_adopter",
+                    "next": "rejected"
+                }
+            ]
+        },
+        "rejected": {
+            "transitions": []
+        },
+        "validated": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetExistsCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "pet_exists",
+                    "next": "check_availability"
+                },
+                {
+                    "name": "pet_not_found",
+                    "next": "rejected"
                 }
             ]
         }
