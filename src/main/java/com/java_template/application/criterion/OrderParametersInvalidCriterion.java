@@ -15,6 +15,8 @@ import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import java.util.List;
+import java.util.Map;
 
 @Component
 public class OrderParametersInvalidCriterion implements CyodaCriterion {
@@ -44,27 +46,28 @@ public class OrderParametersInvalidCriterion implements CyodaCriterion {
                 Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(Order order) {
-        if (order.getOrderId() != null && !order.getOrderId().isBlank()) {
-            return EvaluationOutcome.fail("Order ID should be blank for invalid parameters", StandardEvalReasonCategories.VALIDATION_FAILURE);
+    private EvaluationOutcome validateEntity(Order entity) {
+        if (entity.getOrderId() != null && !entity.getOrderId().isBlank()) {
+            return EvaluationOutcome.fail("Order ID should not be present for invalid parameters", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (order.getCustomerId() != null && !order.getCustomerId().isBlank()) {
-            return EvaluationOutcome.fail("Customer ID should be blank for invalid parameters", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (entity.getCustomerId() != null && !entity.getCustomerId().isBlank()) {
+            return EvaluationOutcome.fail("Customer ID should not be present for invalid parameters", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (order.getItems() != null && !order.getItems().isEmpty()) {
+        List<Map<String, Object>> items = entity.getItems();
+        if (items != null && !items.isEmpty()) {
             return EvaluationOutcome.fail("Order items should be empty for invalid parameters", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (order.getShippingAddress() != null && !order.getShippingAddress().isBlank()) {
-            return EvaluationOutcome.fail("Shipping address should be blank for invalid parameters", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (entity.getShippingAddress() != null && !entity.getShippingAddress().isBlank()) {
+            return EvaluationOutcome.fail("Shipping address should not be present for invalid parameters", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (order.getPaymentMethod() != null && !order.getPaymentMethod().isBlank()) {
-            return EvaluationOutcome.fail("Payment method should be blank for invalid parameters", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (entity.getPaymentMethod() != null && !entity.getPaymentMethod().isBlank()) {
+            return EvaluationOutcome.fail("Payment method should not be present for invalid parameters", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (order.getCreatedAt() != null && !order.getCreatedAt().isBlank()) {
-            return EvaluationOutcome.fail("Creation timestamp should be blank for invalid parameters", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (entity.getCreatedAt() != null && !entity.getCreatedAt().isBlank()) {
+            return EvaluationOutcome.fail("Creation timestamp should not be present for invalid parameters", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (order.getStatus() != null && !order.getStatus().isBlank()) {
-            return EvaluationOutcome.fail("Order status should be blank for invalid parameters", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (entity.getStatus() != null && !entity.getStatus().isBlank()) {
+            return EvaluationOutcome.fail("Order status should not be present for invalid parameters", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         return EvaluationOutcome.success();
     }
