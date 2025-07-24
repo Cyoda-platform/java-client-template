@@ -29,8 +29,7 @@ public class OrderExecutionSuccessCriterion implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing Order for request: {}", request.getId());
 
-        // No specific prototype business logic provided for OrderExecutionSuccessCriterion
-        // Just return the entity unchanged
+        // Fluent entity processing with validation
         return serializer.withRequest(request)
             .toEntity(Order.class)
             .validate(Order::isValid)
