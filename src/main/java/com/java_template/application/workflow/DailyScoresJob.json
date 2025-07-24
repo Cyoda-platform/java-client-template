@@ -1,68 +1,67 @@
 {
     "active": true,
-    "desc": "Workflow managing the lifecycle of a DailyScoresJob entity that orchestrates fetching and processing game scores",
+    "desc": "Workflow for processing Subscriber entity including email validation",
     "initialState": "none",
-    "name": "DailyScoresJob Workflow",
+    "name": "Subscriber Workflow",
     "states": {
         "completed": {
             "transitions": []
         },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
+        "created": {
             "transitions": [
                 {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "ValidDateCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "start_processing_if_valid_date",
-                    "next": "processing"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "InvalidDateCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "fail_if_invalid_date",
-                    "next": "failed"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "ProcessingSuccessCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "complete_if_success",
-                    "next": "completed",
+                    "name": "transition_to_validating_email",
+                    "next": "validating_email",
                     "processors": [
                         {
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
                             "executionMode": "SYNC",
-                            "name": "DailyScoresJobProcessor"
+                            "name": "SubscriberProcessor"
                         }
                     ]
+                }
+            ]
+        },
+        "email_invalid": {
+            "transitions": [
+                {
+                    "name": "log_error_and_complete",
+                    "next": "completed"
+                }
+            ]
+        },
+        "email_valid": {
+            "transitions": [
+                {
+                    "name": "complete_processing",
+                    "next": "completed"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "transition_to_created",
+                    "next": "created"
+                }
+            ]
+        },
+        "validating_email": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsEmailValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "email_is_valid",
+                    "next": "email_valid"
                 },
                 {
                     "criterion": {
@@ -70,12 +69,12 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "ProcessingFailedCriterion"
+                            "name": "IsEmailInvalidCriterion"
                         },
                         "type": "function"
                     },
-                    "name": "fail_if_processing_error",
-                    "next": "failed"
+                    "name": "email_is_invalid",
+                    "next": "email_invalid"
                 }
             ]
         }
