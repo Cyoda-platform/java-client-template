@@ -1,0 +1,186 @@
+{
+  "version": "1.0",
+  "name": "PetRegistrationJob Workflow",
+  "desc": "Workflow for PetRegistrationJob orchestration entity",
+  "initialState": "none",
+  "active": true,
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "start_processing",
+          "next": "pending",
+          "processors": [
+            {
+              "name": "PetRegistrationJobProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "pending": {
+      "transitions": [
+        {
+          "name": "validate_and_process",
+          "next": "processing",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PetRegistrationJobValidCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "name": "complete_successfully",
+          "next": "completed",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PetCreatedSuccessfullyCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "fail_processing",
+          "next": "failed",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PetCreationFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  }
+}
+{
+  "version": "1.0",
+  "name": "Pet Workflow",
+  "desc": "Workflow for Pet business entity",
+  "initialState": "none",
+  "active": true,
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "create_pet",
+          "next": "available"
+        }
+      ]
+    },
+    "available": {
+      "transitions": [
+        {
+          "name": "activate_pet",
+          "next": "active",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PetValidCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "active": {
+      "transitions": []
+    }
+  }
+}
+{
+  "version": "1.0",
+  "name": "Order Workflow",
+  "desc": "Workflow for Order business entity",
+  "initialState": "none",
+  "active": true,
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "place_order",
+          "next": "placed"
+        }
+      ]
+    },
+    "placed": {
+      "transitions": [
+        {
+          "name": "approve_order",
+          "next": "approved",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "OrderValidAndPetAvailableCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "fail_order",
+          "next": "failed",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "OrderInvalidOrPetUnavailableCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "approved": {
+      "transitions": [
+        {
+          "name": "deliver_order",
+          "next": "delivered",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "OrderShippedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "failed": {
+      "transitions": []
+    },
+    "delivered": {
+      "transitions": []
+    }
+  }
+}
