@@ -18,7 +18,7 @@ public class Mail implements CyodaEntity {
     private Boolean isGloomy;
     private List<String> mailList;
     private Map<String, String> criteriaResults;
-    private MailStatusEnum status;
+    private String status; // changed from enum to String
 
     public Mail() {}
 
@@ -35,15 +35,7 @@ public class Mail implements CyodaEntity {
         if (id == null || id.isBlank()) return false;
         if (technicalId == null) return false;
         if (mailList == null || mailList.isEmpty()) return false;
-        if (status == null) return false;
+        if (status == null || status.isBlank()) return false;
         return true;
     }
-}
-
-enum MailStatusEnum {
-    CREATED,
-    PROCESSING,
-    SENT_HAPPY,
-    SENT_GLOOMY,
-    FAILED
 }
