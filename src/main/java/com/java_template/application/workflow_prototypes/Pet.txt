@@ -1,0 +1,9 @@
+private void processPet(Pet pet) {
+    logger.info("Processing Pet with petId: {}", pet.getPetId());
+    List<String> allowedStatuses = Arrays.asList("available", "pending", "sold");
+    if (pet.getStatus() == null || !allowedStatuses.contains(pet.getStatus().toLowerCase())) {
+        logger.error("Invalid pet status: {}", pet.getStatus());
+        // Possibly handle error or mark pet invalid in real impl
+    }
+    logger.info("Pet {} processed and stored", pet.getName());
+}
