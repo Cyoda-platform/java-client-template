@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.Pet;
+import com.java_template.application.entity.PetRegistrationJob;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,7 +32,7 @@ public class PetRegistrationJobValidCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(Pet.class, this::validateEntity)
+            .evaluateEntity(PetRegistrationJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,25 +40,33 @@ public class PetRegistrationJobValidCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetRegistrationJobValidCriterion".equals(modelSpec.operationName()) &&
-               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "petregistrationjob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(Pet entity) {
-        // Validate required fields for Pet entity as per functional requirements
-        if (entity.getName() == null || entity.getName().isBlank()) {
-            return EvaluationOutcome.fail("Pet name is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+    private EvaluationOutcome validateEntity(PetRegistrationJob entity) {
+        if (entity.getPetName() == null || entity.getPetName().isBlank()) {
+            return EvaluationOutcome.fail("petName is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (entity.getCategory() == null || entity.getCategory().isBlank()) {
-            return EvaluationOutcome.fail("Pet category is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (entity.getPetType() == null || entity.getPetType().isBlank()) {
+            return EvaluationOutcome.fail("petType is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (entity.getPetStatus() == null || entity.getPetStatus().isBlank()) {
+            return EvaluationOutcome.fail("petStatus is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (entity.getOwnerName() == null || entity.getOwnerName().isBlank()) {
+            return EvaluationOutcome.fail("ownerName is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (entity.getCreatedAt() == null) {
+            return EvaluationOutcome.fail("createdAt is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         if (entity.getStatus() == null || entity.getStatus().isBlank()) {
-            return EvaluationOutcome.fail("Pet status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        // Status should be one of AVAILABLE, PENDING, SOLD
+        // Additional business rule: status must be one of PENDING, PROCESSING, COMPLETED, FAILED
         String status = entity.getStatus();
-        if (!status.equals("AVAILABLE") && !status.equals("PENDING") && !status.equals("SOLD")) {
-            return EvaluationOutcome.fail("Pet status must be AVAILABLE, PENDING, or SOLD", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (!("PENDING".equals(status) || "PROCESSING".equals(status) || "COMPLETED".equals(status) || "FAILED".equals(status))) {
+            return EvaluationOutcome.fail("status must be one of PENDING, PROCESSING, COMPLETED, FAILED", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
         return EvaluationOutcome.success();
     }
