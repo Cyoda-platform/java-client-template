@@ -44,7 +44,6 @@ public class Controller {
                     workflow);
             UUID technicalId = idFuture.get();
             log.info("Created Workflow with technicalId: {}", technicalId);
-            processWorkflow(workflow);
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(Map.of("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException e) {
@@ -84,44 +83,6 @@ public class Controller {
         }
     }
 
-    private void processWorkflow(Workflow workflow) {
-        try {
-            log.info("Processing Workflow with name: {}", workflow.getName());
-            if (workflow.getParameters() == null || workflow.getParameters().isEmpty()) {
-                log.error("Workflow parameters are missing");
-                return;
-            }
-            workflow.setStatus("RUNNING");
-            Object orderIdObj = workflow.getParameters().get("orderId");
-            if (orderIdObj instanceof String) {
-                String orderId = (String) orderIdObj;
-                Order order = new Order();
-                order.setOrderId(orderId);
-                order.setCustomerId("unknown");
-                order.setItems(new ArrayList<>());
-                order.setShippingAddress("");
-                order.setPaymentMethod("");
-                order.setCreatedAt(new Date().toInstant().toString());
-                order.setStatus("CREATED");
-                try {
-                    CompletableFuture<UUID> orderIdFuture = entityService.addItem(
-                            "order",
-                            ENTITY_VERSION,
-                            order);
-                    UUID technicalOrderId = orderIdFuture.get();
-                    log.info("Workflow created Order with technicalId: {}", technicalOrderId);
-                    processOrder(order);
-                } catch (Exception e) {
-                    log.error("Failed to create order in processWorkflow", e);
-                }
-            }
-            workflow.setStatus("COMPLETED");
-            log.info("Workflow processing completed for: {}", workflow.getName());
-        } catch (Exception e) {
-            log.error("Error processing workflow", e);
-        }
-    }
-
     // ----------- Order Endpoints -----------
 
     @PostMapping("/orders")
@@ -138,7 +99,6 @@ public class Controller {
                     order);
             UUID technicalId = idFuture.get();
             log.info("Created Order with technicalId: {}", technicalId);
-            processOrder(order);
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(Map.of("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException e) {
@@ -178,32 +138,6 @@ public class Controller {
         }
     }
 
-    private void processOrder(Order order) {
-        try {
-            log.info("Processing Order with orderId: {}", order.getOrderId());
-            if (order.getCustomerId() == null || order.getCustomerId().isBlank()) {
-                log.error("Order customerId is invalid");
-                return;
-            }
-            if (order.getItems() == null || order.getItems().isEmpty()) {
-                log.error("Order items are empty");
-                return;
-            }
-            boolean paymentSuccess = true;
-            if (paymentSuccess) {
-                order.setStatus("PAID");
-                log.info("Payment successful for orderId: {}", order.getOrderId());
-                order.setStatus("SHIPPED");
-                log.info("Shipment initiated for orderId: {}", order.getOrderId());
-            } else {
-                order.setStatus("FAILED");
-                log.error("Payment failed for orderId: {}", order.getOrderId());
-            }
-        } catch (Exception e) {
-            log.error("Error processing order", e);
-        }
-    }
-
     // ----------- Customer Endpoints -----------
 
     @PostMapping("/customers")
@@ -220,7 +154,6 @@ public class Controller {
                     customer);
             UUID technicalId = idFuture.get();
             log.info("Created Customer with technicalId: {}", technicalId);
-            processCustomer(customer);
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(Map.of("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException e) {
@@ -257,21 +190,6 @@ public class Controller {
             log.error("Error retrieving Customer with id: {}", id, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Internal server error"));
-        }
-    }
-
-    private void processCustomer(Customer customer) {
-        try {
-            log.info("Processing Customer with customerId: {}", customer.getCustomerId());
-            if (!customer.getEmail().contains("@")) {
-                log.error("Customer email format invalid: {}", customer.getEmail());
-                return;
-            }
-            customer.setName(customer.getName().trim());
-            customer.setPhone(customer.getPhone().trim());
-            log.info("Customer profile enriched for customerId: {}", customer.getCustomerId());
-        } catch (Exception e) {
-            log.error("Error processing customer", e);
         }
     }
 }
