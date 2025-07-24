@@ -55,7 +55,7 @@ public class Controller {
 
             log.info("Created PetRegistrationJob with ID: {}", technicalId);
 
-            processPetRegistrationJob(job);
+            // processPetRegistrationJob(job); Removed process method call
 
             // Fetch current pets from external service
             CompletableFuture<ArrayNode> petsFuture = entityService.getItems(PET_MODEL, ENTITY_VERSION);
@@ -98,42 +98,6 @@ public class Controller {
             log.error("Error retrieving PetRegistrationJob: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Error retrieving data"));
         }
-    }
-
-    private void processPetRegistrationJob(PetRegistrationJob job) throws Exception {
-        log.info("Processing PetRegistrationJob with petName: {}", job.getPetName());
-        if (job.getPetName().isBlank() || job.getPetType().isBlank() || job.getOwnerName().isBlank()) {
-            job.setStatus("FAILED");
-            log.error("PetRegistrationJob validation failed for petName: {}", job.getPetName());
-            return;
-        }
-        job.setStatus("PROCESSING");
-
-        // Fetch pets from public API (Petstore Swagger)
-        String url = "https://petstore.swagger.io/v2/pet/findByStatus?status=available";
-
-        try {
-            ResponseEntity<Pet[]> response = restTemplate.getForEntity(url, Pet[].class);
-            Pet[] petsFromApi = response.getBody();
-            if (petsFromApi != null) {
-                List<Pet> petList = new ArrayList<>();
-                for (Pet apiPet : petsFromApi) {
-                    if (apiPet.getPetId() == null || apiPet.getPetId().isBlank()) {
-                        apiPet.setPetId(UUID.randomUUID().toString());
-                    }
-                    petList.add(apiPet);
-                }
-                entityService.addItems(PET_MODEL, ENTITY_VERSION, petList).get();
-                log.info("Saved {} Pets from public API", petList.size());
-            }
-        } catch (Exception e) {
-            log.error("Failed to fetch pets from public API: {}", e.getMessage());
-            job.setStatus("FAILED");
-            throw e;
-        }
-
-        job.setStatus("COMPLETED");
-        log.info("PetRegistrationJob processed successfully for petName: {}", job.getPetName());
     }
 
     // ----------- Pet endpoints -----------
