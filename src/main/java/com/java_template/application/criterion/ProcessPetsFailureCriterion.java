@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.PetIngestionJob;
+import com.java_template.application.entity.Pet;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,7 +32,7 @@ public class ProcessPetsFailureCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(PetIngestionJob.class, this::validateEntity)
+            .evaluateEntity(Pet.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,14 +40,18 @@ public class ProcessPetsFailureCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "ProcessPetsFailureCriterion".equals(modelSpec.operationName()) &&
-               "petIngestionJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(PetIngestionJob entity) {
-        if ("FAILED".equalsIgnoreCase(entity.getStatus())) {
-            return EvaluationOutcome.success();
+    private EvaluationOutcome validateEntity(Pet entity) {
+        // Failure criterion for processing pets: fail if status is not AVAILABLE
+        if (entity.getStatus() == null || entity.getStatus().isBlank()) {
+            return EvaluationOutcome.fail("Pet status is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
         }
-        return EvaluationOutcome.fail("Pet ingestion job not failed", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        if ("AVAILABLE".equalsIgnoreCase(entity.getStatus())) {
+            return EvaluationOutcome.fail("Pet status must not be AVAILABLE for failure", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        }
+        return EvaluationOutcome.success();
     }
 }
