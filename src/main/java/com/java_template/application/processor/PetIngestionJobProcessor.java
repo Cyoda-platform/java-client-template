@@ -1,7 +1,7 @@
 package com.java_template.application.processor;
 
 import com.java_template.application.entity.Pet;
-import com.java_template.common.serializer.ErrorInfo;
+import com.java_template.application.entity.PetIngestionJob;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
@@ -13,16 +13,20 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
+import java.time.LocalDateTime;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 public class PetIngestionJobProcessor implements CyodaProcessor {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final ProcessorSerializer serializer;
+
+    // Simulated cache and id counter for demonstration (mimicking prototype behavior)
+    private final ConcurrentHashMap<String, PetIngestionJob> petIngestionJobCache = new ConcurrentHashMap<>();
+    private final AtomicLong petIdCounter = new AtomicLong(1);
 
     public PetIngestionJobProcessor(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
@@ -34,10 +38,9 @@ public class PetIngestionJobProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing PetIngestionJob for request: {}", request.getId());
 
-        // Fluent entity processing with validation
         return serializer.withRequest(request)
-                .toEntity(Pet.class)
-                .validate(this::isValidEntity, "Invalid PetIngestionJob entity state")
+                .toEntity(PetIngestionJob.class)
+                .validate(this::validateSourceUrl, "Invalid sourceUrl in PetIngestionJob")
                 .map(this::processEntityLogic)
                 .complete();
     }
@@ -49,8 +52,31 @@ public class PetIngestionJobProcessor implements CyodaProcessor {
                 Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private Pet processEntityLogic(Pet entity) {
-        // No actual business logic for PetIngestionJobProcessor found, returning entity unchanged
-        return entity;
+    private boolean validateSourceUrl(PetIngestionJob job) {
+        return job.getSourceUrl() != null && !job.getSourceUrl().isBlank();
+    }
+
+    private PetIngestionJob processEntityLogic(PetIngestionJob job) {
+        logger.info("Processing PetIngestionJob with id: {}", job.getId());
+
+        // Set status to PROCESSING
+        job.setStatus("PROCESSING");
+
+        // Simulate creation of Pet entity from ingestion job
+        Pet newPet = new Pet();
+        newPet.setId(String.valueOf(petIdCounter.getAndIncrement()));
+        newPet.setTechnicalId(UUID.randomUUID());
+        newPet.setName("SamplePetFromIngestion");
+        newPet.setCategory("cat");
+        newPet.setStatus("AVAILABLE");
+
+        // Here we should persist the new Pet entity or pass it to further processing
+        // For now just logging
+        logger.info("Created new Pet from ingestion job: {}", newPet);
+
+        // Set status to COMPLETED
+        job.setStatus("COMPLETED");
+
+        return job;
     }
 }
