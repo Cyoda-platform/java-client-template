@@ -1,0 +1,110 @@
+{
+    "active": true,
+    "desc": "Workflow for orchestrating the ScoreFetchJob entity lifecycle, from pending to completion or failure, including notification triggering.",
+    "initialState": "none",
+    "name": "ScoreFetchJob Workflow",
+    "states": {
+        "completed": {
+            "transitions": [
+                {
+                    "name": "trigger_notification_and_finish",
+                    "next": "done",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "TriggerNotificationProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "done": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": [
+                {
+                    "name": "mark_job_failed",
+                    "next": "done"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "create_job",
+                    "next": "pending"
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsJobPendingCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "start_job_if_pending",
+                    "next": "running",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "StartScoreFetchJobProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "running": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsFetchSuccessfulCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "complete_job_if_fetch_successful",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "FetchAndSaveGameScoresProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsFetchFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "fail_job_if_fetch_failed",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
