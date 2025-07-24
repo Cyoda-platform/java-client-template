@@ -1,5 +1,7 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Pet;
@@ -19,9 +21,10 @@ import org.springframework.web.client.RestTemplate;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicLong;
 
-import static com.java_template.common.config.Config.*;
+import jakarta.validation.Valid;
+
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/entity")
@@ -32,15 +35,12 @@ public class Controller {
     private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate = new RestTemplate();
-
-    // Local counters for generating unique technicalIds since EntityService returns UUID but original code uses string keys
-    private final AtomicLong purrfectPetsJobIdCounter = new AtomicLong(1);
-    private final AtomicLong petIdCounter = new AtomicLong(1);
 
     // POST /entity/purrfectPetsJob - create a new job
     @PostMapping("/purrfectPetsJob")
-    public ResponseEntity<?> createPurrfectPetsJob(@RequestBody Map<String, String> request) {
+    public ResponseEntity<?> createPurrfectPetsJob(@Valid @RequestBody Map<String, String> request) {
         try {
             String petStatus = request.get("petStatus");
             if (petStatus == null || petStatus.isBlank()) {
@@ -49,8 +49,10 @@ public class Controller {
             }
 
             PurrfectPetsJob job = new PurrfectPetsJob();
-            String technicalId = "job-" + purrfectPetsJobIdCounter.getAndIncrement();
-            job.setTechnicalId(technicalId);
+            // PurrfectPetsJob.technicalId is a String field, but EntityService expects UUID technicalId for keys
+            // Generate UUID for technicalId
+            UUID technicalUuid = UUID.randomUUID();
+            job.setTechnicalId(technicalUuid.toString());
             job.setPetStatus(petStatus);
             job.setRequestedAt(java.time.Instant.now().toString());
             job.setStatus("PENDING");
@@ -58,17 +60,16 @@ public class Controller {
 
             // Add job entity to EntityService
             CompletableFuture<UUID> idFuture = entityService.addItem("PurrfectPetsJob", ENTITY_VERSION, job);
-            UUID technicalUuid;
+            UUID returnedUuid;
             try {
-                technicalUuid = idFuture.get();
+                returnedUuid = idFuture.get();
             } catch (InterruptedException | ExecutionException e) {
                 logger.error("Failed to add PurrfectPetsJob to EntityService: {}", e.getMessage());
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Failed to create job"));
             }
 
-            // We keep local technicalId for processing and response to preserve old API behavior
-            
-            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId));
+            // Return the String representation of UUID as technicalId in response
+            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", returnedUuid.toString()));
         } catch (IllegalArgumentException iae) {
             logger.error("Invalid argument: {}", iae.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", iae.getMessage()));
@@ -78,64 +79,44 @@ public class Controller {
         }
     }
 
-    // GET /entity/purrfectPetsJob/{id} - retrieve job by technicalId
+    // GET /entity/purrfectPetsJob/{id} - retrieve job by technicalId UUID string
     @GetMapping("/purrfectPetsJob/{id}")
-    public ResponseEntity<?> getPurrfectPetsJob(@PathVariable("id") String id) {
+    public ResponseEntity<?> getPurrfectPetsJob(@PathVariable("id") String id) throws JsonProcessingException {
         try {
-            // The original technicalId is a string like "job-1", but EntityService stores UUID keys.
-            // So we must find the matching job by technicalId field.
-            // Use getItemsByCondition with condition on $.technicalId EQUALS id
-
-            SearchConditionRequest condition = SearchConditionRequest.group("AND",
-                    Condition.of("$.technicalId", "EQUALS", id));
-
-            CompletableFuture<ArrayNode> future = entityService.getItemsByCondition("PurrfectPetsJob", ENTITY_VERSION, condition, true);
-            ArrayNode items = future.get();
-
-            if (items == null || items.size() == 0) {
+            UUID technicalUuid = UUID.fromString(id);
+            ObjectNode node = entityService.getItem("PurrfectPetsJob", ENTITY_VERSION, technicalUuid).get();
+            if (node == null) {
                 logger.error("PurrfectPetsJob not found: {}", id);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "PurrfectPetsJob not found"));
             }
-
-            // Deserialize ObjectNode to PurrfectPetsJob
-            ObjectNode node = (ObjectNode) items.get(0);
-            PurrfectPetsJob job = node.traverse().readValueAs(PurrfectPetsJob.class);
-
+            PurrfectPetsJob job = objectMapper.treeToValue(node, PurrfectPetsJob.class);
             return ResponseEntity.ok(job);
         } catch (IllegalArgumentException iae) {
-            logger.error("Invalid argument: {}", iae.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", iae.getMessage()));
-        } catch (Exception ex) {
-            logger.error("Error retrieving PurrfectPetsJob {}: {}", id, ex.getMessage());
+            logger.error("Invalid UUID argument: {}", iae.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Invalid UUID format"));
+        } catch (InterruptedException | ExecutionException e) {
+            logger.error("Error retrieving PurrfectPetsJob {}: {}", id, e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
         }
     }
 
-    // GET /entity/pet/{id} - retrieve pet by technicalId
+    // GET /entity/pet/{id} - retrieve pet by technicalId UUID string
     @GetMapping("/pet/{id}")
-    public ResponseEntity<?> getPet(@PathVariable("id") String id) {
+    public ResponseEntity<?> getPet(@PathVariable("id") String id) throws JsonProcessingException {
         try {
-            // Similar approach: find pet by technicalId field equals id
-            SearchConditionRequest condition = SearchConditionRequest.group("AND",
-                    Condition.of("$.technicalId", "EQUALS", id));
-
-            CompletableFuture<ArrayNode> future = entityService.getItemsByCondition("Pet", ENTITY_VERSION, condition, true);
-            ArrayNode items = future.get();
-
-            if (items == null || items.size() == 0) {
+            UUID technicalUuid = UUID.fromString(id);
+            ObjectNode node = entityService.getItem("Pet", ENTITY_VERSION, technicalUuid).get();
+            if (node == null) {
                 logger.error("Pet not found: {}", id);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Pet not found"));
             }
-
-            ObjectNode node = (ObjectNode) items.get(0);
-            Pet pet = node.traverse().readValueAs(Pet.class);
-
+            Pet pet = objectMapper.treeToValue(node, Pet.class);
             return ResponseEntity.ok(pet);
         } catch (IllegalArgumentException iae) {
-            logger.error("Invalid argument: {}", iae.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", iae.getMessage()));
-        } catch (Exception ex) {
-            logger.error("Error retrieving Pet {}: {}", id, ex.getMessage());
+            logger.error("Invalid UUID argument: {}", iae.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Invalid UUID format"));
+        } catch (InterruptedException | ExecutionException e) {
+            logger.error("Error retrieving Pet {}: {}", id, e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
         }
     }
