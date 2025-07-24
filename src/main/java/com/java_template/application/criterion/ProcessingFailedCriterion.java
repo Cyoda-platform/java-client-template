@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.Pet;
+import com.java_template.application.entity.PetEvent;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,7 +32,7 @@ public class ProcessingFailedCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(Pet.class, this::validateEntity)
+            .evaluateEntity(PetEvent.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,18 +40,29 @@ public class ProcessingFailedCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "ProcessingFailedCriterion".equals(modelSpec.operationName()) &&
-               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "petEvent".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(Pet entity) {
-        // Business logic: The event processing is considered failed if Pet status is SOLD
+    private EvaluationOutcome validateEntity(PetEvent entity) {
+        // Business logic for ProcessingFailedCriterion:
+        // Fail if status is PROCESSING (meaning processing failed to move forward)
         if (entity.getStatus() == null) {
-            return EvaluationOutcome.fail("Pet status is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("Status is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (entity.getStatus() == Pet.StatusEnum.SOLD) {
-            return EvaluationOutcome.fail("Processing failed because pet status is SOLD", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        if (entity.getStatus() == PetEvent.StatusEnum.PROCESSED) {
+            return EvaluationOutcome.fail("Event already processed", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
-        return EvaluationOutcome.success();
+        if (entity.getStatus() == PetEvent.StatusEnum.RECORDED) {
+            return EvaluationOutcome.fail("Event still recorded, processing not started", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        }
+        if (entity.getStatus() == PetEvent.StatusEnum.PROCESSED) {
+            return EvaluationOutcome.fail("Event already processed", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        }
+        // Here assuming if status is PROCESSING, then processing failed
+        if (entity.getStatus() != PetEvent.StatusEnum.PROCESSED && entity.getStatus() != PetEvent.StatusEnum.RECORDED) {
+            return EvaluationOutcome.success();
+        }
+        return EvaluationOutcome.fail("Event status invalid for failure criterion", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
     }
 }
