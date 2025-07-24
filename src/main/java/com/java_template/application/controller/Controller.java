@@ -1,5 +1,7 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Workflow;
@@ -15,14 +17,15 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.UUID;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
+
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping(path = "/entity")
@@ -33,11 +36,11 @@ public class Controller {
     private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final ObjectMapper objectMapper;
 
     // POST /entity/workflow - create new Workflow entity (subscribe & request scores)
     @PostMapping("/workflow")
-    public ResponseEntity<?> createWorkflow(@RequestBody Workflow workflowRequest) {
+    public ResponseEntity<?> createWorkflow(@Valid @RequestBody Workflow workflowRequest) throws JsonProcessingException, ExecutionException, InterruptedException {
         try {
             if (workflowRequest == null || workflowRequest.getSubscriberEmail() == null || workflowRequest.getSubscriberEmail().isBlank()) {
                 logger.error("Invalid subscriber email in workflow creation request");
@@ -56,8 +59,6 @@ public class Controller {
 
             logger.info("Created Workflow with technicalId: {}", technicalId);
 
-            // processWorkflow method removed
-
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException e) {
             logger.error("Illegal argument in createWorkflow: {}", e.getMessage());
@@ -70,7 +71,7 @@ public class Controller {
 
     // GET /entity/workflow/{id} - retrieve Workflow entity by technicalId
     @GetMapping("/workflow/{id}")
-    public ResponseEntity<?> getWorkflow(@PathVariable String id) {
+    public ResponseEntity<?> getWorkflow(@PathVariable String id) throws JsonProcessingException, ExecutionException, InterruptedException {
         try {
             UUID technicalId = UUID.fromString(id);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem("workflow", ENTITY_VERSION, technicalId);
@@ -79,7 +80,8 @@ public class Controller {
                 logger.error("Workflow with ID {} not found", id);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Workflow not found"));
             }
-            return ResponseEntity.ok(node);
+            Workflow workflow = objectMapper.treeToValue(node, Workflow.class);
+            return ResponseEntity.ok(workflow);
         } catch (IllegalArgumentException e) {
             logger.error("Invalid UUID format in getWorkflow: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Invalid UUID format"));
@@ -91,7 +93,7 @@ public class Controller {
 
     // GET /entity/nbagames/{date} - retrieve all NBAGameScore entities for specific date
     @GetMapping("/nbagames/{date}")
-    public ResponseEntity<?> getNBAGamesByDate(@PathVariable String date) {
+    public ResponseEntity<?> getNBAGamesByDate(@PathVariable String date) throws JsonProcessingException, ExecutionException, InterruptedException {
         try {
             if (date == null || date.isBlank()) {
                 logger.error("Invalid date parameter in getNBAGamesByDate");
@@ -104,9 +106,10 @@ public class Controller {
             CompletableFuture<ArrayNode> filteredItemsFuture = entityService.getItemsByCondition("nbagamescore", ENTITY_VERSION, searchCondition, true);
             ArrayNode items = filteredItemsFuture.get();
 
-            List<Object> results = new ArrayList<>();
+            List<NBAGameScore> results = new ArrayList<>();
             for (var jsonNode : items) {
-                results.add(jsonNode);
+                NBAGameScore score = objectMapper.treeToValue(jsonNode, NBAGameScore.class);
+                results.add(score);
             }
             return ResponseEntity.ok(results);
         } catch (IllegalArgumentException e) {
@@ -120,7 +123,7 @@ public class Controller {
 
     // GET /entity/emailnotification/{id} - retrieve EmailNotification entity by technicalId
     @GetMapping("/emailnotification/{id}")
-    public ResponseEntity<?> getEmailNotification(@PathVariable String id) {
+    public ResponseEntity<?> getEmailNotification(@PathVariable String id) throws JsonProcessingException, ExecutionException, InterruptedException {
         try {
             UUID technicalId = UUID.fromString(id);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem("emailnotification", ENTITY_VERSION, technicalId);
@@ -129,7 +132,8 @@ public class Controller {
                 logger.error("EmailNotification with ID {} not found", id);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "EmailNotification not found"));
             }
-            return ResponseEntity.ok(node);
+            EmailNotification emailNotification = objectMapper.treeToValue(node, EmailNotification.class);
+            return ResponseEntity.ok(emailNotification);
         } catch (IllegalArgumentException e) {
             logger.error("Invalid UUID format in getEmailNotification: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Invalid UUID format"));
