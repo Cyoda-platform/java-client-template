@@ -1,0 +1,103 @@
+private void processNbaScoresFetchJobAsync(UUID jobTechnicalId, LocalDate scheduledDate) {
+    // Run asynchronously - fire and forget
+    CompletableFuture.runAsync(() -> {
+        try {
+            logger.info("Processing NbaScoresFetchJob with technicalId: {}", jobTechnicalId);
+
+            if (scheduledDate.isAfter(LocalDate.now())) {
+                updateJobStatus(jobTechnicalId, "FAILED", "Scheduled date cannot be in the future");
+                logger.error("Job {} failed: scheduledDate in future", jobTechnicalId);
+                return;
+            }
+
+            updateJobStatus(jobTechnicalId, "IN_PROGRESS", null);
+
+            String apiKey = "test"; // Replace with valid API key or config
+            String url = String.format("https://api.sportsdata.io/v3/nba/scores/json/ScoresBasicFinal/%s?key=%s", scheduledDate, apiKey);
+
+            String response = restTemplate.getForObject(url, String.class);
+            JsonNode root = objectMapper.readTree(response);
+            if (root.isArray()) {
+                int gamesCount = 0;
+                List<ObjectNode> newGames = new ArrayList<>();
+                for (JsonNode node : root) {
+                    ObjectNode gameNode = objectMapper.createObjectNode();
+                    gameNode.put("gameDate", scheduledDate.toString());
+                    gameNode.put("homeTeam", node.path("HomeTeam").asText());
+                    if (!node.path("HomeTeamScore").isNull())
+                        gameNode.put("homeScore", node.path("HomeTeamScore").asInt());
+                    else
+                        gameNode.putNull("homeScore");
+                    gameNode.put("awayTeam", node.path("AwayTeam").asText());
+                    if (!node.path("AwayTeamScore").isNull())
+                        gameNode.put("awayScore", node.path("AwayTeamScore").asInt());
+                    else
+                        gameNode.putNull("awayScore");
+                    gameNode.put("status", node.path("Status").asText(null));
+                    newGames.add(gameNode);
+                    gamesCount++;
+                }
+
+                // Add all games
+                if (!newGames.isEmpty()) {
+                    CompletableFuture<List<UUID>> idsFuture = entityService.addItems(NBA_GAME, ENTITY_VERSION, newGames);
+                    List<UUID> technicalIds = idsFuture.get();
+                    logger.info("Added {} games with technical IDs: {}", technicalIds.size(), technicalIds);
+                }
+
+                updateJobStatus(jobTechnicalId, "COMPLETED", "Fetched " + gamesCount + " games for " + scheduledDate);
+
+                // Notify subscribers
+                StringBuilder summaryBuilder = new StringBuilder();
+                summaryBuilder.append("NBA Scores for ").append(scheduledDate).append(":\n");
+                for (JsonNode node : root) {
+                    summaryBuilder.append(node.path("HomeTeam").asText()).append(" ")
+                            .append(node.path("HomeTeamScore").isNull() ? "-" : node.path("HomeTeamScore").asInt())
+                            .append(" - ")
+                            .append(node.path("AwayTeamScore").isNull() ? "-" : node.path("AwayTeamScore").asInt())
+                            .append(" ")
+                            .append(node.path("AwayTeam").asText()).append("\n");
+                }
+
+                subscriberCache.values().stream()
+                        .filter(s -> "ACTIVE".equals(s.getStatus()))
+                        .forEach(s -> {
+                            logger.info("Sending email to {} with summary:\n{}", s.getEmail(), summaryBuilder.toString());
+                            // Implement real email sending here if available
+                        });
+
+            } else {
+                updateJobStatus(jobTechnicalId, "FAILED", "Unexpected API response format");
+                logger.error("Unexpected API response format for job {}", jobTechnicalId);
+            }
+        } catch (Exception e) {
+            try {
+                updateJobStatus(jobTechnicalId, "FAILED", "Exception during fetch: " + e.getMessage());
+            } catch (Exception ex) {
+                logger.error("Failed to update job status for {}: {}", jobTechnicalId, ex.getMessage());
+            }
+            logger.error("Error processing job {}: {}", jobTechnicalId, e.getMessage());
+        }
+    });
+}
+
+private void updateJobStatus(UUID jobTechnicalId, String status, String summary) throws ExecutionException, InterruptedException {
+    CompletableFuture<ObjectNode> jobFuture = entityService.getItem(NBA_SCORES_FETCH_JOB, ENTITY_VERSION, jobTechnicalId);
+    ObjectNode oldJob = jobFuture.get();
+    if (oldJob == null) {
+        logger.error("Job not found for status update: {}", jobTechnicalId);
+        return;
+    }
+    ObjectNode newJob = oldJob.deepCopy();
+    newJob.put("status", status);
+    if (summary != null) {
+        newJob.put("summary", summary);
+    } else {
+        newJob.putNull("summary");
+    }
+    newJob.put("scheduledDate", oldJob.path("scheduledDate").asText());
+    newJob.put("fetchTimeUTC", oldJob.path("fetchTimeUTC").asText());
+    // Add reference to previous entity if needed, but skipping as not specified
+
+    entityService.addItem(NBA_SCORES_FETCH_JOB, ENTITY_VERSION, newJob).get();
+}
