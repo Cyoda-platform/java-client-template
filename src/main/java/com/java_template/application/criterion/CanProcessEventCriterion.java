@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.Pet;
+import com.java_template.application.entity.PetEvent;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,7 +32,7 @@ public class CanProcessEventCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(Pet.class, this::validateEntity)
+            .evaluateEntity(PetEvent.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,17 +40,21 @@ public class CanProcessEventCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "CanProcessEventCriterion".equals(modelSpec.operationName()) &&
-               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "petEvent".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(Pet entity) {
-        // Business logic: The event can be processed if the pet status is AVAILABLE
+    private EvaluationOutcome validateEntity(PetEvent entity) {
+        // Business logic for CanProcessEventCriterion:
+        // Allow processing only if status is RECORDED and eventType is not null or blank
         if (entity.getStatus() == null) {
-            return EvaluationOutcome.fail("Pet status is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("Status is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (entity.getStatus() != Pet.StatusEnum.AVAILABLE) {
-            return EvaluationOutcome.fail("Pet status is not AVAILABLE", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        if (entity.getStatus() != PetEvent.StatusEnum.RECORDED) {
+            return EvaluationOutcome.fail("Event status is not RECORDED", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        }
+        if (entity.getEventType() == null || entity.getEventType().isBlank()) {
+            return EvaluationOutcome.fail("Event type is missing or blank", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         return EvaluationOutcome.success();
     }
