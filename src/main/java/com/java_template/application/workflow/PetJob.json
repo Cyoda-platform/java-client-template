@@ -1,0 +1,83 @@
+{
+    "active": true,
+    "desc": "Workflow for orchestrating PetJob entities",
+    "initialState": "none",
+    "name": "PetJob Workflow",
+    "states": {
+        "COMPLETED": {
+            "transitions": []
+        },
+        "FAILED": {
+            "transitions": []
+        },
+        "PROCESSING": {
+            "transitions": [
+                {
+                    "name": "complete_successfully",
+                    "next": "COMPLETED",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "PetJobProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetJobErrorCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "fail_if_error",
+                    "next": "FAILED"
+                }
+            ]
+        },
+        "RECORDED": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetJobReadyCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "start_processing_if_ready",
+                    "next": "PROCESSING"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetJobNotReadyCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "defer_processing_if_not_ready",
+                    "next": "RECORDED"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "start_recorded",
+                    "next": "RECORDED"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
