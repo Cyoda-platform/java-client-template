@@ -15,7 +15,6 @@ import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-
 import java.util.List;
 import java.util.Map;
 
@@ -47,35 +46,37 @@ public class OrderParametersValidCriterion implements CyodaCriterion {
                 Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(Order order) {
-        if (order.getOrderId() == null || order.getOrderId().isBlank()) {
+    private EvaluationOutcome validateEntity(Order entity) {
+        if (entity.getOrderId() == null || entity.getOrderId().isBlank()) {
             return EvaluationOutcome.fail("Order ID is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (order.getCustomerId() == null || order.getCustomerId().isBlank()) {
+        if (entity.getCustomerId() == null || entity.getCustomerId().isBlank()) {
             return EvaluationOutcome.fail("Customer ID is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        List<Map<String, Object>> items = order.getItems();
+        List<Map<String, Object>> items = entity.getItems();
         if (items == null || items.isEmpty()) {
-            return EvaluationOutcome.fail("Order items are required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("Order must contain at least one item", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         for (Map<String, Object> item : items) {
-            if (!item.containsKey("productId") || item.get("productId") == null || ((String) item.get("productId")).isBlank()) {
-                return EvaluationOutcome.fail("Each item must have a valid productId", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            Object productId = item.get("productId");
+            Object quantity = item.get("quantity");
+            if (!(productId instanceof String) || ((String) productId).isBlank()) {
+                return EvaluationOutcome.fail("Each order item must have a valid productId", StandardEvalReasonCategories.VALIDATION_FAILURE);
             }
-            if (!item.containsKey("quantity") || !(item.get("quantity") instanceof Integer) || ((Integer) item.get("quantity")) <= 0) {
-                return EvaluationOutcome.fail("Each item must have a positive quantity", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            if (!(quantity instanceof Integer) || ((Integer) quantity) <= 0) {
+                return EvaluationOutcome.fail("Each order item must have a quantity greater than zero", StandardEvalReasonCategories.VALIDATION_FAILURE);
             }
         }
-        if (order.getShippingAddress() == null || order.getShippingAddress().isBlank()) {
+        if (entity.getShippingAddress() == null || entity.getShippingAddress().isBlank()) {
             return EvaluationOutcome.fail("Shipping address is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (order.getPaymentMethod() == null || order.getPaymentMethod().isBlank()) {
+        if (entity.getPaymentMethod() == null || entity.getPaymentMethod().isBlank()) {
             return EvaluationOutcome.fail("Payment method is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (order.getCreatedAt() == null || order.getCreatedAt().isBlank()) {
+        if (entity.getCreatedAt() == null || entity.getCreatedAt().isBlank()) {
             return EvaluationOutcome.fail("Creation timestamp is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (order.getStatus() == null || order.getStatus().isBlank()) {
+        if (entity.getStatus() == null || entity.getStatus().isBlank()) {
             return EvaluationOutcome.fail("Order status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         return EvaluationOutcome.success();
