@@ -1,24 +1,10 @@
 {
     "active": true,
-    "desc": "Workflow for managing the lifecycle of an NbaScoreFetchJob entity with processing and conditional transitions",
+    "desc": "Workflow for processing Subscription entity from creation to ready state",
     "initialState": "none",
-    "name": "NbaScoreFetchJob Workflow",
+    "name": "Subscription Workflow",
     "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "name": "start_job_transition",
-                    "next": "pending"
-                }
-            ]
-        },
-        "pending": {
+        "created": {
             "transitions": [
                 {
                     "criterion": {
@@ -26,51 +12,52 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "CanStartCriterion"
+                            "name": "SubscriptionValidCriterion"
                         },
                         "type": "function"
                     },
-                    "name": "start_if_can_start",
-                    "next": "running",
+                    "name": "validate_subscription_passed",
+                    "next": "validated"
+                },
+                {
+                    "name": "validate_subscription_failed",
+                    "next": "created"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "create_subscription",
+                    "next": "created"
+                }
+            ]
+        },
+        "ready": {
+            "transitions": []
+        },
+        "registered": {
+            "transitions": [
+                {
+                    "name": "finalize_subscription",
+                    "next": "ready"
+                }
+            ]
+        },
+        "validated": {
+            "transitions": [
+                {
+                    "name": "register_subscription",
+                    "next": "registered",
                     "processors": [
                         {
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
                             "executionMode": "SYNC",
-                            "name": "NbaScoreFetchJobProcessor"
+                            "name": "SubscriptionProcessor"
                         }
                     ]
-                }
-            ]
-        },
-        "running": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "CanCompleteCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "complete_if_can_complete",
-                    "next": "completed"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "HasErrorCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "fail_if_has_error",
-                    "next": "failed"
                 }
             ]
         }
