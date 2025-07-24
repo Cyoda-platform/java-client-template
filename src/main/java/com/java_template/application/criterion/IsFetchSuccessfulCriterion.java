@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class IsFetchSuccessfulCriterion implements CyodaCriterion {
 
-    private final org.slf4j.Logger logger = LoggerFactory.getLogger(this.getClass());
+    private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final CriterionSerializer serializer;
 
     public IsFetchSuccessfulCriterion(SerializerFactory serializerFactory) {
@@ -32,24 +32,25 @@ public class IsFetchSuccessfulCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-                .evaluateEntity(NbaScoresFetchJob.class, this::validateEntity)
-                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
-                .complete();
+            .evaluateEntity(NbaScoresFetchJob.class, this::validateEntity)
+            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+            .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "IsFetchSuccessfulCriterion".equals(modelSpec.operationName()) &&
-                "nbaScoresFetchJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+               "nbaScoresFetchJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
     private EvaluationOutcome validateEntity(NbaScoresFetchJob entity) {
+        // Validate fetch success means status is COMPLETED
         if (entity.getStatus() == null) {
             return EvaluationOutcome.fail("Status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (!"COMPLETED".equalsIgnoreCase(entity.getStatus().name())) {
-            return EvaluationOutcome.fail("Fetch is not successful unless status is COMPLETED", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        if (!"COMPLETED".equals(entity.getStatus())) {
+            return EvaluationOutcome.fail("Fetch is not successful", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
         return EvaluationOutcome.success();
     }
