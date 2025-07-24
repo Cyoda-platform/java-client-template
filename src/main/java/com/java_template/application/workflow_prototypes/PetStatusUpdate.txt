@@ -1,0 +1,40 @@
+    private void processPetStatusUpdate(PetStatusUpdate update) throws ExecutionException, InterruptedException {
+        logger.info("Processing PetStatusUpdate with technicalId: {}", update.getTechnicalId());
+
+        UUID petUuid = UUID.fromString(update.getPetId());
+        CompletableFuture<ObjectNode> petFuture = entityService.getItem("Pet", ENTITY_VERSION, petUuid);
+        ObjectNode petNode = petFuture.get();
+        if (petNode == null || petNode.isEmpty()) {
+            logger.error("PetStatusUpdate processing failed: Pet {} not found", update.getPetId());
+            update.setStatus("FAILED");
+            entityService.updateItem("PetStatusUpdate", ENTITY_VERSION, update.getTechnicalId(), update).get();
+            return;
+        }
+
+        // Create new Pet entity representing status update (immutable)
+        Pet updatedPet = new Pet();
+        updatedPet.setName(petNode.get("name").asText());
+        updatedPet.setCategory(petNode.get("category").asText());
+        List<String> photoUrls = new ArrayList<>();
+        if (petNode.has("photoUrls") && petNode.get("photoUrls").isArray()) {
+            petNode.get("photoUrls").forEach(n -> photoUrls.add(n.asText()));
+        }
+        updatedPet.setPhotoUrls(photoUrls);
+
+        List<String> tags = new ArrayList<>();
+        if (petNode.has("tags") && petNode.get("tags").isArray()) {
+            petNode.get("tags").forEach(n -> tags.add(n.asText()));
+        }
+        updatedPet.setTags(tags);
+
+        updatedPet.setStatus(update.getNewStatus());
+
+        CompletableFuture<UUID> newPetIdFuture = entityService.addItem("Pet", ENTITY_VERSION, updatedPet);
+        UUID newPetTechnicalId = newPetIdFuture.get();
+        updatedPet.setTechnicalId(newPetTechnicalId);
+
+        update.setStatus("PROCESSED");
+        entityService.updateItem("PetStatusUpdate", ENTITY_VERSION, update.getTechnicalId(), update).get();
+
+        logger.info("PetStatusUpdate {} processed: Pet {} status updated to {}", update.getTechnicalId(), newPetTechnicalId, update.getNewStatus());
+    }
