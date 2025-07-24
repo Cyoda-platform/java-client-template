@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.Workflow;
+import com.java_template.application.entity.PetOrder;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,29 +32,23 @@ public class PetDataInvalidCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-                .evaluateEntity(Workflow.class, this::validateEntity)
-                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
-                .complete();
+            .evaluateEntity(PetOrder.class, this::validateEntity)
+            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+            .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetDataInvalidCriterion".equals(modelSpec.operationName()) &&
-                "workflow".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+               "petOrder".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(Workflow entity) {
-        // Inverse validation logic for invalid data
-        if (entity.getWorkflowName() == null || entity.getWorkflowName().isBlank()) {
-            return EvaluationOutcome.success(); // Invalid data, so validation fails positively here
+    private EvaluationOutcome validateEntity(PetOrder entity) {
+        // This criterion validates if PetOrder data is invalid by negating the isValid() logic
+        if (entity.isValid()) {
+            return EvaluationOutcome.fail("PetOrder data is valid, this criterion requires invalid data", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (entity.getTriggerType() == null || entity.getTriggerType().isBlank()) {
-            return EvaluationOutcome.success();
-        }
-        if (entity.getStatus() == null || entity.getStatus().isBlank()) {
-            return EvaluationOutcome.success();
-        }
-        return EvaluationOutcome.fail("Data appears valid", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        return EvaluationOutcome.success();
     }
 }
