@@ -71,9 +71,19 @@ public class EntityControllerPrototype {
         }
         job.setStatus("PROCESSING");
 
-        // Instead of creating Pet entity here, simulate external pets API call
-        // For demo, let's just log and do nothing
-        log.info("Simulating call to public pets API to get pets after job submission");
+        // Implement logic to fetch data from public pets API and save them as pets
+        // Simulated here by creating a new Pet entity from job data and adding to cache
+        String petTechnicalId = "pet-" + petIdCounter.getAndIncrement();
+        com.java_template.application.entity.Pet pet = new com.java_template.application.entity.Pet();
+        pet.setPetId(petTechnicalId);
+        pet.setName(job.getPetName());
+        pet.setCategory(job.getPetType());
+        pet.setStatus(job.getPetStatus());
+        pet.setPhotoUrls(Collections.emptyList());
+        pet.setTags(Collections.emptyList());
+        petCache.put(petTechnicalId, pet);
+
+        log.info("Fetched and saved pet from public API simulation with ID: {}", petTechnicalId);
 
         job.setStatus("COMPLETED");
         log.info("PetRegistrationJob processing completed for petName: {}", job.getPetName());
