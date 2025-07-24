@@ -1,0 +1,31 @@
+    private void processEmailNotification(UUID notificationId, EmailNotification notification) {
+        logger.info("Processing EmailNotification with technicalId: {}", notificationId);
+        try {
+            // Simulated email sending logic
+            boolean emailSent = sendEmail(notification.getSubscriberEmail(), notification.getNotificationDate());
+            if (emailSent) {
+                notification.setEmailSentStatus("SENT");
+                notification.setSentAt(java.time.Instant.now().toString());
+                logger.info("Email sent successfully to {}", notification.getSubscriberEmail());
+            } else {
+                notification.setEmailSentStatus("FAILED");
+                logger.error("Failed to send email to {}", notification.getSubscriberEmail());
+            }
+            entityService.addItem("emailnotification", ENTITY_VERSION, notification).get(); // TODO: skip update
+        } catch (Exception ex) {
+            notification.setEmailSentStatus("FAILED");
+            try {
+                entityService.addItem("emailnotification", ENTITY_VERSION, notification).get(); // TODO: skip update
+            } catch (Exception e) {
+                logger.error("Error updating EmailNotification status to FAILED: {}", e.getMessage(), e);
+            }
+            logger.error("Exception while sending email to {}: {}", notification.getSubscriberEmail(), ex.getMessage(), ex);
+        }
+    }
+
+    // Dummy email sending method
+    private boolean sendEmail(String toEmail, String notificationDate) {
+        // Simulate email sending logic here, always returns true for prototype
+        logger.info("Sending email to {} with NBA scores for date {}", toEmail, notificationDate);
+        return true;
+    }
