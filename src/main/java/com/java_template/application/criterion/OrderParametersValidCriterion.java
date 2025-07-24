@@ -15,8 +15,6 @@ import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-import java.util.List;
-import java.util.Map;
 
 @Component
 public class OrderParametersValidCriterion implements CyodaCriterion {
@@ -34,38 +32,27 @@ public class OrderParametersValidCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-                .evaluateEntity(Order.class, this::validateEntity)
-                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
-                .complete();
+            .evaluateEntity(Order.class, this::validateEntity)
+            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+            .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "OrderParametersValidCriterion".equals(modelSpec.operationName()) &&
-                "order".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+               "order".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
     private EvaluationOutcome validateEntity(Order entity) {
         if (entity.getOrderId() == null || entity.getOrderId().isBlank()) {
-            return EvaluationOutcome.fail("Order ID is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("OrderId is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         if (entity.getCustomerId() == null || entity.getCustomerId().isBlank()) {
-            return EvaluationOutcome.fail("Customer ID is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("CustomerId is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        List<Map<String, Object>> items = entity.getItems();
-        if (items == null || items.isEmpty()) {
+        if (entity.getItems() == null || entity.getItems().isEmpty()) {
             return EvaluationOutcome.fail("Order must contain at least one item", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        }
-        for (Map<String, Object> item : items) {
-            Object productId = item.get("productId");
-            Object quantity = item.get("quantity");
-            if (!(productId instanceof String) || ((String) productId).isBlank()) {
-                return EvaluationOutcome.fail("Each order item must have a valid productId", StandardEvalReasonCategories.VALIDATION_FAILURE);
-            }
-            if (!(quantity instanceof Integer) || ((Integer) quantity) <= 0) {
-                return EvaluationOutcome.fail("Each order item must have a quantity greater than zero", StandardEvalReasonCategories.VALIDATION_FAILURE);
-            }
         }
         if (entity.getShippingAddress() == null || entity.getShippingAddress().isBlank()) {
             return EvaluationOutcome.fail("Shipping address is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
