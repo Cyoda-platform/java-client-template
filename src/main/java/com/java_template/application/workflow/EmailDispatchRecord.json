@@ -1,0 +1,70 @@
+{
+    "active": true,
+    "desc": "Workflow for processing EmailDispatchRecord entity from creation to dispatch completion or failure",
+    "initialState": "none",
+    "name": "EmailDispatchRecord Workflow",
+    "states": {
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "start_processing",
+                    "next": "pending"
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "name": "dispatch_email",
+                    "next": "sending",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "EmailDispatchRecordProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "sending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "EmailDispatchSentCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "email_sent_success",
+                    "next": "sent"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "EmailDispatchFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "email_send_failure",
+                    "next": "failed"
+                }
+            ]
+        },
+        "sent": {
+            "transitions": []
+        }
+    },
+    "version": "1.0"
+}
