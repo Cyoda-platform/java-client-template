@@ -44,8 +44,8 @@ public class OrderExecutionSuccessCriterion implements CyodaCriterion {
                 Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(Order order) {
-        if (!"PAID".equalsIgnoreCase(order.getStatus()) && !"SHIPPED".equalsIgnoreCase(order.getStatus())) {
+    private EvaluationOutcome validateEntity(Order entity) {
+        if (!"PAID".equalsIgnoreCase(entity.getStatus()) && !"SHIPPED".equalsIgnoreCase(entity.getStatus())) {
             return EvaluationOutcome.fail("Order status must be PAID or SHIPPED for successful execution", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
         return EvaluationOutcome.success();
