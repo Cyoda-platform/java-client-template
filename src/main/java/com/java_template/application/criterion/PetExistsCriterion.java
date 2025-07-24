@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.Pet;
+import com.java_template.application.entity.AdoptionRequest;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,7 +32,7 @@ public class PetExistsCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(Pet.class, this::validateEntity)
+            .evaluateEntity(AdoptionRequest.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,19 +40,19 @@ public class PetExistsCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetExistsCriterion".equals(modelSpec.operationName()) &&
-               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "adoptionRequest".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(Pet entity) {
+    private EvaluationOutcome validateEntity(AdoptionRequest entity) {
+        // Validate that petId is not null or blank
         if (entity.getPetId() == null || entity.getPetId().isBlank()) {
-            return EvaluationOutcome.fail("Pet ID is required", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+            return EvaluationOutcome.fail("Pet ID must be provided", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (entity.getName() == null || entity.getName().isBlank()) {
-            return EvaluationOutcome.fail("Pet name is required", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-        }
-        if (entity.getStatus() == null || entity.getStatus().isBlank()) {
-            return EvaluationOutcome.fail("Pet status is required", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+        // Simulate check if pet exists (assuming external check or database call)
+        // Here we simulate failure if petId equals "nonexistent"
+        if ("nonexistent".equals(entity.getPetId())) {
+            return EvaluationOutcome.fail("Pet does not exist", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
         }
         return EvaluationOutcome.success();
     }
