@@ -45,13 +45,18 @@ public class EmailSentCriterion implements CyodaCriterion {
     }
 
     private EvaluationOutcome validateEntity(EmailNotification entity) {
-        // Check if emailSentStatus is SENT
         if (entity.getEmailSentStatus() == null || entity.getEmailSentStatus().isBlank()) {
-            return EvaluationOutcome.fail("emailSentStatus is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("Email sent status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (!"SENT".equalsIgnoreCase(entity.getEmailSentStatus())) {
-            return EvaluationOutcome.fail("Email not sent", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+
+        if ("SENT".equalsIgnoreCase(entity.getEmailSentStatus())) {
+            return EvaluationOutcome.success();
+        } else if ("FAILED".equalsIgnoreCase(entity.getEmailSentStatus())) {
+            return EvaluationOutcome.fail("Email sending failed", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        } else if ("PENDING".equalsIgnoreCase(entity.getEmailSentStatus())) {
+            return EvaluationOutcome.fail("Email sending pending", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+        } else {
+            return EvaluationOutcome.fail("Unknown email sent status", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
         }
-        return EvaluationOutcome.success();
     }
 }
