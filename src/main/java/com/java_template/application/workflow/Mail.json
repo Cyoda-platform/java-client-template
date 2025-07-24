@@ -1,113 +1,113 @@
 {
-    "active": true,
-    "desc": "Workflow to validate, evaluate criteria and send mail based on happiness",
-    "initialState": "none",
-    "name": "Mail Processing Workflow",
-    "states": {
-        "criteria_evaluation": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IsHappyCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "is_happy",
-                    "next": "processing_happy"
-                },
-                {
-                    "name": "is_not_happy",
-                    "next": "processing_gloomy"
-                }
-            ]
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "name": "start_validation",
-                    "next": "validating"
-                }
-            ]
-        },
-        "processing_gloomy": {
-            "transitions": [
-                {
-                    "name": "send_gloomy_success",
-                    "next": "sent_gloomy",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "MailProcessor"
-                        }
-                    ]
-                },
-                {
-                    "name": "send_gloomy_failed",
-                    "next": "failed"
-                }
-            ]
-        },
-        "processing_happy": {
-            "transitions": [
-                {
-                    "name": "send_happy_success",
-                    "next": "sent_happy",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "MailProcessor"
-                        }
-                    ]
-                },
-                {
-                    "name": "send_happy_failed",
-                    "next": "failed"
-                }
-            ]
-        },
-        "sent_gloomy": {
-            "transitions": []
-        },
-        "sent_happy": {
-            "transitions": []
-        },
-        "validating": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "ValidateMailCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "validation_passed",
-                    "next": "criteria_evaluation"
-                },
-                {
-                    "name": "validation_failed",
-                    "next": "validation_failed"
-                }
-            ]
-        },
-        "validation_failed": {
-            "transitions": []
+  "active": true,
+  "desc": "Workflow to validate, evaluate criteria and send mail based on happiness",
+  "initialState": "none",
+  "name": "Mail Processing Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "start_validation",
+          "next": "validating"
         }
+      ]
     },
-    "version": "1.0"
+    "validating": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "ValidateMailCriterion"
+            },
+            "type": "function"
+          },
+          "name": "validation_passed",
+          "next": "criteria_evaluation"
+        },
+        {
+          "name": "validation_failed",
+          "next": "validation_failed"
+        }
+      ]
+    },
+    "criteria_evaluation": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IsHappyCriterion"
+            },
+            "type": "function"
+          },
+          "name": "is_happy",
+          "next": "processing_happy"
+        },
+        {
+          "name": "is_not_happy",
+          "next": "processing_gloomy"
+        }
+      ]
+    },
+    "processing_happy": {
+      "transitions": [
+        {
+          "name": "send_happy_success",
+          "next": "sent_happy",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "MailProcessor"
+            }
+          ]
+        },
+        {
+          "name": "send_happy_failed",
+          "next": "failed"
+        }
+      ]
+    },
+    "sent_happy": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    },
+    "processing_gloomy": {
+      "transitions": [
+        {
+          "name": "send_gloomy_success",
+          "next": "sent_gloomy",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "MailProcessor"
+            }
+          ]
+        },
+        {
+          "name": "send_gloomy_failed",
+          "next": "failed"
+        }
+      ]
+    },
+    "sent_gloomy": {
+      "transitions": []
+    },
+    "validation_failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
