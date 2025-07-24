@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.ReportJob;
+import com.java_template.application.entity.Report;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,7 +32,7 @@ public class CanFetchRatesCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(ReportJob.class, this::validateEntity)
+            .evaluateEntity(Report.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,23 +40,26 @@ public class CanFetchRatesCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "CanFetchRatesCriterion".equals(modelSpec.operationName()) &&
-               "reportJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "report".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(ReportJob entity) {
-        // Validate that the job is in PENDING status and rates are not yet fetched
-        if (entity.getRequestedAt() == null) {
-            return EvaluationOutcome.fail("requestedAt must not be null", StandardEvalReasonCategories.VALIDATION_FAILURE);
+    private EvaluationOutcome validateEntity(Report entity) {
+        // Business logic: Validate that the report entity is complete for fetching rates
+        if (entity.getJobTechnicalId() == null || entity.getJobTechnicalId().isBlank()) {
+            return EvaluationOutcome.fail("JobTechnicalId is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (entity.getStatus() == null || entity.getStatus().isBlank()) {
-            return EvaluationOutcome.fail("status must not be blank", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (entity.getGeneratedAt() == null) {
+            return EvaluationOutcome.fail("GeneratedAt timestamp is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (!entity.getStatus().equalsIgnoreCase("PENDING")) {
-            return EvaluationOutcome.fail("status must be PENDING to fetch rates", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        if (entity.getBtcUsdRate() == null) {
+            return EvaluationOutcome.fail("BTC to USD rate is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
         }
-        if (entity.getBtcUsdRate() != null || entity.getBtcEurRate() != null) {
-            return EvaluationOutcome.fail("Rates already fetched", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        if (entity.getBtcEurRate() == null) {
+            return EvaluationOutcome.fail("BTC to EUR rate is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+        }
+        if (entity.getEmailSent() == null) {
+            return EvaluationOutcome.fail("Email sent flag is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         return EvaluationOutcome.success();
     }
