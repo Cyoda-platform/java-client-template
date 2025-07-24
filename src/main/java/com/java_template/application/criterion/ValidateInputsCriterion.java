@@ -45,22 +45,18 @@ public class ValidateInputsCriterion implements CyodaCriterion {
     }
 
     private EvaluationOutcome validateEntity(Workflow entity) {
-        // Validate subscriberEmail format
         if (entity.getSubscriberEmail() == null || entity.getSubscriberEmail().isBlank()) {
-            return EvaluationOutcome.fail("Subscriber email is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("subscriberEmail is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         if (!entity.getSubscriberEmail().matches("^[\\w.%+-]+@[\\w.-]+\\.[a-zA-Z]{2,6}$")) {
-            return EvaluationOutcome.fail("Subscriber email format is invalid", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("subscriberEmail format is invalid", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-
-        // Validate requestedDate format YYYY-MM-DD
         if (entity.getRequestedDate() == null || entity.getRequestedDate().isBlank()) {
-            return EvaluationOutcome.fail("Requested date is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("requestedDate is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         if (!entity.getRequestedDate().matches("^\\d{4}-\\d{2}-\\d{2}$")) {
-            return EvaluationOutcome.fail("Requested date format is invalid, expected YYYY-MM-DD", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("requestedDate format must be YYYY-MM-DD", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-
         return EvaluationOutcome.success();
     }
 }
