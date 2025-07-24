@@ -8,6 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.*;
 import com.java_template.application.entity.Mail;
+import com.java_template.application.entity.MailStatusEnum;
 
 @RestController
 @RequestMapping(path = "/prototype")
@@ -42,7 +43,7 @@ public class EntityControllerPrototype {
             mail.setIsHappy(null);
             mail.setIsGloomy(null);
             mail.setCriteriaResults(new HashMap<>());
-            mail.setStatus(null); // keep as null initially due to package-private enum
+            mail.setStatus(MailStatusEnum.CREATED);
 
             mailCache.put(id, mail);
             log.info("Created Mail with ID: {}", id);
@@ -52,7 +53,7 @@ public class EntityControllerPrototype {
 
             Map<String, String> response = new HashMap<>();
             response.put("id", id);
-            response.put("status", mail.getStatus() != null ? mail.getStatus().name() : "null");
+            response.put("status", mail.getStatus().name());
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
 
         } catch (Exception e) {
@@ -101,7 +102,7 @@ public class EntityControllerPrototype {
             newMailVersion.setIsHappy(null);
             newMailVersion.setIsGloomy(null);
             newMailVersion.setCriteriaResults(new HashMap<>());
-            newMailVersion.setStatus(null); // keep as null initially due to package-private enum
+            newMailVersion.setStatus(MailStatusEnum.CREATED);
 
             mailCache.put(newId, newMailVersion);
             log.info("Created new version Mail with ID: {}", newId);
@@ -111,7 +112,7 @@ public class EntityControllerPrototype {
 
             Map<String, String> response = new HashMap<>();
             response.put("id", newId);
-            response.put("status", newMailVersion.getStatus() != null ? newMailVersion.getStatus().name() : "null");
+            response.put("status", newMailVersion.getStatus().name());
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
 
         } catch (Exception e) {
@@ -138,7 +139,8 @@ public class EntityControllerPrototype {
             deactivationRecord.setIsHappy(existingMail.getIsHappy());
             deactivationRecord.setIsGloomy(existingMail.getIsGloomy());
             deactivationRecord.setCriteriaResults(existingMail.getCriteriaResults());
-            deactivationRecord.setStatus(null); // DEACTIVATED status not accessible
+            // DEACTIVATED status does not exist in enum, set to null
+            deactivationRecord.setStatus(null);
 
             mailCache.put(newId, deactivationRecord);
             log.info("Deactivated Mail with new record ID: {}", newId);
@@ -172,25 +174,25 @@ public class EntityControllerPrototype {
         if (happyCount > gloomyCount) {
             mail.setIsHappy(true);
             mail.setIsGloomy(false);
-            mail.setStatus(null); // cannot set PROCESSING due to enum access
+            mail.setStatus(MailStatusEnum.PROCESSING);
         } else {
             mail.setIsHappy(false);
             mail.setIsGloomy(true);
-            mail.setStatus(null); // cannot set PROCESSING due to enum access
+            mail.setStatus(MailStatusEnum.PROCESSING);
         }
 
         // Simulate sending mail
         boolean sendSuccess = true;
         if (mail.getIsHappy()) {
             log.info("Sending happy mail to recipients: {}", mail.getMailList());
-            mail.setStatus(null); // cannot set SENT_HAPPY due to enum access
+            mail.setStatus(MailStatusEnum.SENT_HAPPY);
         } else {
             log.info("Sending gloomy mail to recipients: {}", mail.getMailList());
-            mail.setStatus(null); // cannot set SENT_GLOOMY due to enum access
+            mail.setStatus(MailStatusEnum.SENT_GLOOMY);
         }
 
         if (!sendSuccess) {
-            mail.setStatus(null); // cannot set FAILED due to enum access
+            mail.setStatus(MailStatusEnum.FAILED);
             log.error("Failed to send mail with ID: {}", mail.getId());
         }
     }
