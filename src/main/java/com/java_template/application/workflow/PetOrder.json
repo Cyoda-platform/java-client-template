@@ -1,0 +1,99 @@
+{
+    "active": true,
+    "desc": "Workflow for processing a pet order from creation to notification",
+    "initialState": "none",
+    "name": "PetOrder Workflow",
+    "states": {
+        "approved": {
+            "transitions": [
+                {
+                    "name": "send_confirmation",
+                    "next": "notified"
+                }
+            ]
+        },
+        "cancelled": {
+            "transitions": [
+                {
+                    "name": "send_failure_notice",
+                    "next": "notified"
+                }
+            ]
+        },
+        "created": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ValidateOrderFieldsCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "validate_order_fields",
+                    "next": "validated"
+                },
+                {
+                    "name": "cancel_due_to_invalid_order",
+                    "next": "cancelled"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "start_order",
+                    "next": "created"
+                }
+            ]
+        },
+        "notified": {
+            "transitions": []
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "name": "place_order_success",
+                    "next": "approved",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "PetOrderProcessor"
+                        }
+                    ]
+                },
+                {
+                    "name": "place_order_failure",
+                    "next": "cancelled"
+                }
+            ]
+        },
+        "validated": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsPetAvailableCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "check_pet_availability",
+                    "next": "processing"
+                },
+                {
+                    "name": "cancel_due_to_unavailable_pet",
+                    "next": "cancelled"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
