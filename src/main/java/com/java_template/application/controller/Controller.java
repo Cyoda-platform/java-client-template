@@ -1,25 +1,25 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Order;
 import com.java_template.application.entity.Pet;
 import com.java_template.application.entity.PetRegistrationJob;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.UUID;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/main")
@@ -28,7 +28,7 @@ import static com.java_template.common.config.Config.*;
 public class Controller {
 
     private final EntityService entityService;
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final ObjectMapper objectMapper;
 
     private static final String PET_REGISTRATION_JOB_MODEL = "PetRegistrationJob";
     private static final String PET_MODEL = "Pet";
@@ -37,7 +37,7 @@ public class Controller {
     // ----------- PetRegistrationJob endpoints -----------
 
     @PostMapping("/pet-registration-jobs")
-    public ResponseEntity<?> createPetRegistrationJob(@RequestBody PetRegistrationJob job) {
+    public ResponseEntity<?> createPetRegistrationJob(@RequestBody PetRegistrationJob job) throws JsonProcessingException {
         try {
             if (job == null || job.getPetName() == null || job.getPetName().isBlank()
                     || job.getPetType() == null || job.getPetType().isBlank()
@@ -48,38 +48,30 @@ public class Controller {
             }
 
             job.setStatus("PENDING");
-            job.setCreatedAt(new Date());
+            job.setCreatedAt(java.time.LocalDateTime.now());
 
             CompletableFuture<UUID> idFuture = entityService.addItem(PET_REGISTRATION_JOB_MODEL, ENTITY_VERSION, job);
             UUID technicalId = idFuture.get();
 
             log.info("Created PetRegistrationJob with ID: {}", technicalId);
 
-            // processPetRegistrationJob(job); Removed process method call
-
             // Fetch current pets from external service
             CompletableFuture<ArrayNode> petsFuture = entityService.getItems(PET_MODEL, ENTITY_VERSION);
             ArrayNode petsNode = petsFuture.get();
-
-            List<Pet> pets = new ArrayList<>();
-            for (var petJson : petsNode) {
-                Pet pet = restTemplate.getForObject("http://localhost", Pet.class); // dummy conversion; replace with proper conversion if needed
-                // But we cannot use restTemplate here, so just skip conversion and return petsNode directly
-            }
 
             // Return only technicalId and pets as raw ObjectNodes
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString(), "pets", petsNode));
         } catch (IllegalArgumentException e) {
             log.error("Invalid argument: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
-        } catch (Exception e) {
+        } catch (InterruptedException | ExecutionException e) {
             log.error("Error processing PetRegistrationJob: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Processing failed"));
         }
     }
 
     @GetMapping("/pet-registration-jobs/{id}")
-    public ResponseEntity<?> getPetRegistrationJob(@PathVariable String id) {
+    public ResponseEntity<?> getPetRegistrationJob(@PathVariable String id) throws JsonProcessingException {
         try {
             UUID technicalId = UUID.fromString(id);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(PET_REGISTRATION_JOB_MODEL, ENTITY_VERSION, technicalId);
@@ -94,7 +86,7 @@ public class Controller {
         } catch (IllegalArgumentException e) {
             log.error("Invalid PetRegistrationJob ID format: {}", id);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Invalid ID format"));
-        } catch (Exception e) {
+        } catch (InterruptedException | ExecutionException e) {
             log.error("Error retrieving PetRegistrationJob: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Error retrieving data"));
         }
@@ -108,7 +100,7 @@ public class Controller {
             CompletableFuture<ArrayNode> itemsFuture = entityService.getItems(PET_MODEL, ENTITY_VERSION);
             ArrayNode petsNode = itemsFuture.get();
             return ResponseEntity.ok(petsNode);
-        } catch (Exception e) {
+        } catch (InterruptedException | ExecutionException e) {
             log.error("Error retrieving pets: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Error retrieving pets"));
         }
@@ -128,7 +120,7 @@ public class Controller {
         } catch (IllegalArgumentException e) {
             log.error("Invalid Pet ID format: {}", id);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Invalid ID format"));
-        } catch (Exception e) {
+        } catch (InterruptedException | ExecutionException e) {
             log.error("Error retrieving pet: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Error retrieving pet"));
         }
@@ -137,7 +129,7 @@ public class Controller {
     // ----------- Order endpoints -----------
 
     @PostMapping("/orders")
-    public ResponseEntity<?> createOrder(@RequestBody Order order) {
+    public ResponseEntity<?> createOrder(@RequestBody Order order) throws JsonProcessingException {
         try {
             if (order == null || order.getPetId() == null || order.getPetId().isBlank()
                     || order.getQuantity() == null || order.getQuantity() <= 0
@@ -173,7 +165,7 @@ public class Controller {
         } catch (IllegalArgumentException e) {
             log.error("Invalid argument: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
-        } catch (Exception e) {
+        } catch (InterruptedException | ExecutionException e) {
             log.error("Error processing Order: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Processing failed"));
         }
@@ -193,7 +185,7 @@ public class Controller {
         } catch (IllegalArgumentException e) {
             log.error("Invalid Order ID format: {}", id);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Invalid ID format"));
-        } catch (Exception e) {
+        } catch (InterruptedException | ExecutionException e) {
             log.error("Error retrieving Order: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Error retrieving Order"));
         }
