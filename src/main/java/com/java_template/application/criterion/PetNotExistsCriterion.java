@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.AdoptionRequest;
+import com.java_template.application.entity.Pet;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,7 +32,7 @@ public class PetNotExistsCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(AdoptionRequest.class, this::validateEntity)
+            .evaluateEntity(Pet.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,20 +40,14 @@ public class PetNotExistsCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetNotExistsCriterion".equals(modelSpec.operationName()) &&
-               "adoptionRequest".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(AdoptionRequest entity) {
-        // Validate that petId is not null or blank
-        if (entity.getPetId() == null || entity.getPetId().isBlank()) {
-            return EvaluationOutcome.fail("Pet ID must be provided", StandardEvalReasonCategories.VALIDATION_FAILURE);
+    private EvaluationOutcome validateEntity(Pet entity) {
+        if (entity.getPetId() != null && !entity.getPetId().isBlank()) {
+            return EvaluationOutcome.fail("Pet should not exist", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
-        // Simulate check if pet does not exist (assuming external check or database call)
-        // Here we simulate success only if petId equals "nonexistent"
-        if ("nonexistent".equals(entity.getPetId())) {
-            return EvaluationOutcome.success();
-        }
-        return EvaluationOutcome.fail("Pet exists, but expected non-existence", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+        return EvaluationOutcome.success();
     }
 }
