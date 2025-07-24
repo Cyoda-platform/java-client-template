@@ -45,24 +45,13 @@ public class ProcessingFailedCriterion implements CyodaCriterion {
     }
 
     private EvaluationOutcome validateEntity(PetEvent entity) {
-        // Business logic for ProcessingFailedCriterion:
-        // Fail if status is PROCESSING (meaning processing failed to move forward)
+        // Business logic: Processing failed if status is FAILED
         if (entity.getStatus() == null) {
-            return EvaluationOutcome.fail("Status is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("Status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (entity.getStatus() == PetEvent.StatusEnum.PROCESSED) {
-            return EvaluationOutcome.fail("Event already processed", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        if ("FAILED".equals(entity.getStatus())) {
+            return EvaluationOutcome.fail("Processing has failed", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
-        if (entity.getStatus() == PetEvent.StatusEnum.RECORDED) {
-            return EvaluationOutcome.fail("Event still recorded, processing not started", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-        }
-        if (entity.getStatus() == PetEvent.StatusEnum.PROCESSED) {
-            return EvaluationOutcome.fail("Event already processed", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-        }
-        // Here assuming if status is PROCESSING, then processing failed
-        if (entity.getStatus() != PetEvent.StatusEnum.PROCESSED && entity.getStatus() != PetEvent.StatusEnum.RECORDED) {
-            return EvaluationOutcome.success();
-        }
-        return EvaluationOutcome.fail("Event status invalid for failure criterion", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        return EvaluationOutcome.success();
     }
 }
