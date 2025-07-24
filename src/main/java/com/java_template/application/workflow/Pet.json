@@ -1,0 +1,70 @@
+{
+    "active": true,
+    "desc": "Workflow representing validation and processing of Pet entity",
+    "initialState": "none",
+    "name": "Pet Entity Workflow",
+    "states": {
+        "available": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetValidityCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "validate_pet_success",
+                    "next": "validated"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetInvalidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "validate_pet_failure",
+                    "next": "error"
+                }
+            ]
+        },
+        "error": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "start_processing",
+                    "next": "available"
+                }
+            ]
+        },
+        "processed": {
+            "transitions": []
+        },
+        "validated": {
+            "transitions": [
+                {
+                    "name": "apply_business_rules",
+                    "next": "processed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "PetProcessor"
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
