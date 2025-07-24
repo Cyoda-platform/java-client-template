@@ -1,0 +1,92 @@
+{
+    "active": true,
+    "desc": "Workflow for processing CompanySearchJob entity with LEI enrichment sub-tasks",
+    "initialState": "none",
+    "name": "CompanySearchJob Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "start_validation",
+                    "next": "pending"
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "CompanySearchJobValidationCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "validate_and_start_processing",
+                    "next": "processing",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "CompanyProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "CompanySearchJobInvalidInputCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "fail_on_invalid_input",
+                    "next": "failed"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "AllLEIEnrichmentsCompletedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "complete_when_all_lei_enriched",
+                    "next": "completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ProcessingErrorOccurredCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "fail_on_processing_error",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
