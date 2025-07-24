@@ -1,0 +1,74 @@
+{
+    "active": true,
+    "desc": "Workflow for processing Pet entities on persistence event",
+    "initialState": "none",
+    "name": "Pet Entity Workflow",
+    "states": {
+        "complete": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "start_validation",
+                    "next": "validate"
+                }
+            ]
+        },
+        "persist_final": {
+            "transitions": [
+                {
+                    "name": "persist_final_pet",
+                    "next": "complete"
+                }
+            ]
+        },
+        "persist_pending": {
+            "transitions": [
+                {
+                    "name": "persist_pending_pet",
+                    "next": "complete"
+                }
+            ]
+        },
+        "process_status": {
+            "transitions": [
+                {
+                    "name": "assign_status_and_persist",
+                    "next": "persist_final",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "PetProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "validate": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "MandatoryFieldsPresentCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "mandatory_fields_present",
+                    "next": "process_status"
+                },
+                {
+                    "name": "mandatory_fields_missing",
+                    "next": "persist_pending"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
