@@ -1,0 +1,33 @@
+private void processLEIEnrichmentRequest(String id, LEIEnrichmentRequest request) {
+    logger.info("Processing LEIEnrichmentRequest with ID: {}", id);
+
+    try {
+        String lei = fetchLEIForBusinessId(request.getBusinessId());
+
+        if (lei == null || lei.isBlank()) {
+            request.setLei("Not Available");
+        } else {
+            request.setLei(lei);
+            request.setLeiSource("GLEIF");
+        }
+        request.setStatus("COMPLETED");
+
+        // No update operation, so TODO
+        // TODO: update operation for LEIEnrichmentRequest is not supported by EntityService
+
+        logger.info("Completed LEI enrichment for ID: {}", id);
+    } catch (Exception e) {
+        logger.error("Error processing LEIEnrichmentRequest with ID: {}", id, e);
+        request.setStatus("FAILED");
+        // TODO: update operation not supported
+    }
+}
+
+private String fetchLEIForBusinessId(String businessId) {
+    logger.info("Simulating LEI API call for businessId: {}", businessId);
+
+    if ("1234567-8".equals(businessId)) {
+        return "5493001KJTIIGC8Y1R12";
+    }
+    return null;
+}
