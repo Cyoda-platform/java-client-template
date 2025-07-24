@@ -44,8 +44,8 @@ public class OrderExecutionFailureCriterion implements CyodaCriterion {
                 Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(Order order) {
-        if (!"FAILED".equalsIgnoreCase(order.getStatus())) {
+    private EvaluationOutcome validateEntity(Order entity) {
+        if (!"FAILED".equalsIgnoreCase(entity.getStatus())) {
             return EvaluationOutcome.fail("Order status must be FAILED for execution failure", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
         return EvaluationOutcome.success();
