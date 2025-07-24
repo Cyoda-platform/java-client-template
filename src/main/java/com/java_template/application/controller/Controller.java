@@ -1,24 +1,24 @@
 package com.java_template.application.controller;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Workflow;
 import com.java_template.application.entity.Order;
 import com.java_template.application.entity.Customer;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import lombok.extern.slf4j.Slf4j;
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
+
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.UUID;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/entities")
@@ -27,11 +27,12 @@ import static com.java_template.common.config.Config.*;
 public class Controller {
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     // ----------- Workflow Endpoints -----------
 
     @PostMapping("/workflows")
-    public ResponseEntity<?> createWorkflow(@RequestBody Workflow workflow) {
+    public ResponseEntity<?> createWorkflow(@RequestBody Workflow workflow) throws JsonProcessingException {
         try {
             if (workflow == null || !workflow.isValid()) {
                 log.error("Invalid Workflow entity received");
@@ -58,7 +59,7 @@ public class Controller {
     }
 
     @GetMapping("/workflows/{id}")
-    public ResponseEntity<?> getWorkflow(@PathVariable("id") String id) {
+    public ResponseEntity<?> getWorkflow(@PathVariable("id") String id) throws JsonProcessingException {
         try {
             UUID technicalId = UUID.fromString(id);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
@@ -71,7 +72,8 @@ public class Controller {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(Map.of("error", "Workflow not found"));
             }
-            return ResponseEntity.ok(node);
+            Workflow workflow = objectMapper.treeToValue(node, Workflow.class);
+            return ResponseEntity.ok(workflow);
         } catch (IllegalArgumentException e) {
             log.error("Invalid UUID format for Workflow id: {}", id, e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -86,7 +88,7 @@ public class Controller {
     // ----------- Order Endpoints -----------
 
     @PostMapping("/orders")
-    public ResponseEntity<?> createOrder(@RequestBody Order order) {
+    public ResponseEntity<?> createOrder(@RequestBody Order order) throws JsonProcessingException {
         try {
             if (order == null || !order.isValid()) {
                 log.error("Invalid Order entity received");
@@ -113,7 +115,7 @@ public class Controller {
     }
 
     @GetMapping("/orders/{id}")
-    public ResponseEntity<?> getOrder(@PathVariable("id") String id) {
+    public ResponseEntity<?> getOrder(@PathVariable("id") String id) throws JsonProcessingException {
         try {
             UUID technicalId = UUID.fromString(id);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
@@ -126,7 +128,8 @@ public class Controller {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(Map.of("error", "Order not found"));
             }
-            return ResponseEntity.ok(node);
+            Order order = objectMapper.treeToValue(node, Order.class);
+            return ResponseEntity.ok(order);
         } catch (IllegalArgumentException e) {
             log.error("Invalid UUID format for Order id: {}", id, e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -141,7 +144,7 @@ public class Controller {
     // ----------- Customer Endpoints -----------
 
     @PostMapping("/customers")
-    public ResponseEntity<?> createCustomer(@RequestBody Customer customer) {
+    public ResponseEntity<?> createCustomer(@RequestBody Customer customer) throws JsonProcessingException {
         try {
             if (customer == null || !customer.isValid()) {
                 log.error("Invalid Customer entity received");
@@ -168,7 +171,7 @@ public class Controller {
     }
 
     @GetMapping("/customers/{id}")
-    public ResponseEntity<?> getCustomer(@PathVariable("id") String id) {
+    public ResponseEntity<?> getCustomer(@PathVariable("id") String id) throws JsonProcessingException {
         try {
             UUID technicalId = UUID.fromString(id);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
@@ -181,7 +184,8 @@ public class Controller {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(Map.of("error", "Customer not found"));
             }
-            return ResponseEntity.ok(node);
+            Customer customer = objectMapper.treeToValue(node, Customer.class);
+            return ResponseEntity.ok(customer);
         } catch (IllegalArgumentException e) {
             log.error("Invalid UUID format for Customer id: {}", id, e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
