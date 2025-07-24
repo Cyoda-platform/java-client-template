@@ -51,7 +51,7 @@ public class Controller {
             );
             UUID technicalId = idFuture.get();
 
-            processMail(mail);
+            // processMail removed
 
             log.info("Mail created with technicalId: {}", technicalId);
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
@@ -157,41 +157,4 @@ public class Controller {
         }
     }
 
-    private void processMail(Mail mail) {
-        log.info("Processing Mail with current status: {}", mail.getStatus());
-
-        boolean isHappyCriteria = checkMailIsHappy(mail);
-        boolean isGloomyCriteria = checkMailIsGloomy(mail);
-
-        if (isHappyCriteria) {
-            sendHappyMail(mail);
-        } else if (isGloomyCriteria) {
-            sendGloomyMail(mail);
-        } else {
-            log.error("Mail does not meet happy or gloomy criteria");
-            mail.setStatus("FAILED");
-            return;
-        }
-
-        mail.setStatus("SENT");
-        log.info("Mail processed and sent successfully");
-    }
-
-    private boolean checkMailIsHappy(Mail mail) {
-        return Boolean.TRUE.equals(mail.getIsHappy());
-    }
-
-    private boolean checkMailIsGloomy(Mail mail) {
-        return Boolean.FALSE.equals(mail.getIsHappy());
-    }
-
-    private void sendHappyMail(Mail mail) {
-        log.info("Sending happy mail to recipients: {}", mail.getMailList());
-        // Simulate sending happy mail content here
-    }
-
-    private void sendGloomyMail(Mail mail) {
-        log.info("Sending gloomy mail to recipients: {}", mail.getMailList());
-        // Simulate sending gloomy mail content here
-    }
 }
