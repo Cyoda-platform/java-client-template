@@ -13,11 +13,15 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-import java.util.UUID;
-import java.util.List;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 import com.java_template.common.service.EntityService;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.java_template.common.util.SearchConditionRequest;
+import com.java_template.common.util.Condition;
+import java.util.UUID;
 
 @Component
 public class PetIngestionJobProcessor implements CyodaProcessor {
@@ -25,13 +29,11 @@ public class PetIngestionJobProcessor implements CyodaProcessor {
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final ProcessorSerializer serializer;
     private final EntityService entityService;
-    private final ObjectMapper objectMapper;
 
-    public PetIngestionJobProcessor(SerializerFactory serializerFactory, EntityService entityService, ObjectMapper objectMapper) {
+    public PetIngestionJobProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
         this.entityService = entityService;
-        this.objectMapper = objectMapper;
-        logger.info("PetIngestionJobProcessor initialized with SerializerFactory, EntityService, and ObjectMapper");
+        logger.info("PetIngestionJobProcessor initialized with SerializerFactory and EntityService");
     }
 
     @Override
@@ -39,10 +41,11 @@ public class PetIngestionJobProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing PetIngestionJob for request: {}", request.getId());
 
+        // Fluent entity processing with validation
         return serializer.withRequest(request)
             .toEntity(PetIngestionJob.class)
-            .validate(this::isValidEntity, "Invalid PetIngestionJob entity")
-            .map(this::processPetIngestionJobLogic)
+            .validate(this::isValidEntity, "Invalid PetIngestionJob state")
+            .map(this::processEntityLogic)
             .complete();
     }
 
@@ -53,46 +56,41 @@ public class PetIngestionJobProcessor implements CyodaProcessor {
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private PetIngestionJob processPetIngestionJobLogic(PetIngestionJob job) {
-        // Business logic for processing PetIngestionJob
-        // Step 1: Initial State: PetIngestionJob created with PENDING status (assumed already set)
+    private boolean isValidEntity(PetIngestionJob job) {
+        return job != null && job.getId() != null && !job.getId().isBlank() && job.getStatus() != null;
+    }
 
-        // Step 2: Fetch Data: Call external Petstore API to retrieve pet data
-        // For demonstration, simulate fetching data with dummy data
-        List<Pet> fetchedPets = fetchPetsFromExternalAPI(job.getSource());
+    private PetIngestionJob processEntityLogic(PetIngestionJob job) {
+        // Example business logic for PetIngestionJob processing
+        // 1. Fetch data from external Petstore API (dummy placeholder logic here as no actual API)
+        // 2. Save new Pet entities immutably with AVAILABLE status
+        // 3. Update job status to COMPLETED or FAILED
 
-        // Step 3: Data Persistence: Save new Pet entities immutably with AVAILABLE status
-        for (Pet pet : fetchedPets) {
-            pet.setStatus("AVAILABLE");
-            entityService.addItem(pet); // Persist new Pet entity
+        // This example does not include real API calls due to limitation but follows the business flow
+        try {
+            // Simulate fetching pet data and adding new pets
+            List<com.java_template.application.entity.Pet> newPets = new ArrayList<>();
+
+            // Simulated pet data (in real scenario, fetched from external API)
+            com.java_template.application.entity.Pet pet1 = new com.java_template.application.entity.Pet();
+            pet1.setName("Fluffy");
+            pet1.setCategory("cat");
+            pet1.setPhotoUrls(List.of("http://example.com/photo1.jpg"));
+            pet1.setTags(List.of("cute", "friendly"));
+            pet1.setStatus("AVAILABLE");
+            newPets.add(pet1);
+
+            for (com.java_template.application.entity.Pet pet : newPets) {
+                entityService.addItem("Pet", Config.ENTITY_VERSION, pet).get();
+            }
+
+            job.setStatus("COMPLETED");
+        } catch (Exception e) {
+            logger.error("Error processing PetIngestionJob: ", e);
+            job.setStatus("FAILED");
         }
-
-        // Step 4: Completion: Update job status to COMPLETED
-        job.setStatus("COMPLETED");
-
-        // Step 5: Notification: (Optional) Trigger downstream workflows or monitoring (not implemented here)
 
         return job;
     }
 
-    private List<Pet> fetchPetsFromExternalAPI(String source) {
-        // Simulate fetching pets from an external API based on source
-        // In real implementation, make HTTP calls and parse response
-        List<Pet> pets = new ArrayList<>();
-        // Dummy pet example
-        Pet pet = new Pet();
-        pet.setId(UUID.randomUUID().toString());
-        pet.setName("Fluffy");
-        pet.setCategory("cat");
-        pet.setPhotoUrls(List.of("http://example.com/photo1.jpg"));
-        pet.setTags(List.of("cute", "friendly"));
-        pet.setStatus("AVAILABLE");
-        pets.add(pet);
-        return pets;
-    }
-
-    private boolean isValidEntity(PetIngestionJob job) {
-        return job != null && job.getId() != null && !job.getId().isBlank() &&
-               job.getStatus() != null && !job.getStatus().isBlank();
-    }
 }
