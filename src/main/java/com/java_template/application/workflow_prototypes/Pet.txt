@@ -1,0 +1,19 @@
+private void processPet(Pet pet) {
+    logger.info("Processing Pet with technicalId: {}", pet.getTechnicalId());
+
+    if (!pet.isValid()) {
+        logger.error("Invalid Pet entity with technicalId: {}", pet.getTechnicalId());
+        throw new IllegalArgumentException("Pet entity validation failed");
+    }
+
+    if ("cat".equalsIgnoreCase(pet.getCategory())) {
+        if (pet.getTags() == null) {
+            pet.setTags(new ArrayList<>());
+        }
+        if (!pet.getTags().contains("feline")) {
+            pet.getTags().add("feline");
+        }
+    }
+
+    logger.info("Pet processing complete for technicalId: {}", pet.getTechnicalId());
+}
