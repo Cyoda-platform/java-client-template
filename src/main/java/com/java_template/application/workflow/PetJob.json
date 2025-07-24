@@ -1,0 +1,188 @@
+{
+    "active": true,
+    "desc": "Workflow for processing PetJob entity operations: CREATE, PROCESS, and SEARCH",
+    "initialState": "none",
+    "name": "PetJob Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "creating_pet": {
+            "transitions": [
+                {
+                    "name": "create_pet_success",
+                    "next": "completed"
+                }
+            ]
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "start_processing",
+                    "next": "validating_operation",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "PetJobProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "processing_pet": {
+            "transitions": [
+                {
+                    "name": "process_pet_success",
+                    "next": "completed"
+                }
+            ]
+        },
+        "searching_pets": {
+            "transitions": [
+                {
+                    "name": "search_complete",
+                    "next": "completed"
+                }
+            ]
+        },
+        "validating_create_payload": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "CreatePayloadInvalidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "create_payload_invalid",
+                    "next": "failed"
+                },
+                {
+                    "name": "create_payload_valid",
+                    "next": "creating_pet"
+                }
+            ]
+        },
+        "validating_operation": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "OperationInvalidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "operation_invalid",
+                    "next": "failed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "OperationIsCreateCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "operation_create",
+                    "next": "validating_create_payload"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "OperationIsProcessCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "operation_process",
+                    "next": "validating_process_pet"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "OperationIsSearchCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "operation_search",
+                    "next": "validating_search_criteria"
+                }
+            ]
+        },
+        "validating_process_pet": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ProcessPetIdMissingCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "process_pet_id_missing",
+                    "next": "failed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ProcessPetNotFoundCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "process_pet_not_found",
+                    "next": "failed"
+                },
+                {
+                    "name": "process_pet_valid",
+                    "next": "processing_pet"
+                }
+            ]
+        },
+        "validating_search_criteria": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "SearchCriteriaInvalidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "search_criteria_invalid",
+                    "next": "failed"
+                },
+                {
+                    "name": "search_criteria_valid",
+                    "next": "searching_pets"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
