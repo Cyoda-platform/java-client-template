@@ -1,0 +1,7 @@
+private void processPetEvent(PetEvent petEvent) {
+    logger.info("Processing PetEvent with ID: {}", petEvent.getId());
+
+    logger.info("PetEvent {} of type {} processed at {}", petEvent.getEventId(), petEvent.getEventType(), petEvent.getTimestamp());
+
+    petEvent.setStatus(PetEvent.StatusEnum.PROCESSED);
+}
