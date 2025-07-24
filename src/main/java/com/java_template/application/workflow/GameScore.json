@@ -1,0 +1,79 @@
+{
+    "active": true,
+    "desc": "Workflow managing the lifecycle of NBA score fetching jobs",
+    "initialState": "none",
+    "name": "NbaScoreFetchJob Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "CanStartFetchingCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "start_fetching_if_pending",
+                    "next": "pending"
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "name": "begin_running",
+                    "next": "running"
+                }
+            ]
+        },
+        "running": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsFetchSuccessfulCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "fetch_successful",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "NbaScoreFetchJobProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsFetchFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "fetch_failed",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
