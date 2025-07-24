@@ -1,13 +1,12 @@
 package com.java_template.application.controller;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.DailyScoresJob;
 import com.java_template.application.entity.GameScore;
 import com.java_template.application.entity.Subscriber;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
@@ -16,12 +15,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.*;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicLong;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/entity")
@@ -30,12 +29,9 @@ import static com.java_template.common.config.Config.*;
 public class Controller {
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     private static final Logger logger = LoggerFactory.getLogger(Controller.class);
-
-    // Local counters remain for temporary ID generation for logs or internal use
-    private final AtomicLong dailyScoresJobIdCounter = new AtomicLong(1);
-    private final AtomicLong gameScoreIdCounter = new AtomicLong(1);
 
     // --- DailyScoresJob Endpoints ---
 
@@ -51,7 +47,6 @@ public class Controller {
             jobRequest.setCreatedAt(java.time.Instant.now().toString());
             jobRequest.setCompletedAt(null);
 
-            // Use entityService to add item
             CompletableFuture<UUID> idFuture = entityService.addItem("DailyScoresJob", ENTITY_VERSION, jobRequest);
             UUID technicalId = idFuture.get();
 
@@ -62,6 +57,13 @@ public class Controller {
         } catch (IllegalArgumentException iae) {
             logger.error("Illegal argument in createDailyScoresJob: {}", iae.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", iae.getMessage()));
+        } catch (ExecutionException ee) {
+            logger.error("Execution error in createDailyScoresJob: {}", ee.getMessage(), ee);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted in createDailyScoresJob: {}", ie.getMessage(), ie);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
         } catch (Exception e) {
             logger.error("Error in createDailyScoresJob: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
@@ -69,7 +71,7 @@ public class Controller {
     }
 
     @GetMapping("/dailyScoresJob/{id}")
-    public ResponseEntity<?> getDailyScoresJobById(@PathVariable String id) {
+    public ResponseEntity<?> getDailyScoresJobById(@PathVariable String id) throws JsonProcessingException {
         try {
             UUID technicalId = UUID.fromString(id);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem("DailyScoresJob", ENTITY_VERSION, technicalId);
@@ -78,13 +80,18 @@ public class Controller {
                 logger.error("DailyScoresJob with technicalId {} not found", id);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "DailyScoresJob not found"));
             }
-            return ResponseEntity.ok(node);
+            DailyScoresJob job = objectMapper.treeToValue(node, DailyScoresJob.class);
+            return ResponseEntity.ok(job);
         } catch (IllegalArgumentException iae) {
             logger.error("Invalid UUID format for DailyScoresJob id {}: {}", id, iae.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Invalid ID format"));
         } catch (ExecutionException ee) {
             logger.error("Execution error retrieving DailyScoresJob {}: {}", id, ee.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "DailyScoresJob not found"));
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted retrieving DailyScoresJob {}: {}", id, ie.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
         } catch (Exception e) {
             logger.error("Error retrieving DailyScoresJob {}: {}", id, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
@@ -113,6 +120,13 @@ public class Controller {
         } catch (IllegalArgumentException iae) {
             logger.error("Illegal argument in createSubscriber: {}", iae.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", iae.getMessage()));
+        } catch (ExecutionException ee) {
+            logger.error("Execution error in createSubscriber: {}", ee.getMessage(), ee);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted in createSubscriber: {}", ie.getMessage(), ie);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
         } catch (Exception e) {
             logger.error("Error in createSubscriber: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
@@ -120,7 +134,7 @@ public class Controller {
     }
 
     @GetMapping("/subscriber/{id}")
-    public ResponseEntity<?> getSubscriberById(@PathVariable String id) {
+    public ResponseEntity<?> getSubscriberById(@PathVariable String id) throws JsonProcessingException {
         try {
             UUID technicalId = UUID.fromString(id);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem("Subscriber", ENTITY_VERSION, technicalId);
@@ -129,13 +143,18 @@ public class Controller {
                 logger.error("Subscriber with technicalId {} not found", id);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Subscriber not found"));
             }
-            return ResponseEntity.ok(node);
+            Subscriber subscriber = objectMapper.treeToValue(node, Subscriber.class);
+            return ResponseEntity.ok(subscriber);
         } catch (IllegalArgumentException iae) {
             logger.error("Invalid UUID format for Subscriber id {}: {}", id, iae.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Invalid ID format"));
         } catch (ExecutionException ee) {
             logger.error("Execution error retrieving Subscriber {}: {}", id, ee.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Subscriber not found"));
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted retrieving Subscriber {}: {}", id, ie.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
         } catch (Exception e) {
             logger.error("Error retrieving Subscriber {}: {}", id, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
@@ -145,7 +164,7 @@ public class Controller {
     // --- GameScore Endpoints ---
 
     @GetMapping("/gameScore/{id}")
-    public ResponseEntity<?> getGameScoreById(@PathVariable String id) {
+    public ResponseEntity<?> getGameScoreById(@PathVariable String id) throws JsonProcessingException {
         try {
             UUID technicalId = UUID.fromString(id);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem("GameScore", ENTITY_VERSION, technicalId);
@@ -154,13 +173,18 @@ public class Controller {
                 logger.error("GameScore with technicalId {} not found", id);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "GameScore not found"));
             }
-            return ResponseEntity.ok(node);
+            GameScore gameScore = objectMapper.treeToValue(node, GameScore.class);
+            return ResponseEntity.ok(gameScore);
         } catch (IllegalArgumentException iae) {
             logger.error("Invalid UUID format for GameScore id {}: {}", id, iae.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Invalid ID format"));
         } catch (ExecutionException ee) {
             logger.error("Execution error retrieving GameScore {}: {}", id, ee.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "GameScore not found"));
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted retrieving GameScore {}: {}", id, ie.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
         } catch (Exception e) {
             logger.error("Error retrieving GameScore {}: {}", id, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
