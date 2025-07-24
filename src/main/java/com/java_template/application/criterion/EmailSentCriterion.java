@@ -40,23 +40,23 @@ public class EmailSentCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "EmailSentCriterion".equals(modelSpec.operationName()) &&
-               "emailNotification".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "emailnotification".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
     private EvaluationOutcome validateEntity(EmailNotification entity) {
         if (entity.getEmailSentStatus() == null || entity.getEmailSentStatus().isBlank()) {
-            return EvaluationOutcome.fail("Email sent status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("emailSentStatus is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-
-        if ("SENT".equalsIgnoreCase(entity.getEmailSentStatus())) {
-            return EvaluationOutcome.success();
-        } else if ("FAILED".equalsIgnoreCase(entity.getEmailSentStatus())) {
-            return EvaluationOutcome.fail("Email sending failed", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-        } else if ("PENDING".equalsIgnoreCase(entity.getEmailSentStatus())) {
-            return EvaluationOutcome.fail("Email sending pending", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-        } else {
-            return EvaluationOutcome.fail("Unknown email sent status", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+        switch (entity.getEmailSentStatus()) {
+            case "SENT":
+                return EvaluationOutcome.success();
+            case "FAILED":
+                return EvaluationOutcome.fail("Email sending failed", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+            case "PENDING":
+                return EvaluationOutcome.fail("Email sending is still pending", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+            default:
+                return EvaluationOutcome.fail("Unknown emailSentStatus value", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
         }
     }
 }
