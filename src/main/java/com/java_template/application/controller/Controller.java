@@ -46,7 +46,7 @@ public class Controller {
         UUID technicalId = idFuture.get();
         job.setTechnicalId(technicalId);
 
-        processPetIngestionJob(job);
+        // processPetIngestionJob(job); // Removed process method call
 
         logger.info("Created PetIngestionJob with technicalId: {}", technicalId);
         return ResponseEntity.status(201).body(job);
@@ -88,7 +88,7 @@ public class Controller {
         UUID technicalId = idFuture.get();
         pet.setTechnicalId(technicalId);
 
-        processPet(pet);
+        // processPet(pet); // Removed process method call
 
         logger.info("Created Pet with technicalId: {}", technicalId);
         return ResponseEntity.status(201).body(pet);
@@ -140,7 +140,7 @@ public class Controller {
         UUID technicalId = idFuture.get();
         update.setTechnicalId(technicalId);
 
-        processPetStatusUpdate(update);
+        // processPetStatusUpdate(update); // Removed process method call
 
         logger.info("Created PetStatusUpdate with technicalId: {}", technicalId);
         return ResponseEntity.status(201).body(update);
@@ -157,89 +157,5 @@ public class Controller {
         return ResponseEntity.ok(node);
     }
 
-    // Process methods with real business logic
-
-    private void processPetIngestionJob(PetIngestionJob job) throws ExecutionException, InterruptedException {
-        logger.info("Processing PetIngestionJob with technicalId: {}", job.getTechnicalId());
-        // 1. Update status to PROCESSING
-        job.setStatus("PROCESSING");
-        entityService.updateItem("PetIngestionJob", ENTITY_VERSION, job.getTechnicalId(), job).get();
-
-        try {
-            // 2. Simulate fetching pet data from external Petstore API
-            // Here, for prototype, we simulate adding a pet
-            Pet newPet = new Pet();
-            newPet.setName("Simulated Pet");
-            newPet.setCategory("cat");
-            newPet.setPhotoUrls(Collections.emptyList());
-            newPet.setTags(Collections.singletonList("simulated"));
-            newPet.setStatus("AVAILABLE");
-
-            CompletableFuture<UUID> petIdFuture = entityService.addItem("Pet", ENTITY_VERSION, newPet);
-            UUID petTechnicalId = petIdFuture.get();
-            newPet.setTechnicalId(petTechnicalId);
-            processPet(newPet);
-
-            // 3. Update job status to COMPLETED
-            job.setStatus("COMPLETED");
-            entityService.updateItem("PetIngestionJob", ENTITY_VERSION, job.getTechnicalId(), job).get();
-
-            logger.info("PetIngestionJob {} completed successfully", job.getTechnicalId());
-        } catch (Exception e) {
-            job.setStatus("FAILED");
-            entityService.updateItem("PetIngestionJob", ENTITY_VERSION, job.getTechnicalId(), job).get();
-            logger.error("PetIngestionJob {} failed: {}", job.getTechnicalId(), e.getMessage());
-        }
-    }
-
-    private void processPet(Pet pet) throws ExecutionException, InterruptedException {
-        logger.info("Processing Pet with technicalId: {}", pet.getTechnicalId());
-        // Enrichment example: add a tag "processed"
-        if (!pet.getTags().contains("processed")) {
-            pet.getTags().add("processed");
-        }
-        entityService.updateItem("Pet", ENTITY_VERSION, pet.getTechnicalId(), pet).get();
-        logger.info("Pet {} processed and enriched", pet.getTechnicalId());
-    }
-
-    private void processPetStatusUpdate(PetStatusUpdate update) throws ExecutionException, InterruptedException {
-        logger.info("Processing PetStatusUpdate with technicalId: {}", update.getTechnicalId());
-
-        UUID petUuid = UUID.fromString(update.getPetId());
-        CompletableFuture<ObjectNode> petFuture = entityService.getItem("Pet", ENTITY_VERSION, petUuid);
-        ObjectNode petNode = petFuture.get();
-        if (petNode == null || petNode.isEmpty()) {
-            logger.error("PetStatusUpdate processing failed: Pet {} not found", update.getPetId());
-            update.setStatus("FAILED");
-            entityService.updateItem("PetStatusUpdate", ENTITY_VERSION, update.getTechnicalId(), update).get();
-            return;
-        }
-
-        // Create new Pet entity representing status update (immutable)
-        Pet updatedPet = new Pet();
-        updatedPet.setName(petNode.get("name").asText());
-        updatedPet.setCategory(petNode.get("category").asText());
-        List<String> photoUrls = new ArrayList<>();
-        if (petNode.has("photoUrls") && petNode.get("photoUrls").isArray()) {
-            petNode.get("photoUrls").forEach(n -> photoUrls.add(n.asText()));
-        }
-        updatedPet.setPhotoUrls(photoUrls);
-
-        List<String> tags = new ArrayList<>();
-        if (petNode.has("tags") && petNode.get("tags").isArray()) {
-            petNode.get("tags").forEach(n -> tags.add(n.asText()));
-        }
-        updatedPet.setTags(tags);
-
-        updatedPet.setStatus(update.getNewStatus());
-
-        CompletableFuture<UUID> newPetIdFuture = entityService.addItem("Pet", ENTITY_VERSION, updatedPet);
-        UUID newPetTechnicalId = newPetIdFuture.get();
-        updatedPet.setTechnicalId(newPetTechnicalId);
-
-        update.setStatus("PROCESSED");
-        entityService.updateItem("PetStatusUpdate", ENTITY_VERSION, update.getTechnicalId(), update).get();
-
-        logger.info("PetStatusUpdate {} processed: Pet {} status updated to {}", update.getTechnicalId(), newPetTechnicalId, update.getNewStatus());
-    }
+    // Other CRUD operations and endpoints remain intact
 }
