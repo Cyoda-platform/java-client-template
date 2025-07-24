@@ -50,8 +50,6 @@ public class Controller {
             UUID technicalId = idFuture.join();
             log.info("Created Mail entity with technicalId: {}", technicalId);
 
-            processMail(technicalId, mail);
-
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException ex) {
             log.error("Invalid argument: {}", ex.getMessage());
@@ -83,43 +81,5 @@ public class Controller {
             log.error("Error retrieving mail {}: {}", technicalId, ex.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", ex.getMessage()));
         }
-    }
-
-    private void processMail(UUID technicalId, Mail mail) {
-        log.info("Processing Mail with ID: {}", technicalId);
-
-        try {
-            if (Boolean.TRUE.equals(mail.getIsHappy())) {
-                sendHappyMail(mail);
-            } else {
-                sendGloomyMail(mail);
-            }
-            mail.setStatus("SENT");
-            log.info("Mail with ID {} sent successfully", technicalId);
-        } catch (Exception e) {
-            mail.setStatus("FAILED");
-            log.error("Failed to send Mail with ID {}: {}", technicalId, e.getMessage());
-        }
-
-        // Instead of updating, create a new entity version with reference to previous technicalId
-        Mail updatedMail = new Mail();
-        updatedMail.setMailList(mail.getMailList());
-        updatedMail.setIsHappy(mail.getIsHappy());
-        updatedMail.setStatus(mail.getStatus());
-        updatedMail.setPreviousTechnicalId(technicalId.toString()); // Assuming this field exists to reference previous
-
-        entityService.addItem(
-                ENTITY_NAME,
-                ENTITY_VERSION,
-                updatedMail
-        ).join();
-    }
-
-    private void sendHappyMail(Mail mail) {
-        log.info("Sending HAPPY mail to recipients: {}", mail.getMailList());
-    }
-
-    private void sendGloomyMail(Mail mail) {
-        log.info("Sending GLOOMY mail to recipients: {}", mail.getMailList());
     }
 }
