@@ -1,0 +1,12 @@
+private void processPet(Pet pet) {
+    logger.info("Processing Pet with petId: {}", pet.getPetId());
+    if ("AVAILABLE".equalsIgnoreCase(pet.getStatus()) ||
+            "PENDING".equalsIgnoreCase(pet.getStatus()) ||
+            "SOLD".equalsIgnoreCase(pet.getStatus())) {
+        logger.info("Pet {} status is valid: {}", pet.getName(), pet.getStatus());
+    } else {
+        logger.error("Pet {} has invalid status: {}", pet.getName(), pet.getStatus());
+        pet.setStatus("AVAILABLE"); // default fallback
+    }
+    // Notify listeners or trigger events if needed
+}
