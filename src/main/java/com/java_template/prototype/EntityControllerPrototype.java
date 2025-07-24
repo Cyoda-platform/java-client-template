@@ -9,6 +9,11 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.*;
 import com.java_template.application.entity.PurrfectPetsJob;
 import com.java_template.application.entity.Pet;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 
 @RestController
 @RequestMapping(path = "/prototype")
@@ -20,6 +25,8 @@ public class EntityControllerPrototype {
 
     private final ConcurrentHashMap<String, Pet> petCache = new ConcurrentHashMap<>();
     private final AtomicLong petIdCounter = new AtomicLong(1);
+
+    private final RestTemplate restTemplate = new RestTemplate();
 
     // POST /prototype/jobs - create a new PurrfectPetsJob and trigger processing
     @PostMapping("/jobs")
@@ -79,26 +86,46 @@ public class EntityControllerPrototype {
         purrfectPetsJobCache.put(jobId, job);
 
         try {
-            // Validate requestedAction
-            String action = job.getRequestedAction().toUpperCase(Locale.ROOT);
-            if ("LOAD_PETS".equals(action)) {
-                // Remove simulated external API call
-                log.info("LOAD_PETS action requested - no external API call simulated in this prototype");
-                
-                // Here you would trigger actual processing logic such as reading from internal sources or queues
-                // For demonstration, just log
-            } else if ("SAVE_PET".equals(action)) {
-                log.info("SAVE_PET action requested but no pet data in job - skipping actual save");
-            } else {
-                log.error("Unknown requestedAction: {}", action);
+            String action = job.getRequestedAction();
+            if (action == null || action.isBlank()) {
+                log.error("requestedAction is null or blank");
                 job.setStatus("FAILED");
                 purrfectPetsJobCache.put(jobId, job);
                 return;
             }
+            String actionUpper = action.toUpperCase(Locale.ROOT);
 
-            job.setStatus("COMPLETED");
-            purrfectPetsJobCache.put(jobId, job);
-            log.info("Completed processing PurrfectPetsJob with ID: {}", jobId);
+            if ("LOAD_PETS".equals(actionUpper)) {
+                // Real API call to Petstore API
+                String url = "https://petstore.swagger.io/v2/pet/findByStatus?status=available";
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
+                HttpEntity<String> entity = new HttpEntity<>(headers);
+
+                ResponseEntity<Pet[]> response = restTemplate.exchange(url, HttpMethod.GET, entity, Pet[].class);
+
+                if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                    Pet[] pets = response.getBody();
+                    for (Pet pet : pets) {
+                        savePetImmutable(pet);
+                    }
+                    job.setStatus("COMPLETED");
+                    purrfectPetsJobCache.put(jobId, job);
+                    log.info("Loaded and saved {} pets from Petstore API", pets.length);
+                } else {
+                    log.error("Failed to load pets from Petstore API, status: {}", response.getStatusCode());
+                    job.setStatus("FAILED");
+                    purrfectPetsJobCache.put(jobId, job);
+                }
+            } else if ("SAVE_PET".equals(actionUpper)) {
+                log.info("SAVE_PET action requested but no pet data in job - skipping actual save");
+                job.setStatus("COMPLETED");
+                purrfectPetsJobCache.put(jobId, job);
+            } else {
+                log.error("Unknown requestedAction: {}", action);
+                job.setStatus("FAILED");
+                purrfectPetsJobCache.put(jobId, job);
+            }
         } catch (Exception ex) {
             log.error("Exception processing PurrfectPetsJob ID {}: {}", jobId, ex.getMessage());
             job.setStatus("FAILED");
