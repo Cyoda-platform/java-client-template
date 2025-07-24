@@ -1,0 +1,84 @@
+{
+    "active": true,
+    "desc": "Workflow managing the lifecycle of a DailyScoresJob entity that orchestrates fetching and processing game scores",
+    "initialState": "none",
+    "name": "DailyScoresJob Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ValidDateCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "start_processing_if_valid_date",
+                    "next": "processing"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "InvalidDateCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "fail_if_invalid_date",
+                    "next": "failed"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ProcessingSuccessCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "complete_if_success",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "DailyScoresJobProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ProcessingFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "fail_if_processing_error",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
