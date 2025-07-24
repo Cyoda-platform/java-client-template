@@ -1,6 +1,6 @@
 package com.java_template.application.processor;
 
-import com.java_template.application.entity.PetEvent;
+import com.java_template.application.entity.Pet;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
@@ -27,28 +27,35 @@ public class PetEventProcessor implements CyodaProcessor {
     @Override
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
-        logger.info("Processing PetEvent for request: {}", request.getId());
+        logger.info("Processing Pet for request: {}", request.getId());
 
         return serializer.withRequest(request)
-                .toEntity(PetEvent.class)
-                .validate(PetEvent::isValid)
-                .map(this::processEntityLogic)
+                .toEntity(Pet.class)
+                .validate(this::isValidEntity)
+                .map(this::processPet)
                 .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "PetEventProcessor".equals(modelSpec.operationName()) &&
-                "petEvent".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+                "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                 Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private PetEvent processEntityLogic(PetEvent petEvent) {
-        logger.info("Processing PetEvent with ID: {}", petEvent.getId());
+    private boolean isValidEntity(Pet pet) {
+        return pet.isValid();
+    }
 
-        logger.info("PetEvent {} of type {} processed at {}", petEvent.getEventId(), petEvent.getEventType(), petEvent.getTimestamp());
+    private Pet processPet(Pet pet) {
+        logger.info("Processing Pet with ID: {}", pet.getId());
 
-        petEvent.setStatus(PetEvent.StatusEnum.PROCESSED);
-        return petEvent;
+        if (pet.getPetId().isBlank() || pet.getName().isBlank() || pet.getCategory().isBlank()) {
+            logger.error("Pet data validation failed for ID: {}", pet.getId());
+            return pet;
+        }
+
+        logger.info("Pet {} data validated and ready for retrieval", pet.getPetId());
+        return pet;
     }
 }
