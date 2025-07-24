@@ -1,6 +1,8 @@
 package com.java_template.application.processor;
 
 import com.java_template.application.entity.CompanySearchJob;
+import com.java_template.application.entity.Company;
+import com.java_template.application.entity.LEIEnrichmentRequest;
 import com.java_template.common.serializer.ErrorInfo;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
@@ -14,13 +16,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.Locale;
+import java.util.UUID;
+import java.util.concurrent.ExecutionException;
+
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.SearchConditionRequest;
-import com.java_template.common.util.Condition;
 
 @Component
 public class CompanySearchJobProcessor implements CyodaProcessor {
@@ -42,8 +46,8 @@ public class CompanySearchJobProcessor implements CyodaProcessor {
 
         return serializer.withRequest(request)
                 .toEntity(CompanySearchJob.class)
-                .validate(this::isValidEntity, "Invalid entity state")
-                .map(this::processCompanySearchJobLogic)
+                .validate(CompanySearchJob::isValid, "Invalid CompanySearchJob entity state")
+                .map(this::processEntityLogic)
                 .complete();
     }
 
@@ -54,64 +58,113 @@ public class CompanySearchJobProcessor implements CyodaProcessor {
                 Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private boolean isValidEntity(CompanySearchJob entity) {
-        if (entity.getCompanyName() == null || entity.getCompanyName().isBlank()) return false;
-        if (entity.getOutputFormat() == null || entity.getOutputFormat().isBlank()) return false;
-        String fmt = entity.getOutputFormat().toUpperCase();
-        return fmt.equals("JSON") || fmt.equals("CSV");
-    }
-
-    private CompanySearchJob processCompanySearchJobLogic(CompanySearchJob entity) {
-        logger.info("Executing business logic for CompanySearchJob with companyName: {}", entity.getCompanyName());
-
-        // 1. Call PRH Avoindata YTJ API to search companies by companyName
-        // For this example, simulate fetching companies
-
-        List<Company> allCompanies = fetchCompaniesByName(entity.getCompanyName());
-
-        // 2. Filter results to keep only active companies
-        List<Company> activeCompanies = allCompanies.stream()
-                .filter(c -> "Active".equalsIgnoreCase(c.getStatus()))
-                .collect(Collectors.toList());
-
-        // 3. For each active company, create LEIEnrichmentRequest entity with status PENDING
-        List<LEIEnrichmentRequest> leiRequests = new ArrayList<>();
-        for (Company company : activeCompanies) {
-            LEIEnrichmentRequest leiReq = new LEIEnrichmentRequest();
-            leiReq.setBusinessId(company.getBusinessId());
-            leiReq.setStatus("PENDING");
-            leiReq.setLeiSource(null);
-            leiReq.setLei(null);
-            try {
-                entityService.addItem("LEIEnrichmentRequest", Config.ENTITY_VERSION, leiReq);
-                leiRequests.add(leiReq);
-            } catch (Exception e) {
-                logger.error("Error adding LEIEnrichmentRequest for businessId: {}", company.getBusinessId(), e);
-            }
+    private CompanySearchJob processEntityLogic(CompanySearchJob job) {
+        String id = job.getModelKey().getModelSpec().getTechnicalId();
+        if (id == null) {
+            logger.error("Missing technical ID for CompanySearchJob entity");
+            return job;
         }
 
-        // 4. Update CompanySearchJob status to PROCESSING
-        entity.setStatus("PROCESSING");
+        try {
+            if (job.getCompanyName() == null || job.getCompanyName().isBlank()) {
+                logger.error("CompanySearchJob ID {} has invalid companyName", id);
+                job.setStatus("FAILED");
+                // No update method available, so just set status
+                return job;
+            }
 
-        // 5. Trigger asynchronous processing of each LEI enrichment is handled externally
+            String outputFormat = job.getOutputFormat().toUpperCase(Locale.ROOT);
+            if (!outputFormat.equals("JSON") && !outputFormat.equals("CSV")) {
+                logger.error("CompanySearchJob ID {} has invalid outputFormat: {}", id, outputFormat);
+                job.setStatus("FAILED");
+                return job;
+            }
 
-        return entity;
+            job.setStatus("PROCESSING");
+
+            // Call PRH API to search companies by name
+            List<Company> retrievedCompanies = searchCompaniesByName(job.getCompanyName());
+
+            // Filter active companies only
+            List<Company> activeCompanies = new ArrayList<>();
+            for (Company c : retrievedCompanies) {
+                if ("Active".equalsIgnoreCase(c.getStatus())) {
+                    activeCompanies.add(c);
+                }
+            }
+
+            for (Company company : activeCompanies) {
+                LEIEnrichmentRequest leiRequest = new LEIEnrichmentRequest();
+                leiRequest.setBusinessId(company.getBusinessId());
+                leiRequest.setLeiSource(null);
+                leiRequest.setStatus("PENDING");
+                leiRequest.setLei("Not Available");
+
+                UUID leiRequestTechnicalId = entityService.addItem("LEIEnrichmentRequest", Config.ENTITY_VERSION, leiRequest).get();
+                String leiRequestId = leiRequestTechnicalId.toString();
+
+                // Asynchronous processing is assumed here; simulate immediate processing
+                processLEIEnrichmentRequest(leiRequestId, leiRequest);
+
+                ObjectNode enrichmentNode = entityService.getItem("LEIEnrichmentRequest", Config.ENTITY_VERSION, leiRequestTechnicalId).get();
+                if (enrichmentNode != null && enrichmentNode.hasNonNull("lei")) {
+                    company.setLei(enrichmentNode.get("lei").asText());
+                }
+
+                UUID companyTechnicalId = entityService.addItem("Company", Config.ENTITY_VERSION, company).get();
+            }
+
+            job.setStatus("COMPLETED");
+            job.setCompletedAt(Instant.now().toString());
+
+            logger.info("Completed processing CompanySearchJob with ID: {}", id);
+        } catch (Exception e) {
+            logger.error("Error processing CompanySearchJob with ID: {}", id, e);
+            job.setStatus("FAILED");
+        }
+
+        return job;
     }
 
-    // Simulated method to fetch companies by name
-    private List<Company> fetchCompaniesByName(String companyName) {
-        logger.info("Simulating company search for name containing: {}", companyName);
+    private List<Company> searchCompaniesByName(String companyName) {
+        logger.info("Simulating PRH API call for company name: {}", companyName);
+
         List<Company> companies = new ArrayList<>();
 
-        Company exampleCompany = new Company();
-        exampleCompany.setCompanyName(companyName);
-        exampleCompany.setBusinessId("1234567-8");
-        exampleCompany.setCompanyType("OY");
-        exampleCompany.setRegistrationDate("2010-05-12");
-        exampleCompany.setStatus("Active");
-        exampleCompany.setLei(null);
+        if (companyName.toLowerCase(Locale.ROOT).contains("example")) {
+            Company c1 = new Company();
+            c1.setCompanyName("Example Oy");
+            c1.setBusinessId("1234567-8");
+            c1.setCompanyType("OY");
+            c1.setRegistrationDate("2010-05-12");
+            c1.setStatus("Active");
+            c1.setLei("Not Available");
+            companies.add(c1);
 
-        companies.add(exampleCompany);
+            Company c2 = new Company();
+            c2.setCompanyName("Example Inactive Oy");
+            c2.setBusinessId("9999999-9");
+            c2.setCompanyType("OY");
+            c2.setRegistrationDate("2005-03-15");
+            c2.setStatus("Inactive");
+            c2.setLei("Not Available");
+            companies.add(c2);
+        }
+
         return companies;
+    }
+
+    private void processLEIEnrichmentRequest(String id, LEIEnrichmentRequest request) {
+        // Simulated processing logic for LEI enrichment request
+        logger.info("Processing LEIEnrichmentRequest with ID: {}", id);
+
+        try {
+            // Simulate calling external LEI API and updating status accordingly
+            request.setLei("Simulated-LEI-1234567890");
+            request.setStatus("COMPLETED");
+        } catch (Exception e) {
+            logger.error("Error processing LEIEnrichmentRequest with ID: {}", id, e);
+            request.setStatus("FAILED");
+        }
     }
 }
