@@ -32,30 +32,26 @@ public class CompanySearchJobValidationCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(CompanySearchJob.class, this::validateEntity)
-            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
-            .complete();
+                .evaluateEntity(CompanySearchJob.class, this::validateEntity)
+                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+                .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "CompanySearchJobValidationCriterion".equals(modelSpec.operationName()) &&
-               "companySearchJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+                "companySearchJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
     private EvaluationOutcome validateEntity(CompanySearchJob entity) {
         if (entity.getCompanyName() == null || entity.getCompanyName().isBlank()) {
             return EvaluationOutcome.fail("companyName is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (entity.getOutputFormat() == null || entity.getOutputFormat().isBlank()) {
-            return EvaluationOutcome.fail("outputFormat is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (entity.getOutputFormat() == null || entity.getOutputFormat().isBlank() ||
+                !(entity.getOutputFormat().equalsIgnoreCase("JSON") || entity.getOutputFormat().equalsIgnoreCase("CSV"))) {
+            return EvaluationOutcome.fail("outputFormat must be JSON or CSV", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        String outputFormat = entity.getOutputFormat().toUpperCase();
-        if (!outputFormat.equals("JSON") && !outputFormat.equals("CSV")) {
-            return EvaluationOutcome.fail("outputFormat must be either JSON or CSV", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        }
-        // Additional validation rules can be added here
         return EvaluationOutcome.success();
     }
 }
