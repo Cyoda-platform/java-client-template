@@ -1,5 +1,7 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Pet;
@@ -7,6 +9,7 @@ import com.java_template.application.entity.PetJob;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
@@ -19,7 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/controller")
@@ -30,6 +33,7 @@ public class Controller {
     private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     // Local cache and counter for Pet entity ID assignment only (business ID)
     private final AtomicLong petIdCounter = new AtomicLong(1);
@@ -37,13 +41,13 @@ public class Controller {
     // --------- PetJob Endpoints ---------
 
     @PostMapping("/pet-job")
-    public ResponseEntity<?> createPetJob(@RequestBody PetJob petJob) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> createPetJob(@Valid @RequestBody PetJob petJob) throws ExecutionException, InterruptedException, JsonProcessingException {
         if (petJob == null) {
             logger.error("PetJob creation failed: request body is null");
             return ResponseEntity.badRequest().body("PetJob data is required");
         }
 
-        petJob.setId("PJ-" + UUID.randomUUID()); // business ID as unique string; original used counter but now UUID for uniqueness
+        petJob.setId("PJ-" + UUID.randomUUID()); // business ID as unique string
         petJob.setStatus("PENDING");
         if (petJob.getTechnicalId() == null) {
             petJob.setTechnicalId(UUID.randomUUID());
@@ -66,7 +70,7 @@ public class Controller {
     }
 
     @GetMapping("/pet-job/{id}")
-    public ResponseEntity<?> getPetJob(@PathVariable String id) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> getPetJob(@PathVariable String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         // Search PetJob by business ID ("id" field) using getItemsByCondition
         Condition cond = Condition.of("$.id", "EQUALS", id);
         SearchConditionRequest conditionRequest = SearchConditionRequest.group("AND", cond);
@@ -79,7 +83,7 @@ public class Controller {
         }
         // Extract the first matched PetJob as ObjectNode and convert to PetJob
         ObjectNode node = (ObjectNode) results.get(0);
-        PetJob petJob = JsonUtil.toPetJob(node);
+        PetJob petJob = objectMapper.treeToValue(node, PetJob.class);
 
         return ResponseEntity.ok(petJob);
     }
@@ -87,7 +91,7 @@ public class Controller {
     // --------- Pet Endpoints ---------
 
     @PostMapping("/pet")
-    public ResponseEntity<?> createPet(@RequestBody Pet pet) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> createPet(@Valid @RequestBody Pet pet) throws ExecutionException, InterruptedException, JsonProcessingException {
         if (pet == null) {
             logger.error("Pet creation failed: request body is null");
             return ResponseEntity.badRequest().body("Pet data is required");
@@ -115,7 +119,7 @@ public class Controller {
     }
 
     @GetMapping("/pet/{id}")
-    public ResponseEntity<?> getPet(@PathVariable Long id) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> getPet(@PathVariable Long id) throws ExecutionException, InterruptedException, JsonProcessingException {
         // Search Pet by business ID ("id" field) using getItemsByCondition
         Condition cond = Condition.of("$.id", "EQUALS", id);
         SearchConditionRequest conditionRequest = SearchConditionRequest.group("AND", cond);
@@ -127,57 +131,8 @@ public class Controller {
             return ResponseEntity.status(404).body("Pet not found");
         }
         ObjectNode node = (ObjectNode) results.get(0);
-        Pet pet = JsonUtil.toPet(node);
+        Pet pet = objectMapper.treeToValue(node, Pet.class);
 
         return ResponseEntity.ok(pet);
-    }
-
-    // Utility JSON conversions (to/from ObjectNode)
-    private static class JsonUtil {
-        private static final com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-
-        public static <T> T fromJson(String json, Class<T> clazz) {
-            if (json == null) return null;
-            try {
-                return mapper.readValue(json, clazz);
-            } catch (Exception e) {
-                logger.error("JSON deserialization error: {}", e.getMessage());
-                return null;
-            }
-        }
-
-        public static <T> T fromJson(String json, java.lang.reflect.Type typeOfT) {
-            if (json == null) return null;
-            try {
-                com.fasterxml.jackson.core.type.TypeReference<T> typeRef = new com.fasterxml.jackson.core.type.TypeReference<>() {
-                    @Override
-                    public java.lang.reflect.Type getType() {
-                        return typeOfT;
-                    }
-                };
-                return mapper.readValue(json, typeRef);
-            } catch (Exception e) {
-                logger.error("JSON deserialization error: {}", e.getMessage());
-                return null;
-            }
-        }
-
-        public static PetJob toPetJob(ObjectNode node) {
-            try {
-                return mapper.treeToValue(node, PetJob.class);
-            } catch (Exception e) {
-                logger.error("Error converting ObjectNode to PetJob: {}", e.getMessage());
-                return null;
-            }
-        }
-
-        public static Pet toPet(ObjectNode node) {
-            try {
-                return mapper.treeToValue(node, Pet.class);
-            } catch (Exception e) {
-                logger.error("Error converting ObjectNode to Pet: {}", e.getMessage());
-                return null;
-            }
-        }
     }
 }
