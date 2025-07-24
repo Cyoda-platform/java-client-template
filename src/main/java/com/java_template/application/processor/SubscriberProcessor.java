@@ -1,7 +1,6 @@
 package com.java_template.application.processor;
 
 import com.java_template.application.entity.Subscriber;
-import com.java_template.common.serializer.ErrorInfo;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
@@ -32,16 +31,24 @@ public class SubscriberProcessor implements CyodaProcessor {
 
         return serializer.withRequest(request)
             .toEntity(Subscriber.class)
-            .validate(Subscriber::isValid, "Invalid subscriber state")
+            .validate(this::isValidEntity, "Invalid Subscriber entity state")
+            .map(this::processSubscriber)
             .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "SubscriberProcessor".equals(modelSpec.operationName()) &&
-                "subscriber".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+               "subscriber".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    // No additional processing logic specified for Subscriber entity
+    private boolean isValidEntity(Subscriber subscriber) {
+        return subscriber.getEmail() != null && !subscriber.getEmail().isBlank();
+    }
+
+    private Subscriber processSubscriber(Subscriber subscriber) {
+        // No additional processing required immediately after subscription creation
+        return subscriber;
+    }
 }
