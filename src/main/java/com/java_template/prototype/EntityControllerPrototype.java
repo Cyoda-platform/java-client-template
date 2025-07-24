@@ -139,8 +139,7 @@ public class EntityControllerPrototype {
             deactivationRecord.setIsHappy(existingMail.getIsHappy());
             deactivationRecord.setIsGloomy(existingMail.getIsGloomy());
             deactivationRecord.setCriteriaResults(existingMail.getCriteriaResults());
-            // DEACTIVATED status does not exist in enum, set to null
-            deactivationRecord.setStatus(null);
+            deactivationRecord.setStatus(null); // No DEACTIVATED in enum
 
             mailCache.put(newId, deactivationRecord);
             log.info("Deactivated Mail with new record ID: {}", newId);
@@ -158,11 +157,12 @@ public class EntityControllerPrototype {
 
     private void processMail(Mail mail) {
         log.info("Processing Mail with ID: {}", mail.getId());
-        // Simulate evaluation of 22 criteria
+        // Step 1: Evaluate all 22 criteria, for prototype we simulate evaluation:
         Map<String, String> criteriaResults = new HashMap<>();
         int happyCount = 0;
         int gloomyCount = 0;
         for (int i = 1; i <= 22; i++) {
+            // Simulated logic: even criteria are "isHappy", odd criteria "isGloomy"
             String result = (i % 2 == 0) ? "isHappy" : "isGloomy";
             criteriaResults.put("criteria" + i, result);
             if ("isHappy".equals(result)) happyCount++;
@@ -170,7 +170,7 @@ public class EntityControllerPrototype {
         }
         mail.setCriteriaResults(criteriaResults);
 
-        // Determine overall mood
+        // Step 2: Determine overall mood
         if (happyCount > gloomyCount) {
             mail.setIsHappy(true);
             mail.setIsGloomy(false);
@@ -181,16 +181,19 @@ public class EntityControllerPrototype {
             mail.setStatus(MailStatusEnum.PROCESSING);
         }
 
-        // Simulate sending mail
+        // Step 3: Send mail via appropriate processor (simulated)
         boolean sendSuccess = true;
         if (mail.getIsHappy()) {
+            // simulate sendHappyMail
             log.info("Sending happy mail to recipients: {}", mail.getMailList());
             mail.setStatus(MailStatusEnum.SENT_HAPPY);
         } else {
+            // simulate sendGloomyMail
             log.info("Sending gloomy mail to recipients: {}", mail.getMailList());
             mail.setStatus(MailStatusEnum.SENT_GLOOMY);
         }
 
+        // Step 4: Handle send failure (simulated always success here)
         if (!sendSuccess) {
             mail.setStatus(MailStatusEnum.FAILED);
             log.error("Failed to send mail with ID: {}", mail.getId());
