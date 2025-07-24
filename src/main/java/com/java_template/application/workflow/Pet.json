@@ -1,88 +1,88 @@
 {
-    "active": true,
-    "desc": "Workflow managing the lifecycle of PetIngestionJob entity",
-    "initialState": "none",
-    "name": "PetIngestionJob Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "created": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "CanStartProcessingCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "begin_processing",
-                    "next": "processing",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "PetIngestionJobProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "CanStartProcessingCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "start_processing",
-                    "next": "created"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IsProcessingSuccessfulCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "complete_success",
-                    "next": "completed"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IsProcessingFailedCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "fail_processing",
-                    "next": "failed"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow managing the lifecycle of PetIngestionJob entity",
+  "initialState": "none",
+  "name": "PetIngestionJob Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "CanStartProcessingCriterion"
+            },
+            "type": "function"
+          },
+          "name": "start_processing",
+          "next": "created"
         }
+      ]
     },
-    "version": "1.0"
+    "created": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "CanStartProcessingCriterion"
+            },
+            "type": "function"
+          },
+          "name": "begin_processing",
+          "next": "processing",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "PetIngestionJobProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IsProcessingSuccessfulCriterion"
+            },
+            "type": "function"
+          },
+          "name": "complete_success",
+          "next": "completed"
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IsProcessingFailedCriterion"
+            },
+            "type": "function"
+          },
+          "name": "fail_processing",
+          "next": "failed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
