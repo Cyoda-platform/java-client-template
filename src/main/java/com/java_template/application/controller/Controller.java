@@ -1,23 +1,21 @@
 package com.java_template.application.controller;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Mail;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/mail")
@@ -26,6 +24,7 @@ import static com.java_template.common.config.Config.*;
 public class Controller {
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     @PostMapping
     public ResponseEntity<Map<String, String>> createMail(@RequestBody Mail mail) {
@@ -61,27 +60,29 @@ public class Controller {
     }
 
     @GetMapping("/{technicalId}")
-    public ResponseEntity<Object> getMailById(@PathVariable String technicalId) {
+    public ResponseEntity<Mail> getMailById(@PathVariable String technicalId) throws JsonProcessingException {
         try {
-            ObjectNode item = entityService.getItem(
+            ObjectNode itemNode = entityService.getItem(
                     "Mail",
                     ENTITY_VERSION,
                     UUID.fromString(technicalId)
             ).join();
 
-            if (item == null || item.isEmpty()) {
+            if (itemNode == null || itemNode.isEmpty()) {
                 log.error("Mail with technicalId {} not found", technicalId);
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Mail not found"));
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
             }
 
-            return ResponseEntity.ok(item);
+            Mail mail = objectMapper.treeToValue(itemNode, Mail.class);
+
+            return ResponseEntity.ok(mail);
 
         } catch (IllegalArgumentException e) {
             log.error("IllegalArgumentException in getMailById: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
         } catch (Exception e) {
             log.error("Exception in getMailById: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
     }
 }
