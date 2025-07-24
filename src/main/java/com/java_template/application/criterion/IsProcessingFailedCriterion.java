@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.PurrfectPetsJob;
+import com.java_template.application.entity.Pet;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,7 +32,7 @@ public class IsProcessingFailedCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(PurrfectPetsJob.class, this::validateEntity)
+            .evaluateEntity(Pet.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,15 +40,19 @@ public class IsProcessingFailedCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "IsProcessingFailedCriterion".equals(modelSpec.operationName()) &&
-               "purrfectPetsJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(PurrfectPetsJob entity) {
-        // Validate that status equals FAILED
-        if (entity.getStatus() == null || !entity.getStatus().equals("FAILED")) {
-            return EvaluationOutcome.fail("Processing did not fail", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+    private EvaluationOutcome validateEntity(Pet entity) {
+        // Assuming processing failure means pet status is not among valid statuses
+        String status = entity.getStatus();
+        if (status == null || status.isBlank()) {
+            return EvaluationOutcome.success(); // failure due to missing status
         }
-        return EvaluationOutcome.success();
+        if (!("available".equalsIgnoreCase(status) || "pending".equalsIgnoreCase(status) || "sold".equalsIgnoreCase(status))) {
+            return EvaluationOutcome.success(); // failure due to invalid status
+        }
+        return EvaluationOutcome.fail("Pet status is valid, not failed", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
     }
 }
