@@ -28,7 +28,7 @@ public class EntityControllerPrototype {
     // ----------- PetRegistrationJob endpoints -----------
 
     @PostMapping("/pet-registration-jobs")
-    public ResponseEntity<Map<String, String>> createPetRegistrationJob(@RequestBody com.java_template.application.entity.PetRegistrationJob job) {
+    public ResponseEntity<?> createPetRegistrationJob(@RequestBody com.java_template.application.entity.PetRegistrationJob job) {
         if (job == null || job.getPetName() == null || job.getPetName().isBlank()
                 || job.getPetType() == null || job.getPetType().isBlank()
                 || job.getPetStatus() == null || job.getPetStatus().isBlank()
@@ -46,7 +46,9 @@ public class EntityControllerPrototype {
 
         processPetRegistrationJob(job);
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId));
+        // Return current pets list from public pets API simulation
+        Collection<com.java_template.application.entity.Pet> pets = petCache.values();
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId, "pets", pets));
     }
 
     @GetMapping("/pet-registration-jobs/{id}")
@@ -60,7 +62,7 @@ public class EntityControllerPrototype {
     }
 
     private void processPetRegistrationJob(com.java_template.application.entity.PetRegistrationJob job) {
-        log.info("Processing PetRegistrationJob with ID: {}", job.getPetName());
+        log.info("Processing PetRegistrationJob with petName: {}", job.getPetName());
         // Validation
         if (job.getPetName().isBlank() || job.getPetType().isBlank() || job.getOwnerName().isBlank()) {
             job.setStatus("FAILED");
@@ -69,39 +71,21 @@ public class EntityControllerPrototype {
         }
         job.setStatus("PROCESSING");
 
-        // Create immutable Pet entity
-        com.java_template.application.entity.Pet pet = new com.java_template.application.entity.Pet();
-        String petTechnicalId = "pet-" + petIdCounter.getAndIncrement();
-        pet.setPetId(petTechnicalId);
-        pet.setName(job.getPetName());
-        pet.setCategory(job.getPetType());
-        pet.setStatus(job.getPetStatus());
-        pet.setPhotoUrls(new ArrayList<>());
-        pet.setTags(new ArrayList<>());
-        petCache.put(petTechnicalId, pet);
+        // Instead of creating Pet entity here, simulate external pets API call
+        // For demo, let's just log and do nothing
+        log.info("Simulating call to public pets API to get pets after job submission");
 
         job.setStatus("COMPLETED");
-        log.info("PetRegistrationJob processed: Pet created with ID {}", petTechnicalId);
+        log.info("PetRegistrationJob processing completed for petName: {}", job.getPetName());
     }
 
     // ----------- Pet endpoints -----------
 
-    @PostMapping("/pets")
-    public ResponseEntity<Map<String, String>> createPet(@RequestBody com.java_template.application.entity.Pet pet) {
-        if (pet == null || pet.getPetId() == null || pet.getPetId().isBlank()
-                || pet.getName() == null || pet.getName().isBlank()
-                || pet.getCategory() == null || pet.getCategory().isBlank()
-                || pet.getStatus() == null || pet.getStatus().isBlank()) {
-            log.error("Invalid Pet input");
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Missing required fields"));
-        }
+    // Removed POST /pets endpoint as pet creation should happen via job submission
 
-        petCache.put(pet.getPetId(), pet);
-        log.info("Created Pet with ID: {}", pet.getPetId());
-
-        processPet(pet);
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", pet.getPetId()));
+    @GetMapping("/pets")
+    public ResponseEntity<Collection<com.java_template.application.entity.Pet>> getAllPets() {
+        return ResponseEntity.ok(petCache.values());
     }
 
     @GetMapping("/pets/{id}")
