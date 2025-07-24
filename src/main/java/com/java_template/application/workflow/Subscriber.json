@@ -1,61 +1,61 @@
 {
-    "active": true,
-    "desc": "Manages the lifecycle of a subscriber entity",
-    "initialState": "none",
-    "name": "Subscriber Workflow",
-    "states": {
-        "active": {
-            "transitions": [
-                {
-                    "name": "unsubscribe_subscriber",
-                    "next": "unsubscribed"
-                }
-            ]
-        },
-        "invalid_email": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "name": "to_pending_activation",
-                    "next": "pending_activation"
-                }
-            ]
-        },
-        "pending_activation": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "ValidEmailCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "activate_if_valid_email",
-                    "next": "active",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "SubscriberProcessor"
-                        }
-                    ]
-                },
-                {
-                    "name": "reject_activation",
-                    "next": "invalid_email"
-                }
-            ]
-        },
-        "unsubscribed": {
-            "transitions": []
+  "active": true,
+  "desc": "Manages the lifecycle of a subscriber entity",
+  "initialState": "none",
+  "name": "Subscriber Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "to_pending_activation",
+          "next": "pending_activation"
         }
+      ]
     },
-    "version": "1.0"
+    "pending_activation": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "ValidEmailCriterion"
+            },
+            "type": "function"
+          },
+          "name": "activate_if_valid_email",
+          "next": "active",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "SubscriberProcessor"
+            }
+          ]
+        },
+        {
+          "name": "reject_activation",
+          "next": "invalid_email"
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "unsubscribe_subscriber",
+          "next": "unsubscribed"
+        }
+      ]
+    },
+    "unsubscribed": {
+      "transitions": []
+    },
+    "invalid_email": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
