@@ -47,8 +47,6 @@ public class Controller {
 
             log.info("ScoreFetchJob created with technicalId: {}", technicalId);
 
-            processScoreFetchJob(job, technicalId);
-
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
 
         } catch (IllegalArgumentException e) {
@@ -92,8 +90,6 @@ public class Controller {
                 log.error("Invalid Subscriber input");
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Invalid Subscriber input"));
             }
-
-            processSubscriber(subscriber);
 
             // Using local cache for Subscriber as per instructions
             // Generate id as UUID string
@@ -145,8 +141,6 @@ public class Controller {
 
             log.info("GameScore created with technicalId: {}", technicalId);
 
-            processGameScore(gameScore);
-
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
 
         } catch (IllegalArgumentException e) {
@@ -177,111 +171,6 @@ public class Controller {
         } catch (Exception e) {
             log.error("Exception in getGameScore", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
-        }
-    }
-
-    // Private helper: processScoreFetchJob business logic
-    private void processScoreFetchJob(ScoreFetchJob job, UUID jobTechnicalId) {
-        log.info("Processing ScoreFetchJob for date: {}", job.getJobDate());
-        try {
-            // 2. Fetch NBA scores asynchronously - simulate fetch here (in real, call external API)
-            List<GameScore> fetchedScores = new ArrayList<>();
-            GameScore gs = new GameScore();
-            gs.setGameDate(job.getJobDate());
-            gs.setHomeTeam("Team A");
-            gs.setAwayTeam("Team B");
-            gs.setHomeScore(100);
-            gs.setAwayScore(98);
-            gs.setStatus("RECEIVED");
-            fetchedScores.add(gs);
-
-            // 3. Save each fetched GameScore as immutable entity via entityService
-            List<CompletableFuture<UUID>> futures = new ArrayList<>();
-            for (GameScore gsEntity : fetchedScores) {
-                futures.add(entityService.addItem("GameScore", ENTITY_VERSION, gsEntity));
-            }
-            // Wait for all to complete
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get();
-
-            // 4. Update job status to COMPLETED and completedAt timestamp by creating new entity version referencing previous
-            ScoreFetchJob updatedJob = new ScoreFetchJob();
-            updatedJob.setJobDate(job.getJobDate());
-            updatedJob.setStatus("COMPLETED");
-            updatedJob.setTriggeredAt(job.getTriggeredAt());
-            updatedJob.setCompletedAt(Instant.now());
-
-            // Add reference to previous entity (assuming a field previousTechnicalId)
-            // If no such field, skip reference - prototype has no such field, so skip
-            entityService.addItem("ScoreFetchJob", ENTITY_VERSION, updatedJob).get();
-
-            // 5. Trigger notification process
-            processGameScoreNotification(job.getJobDate());
-        } catch (Exception e) {
-            log.error("Exception in processScoreFetchJob", e);
-        }
-    }
-
-    // Private helper: processSubscriber business logic
-    private void processSubscriber(Subscriber subscriber) {
-        log.info("Processing Subscriber with email: {}", subscriber.getEmail());
-        if (!subscriber.getEmail().contains("@")) {
-            log.error("Invalid email format for subscriber: {}", subscriber.getEmail());
-            return;
-        }
-        subscriber.setStatus("ACTIVE");
-        subscriber.setSubscribedAt(Instant.now());
-        log.info("Subscriber {} set to ACTIVE", subscriber.getEmail());
-    }
-
-    // Private helper: processGameScore business logic
-    private void processGameScore(GameScore gameScore) {
-        log.info("Processing GameScore for game: {} vs {} on {}", gameScore.getHomeTeam(), gameScore.getAwayTeam(), gameScore.getGameDate());
-        // Placeholder for enrichment or validation logic
-    }
-
-    // Private helper: processGameScoreNotification business logic
-    private void processGameScoreNotification(LocalDate jobDate) {
-        log.info("Sending notifications for GameScores on date: {}", jobDate);
-        try {
-            Condition condition1 = Condition.of("$.gameDate", "EQUALS", jobDate.toString());
-            Condition condition2 = Condition.of("$.status", "EQUALS", "RECEIVED");
-            SearchConditionRequest condition = SearchConditionRequest.group("AND", condition1, condition2);
-
-            CompletableFuture<ArrayNode> scoresFuture = entityService.getItemsByCondition("GameScore", ENTITY_VERSION, condition, true);
-            ArrayNode scoresArray = scoresFuture.get();
-
-            List<GameScore> scoresToNotify = new ArrayList<>();
-            for (int i = 0; i < scoresArray.size(); i++) {
-                ObjectNode obj = (ObjectNode) scoresArray.get(i);
-                GameScore gs = entityService.getObjectMapper().treeToValue(obj, GameScore.class);
-                scoresToNotify.add(gs);
-            }
-
-            StringBuilder summary = new StringBuilder("NBA Scores for " + jobDate + ":\n");
-            for (GameScore gs : scoresToNotify) {
-                summary.append(gs.getHomeTeam()).append(" ").append(gs.getHomeScore())
-                        .append(" - ").append(gs.getAwayTeam()).append(" ").append(gs.getAwayScore())
-                        .append("\n");
-            }
-
-            // Since subscribers are local cache only, simulate retrieving active subscribers by returning empty list
-            // So notification simulation omitted (no persisted subscribers)
-
-            log.info("Notification summary:\n{}", summary.toString());
-
-            // Update GameScore statuses to PROCESSED by creating new entities with updated status
-            for (GameScore gs : scoresToNotify) {
-                GameScore updatedGs = new GameScore();
-                updatedGs.setGameDate(gs.getGameDate());
-                updatedGs.setHomeTeam(gs.getHomeTeam());
-                updatedGs.setAwayTeam(gs.getAwayTeam());
-                updatedGs.setHomeScore(gs.getHomeScore());
-                updatedGs.setAwayScore(gs.getAwayScore());
-                updatedGs.setStatus("PROCESSED");
-                entityService.addItem("GameScore", ENTITY_VERSION, updatedGs).get();
-            }
-        } catch (Exception e) {
-            log.error("Exception in processGameScoreNotification", e);
         }
     }
 }
