@@ -8,6 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.*;
 import com.java_template.application.entity.Mail;
+import com.java_template.application.entity.MailStatusEnum;
 
 @RestController
 @RequestMapping(path = "/prototype")
@@ -42,7 +43,7 @@ public class EntityControllerPrototype {
             mail.setIsHappy(null);
             mail.setIsGloomy(null);
             mail.setCriteriaResults(new HashMap<>());
-            mail.setStatus("CREATED");
+            mail.setStatus(MailStatusEnum.CREATED);
 
             mailCache.put(id, mail);
             log.info("Created Mail with ID: {}", id);
@@ -52,7 +53,7 @@ public class EntityControllerPrototype {
 
             Map<String, String> response = new HashMap<>();
             response.put("id", id);
-            response.put("status", mail.getStatus());
+            response.put("status", mail.getStatus().name());
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
 
         } catch (Exception e) {
@@ -101,7 +102,7 @@ public class EntityControllerPrototype {
             newMailVersion.setIsHappy(null);
             newMailVersion.setIsGloomy(null);
             newMailVersion.setCriteriaResults(new HashMap<>());
-            newMailVersion.setStatus("CREATED");
+            newMailVersion.setStatus(MailStatusEnum.CREATED);
 
             mailCache.put(newId, newMailVersion);
             log.info("Created new version Mail with ID: {}", newId);
@@ -111,7 +112,7 @@ public class EntityControllerPrototype {
 
             Map<String, String> response = new HashMap<>();
             response.put("id", newId);
-            response.put("status", newMailVersion.getStatus());
+            response.put("status", newMailVersion.getStatus().name());
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
 
         } catch (Exception e) {
@@ -138,7 +139,7 @@ public class EntityControllerPrototype {
             deactivationRecord.setIsHappy(existingMail.getIsHappy());
             deactivationRecord.setIsGloomy(existingMail.getIsGloomy());
             deactivationRecord.setCriteriaResults(existingMail.getCriteriaResults());
-            deactivationRecord.setStatus("DEACTIVATED");
+            deactivationRecord.setStatus(MailStatusEnum.DEACTIVATED);
 
             mailCache.put(newId, deactivationRecord);
             log.info("Deactivated Mail with new record ID: {}", newId);
@@ -173,11 +174,11 @@ public class EntityControllerPrototype {
         if (happyCount > gloomyCount) {
             mail.setIsHappy(true);
             mail.setIsGloomy(false);
-            mail.setStatus("PROCESSING");
+            mail.setStatus(MailStatusEnum.PROCESSING);
         } else {
             mail.setIsHappy(false);
             mail.setIsGloomy(true);
-            mail.setStatus("PROCESSING");
+            mail.setStatus(MailStatusEnum.PROCESSING);
         }
 
         // Step 3: Send mail via appropriate processor (simulated)
@@ -185,16 +186,16 @@ public class EntityControllerPrototype {
         if (mail.getIsHappy()) {
             // simulate sendHappyMail
             log.info("Sending happy mail to recipients: {}", mail.getMailList());
-            mail.setStatus("SENT_HAPPY");
+            mail.setStatus(MailStatusEnum.SENT_HAPPY);
         } else {
             // simulate sendGloomyMail
             log.info("Sending gloomy mail to recipients: {}", mail.getMailList());
-            mail.setStatus("SENT_GLOOMY");
+            mail.setStatus(MailStatusEnum.SENT_GLOOMY);
         }
 
         // Step 4: Handle send failure (simulated always success here)
         if (!sendSuccess) {
-            mail.setStatus("FAILED");
+            mail.setStatus(MailStatusEnum.FAILED);
             log.error("Failed to send mail with ID: {}", mail.getId());
         }
     }
