@@ -1,63 +1,79 @@
 {
     "active": true,
-    "desc": "Workflow representing the lifecycle and validation of a Pet entity",
+    "desc": "Workflow for processing a pet order from creation to notification",
     "initialState": "none",
-    "name": "Pet Processing Workflow",
+    "name": "PetOrder Workflow",
     "states": {
-        "completed": {
-            "transitions": []
+        "approved": {
+            "transitions": [
+                {
+                    "name": "send_confirmation",
+                    "next": "notified"
+                }
+            ]
         },
-        "invalid_data": {
-            "transitions": []
+        "cancelled": {
+            "transitions": [
+                {
+                    "name": "send_failure_notice",
+                    "next": "notified"
+                }
+            ]
+        },
+        "created": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ValidateOrderFieldsCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "validate_order_fields",
+                    "next": "validated"
+                },
+                {
+                    "name": "cancel_due_to_invalid_order",
+                    "next": "cancelled"
+                }
+            ]
         },
         "none": {
             "transitions": [
                 {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetDataValidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "start_validation",
-                    "next": "validating"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetDataInvalidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "start_invalid_data",
-                    "next": "invalid_data"
+                    "name": "start_order",
+                    "next": "created"
                 }
             ]
+        },
+        "notified": {
+            "transitions": []
         },
         "processing": {
             "transitions": [
                 {
-                    "name": "save_pet",
-                    "next": "completed",
+                    "name": "place_order_success",
+                    "next": "approved",
                     "processors": [
                         {
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
                             "executionMode": "SYNC",
-                            "name": "PetProcessor"
+                            "name": "PetOrderProcessor"
                         }
                     ]
+                },
+                {
+                    "name": "place_order_failure",
+                    "next": "cancelled"
                 }
             ]
         },
-        "validating": {
+        "validated": {
             "transitions": [
                 {
                     "criterion": {
@@ -65,16 +81,16 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "PetStatusValidCriterion"
+                            "name": "IsPetAvailableCriterion"
                         },
                         "type": "function"
                     },
-                    "name": "valid_status",
+                    "name": "check_pet_availability",
                     "next": "processing"
                 },
                 {
-                    "name": "invalid_status",
-                    "next": "processing"
+                    "name": "cancel_due_to_unavailable_pet",
+                    "next": "cancelled"
                 }
             ]
         }
