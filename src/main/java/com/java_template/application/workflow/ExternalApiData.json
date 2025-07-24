@@ -1,0 +1,122 @@
+{
+    "active": true,
+    "desc": "Workflow to manage DigestRequestJob lifecycle from creation to completion or failure",
+    "initialState": "none",
+    "name": "DigestRequestJob Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "email_dispatch_pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsEmailDispatchSuccessfulCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "email_sent_successfully",
+                    "next": "completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsEmailDispatchSuccessfulCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "email_sending_failed",
+                    "next": "failed"
+                }
+            ]
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "start_validation",
+                    "next": "pending_validation"
+                }
+            ]
+        },
+        "pending_validation": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsValidDigestRequestCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "valid_digest_request",
+                    "next": "processing"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsValidDigestRequestCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "invalid_digest_request",
+                    "next": "failed"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "HasExternalApiDataCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "external_api_data_retrieved",
+                    "next": "email_dispatch_pending",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "ExternalApiDataProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "HasExternalApiDataCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "external_api_data_failed",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
