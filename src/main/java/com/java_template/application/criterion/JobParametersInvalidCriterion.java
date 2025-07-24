@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.PurrfectPetsJob;
+import com.java_template.application.entity.Pet;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,31 +32,28 @@ public class JobParametersInvalidCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(PurrfectPetsJob.class, this::validateEntity)
-            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
-            .complete();
+                .evaluateEntity(Pet.class, this::validateEntity)
+                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+                .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "JobParametersInvalidCriterion".equals(modelSpec.operationName()) &&
-                "purrfectPetsJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+                "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                 Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(PurrfectPetsJob entity) {
-        // Invalid criterion: parameters is null or blank or invalid JSON
-        String params = entity.getParameters();
-        if (params == null || params.isBlank()) {
-            return EvaluationOutcome.success(); // This criterion expects invalid, so no fail here
+    private EvaluationOutcome validateEntity(Pet entity) {
+        if (entity.getName() != null && !entity.getName().isBlank()) {
+            return EvaluationOutcome.fail("Pet name should be missing or blank", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        try {
-            new com.fasterxml.jackson.databind.ObjectMapper().readTree(params);
-            // If JSON parse succeeds, this criterion fails (means parameters are valid)
-            return EvaluationOutcome.fail("Parameters are valid, thus not invalid", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        } catch (Exception e) {
-            // Invalid JSON is expected for this criterion
-            return EvaluationOutcome.success();
+        if (entity.getCategory() != null && !entity.getCategory().isBlank()) {
+            return EvaluationOutcome.fail("Pet category should be missing or blank", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
+        if (entity.getStatus() != null && !entity.getStatus().isBlank()) {
+            return EvaluationOutcome.fail("Pet status should be missing or blank", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        return EvaluationOutcome.success();
     }
 }
