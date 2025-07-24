@@ -1,5 +1,6 @@
 package com.java_template.application.processor;
 
+import com.java_template.application.entity.Pet;
 import com.java_template.application.entity.PetRegistrationJob;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
@@ -7,21 +8,27 @@ import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import com.java_template.common.config.Config;
+import com.java_template.common.service.EntityService;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.UUID;
+import java.time.Instant;
+
 @Component
 public class PetRegistrationJobProcessor implements CyodaProcessor {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final ProcessorSerializer serializer;
+    private final EntityService entityService;
 
-    public PetRegistrationJobProcessor(SerializerFactory serializerFactory) {
+    public PetRegistrationJobProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
-        logger.info("PetRegistrationJobProcessor initialized with SerializerFactory");
+        this.entityService = entityService;
+        logger.info("PetRegistrationJobProcessor initialized with SerializerFactory and EntityService");
     }
 
     @Override
@@ -51,33 +58,28 @@ public class PetRegistrationJobProcessor implements CyodaProcessor {
         // 4. Completion: Update Job status to COMPLETED if Pet created successfully, else FAILED
         // 5. Notification: Log job completion
 
-        // Assuming PetRegistrationJob has getters for petName, petType, petStatus, ownerName
-        // Create Pet entity based on job data
         Pet pet = new Pet();
-        pet.setPetId(generatePetId(job));
+        pet.setPetId(generatePetId());
         pet.setName(job.getPetName());
         pet.setCategory(job.getPetType());
         pet.setStatus(job.getPetStatus());
-        // photoUrls and tags can be empty/null initially
         pet.setPhotoUrls(null);
         pet.setTags(null);
 
-        // Persist Pet entity using EntityService
-        // EntityService injection and usage
-        // We can inject EntityService here if needed for adding pet
-        // But as per instructions, only EntityService, SerializerFactory, ObjectMapper can be injected
-        // Also, we cannot update current entity via EntityService
-        // So we assume external mechanism for adding Pet entity
+        try {
+            UUID petId = entityService.addItem("Pet", Config.ENTITY_VERSION, pet).get();
+            logger.info("Persisted Pet entity with generated ID: {}", petId);
+            job.setStatus("COMPLETED");
+        } catch (Exception e) {
+            logger.error("Failed to persist Pet entity: {}", e.getMessage());
+            job.setStatus("FAILED");
+        }
 
-        // Update job status
-        job.setStatus("COMPLETED");  // assuming status is String for simplicity
-
-        logger.info("PetRegistrationJob processed successfully for pet: {}", pet.getPetId());
+        logger.info("PetRegistrationJob processed with status: {}", job.getStatus());
         return job;
     }
 
-    private String generatePetId(PetRegistrationJob job) {
-        // Generate petId based on job info and timestamp
-        return "pet-" + System.currentTimeMillis();
+    private String generatePetId() {
+        return "pet-" + Instant.now().toEpochMilli();
     }
 }
