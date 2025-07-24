@@ -1,5 +1,7 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.DigestRequestJob;
@@ -16,18 +18,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Instant;
-import java.util.*;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.UUID;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/entity")
@@ -38,6 +34,7 @@ public class Controller {
     private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     // POST /entity/digest-request-jobs - create a new digest request job
     @PostMapping("/digest-request-jobs")
@@ -54,7 +51,6 @@ public class Controller {
             }
             // Prepare entity for saving
             request.setStatus("PENDING");
-            request.setCreatedAt(Instant.now().toString());
 
             // Add item to external service, get technicalId as UUID
             CompletableFuture<UUID> idFuture = entityService.addItem(
@@ -66,9 +62,6 @@ public class Controller {
             String technicalId = technicalUuid.toString();
 
             logger.info("Created DigestRequestJob with technicalId: {}", technicalId);
-
-            // Trigger processing asynchronously
-            // processDigestRequestJob(technicalId, request); // Removed processing method call
 
             // Return technicalId only
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId));
@@ -83,7 +76,7 @@ public class Controller {
 
     // GET /entity/digest-request-jobs/{id} - retrieve job by technicalId
     @GetMapping("/digest-request-jobs/{id}")
-    public ResponseEntity<?> getDigestRequestJob(@PathVariable String id) {
+    public ResponseEntity<?> getDigestRequestJob(@PathVariable String id) throws JsonProcessingException {
         try {
             UUID technicalUuid = UUID.fromString(id);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
@@ -96,7 +89,7 @@ public class Controller {
                 logger.error("DigestRequestJob not found for id: {}", id);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
-            DigestRequestJob job = node.traverse().readValueAs(DigestRequestJob.class);
+            DigestRequestJob job = objectMapper.treeToValue(node, DigestRequestJob.class);
             return ResponseEntity.ok(job);
         } catch (IllegalArgumentException iae) {
             logger.error("Invalid UUID format for id: {}", id);
@@ -112,7 +105,7 @@ public class Controller {
 
     // GET /entity/external-api-data/{jobTechnicalId} - retrieve external API data by jobTechnicalId
     @GetMapping("/external-api-data/{jobTechnicalId}")
-    public ResponseEntity<?> getExternalApiData(@PathVariable String jobTechnicalId) {
+    public ResponseEntity<?> getExternalApiData(@PathVariable String jobTechnicalId) throws JsonProcessingException {
         try {
             // We want to find ExternalApiData entity where jobTechnicalId field equals jobTechnicalId param
             SearchConditionRequest condition = SearchConditionRequest.group("AND",
@@ -131,7 +124,7 @@ public class Controller {
             }
             // Take first match
             ObjectNode node = (ObjectNode) nodes.get(0);
-            ExternalApiData data = node.traverse().readValueAs(ExternalApiData.class);
+            ExternalApiData data = objectMapper.treeToValue(node, ExternalApiData.class);
             return ResponseEntity.ok(data);
         } catch (IllegalArgumentException iae) {
             logger.error("Illegal argument exception: {}", iae.getMessage());
@@ -144,7 +137,7 @@ public class Controller {
 
     // GET /entity/email-dispatch-record/{jobTechnicalId} - retrieve email dispatch status by jobTechnicalId
     @GetMapping("/email-dispatch-record/{jobTechnicalId}")
-    public ResponseEntity<?> getEmailDispatchRecord(@PathVariable String jobTechnicalId) {
+    public ResponseEntity<?> getEmailDispatchRecord(@PathVariable String jobTechnicalId) throws JsonProcessingException {
         try {
             SearchConditionRequest condition = SearchConditionRequest.group("AND",
                     Condition.of("$.jobTechnicalId", "EQUALS", jobTechnicalId)
@@ -161,7 +154,7 @@ public class Controller {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
             ObjectNode node = (ObjectNode) nodes.get(0);
-            EmailDispatchRecord record = node.traverse().readValueAs(EmailDispatchRecord.class);
+            EmailDispatchRecord record = objectMapper.treeToValue(node, EmailDispatchRecord.class);
             return ResponseEntity.ok(record);
         } catch (IllegalArgumentException iae) {
             logger.error("Illegal argument exception: {}", iae.getMessage());
