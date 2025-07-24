@@ -1,0 +1,78 @@
+{
+    "active": true,
+    "desc": "Workflow managing the lifecycle of Mail entity from creation to sending happy or gloomy mails or failure.",
+    "initialState": "none",
+    "name": "Mail Entity Workflow",
+    "states": {
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "create_to_processing",
+                    "next": "processing",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "MailStatusEnumProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsHappyCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "processing_to_sent_happy",
+                    "next": "sent_happy"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsGloomyCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "processing_to_sent_gloomy",
+                    "next": "sent_gloomy"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsSendFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "processing_to_failed",
+                    "next": "failed"
+                }
+            ]
+        },
+        "sent_gloomy": {
+            "transitions": []
+        },
+        "sent_happy": {
+            "transitions": []
+        }
+    },
+    "version": "1.0"
+}
