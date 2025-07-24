@@ -1,0 +1,25 @@
+private void processOrder(Order order) {
+        try {
+            log.info("Processing Order with orderId: {}", order.getOrderId());
+            if (order.getCustomerId() == null || order.getCustomerId().isBlank()) {
+                log.error("Order customerId is invalid");
+                return;
+            }
+            if (order.getItems() == null || order.getItems().isEmpty()) {
+                log.error("Order items are empty");
+                return;
+            }
+            boolean paymentSuccess = true;
+            if (paymentSuccess) {
+                order.setStatus("PAID");
+                log.info("Payment successful for orderId: {}", order.getOrderId());
+                order.setStatus("SHIPPED");
+                log.info("Shipment initiated for orderId: {}", order.getOrderId());
+            } else {
+                order.setStatus("FAILED");
+                log.error("Payment failed for orderId: {}", order.getOrderId());
+            }
+        } catch (Exception e) {
+            log.error("Error processing order", e);
+        }
+    }
