@@ -1,83 +1,83 @@
 {
-    "active": true,
-    "desc": "Workflow for processing Subscriber entity including email validation",
-    "initialState": "none",
-    "name": "Subscriber Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "created": {
-            "transitions": [
-                {
-                    "name": "transition_to_validating_email",
-                    "next": "validating_email",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "SubscriberProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "email_invalid": {
-            "transitions": [
-                {
-                    "name": "log_error_and_complete",
-                    "next": "completed"
-                }
-            ]
-        },
-        "email_valid": {
-            "transitions": [
-                {
-                    "name": "complete_processing",
-                    "next": "completed"
-                }
-            ]
-        },
-        "none": {
-            "transitions": [
-                {
-                    "name": "transition_to_created",
-                    "next": "created"
-                }
-            ]
-        },
-        "validating_email": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IsEmailValidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "email_is_valid",
-                    "next": "email_valid"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IsEmailInvalidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "email_is_invalid",
-                    "next": "email_invalid"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow for processing Subscriber entity including email validation",
+  "initialState": "none",
+  "name": "Subscriber Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "transition_to_created",
+          "next": "created"
         }
+      ]
     },
-    "version": "1.0"
+    "created": {
+      "transitions": [
+        {
+          "name": "transition_to_validating_email",
+          "next": "validating_email",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "SubscriberProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "validating_email": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IsEmailValidCriterion"
+            },
+            "type": "function"
+          },
+          "name": "email_is_valid",
+          "next": "email_valid"
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IsEmailInvalidCriterion"
+            },
+            "type": "function"
+          },
+          "name": "email_is_invalid",
+          "next": "email_invalid"
+        }
+      ]
+    },
+    "email_valid": {
+      "transitions": [
+        {
+          "name": "complete_processing",
+          "next": "completed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "email_invalid": {
+      "transitions": [
+        {
+          "name": "log_error_and_complete",
+          "next": "completed"
+        }
+      ]
+    }
+  },
+  "version": "1.0"
 }
