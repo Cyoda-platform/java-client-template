@@ -12,9 +12,9 @@ public class Subscription implements CyodaEntity {
     private String subscriptionId;
     private String userId;
     private String team;
-    private String notificationType;
-    private String channel;
-    private String status;
+    private NotificationTypeEnum notificationType;
+    private NotificationChannelEnum channel;
+    private SubscriptionStatusEnum status;
     private LocalDateTime createdAt;
 
     public Subscription() {}
@@ -32,15 +32,16 @@ public class Subscription implements CyodaEntity {
         if (userId == null || userId.isBlank()) {
             return false;
         }
-        if (notificationType == null || notificationType.isBlank()) {
+        if (channel == null) {
             return false;
         }
-        if (channel == null || channel.isBlank()) {
+        if (status == null) {
             return false;
         }
-        if (status == null || status.isBlank()) {
+        if (notificationType == null) {
             return false;
         }
+        // team is nullable, no validation for team presence
         return true;
     }
 }
