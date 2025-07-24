@@ -1,66 +1,66 @@
 {
-    "active": true,
-    "desc": "Workflow for processing Subscription entity from creation to ready state",
-    "initialState": "none",
-    "name": "Subscription Workflow",
-    "states": {
-        "created": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "SubscriptionValidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "validate_subscription_passed",
-                    "next": "validated"
-                },
-                {
-                    "name": "validate_subscription_failed",
-                    "next": "created"
-                }
-            ]
-        },
-        "none": {
-            "transitions": [
-                {
-                    "name": "create_subscription",
-                    "next": "created"
-                }
-            ]
-        },
-        "ready": {
-            "transitions": []
-        },
-        "registered": {
-            "transitions": [
-                {
-                    "name": "finalize_subscription",
-                    "next": "ready"
-                }
-            ]
-        },
-        "validated": {
-            "transitions": [
-                {
-                    "name": "register_subscription",
-                    "next": "registered",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "SubscriptionProcessor"
-                        }
-                    ]
-                }
-            ]
+  "active": true,
+  "desc": "Workflow for processing Subscription entity from creation to ready state",
+  "initialState": "none",
+  "name": "Subscription Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "create_subscription",
+          "next": "created"
         }
+      ]
     },
-    "version": "1.0"
+    "created": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "SubscriptionValidCriterion"
+            },
+            "type": "function"
+          },
+          "name": "validate_subscription_passed",
+          "next": "validated"
+        },
+        {
+          "name": "validate_subscription_failed",
+          "next": "created"
+        }
+      ]
+    },
+    "validated": {
+      "transitions": [
+        {
+          "name": "register_subscription",
+          "next": "registered",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "SubscriptionProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "registered": {
+      "transitions": [
+        {
+          "name": "finalize_subscription",
+          "next": "ready"
+        }
+      ]
+    },
+    "ready": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
