@@ -1,9 +1,0 @@
-private void processSubscriber(Subscriber subscriber) {
-    logger.info("Processing Subscriber with ID: {}", subscriber.getId());
-    // No additional processing currently
-}
-
-private boolean isValidEmail(String email) {
-    String emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$";
-    return Pattern.compile(emailRegex).matcher(email).matches();
-}
