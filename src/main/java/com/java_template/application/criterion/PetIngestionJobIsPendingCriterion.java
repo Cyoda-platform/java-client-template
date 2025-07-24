@@ -45,16 +45,12 @@ public class PetIngestionJobIsPendingCriterion implements CyodaCriterion {
     }
 
     private EvaluationOutcome validateEntity(PetIngestionJob entity) {
-        // Validate that status is PENDING
-        if (entity.getStatus() == null || !entity.getStatus().equalsIgnoreCase("PENDING")) {
-            return EvaluationOutcome.fail("Job status is not PENDING", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (entity.getStatus() == null) {
+            return EvaluationOutcome.fail("Status must not be null", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        // Validate required fields presence
-        if (entity.getId() == null || entity.getId().isBlank()) {
-            return EvaluationOutcome.fail("Job id is missing or blank", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-        }
-        if (entity.getSource() == null || entity.getSource().isBlank()) {
-            return EvaluationOutcome.fail("Job source is missing or blank", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+        // Check if status is PENDING
+        if (!"PENDING".equalsIgnoreCase(entity.getStatus().toString())) {
+            return EvaluationOutcome.fail("Status is not PENDING", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
         return EvaluationOutcome.success();
     }
