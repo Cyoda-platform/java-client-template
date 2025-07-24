@@ -1,0 +1,92 @@
+{
+    "active": true,
+    "desc": "Workflow for orchestrating NBA scores fetch job lifecycle",
+    "initialState": "none",
+    "name": "NbaScoresFetchJob Workflow",
+    "states": {
+        "completed": {
+            "transitions": [
+                {
+                    "name": "send_summary_emails_and_end",
+                    "next": "end"
+                }
+            ]
+        },
+        "end": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": [
+                {
+                    "name": "end_after_failure",
+                    "next": "end"
+                }
+            ]
+        },
+        "in_progress": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsFetchSuccessfulCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "mark_completed_if_successful",
+                    "next": "completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsFetchFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "mark_failed_if_failed",
+                    "next": "failed"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsScheduledDateValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "start_if_scheduled_date_valid",
+                    "next": "pending"
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "name": "begin_fetching",
+                    "next": "in_progress",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "NbaScoresFetchJobProcessor"
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
