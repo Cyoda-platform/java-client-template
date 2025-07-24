@@ -1,0 +1,92 @@
+{
+    "active": true,
+    "desc": "Workflow controlling the lifecycle of a PurrfectPetsJob orchestration entity",
+    "initialState": "none",
+    "name": "PurrfectPetsJob Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "start_validation",
+                    "next": "validating"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetDataFetchSuccessCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "processing_succeeded",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "PetProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetDataFetchFailCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "processing_failed",
+                    "next": "failed"
+                }
+            ]
+        },
+        "validating": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "JobParametersValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "valid_params",
+                    "next": "processing"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "JobParametersInvalidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "invalid_params",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
