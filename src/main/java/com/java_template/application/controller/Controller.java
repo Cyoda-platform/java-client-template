@@ -48,7 +48,7 @@ public class Controller {
                         .thenCompose(petJobNode -> {
                             PetJob createdPetJob = petJob; // reuse original object for business logic
                             createdPetJob.setId(technicalId.toString());
-                            processPetJob(createdPetJob);
+                            // processPetJob removed
                             return CompletableFuture.completedFuture(ResponseEntity.status(HttpStatus.CREATED).body(createdPetJob));
                         }));
     }
@@ -90,7 +90,7 @@ public class Controller {
                         .thenCompose(petNode -> {
                             Pet createdPet = pet;
                             createdPet.setId(technicalId.toString());
-                            processPet(createdPet);
+                            // processPet removed
                             return CompletableFuture.completedFuture(ResponseEntity.status(HttpStatus.CREATED).body(createdPet));
                         }));
     }
@@ -142,74 +142,6 @@ public class Controller {
         // So no external calls here, just return 404
         logger.error("PetEvent retrieval not implemented via external service");
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body("PetEvent not found");
-    }
-
-    // Business logic processing methods
-
-    private void processPetJob(PetJob petJob) {
-        logger.info("Processing PetJob with ID: {}", petJob.getId());
-
-        if (petJob.getPetType().isBlank()) {
-            logger.error("PetJob petType is blank");
-            petJob.setStatus(PetJob.StatusEnum.FAILED);
-            return;
-        }
-
-        petJob.setStatus(PetJob.StatusEnum.PROCESSING);
-        logger.info("PetJob {} status updated to PROCESSING", petJob.getId());
-
-        // Simulate fetching pets from external Petstore API for petType
-        // For prototype, just create sample Pet entities and add via entityService
-
-        for (int i = 1; i <= 3; i++) {
-            Pet pet = new Pet();
-            pet.setPetId(petJob.getPetType() + "-pet-" + i);
-            pet.setName(petJob.getPetType().substring(0, 1).toUpperCase() + "Pet" + i);
-            pet.setCategory(petJob.getPetType());
-            pet.setStatus(Pet.StatusEnum.AVAILABLE);
-
-            try {
-                UUID petTechnicalId = entityService.addItem("Pet", ENTITY_VERSION, pet).get();
-                pet.setId(petTechnicalId.toString());
-                logger.info("Created Pet {} for PetJob {}", pet.getPetId(), petJob.getId());
-                processPet(pet);
-
-                // Create PetEvent for each Pet created - PetEvent is minor entity, skip external service
-                PetEvent petEvent = new PetEvent();
-                petEvent.setEventId("event-" + pet.getPetId());
-                petEvent.setPetId(pet.getPetId());
-                petEvent.setEventType("CREATED");
-                petEvent.setTimestamp(LocalDateTime.now());
-                petEvent.setStatus(PetEvent.StatusEnum.RECORDED);
-                // PetEvent local only, no external service call
-                processPetEvent(petEvent);
-
-            } catch (Exception e) {
-                logger.error("Failed to create Pet for PetJob {}: {}", petJob.getId(), e.getMessage());
-            }
-        }
-
-        petJob.setStatus(PetJob.StatusEnum.COMPLETED);
-        logger.info("PetJob {} processing COMPLETED", petJob.getId());
-    }
-
-    private void processPet(Pet pet) {
-        logger.info("Processing Pet with ID: {}", pet.getId());
-
-        if (pet.getPetId().isBlank() || pet.getName().isBlank() || pet.getCategory().isBlank()) {
-            logger.error("Pet data validation failed for ID: {}", pet.getId());
-            return;
-        }
-
-        logger.info("Pet {} data validated and ready for retrieval", pet.getPetId());
-    }
-
-    private void processPetEvent(PetEvent petEvent) {
-        logger.info("Processing PetEvent with ID: {}", petEvent.getId());
-
-        logger.info("PetEvent {} of type {} processed at {}", petEvent.getEventId(), petEvent.getEventType(), petEvent.getTimestamp());
-
-        petEvent.setStatus(PetEvent.StatusEnum.PROCESSED);
     }
 
 }
