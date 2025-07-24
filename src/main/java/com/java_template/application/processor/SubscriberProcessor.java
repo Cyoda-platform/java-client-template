@@ -31,10 +31,9 @@ public class SubscriberProcessor implements CyodaProcessor {
         logger.info("Processing Subscriber for request: {}", request.getId());
 
         return serializer.withRequest(request)
-                .toEntity(Subscriber.class)
-                .validate(this::isValidEntity, "Invalid entity state")
-                .map(this::processEntityLogic)
-                .complete();
+            .toEntity(Subscriber.class)
+            .validate(Subscriber::isValid, "Invalid subscriber state")
+            .complete();
     }
 
     @Override
@@ -44,18 +43,5 @@ public class SubscriberProcessor implements CyodaProcessor {
                 Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private boolean isValidEntity(Subscriber subscriber) {
-        return subscriber.isValid();
-    }
-
-    private Subscriber processEntityLogic(Subscriber subscriber) {
-        logger.info("Processing Subscriber with email: {}", subscriber.getEmail());
-
-        // Validate email format simple check
-        if (subscriber.getEmail() != null && !subscriber.getEmail().contains("@")) {
-            logger.error("Invalid email format for subscriber: {}", subscriber.getEmail());
-        }
-        // No further processing needed immediately
-        return subscriber;
-    }
+    // No additional processing logic specified for Subscriber entity
 }
