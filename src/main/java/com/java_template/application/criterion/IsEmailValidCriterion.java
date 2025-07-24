@@ -47,9 +47,9 @@ public class IsEmailValidCriterion implements CyodaCriterion {
     private EvaluationOutcome validateEntity(Subscriber entity) {
         String email = entity.getEmail();
         if (email == null || email.isBlank()) {
-            return EvaluationOutcome.fail("Email must not be empty", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("Email is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        // Simple regex for email validation
+        // Basic email format validation regex
         String emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$";
         if (!email.matches(emailRegex)) {
             return EvaluationOutcome.fail("Email format is invalid", StandardEvalReasonCategories.VALIDATION_FAILURE);
