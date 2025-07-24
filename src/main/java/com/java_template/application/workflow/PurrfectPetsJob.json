@@ -1,24 +1,13 @@
 {
     "active": true,
-    "desc": "Workflow for processing PurrfectPetsJob entity with validation, processing, and status updates",
+    "desc": "Workflow for processing AdoptionRequest entity through validation, approval, or rejection",
     "initialState": "none",
-    "name": "PurrfectPetsJob Workflow",
+    "name": "AdoptionRequest Workflow",
     "states": {
-        "completed_job": {
+        "APPROVED": {
             "transitions": []
         },
-        "failed_job": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "name": "start_processing",
-                    "next": "validating_job"
-                }
-            ]
-        },
-        "processing_job": {
+        "PENDING": {
             "transitions": [
                 {
                     "criterion": {
@@ -26,19 +15,65 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "PurrfectPetsJobProcessingSuccessCriterion"
+                            "name": "PetExistsCriterion"
                         },
                         "type": "function"
                     },
-                    "name": "processing_success",
-                    "next": "completed_job",
+                    "name": "pending_to_validated",
+                    "next": "VALIDATED"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "InvalidAdopterCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "pending_to_rejected_invalid_adopter",
+                    "next": "REJECTED"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetNotExistsCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "pending_to_rejected_pet_not_found",
+                    "next": "REJECTED"
+                }
+            ]
+        },
+        "REJECTED": {
+            "transitions": []
+        },
+        "VALIDATED": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetAvailableCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "validated_to_approved",
+                    "next": "APPROVED",
                     "processors": [
                         {
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
                             "executionMode": "SYNC",
-                            "name": "PurrfectPetsJobProcessor"
+                            "name": "AdoptionRequestProcessor"
                         }
                     ]
                 },
@@ -48,42 +83,20 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "PurrfectPetsJobProcessingFailureCriterion"
+                            "name": "PetNotAvailableCriterion"
                         },
                         "type": "function"
                     },
-                    "name": "processing_failure",
-                    "next": "failed_job"
+                    "name": "validated_to_rejected_pet_not_available",
+                    "next": "REJECTED"
                 }
             ]
         },
-        "validating_job": {
+        "none": {
             "transitions": [
                 {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PurrfectPetsJobValidationCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "valid_job",
-                    "next": "processing_job"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PurrfectPetsJobInvalidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "invalid_job",
-                    "next": "failed_job"
+                    "name": "start_to_pending",
+                    "next": "PENDING"
                 }
             ]
         }
