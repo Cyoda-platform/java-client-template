@@ -32,25 +32,24 @@ public class ProcessingErrorOccurredCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(CompanySearchJob.class, this::validateEntity)
-            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
-            .complete();
+                .evaluateEntity(CompanySearchJob.class, this::validateEntity)
+                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+                .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "ProcessingErrorOccurredCriterion".equals(modelSpec.operationName()) &&
-               "companySearchJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+                "companySearchJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
     private EvaluationOutcome validateEntity(CompanySearchJob entity) {
-        // Business logic: fail if status is PROCESSING and completedAt is null or blank indicating error occurred
-        if (entity.getStatus() == null || !entity.getStatus().equalsIgnoreCase("PROCESSING")) {
-            return EvaluationOutcome.success(); // Not processing, so no error
+        if (entity.getStatus() == null) {
+            return EvaluationOutcome.fail("Status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (entity.getCompletedAt() == null || entity.getCompletedAt().isBlank()) {
-            return EvaluationOutcome.fail("Processing error detected: completedAt not set while processing", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        if (entity.getStatus().equalsIgnoreCase("FAILED")) {
+            return EvaluationOutcome.fail("Processing error occurred", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
         return EvaluationOutcome.success();
     }
