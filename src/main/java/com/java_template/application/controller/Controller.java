@@ -1,9 +1,12 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Pet;
 import com.java_template.application.entity.PetIngestionJob;
 import com.java_template.common.service.EntityService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
@@ -11,11 +14,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import static com.java_template.common.config.Config.*;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/controller")
@@ -26,10 +31,11 @@ public class Controller {
     private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     // POST /controller/petIngestionJob - Create PetIngestionJob
     @PostMapping("/petIngestionJob")
-    public ResponseEntity<?> createPetIngestionJob(@RequestBody PetIngestionJob job) throws Exception {
+    public ResponseEntity<?> createPetIngestionJob(@Valid @RequestBody PetIngestionJob job) throws ExecutionException, InterruptedException, JsonProcessingException {
         if (job == null || job.getSourceUrl() == null || job.getSourceUrl().isBlank()) {
             logger.error("Invalid PetIngestionJob creation request: missing sourceUrl");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("sourceUrl is required");
@@ -61,7 +67,7 @@ public class Controller {
 
     // GET /controller/petIngestionJob/{id} - Retrieve PetIngestionJob by ID (id is String but mapped to technicalId UUID)
     @GetMapping("/petIngestionJob/{id}")
-    public ResponseEntity<?> getPetIngestionJob(@PathVariable String id) throws Exception {
+    public ResponseEntity<?> getPetIngestionJob(@PathVariable @Valid @NotBlank String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         UUID technicalId;
         try {
             technicalId = UUID.fromString(id);
@@ -76,13 +82,13 @@ public class Controller {
             logger.error("PetIngestionJob not found with technicalId: {}", technicalId);
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("PetIngestionJob not found");
         }
-        PetIngestionJob job = node.traverse().readValueAs(PetIngestionJob.class);
+        PetIngestionJob job = objectMapper.treeToValue(node, PetIngestionJob.class);
         return ResponseEntity.ok(job);
     }
 
     // POST /controller/pet - Create Pet
     @PostMapping("/pet")
-    public ResponseEntity<?> createPet(@RequestBody Pet pet) throws Exception {
+    public ResponseEntity<?> createPet(@Valid @RequestBody Pet pet) throws ExecutionException, InterruptedException, JsonProcessingException {
         if (pet == null) {
             logger.error("Pet creation request body is null");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Pet data is required");
@@ -116,7 +122,7 @@ public class Controller {
 
     // GET /controller/pet/{id} - Retrieve Pet by ID (UUID string)
     @GetMapping("/pet/{id}")
-    public ResponseEntity<?> getPet(@PathVariable String id) throws Exception {
+    public ResponseEntity<?> getPet(@PathVariable @Valid @NotBlank String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         UUID technicalId;
         try {
             technicalId = UUID.fromString(id);
@@ -131,13 +137,13 @@ public class Controller {
             logger.error("Pet not found with technicalId: {}", technicalId);
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Pet not found");
         }
-        Pet pet = node.traverse().readValueAs(Pet.class);
+        Pet pet = objectMapper.treeToValue(node, Pet.class);
         return ResponseEntity.ok(pet);
     }
 
     // POST /controller/pet/{id}/update - Create new version of Pet (event)
     @PostMapping("/pet/{id}/update")
-    public ResponseEntity<?> updatePet(@PathVariable String id, @RequestBody Pet updatedPet) throws Exception {
+    public ResponseEntity<?> updatePet(@PathVariable @Valid @NotBlank String id, @Valid @RequestBody Pet updatedPet) throws ExecutionException, InterruptedException, JsonProcessingException {
         UUID originalTechnicalId;
         try {
             originalTechnicalId = UUID.fromString(id);
@@ -152,7 +158,7 @@ public class Controller {
             logger.error("Cannot update Pet - not found with technicalId: {}", originalTechnicalId);
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Pet not found");
         }
-        Pet existingPet = existingNode.traverse().readValueAs(Pet.class);
+        Pet existingPet = objectMapper.treeToValue(existingNode, Pet.class);
 
         if (updatedPet == null) {
             logger.error("Update request body is null");
@@ -187,7 +193,7 @@ public class Controller {
 
     // POST /controller/pet/{id}/deactivate - Create Pet deactivation event
     @PostMapping("/pet/{id}/deactivate")
-    public ResponseEntity<?> deactivatePet(@PathVariable String id) throws Exception {
+    public ResponseEntity<?> deactivatePet(@PathVariable @Valid @NotBlank String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         UUID originalTechnicalId;
         try {
             originalTechnicalId = UUID.fromString(id);
@@ -202,7 +208,7 @@ public class Controller {
             logger.error("Cannot deactivate Pet - not found with technicalId: {}", originalTechnicalId);
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Pet not found");
         }
-        Pet existingPet = existingNode.traverse().readValueAs(Pet.class);
+        Pet existingPet = objectMapper.treeToValue(existingNode, Pet.class);
 
         Pet deactivatedPet = new Pet();
         deactivatedPet.setName(existingPet.getName());
