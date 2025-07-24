@@ -32,23 +32,31 @@ public class ExternalApiCallSuccessCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(ExternalApiData.class, this::validateEntity)
-            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
-            .complete();
+                .evaluateEntity(ExternalApiData.class, this::validateEntity)
+                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+                .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "ExternalApiCallSuccessCriterion".equals(modelSpec.operationName()) &&
-               "externalApiData".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+                "externalApiData".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
     private EvaluationOutcome validateEntity(ExternalApiData entity) {
-        if (entity.getResponseData() == null || entity.getResponseData().isBlank()) {
-            return EvaluationOutcome.fail("Response data is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+        if (entity.getJobTechnicalId() == null || entity.getJobTechnicalId().isBlank()) {
+            return EvaluationOutcome.fail("jobTechnicalId is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        // Additional success criteria: assume success if responseData exists and non-blank
+        if (entity.getApiEndpoint() == null || entity.getApiEndpoint().isBlank()) {
+            return EvaluationOutcome.fail("apiEndpoint is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (entity.getResponseData() == null || entity.getResponseData().isBlank()) {
+            return EvaluationOutcome.fail("responseData is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (entity.getFetchedAt() == null) {
+            return EvaluationOutcome.fail("fetchedAt timestamp is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
         return EvaluationOutcome.success();
     }
 }
