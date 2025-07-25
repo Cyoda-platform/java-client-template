@@ -1,0 +1,108 @@
+{
+    "active": true,
+    "desc": "Workflow for processing orders from creation to completion or failure",
+    "initialState": "none",
+    "name": "Order Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": [
+                {
+                    "name": "end_failed",
+                    "next": "terminal"
+                }
+            ]
+        },
+        "new": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "OrderValidationCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "validate_order_success",
+                    "next": "processing"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "OrderValidationFailureCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "validate_order_failure",
+                    "next": "failed"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "start_order_validation",
+                    "next": "new"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "InventoryReservationSuccessCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "reserve_inventory_success",
+                    "next": "shipped",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "OrderProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "InventoryReservationFailureCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "reserve_inventory_failure",
+                    "next": "failed"
+                }
+            ]
+        },
+        "shipped": {
+            "transitions": [
+                {
+                    "name": "complete_order",
+                    "next": "completed"
+                }
+            ]
+        },
+        "terminal": {
+            "transitions": []
+        }
+    },
+    "version": "1.0"
+}
