@@ -1,0 +1,98 @@
+{
+    "active": true,
+    "desc": "Workflow managing the lifecycle of ProductPerformanceJob entity processing from creation to completion",
+    "initialState": "none",
+    "name": "ProductPerformanceJob Workflow",
+    "states": {
+        "analyzing_data": {
+            "transitions": [
+                {
+                    "name": "data_analyzed",
+                    "next": "generating_report"
+                }
+            ]
+        },
+        "completed": {
+            "transitions": []
+        },
+        "extracting_data": {
+            "transitions": [
+                {
+                    "name": "data_extracted",
+                    "next": "analyzing_data"
+                }
+            ]
+        },
+        "failed": {
+            "transitions": []
+        },
+        "generating_report": {
+            "transitions": [
+                {
+                    "name": "report_generated",
+                    "next": "sending_email"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "start_job_processing",
+                    "next": "validating",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "PerformanceReportProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "sending_email": {
+            "transitions": [
+                {
+                    "name": "email_sent",
+                    "next": "completed"
+                },
+                {
+                    "name": "email_failed",
+                    "next": "failed"
+                }
+            ]
+        },
+        "validating": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ValidationSuccessCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "validation_success",
+                    "next": "extracting_data"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ValidationFailureCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "validation_failure",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
