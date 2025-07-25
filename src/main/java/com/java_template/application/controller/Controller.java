@@ -1,11 +1,8 @@
 package com.java_template.application.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -63,9 +60,6 @@ public class Controller {
             entity.setRawJson(rawJson);
             entity.setCreatedAt(new Date().toInstant().toString());
             entity.setState("UNKNOWN");
-
-            // Process entity (includes validation)
-            processHackerNewsItem(entity);
 
             // Use entityService to add item
             // entityService.addItem expects validated data object - we will pass the entity as Map
@@ -151,22 +145,6 @@ public class Controller {
             logger.error("Unexpected error in getHackerNewsItem", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
         }
-    }
-
-    private void processHackerNewsItem(HackerNewsItem entity) {
-        logger.info("Processing HackerNewsItem with ID: {}", entity.getId());
-
-        // Validation: check mandatory fields
-        if (entity.getId() == null || entity.getId().isBlank() ||
-                entity.getType() == null || entity.getType().isBlank()) {
-            entity.setState("INVALID");
-            logger.info("HackerNewsItem {} marked INVALID due to missing mandatory fields", entity.getId());
-        } else {
-            entity.setState("VALID");
-            logger.info("HackerNewsItem {} marked VALID", entity.getId());
-        }
-
-        // Further processing could be added here (mocked)
     }
 
     // Entity class definition
