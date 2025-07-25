@@ -1,0 +1,87 @@
+{
+    "active": true,
+    "desc": "Business workflow for the Workflow entity managing status transitions",
+    "initialState": "none",
+    "name": "Workflow Entity Workflow",
+    "states": {
+        "completed": {
+            "transitions": [
+                {
+                    "name": "notify_completion",
+                    "next": "done"
+                }
+            ]
+        },
+        "done": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": [
+                {
+                    "name": "notify_failure",
+                    "next": "done"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ValidWorkflowCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "start_if_valid",
+                    "next": "validating"
+                },
+                {
+                    "name": "fail_if_invalid",
+                    "next": "failed"
+                }
+            ]
+        },
+        "running": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "OrchestrationSuccessCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "complete_successfully",
+                    "next": "completed"
+                },
+                {
+                    "name": "complete_with_failure",
+                    "next": "failed"
+                }
+            ]
+        },
+        "validating": {
+            "transitions": [
+                {
+                    "name": "start_processing",
+                    "next": "running",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "WorkflowProcessor"
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
