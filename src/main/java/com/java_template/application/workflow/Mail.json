@@ -1,0 +1,78 @@
+{
+    "active": true,
+    "desc": "Workflow for processing Mail entity through validation and sending states",
+    "initialState": "none",
+    "name": "Mail Entity Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "create_mail",
+                    "next": "validating"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "name": "send_mail",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "MailProcessor"
+                        }
+                    ]
+                },
+                {
+                    "name": "send_failed",
+                    "next": "failed"
+                }
+            ]
+        },
+        "validating": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ValidateHappyMailCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "validate_happy_mail",
+                    "next": "processing"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ValidateGloomyMailCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "validate_gloomy_mail",
+                    "next": "processing"
+                },
+                {
+                    "name": "validation_failed",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
