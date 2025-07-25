@@ -1,0 +1,44 @@
+    // Processing DigestData - compile data and create DigestEmail
+    private void processDigestData(UUID digestDataId, DigestData data) {
+        logger.info("Processing DigestData with ID: {}", digestDataId);
+
+        try {
+            // Compile retrieved data into digest content
+            String compiledContent = compileDigestContent(data.getRetrievedData(), data.getFormat());
+
+            // Create DigestEmail entity
+            DigestEmail digestEmail = new DigestEmail();
+            digestEmail.setJobTechnicalId(data.getJobTechnicalId());
+
+            // Retrieve corresponding DigestRequestJob to get email
+            UUID jobId = UUID.fromString(data.getJobTechnicalId());
+            CompletableFuture<ObjectNode> jobFuture = entityService.getItem("digestRequestJob", ENTITY_VERSION, jobId);
+            ObjectNode jobNode = jobFuture.get();
+            if (jobNode != null) {
+                DigestRequestJob job = objectMapper.treeToValue(jobNode, DigestRequestJob.class);
+                digestEmail.setEmail(job.getEmail());
+            }
+
+            digestEmail.setContent(compiledContent);
+            digestEmail.setSentAt(null);
+            digestEmail.setStatus("PENDING");
+
+            CompletableFuture<UUID> emailIdFuture = entityService.addItem("digestEmail", ENTITY_VERSION, digestEmail);
+            UUID digestEmailId = emailIdFuture.get();
+
+            logger.info("DigestEmail created with ID: {}", digestEmailId);
+
+            processDigestEmail(digestEmailId, digestEmail);
+
+        } catch (Exception e) {
+            logger.error("Error processing DigestData: {}", e.getMessage());
+        }
+    }
+
+    private String compileDigestContent(String rawData, String format) {
+        if ("HTML".equalsIgnoreCase(format)) {
+            return "<html><body><pre>" + rawData + "</pre></body></html>";
+        } else {
+            return rawData;
+        }
+    }
