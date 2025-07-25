@@ -32,24 +32,24 @@ public class DigestDataAvailableCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(DigestData.class, this::validateEntity)
-            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
-            .complete();
+                .evaluateEntity(DigestData.class, this::validateEntity)
+                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+                .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "DigestDataAvailableCriterion".equals(modelSpec.operationName()) &&
-               "digestData".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+                "digestData".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
     private EvaluationOutcome validateEntity(DigestData entity) {
         if (entity.getRetrievedData() == null || entity.getRetrievedData().isBlank()) {
-            return EvaluationOutcome.fail("Retrieved data is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("Retrieved data is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
         }
         if (entity.getFormat() == null || entity.getFormat().isBlank()) {
-            return EvaluationOutcome.fail("Format is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("Format is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
         }
         return EvaluationOutcome.success();
     }
