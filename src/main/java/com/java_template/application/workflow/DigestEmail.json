@@ -1,0 +1,75 @@
+{
+    "active": true,
+    "desc": "Workflow for processing DigestEmail entity from creation to sending or failure",
+    "initialState": "none",
+    "name": "DigestEmail Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": [
+                {
+                    "name": "end_processing_failed",
+                    "next": "completed"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "start_processing",
+                    "next": "pending"
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "DigestEmailIsPendingCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "send_email_if_pending",
+                    "next": "sent",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "DigestEmailProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "DigestEmailIsNotPendingCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "fail_if_not_pending",
+                    "next": "failed"
+                }
+            ]
+        },
+        "sent": {
+            "transitions": [
+                {
+                    "name": "complete_processing",
+                    "next": "completed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
