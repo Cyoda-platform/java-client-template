@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.ReportJob;
+import com.java_template.application.entity.ConversionReport;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -32,7 +32,7 @@ public class EmailSentFailureCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(ReportJob.class, this::validateEntity)
+            .evaluateEntity(ConversionReport.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,14 +40,14 @@ public class EmailSentFailureCriterion implements CyodaCriterion {
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "EmailSentFailureCriterion".equals(modelSpec.operationName()) &&
-               "reportJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+               "conversionReport".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(ReportJob entity) {
-        if ("FAILED".equalsIgnoreCase(entity.getStatus())) {
-            return EvaluationOutcome.success();
+    private EvaluationOutcome validateEntity(ConversionReport entity) {
+        if (entity.getStatus() == null || entity.getStatus().equals("EMAILED")) {
+            return EvaluationOutcome.fail("Email sent successfully, not a failure", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
-        return EvaluationOutcome.fail("Email status not failure", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        return EvaluationOutcome.success();
     }
 }
