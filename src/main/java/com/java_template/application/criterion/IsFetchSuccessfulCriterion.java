@@ -1,0 +1,61 @@
+package com.java_template.application.criterion;
+
+import com.java_template.application.entity.DigestData;
+import com.java_template.common.serializer.CriterionSerializer;
+import com.java_template.common.serializer.EvaluationOutcome;
+import com.java_template.common.serializer.ReasonAttachmentStrategy;
+import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.serializer.StandardEvalReasonCategories;
+import com.java_template.common.config.Config;
+import com.java_template.common.workflow.CyodaCriterion;
+import com.java_template.common.workflow.CyodaEventContext;
+import com.java_template.common.workflow.OperationSpecification;
+import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationRequest;
+import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+
+@Component
+public class IsFetchSuccessfulCriterion implements CyodaCriterion {
+
+    private final Logger logger = LoggerFactory.getLogger(this.getClass());
+    private final CriterionSerializer serializer;
+
+    public IsFetchSuccessfulCriterion(SerializerFactory serializerFactory) {
+        this.serializer = serializerFactory.getDefaultCriteriaSerializer();
+        logger.info("IsFetchSuccessfulCriterion initialized with SerializerFactory");
+    }
+
+    @Override
+    public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
+        EntityCriteriaCalculationRequest request = context.getEvent();
+
+        return serializer.withRequest(request)
+                .evaluateEntity(DigestData.class, this::validateEntity)
+                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+                .complete();
+    }
+
+    @Override
+    public boolean supports(OperationSpecification modelSpec) {
+        return "IsFetchSuccessfulCriterion".equals(modelSpec.operationName()) &&
+                "digestData".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+    }
+
+    private EvaluationOutcome validateEntity(DigestData entity) {
+        String retrievedData = entity.getRetrievedData();
+        if (retrievedData == null || retrievedData.isBlank()) {
+            return EvaluationOutcome.fail("Retrieved data is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+        }
+        // Additional business logic: check if retrievedData contains valid JSON
+        try {
+            // Use a simple JSON validation approach
+            new com.fasterxml.jackson.databind.ObjectMapper().readTree(retrievedData);
+        } catch (Exception e) {
+            return EvaluationOutcome.fail("Retrieved data is not valid JSON", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+        }
+        return EvaluationOutcome.success();
+    }
+}
