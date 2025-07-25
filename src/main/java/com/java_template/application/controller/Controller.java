@@ -46,8 +46,6 @@ public class Controller {
 
             logger.info("Workflow created with technicalId: {}", technicalId);
 
-            processWorkflow(workflow);
-
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException ex) {
             logger.error("Illegal argument exception in createWorkflow", ex);
@@ -91,8 +89,6 @@ public class Controller {
             UUID technicalId = idFuture.join();
 
             logger.info("Order created with technicalId: {}", technicalId);
-
-            processOrder(order);
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException ex) {
@@ -138,8 +134,6 @@ public class Controller {
 
             logger.info("Customer created with technicalId: {}", technicalId);
 
-            processCustomer(customer);
-
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException ex) {
             logger.error("Illegal argument exception in createCustomer", ex);
@@ -168,60 +162,5 @@ public class Controller {
             logger.error("Error retrieving Customer", ex);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
         }
-    }
-
-    // --------- Process Methods ---------
-    private void processWorkflow(Workflow workflow) {
-        logger.info("Processing Workflow with name: {}", workflow.getName());
-
-        // Validation: Check workflow configuration and prerequisites
-        if (workflow.getName().isBlank() || workflow.getDescription().isBlank()) {
-            logger.error("Workflow validation failed: name or description is blank");
-            workflow.setStatus("FAILED");
-            return;
-        }
-        workflow.setStatus("RUNNING");
-
-        // Processing: Trigger orchestration logic (simulated)
-        logger.info("Orchestrating related Orders and Customers for workflow: {}", workflow.getName());
-
-        // Simulate completion
-        workflow.setStatus("COMPLETED");
-        logger.info("Workflow processing completed successfully");
-    }
-
-    private void processOrder(Order order) {
-        logger.info("Processing Order with orderId: {}", order.getOrderId());
-
-        // Validation: Check order details (product availability simulated)
-        if (order.getQuantity() <= 0) {
-            logger.error("Order validation failed: quantity must be greater than zero");
-            order.setStatus("FAILED");
-            return;
-        }
-        order.setStatus("PROCESSING");
-
-        // Processing: Reserve inventory, initiate shipping process (simulated)
-        logger.info("Reserving inventory for productCode: {}", order.getProductCode());
-
-        // Simulate shipped status
-        order.setStatus("SHIPPED");
-        logger.info("Order processing completed successfully");
-    }
-
-    private void processCustomer(Customer customer) {
-        logger.info("Processing Customer with customerId: {}", customer.getCustomerId());
-
-        // Validation: Verify contact details format and uniqueness (basic simulation)
-        if (customer.getEmail().isBlank() || customer.getPhone().isBlank()) {
-            logger.error("Customer validation failed: email or phone is blank");
-            return;
-        }
-
-        // Processing: Enrich customer profile (simulated)
-        logger.info("Enriching customer profile for: {}", customer.getName());
-
-        // Mark customer as ACTIVE
-        logger.info("Customer processing completed successfully");
     }
 }
