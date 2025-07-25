@@ -45,19 +45,13 @@ public class DigestRequestValidCriterion implements CyodaCriterion {
     }
 
     private EvaluationOutcome validateEntity(DigestRequest entity) {
-        // Validate that email is not null or blank
         if (entity.getEmail() == null || entity.getEmail().isBlank()) {
             return EvaluationOutcome.fail("Email is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        // Validate that status is not null or blank and must be PENDING to proceed
+        // requestMetadata can be null or blank, no failure
         if (entity.getStatus() == null || entity.getStatus().isBlank()) {
             return EvaluationOutcome.fail("Status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (!"PENDING".equals(entity.getStatus())) {
-            return EvaluationOutcome.fail("Status must be PENDING", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-        }
-        // requestMetadata can be null or blank, no validation needed
-
         return EvaluationOutcome.success();
     }
 }
