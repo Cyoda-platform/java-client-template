@@ -1,0 +1,85 @@
+private void processReportJob(ReportJob job) {
+    log.info("Processing ReportJob with ID: {}", job.getId());
+    if (job.getRecipientEmail() == null || job.getRecipientEmail().isBlank()) {
+        log.error("Recipient email is blank for ReportJob ID: {}", job.getId());
+        job.setStatus("FAILED");
+        job.setErrorMessage("Recipient email is missing or blank");
+        try {
+            entityService.addItem("ReportJob", ENTITY_VERSION, job).get();
+        } catch (Exception e) {
+            log.error("Error updating ReportJob status to FAILED: {}", e.getMessage());
+        }
+        return;
+    }
+
+    job.setStatus("PENDING"); // keep as PENDING until FETCHING
+    try {
+        job.setStatus("FETCHING");
+        entityService.addItem("ReportJob", ENTITY_VERSION, job).get();
+
+        // Fetch BTC/USD and BTC/EUR rates from CoinGecko API
+        String url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd,eur";
+        Map<String, Map<String, Double>> response = restTemplate.getForObject(url, Map.class);
+        if (response == null || !response.containsKey("bitcoin")) {
+            throw new RuntimeException("Invalid response from BTC price API");
+        }
+        Map<String, Double> btcPrices = response.get("bitcoin");
+        Double btcUsd = btcPrices.get("usd");
+        Double btcEur = btcPrices.get("eur");
+        if (btcUsd == null || btcEur == null) {
+            throw new RuntimeException("BTC/USD or BTC/EUR rates missing in API response");
+        }
+
+        // Create ConversionReport entity
+        ConversionReport report = new ConversionReport();
+        report.setJobTechnicalId(job.getId());
+        report.setCreatedTimestamp(LocalDateTime.now());
+        report.setBtcUsdRate(BigDecimal.valueOf(btcUsd));
+        report.setBtcEurRate(BigDecimal.valueOf(btcEur));
+        report.setStatus("CREATED");
+        report.setEmailSentTimestamp(null);
+
+        entityService.addItem("ConversionReport", ENTITY_VERSION, report).get();
+        log.info("Created ConversionReport for Job ID: {}", job.getId());
+
+        job.setStatus("FETCHING_COMPLETED");
+        entityService.addItem("ReportJob", ENTITY_VERSION, job).get();
+
+        // Send email (simulate email sending)
+        boolean emailSent = sendEmailReport(job.getRecipientEmail(), report);
+
+        if (emailSent) {
+            report.setStatus("EMAILED");
+            report.setEmailSentTimestamp(LocalDateTime.now());
+            entityService.addItem("ConversionReport", ENTITY_VERSION, report).get();
+
+            job.setStatus("COMPLETED");
+            job.setErrorMessage(null);
+            entityService.addItem("ReportJob", ENTITY_VERSION, job).get();
+
+            log.info("Email sent successfully for ReportJob ID: {}", job.getId());
+        } else {
+            job.setStatus("FAILED");
+            job.setErrorMessage("Failed to send email");
+            entityService.addItem("ReportJob", ENTITY_VERSION, job).get();
+            log.error("Failed to send email for ReportJob ID: {}", job.getId());
+        }
+
+    } catch (Exception e) {
+        log.error("Error processing ReportJob ID {}: {}", job.getId(), e.getMessage());
+        job.setStatus("FAILED");
+        job.setErrorMessage(e.getMessage());
+        try {
+            entityService.addItem("ReportJob", ENTITY_VERSION, job).get();
+        } catch (Exception ex) {
+            log.error("Error updating ReportJob status to FAILED: {}", ex.getMessage());
+        }
+    }
+}
+
+private boolean sendEmailReport(String recipientEmail, ConversionReport report) {
+    // Simulate email sending logic here
+    // In real implementation, use JavaMailSender or external email service API
+    log.info("Sending email report to {} with BTC/USD: {}, BTC/EUR: {}", recipientEmail, report.getBtcUsdRate(), report.getBtcEurRate());
+    return true; // Simulate success
+}
