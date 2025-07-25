@@ -1,8 +1,0 @@
-    private void processOrder(Order order) {
-        logger.info("Processing Order for petId: {}", order.getPetId());
-        if (order.getQuantity() <= 0) {
-            logger.error("Invalid order quantity");
-            return;
-        }
-        logger.info("Order processed with status: {}", order.getStatus());
-    }

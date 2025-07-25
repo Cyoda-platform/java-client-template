@@ -1,8 +1,0 @@
-    private void processPet(Pet pet) {
-        logger.info("Processing Pet with name: {}", pet.getName());
-        if (pet.getName().isBlank() || pet.getCategory().isBlank() || pet.getStatus().isBlank()) {
-            logger.error("Pet data validation failed");
-            return;
-        }
-        logger.info("Pet '{}' processed successfully", pet.getName());
-    }
