@@ -46,13 +46,11 @@ public class RecipientEmailInvalidCriterion implements CyodaCriterion {
 
     private EvaluationOutcome validateEntity(ReportJob entity) {
         if (entity.getRecipientEmail() == null || entity.getRecipientEmail().isBlank()) {
-            return EvaluationOutcome.success(); // This criterion considers missing email as valid for invalid path
+            return EvaluationOutcome.success();
         }
-        String email = entity.getRecipientEmail();
-        String emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$";
-        if (!email.matches(emailRegex)) {
-            return EvaluationOutcome.success(); // Valid for invalid path
+        if (!entity.getRecipientEmail().matches("^[\\w.%+-]+@[\\w.-]+\\.[a-zA-Z]{2,6}$")) {
+            return EvaluationOutcome.success();
         }
-        return EvaluationOutcome.fail("Recipient email is valid, expected invalid", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        return EvaluationOutcome.fail("Recipient email is valid", StandardEvalReasonCategories.VALIDATION_FAILURE);
     }
 }
