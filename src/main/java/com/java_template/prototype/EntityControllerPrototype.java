@@ -97,17 +97,20 @@ public class EntityControllerPrototype {
         }
         HackerNewsItem entity = wrapper.getEntity();
 
-        Map<String,Object> itemMap = new HashMap<>();
-        itemMap.put("id", entity.getId());
-        itemMap.put("type", entity.getType());
-        itemMap.put("state", entity.getState());
-        itemMap.put("createdAt", entity.getCreatedAt());
-        itemMap.put("rawJson", entity.getRawJson());
+        // Parse rawJson back to Map to return exactly the POSTed HackerNewsItem
+        Map<String, Object> itemMap;
+        try {
+            itemMap = objectMapper.readValue(entity.getRawJson(), Map.class);
+        } catch (Exception e) {
+            log.error("Failed to parse rawJson for HackerNewsItem {}", entity.getId(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Failed to parse stored item data"));
+        }
 
         Map<String,Object> response = new HashMap<>();
         response.put("item", itemMap);
         response.put("technicalId", wrapper.getTechnicalId());
         response.put("state", entity.getState());
+        response.put("createdAt", entity.getCreatedAt());
 
         return ResponseEntity.ok(response);
     }
