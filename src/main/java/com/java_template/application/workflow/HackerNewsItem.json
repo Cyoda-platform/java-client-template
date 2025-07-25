@@ -1,62 +1,62 @@
 {
-    "active": true,
-    "desc": "Workflow to validate HackerNewsItem entity mandatory fields and set state accordingly",
-    "initialState": "none",
-    "name": "HackerNewsItem Workflow",
-    "states": {
-        "invalid": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "name": "start_validation",
-                    "next": "validating"
-                }
-            ]
-        },
-        "valid": {
-            "transitions": []
-        },
-        "validating": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "HackerNewsItemMandatoryFieldsCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "valid_fields",
-                    "next": "valid",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "HackerNewsItemProcessor"
-                        }
-                    ]
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "HackerNewsItemMandatoryFieldsNegativeCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "invalid_fields",
-                    "next": "invalid"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow to validate HackerNewsItem entity mandatory fields and set state accordingly",
+  "initialState": "none",
+  "name": "HackerNewsItem Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "start_validation",
+          "next": "validating"
         }
+      ]
     },
-    "version": "1.0"
+    "validating": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "HackerNewsItemMandatoryFieldsCriterion"
+            },
+            "type": "function"
+          },
+          "name": "valid_fields",
+          "next": "valid",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "HackerNewsItemProcessor"
+            }
+          ]
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "HackerNewsItemMandatoryFieldsNegativeCriterion"
+            },
+            "type": "function"
+          },
+          "name": "invalid_fields",
+          "next": "invalid"
+        }
+      ]
+    },
+    "valid": {
+      "transitions": []
+    },
+    "invalid": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
