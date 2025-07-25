@@ -1,81 +1,81 @@
 {
-    "active": true,
-    "desc": "Workflow for processing DigestRequest entity from creation to completion",
-    "initialState": "none",
-    "name": "DigestRequest Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "data_fetch_failed": {
-            "transitions": [
-                {
-                    "name": "fail_processing",
-                    "next": "failed"
-                }
-            ]
-        },
-        "data_fetch_in_progress": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IsFetchSuccessfulCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "fetch_success",
-                    "next": "data_fetched"
-                },
-                {
-                    "name": "fetch_failure",
-                    "next": "data_fetch_failed"
-                }
-            ]
-        },
-        "data_fetched": {
-            "transitions": [
-                {
-                    "name": "compile_digest",
-                    "next": "completed"
-                }
-            ]
-        },
-        "email_validation": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IsEmailValidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "email_valid",
-                    "next": "data_fetch_in_progress"
-                },
-                {
-                    "name": "email_invalid",
-                    "next": "failed"
-                }
-            ]
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "name": "start_validation",
-                    "next": "email_validation"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow for processing DigestRequest entity from creation to completion",
+  "initialState": "none",
+  "name": "DigestRequest Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "start_validation",
+          "next": "email_validation"
         }
+      ]
     },
-    "version": "1.0"
+    "email_validation": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IsEmailValidCriterion"
+            },
+            "type": "function"
+          },
+          "name": "email_valid",
+          "next": "data_fetch_in_progress"
+        },
+        {
+          "name": "email_invalid",
+          "next": "failed"
+        }
+      ]
+    },
+    "data_fetch_in_progress": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IsFetchSuccessfulCriterion"
+            },
+            "type": "function"
+          },
+          "name": "fetch_success",
+          "next": "data_fetched"
+        },
+        {
+          "name": "fetch_failure",
+          "next": "data_fetch_failed"
+        }
+      ]
+    },
+    "data_fetched": {
+      "transitions": [
+        {
+          "name": "compile_digest",
+          "next": "completed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "data_fetch_failed": {
+      "transitions": [
+        {
+          "name": "fail_processing",
+          "next": "failed"
+        }
+      ]
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
