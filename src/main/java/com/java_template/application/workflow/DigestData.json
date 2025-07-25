@@ -1,153 +1,153 @@
 {
-    "active": true,
-    "desc": "Workflow for processing DigestRequest, DigestData and DigestEmail entities sequentially",
-    "initialState": "none",
-    "name": "DigestRequest Workflow",
-    "states": {
-        "CompilingDigestData": {
-            "transitions": [
-                {
-                    "name": "compilation_success",
-                    "next": "DigestDataCompleted"
-                },
-                {
-                    "name": "compilation_failure",
-                    "next": "DigestDataFailed"
-                }
-            ]
-        },
-        "DigestDataCompleted": {
-            "transitions": [
-                {
-                    "name": "start_digest_email_processing",
-                    "next": "DigestEmailCreated"
-                }
-            ]
-        },
-        "DigestDataCreated": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IsValidRetrievedDataCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "validate_data_and_start_compilation",
-                    "next": "CompilingDigestData",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "DigestDataProcessor"
-                        }
-                    ]
-                },
-                {
-                    "name": "invalid_retrieved_data",
-                    "next": "DigestDataFailed"
-                }
-            ]
-        },
-        "DigestDataFailed": {
-            "transitions": []
-        },
-        "DigestEmailCreated": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IsEmailStatusPendingCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "email_status_pending",
-                    "next": "SendingEmail"
-                },
-                {
-                    "name": "email_status_not_pending",
-                    "next": "DigestEmailFailed"
-                }
-            ]
-        },
-        "DigestEmailFailed": {
-            "transitions": []
-        },
-        "DigestEmailSent": {
-            "transitions": []
-        },
-        "DigestRequestCompleted": {
-            "transitions": [
-                {
-                    "name": "start_digest_data_processing",
-                    "next": "DigestDataCreated"
-                }
-            ]
-        },
-        "DigestRequestCreated": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IsValidEmailCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "validate_email_and_start_processing",
-                    "next": "ProcessingDigestRequest"
-                },
-                {
-                    "name": "invalid_email",
-                    "next": "DigestRequestFailed"
-                }
-            ]
-        },
-        "DigestRequestFailed": {
-            "transitions": []
-        },
-        "ProcessingDigestRequest": {
-            "transitions": [
-                {
-                    "name": "data_fetch_success",
-                    "next": "DigestRequestCompleted"
-                },
-                {
-                    "name": "data_fetch_failure",
-                    "next": "DigestRequestFailed"
-                }
-            ]
-        },
-        "SendingEmail": {
-            "transitions": [
-                {
-                    "name": "email_sent_success",
-                    "next": "DigestEmailSent"
-                },
-                {
-                    "name": "email_sent_failure",
-                    "next": "DigestEmailFailed"
-                }
-            ]
-        },
-        "none": {
-            "transitions": [
-                {
-                    "name": "start_digest_request_processing",
-                    "next": "DigestRequestCreated"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow for processing DigestRequest, DigestData and DigestEmail entities sequentially",
+  "initialState": "none",
+  "name": "DigestRequest Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "start_digest_request_processing",
+          "next": "DigestRequestCreated"
         }
+      ]
     },
-    "version": "1.0"
+    "DigestRequestCreated": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IsValidEmailCriterion"
+            },
+            "type": "function"
+          },
+          "name": "validate_email_and_start_processing",
+          "next": "ProcessingDigestRequest"
+        },
+        {
+          "name": "invalid_email",
+          "next": "DigestRequestFailed"
+        }
+      ]
+    },
+    "ProcessingDigestRequest": {
+      "transitions": [
+        {
+          "name": "data_fetch_success",
+          "next": "DigestRequestCompleted"
+        },
+        {
+          "name": "data_fetch_failure",
+          "next": "DigestRequestFailed"
+        }
+      ]
+    },
+    "DigestRequestCompleted": {
+      "transitions": [
+        {
+          "name": "start_digest_data_processing",
+          "next": "DigestDataCreated"
+        }
+      ]
+    },
+    "DigestDataCreated": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IsValidRetrievedDataCriterion"
+            },
+            "type": "function"
+          },
+          "name": "validate_data_and_start_compilation",
+          "next": "CompilingDigestData",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "DigestDataProcessor"
+            }
+          ]
+        },
+        {
+          "name": "invalid_retrieved_data",
+          "next": "DigestDataFailed"
+        }
+      ]
+    },
+    "CompilingDigestData": {
+      "transitions": [
+        {
+          "name": "compilation_success",
+          "next": "DigestDataCompleted"
+        },
+        {
+          "name": "compilation_failure",
+          "next": "DigestDataFailed"
+        }
+      ]
+    },
+    "DigestDataCompleted": {
+      "transitions": [
+        {
+          "name": "start_digest_email_processing",
+          "next": "DigestEmailCreated"
+        }
+      ]
+    },
+    "DigestEmailCreated": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IsEmailStatusPendingCriterion"
+            },
+            "type": "function"
+          },
+          "name": "email_status_pending",
+          "next": "SendingEmail"
+        },
+        {
+          "name": "email_status_not_pending",
+          "next": "DigestEmailFailed"
+        }
+      ]
+    },
+    "SendingEmail": {
+      "transitions": [
+        {
+          "name": "email_sent_success",
+          "next": "DigestEmailSent"
+        },
+        {
+          "name": "email_sent_failure",
+          "next": "DigestEmailFailed"
+        }
+      ]
+    },
+    "DigestEmailSent": {
+      "transitions": []
+    },
+    "DigestEmailFailed": {
+      "transitions": []
+    },
+    "DigestDataFailed": {
+      "transitions": []
+    },
+    "DigestRequestFailed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
