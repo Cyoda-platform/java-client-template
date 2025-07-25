@@ -1,6 +1,7 @@
 package com.java_template.application.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.HNItem;
@@ -40,8 +41,6 @@ public class Controller {
             }
 
             HNItem hnItem = new HNItem();
-            UUID technicalUUID = UUID.randomUUID();
-            hnItem.setTechnicalId(technicalUUID.toString());
 
             String originalId = "";
             if (hnItemPayload.containsKey("id")) {
@@ -54,7 +53,6 @@ public class Controller {
             hnItem.setPayload(payloadJson);
 
             hnItem.setStatus("INVALID");
-            hnItem.setCreatedAt(Instant.now().toString());
 
             CompletableFuture<UUID> idFuture = entityService.addItem(
                     "HNItem",
@@ -91,7 +89,7 @@ public class Controller {
         try {
             UUID technicalUUID = UUID.fromString(technicalId);
 
-            CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
+            CompletableFuture<ObjectNode> itemFuture = entityService.getItemWithMetaFields(
                     "HNItem",
                     ENTITY_VERSION,
                     technicalUUID
@@ -103,16 +101,28 @@ public class Controller {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "HNItem not found"));
             }
 
-            HNItem hnItem = objectMapper.treeToValue(node, HNItem.class);
+            // Extract business data from /data path
+            JsonNode dataNode = node.path("data");
+            if (dataNode.isMissingNode() || !dataNode.isObject()) {
+                logger.error("Invalid entity structure - missing data node for technicalId: {}", technicalId);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Invalid entity structure"));
+            }
+
+            HNItem hnItem = objectMapper.treeToValue(dataNode, HNItem.class);
+
+            // Extract metadata from /meta path
+            JsonNode metaNode = node.path("meta");
+            String entityId = metaNode.path("id").asText();
+            String creationDate = metaNode.path("creationDate").asText();
 
             Map<String, Object> payloadMap = objectMapper.readValue(hnItem.getPayload(), Map.class);
 
             Map<String, Object> response = new HashMap<>();
-            response.put("technicalId", hnItem.getTechnicalId());
+            response.put("technicalId", entityId);
             response.put("id", hnItem.getId());
             response.put("payload", payloadMap);
             response.put("status", hnItem.getStatus());
-            response.put("createdAt", hnItem.getCreatedAt());
+            response.put("createdAt", creationDate);
 
             logger.info("Retrieved HNItem with technicalId: {}", technicalId);
             return ResponseEntity.ok(response);

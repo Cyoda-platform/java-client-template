@@ -1,12 +1,15 @@
 ### 1. Entity Definitions
 
-``` 
-HNItem:
-- technicalId: UUID (unique datastore-generated identifier, not part of entity JSON)
+```
+HNItem (Business Data Only):
 - id: String (original Hacker News item ID, may be numeric or string)
 - payload: JSON (full Hacker News item JSON as received)
 - status: String (processing status: INVALID, VALIDATED)
-- createdAt: DateTime (entity creation timestamp)
+
+Entity Metadata (Managed by Cyoda Platform):
+- technicalId: UUID (unique datastore-generated identifier, retrieved via entityService.getItemWithMetaFields)
+- createdAt: DateTime (entity creation timestamp, retrieved via entityService.getItemWithMetaFields)
+- state: String (workflow state, retrieved via entityService.getItemWithMetaFields)
 ```
 
 ### 2. Process Method Flows

@@ -6,14 +6,16 @@ import org.cyoda.cloud.api.event.common.ModelSpec;
 import lombok.Data;
 import static com.java_template.common.config.Config.ENTITY_VERSION;
 
+/**
+ * ABOUTME: HNItem entity representing Hacker News items with business data only.
+ * Entity metadata (technicalId, createdAt) is managed by Cyoda platform and retrieved via entityService.getItemWithMetaFields.
+ */
 @Data
 public class HNItem implements CyodaEntity {
 
-    private String technicalId; // UUID as String
     private String id; // Original HN item ID
     private String payload; // JSON string containing full HN item
     private String status; // INVALID, VALIDATED
-    private String createdAt; // ISO8601 timestamp string
 
     public HNItem() {}
 
@@ -27,11 +29,9 @@ public class HNItem implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        if (technicalId == null || technicalId.isBlank()) return false;
         if (id == null || id.isBlank()) return false;
         if (payload == null || payload.isBlank()) return false;
         if (status == null || status.isBlank()) return false;
-        if (createdAt == null || createdAt.isBlank()) return false;
         return true;
     }
 }

@@ -56,7 +56,7 @@ public class HNItemProcessor implements CyodaProcessor {
 
     // Business logic from processHNItem method in the prototype
     private HNItem processEntityLogic(HNItem entity) {
-        logger.info("Processing HNItem with technicalId: {}", entity.getTechnicalId());
+        logger.info("Processing HNItem with id: {}", entity.getId());
 
         try {
             Map<String, Object> payloadMap = objectMapper.readValue(entity.getPayload(), Map.class);
@@ -64,26 +64,15 @@ public class HNItemProcessor implements CyodaProcessor {
             boolean hasId = payloadMap.containsKey("id") && payloadMap.get("id") != null && !payloadMap.get("id").toString().isBlank();
 
             if (hasType && hasId) {
-                // Create new immutable HNItem version with status VALIDATED
-                HNItem validatedItem = new HNItem();
-                validatedItem.setTechnicalId(entity.getTechnicalId());
-                validatedItem.setId(entity.getId());
-                validatedItem.setPayload(entity.getPayload());
-                validatedItem.setCreatedAt(entity.getCreatedAt());
-                validatedItem.setStatus("VALIDATED");
-
-                // The prototype mentions no update method in EntityService, so we skip update.
-                // Changes to current entity passed by reference are not persisted automatically.
-                // So we update the current entity reference directly.
-
+                // Update entity status to VALIDATED
                 entity.setStatus("VALIDATED");
 
-                logger.info("HNItem with technicalId {} validated successfully", entity.getTechnicalId());
+                logger.info("HNItem with id {} validated successfully", entity.getId());
             } else {
-                logger.info("HNItem with technicalId {} remains INVALID due to missing required fields", entity.getTechnicalId());
+                logger.info("HNItem with id {} remains INVALID due to missing required fields", entity.getId());
             }
         } catch (Exception e) {
-            logger.error("Failed to process validation for HNItem with technicalId: {}", entity.getTechnicalId(), e);
+            logger.error("Failed to process validation for HNItem with id: {}", entity.getId(), e);
         }
         return entity;
     }

@@ -40,17 +40,15 @@ public class EntityControllerPrototype {
 
             // Create HNItem entity with status INVALID initially
             HNItem hnItem = new HNItem();
-            hnItem.setTechnicalId(technicalId);
             hnItem.setId(originalId);
             hnItem.setPayload(payloadJson);
             hnItem.setStatus("INVALID");
-            hnItem.setCreatedAt(Instant.now().toString());
 
             // Save to cache
             hnItemCache.put(technicalId, hnItem);
 
             // Trigger processing
-            processHNItem(hnItem);
+            processHNItem(hnItem, technicalId);
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId);
@@ -80,11 +78,11 @@ public class EntityControllerPrototype {
             Map<String, Object> payloadMap = objectMapper.readValue(hnItem.getPayload(), Map.class);
 
             Map<String, Object> response = new HashMap<>();
-            response.put("technicalId", hnItem.getTechnicalId());
+            response.put("technicalId", technicalId);
             response.put("id", hnItem.getId());
             response.put("payload", payloadMap);
             response.put("status", hnItem.getStatus());
-            response.put("createdAt", hnItem.getCreatedAt());
+            // Note: createdAt is not available in prototype as it's entity metadata
 
             log.info("Retrieved HNItem with technicalId: {}", technicalId);
             return ResponseEntity.ok(response);
@@ -95,8 +93,8 @@ public class EntityControllerPrototype {
         }
     }
 
-    private void processHNItem(HNItem entity) {
-        log.info("Processing HNItem with technicalId: {}", entity.getTechnicalId());
+    private void processHNItem(HNItem entity, String technicalId) {
+        log.info("Processing HNItem with technicalId: {}", technicalId);
 
         // Validation: check presence of "type" and "id" fields in payload JSON
         try {
@@ -105,23 +103,18 @@ public class EntityControllerPrototype {
             boolean hasId = payloadMap.containsKey("id") && payloadMap.get("id") != null && !payloadMap.get("id").toString().isBlank();
 
             if (hasType && hasId) {
-                // Create new immutable HNItem version with status VALIDATED
-                HNItem validatedItem = new HNItem();
-                validatedItem.setTechnicalId(entity.getTechnicalId());
-                validatedItem.setId(entity.getId());
-                validatedItem.setPayload(entity.getPayload());
-                validatedItem.setCreatedAt(entity.getCreatedAt());
-                validatedItem.setStatus("VALIDATED");
+                // Update entity status to VALIDATED
+                entity.setStatus("VALIDATED");
 
                 // Save validated version in cache (overwrite with validated status)
-                hnItemCache.put(validatedItem.getTechnicalId(), validatedItem);
+                hnItemCache.put(technicalId, entity);
 
-                log.info("HNItem with technicalId {} validated successfully", entity.getTechnicalId());
+                log.info("HNItem with technicalId {} validated successfully", technicalId);
             } else {
-                log.info("HNItem with technicalId {} remains INVALID due to missing required fields", entity.getTechnicalId());
+                log.info("HNItem with technicalId {} remains INVALID due to missing required fields", technicalId);
             }
         } catch (JsonProcessingException e) {
-            log.error("Failed to process validation for HNItem with technicalId: {}", entity.getTechnicalId(), e);
+            log.error("Failed to process validation for HNItem with technicalId: {}", technicalId, e);
         }
     }
 }
