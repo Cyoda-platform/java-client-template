@@ -32,20 +32,20 @@ public class DigestEmailFailedCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(DigestEmail.class, this::validateEntity)
-            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
-            .complete();
+                .evaluateEntity(DigestEmail.class, this::validateEntity)
+                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+                .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "DigestEmailFailedCriterion".equals(modelSpec.operationName()) &&
-               "digestEmail".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+                "digestEmail".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
     private EvaluationOutcome validateEntity(DigestEmail entity) {
-        if (entity.getStatus() == null || !"FAILED".equals(entity.getStatus())) {
+        if (entity.getStatus() == null || !entity.getStatus().equalsIgnoreCase("FAILED")) {
             return EvaluationOutcome.fail("Email status must be FAILED", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
         return EvaluationOutcome.success();
