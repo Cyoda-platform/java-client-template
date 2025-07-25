@@ -1,0 +1,83 @@
+{
+    "active": true,
+    "desc": "Workflow for processing EmailDispatch entity through states PENDING, PROCESSING, SENT, and FAILED",
+    "initialState": "none",
+    "name": "EmailDispatch Workflow",
+    "states": {
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "start_processing_transition",
+                    "next": "pending"
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "CanStartProcessingCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "to_processing_if_can_start",
+                    "next": "processing"
+                },
+                {
+                    "name": "stay_pending_if_cannot_start",
+                    "next": "pending"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "CanSendEmailCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "to_sent_if_can_send_email",
+                    "next": "sent",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "EmailDispatchProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "HasProcessingFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "to_failed_if_processing_failed",
+                    "next": "failed"
+                }
+            ]
+        },
+        "sent": {
+            "transitions": []
+        }
+    },
+    "version": "1.0"
+}
