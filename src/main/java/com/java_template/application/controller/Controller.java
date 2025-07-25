@@ -1,12 +1,10 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.HNItem;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
@@ -19,8 +17,9 @@ import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.UUID;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/hnitems")
@@ -31,24 +30,19 @@ public class Controller {
     private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
     @PostMapping
-    public ResponseEntity<?> createHNItem(@RequestBody Map<String, Object> hnItemPayload) {
+    public ResponseEntity<?> createHNItem(@RequestBody Map<String, Object> hnItemPayload) throws JsonProcessingException {
         try {
-            // Validate payload presence if needed (optional)
             if (hnItemPayload == null || hnItemPayload.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Payload is empty"));
             }
 
-            // Create HNItem POJO from payload
             HNItem hnItem = new HNItem();
+            UUID technicalUUID = UUID.randomUUID();
+            hnItem.setTechnicalId(technicalUUID.toString());
 
-            // Generate technicalId as UUID string
-            String technicalId = UUID.randomUUID().toString();
-            hnItem.setTechnicalId(technicalId);
-
-            // Extract original id as String if present
             String originalId = "";
             if (hnItemPayload.containsKey("id")) {
                 Object idObj = hnItemPayload.get("id");
@@ -56,33 +50,36 @@ public class Controller {
             }
             hnItem.setId(originalId);
 
-            // Serialize payload to JSON string to store in HNItem
             String payloadJson = objectMapper.writeValueAsString(hnItemPayload);
             hnItem.setPayload(payloadJson);
 
             hnItem.setStatus("INVALID");
             hnItem.setCreatedAt(Instant.now().toString());
 
-            // Add item to external service asynchronously
             CompletableFuture<UUID> idFuture = entityService.addItem(
                     "HNItem",
                     ENTITY_VERSION,
                     hnItem
             );
 
-            UUID returnedId = idFuture.get(); // Wait for completion
-
-            // Trigger processing asynchronously (no await here)
+            UUID returnedId = idFuture.get();
 
             Map<String, String> response = new HashMap<>();
-            response.put("technicalId", technicalId);
+            response.put("technicalId", returnedId.toString());
 
-            logger.info("Created HNItem with technicalId: {}", technicalId);
+            logger.info("Created HNItem with technicalId: {}", returnedId);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
 
         } catch (IllegalArgumentException e) {
             logger.error("Invalid argument in createHNItem", e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
+        } catch (ExecutionException e) {
+            logger.error("Execution error on creating HNItem", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Thread interrupted on creating HNItem", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
         } catch (Exception e) {
             logger.error("Unexpected error on creating HNItem", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
@@ -90,7 +87,7 @@ public class Controller {
     }
 
     @GetMapping("/{technicalId}")
-    public ResponseEntity<?> getHNItem(@PathVariable String technicalId) {
+    public ResponseEntity<?> getHNItem(@PathVariable String technicalId) throws JsonProcessingException {
         try {
             UUID technicalUUID = UUID.fromString(technicalId);
 
@@ -106,28 +103,16 @@ public class Controller {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "HNItem not found"));
             }
 
-            // Extract fields from ObjectNode
-            // technicalId field is present, remove or keep as needed
-            // Deserialize payload string back to Map
+            HNItem hnItem = objectMapper.treeToValue(node, HNItem.class);
 
-            String payloadStr = node.has("payload") && !node.get("payload").isNull()
-                    ? node.get("payload").asText()
-                    : "{}";
-
-            Map<String, Object> payloadMap;
-            try {
-                payloadMap = objectMapper.readValue(payloadStr, Map.class);
-            } catch (Exception e) {
-                logger.error("Failed to deserialize HNItem payload for technicalId: {}", technicalId, e);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Failed to parse stored payload"));
-            }
+            Map<String, Object> payloadMap = objectMapper.readValue(hnItem.getPayload(), Map.class);
 
             Map<String, Object> response = new HashMap<>();
-            response.put("technicalId", node.has("technicalId") ? node.get("technicalId").asText() : technicalId);
-            response.put("id", node.has("id") ? node.get("id").asText() : "");
+            response.put("technicalId", hnItem.getTechnicalId());
+            response.put("id", hnItem.getId());
             response.put("payload", payloadMap);
-            response.put("status", node.has("status") ? node.get("status").asText() : "");
-            response.put("createdAt", node.has("createdAt") ? node.get("createdAt").asText() : "");
+            response.put("status", hnItem.getStatus());
+            response.put("createdAt", hnItem.getCreatedAt());
 
             logger.info("Retrieved HNItem with technicalId: {}", technicalId);
             return ResponseEntity.ok(response);
@@ -144,6 +129,10 @@ public class Controller {
                 logger.error("Execution error when retrieving HNItem: {}", technicalId, e);
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
             }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Thread interrupted when retrieving HNItem: {}", technicalId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
         } catch (Exception e) {
             logger.error("Unexpected error when retrieving HNItem: {}", technicalId, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
