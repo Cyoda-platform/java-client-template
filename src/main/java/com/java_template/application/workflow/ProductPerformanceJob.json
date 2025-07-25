@@ -1,0 +1,111 @@
+{
+    "active": true,
+    "desc": "Workflow for processing ProductPerformanceJob entity from creation to completion with validation, data extraction, analysis, reporting, and email dispatch.",
+    "initialState": "none",
+    "name": "ProductPerformanceJob Workflow",
+    "states": {
+        "analyzing_data": {
+            "transitions": [
+                {
+                    "name": "analyze_and_generate_report",
+                    "next": "generating_report",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "ProductPerformanceJobProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "completed": {
+            "transitions": []
+        },
+        "extracting_data": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsProductDataValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "data_valid",
+                    "next": "analyzing_data"
+                },
+                {
+                    "name": "data_invalid",
+                    "next": "failed"
+                }
+            ]
+        },
+        "failed": {
+            "transitions": []
+        },
+        "generating_report": {
+            "transitions": [
+                {
+                    "name": "persist_report",
+                    "next": "sending_email"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "start_validation",
+                    "next": "validating"
+                }
+            ]
+        },
+        "sending_email": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsEmailSentCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "email_sent",
+                    "next": "completed"
+                },
+                {
+                    "name": "email_failed",
+                    "next": "failed"
+                }
+            ]
+        },
+        "validating": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsJobValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "valid_job",
+                    "next": "extracting_data"
+                },
+                {
+                    "name": "invalid_job",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
