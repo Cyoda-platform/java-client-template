@@ -1,73 +1,73 @@
 {
-    "active": true,
-    "desc": "Workflow representing order processing lifecycle",
-    "initialState": "none",
-    "name": "Order Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "name": "start_validation",
-                    "next": "validate_quantity"
-                }
-            ]
-        },
-        "process_order": {
-            "transitions": [
-                {
-                    "name": "complete_order",
-                    "next": "completed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "OrderProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "validate_pet_availability": {
-            "transitions": [
-                {
-                    "name": "pet_available",
-                    "next": "process_order"
-                },
-                {
-                    "name": "pet_not_available",
-                    "next": "failed"
-                }
-            ]
-        },
-        "validate_quantity": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IsQuantityValid"
-                        },
-                        "type": "function"
-                    },
-                    "name": "quantity_valid",
-                    "next": "validate_pet_availability"
-                },
-                {
-                    "name": "quantity_invalid",
-                    "next": "failed"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow representing order processing lifecycle",
+  "initialState": "none",
+  "name": "Order Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "start_validation",
+          "next": "validate_quantity"
         }
+      ]
     },
-    "version": "1.0"
+    "validate_quantity": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IsQuantityValid"
+            },
+            "type": "function"
+          },
+          "name": "quantity_valid",
+          "next": "validate_pet_availability"
+        },
+        {
+          "name": "quantity_invalid",
+          "next": "failed"
+        }
+      ]
+    },
+    "validate_pet_availability": {
+      "transitions": [
+        {
+          "name": "pet_available",
+          "next": "process_order"
+        },
+        {
+          "name": "pet_not_available",
+          "next": "failed"
+        }
+      ]
+    },
+    "process_order": {
+      "transitions": [
+        {
+          "name": "complete_order",
+          "next": "completed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "OrderProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
