@@ -59,7 +59,7 @@ public class Controller {
 
             logger.info("DigestRequest created with ID: {}", technicalId);
 
-            processDigestRequest(technicalId.toString(), request);
+            // processDigestRequest call removed
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException e) {
@@ -137,118 +137,4 @@ public class Controller {
         }
     }
 
-    // processDigestRequest: validate, call external API, save DigestData, trigger processDigestData
-    private void processDigestRequest(String digestRequestId, DigestRequest request) {
-        logger.info("Processing DigestRequest with ID: {}", digestRequestId);
-
-        if (!request.getEmail().matches("^[\\w-.]+@[\\w-]+\\.[a-z]{2,}$")) {
-            logger.error("Invalid email format for DigestRequest ID: {}", digestRequestId);
-            return;
-        }
-
-        String endpoint = "/pet/findByStatus";
-        String params = "status=available";
-
-        if (request.getRequestPayload() != null && !request.getRequestPayload().isBlank()) {
-            try {
-                JsonNode jsonNode = objectMapper.readTree(request.getRequestPayload());
-                if (jsonNode.has("endpoint")) {
-                    endpoint = jsonNode.get("endpoint").asText();
-                }
-                if (jsonNode.has("params")) {
-                    JsonNode paramsNode = jsonNode.get("params");
-                    List<String> paramPairs = new ArrayList<>();
-                    paramsNode.fieldNames().forEachRemaining(field -> {
-                        paramPairs.add(field + "=" + paramsNode.get(field).asText());
-                    });
-                    params = String.join("&", paramPairs);
-                }
-            } catch (Exception ex) {
-                logger.error("Failed to parse requestPayload for DigestRequest ID {}: {}", digestRequestId, ex.getMessage());
-            }
-        }
-
-        String url = "https://petstore.swagger.io/v2" + endpoint + "?" + params;
-
-        try {
-            String responseBody = restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(new HttpHeaders()), String.class).getBody();
-
-            DigestData digestData = new DigestData();
-            digestData.setDigestRequestId(digestRequestId);
-            digestData.setRetrievedData(responseBody);
-            digestData.setFormatType("html");
-
-            CompletableFuture<UUID> digestDataIdFuture = entityService.addItem(ENTITY_DIGEST_DATA, ENTITY_VERSION, digestData);
-            UUID digestDataId = digestDataIdFuture.get();
-
-            logger.info("DigestData saved with ID: {} for DigestRequest ID: {}", digestDataId, digestRequestId);
-
-            processDigestData(digestDataId.toString(), digestData);
-
-        } catch (Exception e) {
-            logger.error("External API call failed for DigestRequest ID {}: {}", digestRequestId, e.getMessage());
-        }
-    }
-
-    // processDigestData: compile data into HTML digest, save DigestEmail, trigger processDigestEmail
-    private void processDigestData(String digestDataId, DigestData digestData) {
-        logger.info("Processing DigestData with ID: {}", digestDataId);
-
-        String compiledHtml = "<html><body><h1>Digest Data</h1><pre>" + digestData.getRetrievedData() + "</pre></body></html>";
-
-        DigestEmail digestEmail = new DigestEmail();
-        digestEmail.setDigestRequestId(digestData.getDigestRequestId());
-        digestEmail.setEmailContent(compiledHtml);
-        digestEmail.setStatus("PENDING");
-
-        try {
-            CompletableFuture<UUID> digestEmailIdFuture = entityService.addItem(ENTITY_DIGEST_EMAIL, ENTITY_VERSION, digestEmail);
-            UUID digestEmailId = digestEmailIdFuture.get();
-
-            logger.info("DigestEmail saved with ID: {} for DigestRequest ID: {}", digestEmailId, digestData.getDigestRequestId());
-
-            processDigestEmail(digestEmailId.toString(), digestEmail);
-
-        } catch (Exception e) {
-            logger.error("Failed to save DigestEmail for DigestData ID {}: {}", digestDataId, e.getMessage());
-        }
-    }
-
-    // processDigestEmail: send email and update status
-    private void processDigestEmail(String digestEmailId, DigestEmail digestEmail) {
-        logger.info("Processing DigestEmail with ID: {}", digestEmailId);
-
-        try {
-            // Retrieve the DigestRequest entity to get recipient email
-            UUID digestRequestUUID = UUID.fromString(digestEmail.getDigestRequestId());
-            CompletableFuture<ObjectNode> requestFuture = entityService.getItem(ENTITY_DIGEST_REQUEST, ENTITY_VERSION, digestRequestUUID);
-            ObjectNode requestNode = requestFuture.get();
-            if (requestNode == null || requestNode.isEmpty()) {
-                logger.error("Recipient email not found for DigestEmail ID: {}", digestEmailId);
-                digestEmail.setStatus("FAILED");
-                // TODO: Update entity - no update method in EntityService - skip
-                return;
-            }
-            DigestRequest digestRequest = objectMapper.treeToValue(requestNode, DigestRequest.class);
-            String recipient = digestRequest.getEmail();
-            if (recipient == null || recipient.isBlank()) {
-                logger.error("Recipient email missing for DigestEmail ID: {}", digestEmailId);
-                digestEmail.setStatus("FAILED");
-                // TODO: Update entity - no update method in EntityService - skip
-                return;
-            }
-
-            // Simulate sending email
-            logger.info("Sending digest email to: {}", recipient);
-            logger.info("Email content: {}", digestEmail.getEmailContent());
-            // Simulate success
-            digestEmail.setStatus("SENT");
-            // TODO: Update entity - no update method in EntityService - skip
-            logger.info("DigestEmail ID: {} sent successfully.", digestEmailId);
-        } catch (Exception e) {
-            logger.error("Failed to send DigestEmail ID: {}: {}", digestEmailId, e.getMessage());
-            digestEmail.setStatus("FAILED");
-            // TODO: Update entity - no update method in EntityService - skip
-        }
-    }
 }
