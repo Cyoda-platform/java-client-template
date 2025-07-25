@@ -1,0 +1,12 @@
+    private void processWorkflow(Workflow workflow) {
+        logger.info("Processing Workflow with name: {}", workflow.getName());
+        if (workflow.getPetStoreApiUrl() == null || workflow.getPetStoreApiUrl().isBlank()) {
+            logger.error("Invalid PetStore API URL");
+            workflow.setStatus("FAILED");
+            return;
+        }
+        workflow.setStatus("PROCESSING");
+        logger.info("Fetching pets and orders from Petstore API: {}", workflow.getPetStoreApiUrl());
+        workflow.setStatus("COMPLETED");
+        logger.info("Workflow '{}' completed successfully", workflow.getName());
+    }
