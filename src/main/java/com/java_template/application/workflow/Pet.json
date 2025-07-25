@@ -1,8 +1,8 @@
 {
     "active": true,
-    "desc": "Workflow to process Order entity through validation and completion",
+    "desc": "Workflow to process Petstore API data and persist pets and orders",
     "initialState": "none",
-    "name": "Order Workflow",
+    "name": "PetstoreWorkflow",
     "states": {
         "completed": {
             "transitions": []
@@ -13,41 +13,51 @@
         "none": {
             "transitions": [
                 {
-                    "name": "start_validation",
-                    "next": "validate_quantity"
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetStoreApiUrlValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "start_if_api_url_valid",
+                    "next": "pending"
                 }
             ]
         },
-        "process_order": {
+        "pending": {
             "transitions": [
                 {
-                    "name": "complete_order",
-                    "next": "completed",
+                    "name": "begin_processing",
+                    "next": "processing",
                     "processors": [
                         {
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
                             "executionMode": "SYNC",
-                            "name": "PetProcessor"
+                            "name": "WorkflowProcessor"
                         }
                     ]
-                }
-            ]
-        },
-        "validate_pet_availability": {
-            "transitions": [
-                {
-                    "name": "pet_available",
-                    "next": "process_order"
                 },
                 {
-                    "name": "pet_not_available",
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetStoreApiUrlInvalidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "fail_if_api_url_invalid",
                     "next": "failed"
                 }
             ]
         },
-        "validate_quantity": {
+        "processing": {
             "transitions": [
                 {
                     "criterion": {
@@ -55,15 +65,24 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "OrderQuantityCriterion"
+                            "name": "FetchPetstoreDataSuccessCriterion"
                         },
                         "type": "function"
                     },
-                    "name": "quantity_valid",
-                    "next": "validate_pet_availability"
+                    "name": "complete_if_fetch_success",
+                    "next": "completed"
                 },
                 {
-                    "name": "quantity_invalid",
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "FetchPetstoreDataFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "fail_if_fetch_failed",
                     "next": "failed"
                 }
             ]
