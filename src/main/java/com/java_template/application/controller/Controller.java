@@ -57,7 +57,7 @@ public class Controller {
             logger.info("Mail entity created with technicalId: {}", technicalId);
 
             // Trigger processing
-            processMail(mail);
+            // processMail(mail); // removed process method call as processMail is extracted
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException e) {
@@ -91,49 +91,4 @@ public class Controller {
         }
     }
 
-    // Core processing method for Mail entity
-    private void processMail(Mail mail) {
-        logger.info("Processing Mail entity with mailList size: {}", mail.getMailList().size());
-
-        // Validate criteria and invoke corresponding processor
-        if (Boolean.TRUE.equals(mail.getIsHappy())) {
-            if (checkMailHappy(mail)) {
-                sendHappyMail(mail);
-            } else {
-                logger.error("Mail did not pass happy mail criteria");
-            }
-        } else {
-            if (checkMailGloomy(mail)) {
-                sendGloomyMail(mail);
-            } else {
-                logger.error("Mail did not pass gloomy mail criteria");
-            }
-        }
-    }
-
-    // Criteria check for happy mail
-    private boolean checkMailHappy(Mail mail) {
-        // isHappy true means happy mail
-        return Boolean.TRUE.equals(mail.getIsHappy());
-    }
-
-    // Criteria check for gloomy mail
-    private boolean checkMailGloomy(Mail mail) {
-        // isHappy false means gloomy mail
-        return Boolean.FALSE.equals(mail.getIsHappy());
-    }
-
-    // Processor for sending happy mail
-    private void sendHappyMail(Mail mail) {
-        // Simulate sending happy mail - real implementation would send emails here
-        logger.info("Sending HAPPY mail to recipients: {}", mail.getMailList());
-        // Business logic like sending email, updating status, notifications, etc.
-    }
-
-    // Processor for sending gloomy mail
-    private void sendGloomyMail(Mail mail) {
-        // Simulate sending gloomy mail - real implementation would send emails here
-        logger.info("Sending GLOOMY mail to recipients: {}", mail.getMailList());
-        // Business logic like sending email, updating status, notifications, etc.
-    }
 }
