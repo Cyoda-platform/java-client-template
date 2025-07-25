@@ -1,117 +1,117 @@
 {
-    "active": true,
-    "desc": "Workflow for processing customer orders from creation to shipment",
-    "initialState": "none",
-    "name": "Order Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": [
-                {
-                    "name": "end_failed",
-                    "next": "terminal"
-                }
-            ]
-        },
-        "none": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "ValidateOrderCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "start_validation",
-                    "next": "validation"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "ProcessReservationCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "reserve_inventory",
-                    "next": "shipped",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "CustomerProcessor"
-                        }
-                    ]
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "ProcessReservationFailedCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "reservation_failed",
-                    "next": "failed"
-                }
-            ]
-        },
-        "shipped": {
-            "transitions": [
-                {
-                    "name": "complete_order",
-                    "next": "completed"
-                }
-            ]
-        },
-        "terminal": {
-            "transitions": []
-        },
-        "validation": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "ValidateOrderCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "validation_passed",
-                    "next": "processing"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "ValidateOrderFailedCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "validation_failed",
-                    "next": "failed"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow for processing customer orders from creation to shipment",
+  "initialState": "none",
+  "name": "Order Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "ValidateOrderCriterion"
+            },
+            "type": "function"
+          },
+          "name": "start_validation",
+          "next": "validation"
         }
+      ]
     },
-    "version": "1.0"
+    "validation": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "ValidateOrderCriterion"
+            },
+            "type": "function"
+          },
+          "name": "validation_passed",
+          "next": "processing"
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "ValidateOrderFailedCriterion"
+            },
+            "type": "function"
+          },
+          "name": "validation_failed",
+          "next": "failed"
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "ProcessReservationCriterion"
+            },
+            "type": "function"
+          },
+          "name": "reserve_inventory",
+          "next": "shipped",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "CustomerProcessor"
+            }
+          ]
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "ProcessReservationFailedCriterion"
+            },
+            "type": "function"
+          },
+          "name": "reservation_failed",
+          "next": "failed"
+        }
+      ]
+    },
+    "shipped": {
+      "transitions": [
+        {
+          "name": "complete_order",
+          "next": "completed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": [
+        {
+          "name": "end_failed",
+          "next": "terminal"
+        }
+      ]
+    },
+    "terminal": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
