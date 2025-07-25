@@ -1,62 +1,62 @@
 {
-    "active": true,
-    "desc": "Workflow for validating and processing HNItem entities",
-    "initialState": "none",
-    "name": "HNItem Workflow",
-    "states": {
-        "invalid": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "name": "start_processing",
-                    "next": "validating"
-                }
-            ]
-        },
-        "validated": {
-            "transitions": []
-        },
-        "validating": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "HNItemTypeAndIdCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "valid_payload",
-                    "next": "validated",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "HNItemProcessor"
-                        }
-                    ]
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "HNItemTypeAndIdCriterionNegation"
-                        },
-                        "type": "function"
-                    },
-                    "name": "invalid_payload",
-                    "next": "invalid"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow for validating and processing HNItem entities",
+  "initialState": "none",
+  "name": "HNItem Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "start_processing",
+          "next": "validating"
         }
+      ]
     },
-    "version": "1.0"
+    "validating": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "HNItemTypeAndIdCriterion"
+            },
+            "type": "function"
+          },
+          "name": "valid_payload",
+          "next": "validated",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "HNItemProcessor"
+            }
+          ]
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "HNItemTypeAndIdCriterionNegation"
+            },
+            "type": "function"
+          },
+          "name": "invalid_payload",
+          "next": "invalid"
+        }
+      ]
+    },
+    "validated": {
+      "transitions": []
+    },
+    "invalid": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
