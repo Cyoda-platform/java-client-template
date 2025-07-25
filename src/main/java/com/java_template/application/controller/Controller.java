@@ -1,0 +1,328 @@
+package com.java_template.application.controller;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.java_template.application.entity.DigestData;
+import com.java_template.application.entity.DigestEmail;
+import com.java_template.application.entity.DigestRequestJob;
+import com.java_template.common.service.EntityService;
+import com.java_template.common.util.Condition;
+import com.java_template.common.util.SearchConditionRequest;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Instant;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.UUID;
+
+import static com.java_template.common.config.Config.*;
+
+@RestController
+@RequestMapping(path = "/entity")
+@RequiredArgsConstructor
+@Slf4j
+public class Controller {
+
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
+
+    private final EntityService entityService;
+
+    private final HttpClient httpClient = HttpClient.newHttpClient();
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    private static final Pattern EMAIL_PATTERN = Pattern.compile(
+            "^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}$",
+            Pattern.CASE_INSENSITIVE);
+
+    // We keep local counters only for generating technicalIds prefixes (for response)
+    // Actual data is stored remotely in EntityService with UUID keys
+    private final AtomicLong digestRequestJobCounter = new AtomicLong(1);
+    private final AtomicLong digestDataCounter = new AtomicLong(1);
+    private final AtomicLong digestEmailCounter = new AtomicLong(1);
+
+    @PostMapping("/digestRequestJob")
+    public ResponseEntity<?> createDigestRequestJob(@RequestBody DigestRequestJob requestJob) {
+        try {
+            if (requestJob == null) {
+                logger.error("Received null DigestRequestJob");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Request body is missing");
+            }
+            if (requestJob.getEmail() == null || requestJob.getEmail().isBlank()) {
+                logger.error("Email is blank");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Email is required");
+            }
+            if (!EMAIL_PATTERN.matcher(requestJob.getEmail()).matches()) {
+                logger.error("Invalid email format: {}", requestJob.getEmail());
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid email format");
+            }
+            if (requestJob.getMetadata() == null || requestJob.getMetadata().isBlank()) {
+                logger.error("Metadata is blank");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Metadata is required");
+            }
+
+            requestJob.setStatus("PENDING");
+            requestJob.setCreatedAt(Instant.now());
+
+            CompletableFuture<UUID> idFuture = entityService.addItem("digestRequestJob", ENTITY_VERSION, requestJob);
+            UUID technicalId = idFuture.get(); // blocking wait here for simplicity
+
+            logger.info("DigestRequestJob created with technicalId: {}", technicalId);
+
+            processDigestRequestJob(technicalId, requestJob);
+
+            Map<String, String> response = new HashMap<>();
+            response.put("technicalId", technicalId.toString());
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+
+        } catch (IllegalArgumentException e) {
+            logger.error("Illegal argument: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        } catch (Exception e) {
+            logger.error("Failed to create DigestRequestJob", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal server error");
+        }
+    }
+
+    @GetMapping("/digestRequestJob/{id}")
+    public ResponseEntity<?> getDigestRequestJob(@PathVariable("id") String idStr) {
+        try {
+            UUID id = UUID.fromString(idStr);
+            CompletableFuture<ObjectNode> itemFuture = entityService.getItem("digestRequestJob", ENTITY_VERSION, id);
+            ObjectNode node = itemFuture.get();
+            if (node == null) {
+                logger.error("DigestRequestJob not found for id: {}", idStr);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("DigestRequestJob not found");
+            }
+            DigestRequestJob job = objectMapper.treeToValue(node, DigestRequestJob.class);
+            return ResponseEntity.ok(job);
+        } catch (IllegalArgumentException e) {
+            logger.error("Invalid UUID format: {}", idStr);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid id format");
+        } catch (Exception e) {
+            logger.error("Failed to get DigestRequestJob with id: {}", idStr, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal server error");
+        }
+    }
+
+    @GetMapping("/digestData/{id}")
+    public ResponseEntity<?> getDigestData(@PathVariable("id") String idStr) {
+        try {
+            UUID id = UUID.fromString(idStr);
+            CompletableFuture<ObjectNode> itemFuture = entityService.getItem("digestData", ENTITY_VERSION, id);
+            ObjectNode node = itemFuture.get();
+            if (node == null) {
+                logger.error("DigestData not found for id: {}", idStr);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("DigestData not found");
+            }
+            DigestData data = objectMapper.treeToValue(node, DigestData.class);
+            return ResponseEntity.ok(data);
+        } catch (IllegalArgumentException e) {
+            logger.error("Invalid UUID format: {}", idStr);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid id format");
+        } catch (Exception e) {
+            logger.error("Failed to get DigestData with id: {}", idStr, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal server error");
+        }
+    }
+
+    @GetMapping("/digestEmail/{id}")
+    public ResponseEntity<?> getDigestEmail(@PathVariable("id") String idStr) {
+        try {
+            UUID id = UUID.fromString(idStr);
+            CompletableFuture<ObjectNode> itemFuture = entityService.getItem("digestEmail", ENTITY_VERSION, id);
+            ObjectNode node = itemFuture.get();
+            if (node == null) {
+                logger.error("DigestEmail not found for id: {}", idStr);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("DigestEmail not found");
+            }
+            DigestEmail email = objectMapper.treeToValue(node, DigestEmail.class);
+            return ResponseEntity.ok(email);
+        } catch (IllegalArgumentException e) {
+            logger.error("Invalid UUID format: {}", idStr);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid id format");
+        } catch (Exception e) {
+            logger.error("Failed to get DigestEmail with id: {}", idStr, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal server error");
+        }
+    }
+
+    // Processing DigestRequestJob - triggers data retrieval and next steps
+    private void processDigestRequestJob(UUID technicalId, DigestRequestJob job) {
+        logger.info("Processing DigestRequestJob with ID: {}", technicalId);
+
+        try {
+            // Update status to PROCESSING
+            job.setStatus("PROCESSING");
+            entityService.addItem("digestRequestJob", ENTITY_VERSION, job).join();
+
+            // Parse metadata JSON for endpoint and params
+            String endpoint = "/pet/findByStatus"; // default
+            Map<String, Object> params = new HashMap<>();
+            try {
+                Map<String,Object> metadataMap = objectMapper.readValue(job.getMetadata(), Map.class);
+                if (metadataMap.containsKey("endpoint")) {
+                    endpoint = metadataMap.get("endpoint").toString();
+                }
+                if (metadataMap.containsKey("params")) {
+                    Object paramObj = metadataMap.get("params");
+                    if (paramObj instanceof Map) {
+                        params = (Map<String,Object>) paramObj;
+                    }
+                }
+            } catch (Exception e) {
+                logger.error("Failed to parse metadata JSON: {}", e.getMessage());
+            }
+
+            // Build query string for params
+            StringBuilder queryBuilder = new StringBuilder();
+            if (!params.isEmpty()) {
+                queryBuilder.append("?");
+                params.forEach((k,v) -> {
+                    queryBuilder.append(k).append("=").append(v.toString()).append("&");
+                });
+                queryBuilder.setLength(queryBuilder.length() - 1); // remove trailing &
+            }
+
+            String url = "https://petstore.swagger.io/v2" + endpoint + queryBuilder.toString();
+
+            try {
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(new URI(url))
+                        .GET()
+                        .build();
+
+                HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+                if (response.statusCode() == 200) {
+                    String retrievedData = response.body();
+
+                    // Create DigestData entity
+                    DigestData digestData = new DigestData();
+                    digestData.setJobTechnicalId(technicalId.toString());
+                    digestData.setRetrievedData(retrievedData);
+                    digestData.setFormat("HTML"); // defaulting to HTML for now
+                    digestData.setCreatedAt(Instant.now());
+
+                    CompletableFuture<UUID> dataIdFuture = entityService.addItem("digestData", ENTITY_VERSION, digestData);
+                    UUID digestDataId = dataIdFuture.get();
+
+                    logger.info("DigestData created with ID: {}", digestDataId);
+
+                    processDigestData(digestDataId, digestData);
+
+                } else {
+                    logger.error("External API call failed with status: {}", response.statusCode());
+                    job.setStatus("FAILED");
+                    entityService.addItem("digestRequestJob", ENTITY_VERSION, job).join();
+                }
+            } catch (Exception e) {
+                logger.error("Exception during external API call: {}", e.getMessage());
+                job.setStatus("FAILED");
+                entityService.addItem("digestRequestJob", ENTITY_VERSION, job).join();
+            }
+        } catch (Exception e) {
+            logger.error("Error processing DigestRequestJob: {}", e.getMessage());
+        }
+    }
+
+    // Processing DigestData - compile data and create DigestEmail
+    private void processDigestData(UUID digestDataId, DigestData data) {
+        logger.info("Processing DigestData with ID: {}", digestDataId);
+
+        try {
+            // Compile retrieved data into digest content
+            String compiledContent = compileDigestContent(data.getRetrievedData(), data.getFormat());
+
+            // Create DigestEmail entity
+            DigestEmail digestEmail = new DigestEmail();
+            digestEmail.setJobTechnicalId(data.getJobTechnicalId());
+
+            // Retrieve corresponding DigestRequestJob to get email
+            UUID jobId = UUID.fromString(data.getJobTechnicalId());
+            CompletableFuture<ObjectNode> jobFuture = entityService.getItem("digestRequestJob", ENTITY_VERSION, jobId);
+            ObjectNode jobNode = jobFuture.get();
+            if (jobNode != null) {
+                DigestRequestJob job = objectMapper.treeToValue(jobNode, DigestRequestJob.class);
+                digestEmail.setEmail(job.getEmail());
+            }
+
+            digestEmail.setContent(compiledContent);
+            digestEmail.setSentAt(null);
+            digestEmail.setStatus("PENDING");
+
+            CompletableFuture<UUID> emailIdFuture = entityService.addItem("digestEmail", ENTITY_VERSION, digestEmail);
+            UUID digestEmailId = emailIdFuture.get();
+
+            logger.info("DigestEmail created with ID: {}", digestEmailId);
+
+            processDigestEmail(digestEmailId, digestEmail);
+
+        } catch (Exception e) {
+            logger.error("Error processing DigestData: {}", e.getMessage());
+        }
+    }
+
+    private String compileDigestContent(String rawData, String format) {
+        if ("HTML".equalsIgnoreCase(format)) {
+            return "<html><body><pre>" + rawData + "</pre></body></html>";
+        } else {
+            return rawData;
+        }
+    }
+
+    // Processing DigestEmail - send the email and update status
+    private void processDigestEmail(UUID digestEmailId, DigestEmail email) {
+        logger.info("Processing DigestEmail with ID: {}", digestEmailId);
+
+        try {
+            // Simulate email sending - replace with real email sending logic in production
+            logger.info("Sending email to: {}", email.getEmail());
+            // Simulated send success
+            email.setStatus("SENT");
+            email.setSentAt(Instant.now());
+
+            entityService.addItem("digestEmail", ENTITY_VERSION, email).join();
+
+            // Update related job status to COMPLETED
+            UUID jobId = UUID.fromString(email.getJobTechnicalId());
+            CompletableFuture<ObjectNode> jobFuture = entityService.getItem("digestRequestJob", ENTITY_VERSION, jobId);
+            ObjectNode jobNode = jobFuture.get();
+            if (jobNode != null) {
+                DigestRequestJob job = objectMapper.treeToValue(jobNode, DigestRequestJob.class);
+                job.setStatus("COMPLETED");
+                entityService.addItem("digestRequestJob", ENTITY_VERSION, job).join();
+            }
+            logger.info("Email sent successfully to: {}", email.getEmail());
+        } catch (Exception e) {
+            logger.error("Failed to send email: {}", e.getMessage());
+            email.setStatus("FAILED");
+            entityService.addItem("digestEmail", ENTITY_VERSION, email).join();
+
+            try {
+                UUID jobId = UUID.fromString(email.getJobTechnicalId());
+                CompletableFuture<ObjectNode> jobFuture = entityService.getItem("digestRequestJob", ENTITY_VERSION, jobId);
+                ObjectNode jobNode = jobFuture.get();
+                if (jobNode != null) {
+                    DigestRequestJob job = objectMapper.treeToValue(jobNode, DigestRequestJob.class);
+                    job.setStatus("FAILED");
+                    entityService.addItem("digestRequestJob", ENTITY_VERSION, job).join();
+                }
+            } catch (Exception ex) {
+                logger.error("Failed to update job status to FAILED: {}", ex.getMessage());
+            }
+        }
+    }
+}
