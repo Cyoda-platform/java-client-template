@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class DigestRequestJobValidationFailCriterion implements CyodaCriterion {
-    
+
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final CriterionSerializer serializer;
 
@@ -32,24 +32,21 @@ public class DigestRequestJobValidationFailCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(DigestRequestJob.class, this::validateEntity)
-            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
-            .complete();
+                .evaluateEntity(DigestRequestJob.class, this::validateEntity)
+                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+                .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "DigestRequestJobValidationFailCriterion".equals(modelSpec.operationName()) &&
-               "digestRequestJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+                "digestRequestJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
     private EvaluationOutcome validateEntity(DigestRequestJob entity) {
-        if (entity.getStatus() == null || entity.getStatus().isBlank()) {
-            return EvaluationOutcome.fail("Status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        }
-        if (!entity.getStatus().matches("^(PENDING|PROCESSING|COMPLETED|FAILED)$")) {
-            return EvaluationOutcome.fail("Invalid status value", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (entity.getStatus() == null || !entity.getStatus().equalsIgnoreCase("FAILED")) {
+            return EvaluationOutcome.fail("Status must be FAILED", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
         return EvaluationOutcome.success();
     }
