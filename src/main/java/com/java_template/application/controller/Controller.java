@@ -60,8 +60,6 @@ public class Controller {
             String techIdStr = "workflow-" + technicalId.toString();
             logger.info("Created Workflow with technicalId: {}", techIdStr);
 
-            processWorkflow(workflow);
-
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", techIdStr));
         } catch (IllegalArgumentException e) {
             logger.error("Workflow creation failed: {}", e.getMessage());
@@ -130,8 +128,6 @@ public class Controller {
             String techIdStr = "pet-" + technicalId.toString();
             logger.info("Created Pet with technicalId: {}", techIdStr);
 
-            processPet(pet);
-
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", techIdStr));
         } catch (IllegalArgumentException e) {
             logger.error("Pet creation failed: {}", e.getMessage());
@@ -199,8 +195,6 @@ public class Controller {
             String techIdStr = "order-" + technicalId.toString();
             logger.info("Created Order with technicalId: {}", techIdStr);
 
-            processOrder(order);
-
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", techIdStr));
         } catch (IllegalArgumentException e) {
             logger.error("Order creation failed: {}", e.getMessage());
@@ -234,38 +228,5 @@ public class Controller {
             logger.error("Get Order error", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
         }
-    }
-
-    // --- Process methods implementing business logic ---
-
-    private void processWorkflow(Workflow workflow) {
-        logger.info("Processing Workflow with name: {}", workflow.getName());
-        if (workflow.getPetStoreApiUrl() == null || workflow.getPetStoreApiUrl().isBlank()) {
-            logger.error("Invalid PetStore API URL");
-            workflow.setStatus("FAILED");
-            return;
-        }
-        workflow.setStatus("PROCESSING");
-        logger.info("Fetching pets and orders from Petstore API: {}", workflow.getPetStoreApiUrl());
-        workflow.setStatus("COMPLETED");
-        logger.info("Workflow '{}' completed successfully", workflow.getName());
-    }
-
-    private void processPet(Pet pet) {
-        logger.info("Processing Pet with name: {}", pet.getName());
-        if (pet.getName().isBlank() || pet.getCategory().isBlank() || pet.getStatus().isBlank()) {
-            logger.error("Pet data validation failed");
-            return;
-        }
-        logger.info("Pet '{}' processed successfully", pet.getName());
-    }
-
-    private void processOrder(Order order) {
-        logger.info("Processing Order for petId: {}", order.getPetId());
-        if (order.getQuantity() <= 0) {
-            logger.error("Invalid order quantity");
-            return;
-        }
-        logger.info("Order processed with status: {}", order.getStatus());
     }
 }
