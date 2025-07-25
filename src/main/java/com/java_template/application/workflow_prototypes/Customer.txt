@@ -1,0 +1,15 @@
+private void processCustomer(Customer customer) {
+    logger.info("Processing Customer with customerId: {}", customer.getCustomerId());
+
+    // Validation: Verify contact details format and uniqueness (basic simulation)
+    if (customer.getEmail().isBlank() || customer.getPhone().isBlank()) {
+        logger.error("Customer validation failed: email or phone is blank");
+        return;
+    }
+
+    // Processing: Enrich customer profile (simulated)
+    logger.info("Enriching customer profile for: {}", customer.getName());
+
+    // Mark customer as ACTIVE
+    logger.info("Customer processing completed successfully");
+}
