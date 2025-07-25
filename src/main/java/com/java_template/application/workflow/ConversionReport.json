@@ -1,0 +1,100 @@
+{
+    "active": true,
+    "desc": "Workflow controlling the lifecycle of ReportJob and ConversionReport processing, fetching BTC rates, and emailing the report",
+    "initialState": "none",
+    "name": "ReportJob ConversionReport Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "emailing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "EmailSentSuccessCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "email_sent_success",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "ConversionReportProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "EmailSentFailureCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "email_sent_failure",
+                    "next": "failed"
+                }
+            ]
+        },
+        "failed": {
+            "transitions": []
+        },
+        "fetching": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "RecipientEmailValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "validate_recipient_email",
+                    "next": "fetching_completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "RecipientEmailInvalidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "invalid_recipient_email_failure",
+                    "next": "failed"
+                }
+            ]
+        },
+        "fetching_completed": {
+            "transitions": [
+                {
+                    "name": "start_emailing",
+                    "next": "emailing"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "start_fetching",
+                    "next": "fetching"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
