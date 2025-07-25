@@ -73,7 +73,6 @@ public class Controller {
             UUID returnedId = idFuture.get(); // Wait for completion
 
             // Trigger processing asynchronously (no await here)
-            processHNItem(hnItem);
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId);
@@ -148,37 +147,6 @@ public class Controller {
         } catch (Exception e) {
             logger.error("Unexpected error when retrieving HNItem: {}", technicalId, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
-        }
-    }
-
-    private void processHNItem(HNItem entity) {
-        logger.info("Processing HNItem with technicalId: {}", entity.getTechnicalId());
-
-        try {
-            Map<String, Object> payloadMap = objectMapper.readValue(entity.getPayload(), Map.class);
-            boolean hasType = payloadMap.containsKey("type") && payloadMap.get("type") != null && !payloadMap.get("type").toString().isBlank();
-            boolean hasId = payloadMap.containsKey("id") && payloadMap.get("id") != null && !payloadMap.get("id").toString().isBlank();
-
-            if (hasType && hasId) {
-                // Create new immutable HNItem version with status VALIDATED
-                HNItem validatedItem = new HNItem();
-                validatedItem.setTechnicalId(entity.getTechnicalId());
-                validatedItem.setId(entity.getId());
-                validatedItem.setPayload(entity.getPayload());
-                validatedItem.setCreatedAt(entity.getCreatedAt());
-                validatedItem.setStatus("VALIDATED");
-
-                // Save validated version by calling addItem with same technicalId? 
-                // But EntityService does not have update - so we skip or add TODO.
-
-                // TODO: Implement update operation when supported by EntityService.
-
-                logger.info("HNItem with technicalId {} validated successfully", entity.getTechnicalId());
-            } else {
-                logger.info("HNItem with technicalId {} remains INVALID due to missing required fields", entity.getTechnicalId());
-            }
-        } catch (Exception e) {
-            logger.error("Failed to process validation for HNItem with technicalId: {}", entity.getTechnicalId(), e);
         }
     }
 }
