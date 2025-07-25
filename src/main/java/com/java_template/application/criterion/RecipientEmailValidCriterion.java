@@ -46,12 +46,9 @@ public class RecipientEmailValidCriterion implements CyodaCriterion {
 
     private EvaluationOutcome validateEntity(ReportJob entity) {
         if (entity.getRecipientEmail() == null || entity.getRecipientEmail().isBlank()) {
-            return EvaluationOutcome.fail("Recipient email must be present", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("Recipient email is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        // Simple regex for email validation
-        String email = entity.getRecipientEmail();
-        String emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$";
-        if (!email.matches(emailRegex)) {
+        if (!entity.getRecipientEmail().matches("^[\\w.%+-]+@[\\w.-]+\\.[a-zA-Z]{2,6}$")) {
             return EvaluationOutcome.fail("Recipient email format is invalid", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         return EvaluationOutcome.success();
