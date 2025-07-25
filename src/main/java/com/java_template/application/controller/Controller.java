@@ -56,7 +56,7 @@ public class Controller {
 
             logger.info("DigestRequest created with technicalId: {}", technicalId);
 
-            processDigestRequest(technicalId.toString(), request);
+            // processDigestRequest removed
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException e) {
@@ -153,134 +153,6 @@ public class Controller {
         } catch (Exception e) {
             logger.error("Exception in getEmailDispatch: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
-        }
-    }
-
-    // Business logic: processDigestRequest
-    private void processDigestRequest(String technicalId, DigestRequest entity) {
-        logger.info("Processing DigestRequest with technicalId: {}", technicalId);
-        try {
-            if (entity.getEmail() == null || entity.getEmail().isBlank()) {
-                logger.error("DigestRequest {} validation failed: email is blank", technicalId);
-                entity.setStatus("FAILED");
-                updateEntity("DigestRequest", technicalId, entity);
-                return;
-            }
-            entity.setStatus("PROCESSING");
-            updateEntity("DigestRequest", technicalId, entity);
-
-            DigestData digestData = new DigestData();
-            digestData.setDigestRequestId(technicalId);
-            digestData.setCreatedAt(Instant.now());
-            digestData.setStatus("PENDING");
-
-            CompletableFuture<UUID> digestDataIdFuture = entityService.addItem("DigestData", ENTITY_VERSION, digestData);
-            UUID digestDataTechnicalId = digestDataIdFuture.get();
-
-            processDigestData(digestDataTechnicalId.toString(), digestData);
-
-        } catch (Exception e) {
-            logger.error("Exception in processDigestRequest for technicalId {}: {}", technicalId, e.getMessage(), e);
-            entity.setStatus("FAILED");
-            updateEntity("DigestRequest", technicalId, entity);
-        }
-    }
-
-    // Business logic: processDigestData
-    private void processDigestData(String technicalId, DigestData entity) {
-        logger.info("Processing DigestData with technicalId: {}", technicalId);
-        try {
-            entity.setStatus("PROCESSING");
-            updateEntity("DigestData", technicalId, entity);
-
-            RestTemplate restTemplate = new RestTemplate();
-            String apiUrl = "https://petstore.swagger.io/v2/pet/findByStatus?status=available";
-
-            String apiResponse = restTemplate.getForObject(apiUrl, String.class);
-            if (apiResponse == null || apiResponse.isBlank()) {
-                logger.error("Empty response from Petstore API for DigestData technicalId {}", technicalId);
-                entity.setStatus("FAILED");
-                updateEntity("DigestData", technicalId, entity);
-                return;
-            }
-
-            entity.setApiData(apiResponse);
-            entity.setStatus("SUCCESS");
-            updateEntity("DigestData", technicalId, entity);
-
-            EmailDispatch emailDispatch = new EmailDispatch();
-            emailDispatch.setDigestRequestId(entity.getDigestRequestId());
-            emailDispatch.setEmailContent("");
-            emailDispatch.setStatus("PENDING");
-
-            CompletableFuture<UUID> emailDispatchIdFuture = entityService.addItem("EmailDispatch", ENTITY_VERSION, emailDispatch);
-            UUID emailDispatchTechnicalId = emailDispatchIdFuture.get();
-
-            processEmailDispatch(emailDispatchTechnicalId.toString(), emailDispatch);
-
-        } catch (Exception e) {
-            logger.error("Exception in processDigestData for technicalId {}: {}", technicalId, e.getMessage(), e);
-            entity.setStatus("FAILED");
-            updateEntity("DigestData", technicalId, entity);
-        }
-    }
-
-    // Business logic: processEmailDispatch
-    private void processEmailDispatch(String technicalId, EmailDispatch entity) {
-        logger.info("Processing EmailDispatch with technicalId: {}", technicalId);
-        try {
-            entity.setStatus("PROCESSING");
-            updateEntity("EmailDispatch", technicalId, entity);
-
-            // Retrieve associated DigestRequest
-            String digestRequestId = entity.getDigestRequestId();
-            UUID digestRequestTechnicalId = UUID.fromString(digestRequestId);
-            CompletableFuture<ObjectNode> digestRequestFuture = entityService.getItem("DigestRequest", ENTITY_VERSION, digestRequestTechnicalId);
-            ObjectNode digestRequestNode = digestRequestFuture.get();
-            if (digestRequestNode == null) {
-                logger.error("Associated DigestRequest not found for EmailDispatch technicalId: {}", technicalId);
-                entity.setStatus("FAILED");
-                updateEntity("EmailDispatch", technicalId, entity);
-                return;
-            }
-            DigestRequest digestRequest = JsonUtils.convertObjectNodeToEntity(digestRequestNode, DigestRequest.class);
-
-            // Retrieve associated successful DigestData by condition: digestRequestId = digestRequestId AND status = "SUCCESS"
-            Condition cond1 = Condition.of("$.digestRequestId", "EQUALS", digestRequestId);
-            Condition cond2 = Condition.of("$.status", "EQUALS", "SUCCESS");
-            SearchConditionRequest conditionRequest = SearchConditionRequest.group("AND", cond1, cond2);
-
-            CompletableFuture<ArrayNode> digestDataArrayFuture = entityService.getItemsByCondition("DigestData", ENTITY_VERSION, conditionRequest, true);
-            ArrayNode digestDataArray = digestDataArrayFuture.get();
-
-            if (digestDataArray == null || digestDataArray.size() == 0) {
-                logger.error("Associated successful DigestData not found for EmailDispatch technicalId: {}", technicalId);
-                entity.setStatus("FAILED");
-                updateEntity("EmailDispatch", technicalId, entity);
-                return;
-            }
-
-            ObjectNode digestDataNode = (ObjectNode) digestDataArray.get(0);
-            DigestData digestData = JsonUtils.convertObjectNodeToEntity(digestDataNode, DigestData.class);
-
-            String emailContent = "Digest for request ID: " + entity.getDigestRequestId() + "\n\nData:\n" + digestData.getApiData();
-            entity.setEmailContent(emailContent);
-
-            logger.info("Sending email to {} with digest content length {}", digestRequest.getEmail(), emailContent.length());
-            // Simulate sending email by logging
-
-            entity.setStatus("SENT");
-            entity.setSentAt(Instant.now());
-            updateEntity("EmailDispatch", technicalId, entity);
-
-            // Update DigestRequest status to COMPLETED
-            digestRequest.setStatus("COMPLETED");
-            updateEntity("DigestRequest", digestRequestId, digestRequest);
-
-        } catch (Exception e) {
-            logger.error("Exception in processEmailDispatch for technicalId {}: {}", technicalId, e.getMessage(), e);
-            entity.setStatus("FAILED");
-            updateEntity("EmailDispatch", technicalId, entity);
         }
     }
 
