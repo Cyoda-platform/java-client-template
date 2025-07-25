@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class DigestRequestJobValidationCriterion implements CyodaCriterion {
-    
+
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final CriterionSerializer serializer;
 
@@ -32,24 +32,24 @@ public class DigestRequestJobValidationCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(DigestRequestJob.class, this::validateEntity)
-            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
-            .complete();
+                .evaluateEntity(DigestRequestJob.class, this::validateEntity)
+                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+                .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "DigestRequestJobValidationCriterion".equals(modelSpec.operationName()) &&
-               "digestRequestJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+                "digestRequestJob".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
     private EvaluationOutcome validateEntity(DigestRequestJob entity) {
         if (entity.getEmail() == null || entity.getEmail().isBlank()) {
             return EvaluationOutcome.fail("Email is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (!entity.getEmail().matches("^[^@\s]+@[^@\s]+\\.[^@\s]+$")) {
-            return EvaluationOutcome.fail("Invalid email format", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (!entity.getEmail().matches("^[\\w.%+-]+@[\\w.-]+\\.[a-zA-Z]{2,6}$")) {
+            return EvaluationOutcome.fail("Email format is invalid", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         if (entity.getMetadata() == null || entity.getMetadata().isBlank()) {
             return EvaluationOutcome.fail("Metadata is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
