@@ -1,92 +1,92 @@
 {
-    "active": true,
-    "desc": "Workflow to process Petstore API data and persist pets and orders",
-    "initialState": "none",
-    "name": "PetstoreWorkflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetStoreApiUrlValidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "start_if_api_url_valid",
-                    "next": "pending"
-                }
-            ]
-        },
-        "pending": {
-            "transitions": [
-                {
-                    "name": "begin_processing",
-                    "next": "processing",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "WorkflowProcessor"
-                        }
-                    ]
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetStoreApiUrlInvalidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "fail_if_api_url_invalid",
-                    "next": "failed"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "FetchPetstoreDataSuccessCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "complete_if_fetch_success",
-                    "next": "completed"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "FetchPetstoreDataFailedCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "fail_if_fetch_failed",
-                    "next": "failed"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow to process Petstore API data and persist pets and orders",
+  "initialState": "none",
+  "name": "PetstoreWorkflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "PetStoreApiUrlValidCriterion"
+            },
+            "type": "function"
+          },
+          "name": "start_if_api_url_valid",
+          "next": "pending"
         }
+      ]
     },
-    "version": "1.0"
+    "pending": {
+      "transitions": [
+        {
+          "name": "begin_processing",
+          "next": "processing",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "WorkflowProcessor"
+            }
+          ]
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "PetStoreApiUrlInvalidCriterion"
+            },
+            "type": "function"
+          },
+          "name": "fail_if_api_url_invalid",
+          "next": "failed"
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "FetchPetstoreDataSuccessCriterion"
+            },
+            "type": "function"
+          },
+          "name": "complete_if_fetch_success",
+          "next": "completed"
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "FetchPetstoreDataFailedCriterion"
+            },
+            "type": "function"
+          },
+          "name": "fail_if_fetch_failed",
+          "next": "failed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
