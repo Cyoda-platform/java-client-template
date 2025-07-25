@@ -1,5 +1,6 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.HNItem;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
@@ -20,8 +21,10 @@ public class HNItemProcessor implements CyodaProcessor {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final ProcessorSerializer serializer;
+    private final ObjectMapper objectMapper;
 
-    public HNItemProcessor(SerializerFactory serializerFactory) {
+    public HNItemProcessor(SerializerFactory serializerFactory, ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
         this.serializer = serializerFactory.getDefaultProcessorSerializer(); // always follow this pattern
         logger.info("HNItemProcessor initialized with SerializerFactory");
     }
@@ -56,7 +59,7 @@ public class HNItemProcessor implements CyodaProcessor {
         logger.info("Processing HNItem with technicalId: {}", entity.getTechnicalId());
 
         try {
-            Map<String, Object> payloadMap = serializer.getObjectMapper().readValue(entity.getPayload(), Map.class);
+            Map<String, Object> payloadMap = objectMapper.readValue(entity.getPayload(), Map.class);
             boolean hasType = payloadMap.containsKey("type") && payloadMap.get("type") != null && !payloadMap.get("type").toString().isBlank();
             boolean hasId = payloadMap.containsKey("id") && payloadMap.get("id") != null && !payloadMap.get("id").toString().isBlank();
 

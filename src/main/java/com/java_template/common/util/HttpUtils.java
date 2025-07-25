@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 
 @Component
 public class HttpUtils {
-    private final HttpClient client = HttpClient.newHttpClient();
+    private final HttpClient client = SslUtils.createHttpClient();
     private final Logger logger = LoggerFactory.getLogger(HttpUtils.class);
     private final ObjectMapper om;
     private final JsonUtils jsonUtils;

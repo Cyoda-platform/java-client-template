@@ -18,7 +18,8 @@
           "criterion": {
             "function": {
               "config": {
-                "calculationNodesTags": "cyoda_application"
+                "calculationNodesTags": "paul",
+                "attachEntity": true
               },
               "name": "HNItemTypeAndIdCriterion"
             },
@@ -29,7 +30,8 @@
           "processors": [
             {
               "config": {
-                "calculationNodesTags": "cyoda_application"
+                "calculationNodesTags": "paul",
+                "attachEntity": true
               },
               "executionMode": "SYNC",
               "name": "HNItemProcessor"
@@ -40,7 +42,8 @@
           "criterion": {
             "function": {
               "config": {
-                "calculationNodesTags": "cyoda_application"
+                "calculationNodesTags": "paul",
+                "attachEntity": true
               },
               "name": "HNItemTypeAndIdCriterionNegation"
             },
