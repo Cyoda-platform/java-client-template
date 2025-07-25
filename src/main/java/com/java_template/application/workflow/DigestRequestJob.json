@@ -1,92 +1,92 @@
 {
-    "active": true,
-    "desc": "Workflow for processing DigestRequestJob entity from initial submission to completion or failure.",
-    "initialState": "none",
-    "name": "DigestRequestJob Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "name": "start_validation",
-                    "next": "pending_validation"
-                }
-            ]
-        },
-        "pending_validation": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "DigestRequestJobValidationCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "validate_email_and_metadata",
-                    "next": "processing"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "DigestRequestJobInvalidInputCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "fail_due_to_invalid_input",
-                    "next": "failed"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "DigestRequestJobExternalCallSuccessCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "complete_processing",
-                    "next": "completed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "DigestRequestJobProcessor"
-                        }
-                    ]
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "DigestRequestJobExternalCallFailureCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "fail_processing",
-                    "next": "failed"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow for processing DigestRequestJob entity from initial submission to completion or failure.",
+  "initialState": "none",
+  "name": "DigestRequestJob Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "start_validation",
+          "next": "pending_validation"
         }
+      ]
     },
-    "version": "1.0"
+    "pending_validation": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "DigestRequestJobValidationCriterion"
+            },
+            "type": "function"
+          },
+          "name": "validate_email_and_metadata",
+          "next": "processing"
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "DigestRequestJobInvalidInputCriterion"
+            },
+            "type": "function"
+          },
+          "name": "fail_due_to_invalid_input",
+          "next": "failed"
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "DigestRequestJobExternalCallSuccessCriterion"
+            },
+            "type": "function"
+          },
+          "name": "complete_processing",
+          "next": "completed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "DigestRequestJobProcessor"
+            }
+          ]
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "DigestRequestJobExternalCallFailureCriterion"
+            },
+            "type": "function"
+          },
+          "name": "fail_processing",
+          "next": "failed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
