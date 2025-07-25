@@ -32,24 +32,24 @@ public class DigestEmailSentCriterion implements CyodaCriterion {
         EntityCriteriaCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .evaluateEntity(DigestEmail.class, this::validateEntity)
-            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
-            .complete();
+                .evaluateEntity(DigestEmail.class, this::validateEntity)
+                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+                .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "DigestEmailSentCriterion".equals(modelSpec.operationName()) &&
-               "digestEmail".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
-               Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
+                "digestEmail".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
     private EvaluationOutcome validateEntity(DigestEmail entity) {
-        if (entity.getStatus() == null || !"SENT".equals(entity.getStatus())) {
+        if (entity.getStatus() == null || !entity.getStatus().equalsIgnoreCase("SENT")) {
             return EvaluationOutcome.fail("Email status must be SENT", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
         if (entity.getSentAt() == null) {
-            return EvaluationOutcome.fail("Sent timestamp is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("Sent date must be set", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
         }
         return EvaluationOutcome.success();
     }
