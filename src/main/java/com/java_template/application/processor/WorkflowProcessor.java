@@ -1,6 +1,7 @@
 package com.java_template.application.processor;
 
-import com.java_template.application.entity.Pet;
+import com.java_template.application.entity.Workflow;
+import com.java_template.common.serializer.ErrorInfo;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
@@ -27,33 +28,38 @@ public class WorkflowProcessor implements CyodaProcessor {
     @Override
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
-        logger.info("Processing Pet for request: {}", request.getId());
+        logger.info("Processing Workflow for request: {}", request.getId());
 
         return serializer.withRequest(request)
-                .toEntity(Pet.class)
-                .validate(this::isValidEntity, "Invalid entity state")
-                .map(this::processEntityLogic)
-                .complete();
+            .toEntity(Workflow.class)
+            .validate(this::isValidWorkflowEntity, "Invalid Workflow entity")
+            .map(this::processEntityLogic)
+            .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return "WorkflowProcessor".equals(modelSpec.operationName()) &&
-                "pet".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
+                "workflow".equalsIgnoreCase(modelSpec.modelKey().getName()) &&
                 Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private boolean isValidEntity(Pet pet) {
-        return pet != null && pet.isValid();
+    private boolean isValidWorkflowEntity(Workflow workflow) {
+        return workflow.isValid();
     }
 
-    private Pet processEntityLogic(Pet pet) {
-        logger.info("Processing Pet with name: {}", pet.getName());
-        if (pet.getName().isBlank() || pet.getCategory().isBlank() || pet.getStatus().isBlank()) {
-            logger.error("Pet data validation failed");
-            return pet;
+    private Workflow processEntityLogic(Workflow workflow) {
+        logger.info("Processing Workflow with name: {}", workflow.getName());
+        if (workflow.getPetStoreApiUrl() == null || workflow.getPetStoreApiUrl().isBlank()) {
+            logger.error("Invalid PetStore API URL");
+            workflow.setStatus("FAILED");
+            return workflow;
         }
-        logger.info("Pet '{}' processed successfully", pet.getName());
-        return pet;
+        workflow.setStatus("PROCESSING");
+        logger.info("Fetching pets and orders from Petstore API: {}", workflow.getPetStoreApiUrl());
+        // Simulated external API calls to fetch pets and orders would be here
+        workflow.setStatus("COMPLETED");
+        logger.info("Workflow '{}' completed successfully", workflow.getName());
+        return workflow;
     }
 }
