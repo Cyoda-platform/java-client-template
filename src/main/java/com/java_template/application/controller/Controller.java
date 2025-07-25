@@ -1,15 +1,13 @@
 package com.java_template.application.controller;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Order;
 import com.java_template.application.entity.Pet;
 import com.java_template.application.entity.Workflow;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -20,22 +18,26 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/entities")
-@RequiredArgsConstructor
-@Slf4j
 public class Controller {
 
     private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
+
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
+        this.entityService = entityService;
+        this.objectMapper = objectMapper;
+    }
 
     // --- Workflow endpoints ---
 
     @PostMapping("/workflows")
-    public ResponseEntity<?> createWorkflow(@RequestBody Workflow workflow) {
+    public ResponseEntity<?> createWorkflow(@Valid @RequestBody Workflow workflow) throws JsonProcessingException {
         try {
             if (workflow == null) {
                 logger.error("Workflow creation failed: request body is null");
@@ -71,9 +73,8 @@ public class Controller {
     }
 
     @GetMapping("/workflows/{technicalId}")
-    public ResponseEntity<?> getWorkflow(@PathVariable String technicalId) {
+    public ResponseEntity<?> getWorkflow(@PathVariable String technicalId) throws JsonProcessingException {
         try {
-            // Extract UUID technicalId from string like "workflow-<UUID>"
             if (!technicalId.startsWith("workflow-")) {
                 logger.error("Invalid technicalId format: {}", technicalId);
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Invalid technicalId format"));
@@ -86,7 +87,8 @@ public class Controller {
                 logger.error("Workflow not found: {}", technicalId);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Workflow not found"));
             }
-            return ResponseEntity.ok(node);
+            Workflow workflow = objectMapper.treeToValue(node, Workflow.class);
+            return ResponseEntity.ok(workflow);
         } catch (IllegalArgumentException e) {
             logger.error("Get Workflow failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
@@ -99,7 +101,7 @@ public class Controller {
     // --- Pet endpoints ---
 
     @PostMapping("/pets")
-    public ResponseEntity<?> createPet(@RequestBody Pet pet) {
+    public ResponseEntity<?> createPet(@Valid @RequestBody Pet pet) throws JsonProcessingException {
         try {
             if (pet == null) {
                 logger.error("Pet creation failed: request body is null");
@@ -139,7 +141,7 @@ public class Controller {
     }
 
     @GetMapping("/pets/{technicalId}")
-    public ResponseEntity<?> getPet(@PathVariable String technicalId) {
+    public ResponseEntity<?> getPet(@PathVariable String technicalId) throws JsonProcessingException {
         try {
             if (!technicalId.startsWith("pet-")) {
                 logger.error("Invalid technicalId format: {}", technicalId);
@@ -153,7 +155,8 @@ public class Controller {
                 logger.error("Pet not found: {}", technicalId);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Pet not found"));
             }
-            return ResponseEntity.ok(node);
+            Pet pet = objectMapper.treeToValue(node, Pet.class);
+            return ResponseEntity.ok(pet);
         } catch (IllegalArgumentException e) {
             logger.error("Get Pet failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
@@ -166,7 +169,7 @@ public class Controller {
     // --- Order endpoints ---
 
     @PostMapping("/orders")
-    public ResponseEntity<?> createOrder(@RequestBody Order order) {
+    public ResponseEntity<?> createOrder(@Valid @RequestBody Order order) throws JsonProcessingException {
         try {
             if (order == null) {
                 logger.error("Order creation failed: request body is null");
@@ -206,7 +209,7 @@ public class Controller {
     }
 
     @GetMapping("/orders/{technicalId}")
-    public ResponseEntity<?> getOrder(@PathVariable String technicalId) {
+    public ResponseEntity<?> getOrder(@PathVariable String technicalId) throws JsonProcessingException {
         try {
             if (!technicalId.startsWith("order-")) {
                 logger.error("Invalid technicalId format: {}", technicalId);
@@ -220,7 +223,8 @@ public class Controller {
                 logger.error("Order not found: {}", technicalId);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Order not found"));
             }
-            return ResponseEntity.ok(node);
+            Order order = objectMapper.treeToValue(node, Order.class);
+            return ResponseEntity.ok(order);
         } catch (IllegalArgumentException e) {
             logger.error("Get Order failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
