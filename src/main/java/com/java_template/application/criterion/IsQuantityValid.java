@@ -44,8 +44,11 @@ public class IsQuantityValid implements CyodaCriterion {
                Integer.parseInt(Config.ENTITY_VERSION) == modelSpec.modelKey().getVersion();
     }
 
-    private EvaluationOutcome validateEntity(Order entity) {
-        if (entity.getQuantity() == null || entity.getQuantity() <= 0) {
+    private EvaluationOutcome validateEntity(Order order) {
+        if (order.getQuantity() == null) {
+            return EvaluationOutcome.fail("Quantity is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (order.getQuantity() <= 0) {
             return EvaluationOutcome.fail("Quantity must be greater than zero", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         return EvaluationOutcome.success();
