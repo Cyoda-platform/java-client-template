@@ -1,0 +1,122 @@
+{
+    "active": true,
+    "desc": "Workflow representing the lifecycle states and transitions of a ReportJob entity",
+    "initialState": "none",
+    "name": "ReportJob Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "emailing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "EmailSentSuccessCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "email_sent_success",
+                    "next": "completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "EmailSentFailureCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "email_sent_failure",
+                    "next": "failed"
+                }
+            ]
+        },
+        "failed": {
+            "transitions": []
+        },
+        "fetching": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "BtcRatesFetchSuccessCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "btc_rates_fetch_successful",
+                    "next": "emailing",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "ReportJobProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "BtcRatesFetchFailureCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "btc_rates_fetch_failed",
+                    "next": "failed"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "start_processing",
+                    "next": "pending"
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "RecipientEmailValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "validate_email_valid",
+                    "next": "fetching"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "RecipientEmailInvalidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "validate_email_invalid",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
