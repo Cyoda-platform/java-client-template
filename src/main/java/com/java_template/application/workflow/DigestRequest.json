@@ -1,125 +1,125 @@
 {
-    "active": true,
-    "desc": "Workflow for processing DigestRequest entity including data retrieval and email dispatch",
-    "initialState": "none",
-    "name": "DigestRequest Workflow",
-    "states": {
-        "completed": {
-            "transitions": [
-                {
-                    "name": "trigger_email_dispatch",
-                    "next": "email_pending"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow for processing DigestRequest entity including data retrieval and email dispatch",
+  "initialState": "none",
+  "name": "DigestRequest Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "DigestRequestValidCriterion"
+            },
+            "type": "function"
+          },
+          "name": "start_processing_if_valid",
+          "next": "processing"
         },
-        "email_failed": {
-            "transitions": []
-        },
-        "email_pending": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "EmailSentSuccessfullyCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "email_sent_successfully",
-                    "next": "email_sent"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "EmailSendingFailedCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "email_sending_failed",
-                    "next": "email_failed"
-                }
-            ]
-        },
-        "email_sent": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "DigestRequestValidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "start_processing_if_valid",
-                    "next": "processing"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "DigestRequestInvalidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "fail_if_invalid",
-                    "next": "failed"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "DataRetrievedSuccessfullyCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "complete_if_data_retrieved",
-                    "next": "completed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "DigestRequestProcessor"
-                        }
-                    ]
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "DataNotRetrievedCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "fail_if_data_not_retrieved",
-                    "next": "failed"
-                }
-            ]
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "DigestRequestInvalidCriterion"
+            },
+            "type": "function"
+          },
+          "name": "fail_if_invalid",
+          "next": "failed"
         }
+      ]
     },
-    "version": "1.0"
+    "processing": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "DataRetrievedSuccessfullyCriterion"
+            },
+            "type": "function"
+          },
+          "name": "complete_if_data_retrieved",
+          "next": "completed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "DigestRequestProcessor"
+            }
+          ]
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "DataNotRetrievedCriterion"
+            },
+            "type": "function"
+          },
+          "name": "fail_if_data_not_retrieved",
+          "next": "failed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": [
+        {
+          "name": "trigger_email_dispatch",
+          "next": "email_pending"
+        }
+      ]
+    },
+    "email_pending": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "EmailSentSuccessfullyCriterion"
+            },
+            "type": "function"
+          },
+          "name": "email_sent_successfully",
+          "next": "email_sent"
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "EmailSendingFailedCriterion"
+            },
+            "type": "function"
+          },
+          "name": "email_sending_failed",
+          "next": "email_failed"
+        }
+      ]
+    },
+    "email_sent": {
+      "transitions": []
+    },
+    "email_failed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
