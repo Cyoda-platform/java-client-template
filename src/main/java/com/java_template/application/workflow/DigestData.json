@@ -1,0 +1,65 @@
+{
+    "active": true,
+    "desc": "Workflow for processing DigestRequest entity from validation to completion",
+    "initialState": "none",
+    "name": "DigestRequest Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "RequestValidationCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "validate_request",
+                    "next": "pending"
+                },
+                {
+                    "name": "invalid_request",
+                    "next": "failed"
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "name": "start_processing",
+                    "next": "processing"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "name": "retrieve_data_success",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "DigestDataProcessor"
+                        }
+                    ]
+                },
+                {
+                    "name": "retrieve_data_failed",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
