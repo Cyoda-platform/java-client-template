@@ -1,56 +1,56 @@
 {
-    "active": true,
-    "desc": "Workflow managing the lifecycle of DigestRequest entity including validation, data retrieval, and completion states",
-    "initialState": "none",
-    "name": "DigestRequest Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "name": "start_validation",
-                    "next": "pending"
-                }
-            ]
-        },
-        "pending": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "ValidateDigestRequestCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "validate_request_success",
-                    "next": "processing"
-                },
-                {
-                    "name": "validate_request_fail",
-                    "next": "failed"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "name": "retrieve_data_success",
-                    "next": "completed"
-                },
-                {
-                    "name": "retrieve_data_fail",
-                    "next": "failed"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow managing the lifecycle of DigestRequest entity including validation, data retrieval, and completion states",
+  "initialState": "none",
+  "name": "DigestRequest Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "start_validation",
+          "next": "pending"
         }
+      ]
     },
-    "version": "1.0"
+    "pending": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "ValidateDigestRequestCriterion"
+            },
+            "type": "function"
+          },
+          "name": "validate_request_success",
+          "next": "processing"
+        },
+        {
+          "name": "validate_request_fail",
+          "next": "failed"
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "name": "retrieve_data_success",
+          "next": "completed"
+        },
+        {
+          "name": "retrieve_data_fail",
+          "next": "failed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
