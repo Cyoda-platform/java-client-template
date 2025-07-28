@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.Report;
+import com.java_template.application.entity.ReportJob;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -30,9 +30,8 @@ public class FetchRatesFailedCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
         return serializer.withRequest(request)
-            .evaluateEntity(Report.class, this::validateEntity)
+            .evaluateEntity(ReportJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -42,19 +41,15 @@ public class FetchRatesFailedCriterion implements CyodaCriterion {
         return className.equals(modelSpec.operationName());
     }
 
-    private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Report> context) {
-        Report entity = context.entity();
+    private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<ReportJob> context) {
 
-        // Check if BTC rates or timestamp are null or invalid indicating failure to fetch
-        if (entity.getBtcUsdRate() == null || entity.getBtcUsdRate().compareTo(java.math.BigDecimal.ZERO) <= 0) {
-            return EvaluationOutcome.success(); // fail criterion means fetching failed
+        ReportJob reportJob = context.entity();
+
+        // Validation: At least one of btcUsdRate, btcEurRate, or timestamp is null => fetch failed
+        if (reportJob.getBtcUsdRate() == null || reportJob.getBtcEurRate() == null || reportJob.getTimestamp() == null) {
+            return EvaluationOutcome.success(); // fetch failed condition met
         }
-        if (entity.getBtcEurRate() == null || entity.getBtcEurRate().compareTo(java.math.BigDecimal.ZERO) <= 0) {
-            return EvaluationOutcome.success(); // fail criterion means fetching failed
-        }
-        if (entity.getTimestamp() == null) {
-            return EvaluationOutcome.success();
-        }
-        return EvaluationOutcome.fail("Rates fetched successfully", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+
+        return EvaluationOutcome.fail("Fetch rates succeeded, not a failure", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
     }
 }
