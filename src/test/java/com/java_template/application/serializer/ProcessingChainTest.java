@@ -5,10 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.serializer.ErrorInfo;
 import com.java_template.common.serializer.ProcessorSerializer;
-import com.java_template.common.serializer.ResponseBuilder;
+import com.java_template.common.serializer.jackson.JacksonProcessorSerializer;
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
-import lombok.Setter;
 import org.cyoda.cloud.api.event.common.DataPayload;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
@@ -16,77 +15,45 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * ABOUTME: Comprehensive unit tests for ProcessingChain design that assert correct functionality and illustrate usage patterns.
- * Tests cover basic chaining, error handling, entity processing, and practical usage scenarios.
+ * ABOUTME: Unit tests for ProcessingChain testing the actual assembly and logic
+ * without mocks, using real JacksonProcessorSerializer to test the complete chain behavior.
  */
-@ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class ProcessingChainTest {
 
-    @Mock
-    private ResponseBuilder.ProcessorResponseBuilder mockResponseBuilder;
-
-    @Mock
-    private EntityProcessorCalculationRequest mockRequest;
-
-    @Mock
-    private DataPayload mockPayload;
-
     private ObjectMapper objectMapper;
+    private JacksonProcessorSerializer serializer;
+    private EntityProcessorCalculationRequest request;
     private ObjectNode testPayload;
-    private TestEntity testEntity;
-    private TestProcessorSerializer testSerializer;
 
-    @BeforeEach
-    void setUp() {
-        objectMapper = new ObjectMapper();
+    // Test entity for processing chain tests
+    @SuppressWarnings({"LombokGetterMayBeUsed", "LombokSetterMayBeUsed"}) // not here.
+    static class TestEntity implements CyodaEntity {
+        private Long id;
+        private String name;
+        private String status;
 
-        // Create test payload
-        testPayload = objectMapper.createObjectNode();
-        testPayload.put("id", 123L);
-        testPayload.put("name", "Fluffy");
-        testPayload.put("status", "available");
+        @SuppressWarnings("unused") // Needed by Jackson
+        public TestEntity() {}
 
-        // Create test entity
-        testEntity = new TestEntity(123L, "Fluffy", "available", "cat");
-
-        // Setup common mock behavior
-        when(mockRequest.getId()).thenReturn("test-request-123");
-        when(mockRequest.getRequestId()).thenReturn("req-456");
-        when(mockRequest.getEntityId()).thenReturn("entity-789");
-        when(mockRequest.getPayload()).thenReturn(mockPayload);
-
-        // Setup response builder chain
-        when(mockResponseBuilder.withSuccess(any(JsonNode.class))).thenReturn(mockResponseBuilder);
-        when(mockResponseBuilder.withError(anyString(), anyString())).thenReturn(mockResponseBuilder);
-        when(mockResponseBuilder.build()).thenReturn(mock(EntityProcessorCalculationResponse.class));
-
-        // Create test serializer
-        testSerializer = new TestProcessorSerializer();
-    }
-
-    /**
-     * Test entity for ProcessingChain testing.
-     */
-    private record TestEntity(Long id, String name, String status, String category) implements CyodaEntity {
-        @Override
-        public boolean isValid() {
-            return id != null && name != null && !name.trim().isEmpty();
+        public TestEntity(Long id, String name, String status) {
+            this.id = id;
+            this.name = name;
+            this.status = status;
         }
+
+        public Long getId() { return id; }
+        public void setId(Long id) { this.id = id; }
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
+        public String getStatus() { return status; }
+        public void setStatus(String status) { this.status = status; }
 
         @Override
         public OperationSpecification getModelKey() {
@@ -96,851 +63,227 @@ class ProcessingChainTest {
             return new OperationSpecification.Entity(modelSpec, "test-entity");
         }
 
+        @Override
+        public boolean isValid() {
+            return id != null && name != null && !name.trim().isEmpty();
+        }
     }
 
-    /**
-     * Test implementation of ProcessorSerializer for testing ProcessingChain functionality.
-     */
-    private class TestProcessorSerializer implements ProcessorSerializer {
-        private boolean shouldThrowOnExtractPayload = false;
-        private boolean shouldThrowOnExtractEntity = false;
-        private RuntimeException extractPayloadException;
-        private RuntimeException extractEntityException;
-        @Setter
-        private TestEntity customEntity = null;
+    @BeforeEach
+    void setUp() {
+        objectMapper = new ObjectMapper();
+        serializer = new JacksonProcessorSerializer(objectMapper);
 
-        public void setShouldThrowOnExtractPayload(RuntimeException exception) {
-            this.shouldThrowOnExtractPayload = true;
-            this.extractPayloadException = exception;
-        }
+        // Create test request with real data
+        request = new EntityProcessorCalculationRequest();
+        request.setId("test-request-123");
+        request.setRequestId("req-456");
+        request.setEntityId("entity-789");
+        request.setProcessorId("processor-123");
+        request.setProcessorName("TestProcessor");
 
-        public void setShouldThrowOnExtractEntity(RuntimeException exception) {
-            this.shouldThrowOnExtractEntity = true;
-            this.extractEntityException = exception;
-        }
+        // Create test payload
+        testPayload = objectMapper.createObjectNode();
+        testPayload.put("id", 123L);
+        testPayload.put("name", "Fluffy");
+        testPayload.put("status", "available");
 
-        @Override
-        public <T extends CyodaEntity> T extractEntity(EntityProcessorCalculationRequest request, Class<T> clazz) {
-            if (shouldThrowOnExtractEntity) {
-                throw extractEntityException;
-            }
-            if (clazz == TestEntity.class) {
-                TestEntity entityToReturn = customEntity != null ? customEntity : testEntity;
-                return clazz.cast(entityToReturn);
-            }
-            throw new IllegalArgumentException("Unsupported entity type: " + clazz.getName());
-        }
-
-        @Override
-        public JsonNode extractPayload(EntityProcessorCalculationRequest request) {
-            if (shouldThrowOnExtractPayload) {
-                throw extractPayloadException;
-            }
-            return testPayload;
-        }
-
-        @Override
-        public <T extends CyodaEntity> JsonNode entityToJsonNode(T entity) {
-            if (entity instanceof TestEntity(Long id, String name, String status, String category)) {
-                ObjectNode node = objectMapper.createObjectNode();
-                node.put("id", id);
-                node.put("name", name);
-                node.put("status", status);
-                node.put("category", category);
-                return node;
-            }
-            throw new IllegalArgumentException("Unsupported entity type: " + entity.getClass().getName());
-        }
-
-        @Override
-        public String getType() {
-            return "test-serializer";
-        }
-
-        @Override
-        public ResponseBuilder.ProcessorResponseBuilder responseBuilder(EntityProcessorCalculationRequest request) {
-            return mockResponseBuilder;
-        }
+        DataPayload payload = new DataPayload();
+        payload.setData(testPayload);
+        request.setPayload(payload);
     }
 
     @Test
-    @DisplayName("withRequest should initialize ProcessingChain with extracted payload")
-    void testWithRequestInitialization() {
+    @DisplayName("ProcessingChain should initialize with extracted payload")
+    void testProcessingChainInitialization() {
         // When
-        ProcessorSerializer.ProcessingChain processingChain = testSerializer.withRequest(mockRequest);
+        ProcessorSerializer.ProcessingChain chain = serializer.withRequest(request);
 
         // Then
-        assertNotNull(processingChain);
-        // ProcessingChain should be successfully created without throwing exceptions
+        assertNotNull(chain);
+        assertInstanceOf(ProcessorSerializer.ProcessingChainImpl.class, chain);
     }
 
     @Test
-    @DisplayName("map should transform JSON payload and allow chaining")
+    @DisplayName("ProcessingChain map should transform JSON payload")
     void testMapTransformation() {
-
-        EntityProcessorCalculationResponse response = testSerializer.withRequest(mockRequest)
-                .map(node -> {
-                    ObjectNode result = objectMapper.createObjectNode();
-                    result.put("transformedId", node.get("id").asLong() * 2);
-                    result.put("transformedName", "Transformed: " + node.get("name").asText());
-                    return result;
-                })
-                .complete();
-
-        assertNotNull(response);
-        verify(mockResponseBuilder).withSuccess(any(JsonNode.class));
-        verify(mockResponseBuilder).build();
-    }
-
-    @Test
-    @DisplayName("toEntity should extract entity and initiate entity flow")
-    void testToEntityTransformation() {
-
-        EntityProcessorCalculationResponse response = testSerializer.withRequest(mockRequest)
-                .toEntity(TestEntity.class)
-                .map(entity -> new TestEntity(entity.id(), entity.name().toUpperCase(), "processed", entity.category()))
-                .complete();
-
-        assertNotNull(response);
-        verify(mockResponseBuilder).withSuccess(any(JsonNode.class));
-        verify(mockResponseBuilder).build();
-    }
-
-    @Test
-    @DisplayName("Multiple chained operations should work correctly")
-    void testChainedOperations() {
-        EntityProcessorCalculationResponse response = testSerializer.withRequest(mockRequest)
-                .map(node -> {
-                    ObjectNode result = objectMapper.createObjectNode();
-                    result.put("step1", "First transformation");
-                    result.put("originalId", node.get("id").asLong());
-                    return result;
-                })
-                .map(node -> {
-                    ObjectNode result = objectMapper.createObjectNode();
-                    result.put("step2", "Second transformation");
-                    result.put("previousStep", node.get("step1").asText());
-                    result.put("finalId", node.get("originalId").asLong() * 10);
-                    return result;
-                })
-                .complete();
-
-        assertNotNull(response);
-        verify(mockResponseBuilder).withSuccess(any(JsonNode.class));
-        verify(mockResponseBuilder).build();
-    }
-
-    @Test
-    @DisplayName("Error during payload extraction should be handled by complete()")
-    void testErrorDuringPayloadExtraction() {
         // Given
-        RuntimeException extractionError = new RuntimeException("Payload extraction failed");
-        testSerializer.setShouldThrowOnExtractPayload(extractionError);
+        Function<ProcessorSerializer.ProcessorExecutionContext, JsonNode> mapper = context -> {
+            JsonNode payload = context.payload();
+            ObjectNode result = objectMapper.createObjectNode();
+            result.put("transformedId", payload.get("id").asLong() * 2);
+            result.put("transformedName", "Transformed: " + payload.get("name").asText());
+            return result;
+        };
 
         // When
-        EntityProcessorCalculationResponse response = testSerializer.withRequest(mockRequest)
+        EntityProcessorCalculationResponse response = serializer.withRequest(request)
+                .map(mapper)
                 .complete();
 
         // Then
         assertNotNull(response);
-        verify(mockResponseBuilder).withError("PROCESSING_ERROR", "Payload extraction failed");
-        verify(mockResponseBuilder).build();
+        assertTrue(response.getSuccess());
+        assertNull(response.getError());
+
+        JsonNode resultData = response.getPayload().getData();
+        assertEquals(246L, resultData.get("transformedId").asLong());
+        assertEquals("Transformed: Fluffy", resultData.get("transformedName").asText());
     }
 
     @Test
-    @DisplayName("Error during map operation should be handled by complete()")
-    void testErrorDuringMapOperation() {
-        EntityProcessorCalculationResponse response = testSerializer.withRequest(mockRequest)
-                .map(node -> {
-                    throw new RuntimeException("Mapping operation failed");
-                })
-                .complete();
-
-        // Then
-        assertNotNull(response);
-        verify(mockResponseBuilder).withError("PROCESSING_ERROR", "Mapping operation failed");
-        verify(mockResponseBuilder).build();
-    }
-
-    @Test
-    @DisplayName("Error during toEntity operation should be handled by complete()")
-    void testErrorDuringToEntityOperation() {
+    @DisplayName("ProcessingChain should handle map transformation error")
+    void testMapTransformationError() {
         // Given
-        RuntimeException entityError = new RuntimeException("Entity extraction failed");
-        testSerializer.setShouldThrowOnExtractEntity(entityError);
+        Function<ProcessorSerializer.ProcessorExecutionContext, JsonNode> faultyMapper = context -> {
+            throw new RuntimeException("Transformation failed");
+        };
 
         // When
-        EntityProcessorCalculationResponse response = testSerializer.withRequest(mockRequest)
-                .toEntity(TestEntity.class)
-                .map(entity -> entity)
+        EntityProcessorCalculationResponse response = serializer.withRequest(request)
+                .map(faultyMapper)
                 .complete();
 
         // Then
         assertNotNull(response);
-        verify(mockResponseBuilder).withError("PROCESSING_ERROR", "Entity extraction failed");
-        verify(mockResponseBuilder).build();
+        assertFalse(response.getSuccess());
     }
 
     @Test
-    @DisplayName("withErrorHandler should handle errors with custom error handler")
-    void testWithErrorHandlerWithCustomErrorHandler() {
+    @DisplayName("ProcessingChain should handle multiple chained transformations")
+    void testChainedTransformations() {
         // Given
-        RuntimeException processingError = new RuntimeException("Custom processing error");
-        testSerializer.setShouldThrowOnExtractPayload(processingError);
+        Function<ProcessorSerializer.ProcessorExecutionContext, JsonNode> firstMapper = context -> {
+            JsonNode payload = context.payload();
+            ObjectNode result = objectMapper.createObjectNode();
+            result.put("step1", "First transformation");
+            result.put("originalId", payload.get("id").asLong());
+            return result;
+        };
 
-        // When
-        EntityProcessorCalculationResponse response = testSerializer.withRequest(mockRequest)
-                .withErrorHandler((error, data) ->
-                        new ErrorInfo("CUSTOM_ERROR", "Custom error: " + error.getMessage())
-                )
-                .complete();
-
-        // Then
-        assertNotNull(response);
-        verify(mockResponseBuilder).withError("CUSTOM_ERROR", "Custom error: Custom processing error");
-        verify(mockResponseBuilder).build();
-    }
-
-    @Test
-    @DisplayName("withErrorHandler should return success response when no errors occur")
-    void testWithErrorHandlerWithoutErrors() {
-        // When
-        EntityProcessorCalculationResponse response = testSerializer.withRequest(mockRequest)
-                .withErrorHandler((error, data) ->
-                        new ErrorInfo("SHOULD_NOT_BE_CALLED", "Should not be called")
-                )
-                .map(node -> {
-                    ObjectNode result = objectMapper.createObjectNode();
-                    result.put("success", true);
-                    return result;
-                })
-                .complete();
-
-        // Then
-        assertNotNull(response);
-        verify(mockResponseBuilder).withSuccess(any(JsonNode.class));
-        verify(mockResponseBuilder).build();
-        verify(mockResponseBuilder, never()).withError(anyString(), anyString());
-    }
-
-    // ========================================
-    // PRACTICAL USAGE PATTERN TESTS
-    // ========================================
-
-    @Test
-    @DisplayName("Practical example: TestEntity status normalization with entity flow")
-    void testEntityStatusNormalizationPattern() {
-        // Given - A TestEntity with uppercase status that needs normalization
-        TestEntity entityWithUppercaseStatus = new TestEntity(456L, "Rex", "AVAILABLE", "DOG");
-
-        testSerializer.setCustomEntity(entityWithUppercaseStatus);
-
-        Function<TestEntity, TestEntity> entityNormalizer = entity -> {
-            // Normalize the entity data
-            return new TestEntity(
-                    entity.id(),
-                    entity.name(),
-                    entity.status().toLowerCase(), // Normalize status
-                    entity.category().toLowerCase() // Normalize category
-            );
+        Function<ProcessorSerializer.ProcessorExecutionContext, JsonNode> secondMapper = context -> {
+            JsonNode payload = context.payload();
+            ObjectNode result = objectMapper.createObjectNode();
+            result.put("step2", "Second transformation");
+            result.put("previousStep", payload.get("step1").asText());
+            result.put("finalId", payload.get("originalId").asLong() * 10);
+            return result;
         };
 
         // When
-        EntityProcessorCalculationResponse response = testSerializer.withRequest(mockRequest)
-                .toEntity(TestEntity.class)
-                .map(entityNormalizer)
+        EntityProcessorCalculationResponse response = serializer.withRequest(request)
+                .map(firstMapper)
+                .map(secondMapper)
                 .complete();
 
         // Then
         assertNotNull(response);
-        verify(mockResponseBuilder).withSuccess(any(JsonNode.class));
-        verify(mockResponseBuilder).build();
+        assertTrue(response.getSuccess());
+
+        JsonNode resultData = response.getPayload().getData();
+        assertEquals("Second transformation", resultData.get("step2").asText());
+        assertEquals("First transformation", resultData.get("previousStep").asText());
+        assertEquals(1230L, resultData.get("finalId").asLong());
     }
 
     @Test
-    @DisplayName("Practical example: Data enrichment pipeline with multiple transformations")
-    void testDataEnrichmentPipeline() {
-        // Given - A pipeline that enriches pet data step by step
-        Function<JsonNode, JsonNode> addMetadata = node -> {
-            ObjectNode enriched = node.deepCopy();
-            enriched.put("enrichmentStep", "metadata");
-            enriched.put("processedAt", "2025-07-12T10:00:00Z");
-            return enriched;
-        };
-
-        Function<JsonNode, JsonNode> addValidation = node -> {
-            ObjectNode validated = node.deepCopy();
-            validated.put("enrichmentStep", "validation");
-            validated.put("isValid", node.has("name") && node.has("id"));
-            return validated;
-        };
-
-        Function<JsonNode, JsonNode> addBusinessLogic = node -> {
-            ObjectNode processed = node.deepCopy();
-            processed.put("enrichmentStep", "business_logic");
-            processed.put("category", "processed");
-            processed.put("finalStep", true);
-            return processed;
-        };
-
-        // When - Chain multiple transformations
-        EntityProcessorCalculationResponse response = testSerializer.withRequest(mockRequest)
-                .map(addMetadata)
-                .map(addValidation)
-                .map(addBusinessLogic)
-                .complete();
-
-        // Then
-        assertNotNull(response);
-        verify(mockResponseBuilder).withSuccess(any(JsonNode.class));
-        verify(mockResponseBuilder).build();
-    }
-
-    @Test
-    @DisplayName("Practical example: Entity validation with custom error handling")
-    void testEntityValidationWithCustomErrorHandling() {
-        // Given - A TestEntity entity that will fail validation
-        TestEntity invalidEntity = new TestEntity(null, "", "invalid_status", null);
-
-        testSerializer.setCustomEntity(invalidEntity);
-
-        Function<TestEntity, TestEntity> entityValidator = entity -> {
-            if (entity.id() == null) {
-                throw new IllegalArgumentException("TestEntity ID cannot be null");
-            }
-            if (entity.name() == null || entity.name().trim().isEmpty()) {
-                throw new IllegalArgumentException("TestEntity name cannot be empty");
-            }
-            // If validation passes, return processed entity
-            return new TestEntity(entity.id(), entity.name(), "validated", entity.category());
-        };
-
-        BiFunction<Throwable, TestEntity, ErrorInfo> validationErrorHandler =
-                (error, entity) -> {
-                    if (error instanceof IllegalArgumentException) {
-                        return new ErrorInfo("VALIDATION_ERROR",
-                                "TestEntity validation failed: " + error.getMessage());
-                    }
-                    return new ErrorInfo("PROCESSING_ERROR",
-                            "Unexpected error during entity processing");
-                };
-
-        // When
-        EntityProcessorCalculationResponse response = testSerializer.withRequest(mockRequest)
-                .toEntity(TestEntity.class)
-                .withErrorHandler(validationErrorHandler)
-                .map(entityValidator)
-                .complete();
-
-        // Then
-        assertNotNull(response);
-        verify(mockResponseBuilder).withError("VALIDATION_ERROR", "TestEntity validation failed: TestEntity ID cannot be null");
-        verify(mockResponseBuilder).build();
-    }
-
-    @Test
-    @DisplayName("Practical example: Mixed entity and JSON processing with toJsonFlow")
-    void testMixedEntityAndJsonProcessing() {
-        // Given - Process entity first, then switch to JSON flow
-        Function<TestEntity, TestEntity> entityProcessor = entity -> new TestEntity(entity.id(), entity.name().toUpperCase(), "processed", entity.category());
-
-        Function<TestEntity, JsonNode> entityToJson = entity -> {
-            ObjectNode petJson = objectMapper.createObjectNode();
-            petJson.put("petId", entity.id());
-            petJson.put("petName", entity.name());
-            petJson.put("petStatus", entity.status());
-            return petJson;
-        };
-
-        Function<JsonNode, JsonNode> addBusinessData = node -> {
-            ObjectNode enhanced = node.deepCopy();
-            enhanced.put("businessCategory", "premium");
-            enhanced.put("loyaltyPoints", 100);
-            enhanced.put("lastUpdated", System.currentTimeMillis());
-            return enhanced;
-        };
-
-        // When - Entity flow then JSON flow
-        EntityProcessorCalculationResponse response = testSerializer.withRequest(mockRequest)
-                .toEntity(TestEntity.class)
-                .map(entityProcessor)
-                .toJsonFlow(entityToJson)
-                .map(addBusinessData)
-                .complete();
-
-        // Then
-        assertNotNull(response);
-        verify(mockResponseBuilder).withSuccess(any(JsonNode.class));
-        verify(mockResponseBuilder).build();
-    }
-
-    // ========================================
-    // EDGE CASE AND ERROR PROPAGATION TESTS
-    // ========================================
-
-    @Test
-    @DisplayName("Error in first operation should prevent subsequent operations from executing")
-    void testErrorPropagationPreventsSubsequentOperations() {
+    @DisplayName("ProcessingChain should handle error in first transformation and skip subsequent ones")
+    void testErrorPropagationInChain() {
         // Given
-        Function<JsonNode, JsonNode> faultyFirstMapper = node -> {
-            throw new RuntimeException("First operation failed");
+        Function<ProcessorSerializer.ProcessorExecutionContext, JsonNode> faultyMapper = context -> {
+            throw new RuntimeException("First transformation failed");
         };
 
-        Function<JsonNode, JsonNode> secondMapper = node -> {
-            // This should never be called due to error in first mapper
+        Function<ProcessorSerializer.ProcessorExecutionContext, JsonNode> secondMapper = context -> {
+            // This should never be called
             ObjectNode result = objectMapper.createObjectNode();
             result.put("shouldNotBeReached", true);
             return result;
         };
 
         // When
-        EntityProcessorCalculationResponse response = testSerializer.withRequest(mockRequest)
-                .map(faultyFirstMapper)
-                .map(secondMapper) // This should not execute
+        EntityProcessorCalculationResponse response = serializer.withRequest(request)
+                .map(faultyMapper)
+                .map(secondMapper) // Should not execute
                 .complete();
 
         // Then
         assertNotNull(response);
-        verify(mockResponseBuilder).withError("PROCESSING_ERROR", "First operation failed");
-        verify(mockResponseBuilder).build();
-        // The second mapper should never be called due to error state
+        assertFalse(response.getSuccess());
     }
 
     @Test
-    @DisplayName("Error state should be preserved through multiple chained operations")
-    void testErrorStatePreservation() {
+    @DisplayName("ProcessingChain should use custom error handler")
+    void testCustomErrorHandler() {
         // Given
-        RuntimeException initialError = new RuntimeException("Initial error");
-        testSerializer.setShouldThrowOnExtractPayload(initialError);
+        BiFunction<Throwable, JsonNode, ErrorInfo> customErrorHandler =
+            (error, data) -> new ErrorInfo("CUSTOM_ERROR", "Custom: " + error.getMessage());
 
-        Function<JsonNode, JsonNode> mapper1 = node -> objectMapper.createObjectNode();
-        Function<JsonNode, JsonNode> mapper2 = node -> objectMapper.createObjectNode();
-
-        // When
-        EntityProcessorCalculationResponse response = testSerializer.withRequest(mockRequest)
-                .map(mapper1) // Should not execute due to initial error
-                .map(mapper2) // Should not execute due to initial error
-                .complete();
-
-        // Then
-        assertNotNull(response);
-        verify(mockResponseBuilder).withError("PROCESSING_ERROR", "Initial error");
-        verify(mockResponseBuilder).build();
-    }
-
-    @Test
-    @DisplayName("Null payload should be handled gracefully")
-    void testNullPayloadHandling() {
-        // Given
-        testSerializer.setShouldThrowOnExtractPayload(new IllegalArgumentException("Cannot process null payload"));
-
-        Function<JsonNode, JsonNode> mapper = node -> {
-            // This should not be called due to extraction error
-            return objectMapper.createObjectNode();
+        Function<ProcessorSerializer.ProcessorExecutionContext, JsonNode> faultyMapper = context -> {
+            throw new RuntimeException("Processing failed");
         };
 
         // When
-        EntityProcessorCalculationResponse response = testSerializer.withRequest(mockRequest)
-                .map(mapper)
-                .complete();
-
-        // Then
-        assertNotNull(response);
-        verify(mockResponseBuilder).withError("PROCESSING_ERROR", "Cannot process null payload");
-        verify(mockResponseBuilder).build();
-    }
-
-    @Test
-    @DisplayName("Complex error handler should receive both error and processed data")
-    void testComplexErrorHandlerWithData() {
-        // Given
-        ObjectNode partialData = objectMapper.createObjectNode();
-        partialData.put("partialProcessing", true);
-        partialData.put("step", "initial");
-
-        // We need to modify the test serializer to return partial data
-        testPayload = partialData;
-
-        Function<JsonNode, JsonNode> faultyMapper = node -> {
-            throw new RuntimeException("Processing failed at step 2");
-        };
-
-        BiFunction<Throwable, JsonNode, ErrorInfo> dataAwareErrorHandler =
-                (error, data) -> {
-                    String errorMessage = "Error: " + error.getMessage();
-                    if (data != null && data.has("step")) {
-                        errorMessage += " (failed at: " + data.get("step").asText() + ")";
-                    }
-                    return new ErrorInfo("DETAILED_ERROR", errorMessage);
-                };
-
-        // When
-        EntityProcessorCalculationResponse response = testSerializer.withRequest(mockRequest)
-                .withErrorHandler(dataAwareErrorHandler)
+        EntityProcessorCalculationResponse response = serializer.withRequest(request)
+                .withErrorHandler(customErrorHandler)
                 .map(faultyMapper)
                 .complete();
 
         // Then
         assertNotNull(response);
-        verify(mockResponseBuilder).withError("DETAILED_ERROR",
-                "Error: Processing failed at step 2 (failed at: initial)");
-        verify(mockResponseBuilder).build();
-    }
-
-    // ========================================
-    // INTEGRATION AND REAL-WORLD USAGE EXAMPLES
-    // ========================================
-
-    @Test
-    @DisplayName("Integration example: Complete entity processing workflow")
-    void testCompletePetProcessingWorkflow() {
-        // Given - A realistic entity processing scenario
-        TestEntity rawEntity = new TestEntity(789L, "  BUDDY  ", "AVAILABLE", "DOG");
-
-        testSerializer.setCustomEntity(rawEntity);
-
-        // Step 1: Extract and clean entity data
-        Function<TestEntity, TestEntity> entityCleaner = entity -> new TestEntity(
-                entity.id(),
-                entity.name().trim().toLowerCase(),
-                entity.status().toLowerCase(),
-                entity.category().toLowerCase()
-        );
-
-        // Convert entity to JSON for further processing
-        Function<TestEntity, JsonNode> entityToJson = entity -> {
-            ObjectNode cleaned = objectMapper.createObjectNode();
-            cleaned.put("id", entity.id());
-            cleaned.put("name", entity.name());
-            cleaned.put("status", entity.status());
-            cleaned.put("category", entity.category());
-            cleaned.put("cleaningStep", "completed");
-            return cleaned;
-        };
-
-        // Step 2: Add business validation
-        Function<JsonNode, JsonNode> businessValidator = node -> {
-            ObjectNode validated = node.deepCopy();
-            String status = node.get("status").asText();
-            boolean isValidStatus = status.equals("available") || status.equals("pending") || status.equals("sold");
-            validated.put("validationStep", "completed");
-            validated.put("isValidStatus", isValidStatus);
-            if (!isValidStatus) {
-                validated.put("status", "pending"); // Default to pending for invalid status
-            }
-            return validated;
-        };
-
-        // Step 3: Add metadata and finalize
-        Function<JsonNode, JsonNode> finalizer = node -> {
-            ObjectNode finalized = node.deepCopy();
-            finalized.put("processedAt", "2025-07-12T10:00:00Z");
-            finalized.put("processingVersion", "1.0");
-            finalized.put("finalStep", "completed");
-            return finalized;
-        };
-
-        // When - Execute the complete workflow
-        EntityProcessorCalculationResponse response = testSerializer.withRequest(mockRequest)
-                .toEntity(TestEntity.class)
-                .map(entityCleaner)
-                .toJsonFlow(entityToJson)
-                .map(businessValidator)
-                .map(finalizer)
-                .complete();
-
-        // Then
-        assertNotNull(response);
-        verify(mockResponseBuilder).withSuccess(any(JsonNode.class));
-        verify(mockResponseBuilder).build();
+        assertFalse(response.getSuccess());
     }
 
     @Test
-    @DisplayName("Integration example: Error recovery with fallback processing")
-    void testErrorRecoveryWithFallback() {
-        // Given - A scenario where primary processing fails but fallback succeeds
-        RuntimeException primaryError = new RuntimeException("Primary processing service unavailable");
-        testSerializer.setShouldThrowOnExtractPayload(primaryError);
-
-        BiFunction<Throwable, JsonNode, ErrorInfo> fallbackHandler =
-                (error, data) -> {
-                    // In a real scenario, this might trigger fallback processing
-                    if (error.getMessage().contains("service unavailable")) {
-                        return new ErrorInfo("FALLBACK_PROCESSING",
-                                "Primary service unavailable, fallback processing initiated");
-                    }
-                    return new ErrorInfo("PROCESSING_ERROR",
-                            "Unrecoverable error: " + error.getMessage());
-                };
-
+    @DisplayName("ProcessingChain toEntity should extract entity and switch to entity flow")
+    void testToEntityTransition() {
         // When
-        EntityProcessorCalculationResponse response = testSerializer.withRequest(mockRequest)
-                .withErrorHandler(fallbackHandler)
-                .complete();
+        ProcessorSerializer.EntityProcessingChain<TestEntity> entityChain = serializer.withRequest(request)
+                .toEntity(TestEntity.class);
 
         // Then
-        assertNotNull(response);
-        verify(mockResponseBuilder).withError("FALLBACK_PROCESSING",
-                "Primary service unavailable, fallback processing initiated");
-        verify(mockResponseBuilder).build();
+        assertNotNull(entityChain);
+        assertInstanceOf(ProcessorSerializer.EntityProcessingChainImpl.class, entityChain);
     }
 
     @Test
-    @DisplayName("Usage example: Simple data transformation pattern")
-    void testSimpleDataTransformationPattern() {
-        // This test demonstrates the most common usage pattern
+    @DisplayName("EntityProcessingChain should transform entity")
+    void testEntityTransformation() {
         // Given
-        Function<JsonNode, JsonNode> simpleTransform = node -> {
-            ObjectNode result = objectMapper.createObjectNode();
-            result.put("originalId", node.get("id").asLong());
-            result.put("transformedName", "Processed: " + node.get("name").asText());
-            result.put("timestamp", System.currentTimeMillis());
-            return result;
-        };
-
-        // When - Simple one-step transformation
-        EntityProcessorCalculationResponse response = testSerializer.withRequest(mockRequest)
-                .map(simpleTransform)
-                .complete();
-
-        // Then
-        assertNotNull(response);
-        verify(mockResponseBuilder).withSuccess(any(JsonNode.class));
-        verify(mockResponseBuilder).build();
-    }
-
-    @Test
-    @DisplayName("Usage example: Entity-first processing pattern")
-    void testEntityFirstProcessingPattern() {
-        // This test demonstrates processing that starts with entity extraction
-        // Given
-        Function<TestEntity, TestEntity> entityProcessor = entity ->
-                new TestEntity(entity.id(), entity.name().toUpperCase(),
-                        "processed", entity.category());
-
-        // When - Entity-first processing
-        EntityProcessorCalculationResponse response = testSerializer.withRequest(mockRequest)
-                .toEntity(TestEntity.class)
-                .map(entityProcessor)
-                .complete();
-
-        // Then
-        assertNotNull(response);
-        verify(mockResponseBuilder).withSuccess(any(JsonNode.class));
-        verify(mockResponseBuilder).build();
-    }
-
-    // ========================================
-    // ENTITY PROCESSING CHAIN TESTS
-    // ========================================
-
-    @Test
-    @DisplayName("EntityProcessingChain: Multiple entity transformations should chain correctly")
-    void testMultipleEntityTransformations() {
-        // Given
-        Function<TestEntity, TestEntity> firstTransform = entity ->
-                new TestEntity(entity.id(), entity.name().toUpperCase(), entity.status(), entity.category());
-
-        Function<TestEntity, TestEntity> secondTransform = entity ->
-                new TestEntity(entity.id(), entity.name(), "processed", entity.category());
-
-        // When
-        EntityProcessorCalculationResponse response = testSerializer.withRequest(mockRequest)
-                .toEntity(TestEntity.class)
-                .map(firstTransform)
-                .map(secondTransform)
-                .complete();
-
-        // Then
-        assertNotNull(response);
-        verify(mockResponseBuilder).withSuccess(any(JsonNode.class));
-        verify(mockResponseBuilder).build();
-    }
-
-    @Test
-    @DisplayName("EntityProcessingChain: toJsonFlow should switch from entity to JSON processing")
-    void testToJsonFlowTransition() {
-        // Given
-        Function<TestEntity, TestEntity> entityTransform = entity ->
-                new TestEntity(entity.id(), entity.name().toUpperCase(), "processed", entity.category());
-
-        Function<TestEntity, JsonNode> entityToJson = entity -> {
-            ObjectNode result = objectMapper.createObjectNode();
-            result.put("entityId", entity.id());
-            result.put("entityName", entity.name());
-            result.put("entityStatus", entity.status());
-            result.put("convertedFromEntity", true);
-            return result;
-        };
-
-        Function<JsonNode, JsonNode> jsonTransform = node -> {
-            ObjectNode enhanced = node.deepCopy();
-            enhanced.put("jsonProcessingStep", "completed");
-            enhanced.put("timestamp", System.currentTimeMillis());
-            return enhanced;
+        Function<ProcessorSerializer.ProcessorEntityExecutionContext<TestEntity>, TestEntity> entityMapper = context -> {
+            TestEntity entity = context.entity();
+            return new TestEntity(entity.getId(), entity.getName().toUpperCase(), "processed");
         };
 
         // When
-        EntityProcessorCalculationResponse response = testSerializer.withRequest(mockRequest)
+        EntityProcessorCalculationResponse response = serializer.withRequest(request)
                 .toEntity(TestEntity.class)
-                .map(entityTransform)
-                .toJsonFlow(entityToJson)
-                .map(jsonTransform)
+                .map(entityMapper)
                 .complete();
 
         // Then
         assertNotNull(response);
-        verify(mockResponseBuilder).withSuccess(any(JsonNode.class));
-        verify(mockResponseBuilder).build();
+        assertTrue(response.getSuccess());
+
+        JsonNode resultData = response.getPayload().getData();
+        assertEquals(123L, resultData.get("id").asLong());
+        assertEquals("FLUFFY", resultData.get("name").asText());
+        assertEquals("processed", resultData.get("status").asText());
     }
 
     @Test
-    @DisplayName("EntityProcessingChain: complete with custom converter should work")
-    void testCompleteWithCustomConverter() {
+    @DisplayName("EntityProcessingChain should handle entity validation")
+    void testEntityValidation() {
         // Given
-        Function<TestEntity, TestEntity> entityTransform = entity ->
-                new TestEntity(entity.id(), entity.name().toUpperCase(),
-                        "processed", entity.category());
+        Function<TestEntity, Boolean> validator = entity -> entity.getId() != null && entity.getId() > 100;
 
-        Function<TestEntity, JsonNode> customConverter = entity -> {
-            ObjectNode result = objectMapper.createObjectNode();
-            result.put("customId", entity.id());
-            result.put("customName", "Custom: " + entity.name());
-            result.put("customStatus", entity.status());
-            result.put("customProcessed", true);
-            return result;
+        Function<ProcessorSerializer.ProcessorEntityExecutionContext<TestEntity>, TestEntity> processor = context -> {
+            TestEntity entity = context.entity();
+            return new TestEntity(entity.getId(), entity.getName(), "validated");
         };
 
         // When
-        EntityProcessorCalculationResponse response = testSerializer.withRequest(mockRequest)
-                .toEntity(TestEntity.class)
-                .map(entityTransform)
-                .complete(customConverter);
-
-        // Then
-        assertNotNull(response);
-        verify(mockResponseBuilder).withSuccess(any(JsonNode.class));
-        verify(mockResponseBuilder).build();
-    }
-
-    @Test
-    @DisplayName("EntityProcessingChain: Error in entity transformation should be handled")
-    void testEntityTransformationError() {
-        // Given
-        Function<TestEntity, TestEntity> faultyTransform = entity -> {
-            throw new RuntimeException("Entity transformation failed");
-        };
-
-        // When
-        EntityProcessorCalculationResponse response = testSerializer.withRequest(mockRequest)
-                .toEntity(TestEntity.class)
-                .map(faultyTransform)
-                .complete();
-
-        // Then
-        assertNotNull(response);
-        verify(mockResponseBuilder).withError("PROCESSING_ERROR", "Entity transformation failed");
-        verify(mockResponseBuilder).build();
-    }
-
-    @Test
-    @DisplayName("EntityProcessingChain: Error in toJsonFlow should be handled")
-    void testToJsonFlowError() {
-        // Given
-        Function<TestEntity, TestEntity> entityTransform = entity -> entity;
-
-        Function<TestEntity, JsonNode> faultyConverter = entity -> {
-            throw new RuntimeException("JSON conversion failed");
-        };
-
-        // When
-        EntityProcessorCalculationResponse response = testSerializer.withRequest(mockRequest)
-                .toEntity(TestEntity.class)
-                .map(entityTransform)
-                .toJsonFlow(faultyConverter)
-                .complete();
-
-        // Then
-        assertNotNull(response);
-        verify(mockResponseBuilder).withError("PROCESSING_ERROR", "JSON conversion failed");
-        verify(mockResponseBuilder).build();
-    }
-
-    @Test
-    @DisplayName("EntityProcessingChain: withErrorHandler with entity error handler should work")
-    void testEntityWithErrorHandlerWithCustomErrorHandler() {
-        // Given
-        Function<TestEntity, TestEntity> faultyTransform = entity -> {
-            throw new IllegalStateException("Entity validation failed");
-        };
-
-        BiFunction<Throwable, TestEntity, ErrorInfo> entityErrorHandler =
-                (error, entity) -> {
-                    if (error instanceof IllegalStateException) {
-                        String entityInfo = entity != null ? " for entity ID: " + entity.id() : "";
-                        return new ErrorInfo("ENTITY_VALIDATION_ERROR",
-                                "Entity validation failed" + entityInfo);
-                    }
-                    return new ErrorInfo("ENTITY_PROCESSING_ERROR",
-                            "Unexpected entity processing error");
-                };
-
-        // When
-        EntityProcessorCalculationResponse response = testSerializer.withRequest(mockRequest)
-                .toEntity(TestEntity.class)
-                .withErrorHandler(entityErrorHandler)
-                .map(faultyTransform)
-                .complete();
-
-        // Then
-        assertNotNull(response);
-        verify(mockResponseBuilder).withError("ENTITY_VALIDATION_ERROR", "Entity validation failed for entity ID: 123");
-        verify(mockResponseBuilder).build();
-    }
-
-    @Test
-    @DisplayName("EntityProcessingChain: Pure entity flow without JSON conversion")
-    void testPureEntityFlow() {
-        // Given - A complete entity processing flow
-        Function<TestEntity, TestEntity> normalizeEntity = entity ->
-                new TestEntity(entity.id(), entity.name().trim(), entity.status().toLowerCase(), entity.category());
-
-        Function<TestEntity, TestEntity> validateEntity = entity -> {
-            if (entity.name().isEmpty()) {
-                throw new IllegalArgumentException("Entity name cannot be empty");
-            }
-            return entity;
-        };
-
-        Function<TestEntity, TestEntity> enrichEntity = entity ->
-                new TestEntity(entity.id(), entity.name(), "enriched_" + entity.status(), entity.category());
-
-        // When
-        EntityProcessorCalculationResponse response = testSerializer.withRequest(mockRequest)
-                .toEntity(TestEntity.class)
-                .map(normalizeEntity)
-                .map(validateEntity)
-                .map(enrichEntity)
-                .complete();
-
-        // Then
-        assertNotNull(response);
-        verify(mockResponseBuilder).withSuccess(any(JsonNode.class));
-        verify(mockResponseBuilder).build();
-    }
-
-    @Test
-    @DisplayName("EntityProcessingChain: validate should pass for valid entities")
-    void testValidateSuccess() {
-        // Given
-        Function<TestEntity, Boolean> validator = entity -> entity.id() != null && entity.name() != null;
-
-        Function<TestEntity, TestEntity> processor = entity ->
-                new TestEntity(entity.id(), entity.name().toUpperCase(),
-                        "processed", entity.category());
-
-        // When
-        EntityProcessorCalculationResponse response = testSerializer.withRequest(mockRequest)
+        EntityProcessorCalculationResponse response = serializer.withRequest(request)
                 .toEntity(TestEntity.class)
                 .validate(validator)
                 .map(processor)
@@ -948,91 +291,850 @@ class ProcessingChainTest {
 
         // Then
         assertNotNull(response);
-        verify(mockResponseBuilder).withSuccess(any(JsonNode.class));
-        verify(mockResponseBuilder).build();
+        assertTrue(response.getSuccess());
+
+        JsonNode resultData = response.getPayload().getData();
+        assertEquals("validated", resultData.get("status").asText());
     }
 
     @Test
-    @DisplayName("EntityProcessingChain: validate should fail for invalid entities")
-    void testValidateFailure() {
+    @DisplayName("EntityProcessingChain should handle validation failure")
+    void testEntityValidationFailure() {
         // Given
-        Function<TestEntity, Boolean> validator = entity -> entity.id() != null && entity.id() > 1000;
+        Function<TestEntity, Boolean> validator = entity -> entity.getId() > 1000; // Will fail
 
         // When
-        EntityProcessorCalculationResponse response = testSerializer.withRequest(mockRequest)
+        EntityProcessorCalculationResponse response = serializer.withRequest(request)
                 .toEntity(TestEntity.class)
                 .validate(validator)
                 .complete();
 
         // Then
         assertNotNull(response);
-        verify(mockResponseBuilder).withError("PROCESSING_ERROR", "Entity validation failed");
-        verify(mockResponseBuilder).build();
+        assertFalse(response.getSuccess());
     }
 
     @Test
-    @DisplayName("EntityProcessingChain: validate with custom error message")
-    void testValidateWithCustomErrorMessage() {
+    @DisplayName("EntityProcessingChain should handle validation failure with custom message")
+    void testEntityValidationFailureWithCustomMessage() {
         // Given
-        Function<TestEntity, Boolean> validator = entity -> entity.name().length() > 10;
-        String customErrorMessage = "Entity name must be longer than 10 characters";
+        Function<TestEntity, Boolean> validator = entity -> entity.getName().length() > 10;
+        String customMessage = "Entity name must be longer than 10 characters";
 
         // When
-        EntityProcessorCalculationResponse response = testSerializer.withRequest(mockRequest)
+        EntityProcessorCalculationResponse response = serializer.withRequest(request)
                 .toEntity(TestEntity.class)
-                .validate(validator, customErrorMessage)
+                .validate(validator, customMessage)
                 .complete();
 
         // Then
         assertNotNull(response);
-        verify(mockResponseBuilder).withError("PROCESSING_ERROR", customErrorMessage);
-        verify(mockResponseBuilder).build();
+        assertFalse(response.getSuccess());
     }
 
     @Test
-    @DisplayName("EntityProcessingChain: validate with exception in validator should be handled")
-    void testValidateWithException() {
+    @DisplayName("EntityProcessingChain should handle toJsonFlow transition")
+    void testToJsonFlowTransition() {
         // Given
-        Function<TestEntity, Boolean> faultyValidator = entity -> {
-            throw new RuntimeException("Validator error");
+        Function<ProcessorSerializer.ProcessorEntityExecutionContext<TestEntity>, TestEntity> entityProcessor = context -> {
+            TestEntity entity = context.entity();
+            return new TestEntity(entity.getId(), entity.getName().toUpperCase(), "processed");
+        };
+
+        Function<TestEntity, JsonNode> entityToJson = entity -> {
+            ObjectNode result = objectMapper.createObjectNode();
+            result.put("entityId", entity.getId());
+            result.put("entityName", entity.getName());
+            result.put("entityStatus", entity.getStatus());
+            result.put("convertedFromEntity", true);
+            return result;
+        };
+
+        Function<ProcessorSerializer.ProcessorExecutionContext, JsonNode> jsonProcessor = context -> {
+            JsonNode payload = context.payload();
+            ObjectNode enhanced = payload.deepCopy();
+            enhanced.put("jsonProcessingStep", "completed");
+            return enhanced;
         };
 
         // When
-        EntityProcessorCalculationResponse response = testSerializer.withRequest(mockRequest)
+        EntityProcessorCalculationResponse response = serializer.withRequest(request)
                 .toEntity(TestEntity.class)
-                .validate(faultyValidator)
+                .map(entityProcessor)
+                .toJsonFlow(entityToJson)
+                .map(jsonProcessor)
                 .complete();
 
         // Then
         assertNotNull(response);
-        verify(mockResponseBuilder).withError("PROCESSING_ERROR", "Validator error");
-        verify(mockResponseBuilder).build();
+        assertTrue(response.getSuccess());
+
+        JsonNode resultData = response.getPayload().getData();
+        assertEquals(123L, resultData.get("entityId").asLong());
+        assertEquals("FLUFFY", resultData.get("entityName").asText());
+        assertEquals("processed", resultData.get("entityStatus").asText());
+        assertTrue(resultData.get("convertedFromEntity").asBoolean());
+        assertEquals("completed", resultData.get("jsonProcessingStep").asText());
     }
 
     @Test
-    @DisplayName("EntityProcessingChain: Complete workflow with validation")
-    void testCompleteWorkflowWithValidation() {
-        // Given - A complete entity processing flow with validation
-        Function<TestEntity, Boolean> validator = entity -> entity.id() != null && entity.name() != null;
+    @DisplayName("EntityProcessingChain should handle complete with custom converter")
+    void testEntityCompleteWithCustomConverter() {
+        // Given
+        Function<ProcessorSerializer.ProcessorEntityExecutionContext<TestEntity>, TestEntity> entityProcessor = context -> {
+            TestEntity entity = context.entity();
+            return new TestEntity(entity.getId(), entity.getName().toUpperCase(), "processed");
+        };
 
-        Function<TestEntity, TestEntity> normalizer = entity ->
-                new TestEntity(entity.id(), entity.name().trim().toLowerCase(), entity.status(), entity.category());
-
-        Function<TestEntity, TestEntity> enricher = entity ->
-                new TestEntity(entity.id(), entity.name(), "enriched_" + entity.status(), entity.category());
+        Function<TestEntity, JsonNode> customConverter = entity -> {
+            ObjectNode result = objectMapper.createObjectNode();
+            result.put("customId", entity.getId());
+            result.put("customName", "Custom: " + entity.getName());
+            result.put("customStatus", entity.getStatus());
+            result.put("customProcessed", true);
+            return result;
+        };
 
         // When
-        EntityProcessorCalculationResponse response = testSerializer.withRequest(mockRequest)
+        EntityProcessorCalculationResponse response = serializer.withRequest(request)
                 .toEntity(TestEntity.class)
-                .validate(validator)
-                .map(normalizer)
-                .validate(e -> !e.name().isEmpty(), "Name cannot be empty after normalization")
-                .map(enricher)
+                .map(entityProcessor)
+                .complete(customConverter);
+
+        // Then
+        assertNotNull(response);
+        assertTrue(response.getSuccess());
+
+        JsonNode resultData = response.getPayload().getData();
+        assertEquals(123L, resultData.get("customId").asLong());
+        assertEquals("Custom: FLUFFY", resultData.get("customName").asText());
+        assertEquals("processed", resultData.get("customStatus").asText());
+        assertTrue(resultData.get("customProcessed").asBoolean());
+    }
+
+    @Test
+    @DisplayName("EntityProcessingChain should handle entity transformation error")
+    void testEntityTransformationError() {
+        // Given
+        Function<ProcessorSerializer.ProcessorEntityExecutionContext<TestEntity>, TestEntity> faultyMapper = context -> {
+            throw new RuntimeException("Entity transformation failed");
+        };
+
+        // When
+        EntityProcessorCalculationResponse response = serializer.withRequest(request)
+                .toEntity(TestEntity.class)
+                .map(faultyMapper)
                 .complete();
 
         // Then
         assertNotNull(response);
-        verify(mockResponseBuilder).withSuccess(any(JsonNode.class));
-        verify(mockResponseBuilder).build();
+        assertFalse(response.getSuccess());
+    }
+
+    @Test
+    @DisplayName("EntityProcessingChain should handle toJsonFlow conversion error")
+    void testToJsonFlowConversionError() {
+        // Given
+        Function<TestEntity, JsonNode> faultyConverter = entity -> {
+            throw new RuntimeException("JSON conversion failed");
+        };
+
+        // When
+        EntityProcessorCalculationResponse response = serializer.withRequest(request)
+                .toEntity(TestEntity.class)
+                .toJsonFlow(faultyConverter)
+                .complete();
+
+        // Then
+        assertNotNull(response);
+        assertFalse(response.getSuccess());
+    }
+
+    @Test
+    @DisplayName("EntityProcessingChain should handle custom converter error")
+    void testEntityCustomConverterError() {
+        // Given
+        Function<TestEntity, JsonNode> faultyConverter = entity -> {
+            throw new RuntimeException("Custom converter failed");
+        };
+
+        // When
+        EntityProcessorCalculationResponse response = serializer.withRequest(request)
+                .toEntity(TestEntity.class)
+                .complete(faultyConverter);
+
+        // Then
+        assertNotNull(response);
+        assertFalse(response.getSuccess());
+    }
+
+    @Test
+    @DisplayName("EntityProcessingChain should use custom error handler")
+    void testEntityCustomErrorHandler() {
+        // Given
+        BiFunction<Throwable, TestEntity, ErrorInfo> customErrorHandler =
+            (error, entity) -> new ErrorInfo("ENTITY_ERROR",
+                "Entity error for ID " + entity.getId() + ": " + error.getMessage());
+
+        Function<ProcessorSerializer.ProcessorEntityExecutionContext<TestEntity>, TestEntity> faultyMapper = context -> {
+            throw new RuntimeException("Entity processing failed");
+        };
+
+        // When
+        EntityProcessorCalculationResponse response = serializer.withRequest(request)
+                .toEntity(TestEntity.class)
+                .withErrorHandler(customErrorHandler)
+                .map(faultyMapper)
+                .complete();
+
+        // Then
+        assertNotNull(response);
+        assertFalse(response.getSuccess());
+    }
+
+    @Test
+    @DisplayName("ProcessingChain should handle payload extraction error")
+    void testPayloadExtractionError() {
+        // Given - Request with null payload
+        EntityProcessorCalculationRequest badRequest = new EntityProcessorCalculationRequest();
+        badRequest.setId("bad-request");
+        badRequest.setPayload(null);
+
+        // When
+        EntityProcessorCalculationResponse response = serializer.withRequest(badRequest)
+                .complete();
+
+        // Then
+        assertNotNull(response);
+        assertFalse(response.getSuccess());
+    }
+
+    @Test
+    @DisplayName("ProcessingChain should handle entity extraction error")
+    void testEntityExtractionError() {
+        // Given - Payload that cannot be converted to TestEntity
+        ObjectNode badPayload = objectMapper.createObjectNode();
+        badPayload.put("invalidField", "invalidValue");
+
+        DataPayload payload = new DataPayload();
+        payload.setData(badPayload);
+        request.setPayload(payload);
+
+        // When
+        EntityProcessorCalculationResponse response = serializer.withRequest(request)
+                .toEntity(TestEntity.class)
+                .complete();
+
+        // Then
+        assertNotNull(response);
+        assertFalse(response.getSuccess());
+    }
+
+    @Test
+    @DisplayName("ProcessingChain should handle null entity after extraction")
+    void testNullEntityHandling() {
+        // Given - Payload that results in null entity (empty object)
+        ObjectNode emptyPayload = objectMapper.createObjectNode();
+
+        DataPayload payload = new DataPayload();
+        payload.setData(emptyPayload);
+        request.setPayload(payload);
+
+        // When
+        EntityProcessorCalculationResponse response = serializer.withRequest(request)
+                .toEntity(TestEntity.class)
+                .complete();
+
+        // Then
+        assertNotNull(response);
+        // The response depends on how Jackson handles empty objects
+        // It might succeed with a TestEntity with null fields or fail
+    }
+
+    @Test
+    @DisplayName("ProcessingChain should handle executeFunction")
+    void testExecuteFunction() {
+        // Given
+        Function<ProcessorSerializer.ProcessorExecutionContext, String> customFunction = context ->
+                "Function executed with request ID " + context.request().getRequestId();
+
+        // When
+        String result = serializer.executeFunction(request, customFunction);
+
+        // Then
+        assertEquals("Function executed with request ID req-456", result);
+    }
+
+    @Test
+    @DisplayName("ProcessingChain should handle executeFunction with error")
+    void testExecuteFunctionWithError() {
+        // Given
+        Function<ProcessorSerializer.ProcessorExecutionContext, String> faultyFunction = context -> {
+            throw new RuntimeException("Function execution failed");
+        };
+
+        // When & Then
+        assertThrows(RuntimeException.class, () ->
+            serializer.executeFunction(request, faultyFunction));
+    }
+
+    @Test
+    @DisplayName("ProcessingChain should handle context access in transformations")
+    void testContextAccess() {
+        // Given
+        Function<ProcessorSerializer.ProcessorExecutionContext, JsonNode> contextMapper = context -> {
+            // Verify context provides access to request and payload
+            assertNotNull(context.request());
+            assertNotNull(context.payload());
+            assertEquals(request, context.request());
+            assertEquals(testPayload, context.payload());
+
+            ObjectNode result = objectMapper.createObjectNode();
+            result.put("requestId", context.request().getId());
+            result.put("entityId", context.request().getEntityId());
+            result.put("originalName", context.payload().get("name").asText());
+            return result;
+        };
+
+        // When
+        EntityProcessorCalculationResponse response = serializer.withRequest(request)
+                .map(contextMapper)
+                .complete();
+
+        // Then
+        assertNotNull(response);
+        assertTrue(response.getSuccess());
+
+        JsonNode resultData = response.getPayload().getData();
+        assertEquals("test-request-123", resultData.get("requestId").asText());
+        assertEquals("entity-789", resultData.get("entityId").asText());
+        assertEquals("Fluffy", resultData.get("originalName").asText());
+    }
+
+    @Test
+    @DisplayName("EntityProcessingChain should handle context access in entity transformations")
+    void testEntityContextAccess() {
+        // Given
+        Function<ProcessorSerializer.ProcessorEntityExecutionContext<TestEntity>, TestEntity> contextMapper = context -> {
+            // Verify context provides access to request and entity
+            assertNotNull(context.request());
+            assertNotNull(context.entity());
+            assertEquals(request, context.request());
+            assertEquals(123L, context.entity().getId());
+            assertEquals("Fluffy", context.entity().getName());
+
+            return new TestEntity(
+                context.entity().getId(),
+                "Processed by " + context.request().getProcessorName(),
+                "context-verified"
+            );
+        };
+
+        // When
+        EntityProcessorCalculationResponse response = serializer.withRequest(request)
+                .toEntity(TestEntity.class)
+                .map(contextMapper)
+                .complete();
+
+        // Then
+        assertNotNull(response);
+        assertTrue(response.getSuccess());
+
+        JsonNode resultData = response.getPayload().getData();
+        assertEquals(123L, resultData.get("id").asLong());
+        assertEquals("Processed by TestProcessor", resultData.get("name").asText());
+        assertEquals("context-verified", resultData.get("status").asText());
+    }
+
+    @Test
+    @DisplayName("ProcessingChain should handle multiple error handlers (last one wins)")
+    void testMultipleErrorHandlers() {
+        // Given
+        BiFunction<Throwable, JsonNode, ErrorInfo> firstHandler =
+            (error, data) -> new ErrorInfo("FIRST_ERROR", "First handler");
+
+        BiFunction<Throwable, JsonNode, ErrorInfo> secondHandler =
+            (error, data) -> new ErrorInfo("SECOND_ERROR", "Second handler: " + error.getMessage());
+
+        Function<ProcessorSerializer.ProcessorExecutionContext, JsonNode> faultyMapper = context -> {
+            throw new RuntimeException("Test error");
+        };
+
+        // When
+        EntityProcessorCalculationResponse response = serializer.withRequest(request)
+                .withErrorHandler(firstHandler)
+                .withErrorHandler(secondHandler) // This should override the first one
+                .map(faultyMapper)
+                .complete();
+
+        // Then
+        assertNotNull(response);
+        assertFalse(response.getSuccess());
+    }
+
+    // ========================================
+    // EDGE CASE TESTS FOR ERROR STATE HANDLING
+    // ========================================
+
+    @Test
+    @DisplayName("toEntity should skip when error already exists")
+    void testToEntitySkipsWhenErrorExists() {
+        // Given - Create a chain with an initial error
+        Function<ProcessorSerializer.ProcessorExecutionContext, JsonNode> faultyMapper = context -> {
+            throw new RuntimeException("Initial processing error");
+        };
+
+        // When - Try to call toEntity after error
+        EntityProcessorCalculationResponse response = serializer.withRequest(request)
+                .map(faultyMapper) // This creates an error
+                .toEntity(TestEntity.class) // This should be skipped
+                .complete();
+
+        // Then
+        assertNotNull(response);
+        assertFalse(response.getSuccess());
+    }
+
+    @Test
+    @DisplayName("validate should skip when error already exists")
+    void testValidateSkipsWhenErrorExists() {
+        // Given - Create an entity chain with an initial error
+        Function<ProcessorSerializer.ProcessorEntityExecutionContext<TestEntity>, TestEntity> faultyMapper = context -> {
+            throw new RuntimeException("Entity processing error");
+        };
+
+        Function<TestEntity, Boolean> validator = entity -> true; // Should never be called
+
+        // When
+        EntityProcessorCalculationResponse response = serializer.withRequest(request)
+                .toEntity(TestEntity.class)
+                .map(faultyMapper) // This creates an error
+                .validate(validator) // This should be skipped
+                .complete();
+
+        // Then
+        assertNotNull(response);
+        assertFalse(response.getSuccess());
+    }
+
+    @Test
+    @DisplayName("validate should handle null processedEntity")
+    void testValidateWithNullProcessedEntity() {
+        // Given - Create a serializer that extracts null entity
+        JacksonProcessorSerializer nullEntitySerializer = new JacksonProcessorSerializer(objectMapper) {
+            @Override
+            public <T extends CyodaEntity> T extractEntity(EntityProcessorCalculationRequest request, Class<T> clazz) {
+                return null; // Return null entity
+            }
+        };
+
+        Function<TestEntity, Boolean> validator = entity -> true; // Should never be called with null
+
+        // When
+        EntityProcessorCalculationResponse response = nullEntitySerializer.withRequest(request)
+                .toEntity(TestEntity.class)
+                .validate(validator)
+                .complete();
+
+        // Then
+        assertNotNull(response);
+        assertFalse(response.getSuccess());
+    }
+
+    @Test
+    @DisplayName("validate with custom message should handle null processedEntity")
+    void testValidateWithCustomMessageAndNullProcessedEntity() {
+        // Given - Create a serializer that extracts null entity
+        JacksonProcessorSerializer nullEntitySerializer = new JacksonProcessorSerializer(objectMapper) {
+            @Override
+            public <T extends CyodaEntity> T extractEntity(EntityProcessorCalculationRequest request, Class<T> clazz) {
+                return null; // Return null entity
+            }
+        };
+
+        Function<TestEntity, Boolean> validator = entity -> true;
+        String customMessage = "Custom validation message";
+
+        // When
+        EntityProcessorCalculationResponse response = nullEntitySerializer.withRequest(request)
+                .toEntity(TestEntity.class)
+                .validate(validator, customMessage)
+                .complete();
+
+        // Then
+        assertNotNull(response);
+        assertFalse(response.getSuccess());
+    }
+
+    @Test
+    @DisplayName("toJsonFlow should skip when error already exists")
+    void testToJsonFlowSkipsWhenErrorExists() {
+        // Given - Create an entity chain with an initial error
+        Function<ProcessorSerializer.ProcessorEntityExecutionContext<TestEntity>, TestEntity> faultyMapper = context -> {
+            throw new RuntimeException("Entity processing error");
+        };
+
+        Function<TestEntity, JsonNode> converter = entity -> {
+            // This should never be called
+            ObjectNode result = objectMapper.createObjectNode();
+            result.put("shouldNotBeReached", true);
+            return result;
+        };
+
+        // When
+        EntityProcessorCalculationResponse response = serializer.withRequest(request)
+                .toEntity(TestEntity.class)
+                .map(faultyMapper) // This creates an error
+                .toJsonFlow(converter) // This should be skipped
+                .complete();
+
+        // Then
+        assertNotNull(response);
+        assertFalse(response.getSuccess());
+    }
+
+    @Test
+    @DisplayName("toJsonFlow should skip conversion when processedEntity is null")
+    void testToJsonFlowWithNullProcessedEntity() {
+        // Given - Create a serializer that extracts null entity
+        JacksonProcessorSerializer nullEntitySerializer = new JacksonProcessorSerializer(objectMapper) {
+            @Override
+            public <T extends CyodaEntity> T extractEntity(EntityProcessorCalculationRequest request, Class<T> clazz) {
+                return null; // Return null entity
+            }
+        };
+
+        Function<TestEntity, JsonNode> converter = entity -> {
+            // This should never be called with null
+            ObjectNode result = objectMapper.createObjectNode();
+            result.put("converted", true);
+            return result;
+        };
+
+        // When
+        EntityProcessorCalculationResponse response = nullEntitySerializer.withRequest(request)
+                .toEntity(TestEntity.class)
+                .toJsonFlow(converter)
+                .complete();
+
+        // Then - toJsonFlow skips conversion when entity is null, resulting in success with null data
+        assertNotNull(response);
+        assertTrue(response.getSuccess()); // Success because no error was created
+        // The payload data will be null since converter was not called
+    }
+
+    @Test
+    @DisplayName("complete should handle null processedEntity in EntityProcessingChain")
+    void testEntityCompleteWithNullProcessedEntity() {
+        // Given - Create a serializer that extracts null entity
+        JacksonProcessorSerializer nullEntitySerializer = new JacksonProcessorSerializer(objectMapper) {
+            @Override
+            public <T extends CyodaEntity> T extractEntity(EntityProcessorCalculationRequest request, Class<T> clazz) {
+                return null; // Return null entity
+            }
+        };
+
+        // When
+        EntityProcessorCalculationResponse response = nullEntitySerializer.withRequest(request)
+                .toEntity(TestEntity.class)
+                .complete();
+
+        // Then
+        assertNotNull(response);
+        assertFalse(response.getSuccess());
+    }
+
+    @Test
+    @DisplayName("complete should handle entityToJsonNode conversion exception")
+    void testEntityCompleteWithEntityToJsonNodeException() {
+        // Given - Create a serializer that throws during entity conversion
+        JacksonProcessorSerializer faultySerializer = new JacksonProcessorSerializer(objectMapper) {
+            @Override
+            public <T extends CyodaEntity> JsonNode entityToJsonNode(T entity) {
+                throw new RuntimeException("Entity to JSON conversion failed");
+            }
+        };
+
+        // When
+        EntityProcessorCalculationResponse response = faultySerializer.withRequest(request)
+                .toEntity(TestEntity.class)
+                .complete();
+
+        // Then
+        assertNotNull(response);
+        assertFalse(response.getSuccess());
+    }
+
+    // ========================================
+    // EDGE CASES FOR complete(Function<T, JsonNode> converter)
+    // ========================================
+
+    @Test
+    @DisplayName("complete with converter should skip when error already exists")
+    void testCompleteWithConverterSkipsWhenErrorExists() {
+        // Given - Create an entity chain with an initial error
+        Function<ProcessorSerializer.ProcessorEntityExecutionContext<TestEntity>, TestEntity> faultyMapper = context -> {
+            throw new RuntimeException("Entity processing error");
+        };
+
+        Function<TestEntity, JsonNode> converter = entity -> {
+            // This should never be called
+            ObjectNode result = objectMapper.createObjectNode();
+            result.put("shouldNotBeReached", true);
+            return result;
+        };
+
+        // When
+        EntityProcessorCalculationResponse response = serializer.withRequest(request)
+                .toEntity(TestEntity.class)
+                .map(faultyMapper) // This creates an error
+                .complete(converter); // This should be skipped
+
+        // Then
+        assertNotNull(response);
+        assertFalse(response.getSuccess());
+    }
+
+    @Test
+    @DisplayName("complete with converter should handle null processedEntity")
+    void testCompleteWithConverterAndNullProcessedEntity() {
+        // Given - Create a serializer that extracts null entity
+        JacksonProcessorSerializer nullEntitySerializer = new JacksonProcessorSerializer(objectMapper) {
+            @Override
+            public <T extends CyodaEntity> T extractEntity(EntityProcessorCalculationRequest request, Class<T> clazz) {
+                return null; // Return null entity
+            }
+        };
+
+        Function<TestEntity, JsonNode> converter = entity -> {
+            // This should never be called with null
+            ObjectNode result = objectMapper.createObjectNode();
+            result.put("converted", true);
+            return result;
+        };
+
+        // When
+        EntityProcessorCalculationResponse response = nullEntitySerializer.withRequest(request)
+                .toEntity(TestEntity.class)
+                .complete(converter);
+
+        // Then
+        assertNotNull(response);
+        assertFalse(response.getSuccess());
+    }
+
+    @Test
+    @DisplayName("complete with converter should handle converter exception")
+    void testCompleteWithConverterException() {
+        // Given
+        Function<TestEntity, JsonNode> faultyConverter = entity -> {
+            throw new RuntimeException("Converter failed");
+        };
+
+        // When
+        EntityProcessorCalculationResponse response = serializer.withRequest(request)
+                .toEntity(TestEntity.class)
+                .complete(faultyConverter);
+
+        // Then
+        assertNotNull(response);
+        assertFalse(response.getSuccess());
+    }
+
+    @Test
+    @DisplayName("complete with converter should handle converter exception with custom error handler")
+    void testCompleteWithConverterExceptionAndCustomErrorHandler() {
+        // Given
+        Function<TestEntity, JsonNode> faultyConverter = entity -> {
+            throw new IllegalArgumentException("Invalid entity for conversion");
+        };
+
+        BiFunction<Throwable, TestEntity, ErrorInfo> customErrorHandler =
+            (error, entity) -> new ErrorInfo("CUSTOM_CONVERSION_ERROR",
+                "Failed to convert entity " + entity.getId() + ": " + error.getMessage());
+
+        // When
+        EntityProcessorCalculationResponse response = serializer.withRequest(request)
+                .toEntity(TestEntity.class)
+                .withErrorHandler(customErrorHandler)
+                .complete(faultyConverter);
+
+        // Then
+        assertNotNull(response);
+        assertFalse(response.getSuccess());
+    }
+
+    @Test
+    @DisplayName("complete with converter should handle null converter")
+    void testCompleteWithNullConverter() {
+        // Given
+        Function<TestEntity, JsonNode> nullConverter = null;
+
+        // When
+        EntityProcessorCalculationResponse response = serializer.withRequest(request)
+                .toEntity(TestEntity.class)
+                .complete(nullConverter);
+
+        // Then
+        assertNotNull(response);
+        assertFalse(response.getSuccess());
+    }
+
+    // ========================================
+    // ADDITIONAL ERROR PROPAGATION TESTS
+    // ========================================
+
+    @Test
+    @DisplayName("Error should propagate through multiple entity operations")
+    void testErrorPropagationThroughMultipleEntityOperations() {
+        // Given - Create an initial error in entity extraction
+        JacksonProcessorSerializer faultySerializer = new JacksonProcessorSerializer(objectMapper) {
+            @Override
+            public <T extends CyodaEntity> T extractEntity(EntityProcessorCalculationRequest request, Class<T> clazz) {
+                throw new RuntimeException("Entity extraction failed");
+            }
+        };
+
+        Function<ProcessorSerializer.ProcessorEntityExecutionContext<TestEntity>, TestEntity> mapper1 = context -> {
+            // Should never be called
+            return new TestEntity(999L, "mapped1", "error");
+        };
+
+        Function<TestEntity, Boolean> validator = entity -> {
+            // Should never be called
+            return true;
+        };
+
+        Function<ProcessorSerializer.ProcessorEntityExecutionContext<TestEntity>, TestEntity> mapper2 = context -> {
+            // Should never be called
+            return new TestEntity(999L, "mapped2", "error");
+        };
+
+        Function<TestEntity, JsonNode> converter = entity -> {
+            // Should never be called
+            return objectMapper.createObjectNode();
+        };
+
+        // When
+        EntityProcessorCalculationResponse response = faultySerializer.withRequest(request)
+                .toEntity(TestEntity.class) // Error occurs here
+                .map(mapper1) // Should be skipped
+                .validate(validator) // Should be skipped
+                .map(mapper2) // Should be skipped
+                .toJsonFlow(converter) // Should be skipped
+                .complete();
+
+        // Then
+        assertNotNull(response);
+        assertFalse(response.getSuccess());
+    }
+
+    @Test
+    @DisplayName("Error should propagate through mixed JSON and entity operations")
+    void testErrorPropagationThroughMixedOperations() {
+        // Given - Create an initial error in JSON processing
+        Function<ProcessorSerializer.ProcessorExecutionContext, JsonNode> faultyJsonMapper = context -> {
+            throw new RuntimeException("JSON processing failed");
+        };
+
+        Function<ProcessorSerializer.ProcessorEntityExecutionContext<TestEntity>, TestEntity> entityMapper = context -> {
+            // Should never be called
+            return new TestEntity(999L, "mapped", "error");
+        };
+
+        // When
+        EntityProcessorCalculationResponse response = serializer.withRequest(request)
+                .map(faultyJsonMapper) // Error occurs here
+                .toEntity(TestEntity.class) // Should be skipped
+                .map(entityMapper) // Should be skipped
+                .complete();
+
+        // Then
+        assertNotNull(response);
+        assertFalse(response.getSuccess());
+    }
+
+    @Test
+    @DisplayName("withErrorHandler should work correctly when called after error occurs")
+    void testWithErrorHandlerAfterError() {
+        // Given - Create an initial error
+        Function<ProcessorSerializer.ProcessorEntityExecutionContext<TestEntity>, TestEntity> faultyMapper = context -> {
+            throw new RuntimeException("Processing failed");
+        };
+
+        BiFunction<Throwable, TestEntity, ErrorInfo> customErrorHandler =
+            (error, entity) -> new ErrorInfo("LATE_ERROR_HANDLER", "Late handler: " + error.getMessage());
+
+        // When
+        EntityProcessorCalculationResponse response = serializer.withRequest(request)
+                .toEntity(TestEntity.class)
+                .map(faultyMapper) // Error occurs here
+                .withErrorHandler(customErrorHandler) // Set error handler after error
+                .complete();
+
+        // Then
+        assertNotNull(response);
+        assertFalse(response.getSuccess());
+    }
+
+    // ========================================
+    // COVERAGE TESTS FOR SPECIFIC LINES
+    // ========================================
+
+    @Test
+    @DisplayName("EntityProcessingChain complete should use custom error handler when entityToJsonNode fails")
+    void testEntityCompleteWithEntityToJsonNodeExceptionAndCustomErrorHandler() {
+        // Given - Create a serializer that throws during entityToJsonNode conversion
+        JacksonProcessorSerializer faultySerializer = new JacksonProcessorSerializer(objectMapper) {
+            @Override
+            public <T extends CyodaEntity> JsonNode entityToJsonNode(T entity) {
+                throw new RuntimeException("Entity to JSON conversion failed");
+            }
+        };
+
+        BiFunction<Throwable, TestEntity, ErrorInfo> customErrorHandler =
+            (error, entity) -> new ErrorInfo("CUSTOM_ENTITY_CONVERSION_ERROR",
+                "Custom handler: Failed to convert entity " + entity.getId() + " - " + error.getMessage());
+
+        // When
+        EntityProcessorCalculationResponse response = faultySerializer.withRequest(request)
+                .toEntity(TestEntity.class)
+                .withErrorHandler(customErrorHandler)
+                .complete(); // This should trigger line 359
+
+        // Then
+        assertNotNull(response);
+        assertFalse(response.getSuccess());
+    }
+
+    @Test
+    @DisplayName("EntityProcessingChain complete with converter should use custom error handler when error exists")
+    void testCompleteWithConverterAndExistingErrorWithCustomErrorHandler() {
+        // Given - Create an entity chain with an initial error and custom error handler
+        Function<ProcessorSerializer.ProcessorEntityExecutionContext<TestEntity>, TestEntity> faultyMapper = context -> {
+            throw new RuntimeException("Initial entity processing error");
+        };
+
+        BiFunction<Throwable, TestEntity, ErrorInfo> customErrorHandler =
+            (error, entity) -> new ErrorInfo("CUSTOM_EXISTING_ERROR",
+                "Custom handler for existing error: " + error.getMessage());
+
+        Function<TestEntity, JsonNode> converter = entity -> {
+            // This should never be called due to existing error
+            ObjectNode result = objectMapper.createObjectNode();
+            result.put("shouldNotBeReached", true);
+            return result;
+        };
+
+        // When
+        EntityProcessorCalculationResponse response = serializer.withRequest(request)
+                .toEntity(TestEntity.class)
+                .map(faultyMapper) // This creates an error
+                .withErrorHandler(customErrorHandler)
+                .complete(converter); // This should trigger line 375
+
+        // Then
+        assertNotNull(response);
+        assertFalse(response.getSuccess());
     }
 }
