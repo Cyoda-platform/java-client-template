@@ -1,79 +1,79 @@
 {
-    "active": true,
-    "desc": "Workflow for processing HackerNewsItemJob entities from creation to completion or failure",
-    "initialState": "none",
-    "name": "HackerNewsItemJob Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "name": "create_pending_job",
-                    "next": "pending"
-                }
-            ]
-        },
-        "pending": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IsPendingCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "start_processing_if_pending",
-                    "next": "processing"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IsValidHnItemJsonCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "complete_if_valid",
-                    "next": "completed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "HackerNewsItemProcessor"
-                        }
-                    ]
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IsInvalidHnItemJsonCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "fail_if_invalid",
-                    "next": "failed"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow for processing HackerNewsItemJob entities from creation to completion or failure",
+  "initialState": "none",
+  "name": "HackerNewsItemJob Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "create_pending_job",
+          "next": "pending"
         }
+      ]
     },
-    "version": "1.0"
+    "pending": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IsPendingCriterion"
+            },
+            "type": "function"
+          },
+          "name": "start_processing_if_pending",
+          "next": "processing"
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IsValidHnItemJsonCriterion"
+            },
+            "type": "function"
+          },
+          "name": "complete_if_valid",
+          "next": "completed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "HackerNewsItemProcessor"
+            }
+          ]
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IsInvalidHnItemJsonCriterion"
+            },
+            "type": "function"
+          },
+          "name": "fail_if_invalid",
+          "next": "failed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
