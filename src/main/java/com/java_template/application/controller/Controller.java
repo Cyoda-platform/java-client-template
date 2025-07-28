@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import org.springframework.validation.annotation.Validated;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -29,6 +30,7 @@ import static com.java_template.common.config.Config.*;
 @RequestMapping(path = "/mail")
 @RequiredArgsConstructor
 @Slf4j
+@Validated
 public class Controller {
 
     private static final Logger logger = LoggerFactory.getLogger(Controller.class);
