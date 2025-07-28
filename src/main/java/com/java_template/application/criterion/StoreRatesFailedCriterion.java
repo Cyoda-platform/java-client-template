@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.Report;
+import com.java_template.application.entity.ReportJob;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -31,7 +31,7 @@ public class StoreRatesFailedCriterion implements CyodaCriterion {
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
         return serializer.withRequest(request)
-            .evaluateEntity(Report.class, this::validateEntity)
+            .evaluateEntity(ReportJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -41,19 +41,15 @@ public class StoreRatesFailedCriterion implements CyodaCriterion {
         return className.equals(modelSpec.operationName());
     }
 
-    private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Report> context) {
-        Report entity = context.entity();
+    private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<ReportJob> context) {
 
-        // Fail criterion if rates or timestamp are valid (means success, so this is failure condition)
-        if (entity.getBtcUsdRate() != null && entity.getBtcUsdRate().compareTo(java.math.BigDecimal.ZERO) > 0) {
-            return EvaluationOutcome.fail("Rates stored successfully", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        ReportJob reportJob = context.entity();
+
+        // Validation: If any of btcUsdRate, btcEurRate, or timestamp is null, storing rates failed
+        if (reportJob.getBtcUsdRate() == null || reportJob.getBtcEurRate() == null || reportJob.getTimestamp() == null) {
+            return EvaluationOutcome.success(); // failure condition met
         }
-        if (entity.getBtcEurRate() != null && entity.getBtcEurRate().compareTo(java.math.BigDecimal.ZERO) > 0) {
-            return EvaluationOutcome.fail("Rates stored successfully", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-        }
-        if (entity.getTimestamp() != null) {
-            return EvaluationOutcome.fail("Timestamp exists", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-        }
-        return EvaluationOutcome.success();
+
+        return EvaluationOutcome.fail("Store rates succeeded, not a failure", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
     }
 }
