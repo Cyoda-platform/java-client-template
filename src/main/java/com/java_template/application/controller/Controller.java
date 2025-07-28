@@ -1,11 +1,11 @@
 package com.java_template.application.controller;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Mail;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
@@ -18,7 +18,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/mail")
@@ -27,17 +27,17 @@ import static com.java_template.common.config.Config.*;
 public class Controller {
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
     private static final String ENTITY_NAME = "mail";
     private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     @PostMapping
-    public ResponseEntity<?> createMail(@RequestBody Mail mail) {
+    public ResponseEntity<?> createMail(@Valid @RequestBody Mail mail) {
         try {
             if (!mail.isValid()) {
                 logger.error("Invalid Mail entity received");
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Invalid mail data"));
             }
-            // Add mail entity via EntityService
             CompletableFuture<UUID> idFuture = entityService.addItem(
                     ENTITY_NAME,
                     ENTITY_VERSION,
@@ -47,8 +47,6 @@ public class Controller {
             UUID technicalId = idFuture.join();
             String technicalIdStr = technicalId.toString();
             logger.info("Mail entity created with technicalId: {}", technicalIdStr);
-
-            // processMail method removed during extraction
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalIdStr));
         } catch (IllegalArgumentException e) {
@@ -61,7 +59,7 @@ public class Controller {
     }
 
     @GetMapping("/{technicalId}")
-    public ResponseEntity<?> getMailById(@PathVariable String technicalId) {
+    public ResponseEntity<?> getMailById(@PathVariable String technicalId) throws JsonProcessingException {
         try {
             UUID uuid = UUID.fromString(technicalId);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
@@ -75,16 +73,17 @@ public class Controller {
                 logger.error("Mail entity not found for technicalId: {}", technicalId);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
-            // Convert ObjectNode to Mail object
-            Mail mail = node.traverse().readValueAs(Mail.class);
+            Mail mail = objectMapper.treeToValue(node, Mail.class);
             return ResponseEntity.ok(mail);
         } catch (IllegalArgumentException e) {
             logger.error("Invalid UUID format: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Invalid technicalId format"));
+        } catch (JsonProcessingException e) {
+            logger.error("JSON processing error: {}", e.getMessage());
+            throw e;
         } catch (Exception e) {
             logger.error("Failed to retrieve mail: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
         }
     }
-
 }
