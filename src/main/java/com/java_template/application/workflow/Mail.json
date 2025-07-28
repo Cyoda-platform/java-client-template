@@ -1,0 +1,128 @@
+{
+    "active": true,
+    "desc": "Workflow for processing Mail entity lifecycle with validation and sending logic",
+    "initialState": "none",
+    "name": "Mail Workflow",
+    "states": {
+        "failed": {
+            "transitions": []
+        },
+        "happy_check": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsHappyMailCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "is_happy",
+                    "next": "sending_happy"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsGloomyMailCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "is_gloomy",
+                    "next": "sending_gloomy"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "create_mail",
+                    "next": "validating"
+                }
+            ]
+        },
+        "sending_gloomy": {
+            "transitions": [
+                {
+                    "name": "sent_gloomy_success",
+                    "next": "sent_gloomy",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "MailProcessor"
+                        }
+                    ]
+                },
+                {
+                    "name": "sent_gloomy_fail",
+                    "next": "failed"
+                }
+            ]
+        },
+        "sending_happy": {
+            "transitions": [
+                {
+                    "name": "sent_happy_success",
+                    "next": "sent_happy",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "MailProcessor"
+                        }
+                    ]
+                },
+                {
+                    "name": "sent_happy_fail",
+                    "next": "failed"
+                }
+            ]
+        },
+        "sent_gloomy": {
+            "transitions": []
+        },
+        "sent_happy": {
+            "transitions": []
+        },
+        "validating": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ValidateMailCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "valid_mail",
+                    "next": "happy_check"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "InvalidateMailCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "invalid_mail",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
