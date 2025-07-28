@@ -1,70 +1,70 @@
 {
-    "active": true,
-    "desc": "Workflow for processing HackerNewsItem entity from creation to completion or failure",
-    "initialState": "none",
-    "name": "HackerNewsItem Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "name": "create_to_validating",
-                    "next": "validating"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "name": "process_to_completed",
-                    "next": "completed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "HackerNewsItemProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "validating": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "ValidEntityCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "valid_entity",
-                    "next": "processing"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "InvalidEntityCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "invalid_entity",
-                    "next": "failed"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow for processing HackerNewsItem entity from creation to completion or failure",
+  "initialState": "none",
+  "name": "HackerNewsItem Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "create_to_validating",
+          "next": "validating"
         }
+      ]
     },
-    "version": "1.0"
+    "validating": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "ValidEntityCriterion"
+            },
+            "type": "function"
+          },
+          "name": "valid_entity",
+          "next": "processing"
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "InvalidEntityCriterion"
+            },
+            "type": "function"
+          },
+          "name": "invalid_entity",
+          "next": "failed"
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "name": "process_to_completed",
+          "next": "completed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "HackerNewsItemProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
