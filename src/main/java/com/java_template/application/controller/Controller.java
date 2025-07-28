@@ -48,7 +48,7 @@ public class Controller {
             String technicalIdStr = technicalId.toString();
             logger.info("Mail entity created with technicalId: {}", technicalIdStr);
 
-            processMail(technicalIdStr, mail);
+            // processMail method removed during extraction
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalIdStr));
         } catch (IllegalArgumentException e) {
@@ -87,47 +87,4 @@ public class Controller {
         }
     }
 
-    // Business logic implementation of processMail as per requirements
-    private void processMail(String technicalId, Mail mail) {
-        logger.info("Processing Mail entity with technicalId: {}", technicalId);
-
-        // Validation already done at input, but we can double-check critical fields
-        if (mail.getMailList() == null || mail.getMailList().isEmpty()) {
-            logger.error("Mail list is empty, cannot process mail with technicalId: {}", technicalId);
-            return;
-        }
-
-        // Criteria check and process accordingly
-        if (Boolean.TRUE.equals(mail.getIsHappy())) {
-            sendHappyMail(technicalId, mail);
-        } else {
-            sendGloomyMail(technicalId, mail);
-        }
-    }
-
-    private void sendHappyMail(String technicalId, Mail mail) {
-        try {
-            // Simulate sending happy mail to all recipients
-            for (String recipient : mail.getMailList()) {
-                logger.info("Sending HAPPY mail to {}: {}", recipient, mail.getContent());
-                // Here would be actual email sending logic via SMTP or JavaMailSender
-            }
-            logger.info("Successfully sent HAPPY mail for technicalId: {}", technicalId);
-        } catch (Exception e) {
-            logger.error("Failed to send HAPPY mail for technicalId: {} due to {}", technicalId, e.getMessage());
-        }
-    }
-
-    private void sendGloomyMail(String technicalId, Mail mail) {
-        try {
-            // Simulate sending gloomy mail to all recipients
-            for (String recipient : mail.getMailList()) {
-                logger.info("Sending GLOOMY mail to {}: {}", recipient, mail.getContent());
-                // Here would be actual email sending logic via SMTP or JavaMailSender
-            }
-            logger.info("Successfully sent GLOOMY mail for technicalId: {}", technicalId);
-        } catch (Exception e) {
-            logger.error("Failed to send GLOOMY mail for technicalId: {} due to {}", technicalId, e.getMessage());
-        }
-    }
 }
