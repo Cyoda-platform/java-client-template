@@ -1,0 +1,28 @@
+// processMail method extracted from Controller.java
+private void processMail(String technicalId, Mail mail) {
+    // Business logic: Decide which processor to use based on isHappy flag
+    if (Boolean.TRUE.equals(mail.getIsHappy())) {
+        sendHappyMail(technicalId, mail);
+    } else {
+        sendGloomyMail(technicalId, mail);
+    }
+}
+
+// Helper methods directly called by processMail
+private void sendHappyMail(String technicalId, Mail mail) {
+    // Implement sending happy-themed mails to all recipients
+    for (String recipient : mail.getMailList()) {
+        // Simulate sending mail
+        logger.info("Sending HAPPY mail to {} for technicalId {}", recipient, technicalId);
+    }
+    logger.info("Completed sending HAPPY mails for technicalId {}", technicalId);
+}
+
+private void sendGloomyMail(String technicalId, Mail mail) {
+    // Implement sending gloomy-themed mails to all recipients
+    for (String recipient : mail.getMailList()) {
+        // Simulate sending mail
+        logger.info("Sending GLOOMY mail to {} for technicalId {}", recipient, technicalId);
+    }
+    logger.info("Completed sending GLOOMY mails for technicalId {}", technicalId);
+}
