@@ -54,7 +54,7 @@ public class Controller {
             logger.info("Created RetrievalJob with technicalId {}", techIdStr);
 
             // Trigger processRetrievalJob asynchronously
-            processRetrievalJob(technicalId, retrievalJob);
+            // processRetrievalJob(technicalId, retrievalJob);
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", techIdStr));
         } catch (IllegalArgumentException e) {
@@ -156,101 +156,4 @@ public class Controller {
         }
     }
 
-    // Processing method for RetrievalJob
-    private void processRetrievalJob(UUID technicalId, RetrievalJob retrievalJob) {
-        logger.info("Processing RetrievalJob id: {}", technicalId);
-        retrievalJob.setStatus("PROCESSING");
-
-        try {
-            // Validate companyName
-            if (retrievalJob.getCompanyName() == null || retrievalJob.getCompanyName().isBlank()) {
-                throw new IllegalArgumentException("companyName is blank");
-            }
-
-            // Query PRH Avoindata API (simulate)
-            List<Map<String, String>> prhResults = queryPrhAvoindataApi(retrievalJob.getCompanyName());
-
-            // Filter active companies
-            List<Map<String, String>> activeCompanies = new ArrayList<>();
-            for (Map<String, String> company : prhResults) {
-                String status = company.getOrDefault("status", "Inactive");
-                if ("Active".equalsIgnoreCase(status)) {
-                    activeCompanies.add(company);
-                }
-            }
-
-            // Enrich with LEI and create CompanyData entities
-            List<CompanyData> companyDataList = new ArrayList<>();
-            for (Map<String, String> activeCompany : activeCompanies) {
-                CompanyData cd = new CompanyData();
-                cd.setBusinessId(activeCompany.get("businessId"));
-                cd.setCompanyName(activeCompany.get("companyName"));
-                cd.setCompanyType(activeCompany.get("companyType"));
-                cd.setRegistrationDate(activeCompany.get("registrationDate"));
-                cd.setStatus(activeCompany.get("status"));
-
-                // Query LEI registry (simulate)
-                String lei = queryLeiRegistry(cd.getBusinessId(), cd.getCompanyName());
-                cd.setLei(lei != null ? lei : "Not Available");
-
-                cd.setRetrievalJobId(technicalId.toString());
-
-                companyDataList.add(cd);
-            }
-
-            if (!companyDataList.isEmpty()) {
-                // Add multiple CompanyData entities to EntityService
-                CompletableFuture<List<UUID>> idsFuture = entityService.addItems("CompanyData", ENTITY_VERSION, companyDataList);
-                List<UUID> ids = idsFuture.get();
-                for (int i = 0; i < ids.size(); i++) {
-                    logger.info("Created CompanyData with id {} for RetrievalJob {}", ids.get(i), technicalId);
-                }
-            }
-
-            retrievalJob.setStatus("COMPLETED");
-            logger.info("RetrievalJob {} completed successfully", technicalId);
-
-            // Update RetrievalJob status in EntityService - TODO as update operation not supported
-            // TODO: Implement update operation for RetrievalJob status in EntityService if available
-
-        } catch (Exception e) {
-            retrievalJob.setStatus("FAILED");
-            logger.error("Failed to process RetrievalJob {}: {}", technicalId, e.getMessage());
-            // TODO: Implement update operation for RetrievalJob status in EntityService if available
-        }
-    }
-
-    // Simulated external call to PRH Avoindata API
-    private List<Map<String, String>> queryPrhAvoindataApi(String companyName) {
-        // Simulate API call - return mock data
-        List<Map<String, String>> result = new ArrayList<>();
-
-        Map<String, String> company1 = new HashMap<>();
-        company1.put("businessId", "1234567-8");
-        company1.put("companyName", companyName + " Oyj");
-        company1.put("companyType", "Limited Company");
-        company1.put("registrationDate", "2000-01-01");
-        company1.put("status", "Active");
-
-        Map<String, String> company2 = new HashMap<>();
-        company2.put("businessId", "8765432-1");
-        company2.put("companyName", companyName + " Ltd");
-        company2.put("companyType", "Limited Company");
-        company2.put("registrationDate", "1990-05-05");
-        company2.put("status", "Inactive");
-
-        result.add(company1);
-        result.add(company2);
-
-        return result;
-    }
-
-    // Simulated external call to LEI registry
-    private String queryLeiRegistry(String businessId, String companyName) {
-        // Simulate LEI lookup - return mock LEI for demonstration
-        if ("1234567-8".equals(businessId)) {
-            return "529900T8BM49AURSDO55";
-        }
-        return null;
-    }
 }
