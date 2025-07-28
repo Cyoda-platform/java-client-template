@@ -53,7 +53,7 @@ public class Controller {
 
             String technicalIdStr = technicalId.toString();
 
-            processReportJob(technicalIdStr, reportJob);
+            // processReportJob method removed for extraction
 
             logger.info("Created ReportJob with id {}", technicalIdStr);
             Map<String, String> response = new HashMap<>();
@@ -126,111 +126,6 @@ public class Controller {
     }
 
     // No POST for EmailReport creation as it's triggered internally by processing ReportJob
-
-    // Process ReportJob business logic
-    private void processReportJob(String technicalId, ReportJob reportJob) {
-        try {
-            // Simulate fetching BTC/USD and BTC/EUR rates from external API
-            BigDecimal fetchedBtcUsdRate = fetchBtcUsdRate();
-            BigDecimal fetchedBtcEurRate = fetchBtcEurRate();
-            OffsetDateTime now = OffsetDateTime.now();
-
-            reportJob.setBtcUsdRate(fetchedBtcUsdRate);
-            reportJob.setBtcEurRate(fetchedBtcEurRate);
-            reportJob.setTimestamp(now);
-
-            // TODO: Update ReportJob entity in EntityService (update operation not supported)
-
-            // Create immutable Report entity
-            Report report = new Report();
-            report.setReportJobId(technicalId);
-            report.setBtcUsdRate(fetchedBtcUsdRate);
-            report.setBtcEurRate(fetchedBtcEurRate);
-            report.setTimestamp(now);
-
-            // Add Report entity via EntityService
-            try {
-                CompletableFuture<UUID> reportIdFuture = entityService.addItem("Report", ENTITY_VERSION, report);
-                UUID reportId = reportIdFuture.get();
-                logger.info("Created Report with id {}", reportId.toString());
-            } catch (Exception e) {
-                logger.error("Failed to create Report entity", e);
-            }
-
-            // Create EmailReport entity to send email
-            EmailReport emailReport = new EmailReport();
-            emailReport.setReportJobId(technicalId);
-            emailReport.setRecipient("recipient@example.com"); // hardcoded recipient for prototype
-            emailReport.setSubject("Bitcoin Conversion Rate Report");
-            emailReport.setBody(String.format(
-                    "BTC/USD: %s\nBTC/EUR: %s\nTimestamp: %s",
-                    fetchedBtcUsdRate.toPlainString(),
-                    fetchedBtcEurRate.toPlainString(),
-                    now.toString()
-            ));
-            emailReport.setStatus("PENDING");
-            emailReport.setSentTimestamp(null);
-
-            // Add EmailReport entity via EntityService
-            UUID emailReportId;
-            try {
-                CompletableFuture<UUID> emailReportIdFuture = entityService.addItem("EmailReport", ENTITY_VERSION, emailReport);
-                emailReportId = emailReportIdFuture.get();
-                logger.info("Created EmailReport with id {}", emailReportId.toString());
-            } catch (Exception e) {
-                logger.error("Failed to create EmailReport entity", e);
-                return;
-            }
-
-            // Process EmailReport to send email
-            processEmailReport(emailReportId.toString(), emailReport, reportJob, technicalId);
-
-        } catch (Exception e) {
-            logger.error("Error processing ReportJob with id {}", technicalId, e);
-            reportJob.setEmailStatus("FAILED");
-            // TODO: Update ReportJob entity in EntityService (update operation not supported)
-        }
-    }
-
-    // Simulate external API call to fetch BTC/USD rate
-    private BigDecimal fetchBtcUsdRate() {
-        // For prototype, return fixed dummy value
-        return new BigDecimal("30123.45");
-    }
-
-    // Simulate external API call to fetch BTC/EUR rate
-    private BigDecimal fetchBtcEurRate() {
-        // For prototype, return fixed dummy value
-        return new BigDecimal("27950.30");
-    }
-
-    // Process EmailReport entity to send email
-    private void processEmailReport(String emailReportId, EmailReport emailReport, ReportJob reportJob, String reportJobId) {
-        try {
-            // Simulate sending email
-            logger.info("Sending email to {}", emailReport.getRecipient());
-            // Here would be real email sending logic (SMTP, API, etc.)
-
-            // Mark email as SENT
-            emailReport.setStatus("SENT");
-            emailReport.setSentTimestamp(OffsetDateTime.now());
-            // TODO: Update EmailReport entity in EntityService (update operation not supported)
-
-            // Update ReportJob emailStatus
-            reportJob.setEmailStatus("SENT");
-            // TODO: Update ReportJob entity in EntityService (update operation not supported)
-
-            logger.info("Email sent successfully to {}", emailReport.getRecipient());
-
-        } catch (Exception e) {
-            logger.error("Failed to send email for EmailReport id {}", emailReportId, e);
-            emailReport.setStatus("FAILED");
-            // TODO: Update EmailReport entity in EntityService (update operation not supported)
-
-            reportJob.setEmailStatus("FAILED");
-            // TODO: Update ReportJob entity in EntityService (update operation not supported)
-        }
-    }
 
     // Helper method to map ObjectNode to ReportJob
     private ReportJob mapObjectNodeToReportJob(ObjectNode node) {
