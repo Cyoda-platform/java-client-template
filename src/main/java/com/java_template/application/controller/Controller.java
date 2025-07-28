@@ -1,5 +1,7 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Mail;
@@ -14,10 +16,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 
 import static com.java_template.common.config.Config.*;
 
@@ -29,10 +33,11 @@ public class Controller {
 
     private static final Logger logger = LoggerFactory.getLogger(Controller.class);
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
     private static final String ENTITY_NAME = "Mail";
 
     @PostMapping
-    public ResponseEntity<?> createMail(@RequestBody Mail mail) {
+    public ResponseEntity<?> createMail(@Valid @RequestBody Mail mail) throws ExecutionException, InterruptedException, JsonProcessingException {
         try {
             if (mail == null) {
                 logger.error("Received null Mail object");
@@ -71,7 +76,7 @@ public class Controller {
     }
 
     @GetMapping("/{technicalId}")
-    public ResponseEntity<?> getMailById(@PathVariable String technicalId) {
+    public ResponseEntity<?> getMailById(@PathVariable @NotBlank String technicalId) throws ExecutionException, InterruptedException, JsonProcessingException {
         try {
             UUID uuid;
             try {
@@ -88,8 +93,7 @@ public class Controller {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Mail not found"));
             }
 
-            // Convert ObjectNode to Mail
-            Mail mail = convertObjectNodeToMail(node);
+            Mail mail = objectMapper.treeToValue(node, Mail.class);
             return ResponseEntity.ok(mail);
         } catch (IllegalArgumentException e) {
             logger.error("IllegalArgumentException in getMailById: {}", e.getMessage());
@@ -101,14 +105,14 @@ public class Controller {
     }
 
     @GetMapping
-    public ResponseEntity<?> getMailByCondition(@RequestParam(required = false) Boolean isHappy) {
+    public ResponseEntity<?> getMailByCondition(@RequestParam(required = false) Boolean isHappy) throws ExecutionException, InterruptedException, JsonProcessingException {
         try {
             if (isHappy == null) {
                 CompletableFuture<ArrayNode> itemsFuture = entityService.getItems(ENTITY_NAME, ENTITY_VERSION);
                 ArrayNode arrayNode = itemsFuture.get();
                 List<Mail> mails = new ArrayList<>();
                 for (var node : arrayNode) {
-                    Mail mail = convertObjectNodeToMail((ObjectNode) node);
+                    Mail mail = objectMapper.treeToValue(node, Mail.class);
                     mails.add(mail);
                 }
                 return ResponseEntity.ok(mails);
@@ -119,7 +123,7 @@ public class Controller {
                 ArrayNode arrayNode = filteredItemsFuture.get();
                 List<Mail> mails = new ArrayList<>();
                 for (var node : arrayNode) {
-                    Mail mail = convertObjectNodeToMail((ObjectNode) node);
+                    Mail mail = objectMapper.treeToValue(node, Mail.class);
                     mails.add(mail);
                 }
                 return ResponseEntity.ok(mails);
@@ -130,39 +134,6 @@ public class Controller {
         } catch (Exception e) {
             logger.error("Error in getMailByCondition: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
-        }
-    }
-
-    private Mail convertObjectNodeToMail(ObjectNode node) {
-        try {
-            Mail mail = new Mail();
-            if (node.has("mailList")) {
-                var mailListNode = node.get("mailList");
-                if (mailListNode.isArray()) {
-                    List<String> mailList = new ArrayList<>();
-                    mailListNode.forEach(n -> mailList.add(n.asText()));
-                    mail.setMailList(mailList);
-                }
-            }
-            if (node.has("content")) {
-                mail.setContent(node.get("content").asText());
-            }
-            if (node.has("isHappy")) {
-                if (node.get("isHappy").isBoolean()) {
-                    mail.setIsHappy(node.get("isHappy").asBoolean());
-                } else if (node.get("isHappy").isTextual()) {
-                    mail.setIsHappy(Boolean.valueOf(node.get("isHappy").asText()));
-                }
-            }
-            if (node.has("status")) {
-                mail.setStatus(node.get("status").asText());
-            }
-            // Optionally set other fields if any
-
-            return mail;
-        } catch (Exception e) {
-            logger.error("Failed to convert ObjectNode to Mail: {}", e.getMessage(), e);
-            return new Mail(); // return empty mail in error case
         }
     }
 }
