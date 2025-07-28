@@ -1,0 +1,160 @@
+{
+    "active": true,
+    "desc": "Finite state machine for ReportJob entity processing lifecycle",
+    "initialState": "none",
+    "name": "ReportJob Workflow",
+    "states": {
+        "Completed": {
+            "transitions": []
+        },
+        "Created": {
+            "transitions": [
+                {
+                    "name": "created_to_fetching_rates",
+                    "next": "FetchingRates",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "ReportProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "CreatingEmailReport": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "EmailSentCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "creating_email_report_to_completed",
+                    "next": "Completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "EmailFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "creating_email_report_to_failed",
+                    "next": "Failed"
+                }
+            ]
+        },
+        "CreatingReport": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "CreateReportSucceededCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "creating_report_to_creating_email_report",
+                    "next": "CreatingEmailReport"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "CreateReportFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "creating_report_to_failed",
+                    "next": "Failed"
+                }
+            ]
+        },
+        "Failed": {
+            "transitions": []
+        },
+        "FetchingRates": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "FetchRatesSucceededCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "fetching_rates_to_storing_rates",
+                    "next": "StoringRates"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "FetchRatesFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "fetching_rates_to_failed",
+                    "next": "Failed"
+                }
+            ]
+        },
+        "StoringRates": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "StoreRatesSucceededCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "storing_rates_to_creating_report",
+                    "next": "CreatingReport"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "StoreRatesFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "storing_rates_to_failed",
+                    "next": "Failed"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "start_to_created",
+                    "next": "Created"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
