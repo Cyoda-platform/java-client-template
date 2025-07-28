@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.Report;
+import com.java_template.application.entity.ReportJob;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -31,7 +31,7 @@ public class CreateReportFailedCriterion implements CyodaCriterion {
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
         return serializer.withRequest(request)
-            .evaluateEntity(Report.class, this::validateEntity)
+            .evaluateEntity(ReportJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -41,13 +41,15 @@ public class CreateReportFailedCriterion implements CyodaCriterion {
         return className.equals(modelSpec.operationName());
     }
 
-    private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Report> context) {
-        Report entity = context.entity();
+    private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<ReportJob> context) {
 
-        // Fail if reportJobId is valid (means report created successfully)
-        if (entity.getReportJobId() != null && !entity.getReportJobId().isBlank()) {
-            return EvaluationOutcome.fail("Report created successfully", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        ReportJob reportJob = context.entity();
+
+        // Validation: If any of btcUsdRate, btcEurRate, or timestamp is null, creation failed
+        if (reportJob.getBtcUsdRate() == null || reportJob.getBtcEurRate() == null || reportJob.getTimestamp() == null) {
+            return EvaluationOutcome.success(); // failure condition met
         }
-        return EvaluationOutcome.success();
+
+        return EvaluationOutcome.fail("Create report succeeded, not a failure", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
     }
 }
