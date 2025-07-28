@@ -1,84 +1,84 @@
 {
-    "active": true,
-    "desc": "Workflow for processing RetrievalJob entity from submission to completion or failure",
-    "initialState": "none",
-    "name": "RetrievalJob Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
+  "active": true,
+  "desc": "Workflow for processing RetrievalJob entity from submission to completion or failure",
+  "initialState": "none",
+  "name": "RetrievalJob Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "CompanyNameValidCriterion"
+            },
+            "type": "function"
+          },
+          "name": "start_processing_if_valid",
+          "next": "processing"
         },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "CompanyNameValidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "start_processing_if_valid",
-                    "next": "processing"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "CompanyNameInvalidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "fail_if_invalid_company_name",
-                    "next": "failed"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "ProcessingSuccessfulCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "complete_if_successful",
-                    "next": "completed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "RetrievalJobProcessor"
-                        }
-                    ]
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "ProcessingFailedCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "fail_if_processing_failed",
-                    "next": "failed"
-                }
-            ]
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "CompanyNameInvalidCriterion"
+            },
+            "type": "function"
+          },
+          "name": "fail_if_invalid_company_name",
+          "next": "failed"
         }
+      ]
     },
-    "version": "1.0"
+    "processing": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "ProcessingSuccessfulCriterion"
+            },
+            "type": "function"
+          },
+          "name": "complete_if_successful",
+          "next": "completed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "RetrievalJobProcessor"
+            }
+          ]
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "ProcessingFailedCriterion"
+            },
+            "type": "function"
+          },
+          "name": "fail_if_processing_failed",
+          "next": "failed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
