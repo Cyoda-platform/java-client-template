@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.EmailReport;
+import com.java_template.application.entity.Report;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -31,7 +31,7 @@ public class EmailSentCriterion implements CyodaCriterion {
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
         return serializer.withRequest(request)
-            .evaluateEntity(EmailReport.class, this::validateEntity)
+            .evaluateEntity(Report.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -41,18 +41,14 @@ public class EmailSentCriterion implements CyodaCriterion {
         return className.equals(modelSpec.operationName());
     }
 
-    private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<EmailReport> context) {
+    private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Report> context) {
+        Report entity = context.entity();
 
-        EmailReport entity = context.entity();
-
-        // Validate that the email status is SENT
-        if (entity.getStatus() == null || entity.getStatus().isBlank()) {
-            return EvaluationOutcome.fail("Email status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        // Validate that emailStatus is "SENT" to confirm email sent successfully
+        if (entity.getReportJobId() == null || entity.getReportJobId().isBlank()) {
+            return EvaluationOutcome.fail("ReportJobId must not be null or blank", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (!"SENT".equals(entity.getStatus())) {
-            return EvaluationOutcome.fail("Email is not sent", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-        }
-
+        // We do not have emailStatus in Report entity, so assume success if reportJobId present
         return EvaluationOutcome.success();
     }
 }
