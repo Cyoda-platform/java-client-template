@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.Report;
+import com.java_template.application.entity.ReportJob;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -31,7 +31,7 @@ public class CreateReportSucceededCriterion implements CyodaCriterion {
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
         return serializer.withRequest(request)
-            .evaluateEntity(Report.class, this::validateEntity)
+            .evaluateEntity(ReportJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -41,23 +41,21 @@ public class CreateReportSucceededCriterion implements CyodaCriterion {
         return className.equals(modelSpec.operationName());
     }
 
-    private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Report> context) {
-        Report entity = context.entity();
+    private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<ReportJob> context) {
 
-        // Validate that reportJobId is not null or blank to confirm report creation
-        if (entity.getReportJobId() == null || entity.getReportJobId().isBlank()) {
-            return EvaluationOutcome.fail("ReportJobId must not be null or blank", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        ReportJob reportJob = context.entity();
+
+        // Validation: All rates and timestamp must be non-null to consider report creation succeeded
+        if (reportJob.getBtcUsdRate() == null) {
+            return EvaluationOutcome.fail("BTC to USD rate missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
         }
-        // Validate btcUsdRate and btcEurRate positive
-        if (entity.getBtcUsdRate() == null || entity.getBtcUsdRate().compareTo(java.math.BigDecimal.ZERO) <= 0) {
-            return EvaluationOutcome.fail("BTC/USD rate must be positive", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (reportJob.getBtcEurRate() == null) {
+            return EvaluationOutcome.fail("BTC to EUR rate missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
         }
-        if (entity.getBtcEurRate() == null || entity.getBtcEurRate().compareTo(java.math.BigDecimal.ZERO) <= 0) {
-            return EvaluationOutcome.fail("BTC/EUR rate must be positive", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (reportJob.getTimestamp() == null) {
+            return EvaluationOutcome.fail("Timestamp missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
         }
-        if (entity.getTimestamp() == null) {
-            return EvaluationOutcome.fail("Timestamp must not be null", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        }
+
         return EvaluationOutcome.success();
     }
 }
