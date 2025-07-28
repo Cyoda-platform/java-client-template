@@ -1,2 +1,0 @@
-// No processEmailReport method found, business logic triggered internally by ReportJob processing
-// TODO: Implement business logic for EmailReport processing later
