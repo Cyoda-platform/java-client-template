@@ -1,103 +1,103 @@
 {
-    "active": true,
-    "desc": "Workflow for processing DigestRequestJob from validation to completion",
-    "initialState": "none",
-    "name": "DigestRequestJob Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "fetch_data": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "FetchDataSuccessCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "fetch_success",
-                    "next": "process_data"
-                },
-                {
-                    "name": "fetch_failure",
-                    "next": "failed"
-                }
-            ]
-        },
-        "none": {
-            "transitions": [
-                {
-                    "name": "start_validation",
-                    "next": "validation"
-                }
-            ]
-        },
-        "process_data": {
-            "transitions": [
-                {
-                    "name": "process_and_send_email",
-                    "next": "send_email",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "DigestEmailRecordProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "send_email": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "EmailSentSuccessCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "email_sent",
-                    "next": "completed"
-                },
-                {
-                    "name": "email_failed",
-                    "next": "failed"
-                }
-            ]
-        },
-        "validation": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "JobValidationCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "valid_job",
-                    "next": "fetch_data"
-                },
-                {
-                    "name": "invalid_job",
-                    "next": "failed"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow for processing DigestRequestJob from validation to completion",
+  "initialState": "none",
+  "name": "DigestRequestJob Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "start_validation",
+          "next": "validation"
         }
+      ]
     },
-    "version": "1.0"
+    "validation": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "JobValidationCriterion"
+            },
+            "type": "function"
+          },
+          "name": "valid_job",
+          "next": "fetch_data"
+        },
+        {
+          "name": "invalid_job",
+          "next": "failed"
+        }
+      ]
+    },
+    "fetch_data": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "FetchDataSuccessCriterion"
+            },
+            "type": "function"
+          },
+          "name": "fetch_success",
+          "next": "process_data"
+        },
+        {
+          "name": "fetch_failure",
+          "next": "failed"
+        }
+      ]
+    },
+    "process_data": {
+      "transitions": [
+        {
+          "name": "process_and_send_email",
+          "next": "send_email",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "DigestEmailRecordProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "send_email": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "EmailSentSuccessCriterion"
+            },
+            "type": "function"
+          },
+          "name": "email_sent",
+          "next": "completed"
+        },
+        {
+          "name": "email_failed",
+          "next": "failed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
