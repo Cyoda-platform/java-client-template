@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.Report;
+import com.java_template.application.entity.ReportJob;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -31,7 +31,7 @@ public class EmailSentCriterion implements CyodaCriterion {
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
         return serializer.withRequest(request)
-            .evaluateEntity(Report.class, this::validateEntity)
+            .evaluateEntity(ReportJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -41,14 +41,15 @@ public class EmailSentCriterion implements CyodaCriterion {
         return className.equals(modelSpec.operationName());
     }
 
-    private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Report> context) {
-        Report entity = context.entity();
+    private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<ReportJob> context) {
 
-        // Validate that emailStatus is "SENT" to confirm email sent successfully
-        if (entity.getReportJobId() == null || entity.getReportJobId().isBlank()) {
-            return EvaluationOutcome.fail("ReportJobId must not be null or blank", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        ReportJob reportJob = context.entity();
+
+        // Validation: emailStatus must be "SENT" to consider email sent
+        if (reportJob.getEmailStatus() == null || !"SENT".equals(reportJob.getEmailStatus())) {
+            return EvaluationOutcome.fail("Email not sent", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
-        // We do not have emailStatus in Report entity, so assume success if reportJobId present
+
         return EvaluationOutcome.success();
     }
 }
