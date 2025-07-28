@@ -1,101 +1,101 @@
 {
-    "active": true,
-    "desc": "Workflow for processing RetrievalJob entity from creation through processing to completion or failure",
-    "initialState": "none",
-    "name": "RetrievalJob Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "RetrievalJobConditions.isPending"
-                        },
-                        "type": "function"
-                    },
-                    "name": "start_processing",
-                    "next": "pending"
-                }
-            ]
-        },
-        "pending": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "RetrievalJobConditions.isCompanyNameValid"
-                        },
-                        "type": "function"
-                    },
-                    "name": "validate_company_name",
-                    "next": "processing"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "RetrievalJobConditions.isCompanyNameInvalid"
-                        },
-                        "type": "function"
-                    },
-                    "name": "fail_due_to_invalid_company_name",
-                    "next": "failed"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "RetrievalJobConditions.isProcessingSuccessful"
-                        },
-                        "type": "function"
-                    },
-                    "name": "complete_processing_success",
-                    "next": "completed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "RetrievalJobProcessor"
-                        }
-                    ]
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "RetrievalJobConditions.isProcessingFailed"
-                        },
-                        "type": "function"
-                    },
-                    "name": "fail_processing_error",
-                    "next": "failed"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow for processing RetrievalJob entity from creation through processing to completion or failure",
+  "initialState": "none",
+  "name": "RetrievalJob Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "RetrievalJobConditions.isPending"
+            },
+            "type": "function"
+          },
+          "name": "start_processing",
+          "next": "pending"
         }
+      ]
     },
-    "version": "1.0"
+    "pending": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "RetrievalJobConditions.isCompanyNameValid"
+            },
+            "type": "function"
+          },
+          "name": "validate_company_name",
+          "next": "processing"
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "RetrievalJobConditions.isCompanyNameInvalid"
+            },
+            "type": "function"
+          },
+          "name": "fail_due_to_invalid_company_name",
+          "next": "failed"
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "RetrievalJobConditions.isProcessingSuccessful"
+            },
+            "type": "function"
+          },
+          "name": "complete_processing_success",
+          "next": "completed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "RetrievalJobProcessor"
+            }
+          ]
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "RetrievalJobConditions.isProcessingFailed"
+            },
+            "type": "function"
+          },
+          "name": "fail_processing_error",
+          "next": "failed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
