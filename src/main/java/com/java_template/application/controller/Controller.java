@@ -50,7 +50,7 @@ public class Controller {
             UUID technicalId = idFuture.get();
             logger.info("Created HackerNewsItem with technicalId: {}", technicalId);
 
-            processHackerNewsItem(technicalId.toString(), item);
+            // processHackerNewsItem method removed for workflow extraction
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId.toString());
@@ -99,36 +99,4 @@ public class Controller {
         }
     }
 
-    private void processHackerNewsItem(String technicalId, HackerNewsItem entity) {
-        // Validation: Ensure required fields are present and meaningful
-        if (entity.getHnId() == null || entity.getHnId() <= 0) {
-            logger.error("Invalid hnId in HackerNewsItem with technicalId: {}", technicalId);
-            return;
-        }
-        if (entity.getType() == null || entity.getType().isBlank()) {
-            logger.error("Invalid type in HackerNewsItem with technicalId: {}", technicalId);
-            return;
-        }
-        if (entity.getTime() == null || entity.getTime() <= 0) {
-            logger.error("Invalid time in HackerNewsItem with technicalId: {}", technicalId);
-            return;
-        }
-        if (entity.getBy() == null || entity.getBy().isBlank()) {
-            logger.error("Invalid author (by) in HackerNewsItem with technicalId: {}", technicalId);
-            return;
-        }
-
-        // Normalize kids list to empty if null
-        if (entity.getKids() == null) {
-            entity.setKids(new ArrayList<>());
-            logger.info("Normalized kids list to empty for HackerNewsItem with technicalId: {}", technicalId);
-        }
-
-        // Indexing or other preparation would be done here if needed
-
-        // Mark processing complete (conceptual since data is immutable)
-        logger.info("Processed HackerNewsItem with technicalId: {}", technicalId);
-
-        // Optional: Trigger downstream events or notifications if applicable (not implemented)
-    }
 }
