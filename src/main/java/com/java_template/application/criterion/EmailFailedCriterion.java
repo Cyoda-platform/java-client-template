@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.Report;
+import com.java_template.application.entity.ReportJob;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -31,7 +31,7 @@ public class EmailFailedCriterion implements CyodaCriterion {
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
         return serializer.withRequest(request)
-            .evaluateEntity(Report.class, this::validateEntity)
+            .evaluateEntity(ReportJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -41,13 +41,15 @@ public class EmailFailedCriterion implements CyodaCriterion {
         return className.equals(modelSpec.operationName());
     }
 
-    private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Report> context) {
-        Report entity = context.entity();
+    private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<ReportJob> context) {
 
-        // Fail if email status indicates failure (assumed by absence of reportJobId or other failure conditions)
-        if (entity.getReportJobId() == null || entity.getReportJobId().isBlank()) {
-            return EvaluationOutcome.success();
+        ReportJob reportJob = context.entity();
+
+        // Validation: emailStatus must be "FAILED" to consider email failed
+        if (reportJob.getEmailStatus() == null || !"FAILED".equals(reportJob.getEmailStatus())) {
+            return EvaluationOutcome.fail("Email not failed", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
-        return EvaluationOutcome.fail("Email sent successfully", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+
+        return EvaluationOutcome.success();
     }
 }
