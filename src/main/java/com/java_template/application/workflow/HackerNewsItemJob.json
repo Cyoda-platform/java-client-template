@@ -1,92 +1,92 @@
 {
-    "active": true,
-    "desc": "Workflow representing the processing lifecycle of a HackerNewsItemJob entity",
-    "initialState": "none",
-    "name": "HackerNewsItemJob Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "name": "start_job_processing",
-                    "next": "pending"
-                }
-            ]
-        },
-        "pending": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "CanStartProcessingCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "start_processing_if_pending",
-                    "next": "processing"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "CannotStartProcessingCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "fail_if_not_pending",
-                    "next": "failed"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "ProcessingSucceededCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "complete_if_success",
-                    "next": "completed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "HackerNewsItemJobProcessor"
-                        }
-                    ]
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "ProcessingFailedCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "fail_if_processing_failed",
-                    "next": "failed"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow representing the processing lifecycle of a HackerNewsItemJob entity",
+  "initialState": "none",
+  "name": "HackerNewsItemJob Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "start_job_processing",
+          "next": "pending"
         }
+      ]
     },
-    "version": "1.0"
+    "pending": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "CanStartProcessingCriterion"
+            },
+            "type": "function"
+          },
+          "name": "start_processing_if_pending",
+          "next": "processing"
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "CannotStartProcessingCriterion"
+            },
+            "type": "function"
+          },
+          "name": "fail_if_not_pending",
+          "next": "failed"
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "ProcessingSucceededCriterion"
+            },
+            "type": "function"
+          },
+          "name": "complete_if_success",
+          "next": "completed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "HackerNewsItemJobProcessor"
+            }
+          ]
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "ProcessingFailedCriterion"
+            },
+            "type": "function"
+          },
+          "name": "fail_if_processing_failed",
+          "next": "failed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
