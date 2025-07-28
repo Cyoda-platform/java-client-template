@@ -52,7 +52,7 @@ public class Controller {
             UUID technicalId = idFuture.get();
 
             try {
-                processMail(technicalId.toString(), mail);
+                // processMail method removed - extracted to workflow prototype
                 logger.info("Successfully processed Mail with ID {}", technicalId);
             } catch (Exception e) {
                 logger.error("Failed to process Mail with ID {}: {}", technicalId, e.getMessage());
@@ -131,51 +131,6 @@ public class Controller {
             logger.error("Error in getMailByCondition: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
         }
-    }
-
-    private void processMail(String technicalId, Mail mail) {
-        if (mail.getMailList() == null || mail.getMailList().isEmpty()) {
-            logger.error("Mail ID {} has empty mailList", technicalId);
-            mail.setStatus("FAILED");
-            return;
-        }
-
-        if (mail.getContent() == null || mail.getContent().isBlank()) {
-            logger.error("Mail ID {} has empty content", technicalId);
-            mail.setStatus("FAILED");
-            return;
-        }
-
-        if (mail.getIsHappy() == null) {
-            logger.error("Mail ID {} has null isHappy field", technicalId);
-            mail.setStatus("FAILED");
-            return;
-        }
-
-        try {
-            if (Boolean.TRUE.equals(mail.getIsHappy())) {
-                sendHappyMail(technicalId, mail);
-                mail.setStatus("SENT_HAPPY");
-                logger.info("Mail ID {} sent as happy mail", technicalId);
-            } else {
-                sendGloomyMail(technicalId, mail);
-                mail.setStatus("SENT_GLOOMY");
-                logger.info("Mail ID {} sent as gloomy mail", technicalId);
-            }
-        } catch (Exception e) {
-            mail.setStatus("FAILED");
-            logger.error("Error processing Mail ID {}: {}", technicalId, e.getMessage());
-        }
-    }
-
-    private void sendHappyMail(String technicalId, Mail mail) {
-        logger.info("Sending happy mail to recipients: {}", mail.getMailList());
-        // TODO: integrate actual sending mechanism
-    }
-
-    private void sendGloomyMail(String technicalId, Mail mail) {
-        logger.info("Sending gloomy mail to recipients: {}", mail.getMailList());
-        // TODO: integrate actual sending mechanism
     }
 
     private Mail convertObjectNodeToMail(ObjectNode node) {
