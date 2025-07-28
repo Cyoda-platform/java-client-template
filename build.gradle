@@ -67,6 +67,9 @@ dependencies {
 
 test {
     useJUnitPlatform()
+
+    // Pass system properties to tests (needed for conditional test execution)
+    systemProperties = System.properties
 }
 
 jsonSchema2Pojo {
@@ -115,8 +118,7 @@ bootJar {
     mainClass.set("com.java_template.Application")
 }
 
-// Prototype mode is now handled via test: ./gradlew test --tests PrototypeApplicationTest
-// No separate JAR needed since test-based approach is cleaner
+// Prototype mode is handled via conditional test: ./gradlew test --tests PrototypeApplicationTest -Dprototype.enabled=true
 
 task bootJarWorkflowImport(type: org.springframework.boot.gradle.tasks.bundling.BootJar) {
     group = 'build'

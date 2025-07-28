@@ -15,6 +15,18 @@ import java.util.function.Function;
 public interface ProcessorSerializer {
 
     /**
+     * Context record containing the original request and extracted payload for processor evaluation.
+     * Provides access to both request metadata (entityId, transactionId) and payload data.
+     */
+    record ProcessorExecutionContext(EntityProcessorCalculationRequest request, JsonNode payload) {}
+
+    /**
+     * Context record containing the original request and extracted entity for processor evaluation.
+     * Provides access to both request metadata (entityId, transactionId) and entity data.
+     */
+    record ProcessorEntityExecutionContext<T extends CyodaEntity>(EntityProcessorCalculationRequest request, T entity) {}
+
+    /**
      * Extracts a typed entity from the request payload.
      */
     <T extends CyodaEntity> T extractEntity(EntityProcessorCalculationRequest request, Class<T> clazz);
@@ -36,12 +48,14 @@ public interface ProcessorSerializer {
     String getType();
 
     /**
-     * Executes a custom function with the serializer and returns the result.
+     * Executes a custom function with the serializer and request context.
      * This allows for flexible operations without modifying the interface.
      */
     default <R> R executeFunction(EntityProcessorCalculationRequest request,
-                                  Function<ProcessorSerializer, R> function) {
-        return function.apply(this);
+                                  Function<ProcessorExecutionContext, R> function) {
+        JsonNode payload = extractPayload(request);
+        ProcessorExecutionContext context = new ProcessorExecutionContext(request, payload);
+        return function.apply(context);
     }
 
     /**
@@ -64,11 +78,12 @@ public interface ProcessorSerializer {
      */
     interface ProcessingChain {
         /**
-         * Maps the extracted payload using the provided function.
-         * @param mapper Function to transform the JSON payload
+         * Maps the extracted payload using the provided function with request context.
+         * Provides access to both request metadata and payload data.
+         * @param mapper Function to transform the JSON payload with context
          * @return ProcessingChain for chaining
          */
-        ProcessingChain map(Function<JsonNode, JsonNode> mapper);
+        ProcessingChain map(Function<ProcessorExecutionContext, JsonNode> mapper);
 
         /**
          * Extracts an entity and initiates entity-based processing flow.
@@ -100,11 +115,12 @@ public interface ProcessorSerializer {
      */
     interface EntityProcessingChain<T extends CyodaEntity> {
         /**
-         * Maps the current entity using the provided function.
-         * @param mapper Function to transform the entity
+         * Maps the current entity using the provided function with request context.
+         * Provides access to both request metadata and entity data.
+         * @param mapper Function to transform the entity with context
          * @return EntityProcessingChain for chaining
          */
-        EntityProcessingChain<T> map(Function<T, T> mapper);
+        EntityProcessingChain<T> map(Function<ProcessorEntityExecutionContext<T>, T> mapper);
 
         /**
          * Validates the current entity using the provided predicate.
@@ -188,10 +204,11 @@ public interface ProcessorSerializer {
         }
 
         @Override
-        public ProcessingChain map(Function<JsonNode, JsonNode> mapper) {
+        public ProcessingChain map(Function<ProcessorExecutionContext, JsonNode> mapper) {
             if (error == null) {
                 try {
-                    processedData = mapper.apply(processedData);
+                    ProcessorExecutionContext context = new ProcessorExecutionContext(request, processedData);
+                    processedData = mapper.apply(context);
                 } catch (Exception e) {
                     error = e;
                 }
@@ -264,10 +281,11 @@ public interface ProcessorSerializer {
         }
 
         @Override
-        public EntityProcessingChain<T> map(Function<T, T> mapper) {
+        public EntityProcessingChain<T> map(Function<ProcessorEntityExecutionContext<T>, T> mapper) {
             if (error == null && processedEntity != null) {
                 try {
-                    processedEntity = mapper.apply(processedEntity);
+                    ProcessorEntityExecutionContext<T> context = new ProcessorEntityExecutionContext<>(request, processedEntity);
+                    processedEntity = mapper.apply(context);
                 } catch (Exception e) {
                     error = e;
                 }
