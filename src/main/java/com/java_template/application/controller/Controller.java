@@ -1,5 +1,6 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -8,35 +9,40 @@ import com.java_template.application.entity.HackerNewsItemJob;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
-import lombok.AllArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/entity")
-@Slf4j
-@AllArgsConstructor
 public class Controller {
 
     private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
+
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
+        this.entityService = entityService;
+        this.objectMapper = objectMapper;
+    }
 
     // POST /entity/jobs - create HackerNewsItemJob
     @PostMapping("/jobs")
-    public ResponseEntity<?> createHackerNewsItemJob(@RequestBody Map<String, Object> requestBody) {
+    public ResponseEntity<?> createHackerNewsItemJob(@RequestBody Map<String, Object> requestBody) throws JsonProcessingException {
         try {
             if (!requestBody.containsKey("hnItemJson")) {
                 logger.error("Missing hnItemJson in request");
@@ -59,8 +65,6 @@ public class Controller {
 
             job.setTechnicalId(technicalId.toString());
 
-            // processHackerNewsItemJob removed
-
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId.toString());
             logger.info("Created HackerNewsItemJob with technicalId {}", technicalId);
@@ -80,7 +84,7 @@ public class Controller {
 
     // GET /entity/jobs/{technicalId} - retrieve HackerNewsItemJob
     @GetMapping("/jobs/{technicalId}")
-    public ResponseEntity<?> getHackerNewsItemJob(@PathVariable String technicalId) {
+    public ResponseEntity<?> getHackerNewsItemJob(@PathVariable @NotBlank String technicalId) throws JsonProcessingException {
         try {
             UUID techId = UUID.fromString(technicalId);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem("HackerNewsItemJob", ENTITY_VERSION, techId);
@@ -106,7 +110,7 @@ public class Controller {
 
     // GET /entity/items/{id} - retrieve HackerNewsItem by HN item id (field 'id' in entity)
     @GetMapping("/items/{id}")
-    public ResponseEntity<?> getHackerNewsItem(@PathVariable Long id) {
+    public ResponseEntity<?> getHackerNewsItem(@PathVariable Long id) throws JsonProcessingException {
         try {
             // Build condition to find HackerNewsItem by id field equal to id
             Condition condition = Condition.of("$.id", "EQUALS", id);
