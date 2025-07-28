@@ -1,5 +1,7 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.CompanyData;
@@ -15,14 +17,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.validation.Valid;
+
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 import java.util.UUID;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/entity")
@@ -34,12 +36,11 @@ public class Controller {
 
     private final EntityService entityService;
 
-    private final AtomicLong retrievalJobIdCounter = new AtomicLong(1);
-    private final AtomicLong companyDataIdCounter = new AtomicLong(1);
+    private final ObjectMapper objectMapper;
 
     // POST /entity/retrievalJob - create a new RetrievalJob
     @PostMapping("/retrievalJob")
-    public ResponseEntity<Map<String, String>> createRetrievalJob(@RequestBody RetrievalJob retrievalJob) {
+    public ResponseEntity<Map<String, String>> createRetrievalJob(@Valid @RequestBody RetrievalJob retrievalJob) {
         try {
             if (retrievalJob.getCompanyName() == null || retrievalJob.getCompanyName().isBlank()) {
                 logger.error("createRetrievalJob failed: companyName is required");
@@ -68,7 +69,7 @@ public class Controller {
 
     // GET /entity/retrievalJob/{id} - get RetrievalJob by technicalId
     @GetMapping("/retrievalJob/{id}")
-    public ResponseEntity<Object> getRetrievalJob(@PathVariable String id) {
+    public ResponseEntity<Object> getRetrievalJob(@PathVariable String id) throws JsonProcessingException {
         try {
             UUID technicalId = UUID.fromString(id);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem("RetrievalJob", ENTITY_VERSION, technicalId);
@@ -77,7 +78,7 @@ public class Controller {
                 logger.error("RetrievalJob with id {} not found", id);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "RetrievalJob not found"));
             }
-            RetrievalJob job = node.traverse().readValueAs(RetrievalJob.class);
+            RetrievalJob job = objectMapper.treeToValue(node, RetrievalJob.class);
             return ResponseEntity.ok(job);
         } catch (IllegalArgumentException e) {
             logger.error("getRetrievalJob failed: {}", e.getMessage());
@@ -97,7 +98,7 @@ public class Controller {
 
     // GET /entity/companyData/{id} - get CompanyData by technicalId
     @GetMapping("/companyData/{id}")
-    public ResponseEntity<Object> getCompanyData(@PathVariable String id) {
+    public ResponseEntity<Object> getCompanyData(@PathVariable String id) throws JsonProcessingException {
         try {
             UUID technicalId = UUID.fromString(id);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem("CompanyData", ENTITY_VERSION, technicalId);
@@ -106,7 +107,7 @@ public class Controller {
                 logger.error("CompanyData with id {} not found", id);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "CompanyData not found"));
             }
-            CompanyData companyData = node.traverse().readValueAs(CompanyData.class);
+            CompanyData companyData = objectMapper.treeToValue(node, CompanyData.class);
             return ResponseEntity.ok(companyData);
         } catch (IllegalArgumentException e) {
             logger.error("getCompanyData failed: {}", e.getMessage());
@@ -126,7 +127,7 @@ public class Controller {
 
     // Optional GET /entity/companyData?businessId=xxx - search by businessId
     @GetMapping(value = "/companyData", params = "businessId")
-    public ResponseEntity<List<CompanyData>> getCompanyDataByBusinessId(@RequestParam String businessId) {
+    public ResponseEntity<List<CompanyData>> getCompanyDataByBusinessId(@RequestParam String businessId) throws JsonProcessingException {
         try {
             SearchConditionRequest condition = SearchConditionRequest.group("AND",
                     Condition.of("$.businessId", "EQUALS", businessId));
@@ -143,7 +144,7 @@ public class Controller {
             List<CompanyData> results = new ArrayList<>();
             for (int i = 0; i < arrayNode.size(); i++) {
                 ObjectNode node = (ObjectNode) arrayNode.get(i);
-                CompanyData cd = node.traverse().readValueAs(CompanyData.class);
+                CompanyData cd = objectMapper.treeToValue(node, CompanyData.class);
                 results.add(cd);
             }
             return ResponseEntity.ok(results);
