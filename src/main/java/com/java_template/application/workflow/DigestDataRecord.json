@@ -1,70 +1,70 @@
 {
-    "active": true,
-    "desc": "Workflow for processing DigestRequestJob entity from initial request to completion or failure",
-    "initialState": "none",
-    "name": "DigestRequestJob Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "name": "start_pending",
-                    "next": "pending"
-                }
-            ]
-        },
-        "pending": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "DigestRequestJobIsValidRequestCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "validate_and_start_processing",
-                    "next": "processing"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "DigestRequestJobIsNotValidRequestCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "fail_due_to_invalid_request",
-                    "next": "failed"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "name": "process_digest_data",
-                    "next": "processing",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "DigestDataRecordProcessor"
-                        }
-                    ]
-                }
-            ]
+  "active": true,
+  "desc": "Workflow for processing DigestRequestJob entity from initial request to completion or failure",
+  "initialState": "none",
+  "name": "DigestRequestJob Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "start_pending",
+          "next": "pending"
         }
+      ]
     },
-    "version": "1.0"
+    "pending": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "DigestRequestJobIsValidRequestCriterion"
+            },
+            "type": "function"
+          },
+          "name": "validate_and_start_processing",
+          "next": "processing"
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "DigestRequestJobIsNotValidRequestCriterion"
+            },
+            "type": "function"
+          },
+          "name": "fail_due_to_invalid_request",
+          "next": "failed"
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "name": "process_digest_data",
+          "next": "processing",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "DigestDataRecordProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "failed": {
+      "transitions": []
+    },
+    "completed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
