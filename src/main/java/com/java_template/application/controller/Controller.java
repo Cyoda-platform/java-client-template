@@ -1,6 +1,5 @@
 package com.java_template.application.controller;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Mail;
 import com.java_template.common.service.EntityService;
@@ -41,8 +40,7 @@ public class Controller {
             logger.info("Mail entity created with technicalId: {}", technicalId);
 
             try {
-                processMail(technicalId.toString(), mail);
-                logger.info("Processed Mail entity with technicalId: {}", technicalId);
+                // processMail method removed
             } catch (Exception e) {
                 logger.error("Error processing Mail entity with technicalId: {}, error: {}", technicalId, e.getMessage());
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
@@ -88,30 +86,5 @@ public class Controller {
         }
     }
 
-    private void processMail(String technicalId, Mail mail) {
-        // Business logic: Decide which processor to use based on isHappy flag
-        if (Boolean.TRUE.equals(mail.getIsHappy())) {
-            sendHappyMail(technicalId, mail);
-        } else {
-            sendGloomyMail(technicalId, mail);
-        }
-    }
-
-    private void sendHappyMail(String technicalId, Mail mail) {
-        // Implement sending happy-themed mails to all recipients
-        for (String recipient : mail.getMailList()) {
-            // Simulate sending mail
-            logger.info("Sending HAPPY mail to {} for technicalId {}", recipient, technicalId);
-        }
-        logger.info("Completed sending HAPPY mails for technicalId {}", technicalId);
-    }
-
-    private void sendGloomyMail(String technicalId, Mail mail) {
-        // Implement sending gloomy-themed mails to all recipients
-        for (String recipient : mail.getMailList()) {
-            // Simulate sending mail
-            logger.info("Sending GLOOMY mail to {} for technicalId {}", recipient, technicalId);
-        }
-        logger.info("Completed sending GLOOMY mails for technicalId {}", technicalId);
-    }
+    // processMail and its helper methods removed from Controller.java
 }
