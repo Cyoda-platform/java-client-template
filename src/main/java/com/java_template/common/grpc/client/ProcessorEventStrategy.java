@@ -11,7 +11,11 @@ import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Component;
 
 @Component
-public class ProcessorEventStrategy extends AbstractEventStrategy<EntityProcessorCalculationRequest, EntityProcessorCalculationResponse, OperationSpecification.Processor> {
+public class ProcessorEventStrategy extends AbstractEventStrategy<
+        EntityProcessorCalculationRequest,
+        EntityProcessorCalculationResponse,
+        OperationSpecification.Processor
+        > {
 
     public ProcessorEventStrategy(
             OperationFactory operationFactory,
@@ -31,7 +35,7 @@ public class ProcessorEventStrategy extends AbstractEventStrategy<EntityProcesso
             EntityProcessorCalculationRequest request
     ) throws JsonProcessingException {
         EntityMetadata entityMetadata = parseForModelKey(request.getPayload().getMeta());
-        return OperationSpecification.create(request,entityMetadata);
+        return OperationSpecification.create(request, entityMetadata);
     }
 
     @Override
@@ -51,7 +55,10 @@ public class ProcessorEventStrategy extends AbstractEventStrategy<EntityProcesso
     }
 
     @Override
-    protected void setRequestIdInErrorResponse(EntityProcessorCalculationResponse errorResponse, String requestId) {
+    protected void setRequestIdInErrorResponse(
+            EntityProcessorCalculationResponse errorResponse,
+            String requestId
+    ) {
         errorResponse.setRequestId(requestId);
     }
 

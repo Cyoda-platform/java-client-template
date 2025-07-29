@@ -6,7 +6,13 @@ import io.grpc.ConnectivityState;
  * ABOUTME: Record class that tracks the client's lifecycle state and join event information.
  * Provides thread-safe status tracking for the calculation member client connection lifecycle.
  */
-public record MemberStatus(MemberState state, String lastJoinEventId, int retryCount, long lastKeepAliveTimestamp, ConnectivityState lastKnownState) {
+public record MemberStatus(
+        MemberState state,
+        String lastJoinEventId,
+        int retryCount,
+        long lastKeepAliveTimestamp,
+        ConnectivityState lastKnownState
+) {
 
     /**
      * Enum representing the different states of the member client lifecycle.

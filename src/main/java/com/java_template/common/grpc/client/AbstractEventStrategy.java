@@ -16,7 +16,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -24,8 +23,11 @@ import java.util.regex.Pattern;
  * ABOUTME: Abstract base class for event handling strategies that provides common functionality
  * for processing CloudEvents. Subclasses implement specific behavior for different event types.
  */
-public abstract class AbstractEventStrategy<TRequest extends BaseEvent, TResponse extends BaseEvent, TOperation extends OperationSpecification>
-        implements EventHandlingStrategy<TResponse> {
+public abstract class AbstractEventStrategy<
+        TRequest extends BaseEvent,
+        TResponse extends BaseEvent,
+        TOperation extends OperationSpecification
+        > implements EventHandlingStrategy<TResponse> {
 
     private static final Logger logger = LoggerFactory.getLogger(AbstractEventStrategy.class);
 
@@ -51,33 +53,31 @@ public abstract class AbstractEventStrategy<TRequest extends BaseEvent, TRespons
      * @return TResponse
      */
     @Override
-    public @NotNull CompletableFuture<TResponse> handleEvent(@NotNull CloudEvent cloudEvent) {
-        return CompletableFuture.supplyAsync(() -> {
-            String cloudEventType = cloudEvent.getType();
-            logger.debug("[IN] Received event {}: \n{}", cloudEventType, cloudEvent.getTextData());
+    public TResponse handleEvent(@NotNull CloudEvent cloudEvent) {
+        String cloudEventType = cloudEvent.getType();
+        logger.debug("[IN] Received event {}: \n{}", cloudEventType, cloudEvent.getTextData());
 
-            CyodaEventContext<TRequest> context;
-            try {
-                context = eventContextFactory.createCyodaEventContext(cloudEvent, getRequestClass());
-            } catch (JsonProcessingException e) {
-                logger.error("JsonProcessingException when parsing CloudEvent into {}: {}", getRequestClass().getSimpleName(), cloudEvent, e);
-                return returnErrorResponseFor(cloudEvent, e);
-            }
+        CyodaEventContext<TRequest> context;
+        try {
+            context = eventContextFactory.createCyodaEventContext(cloudEvent, getRequestClass());
+        } catch (JsonProcessingException e) {
+            logger.error("JsonProcessingException when parsing CloudEvent into {}: {}", getRequestClass().getSimpleName(), cloudEvent, e);
+            return returnErrorResponseFor(cloudEvent, e);
+        }
 
-            TRequest request = context.getEvent();
-            try {
+        TRequest request = context.getEvent();
+        try {
 
-                TOperation operation = createOperationSpecification(request);
-                String operationName = operation.operationName();
+            TOperation operation = createOperationSpecification(request);
+            String operationName = operation.operationName();
 
-                logger.debug("Running {} {}: {}", operation.getClass().getSimpleName(), cloudEventType, operationName);
+            logger.debug("Running {} {}: {}", operation.getClass().getSimpleName(), cloudEventType, operationName);
 
-                return executeOperation(operation, request, context);
-            } catch (Exception e) {
-                logger.error("Error handling event: {}", cloudEvent, e);
-                return returnErrorResponseFor(request, e);
-            }
-        });
+            return executeOperation(operation, request, context);
+        } catch (Exception e) {
+            logger.error("Error handling event: {}", cloudEvent, e);
+            return returnErrorResponseFor(request, e);
+        }
     }
 
     protected TResponse returnErrorResponseFor(TRequest request, Exception e) {

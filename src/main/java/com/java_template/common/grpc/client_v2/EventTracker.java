@@ -1,0 +1,11 @@
+package com.java_template.common.grpc.client_v2;
+
+import io.cloudevents.v1.proto.CloudEvent;
+import org.cyoda.cloud.api.event.processing.EventAckResponse;
+
+public interface EventTracker {
+    void trackEventSent(CloudEvent event);
+    void trackAcknowledge(EventAckResponse acknowledgeResponse);
+    void trackKeepAlive(Long eventTimestamp);
+    void trackGreetReceived();
+}

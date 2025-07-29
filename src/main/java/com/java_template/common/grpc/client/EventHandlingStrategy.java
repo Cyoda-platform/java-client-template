@@ -5,8 +5,6 @@ import org.cyoda.cloud.api.event.common.BaseEvent;
 import org.cyoda.cloud.api.event.common.CloudEventType;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.concurrent.CompletableFuture;
-
 /**
  * Strategy interface for handling different types of CloudEvents.
  * Each implementation handles a specific event type (processors, criteria, etc.).
@@ -29,7 +27,7 @@ public interface EventHandlingStrategy<TResponse extends BaseEvent> {
      * @param cloudEvent the CloudEvent to handle
      * @return CompletableFuture containing the response object to be sent
      */
-    @NotNull CompletableFuture<TResponse> handleEvent(@NotNull CloudEvent cloudEvent);
+    TResponse handleEvent(@NotNull CloudEvent cloudEvent);
 
     /**
      * Checks if this strategy supports the given event type.
