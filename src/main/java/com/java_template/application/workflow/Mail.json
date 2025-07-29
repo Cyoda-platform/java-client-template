@@ -1,0 +1,74 @@
+{
+    "active": true,
+    "desc": "Workflow for processing Mail entity from creation to completion",
+    "initialState": "none",
+    "name": "Mail Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "transition_to_validation",
+                    "next": "validation"
+                }
+            ]
+        },
+        "sending": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "send_mail",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "MailProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "validation": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsValidMail"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "validation_passed",
+                    "next": "sending"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsInvalidMail"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "validation_failed",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
