@@ -1,0 +1,24 @@
+# Java Client Template
+
+> A structured template for building scalable web clients using Spring Boot, designed for seamless integration with Cyoda over gRPC and REST. Features workflow-driven backend interactions with fluent serialization APIs for type-safe processing.
+
+## Documentation
+
+default branch: main
+
+- [README](https://github.com/Cyoda-platform/java-client-template/${branch}/README.md): Complete project documentation including setup, architecture, and workflow configuration
+- [Usage Rules](https://github.com/Cyoda-platform/java-client-template/${branch}/usage-rules.md): Developer and AI agent guidelines for following project conventions
+
+## Requirements & Specifications
+
+- [Functional Requirements](https://github.com/Cyoda-platform/java-client-template/${branch}/src/main/java/com/java_template/prototype/functional_requirement.md): Detailed functional requirements for the user application
+- [User Requirements](https://github.com/Cyoda-platform/java-client-template/${branch}/src/main/java/com/java_template/prototype/user_requirement.md): User-focused requirements specification for the user application
+
+## Configuration
+
+- [Build Configuration](https://github.com/Cyoda-platform/java-client-template/${branch}/build.gradle): Gradle build configuration with dependencies and plugins
+- [Environment Template](https://github.com/Cyoda-platform/java-client-template/${branch}/.env.template): Environment variables template for Cyoda integration
+
+## API Documentation
+
+- [llms-full.txt](https://github.com/Cyoda-platform/java-client-template/${branch}/llms-full.txt): Complete embedded documentation for single-pass AI ingestion
