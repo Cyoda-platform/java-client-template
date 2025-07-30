@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.Workflow;
+import com.java_template.application.entity.ReportEmail;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -16,10 +16,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.util.List;
-
 @Component
 public class ValidateWorkflowNegative implements CyodaCriterion {
 
@@ -34,8 +30,9 @@ public class ValidateWorkflowNegative implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
+        // This is a predefined chain. Just write the business logic in processEntityLogic method.
         return serializer.withRequest(request)
-            .evaluateEntity(Workflow.class, this::validateEntity)
+            .evaluateEntity(ReportEmail.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -45,31 +42,22 @@ public class ValidateWorkflowNegative implements CyodaCriterion {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Workflow> context) {
-        Workflow workflow = context.entity();
+    private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<ReportEmail> context) {
 
-        // Negative validation: Fail if URL is null or blank
-        String url = workflow.getUrl();
-        if (url == null || url.isBlank()) {
-            return EvaluationOutcome.fail("URL is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        }
+        ReportEmail entity = context.entity();
 
-        // Negative validation: Fail if any subscriber email is invalid
-        List<String> subscribers = workflow.getSubscribers();
-        if (subscribers == null || subscribers.isEmpty()) {
-            return EvaluationOutcome.fail("No subscribers specified", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        // Implement negative validation logic: fail if any required field missing or invalid
+        if (entity.getWorkflowTechnicalId() == null || entity.getWorkflowTechnicalId().isBlank()) {
+            return EvaluationOutcome.fail("workflowTechnicalId is missing or blank", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        for (String email : subscribers) {
-            if (email == null || !email.contains("@")) {
-                return EvaluationOutcome.fail("Invalid subscriber email found: " + email, StandardEvalReasonCategories.VALIDATION_FAILURE);
-            }
+        if (entity.getEmailTo() == null || entity.getEmailTo().isBlank()) {
+            return EvaluationOutcome.fail("emailTo is missing or blank", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (entity.getStatus() == null || entity.getStatus().isBlank()) {
+            return EvaluationOutcome.fail("status is missing or blank", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
 
-        // Negative validation: Fail if status is COMPLETED (should not proceed)
-        String status = workflow.getStatus();
-        if ("COMPLETED".equals(status)) {
-            return EvaluationOutcome.fail("Workflow already completed", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-        }
+        // Additional negative business rules could be here
 
         return EvaluationOutcome.success();
     }
