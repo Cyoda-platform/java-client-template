@@ -1,0 +1,81 @@
+{
+    "active": true,
+    "desc": "Workflow for processing ReportEmail entity from pending to sent or failed status",
+    "initialState": "none",
+    "name": "ReportEmailEntityWorkflow",
+    "states": {
+        "failed": {
+            "manual": false,
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "transition_to_pending",
+                    "next": "pending"
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "CanSendEmail"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "transition_to_sending_if_ready",
+                    "next": "sending"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "CannotSendEmail"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "transition_to_failed_if_not_ready",
+                    "next": "failed"
+                }
+            ]
+        },
+        "sending": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "transition_to_sent_if_success",
+                    "next": "sent",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "ReportEmailProcessor"
+                        }
+                    ]
+                },
+                {
+                    "manual": false,
+                    "name": "transition_to_failed_if_error",
+                    "next": "failed"
+                }
+            ]
+        },
+        "sent": {
+            "manual": false,
+            "transitions": []
+        }
+    },
+    "version": "1.0"
+}
