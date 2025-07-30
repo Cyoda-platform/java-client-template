@@ -1,31 +1,30 @@
 # Java Client Template
 
+> A structured template for building scalable web clients using Spring Boot, designed for seamless integration with Cyoda over gRPC and REST. Features workflow-driven backend interactions with fluent serialization APIs for type-safe processing.
+
+## Documentation
+
+default branch: main
+- [README](https://github.com/Cyoda-platform/java-client-template/${branch}/README.md): Complete project documentation including setup, architecture, and workflow configuration
+- [Usage Rules](https://github.com/Cyoda-platform/java-client-template/${branch}/usage-rules.md): Developer and AI agent guidelines for following project conventions
+
+## Requirements & Specifications
+
+- [Functional Requirements](https://github.com/Cyoda-platform/java-client-template/${branch}/src/main/java/com/java_template/prototype/functional_requirement.md): Detailed functional requirements for the user application
+- [User Requirements](https://github.com/Cyoda-platform/java-client-template/${branch}/src/main/java/com/java_template/prototype/user_requirement.md): User-focused requirements specification for the user application
+
+## Configuration
+
+- [Build Configuration](https://github.com/Cyoda-platform/java-client-template/${branch}/build.gradle): Gradle build configuration with dependencies and plugins
+- [Environment Template](https://github.com/Cyoda-platform/java-client-template/${branch}/.env.template): Environment variables template for Cyoda integration
+
+---
+
+# README.md
+
+# Java Client Template
+
 A structured template for building scalable web clients using **Spring Boot**, designed for seamless integration with **Cyoda** over **gRPC** and **REST**.
-
-## 🤖 AI-Friendly Documentation
-
-### Background
-
-Previously, AI agents hallucinated outdated APIs and ignored documentation due to HTML rendering issues and incomplete context. To fix this, all documentation is provided as raw `.md` files with structured formats that AI agents can easily parse and understand.
-
-### Available Documentation Tools
-
-- **llms.txt**: Lists all project documentation with absolute URLs to raw markdown files
-- **llms-full.txt**: Contains embedded full markdown content of all documentation for single-pass ingestion
-- **usage-rules.md**: Developer and AI agent guidelines with sync markers for automated updates
-
-### For AI Agents
-
-When working with this project:
-
-1. **Discovery**: Use `llms.txt` to discover available documentation
-2. **Context**: Use `llms-full.txt` for complete project context in one file
-3. **Guidelines**: Always consult `usage-rules.md` before making code changes
-4. **Patterns**: Follow the established architectural patterns for processors, criteria, and serializers
-
-### Documentation Sync
-
-You can sync usage rules via project-specific tooling and maintain consistency across components.
 
 ---
 
@@ -542,7 +541,7 @@ public class IsValidPet implements CyodaCriterion {
 
 Workflow components are **automatically discovered** via Spring's dependency injection system using the `OperationFactory`.
 
-Here’s how it works:
+Here's how it works:
 
 1. **Processor Discovery**: All Spring beans implementing `CyodaProcessor` are automatically collected by the `OperationFactory`.
 
@@ -613,127 +612,138 @@ return serializer.responseBuilder(request)
     .build();
 ```
 
-### EvaluationOutcome Sealed Classes
-
-Criteria evaluation uses **EvaluationOutcome** sealed classes for type-safe result handling with **logical chaining**:
-
-```java
-// Success outcome (no additional information needed)
-return EvaluationOutcome.success();
-
-// Failure outcomes with categorized reasons
-return EvaluationOutcome.Fail.structuralFailure("Pet entity is null");
-return EvaluationOutcome.Fail.businessRuleFailure("Pet status is invalid");
-return EvaluationOutcome.Fail.dataQualityFailure("Pet photo URL is malformed");
-
-// Generic failure with custom category
-return EvaluationOutcome.Fail.of("Custom reason", StandardEvalReasonCategories.VALIDATION_FAILURE);
-```
-
-**Logical Chaining Operations:**
-
-```java
-// AND chaining - all must succeed, returns first failure
-EvaluationOutcome result = validateStructure(pet)
-    .and(validateBusinessRules(pet))
-    .and(validateDataQuality(pet));
-
-// OR chaining - any can succeed, returns first success or last failure
-EvaluationOutcome result = primaryValidation(pet)
-    .or(fallbackValidation(pet));
-
-// Bulk operations with short-circuiting (using suppliers)
-EvaluationOutcome allMustPass = EvaluationOutcome.allOf(
-    () -> validateStructure(pet),
-    () -> validateBusinessRules(pet),
-    () -> validateDataQuality(pet)
-);
-
-EvaluationOutcome anyCanPass = EvaluationOutcome.anyOf(
-    () -> primaryValidation(pet),
-    () -> fallbackValidation(pet),
-    () -> lastResortValidation(pet)
-);
-
-// Convenience overloads (no short-circuiting - all arguments evaluated)
-EvaluationOutcome allMustPass2 = EvaluationOutcome.allOf(check1, check2, check3);
-EvaluationOutcome anyCanPass2 = EvaluationOutcome.anyOf(check1, check2, check3);
-
-// Convenience methods
-if (result.isSuccess()) { /* handle success */ }
-if (result.isFailure()) { /* handle failure */ }
-```
-
-**Key Benefits:**
-- **Type Safety**: Compile-time checking ensures proper outcome handling
-- **Clear Contracts**: No ambiguity about success vs failure
-- **Categorized Failures**: Structured failure reasons with standard categories
-- **Logical Chaining**: Elegant AND/OR operations with short-circuit evaluation
-- **Efficient Bulk Operations**: Supplier-based `allOf()`/`anyOf()` provide true short-circuiting
-- **Flexible API**: Both lazy (suppliers) and eager (direct values) evaluation options
-- **Reason Attachment**: Failure reasons can be attached to response warnings
-
 ---
 
-## 🔧 EntityProcessingChain Usage Examples
+# usage-rules.md
 
-### Basic Entity Processing
-```java
-// Simple entity transformation
-return serializer.withRequest(request)
-    .toEntity(Pet.class)
-    .map(pet -> {
-        pet.setName(pet.getName().toUpperCase());
-        return pet;
-    })
-    .complete();
-```
+# Usage Rules
 
-### Entity Processing with Validation
-```java
-// Entity processing with validation steps
-return serializer.withRequest(request)
-    .toEntity(Pet.class)
-    .validate(pet -> pet.getId() != null, "Pet ID cannot be null")
-    .map(pet -> pet.normalizeStatus())
-    .validate(pet -> pet.hasStatus(), "Pet must have a valid status")
-    .map(pet -> pet.addLastModifiedTimestamp())
-    .complete();
-```
+This file helps both developers and AI agents follow conventions in the Java Client Template project. This file can be updated via project-specific tooling and should be maintained alongside code changes.
 
-### Mixed Entity and JSON Processing
-```java
-// Start with entity processing, then switch to JSON
-return serializer.withRequest(request)
-    .toEntity(Pet.class)
-    .map(pet -> pet.processBusinessLogic())
-    .toJsonFlow(pet -> createEnhancedJson(pet))
-    .map(json -> addMetadata(json))
-    .complete();
-```
+<!-- entities-start -->
+<!-- SYNC_COMMENT: synchronize via project tooling for entities -->
+## Entities
 
-### Custom Error Handling
-```java
-// Entity processing with custom error handling
-return serializer.withRequest(request)
-    .toEntity(Pet.class)
-    .withErrorHandler((error, pet) -> new ErrorInfo(
-        "PET_PROCESSING_ERROR",
-                "Failed to process pet " + (pet != null ? pet.getId() : "unknown")
-        ))
-    .map(pet -> pet.validateAndProcess())
-    .complete();
-```
+- Always implement `CyodaEntity` interface for domain entities
+- Use `Config.ENTITY_VERSION` constant instead of hardcoded version strings
+- Place entity classes in `application/entity/` directory for automatic discovery
+- Implement `getModelKey()` to return `OperationSpecification.Entity` with proper ModelSpec
+- Override `isValid()` method to provide entity-specific validation logic
+- Use static `ENTITY_NAME` constant for consistent entity naming
+- Entity `id` types vary by entity (e.g., Pet uses `Long`, Mail uses different types)
+<!-- entities-end -->
 
----
+<!-- processors-start -->
+<!-- SYNC_COMMENT: synchronize via project tooling for processors -->
+## Processors (CyodaProcessor)
 
-## 📝 Notes
+- Implement `CyodaProcessor` interface for workflow processing components
+- Use `@Component` annotation for automatic Spring discovery
+- Inject `SerializerFactory` in constructor and get specific serializer immediately
+- Use `ProcessorSerializer.withRequest(request).toEntity(Class).map().complete()` pattern
+- Implement `supports(OperationSpecification)` method for processor selection
+- Processor names are matched via `supports()` method against workflow configuration
+- Use fluent EntityProcessingChain API for type-safe entity processing
+- Always handle exceptions properly - either log and handle or throw without logging, never both
+<!-- processors-end -->
 
-- Entity `id` type varies by entity (e.g., Pet entity uses `Long`).
-- Use `CyodaProcessor` and `CyodaCriterion` interfaces for workflow components.
-- Leverage the **EntityProcessingChain** API for type-safe entity processing.
-- Component operation names are matched via the `supports()` method against workflow configuration.
-- Use serializers in `common/serializer/` for development.
-- Avoid cyclic FSM states.
-- Place entities in `application/entity/` directory.
-- Use `@Component` annotation for automatic Spring discovery of workflow components.
+<!-- criteria-start -->
+<!-- SYNC_COMMENT: synchronize via project tooling for criteria -->
+## Criteria (CyodaCriterion)
+
+- Implement `CyodaCriterion` interface for workflow criteria checking
+- Criteria MUST be pure functions - no side effects or payload modifications
+- Use `CriterionSerializer.withRequest(request).evaluateEntity(Class, validator).complete()` pattern
+- Implement `supports(OperationSpecification)` method for criteria selection
+- Use `EvaluationOutcome.and()` chaining for validation logic
+- Return boolean evaluation results only - no entity modifications
+- Use `withReasonAttachment(ReasonAttachmentStrategy.toWarnings())` for validation feedback
+<!-- criteria-end -->
+
+<!-- serializers-start -->
+<!-- SYNC_COMMENT: synchronize via project tooling for serializers -->
+## Serializers
+
+- Use `SerializerFactory` to get appropriate serializer instances
+- Prefer `ProcessorSerializer` for processors and `CriterionSerializer` for criteria
+- Use fluent APIs: `withRequest().toEntity().map().complete()` for processors
+- Use fluent APIs: `withRequest().evaluateEntity().complete()` for criteria
+- Jackson serializers are the default implementation (`SerializerEnum.JACKSON`)
+- Always validate requests before processing in serializer implementations
+- Use `ResponseBuilder.forProcessor()` and `ResponseBuilder.forCriterion()` for responses
+<!-- serializers-end -->
+
+<!-- services-start -->
+<!-- SYNC_COMMENT: synchronize via project tooling for services -->
+## Services
+
+- Always interact with `EntityService` interface, not repository directly
+- Use `CompletableFuture` return types for all async operations
+- Pass entity model name, version, and technical ID for entity operations
+- Use `Config.ENTITY_VERSION` for version parameter
+- Prefer `getItemsByCondition()` over manual filtering
+- Use `addItem()` for single entities, `addItems()` for bulk operations
+- Handle `InterruptedException` and `ExecutionException` in service calls
+<!-- services-end -->
+
+<!-- controllers-start -->
+<!-- SYNC_COMMENT: synchronize via project tooling for controllers -->
+## Controllers
+
+- Use `@RestController` and `@RequestMapping` for REST endpoints
+- Inject `EntityService` and `ObjectMapper` via constructor
+- Use `@Valid` annotation for request body validation
+- Return appropriate HTTP status codes (400 for validation, 404 for not found, 500 for errors)
+- Log errors with context information (entity ID, operation type)
+- Use `ResponseEntity<T>` for proper HTTP response handling
+- Convert between entity objects and JSON using `ObjectMapper`
+<!-- controllers-end -->
+
+<!-- workflow-start -->
+<!-- SYNC_COMMENT: synchronize via project tooling for workflow -->
+## Workflow Configuration
+
+- Place `Workflow.json` files alongside entity classes in `application/entity/` directory
+- Use finite-state machine (FSM) model for workflow definitions
+- Avoid cyclic FSM states in workflow configuration
+- Component operation names must match `supports()` method implementations
+- Use `WorkflowImportTool` for importing workflow configurations
+- Workflow methods should be separate processor classes, not switch-based dispatch
+<!-- workflow-end -->
+
+<!-- config-start -->
+<!-- SYNC_COMMENT: synchronize via project tooling for config -->
+## Configuration
+
+- Use `Config` class constants instead of hardcoded values
+- Load environment variables via `Dotenv` in Config class
+- Use `Config.ENTITY_VERSION` for entity versioning (default '1000')
+- Configure GRPC settings via environment variables
+- Use `Config.CYODA_HOST` and related constants for Cyoda integration
+- SSL and authentication settings should be configurable via environment
+<!-- config-end -->
+
+<!-- testing-start -->
+<!-- SYNC_COMMENT: synchronize via project tooling for testing -->
+## Testing
+
+- Use `PrototypeApplicationTest` for test-based prototype development
+- Enable prototype mode via `-Dprototype.enabled=true` system property
+- Test serializers using fluent API patterns
+- Mock `EntityService` and `SerializerFactory` in unit tests
+- Use `ObjectMapper` for JSON conversion in tests
+- Test both success and error scenarios for processors and criteria
+<!-- testing-end -->
+
+<!-- architecture-start -->
+<!-- SYNC_COMMENT: synchronize via project tooling for architecture -->
+## Architecture Guidelines
+
+- Follow separation of concerns: entities, processors, criteria, services, controllers
+- Use dependency injection via Spring constructor injection
+- Implement interfaces rather than concrete classes for better testability
+- Use sealed classes for type-safe operation specifications
+- Prefer composition over inheritance in workflow components
+- Use factory patterns for component selection and instantiation
+- Handle async operations with CompletableFuture consistently
+<!-- architecture-end -->
