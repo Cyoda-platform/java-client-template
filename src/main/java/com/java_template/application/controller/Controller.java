@@ -134,6 +134,4 @@ public class Controller {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
-
-    // Remaining business logic methods removed for extraction
 }
