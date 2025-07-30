@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.Workflow;
+import com.java_template.application.entity.ReportEmail;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -16,10 +16,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.util.List;
-
 @Component
 public class ValidateWorkflow implements CyodaCriterion {
 
@@ -34,8 +30,9 @@ public class ValidateWorkflow implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
+        // This is a predefined chain. Just write the business logic in processEntityLogic method.
         return serializer.withRequest(request)
-            .evaluateEntity(Workflow.class, this::validateEntity)
+            .evaluateEntity(ReportEmail.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -45,36 +42,24 @@ public class ValidateWorkflow implements CyodaCriterion {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Workflow> context) {
-        Workflow workflow = context.entity();
+    private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<ReportEmail> context) {
 
-        // Validate URL format
-        String url = workflow.getUrl();
-        if (url == null || url.isBlank()) {
-            return EvaluationOutcome.fail("URL is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        }
-        try {
-            new URL(url);
-        } catch (MalformedURLException e) {
-            return EvaluationOutcome.fail("URL format is invalid", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        }
+        ReportEmail entity = context.entity();
 
-        // Validate subscribers list - must not be null and all emails must contain '@'
-        List<String> subscribers = workflow.getSubscribers();
-        if (subscribers == null || subscribers.isEmpty()) {
-            return EvaluationOutcome.fail("Subscribers list must not be empty", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        // Implement validation logic based on business requirements
+        // Validate required fields: workflowTechnicalId, emailTo, status (as per ReportEmail.isValid())
+        if (entity.getWorkflowTechnicalId() == null || entity.getWorkflowTechnicalId().isBlank()) {
+            return EvaluationOutcome.fail("workflowTechnicalId is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        for (String email : subscribers) {
-            if (email == null || !email.contains("@")) {
-                return EvaluationOutcome.fail("Subscriber email is invalid: " + email, StandardEvalReasonCategories.VALIDATION_FAILURE);
-            }
+        if (entity.getEmailTo() == null || entity.getEmailTo().isBlank()) {
+            return EvaluationOutcome.fail("emailTo is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (entity.getStatus() == null || entity.getStatus().isBlank()) {
+            return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
 
-        // Status validation - only allow PENDING or PROCESSING as valid for validation
-        String status = workflow.getStatus();
-        if (status != null && !(status.equals("PENDING") || status.equals("PROCESSING") || status.equals("COMPLETED"))) {
-            return EvaluationOutcome.fail("Status is invalid", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-        }
+        // Additional business rule examples (not explicitly in prototype but typical):
+        // Email format validation could be added here if allowed by existing getters (no direct email validation in entity, so skipped)
 
         return EvaluationOutcome.success();
     }
