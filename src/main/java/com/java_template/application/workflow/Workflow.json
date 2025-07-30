@@ -1,79 +1,79 @@
 {
-    "active": true,
-    "desc": "Workflow for processing Workflow entities including validation, processing, and completion.",
-    "initialState": "none",
-    "name": "Workflow Entity Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "start_processing",
-                    "next": "validating"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "processing_success",
-                    "next": "completed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "WorkflowProcessor"
-                        }
-                    ]
-                },
-                {
-                    "manual": false,
-                    "name": "processing_failure",
-                    "next": "failed"
-                }
-            ]
-        },
-        "validating": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "WorkflowValidation"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "valid_url_and_subscribers",
-                    "next": "processing"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "WorkflowValidationNegation"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "invalid_url_or_no_subscribers",
-                    "next": "failed"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow for processing Workflow entities including validation, processing, and completion.",
+  "initialState": "none",
+  "name": "Workflow Entity Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "start_processing",
+          "next": "validating"
         }
+      ]
     },
-    "version": "1.0"
+    "validating": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "WorkflowValidation"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "valid_url_and_subscribers",
+          "next": "processing"
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "WorkflowValidationNegation"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "invalid_url_or_no_subscribers",
+          "next": "failed"
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "processing_success",
+          "next": "completed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "WorkflowProcessor"
+            }
+          ]
+        },
+        {
+          "manual": false,
+          "name": "processing_failure",
+          "next": "failed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
