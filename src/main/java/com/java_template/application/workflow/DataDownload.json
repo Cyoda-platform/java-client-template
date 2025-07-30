@@ -1,0 +1,76 @@
+{
+    "active": true,
+    "desc": "Workflow for processing Workflow entity from validation to creating DataDownload and finalizing status",
+    "initialState": "none",
+    "name": "WorkflowEntityWorkflow",
+    "states": {
+        "completed": {
+            "manual": false,
+            "transitions": []
+        },
+        "failed": {
+            "manual": false,
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "transition_to_pending",
+                    "next": "pending"
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ValidateWorkflow"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "transition_to_processing_if_valid",
+                    "next": "processing"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ValidateWorkflowNegative"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "transition_to_failed_if_invalid",
+                    "next": "failed"
+                }
+            ]
+        },
+        "processing": {
+            "processors": [
+                {
+                    "config": {
+                        "calculationNodesTags": "cyoda_application"
+                    },
+                    "executionMode": "SYNC",
+                    "name": "DataDownloadProcessor"
+                }
+            ],
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "transition_to_completed_if_download_created",
+                    "next": "completed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
