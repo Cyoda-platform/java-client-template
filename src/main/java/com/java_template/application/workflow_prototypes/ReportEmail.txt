@@ -1,0 +1,4 @@
+// No separate processReportEmail method found beyond embedded in Workflow processing.
+// Business logic related to ReportEmail is embedded inside processWorkflow and processReportEmail methods in Controller.java
+// Workflow.txt contains the extracted process methods relevant to ReportEmail processing triggered from Workflow.
+// TODO: Implement standalone business logic for ReportEmail if needed later.
