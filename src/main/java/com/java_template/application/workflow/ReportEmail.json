@@ -1,9 +1,13 @@
 {
     "active": true,
-    "desc": "Workflow for processing ReportEmail entity from pending to sent or failed status",
+    "desc": "Workflow for processing Workflow entity from validation to creating DataDownload and finalizing status",
     "initialState": "none",
-    "name": "ReportEmailEntityWorkflow",
+    "name": "WorkflowEntityWorkflow",
     "states": {
+        "completed": {
+            "manual": false,
+            "transitions": []
+        },
         "failed": {
             "manual": false,
             "transitions": []
@@ -25,13 +29,13 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "CanSendEmail"
+                            "name": "ValidateWorkflow"
                         },
                         "type": "function"
                     },
                     "manual": false,
-                    "name": "transition_to_sending_if_ready",
-                    "next": "sending"
+                    "name": "transition_to_processing_if_valid",
+                    "next": "processing"
                 },
                 {
                     "criterion": {
@@ -39,42 +43,33 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "CannotSendEmail"
+                            "name": "ValidateWorkflowNegative"
                         },
                         "type": "function"
                     },
                     "manual": false,
-                    "name": "transition_to_failed_if_not_ready",
+                    "name": "transition_to_failed_if_invalid",
                     "next": "failed"
                 }
             ]
         },
-        "sending": {
+        "processing": {
+            "processors": [
+                {
+                    "config": {
+                        "calculationNodesTags": "cyoda_application"
+                    },
+                    "executionMode": "SYNC",
+                    "name": "DataDownloadProcessor"
+                }
+            ],
             "transitions": [
                 {
                     "manual": false,
-                    "name": "transition_to_sent_if_success",
-                    "next": "sent",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "ReportEmailProcessor"
-                        }
-                    ]
-                },
-                {
-                    "manual": false,
-                    "name": "transition_to_failed_if_error",
-                    "next": "failed"
+                    "name": "transition_to_completed_if_download_created",
+                    "next": "completed"
                 }
             ]
-        },
-        "sent": {
-            "manual": false,
-            "transitions": []
         }
     },
     "version": "1.0"
