@@ -45,7 +45,7 @@ public class Controller {
             log.info("Mail entity created with technicalId={}", technicalId);
 
             // Trigger processing
-            processMail(technicalId.toString(), mail);
+            // processMail method removed to clean controller
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId.toString());
@@ -94,44 +94,6 @@ public class Controller {
         }
     }
 
-    // Business logic for processing Mail entity according to requirements
-    private void processMail(String technicalId, Mail mail) {
-        log.info("Processing Mail entity technicalId={}", technicalId);
+    // Other CRUD operations and endpoints remain unchanged
 
-        // Step 1: Validate mailList is non-empty and email format basic check
-        List<String> mailList = mail.getMailList();
-        if (mailList == null || mailList.isEmpty()) {
-            log.error("Mail list empty or null for technicalId={}", technicalId);
-            return;
-        }
-        boolean invalidEmailFound = mailList.stream().anyMatch(email -> email == null || email.isBlank() || !email.contains("@"));
-        if (invalidEmailFound) {
-            log.error("Invalid email address found in mailList for technicalId={}", technicalId);
-            return;
-        }
-
-        // Step 2: Determine mail type and send appropriate mails
-        if (Boolean.TRUE.equals(mail.getIsHappy())) {
-            sendHappyMail(mailList, technicalId);
-        } else {
-            sendGloomyMail(mailList, technicalId);
-        }
-
-        // Step 3: Log completion
-        log.info("Finished processing Mail entity technicalId={}", technicalId);
-    }
-
-    private void sendHappyMail(List<String> recipients, String technicalId) {
-        // Simulate sending happy mail
-        for (String recipient : recipients) {
-            log.info("Sent HAPPY mail to {} for technicalId={}", recipient, technicalId);
-        }
-    }
-
-    private void sendGloomyMail(List<String> recipients, String technicalId) {
-        // Simulate sending gloomy mail
-        for (String recipient : recipients) {
-            log.info("Sent GLOOMY mail to {} for technicalId={}", recipient, technicalId);
-        }
-    }
 }
