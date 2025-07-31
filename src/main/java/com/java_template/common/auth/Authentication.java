@@ -71,9 +71,7 @@ public class Authentication {
         accessTokenResponseClient.setRestClient(restClient);
         OAuth2AuthorizedClientProvider acp = OAuth2AuthorizedClientProviderBuilder
                 .builder()
-                .clientCredentials(builder -> {
-                    builder.accessTokenResponseClient(accessTokenResponseClient);
-                })
+                .clientCredentials(builder -> builder.accessTokenResponseClient(accessTokenResponseClient))
                 .build();
 
         acm.setAuthorizedClientProvider(acp);
