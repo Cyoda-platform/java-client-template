@@ -1,92 +1,92 @@
 {
-    "active": true,
-    "desc": "Workflow for processing Job entity in Happy Mail application",
-    "initialState": "none",
-    "name": "Job Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "start_processing",
-                    "next": "pending"
-                }
-            ]
-        },
-        "pending": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IsPending"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "process_job",
-                    "next": "processing"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IsHappy"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "complete_if_happy",
-                    "next": "completed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "JobProcessor"
-                        }
-                    ]
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IsNotHappy"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "fail_if_not_happy",
-                    "next": "failed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "JobProcessor"
-                        }
-                    ]
-                }
-            ]
+  "active": true,
+  "desc": "Workflow for processing Job entity in Happy Mail application",
+  "initialState": "none",
+  "name": "Job Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "start_processing",
+          "next": "pending"
         }
+      ]
     },
-    "version": "1.0"
+    "pending": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IsPending"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "process_job",
+          "next": "processing"
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IsHappy"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "complete_if_happy",
+          "next": "completed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "JobProcessor"
+            }
+          ]
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IsNotHappy"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "fail_if_not_happy",
+          "next": "failed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "JobProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
