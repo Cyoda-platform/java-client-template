@@ -1,5 +1,7 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Mail;
@@ -32,13 +34,15 @@ public class Controller {
     private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
-    public Controller(EntityService entityService) {
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @PostMapping("")
-    public ResponseEntity<?> createMail(@RequestBody MailRequest mailRequest) {
+    public ResponseEntity<?> createMail(@RequestBody MailRequest mailRequest) throws JsonProcessingException {
         try {
             if (mailRequest.getMailList() == null || mailRequest.getMailList().isEmpty()) {
                 logger.error("Mail list is empty");
@@ -63,7 +67,7 @@ public class Controller {
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(Mail.ENTITY_NAME, ENTITY_VERSION, technicalId);
             ObjectNode storedMailNode = itemFuture.get();
 
-            Mail storedMail = convertNodeToMail(storedMailNode);
+            Mail storedMail = objectMapper.treeToValue(storedMailNode, Mail.class);
             // processMail method removed for workflow extraction
 
             // After processing, update the mail with new mood fields - update is not supported, so add TODO
@@ -85,7 +89,7 @@ public class Controller {
     }
 
     @GetMapping("/{technicalId}")
-    public ResponseEntity<?> getMailById(@PathVariable String technicalId) {
+    public ResponseEntity<?> getMailById(@PathVariable String technicalId) throws JsonProcessingException {
         try {
             UUID technicalUUID = UUID.fromString(technicalId);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(Mail.ENTITY_NAME, ENTITY_VERSION, technicalUUID);
@@ -94,7 +98,7 @@ public class Controller {
                 logger.error("Mail not found for technicalId {}", technicalId);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Mail not found");
             }
-            Mail mail = convertNodeToMail(node);
+            Mail mail = objectMapper.treeToValue(node, Mail.class);
             MailResponse response = new MailResponse();
             response.setTechnicalId(technicalId);
             response.setMailList(mail.getMailList());
@@ -116,7 +120,7 @@ public class Controller {
     }
 
     @GetMapping(params = "isHappy")
-    public ResponseEntity<?> getMailsByMood(@RequestParam Boolean isHappy) {
+    public ResponseEntity<?> getMailsByMood(@RequestParam Boolean isHappy) throws JsonProcessingException {
         try {
             Condition condition = Condition.of("$.isHappy", "EQUALS", isHappy);
             SearchConditionRequest conditionRequest = SearchConditionRequest.group("AND", condition);
@@ -131,7 +135,7 @@ public class Controller {
                         UUID tid = UUID.fromString(tidStr);
                         CompletableFuture<ObjectNode> itemFuture = entityService.getItem(Mail.ENTITY_NAME, ENTITY_VERSION, tid);
                         ObjectNode node = itemFuture.get();
-                        Mail mail = convertNodeToMail(node);
+                        Mail mail = objectMapper.treeToValue(node, Mail.class);
                         MailResponse response = new MailResponse();
                         response.setTechnicalId(tidStr);
                         response.setMailList(mail.getMailList());
@@ -159,28 +163,6 @@ public class Controller {
             logger.error("Unexpected error: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Retrieval error");
         }
-    }
-
-    private Mail convertNodeToMail(ObjectNode node) {
-        Mail mail = new Mail();
-        if (node.has("mailList") && node.get("mailList").isArray()) {
-            List<String> mailList = node.withArray("mailList").findValuesAsText("");
-            mail.setMailList(mailList);
-        }
-        if (node.has("content")) {
-            mail.setContent(node.get("content").asText());
-        }
-        if (node.has("isHappy") && !node.get("isHappy").isNull()) {
-            mail.setIsHappy(node.get("isHappy").asBoolean());
-        } else {
-            mail.setIsHappy(null);
-        }
-        if (node.has("moodCriteriaChecked") && !node.get("moodCriteriaChecked").isNull()) {
-            mail.setMoodCriteriaChecked(node.get("moodCriteriaChecked").asBoolean());
-        } else {
-            mail.setMoodCriteriaChecked(false);
-        }
-        return mail;
     }
 
     @Data
