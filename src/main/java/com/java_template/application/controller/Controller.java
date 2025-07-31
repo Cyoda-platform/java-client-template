@@ -39,20 +39,6 @@ public class Controller {
         this.mailCache = mail;
     }
 
-    // Process methods related to Mail
-    public void processMail(Mail mail) {
-        saveMailToCache(mail);
-        processMailHelper();
-    }
-
-    private void processMailHelper() {
-        // Some processing logic
-    }
-
-    public void processMailScheduler() {
-        // Scheduled processing logic
-    }
-
     // Other unrelated methods
     public void unrelatedMethod() {
         // Some code
