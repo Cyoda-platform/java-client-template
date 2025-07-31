@@ -45,8 +45,7 @@ public class Controller {
             logger.info("Mail entity created with technicalId: {}", technicalId);
 
             try {
-                processMail(technicalId.toString(), mail);
-                logger.info("Processed Mail entity with technicalId: {}", technicalId);
+                // processMail call removed
             } catch (Exception e) {
                 logger.error("Error processing Mail entity with technicalId: {}", technicalId, e);
                 // In a production system, consider retry or dead-letter queue here
@@ -93,51 +92,6 @@ public class Controller {
             logger.error("Exception on getMailById", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
-    }
-
-    // Business logic processing method for Mail entity
-    private void processMail(String technicalId, Mail mail) {
-        // Validate mailList is not empty and contains valid emails
-        if (mail.getMailList() == null || mail.getMailList().isEmpty()) {
-            logger.error("MailList is empty for Mail entity with technicalId: {}", technicalId);
-            return;
-        }
-        boolean allValidEmails = mail.getMailList().stream().allMatch(this::isValidEmail);
-        if (!allValidEmails) {
-            logger.error("MailList contains invalid email addresses for Mail entity with technicalId: {}", technicalId);
-            return;
-        }
-
-        // Depending on isHappy flag, send happy or gloomy mail
-        if (Boolean.TRUE.equals(mail.getIsHappy())) {
-            sendHappyMail(mail);
-            logger.info("Sent happy mail for technicalId: {}", technicalId);
-        } else {
-            sendGloomyMail(mail);
-            logger.info("Sent gloomy mail for technicalId: {}", technicalId);
-        }
-
-        // After sending mails, update mail entity status or result if needed (not persisted here as immutable)
-        // This is a prototype, so just log success.
-    }
-
-    // Simple email validation method
-    private boolean isValidEmail(String email) {
-        if (email == null || email.isBlank()) return false;
-        // Basic regex for email validation
-        return email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$");
-    }
-
-    // Simulate sending happy mail
-    private void sendHappyMail(Mail mail) {
-        // Replace with actual email sending logic using JavaMailSender or similar
-        logger.info("Simulating sending happy mail to: {}", mail.getMailList());
-    }
-
-    // Simulate sending gloomy mail
-    private void sendGloomyMail(Mail mail) {
-        // Replace with actual email sending logic using JavaMailSender or similar
-        logger.info("Simulating sending gloomy mail to: {}", mail.getMailList());
     }
 
     // Utility method to convert ObjectNode to Mail entity
