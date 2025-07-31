@@ -64,7 +64,7 @@ public class Controller {
             ObjectNode storedMailNode = itemFuture.get();
 
             Mail storedMail = convertNodeToMail(storedMailNode);
-            processMail(technicalIdStr, storedMail);
+            // processMail method removed for workflow extraction
 
             // After processing, update the mail with new mood fields - update is not supported, so add TODO
             // TODO: Implement update method to update mood fields in external service
@@ -159,44 +159,6 @@ public class Controller {
             logger.error("Unexpected error: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Retrieval error");
         }
-    }
-
-    private void processMail(String technicalId, Mail mail) {
-        boolean happyCriteriaMet = checkMailHappyCriteria(mail);
-        boolean gloomyCriteriaMet = checkMailGloomyCriteria(mail);
-
-        if (happyCriteriaMet) {
-            mail.setIsHappy(true);
-            sendHappyMail(technicalId, mail);
-        } else if (gloomyCriteriaMet) {
-            mail.setIsHappy(false);
-            sendGloomyMail(technicalId, mail);
-        } else {
-            logger.warn("Mail with technicalId {} did not meet any mood criteria", technicalId);
-            mail.setIsHappy(null);
-        }
-        mail.setMoodCriteriaChecked(true);
-        // TODO: Update mail in external service with mood info when update supported
-    }
-
-    private boolean checkMailHappyCriteria(Mail mail) {
-        String contentLower = mail.getContent().toLowerCase();
-        return contentLower.contains("happy") || contentLower.contains("joy");
-    }
-
-    private boolean checkMailGloomyCriteria(Mail mail) {
-        String contentLower = mail.getContent().toLowerCase();
-        return contentLower.contains("sad") || contentLower.contains("gloom");
-    }
-
-    private void sendHappyMail(String technicalId, Mail mail) {
-        logger.info("Sending happy mail [{}] to recipients: {}", technicalId, mail.getMailList());
-        // actual mail sending code or integration
-    }
-
-    private void sendGloomyMail(String technicalId, Mail mail) {
-        logger.info("Sending gloomy mail [{}] to recipients: {}", technicalId, mail.getMailList());
-        // actual mail sending code or integration
     }
 
     private Mail convertNodeToMail(ObjectNode node) {
