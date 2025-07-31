@@ -1,0 +1,12 @@
+public void processMail(Mail mail) {
+    saveMailToCache(mail);
+    processMailHelper();
+}
+
+private void processMailHelper() {
+    // Some processing logic
+}
+
+public void processMailScheduler() {
+    // Scheduled processing logic
+}
