@@ -1,21 +1,22 @@
 package com.java_template.application.controller;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.java_template.application.entity.CustomerProfileUpdate;
+import com.java_template.application.entity.Order;
+import com.java_template.application.entity.ProductUploadJob;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/entities")
@@ -24,6 +25,7 @@ import static com.java_template.common.config.Config.*;
 public class Controller {
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     // POST /entities/productuploadjob
     @PostMapping("/productuploadjob")
@@ -51,7 +53,7 @@ public class Controller {
 
     // GET /entities/productuploadjob/{id}
     @GetMapping("/productuploadjob/{id}")
-    public ResponseEntity<ProductUploadJob> getProductUploadJob(@PathVariable("id") String technicalId) {
+    public ResponseEntity<ProductUploadJob> getProductUploadJob(@PathVariable("id") String technicalId) throws JsonProcessingException {
         try {
             UUID id = UUID.fromString(technicalId);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(ProductUploadJob.ENTITY_NAME, ENTITY_VERSION, id);
@@ -60,11 +62,14 @@ public class Controller {
                 log.error("ProductUploadJob not found with id {}", technicalId);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
             }
-            ProductUploadJob entity = JsonUtil.fromObjectNode(node, ProductUploadJob.class);
+            ProductUploadJob entity = objectMapper.treeToValue(node, ProductUploadJob.class);
             return ResponseEntity.ok(entity);
         } catch (IllegalArgumentException e) {
             log.error("Invalid UUID format in getProductUploadJob", e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+        } catch (JsonProcessingException e) {
+            log.error("Error processing JSON in getProductUploadJob", e);
+            throw e;
         } catch (Exception e) {
             log.error("Error retrieving ProductUploadJob with id " + technicalId, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
@@ -97,7 +102,7 @@ public class Controller {
 
     // GET /entities/customerprofileupdate/{id}
     @GetMapping("/customerprofileupdate/{id}")
-    public ResponseEntity<CustomerProfileUpdate> getCustomerProfileUpdate(@PathVariable("id") String technicalId) {
+    public ResponseEntity<CustomerProfileUpdate> getCustomerProfileUpdate(@PathVariable("id") String technicalId) throws JsonProcessingException {
         try {
             UUID id = UUID.fromString(technicalId);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(CustomerProfileUpdate.ENTITY_NAME, ENTITY_VERSION, id);
@@ -106,11 +111,14 @@ public class Controller {
                 log.error("CustomerProfileUpdate not found with id {}", technicalId);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
             }
-            CustomerProfileUpdate entity = JsonUtil.fromObjectNode(node, CustomerProfileUpdate.class);
+            CustomerProfileUpdate entity = objectMapper.treeToValue(node, CustomerProfileUpdate.class);
             return ResponseEntity.ok(entity);
         } catch (IllegalArgumentException e) {
             log.error("Invalid UUID format in getCustomerProfileUpdate", e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+        } catch (JsonProcessingException e) {
+            log.error("Error processing JSON in getCustomerProfileUpdate", e);
+            throw e;
         } catch (Exception e) {
             log.error("Error retrieving CustomerProfileUpdate with id " + technicalId, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
@@ -143,7 +151,7 @@ public class Controller {
 
     // GET /entities/order/{id}
     @GetMapping("/order/{id}")
-    public ResponseEntity<Order> getOrder(@PathVariable("id") String technicalId) {
+    public ResponseEntity<Order> getOrder(@PathVariable("id") String technicalId) throws JsonProcessingException {
         try {
             UUID id = UUID.fromString(technicalId);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(Order.ENTITY_NAME, ENTITY_VERSION, id);
@@ -152,28 +160,17 @@ public class Controller {
                 log.error("Order not found with id {}", technicalId);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
             }
-            Order entity = JsonUtil.fromObjectNode(node, Order.class);
+            Order entity = objectMapper.treeToValue(node, Order.class);
             return ResponseEntity.ok(entity);
         } catch (IllegalArgumentException e) {
             log.error("Invalid UUID format in getOrder", e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+        } catch (JsonProcessingException e) {
+            log.error("Error processing JSON in getOrder", e);
+            throw e;
         } catch (Exception e) {
             log.error("Error retrieving Order with id " + technicalId, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
-        }
-    }
-
-    // Utility for JSON conversion (assuming Jackson ObjectMapper available)
-    // This is a placeholder; adapt if you have a specific utility class
-    private static class JsonUtil {
-        private static final com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-
-        static <T> T fromObjectNode(ObjectNode node, Class<T> clazz) {
-            try {
-                return mapper.treeToValue(node, clazz);
-            } catch (Exception e) {
-                throw new RuntimeException("Error converting ObjectNode to " + clazz.getSimpleName(), e);
-            }
         }
     }
 }
