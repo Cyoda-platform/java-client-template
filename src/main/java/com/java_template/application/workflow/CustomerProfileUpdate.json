@@ -1,14 +1,14 @@
 {
     "active": true,
-    "desc": "Workflow to process customer profile updates including validation, processing, completion, and notification",
+    "desc": "Workflow representing the order processing lifecycle",
     "initialState": "none",
-    "name": "CustomerProfileUpdateWorkflow",
+    "name": "Order Workflow",
     "states": {
-        "completed": {
+        "confirmed": {
             "transitions": [
                 {
-                    "name": "notify_user",
-                    "next": "notified"
+                    "name": "end_process",
+                    "next": "end"
                 }
             ]
         },
@@ -16,42 +16,43 @@
             "transitions": []
         },
         "failed": {
-            "transitions": []
+            "transitions": [
+                {
+                    "name": "end_process",
+                    "next": "end"
+                }
+            ]
         },
         "none": {
             "transitions": [
                 {
                     "name": "start_validation",
-                    "next": "validation"
-                }
-            ]
-        },
-        "notified": {
-            "transitions": [
-                {
-                    "name": "finish",
-                    "next": "end"
+                    "next": "validating"
                 }
             ]
         },
         "processing": {
             "transitions": [
                 {
-                    "name": "process_update",
-                    "next": "completed",
+                    "name": "processing_succeeded",
+                    "next": "confirmed",
                     "processors": [
                         {
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
                             "executionMode": "SYNC",
-                            "name": "CustomerProfileUpdateProcessor"
+                            "name": "OrderProcessor"
                         }
                     ]
+                },
+                {
+                    "name": "processing_failed",
+                    "next": "failed"
                 }
             ]
         },
-        "validation": {
+        "validating": {
             "transitions": [
                 {
                     "criterion": {
@@ -59,11 +60,11 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "IsValidUpdate"
+                            "name": "IsStockAvailable"
                         },
                         "type": "function"
                     },
-                    "name": "valid_update",
+                    "name": "validation_passed",
                     "next": "processing"
                 },
                 {
@@ -72,11 +73,11 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "IsNotValidUpdate"
+                            "name": "IsStockNotAvailable"
                         },
                         "type": "function"
                     },
-                    "name": "invalid_update",
+                    "name": "validation_failed",
                     "next": "failed"
                 }
             ]
