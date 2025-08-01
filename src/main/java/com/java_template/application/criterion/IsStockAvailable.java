@@ -32,11 +32,10 @@ public class IsStockAvailable implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
         return serializer.withRequest(request)
-            .evaluateEntity(Order.class, this::validateEntity)
-            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
-            .complete();
+                .evaluateEntity(Order.class, this::validateEntity)
+                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+                .complete();
     }
 
     @Override
@@ -48,38 +47,30 @@ public class IsStockAvailable implements CyodaCriterion {
 
         Order order = context.entity();
 
-        // Business logic: Verify product stock availability for each order item
-        List<com.java_template.application.entity.OrderItem> items = order.getOrderItems();
-        if (items == null || items.isEmpty()) {
-            return EvaluationOutcome.fail("Order must contain at least one order item", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        // Validate that all order items have quantity > 0 and productId not null/blank
+        if (order.getOrderItems() == null || order.getOrderItems().isEmpty()) {
+            return EvaluationOutcome.fail("Order must have at least one order item", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
 
-        for (com.java_template.application.entity.OrderItem item : items) {
-            String productId = item.getProductId();
-            Integer quantity = item.getQuantity();
-
-            if (productId == null || productId.isBlank()) {
+        for (var item : order.getOrderItems()) {
+            if (item.getProductId() == null || item.getProductId().isBlank()) {
                 return EvaluationOutcome.fail("Order item productId is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
             }
-
-            if (quantity == null || quantity <= 0) {
-                return EvaluationOutcome.fail("Order item quantity must be positive", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            if (item.getQuantity() == null || item.getQuantity() <= 0) {
+                return EvaluationOutcome.fail("Order item quantity must be greater than zero", StandardEvalReasonCategories.VALIDATION_FAILURE);
             }
+        }
 
-            // Simulate stock check: Here we assume a method or service call to check stock
-            boolean inStock = checkStockForProduct(productId, quantity);
-            if (!inStock) {
-                return EvaluationOutcome.fail("Product " + productId + " is not available in sufficient stock", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        // Business logic: Check stock availability for each order item (placeholder logic)
+        // In real scenario, this might call inventory service or check against stock data
+        // Here we simulate stock check by assuming all quantities <= 100 are available
+
+        for (var item : order.getOrderItems()) {
+            if (item.getQuantity() > 100) {
+                return EvaluationOutcome.fail("Stock not available for productId: " + item.getProductId(), StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
             }
         }
 
         return EvaluationOutcome.success();
-    }
-
-    private boolean checkStockForProduct(String productId, Integer quantity) {
-        // Placeholder logic for stock checking
-        // In real implementation, this would query inventory or stock management system
-        // Here we simulate always available for demonstration
-        return true;
     }
 }
