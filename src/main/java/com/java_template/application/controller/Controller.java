@@ -36,7 +36,7 @@ public class Controller {
             CompletableFuture<UUID> idFuture = entityService.addItem(ProductUploadJob.ENTITY_NAME, ENTITY_VERSION, entity);
             UUID technicalId = idFuture.join();
 
-            processProductUploadJob(technicalId.toString(), entity);
+            // processProductUploadJob removed
 
             log.info("Processed ProductUploadJob with id {}", technicalId);
             return ResponseEntity.status(HttpStatus.CREATED).body(technicalId.toString());
@@ -82,7 +82,7 @@ public class Controller {
             CompletableFuture<UUID> idFuture = entityService.addItem(CustomerProfileUpdate.ENTITY_NAME, ENTITY_VERSION, entity);
             UUID technicalId = idFuture.join();
 
-            processCustomerProfileUpdate(technicalId.toString(), entity);
+            // processCustomerProfileUpdate removed
 
             log.info("Processed CustomerProfileUpdate with id {}", technicalId);
             return ResponseEntity.status(HttpStatus.CREATED).body(technicalId.toString());
@@ -128,7 +128,7 @@ public class Controller {
             CompletableFuture<UUID> idFuture = entityService.addItem(Order.ENTITY_NAME, ENTITY_VERSION, entity);
             UUID technicalId = idFuture.join();
 
-            processOrder(technicalId.toString(), entity);
+            // processOrder removed
 
             log.info("Processed Order with id {}", technicalId);
             return ResponseEntity.status(HttpStatus.CREATED).body(technicalId.toString());
@@ -161,49 +161,6 @@ public class Controller {
             log.error("Error retrieving Order with id " + technicalId, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
-    }
-
-    // Business logic implementations
-
-    private void processProductUploadJob(String technicalId, ProductUploadJob entity) {
-        log.info("Starting processing ProductUploadJob: {}", technicalId);
-        if (entity.getCsvData() == null || entity.getCsvData().isBlank()) {
-            log.error("CSV data is blank for ProductUploadJob: {}", technicalId);
-            entity.setStatus("FAILED");
-            return;
-        }
-        entity.setStatus("PROCESSING");
-        log.info("Parsing CSV for ProductUploadJob: {}", technicalId);
-        // Simulate parsing CSV and creating Product entities
-        // TODO: Implement product creation based on CSV parsing
-        entity.setStatus("COMPLETED");
-        log.info("Completed processing ProductUploadJob: {}", technicalId);
-    }
-
-    private void processCustomerProfileUpdate(String technicalId, CustomerProfileUpdate entity) {
-        log.info("Processing CustomerProfileUpdate: {}", technicalId);
-        if (entity.getUpdatedFields() == null || entity.getUpdatedFields().isEmpty()) {
-            log.error("Updated fields are empty for CustomerProfileUpdate: {}", technicalId);
-            return;
-        }
-        // Apply changes as immutable event (logging here)
-        log.info("Applied profile updates for customerId: {}", entity.getCustomerId());
-        // Confirmation logic can be added here if needed
-    }
-
-    private void processOrder(String technicalId, Order entity) {
-        log.info("Processing Order: {}", technicalId);
-        boolean stockAvailable = true; // simplified assumption
-        if (!stockAvailable) {
-            log.error("Stock not available for Order: {}", technicalId);
-            entity.setStatus("FAILED");
-            return;
-        }
-        // Deduct stock (not implemented here)
-        // Calculate totals assumed valid in isValid
-        entity.setStatus("CONFIRMED");
-        log.info("Order confirmed: {}", technicalId);
-        // Notify customer, update inventory, etc.
     }
 
     // Utility for JSON conversion (assuming Jackson ObjectMapper available)
