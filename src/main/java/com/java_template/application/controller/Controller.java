@@ -37,7 +37,7 @@ public class Controller {
 
             log.info("Mail entity created with technicalId: {}", technicalId);
 
-            processMail(technicalId.toString(), mail);
+            // processMail method removed for workflow extraction
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId.toString());
@@ -81,33 +81,5 @@ public class Controller {
         }
     }
 
-    private void processMail(String technicalId, Mail mail) {
-        // Validation: mail.isValid() already checked in controller
-        log.info("Processing Mail entity with technicalId: {}", technicalId);
-
-        // Check criteria and call processors
-        if (mail.isHappy()) {
-            processMailSendHappyMail(technicalId, mail);
-        } else {
-            processMailSendGloomyMail(technicalId, mail);
-        }
-    }
-
-    private void processMailSendHappyMail(String technicalId, Mail mail) {
-        log.info("Sending Happy Mail for technicalId: {}", technicalId);
-        for (String recipient : mail.getMailList()) {
-            // Simulate sending happy mail
-            log.info("Happy mail sent to: {} with subject: {}", recipient, mail.getSubject());
-        }
-        log.info("Completed sending Happy Mail for technicalId: {}", technicalId);
-    }
-
-    private void processMailSendGloomyMail(String technicalId, Mail mail) {
-        log.info("Sending Gloomy Mail for technicalId: {}", technicalId);
-        for (String recipient : mail.getMailList()) {
-            // Simulate sending gloomy mail
-            log.info("Gloomy mail sent to: {} with subject: {}", recipient, mail.getSubject());
-        }
-        log.info("Completed sending Gloomy Mail for technicalId: {}", technicalId);
-    }
+    // Removed process methods for workflow extraction
 }
