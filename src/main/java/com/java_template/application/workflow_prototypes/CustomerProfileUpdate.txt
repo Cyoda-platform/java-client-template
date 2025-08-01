@@ -1,0 +1,10 @@
+private void processCustomerProfileUpdate(String technicalId, CustomerProfileUpdate entity) {
+    log.info("Processing CustomerProfileUpdate: {}", technicalId);
+    if (entity.getUpdatedFields() == null || entity.getUpdatedFields().isEmpty()) {
+        log.error("Updated fields are empty for CustomerProfileUpdate: {}", technicalId);
+        return;
+    }
+    // Apply changes as immutable event (logging here)
+    log.info("Applied profile updates for customerId: {}", entity.getCustomerId());
+    // Confirmation logic can be added here if needed
+}
