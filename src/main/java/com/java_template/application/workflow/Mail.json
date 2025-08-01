@@ -1,0 +1,91 @@
+```json
+{
+  "version": "1.0",
+  "name": "Mail Workflow",
+  "desc": "Workflow for processing and sending happy or gloomy mail.",
+  "initialState": "none",
+  "active": true,
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "transition_to_mail_created",
+          "next": "mail_created",
+          "manual": false
+        }
+      ]
+    },
+    "mail_created": {
+      "transitions": [
+        {
+          "name": "transition_to_processing",
+          "next": "processing",
+          "manual": false
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "name": "transition_to_check_is_happy",
+          "next": "check_is_happy",
+          "manual": false
+        }
+      ]
+    },
+    "check_is_happy": {
+      "transitions": [
+        {
+          "name": "transition_to_send_happy_mail",
+          "next": "send_happy_mail",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsHappy",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "transition_to_send_gloomy_mail",
+          "next": "send_gloomy_mail",
+          "manual": false
+        }
+      ]
+    },
+    "send_happy_mail": {
+      "transitions": [
+        {
+          "name": "transition_to_mail_sent",
+          "next": "mail_sent",
+          "manual": false,
+          "processors": [
+            {
+              "name": "MailProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "send_gloomy_mail": {
+      "transitions": [
+        {
+          "name": "transition_to_mail_sent",
+          "next": "mail_sent",
+          "manual": false
+        }
+      ]
+    },
+    "mail_sent": {
+      "transitions": []
+    }
+  }
+}
+```
