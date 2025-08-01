@@ -1,0 +1,86 @@
+{
+    "active": true,
+    "desc": "Workflow to process customer profile updates including validation, processing, completion, and notification",
+    "initialState": "none",
+    "name": "CustomerProfileUpdateWorkflow",
+    "states": {
+        "completed": {
+            "transitions": [
+                {
+                    "name": "notify_user",
+                    "next": "notified"
+                }
+            ]
+        },
+        "end": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "start_validation",
+                    "next": "validation"
+                }
+            ]
+        },
+        "notified": {
+            "transitions": [
+                {
+                    "name": "finish",
+                    "next": "end"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "name": "process_update",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "CustomerProfileUpdateProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "validation": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsValidUpdate"
+                        },
+                        "type": "function"
+                    },
+                    "name": "valid_update",
+                    "next": "processing"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsNotValidUpdate"
+                        },
+                        "type": "function"
+                    },
+                    "name": "invalid_update",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
