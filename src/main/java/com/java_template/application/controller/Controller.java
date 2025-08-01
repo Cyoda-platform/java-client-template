@@ -1,6 +1,7 @@
 package com.java_template.application.controller;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Mail;
 import com.java_template.common.service.EntityService;
@@ -14,7 +15,7 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/mails")
@@ -23,9 +24,10 @@ import static com.java_template.common.config.Config.*;
 public class Controller {
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     @PostMapping
-    public ResponseEntity<Map<String, String>> createMail(@RequestBody Mail mail) {
+    public ResponseEntity<Map<String, String>> createMail(@RequestBody Mail mail) throws InterruptedException, ExecutionException {
         try {
             if (mail == null || !mail.isValid()) {
                 log.error("Invalid Mail entity received");
@@ -37,8 +39,6 @@ public class Controller {
 
             log.info("Mail entity created with technicalId: {}", technicalId);
 
-            // processMail method removed for workflow extraction
-
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId.toString());
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -48,7 +48,7 @@ public class Controller {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         } catch (InterruptedException | ExecutionException e) {
             log.error("Error creating Mail entity", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            throw e;
         } catch (Exception e) {
             log.error("Unexpected error", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
@@ -56,7 +56,7 @@ public class Controller {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Mail> getMailById(@PathVariable("id") String id) {
+    public ResponseEntity<Mail> getMailById(@PathVariable("id") String id) throws InterruptedException, ExecutionException, JsonProcessingException {
         try {
             UUID technicalId = UUID.fromString(id);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(Mail.ENTITY_NAME, ENTITY_VERSION, technicalId);
@@ -66,7 +66,7 @@ public class Controller {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
             // Convert ObjectNode to Mail
-            Mail mail = entityService.getObjectMapper().treeToValue(node, Mail.class);
+            Mail mail = objectMapper.treeToValue(node, Mail.class);
             return ResponseEntity.ok(mail);
 
         } catch (IllegalArgumentException e) {
@@ -74,12 +74,13 @@ public class Controller {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         } catch (InterruptedException | ExecutionException e) {
             log.error("Error retrieving Mail entity", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            throw e;
+        } catch (JsonProcessingException e) {
+            log.error("Error processing JSON", e);
+            throw e;
         } catch (Exception e) {
             log.error("Unexpected error", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
-
-    // Removed process methods for workflow extraction
 }
