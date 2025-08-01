@@ -1,0 +1,105 @@
+{
+    "active": true,
+    "desc": "Workflow for processing product upload jobs from CSV import to completion or failure",
+    "initialState": "none",
+    "name": "ProductUploadJobWorkflow",
+    "states": {
+        "completed": {
+            "transitions": [
+                {
+                    "name": "finish",
+                    "next": "final"
+                }
+            ]
+        },
+        "failed": {
+            "transitions": [
+                {
+                    "name": "finish",
+                    "next": "final"
+                }
+            ]
+        },
+        "final": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "start_validation",
+                    "next": "validating"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ProductUploadJobProcessingSuccessCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "processing_success",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "OrderItemProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ProductUploadJobProcessingFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "processing_failed",
+                    "next": "failed"
+                }
+            ]
+        },
+        "validating": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ProductUploadJobValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "valid_data",
+                    "next": "processing"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ProductUploadJobInvalidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "invalid_data",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
