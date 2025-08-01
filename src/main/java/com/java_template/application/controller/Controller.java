@@ -1,6 +1,7 @@
 package com.java_template.application.controller;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.HappyMailJob;
 import com.java_template.application.entity.Mail;
@@ -13,14 +14,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.regex.Pattern;
 import java.util.UUID;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
+
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping(path = "/controller")
@@ -31,6 +33,7 @@ public class Controller {
     private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     private static final Pattern EMAIL_PATTERN = Pattern.compile(
             "^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,6}$",
@@ -38,7 +41,7 @@ public class Controller {
 
     // POST /controller/mail - create Mail entity
     @PostMapping("/mail")
-    public ResponseEntity<Map<String, String>> createMail(@RequestBody Mail mail) {
+    public ResponseEntity<Map<String, String>> createMail(@Valid @RequestBody Mail mail) throws ExecutionException, InterruptedException {
         try {
             if (!mail.isValid()) {
                 logger.error("Invalid Mail entity received");
@@ -48,8 +51,6 @@ public class Controller {
             UUID technicalId = idFuture.get();
 
             logger.info("Mail entity created with technicalId {}", technicalId);
-
-            // processMail removed for workflow prototype extraction
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId.toString());
@@ -65,7 +66,7 @@ public class Controller {
 
     // GET /controller/mail/{id} - retrieve Mail entity
     @GetMapping("/mail/{id}")
-    public ResponseEntity<Mail> getMail(@PathVariable String id) {
+    public ResponseEntity<Mail> getMail(@PathVariable String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         try {
             UUID technicalId = UUID.fromString(id);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(Mail.ENTITY_NAME, ENTITY_VERSION, technicalId);
@@ -74,7 +75,7 @@ public class Controller {
                 logger.error("Mail entity not found with technicalId {}", id);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
-            Mail mail = entityService.getObjectMapper().treeToValue(node, Mail.class);
+            Mail mail = objectMapper.treeToValue(node, Mail.class);
             return ResponseEntity.ok(mail);
         } catch (IllegalArgumentException e) {
             logger.error("Invalid UUID format for Mail id {}", id, e);
@@ -90,7 +91,7 @@ public class Controller {
 
     // POST /controller/happyMailJob - create HappyMailJob entity (usually internal, but exposed)
     @PostMapping("/happyMailJob")
-    public ResponseEntity<Map<String, String>> createHappyMailJob(@RequestBody HappyMailJob job) {
+    public ResponseEntity<Map<String, String>> createHappyMailJob(@Valid @RequestBody HappyMailJob job) throws ExecutionException, InterruptedException {
         try {
             if (!job.isValid()) {
                 logger.error("Invalid HappyMailJob entity received");
@@ -100,8 +101,6 @@ public class Controller {
             UUID technicalId = idFuture.get();
 
             logger.info("HappyMailJob entity created with technicalId {}", technicalId);
-
-            // processHappyMailJob removed for workflow prototype extraction
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId.toString());
@@ -117,7 +116,7 @@ public class Controller {
 
     // GET /controller/happyMailJob/{id} - retrieve HappyMailJob entity
     @GetMapping("/happyMailJob/{id}")
-    public ResponseEntity<HappyMailJob> getHappyMailJob(@PathVariable String id) {
+    public ResponseEntity<HappyMailJob> getHappyMailJob(@PathVariable String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         try {
             UUID technicalId = UUID.fromString(id);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(HappyMailJob.ENTITY_NAME, ENTITY_VERSION, technicalId);
@@ -126,7 +125,7 @@ public class Controller {
                 logger.error("HappyMailJob entity not found with technicalId {}", id);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
-            HappyMailJob job = entityService.getObjectMapper().treeToValue(node, HappyMailJob.class);
+            HappyMailJob job = objectMapper.treeToValue(node, HappyMailJob.class);
             return ResponseEntity.ok(job);
         } catch (IllegalArgumentException e) {
             logger.error("Invalid UUID format for HappyMailJob id {}", id, e);
