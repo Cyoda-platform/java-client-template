@@ -1,0 +1,14 @@
+private void processOrder(String technicalId, Order entity) {
+    log.info("Processing Order: {}", technicalId);
+    boolean stockAvailable = true; // simplified assumption
+    if (!stockAvailable) {
+        log.error("Stock not available for Order: {}", technicalId);
+        entity.setStatus("FAILED");
+        return;
+    }
+    // Deduct stock (not implemented here)
+    // Calculate totals assumed valid in isValid
+    entity.setStatus("CONFIRMED");
+    log.info("Order confirmed: {}", technicalId);
+    // Notify customer, update inventory, etc.
+}
