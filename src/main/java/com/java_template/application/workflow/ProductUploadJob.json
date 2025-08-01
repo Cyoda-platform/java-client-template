@@ -1,87 +1,87 @@
 {
-    "active": true,
-    "desc": "Workflow representing the order processing lifecycle",
-    "initialState": "none",
-    "name": "Order Workflow",
-    "states": {
-        "confirmed": {
-            "transitions": [
-                {
-                    "name": "end_process",
-                    "next": "end"
-                }
-            ]
-        },
-        "end": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": [
-                {
-                    "name": "end_process",
-                    "next": "end"
-                }
-            ]
-        },
-        "none": {
-            "transitions": [
-                {
-                    "name": "start_validation",
-                    "next": "validating"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "name": "processing_succeeded",
-                    "next": "confirmed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "OrderProcessor"
-                        }
-                    ]
-                },
-                {
-                    "name": "processing_failed",
-                    "next": "failed"
-                }
-            ]
-        },
-        "validating": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IsStockAvailable"
-                        },
-                        "type": "function"
-                    },
-                    "name": "validation_passed",
-                    "next": "processing"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IsStockNotAvailable"
-                        },
-                        "type": "function"
-                    },
-                    "name": "validation_failed",
-                    "next": "failed"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow representing the order processing lifecycle",
+  "initialState": "none",
+  "name": "Order Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "start_validation",
+          "next": "validating"
         }
+      ]
     },
-    "version": "1.0"
+    "validating": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IsStockAvailable"
+            },
+            "type": "function"
+          },
+          "name": "validation_passed",
+          "next": "processing"
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IsStockNotAvailable"
+            },
+            "type": "function"
+          },
+          "name": "validation_failed",
+          "next": "failed"
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "name": "processing_succeeded",
+          "next": "confirmed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "OrderProcessor"
+            }
+          ]
+        },
+        {
+          "name": "processing_failed",
+          "next": "failed"
+        }
+      ]
+    },
+    "confirmed": {
+      "transitions": [
+        {
+          "name": "end_process",
+          "next": "end"
+        }
+      ]
+    },
+    "end": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": [
+        {
+          "name": "end_process",
+          "next": "end"
+        }
+      ]
+    }
+  },
+  "version": "1.0"
 }
