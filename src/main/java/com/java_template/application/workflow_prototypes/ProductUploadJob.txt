@@ -1,0 +1,14 @@
+private void processProductUploadJob(String technicalId, ProductUploadJob entity) {
+    log.info("Starting processing ProductUploadJob: {}", technicalId);
+    if (entity.getCsvData() == null || entity.getCsvData().isBlank()) {
+        log.error("CSV data is blank for ProductUploadJob: {}", technicalId);
+        entity.setStatus("FAILED");
+        return;
+    }
+    entity.setStatus("PROCESSING");
+    log.info("Parsing CSV for ProductUploadJob: {}", technicalId);
+    // Simulate parsing CSV and creating Product entities
+    // TODO: Implement product creation based on CSV parsing
+    entity.setStatus("COMPLETED");
+    log.info("Completed processing ProductUploadJob: {}", technicalId);
+}
