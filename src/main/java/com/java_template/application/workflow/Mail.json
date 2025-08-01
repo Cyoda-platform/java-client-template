@@ -1,0 +1,93 @@
+```json
+{
+  "version": "1.0",
+  "name": "MailProcessingWorkflow",
+  "desc": "Workflow for processing mail entities, evaluating criteria, and sending happy or gloomy mails based on the outcome.",
+  "initialState": "none",
+  "active": true,
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "transition_to_created",
+          "next": "CREATED",
+          "manual": false
+        }
+      ]
+    },
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "transition_to_processing",
+          "next": "PROCESSING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "MailProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PROCESSING": {
+      "transitions": [
+        {
+          "name": "transition_to_happy_sent",
+          "next": "HAPPY_MAIL_SENT",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "isHappyMailSentSuccessfully",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "transition_to_gloomy_sent",
+          "next": "GLOOMY_MAIL_SENT",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "isGloomyMailSentSuccessfully",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "transition_to_failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "isMailProcessingFailed",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "HAPPY_MAIL_SENT": {
+      "transitions": []
+    },
+    "GLOOMY_MAIL_SENT": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    }
+  }
+}
+```
