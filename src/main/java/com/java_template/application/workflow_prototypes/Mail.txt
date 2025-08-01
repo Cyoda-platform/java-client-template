@@ -1,0 +1,33 @@
+// Extracted processMail method and its helper methods for Mail entity
+
+private void processMail(String technicalId, Mail mail) {
+    // Business logic for processing mail entity
+    try {
+        logger.info("Processing mail with technicalId: {}", technicalId);
+
+        if (Boolean.TRUE.equals(mail.getIsHappy())) {
+            sendHappyMail(mail);
+            logger.info("Happy mail sent for technicalId: {}", technicalId);
+        } else {
+            sendGloomyMail(mail);
+            logger.info("Gloomy mail sent for technicalId: {}", technicalId);
+        }
+
+        // todo: update or notify system if needed - currently immutable data principle
+
+    } catch (Exception e) {
+        logger.error("Error processing mail with technicalId: {}", technicalId, e);
+    }
+}
+
+private void sendHappyMail(Mail mail) {
+    logger.info("Sending HAPPY mail to recipients: {}", mail.getMailList());
+    logger.info("Subject: {}", mail.getSubject());
+    logger.info("Content: {}", mail.getContent());
+}
+
+private void sendGloomyMail(Mail mail) {
+    logger.info("Sending GLOOMY mail to recipients: {}", mail.getMailList());
+    logger.info("Subject: {}", mail.getSubject());
+    logger.info("Content: {}", mail.getContent());
+}
