@@ -48,7 +48,7 @@ public class EntityControllerPrototype {
             log.error("Mail not found with technicalId: {}", technicalId);
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
-        MailResponse response = new MailResponse(technicalId, mail.isHappy(), mail.getMailList());
+        MailResponse response = new MailResponse(technicalId, mail.getIsHappy(), mail.getMailList());
         return ResponseEntity.ok(response);
     }
 
