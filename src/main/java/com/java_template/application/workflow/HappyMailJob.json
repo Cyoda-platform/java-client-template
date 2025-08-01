@@ -1,97 +1,97 @@
 {
-    "active": true,
-    "desc": "Workflow for processing Mail entity from creation, validation, sending mails, and job creation",
-    "initialState": "none",
-    "name": "Mail Entity Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "job_created": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "complete",
-                    "next": "completed"
-                }
-            ]
-        },
-        "none": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "start_validation",
-                    "next": "validating"
-                }
-            ]
-        },
-        "sending_gloomy_mail": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "gloomy_mail_sent",
-                    "next": "job_created"
-                }
-            ]
-        },
-        "sending_happy_mail": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "happy_mail_sent",
-                    "next": "job_created"
-                }
-            ]
-        },
-        "validating": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "MailListValidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "valid_maillist_happy",
-                    "next": "sending_happy_mail"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "MailListValidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "valid_maillist_gloomy",
-                    "next": "sending_gloomy_mail"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "MailListInvalidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "invalid_maillist",
-                    "next": "validation_failed"
-                }
-            ]
-        },
-        "validation_failed": {
-            "transitions": []
+  "active": true,
+  "desc": "Workflow for processing Mail entity from creation, validation, sending mails, and job creation",
+  "initialState": "none",
+  "name": "Mail Entity Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "start_validation",
+          "next": "validating"
         }
+      ]
     },
-    "version": "1.0"
+    "validating": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "MailListValidCriterion"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "valid_maillist_happy",
+          "next": "sending_happy_mail"
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "MailListValidCriterion"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "valid_maillist_gloomy",
+          "next": "sending_gloomy_mail"
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "MailListInvalidCriterion"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "invalid_maillist",
+          "next": "validation_failed"
+        }
+      ]
+    },
+    "sending_happy_mail": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "happy_mail_sent",
+          "next": "job_created"
+        }
+      ]
+    },
+    "job_created": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "complete",
+          "next": "completed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "sending_gloomy_mail": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "gloomy_mail_sent",
+          "next": "job_created"
+        }
+      ]
+    },
+    "validation_failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
