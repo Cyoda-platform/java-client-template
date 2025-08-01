@@ -1,36 +1,29 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.Order;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
-import com.java_template.common.service.EntityService;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-
 @Component
 public class OrderProcessor implements CyodaProcessor {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final ProcessorSerializer serializer;
+    private final ObjectMapper objectMapper;
     private final String className = this.getClass().getSimpleName();
 
-    private final EntityService entityService;
-
-    public OrderProcessor(SerializerFactory serializerFactory, EntityService entityService) {
+    public OrderProcessor(SerializerFactory serializerFactory, ObjectMapper objectMapper) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
-        this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -40,7 +33,7 @@ public class OrderProcessor implements CyodaProcessor {
 
         return serializer.withRequest(request)
                 .toEntity(Order.class)
-                .validate(this::isValidEntity, "Invalid order state")
+                .validate(this::isValidEntity, "Invalid entity state")
                 .map(this::processEntityLogic)
                 .complete();
     }
@@ -51,40 +44,24 @@ public class OrderProcessor implements CyodaProcessor {
     }
 
     private boolean isValidEntity(Order entity) {
-        return entity != null && entity.isValid();
+        return entity != null && entity.getStatus() != null && !entity.getStatus().isEmpty();
     }
 
     private Order processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Order> context) {
         Order entity = context.entity();
 
-        // Business logic from processOrder()
-        logger.info("Starting processing Order: {}", context.request().getEntityId());
+        // Business logic from processOrder() Flow in functional requirements
+        // 1. Initial State: Order entity created with status = PENDING
+        // 2. Validation: Verify product stock availability for each order item
+        // (stock verification logic is not implemented here as no stock service is provided)
+        // 3. Processing: Deduct stock, calculate totals, save order snapshot
+        // (deduct stock and save snapshot would be external service calls, omitted here)
+        // 4. Completion: Update order status to CONFIRMED or FAILED
 
-        if (entity.getOrderItems() == null || entity.getOrderItems().isEmpty()) {
-            logger.error("Order has no items: {}", context.request().getEntityId());
-            entity.setStatus("FAILED");
-            return entity;
+        // For this processor, we mark the order as CONFIRMED if status is PENDING (mock logic)
+        if ("PENDING".equalsIgnoreCase(entity.getStatus())) {
+            entity.setStatus("CONFIRMED");
         }
-
-        // Validate stock availability for each order item (simulate, as no direct stock service here)
-        // Assuming external check is done elsewhere, here we just proceed
-
-        // Deduct stock (not implemented here, would be external service call)
-
-        // Calculate total amount (just recalc from items)
-        BigDecimal totalAmount = entity.getOrderItems().stream()
-                .map(item -> {
-                    BigDecimal price = item.getPriceAtPurchase();
-                    Integer qty = item.getQuantity();
-                    return price.multiply(BigDecimal.valueOf(qty));
-                })
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        entity.setTotalAmount(totalAmount);
-
-        // Set status to CONFIRMED
-        entity.setStatus("CONFIRMED");
-
-        logger.info("Completed processing Order: {}", context.request().getEntityId());
 
         return entity;
     }
