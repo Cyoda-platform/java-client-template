@@ -1,13 +1,13 @@
 {
     "active": true,
-    "desc": "Workflow for processing product upload jobs from CSV import to completion or failure",
+    "desc": "Workflow representing the order processing lifecycle",
     "initialState": "none",
-    "name": "ProductUploadJobWorkflow",
+    "name": "Order Workflow",
     "states": {
-        "completed": {
+        "confirmed": {
             "transitions": [
                 {
-                    "name": "finish",
+                    "name": "end_process",
                     "next": "final"
                 }
             ]
@@ -15,7 +15,7 @@
         "failed": {
             "transitions": [
                 {
-                    "name": "finish",
+                    "name": "end_process",
                     "next": "final"
                 }
             ]
@@ -39,19 +39,19 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "ProductUploadJobProcessingSuccessCriterion"
+                            "name": "OrderProcessingSuccessCriterion"
                         },
                         "type": "function"
                     },
-                    "name": "processing_success",
-                    "next": "completed",
+                    "name": "processing_succeeded",
+                    "next": "confirmed",
                     "processors": [
                         {
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
                             "executionMode": "SYNC",
-                            "name": "OrderItemProcessor"
+                            "name": "OrderProcessor"
                         }
                     ]
                 },
@@ -61,7 +61,7 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "ProductUploadJobProcessingFailedCriterion"
+                            "name": "OrderProcessingFailedCriterion"
                         },
                         "type": "function"
                     },
@@ -78,11 +78,11 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "ProductUploadJobValidCriterion"
+                            "name": "OrderValidCriterion"
                         },
                         "type": "function"
                     },
-                    "name": "valid_data",
+                    "name": "validation_passed",
                     "next": "processing"
                 },
                 {
@@ -91,11 +91,11 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "ProductUploadJobInvalidCriterion"
+                            "name": "OrderInvalidCriterion"
                         },
                         "type": "function"
                     },
-                    "name": "invalid_data",
+                    "name": "validation_failed",
                     "next": "failed"
                 }
             ]
