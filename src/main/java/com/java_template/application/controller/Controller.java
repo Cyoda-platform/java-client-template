@@ -53,7 +53,7 @@ public class Controller {
             UUID technicalId = idFuture.join();
             logger.info("Mail entity created with technicalId: {}", technicalId);
 
-            processMail(technicalId.toString(), mail);
+            // processMail method removed as per extraction
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
 
@@ -92,38 +92,6 @@ public class Controller {
             logger.error("Error retrieving mail entity with technicalId: {}", technicalId, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
-    }
-
-    private void processMail(String technicalId, Mail mail) {
-        // Business logic for processing mail entity
-        try {
-            logger.info("Processing mail with technicalId: {}", technicalId);
-
-            if (Boolean.TRUE.equals(mail.getIsHappy())) {
-                sendHappyMail(mail);
-                logger.info("Happy mail sent for technicalId: {}", technicalId);
-            } else {
-                sendGloomyMail(mail);
-                logger.info("Gloomy mail sent for technicalId: {}", technicalId);
-            }
-
-            // todo: update or notify system if needed - currently immutable data principle
-
-        } catch (Exception e) {
-            logger.error("Error processing mail with technicalId: {}", technicalId, e);
-        }
-    }
-
-    private void sendHappyMail(Mail mail) {
-        logger.info("Sending HAPPY mail to recipients: {}", mail.getMailList());
-        logger.info("Subject: {}", mail.getSubject());
-        logger.info("Content: {}", mail.getContent());
-    }
-
-    private void sendGloomyMail(Mail mail) {
-        logger.info("Sending GLOOMY mail to recipients: {}", mail.getMailList());
-        logger.info("Subject: {}", mail.getSubject());
-        logger.info("Content: {}", mail.getContent());
     }
 
     @Data
