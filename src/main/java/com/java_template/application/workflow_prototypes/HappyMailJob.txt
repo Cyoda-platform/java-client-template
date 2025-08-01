@@ -1,0 +1,13 @@
+// Business logic for processing HappyMailJob entity
+private void processHappyMailJob(String technicalId, HappyMailJob job) {
+    logger.info("Processing HappyMailJob entity with technicalId {}", technicalId);
+
+    // For prototype, simply log status and resultMessage
+    if ("COMPLETED".equalsIgnoreCase(job.getStatus())) {
+        logger.info("HappyMailJob {} completed successfully: {}", technicalId, job.getResultMessage());
+    } else if ("FAILED".equalsIgnoreCase(job.getStatus())) {
+        logger.error("HappyMailJob {} failed: {}", technicalId, job.getResultMessage());
+    } else {
+        logger.info("HappyMailJob {} in status: {}", technicalId, job.getStatus());
+    }
+}
