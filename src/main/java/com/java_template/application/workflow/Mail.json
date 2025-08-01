@@ -1,0 +1,116 @@
+{
+    "active": true,
+    "desc": "Workflow representing the lifecycle of a Mail entity from creation to completion",
+    "initialState": "none",
+    "name": "Mail Entity Workflow",
+    "states": {
+        "Completed": {
+            "transitions": []
+        },
+        "GloomyMailSent": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "transition_to_completed_from_gloomy",
+                    "next": "Completed"
+                }
+            ]
+        },
+        "HappyMailSent": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "transition_to_completed_from_happy",
+                    "next": "Completed"
+                }
+            ]
+        },
+        "MailCreated": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ValidMailCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "transition_to_validated",
+                    "next": "Validated"
+                }
+            ]
+        },
+        "Processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "HappyMailCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "transition_to_happyMailSent",
+                    "next": "HappyMailSent",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "MailProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "GloomyMailCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "transition_to_gloomyMailSent",
+                    "next": "GloomyMailSent",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "MailProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "Validated": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "transition_to_processing",
+                    "next": "Processing"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "transition_to_mailCreated",
+                    "next": "MailCreated"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
