@@ -16,7 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
+import java.util.Objects;
 
 @Component
 public class IsStockAvailable implements CyodaCriterion {
@@ -32,10 +32,11 @@ public class IsStockAvailable implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request)
-                .evaluateEntity(Order.class, this::validateEntity)
-                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
-                .complete();
+            .evaluateEntity(Order.class, this::validateEntity)
+            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+            .complete();
     }
 
     @Override
@@ -44,31 +45,19 @@ public class IsStockAvailable implements CyodaCriterion {
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Order> context) {
-
         Order order = context.entity();
 
-        // Validate that all order items have quantity > 0 and productId not null/blank
         if (order.getOrderItems() == null || order.getOrderItems().isEmpty()) {
-            return EvaluationOutcome.fail("Order must have at least one order item", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("Order must contain at least one order item", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
 
-        for (var item : order.getOrderItems()) {
-            if (item.getProductId() == null || item.getProductId().isBlank()) {
-                return EvaluationOutcome.fail("Order item productId is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-            }
-            if (item.getQuantity() == null || item.getQuantity() <= 0) {
-                return EvaluationOutcome.fail("Order item quantity must be greater than zero", StandardEvalReasonCategories.VALIDATION_FAILURE);
-            }
-        }
+        // Business logic: Verify product stock availability for each order item
+        // For the purpose of this example, we simulate stock check by checking quantity > 0
+        boolean allStockAvailable = order.getOrderItems().stream()
+            .allMatch(item -> item.getQuantity() != null && item.getQuantity() > 0);
 
-        // Business logic: Check stock availability for each order item (placeholder logic)
-        // In real scenario, this might call inventory service or check against stock data
-        // Here we simulate stock check by assuming all quantities <= 100 are available
-
-        for (var item : order.getOrderItems()) {
-            if (item.getQuantity() > 100) {
-                return EvaluationOutcome.fail("Stock not available for productId: " + item.getProductId(), StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-            }
+        if (!allStockAvailable) {
+            return EvaluationOutcome.fail("One or more order items have insufficient stock quantity", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
 
         return EvaluationOutcome.success();
