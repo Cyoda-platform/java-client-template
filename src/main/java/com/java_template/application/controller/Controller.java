@@ -49,7 +49,7 @@ public class Controller {
 
             logger.info("Mail entity created with technicalId {}", technicalId);
 
-            processMail(technicalId.toString(), mail);
+            // processMail removed for workflow prototype extraction
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId.toString());
@@ -101,7 +101,7 @@ public class Controller {
 
             logger.info("HappyMailJob entity created with technicalId {}", technicalId);
 
-            processHappyMailJob(technicalId.toString(), job);
+            // processHappyMailJob removed for workflow prototype extraction
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId.toString());
@@ -137,101 +137,6 @@ public class Controller {
         } catch (Exception e) {
             logger.error("Error retrieving HappyMailJob entity", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
-
-    // Business logic for processing Mail entity
-    private void processMail(String technicalId, Mail mail) {
-        logger.info("Processing Mail entity with technicalId {}", technicalId);
-
-        // Validate mailList not empty and emails valid
-        if (mail.getMailList() == null || mail.getMailList().isEmpty()) {
-            logger.error("Mail list is empty for Mail technicalId {}", technicalId);
-            createAndStoreJob(technicalId, "FAILED", "Mail list is empty");
-            return;
-        }
-
-        for (String email : mail.getMailList()) {
-            if (!isValidEmail(email)) {
-                logger.error("Invalid email '{}' in Mail technicalId {}", email, technicalId);
-                createAndStoreJob(technicalId, "FAILED", "Invalid email address: " + email);
-                return;
-            }
-        }
-
-        // Route to appropriate processor based on isHappy flag
-        if (mail.getIsHappy() != null && mail.getIsHappy()) {
-            sendHappyMail(technicalId, mail);
-        } else {
-            sendGloomyMail(technicalId, mail);
-        }
-    }
-
-    private void sendHappyMail(String technicalId, Mail mail) {
-        logger.info("Sending happy mails for Mail technicalId {}", technicalId);
-
-        // Simulate sending mails with happy content
-        boolean success = simulateMailSending(mail.getMailList(), "Happy mail content");
-
-        if (success) {
-            createAndStoreJob(technicalId, "COMPLETED", "Happy mails sent successfully");
-            logger.info("Happy mails sent successfully for Mail technicalId {}", technicalId);
-        } else {
-            createAndStoreJob(technicalId, "FAILED", "Failed to send happy mails");
-            logger.error("Failed to send happy mails for Mail technicalId {}", technicalId);
-        }
-    }
-
-    private void sendGloomyMail(String technicalId, Mail mail) {
-        logger.info("Sending gloomy mails for Mail technicalId {}", technicalId);
-
-        // Simulate sending mails with gloomy content
-        boolean success = simulateMailSending(mail.getMailList(), "Gloomy mail content");
-
-        if (success) {
-            createAndStoreJob(technicalId, "COMPLETED", "Gloomy mails sent successfully");
-            logger.info("Gloomy mails sent successfully for Mail technicalId {}", technicalId);
-        } else {
-            createAndStoreJob(technicalId, "FAILED", "Failed to send gloomy mails");
-            logger.error("Failed to send gloomy mails for Mail technicalId {}", technicalId);
-        }
-    }
-
-    private boolean simulateMailSending(List<String> recipients, String content) {
-        // Simulate mail sending; always succeed for prototype
-        logger.info("Simulating sending mail to recipients: {} with content: {}", recipients, content);
-        return true;
-    }
-
-    private void createAndStoreJob(String mailTechnicalId, String status, String resultMessage) {
-        HappyMailJob job = new HappyMailJob();
-        job.setMailTechnicalId(mailTechnicalId);
-        job.setStatus(status);
-        job.setCreatedAt(LocalDateTime.now());
-        job.setResultMessage(resultMessage);
-
-        try {
-            CompletableFuture<UUID> idFuture = entityService.addItem(HappyMailJob.ENTITY_NAME, ENTITY_VERSION, job);
-            UUID jobId = idFuture.get();
-            logger.info("Created HappyMailJob with id {} for Mail technicalId {} with status {}", jobId, mailTechnicalId, status);
-
-            processHappyMailJob(jobId.toString(), job);
-        } catch (Exception e) {
-            logger.error("Error creating HappyMailJob for Mail technicalId {}", mailTechnicalId, e);
-        }
-    }
-
-    // Business logic for processing HappyMailJob entity
-    private void processHappyMailJob(String technicalId, HappyMailJob job) {
-        logger.info("Processing HappyMailJob entity with technicalId {}", technicalId);
-
-        // For prototype, simply log status and resultMessage
-        if ("COMPLETED".equalsIgnoreCase(job.getStatus())) {
-            logger.info("HappyMailJob {} completed successfully: {}", technicalId, job.getResultMessage());
-        } else if ("FAILED".equalsIgnoreCase(job.getStatus())) {
-            logger.error("HappyMailJob {} failed: {}", technicalId, job.getResultMessage());
-        } else {
-            logger.info("HappyMailJob {} in status: {}", technicalId, job.getStatus());
         }
     }
 
