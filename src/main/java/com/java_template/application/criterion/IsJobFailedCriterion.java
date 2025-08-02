@@ -1,12 +1,16 @@
 package com.java_template.application.criterion;
 
 import com.java_template.application.entity.PetIngestionJob;
-import com.java_template.common.serializer.ProcessorSerializer;
+import com.java_template.common.serializer.CriterionSerializer;
+import com.java_template.common.serializer.EvaluationOutcome;
+import com.java_template.common.serializer.ReasonAttachmentStrategy;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.serializer.StandardEvalReasonCategories;
+import com.java_template.common.config.Config;
 import com.java_template.common.workflow.CyodaCriterion;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.OperationSpecification;
-import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
+import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -15,22 +19,22 @@ import org.springframework.stereotype.Component;
 public class IsJobFailedCriterion implements CyodaCriterion {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
-    private final ProcessorSerializer serializer;
+    private final CriterionSerializer serializer;
     private final String className = this.getClass().getSimpleName();
 
     public IsJobFailedCriterion(SerializerFactory serializerFactory) {
-        this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.serializer = serializerFactory.getDefaultCriteriaSerializer();
     }
 
     @Override
-    public boolean evaluate(CyodaEventContext<EntityProcessorCalculationRequest> context) {
-        EntityProcessorCalculationRequest request = context.getEvent();
+    public EvaluationOutcome evaluate(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
+        EntityCriteriaCalculationRequest request = context.getEvent();
         logger.info("Evaluating IsJobFailedCriterion for request: {}", request.getId());
 
         return serializer.withRequest(request)
-            .toEntity(PetIngestionJob.class)
-            .map(this::checkFailureStatus)
-            .getOrDefault(false);
+            .evaluateEntity(PetIngestionJob.class, this::validateEntity)
+            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+            .complete();
     }
 
     @Override
@@ -38,9 +42,13 @@ public class IsJobFailedCriterion implements CyodaCriterion {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private boolean checkFailureStatus(PetIngestionJob job) {
-        boolean isFailed = "FAILED".equals(job.getStatus());
-        logger.debug("Job {} failure status: {}", job.getTechnicalId(), isFailed);
-        return isFailed;
+    private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<PetIngestionJob> context) {
+        PetIngestionJob entity = context.entity();
+        // Check if the job status is FAILED
+        if ("FAILED".equals(entity.getStatus())) {
+            return EvaluationOutcome.success();
+        } else {
+            return EvaluationOutcome.fail("Job is not in a FAILED state.", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        }
     }
 }
