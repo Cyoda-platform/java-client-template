@@ -1,0 +1,121 @@
+{
+    "active": true,
+    "desc": "Workflow for processing Mail entity states and sending mails based on criteria",
+    "initialState": "none",
+    "name": "MailWorkflow",
+    "states": {
+        "Completion": {
+            "transitions": []
+        },
+        "GloomyMailSent": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "to_completion",
+                    "next": "Completion"
+                }
+            ]
+        },
+        "HappyMailSent": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "to_completion",
+                    "next": "Completion"
+                }
+            ]
+        },
+        "MailCreated": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "to_validation",
+                    "next": "Validation"
+                }
+            ]
+        },
+        "NoSend": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "to_completion",
+                    "next": "Completion"
+                }
+            ]
+        },
+        "Processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsHappyMailCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "to_happy_mail_sent",
+                    "next": "HappyMailSent",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "MailProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsGloomyMailCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "to_gloomy_mail_sent",
+                    "next": "GloomyMailSent"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsNoSendCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "to_no_send",
+                    "next": "NoSend"
+                }
+            ]
+        },
+        "Validation": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "to_processing",
+                    "next": "Processing"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "create_mail",
+                    "next": "MailCreated"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
