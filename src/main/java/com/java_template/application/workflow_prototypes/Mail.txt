@@ -1,0 +1,45 @@
+private void processMail(UUID technicalId, Mail mail) {
+    logger.info("Processing Mail entity with technicalId: {}", technicalId);
+
+    // Validate criteria if needed - here assumed always true for simplicity
+    boolean happyCriteria = checkMailHappyCriteria(mail);
+    boolean gloomyCriteria = checkMailGloomyCriteria(mail);
+
+    try {
+        if (happyCriteria && mail.isHappy()) {
+            sendHappyMail(mail);
+            logger.info("Happy mail sent for technicalId: {}", technicalId);
+        } else if (gloomyCriteria && !mail.isHappy()) {
+            sendGloomyMail(mail);
+            logger.info("Gloomy mail sent for technicalId: {}", technicalId);
+        } else {
+            logger.info("Mail with technicalId {} does not meet any sending criteria", technicalId);
+        }
+    } catch (Exception e) {
+        logger.error("Failed to send mail for technicalId: {}", technicalId, e);
+    }
+}
+
+private boolean checkMailHappyCriteria(Mail mail) {
+    // Implement actual happy mail criteria logic here
+    // For prototype, assume if isHappy is true, criteria is met
+    return mail.isHappy();
+}
+
+private boolean checkMailGloomyCriteria(Mail mail) {
+    // Implement actual gloomy mail criteria logic here
+    // For prototype, assume if isHappy is false, criteria is met
+    return !mail.isHappy();
+}
+
+private void sendHappyMail(Mail mail) {
+    // Implement sending happy mail logic here
+    // For prototype, simulate sending by logging
+    logger.info("Sending happy mail to recipients: {}", mail.getMailList());
+}
+
+private void sendGloomyMail(Mail mail) {
+    // Implement sending gloomy mail logic here
+    // For prototype, simulate sending by logging
+    logger.info("Sending gloomy mail to recipients: {}", mail.getMailList());
+}
