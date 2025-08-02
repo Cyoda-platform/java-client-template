@@ -1,0 +1,76 @@
+```json
+{
+  "version": "1.0",
+  "name": "PetIngestionJobWorkflow",
+  "desc": "Manages the lifecycle of a Pet Ingestion Job, from initiation to completion or failure.",
+  "initialState": "none",
+  "active": true,
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "transition_to_pending",
+          "next": "PENDING",
+          "manual": false
+        }
+      ]
+    },
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "start_ingestion_process",
+          "next": "IN_PROGRESS",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PetIngestionJobProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "IN_PROGRESS": {
+      "transitions": [
+        {
+          "name": "ingestion_completed_successfully",
+          "next": "COMPLETED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsJobCompletedSuccessfulCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "ingestion_failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsJobFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    }
+  }
+}
+```
