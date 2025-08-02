@@ -1,74 +1,74 @@
 {
-    "active": true,
-    "desc": "Manages the lifecycle of a pet data ingestion job, from initiation to completion or failure.",
-    "initialState": "none",
-    "name": "PetIngestionJob Workflow",
-    "states": {
-        "COMPLETED": {
-            "transitions": []
-        },
-        "FAILED": {
-            "transitions": []
-        },
-        "IN_PROGRESS": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IngestionSuccessfulCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "complete_ingestion",
-                    "next": "COMPLETED"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IngestionFailedCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "fail_ingestion",
-                    "next": "FAILED"
-                }
-            ]
-        },
-        "PENDING": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "start_ingestion_process",
-                    "next": "IN_PROGRESS",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "PetProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "none": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "initiate_job",
-                    "next": "PENDING"
-                }
-            ]
+  "active": true,
+  "desc": "Manages the lifecycle of a pet data ingestion job, from initiation to completion or failure.",
+  "initialState": "none",
+  "name": "PetIngestionJob Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "initiate_job",
+          "next": "PENDING"
         }
+      ]
     },
-    "version": "1.0"
+    "PENDING": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "start_ingestion_process",
+          "next": "IN_PROGRESS",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "PetProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "IN_PROGRESS": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IngestionSuccessfulCriterion"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "complete_ingestion",
+          "next": "COMPLETED"
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IngestionFailedCriterion"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "fail_ingestion",
+          "next": "FAILED"
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
