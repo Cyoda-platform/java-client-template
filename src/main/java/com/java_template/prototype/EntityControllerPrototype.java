@@ -1,0 +1,1 @@
+{\"directory\": \"src/main/java/com/java_template/application/entity\", \"files\": [\"Mail.java\"], \"count\": 1}
