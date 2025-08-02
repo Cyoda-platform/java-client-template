@@ -5,11 +5,14 @@ import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import lombok.Data;
 import static com.java_template.common.config.Config.ENTITY_VERSION;
+
 import java.util.List;
+import java.util.UUID;
 
 @Data
 public class Pet implements CyodaEntity {
     public static final String ENTITY_NAME = "Pet";
+    private UUID technicalId;
     private Long petstoreId;
     private String name;
     private String status;
@@ -32,7 +35,6 @@ public class Pet implements CyodaEntity {
     public boolean isValid() {
         return petstoreId != null &&
                name != null && !name.isBlank() &&
-               status != null && !status.isBlank() &&
-               category != null && !category.isBlank();
+               status != null && !status.isBlank();
     }
 }
