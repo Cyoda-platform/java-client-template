@@ -1,76 +1,74 @@
-```json
 {
-  "version": "1.0",
-  "name": "PetIngestionJob Workflow",
-  "desc": "Manages the lifecycle of a pet data ingestion job, from initiation to completion or failure.",
-  "initialState": "none",
-  "active": true,
-  "states": {
-    "none": {
-      "transitions": [
-        {
-          "name": "initiate_job",
-          "next": "PENDING",
-          "manual": false
-        }
-      ]
-    },
-    "PENDING": {
-      "transitions": [
-        {
-          "name": "start_ingestion_process",
-          "next": "IN_PROGRESS",
-          "manual": false,
-          "processors": [
-            {
-              "name": "PetProcessor",
-              "executionMode": "SYNC",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
-          ]
-        }
-      ]
-    },
-    "IN_PROGRESS": {
-      "transitions": [
-        {
-          "name": "complete_ingestion",
-          "next": "COMPLETED",
-          "manual": false,
-          "criterion": {
-            "type": "function",
-            "function": {
-              "name": "IngestionSuccessfulCriterion",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
-          }
+    "active": true,
+    "desc": "Manages the lifecycle of a pet data ingestion job, from initiation to completion or failure.",
+    "initialState": "none",
+    "name": "PetIngestionJob Workflow",
+    "states": {
+        "COMPLETED": {
+            "transitions": []
         },
-        {
-          "name": "fail_ingestion",
-          "next": "FAILED",
-          "manual": false,
-          "criterion": {
-            "type": "function",
-            "function": {
-              "name": "IngestionFailedCriterion",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
-          }
+        "FAILED": {
+            "transitions": []
+        },
+        "IN_PROGRESS": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IngestionSuccessfulCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "complete_ingestion",
+                    "next": "COMPLETED"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IngestionFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "fail_ingestion",
+                    "next": "FAILED"
+                }
+            ]
+        },
+        "PENDING": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "start_ingestion_process",
+                    "next": "IN_PROGRESS",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "PetProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "initiate_job",
+                    "next": "PENDING"
+                }
+            ]
         }
-      ]
     },
-    "COMPLETED": {
-      "transitions": []
-    },
-    "FAILED": {
-      "transitions": []
-    }
-  }
+    "version": "1.0"
 }
-```
