@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 import lombok.extern.slf4j.Slf4j;
 import com.fasterxml.jackson.databind.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException; // Added import
 import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 import java.util.List;
@@ -76,7 +77,7 @@ public class Controller {
     }
 
     @GetMapping("/mail/{technicalId}")
-    public ResponseEntity<Mail> getMail(@PathVariable UUID technicalId) {
+    public ResponseEntity<Mail> getMail(@PathVariable UUID technicalId) throws JsonProcessingException { // Added JsonProcessingException
         try {
             // Retrieve the mail entity using EntityService.getItem
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
@@ -102,7 +103,7 @@ public class Controller {
         } catch (ExecutionException | InterruptedException e) {
             log.error("Error retrieving mail for technicalId {}: {}", technicalId, e.getMessage());
             return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-        } catch (Exception e) {
+        } catch (Exception e) { // Catch-all for other exceptions, including JsonProcessingException if not declared
             log.error("Internal server error during getMail: {}", e.getMessage(), e);
             return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
         }
