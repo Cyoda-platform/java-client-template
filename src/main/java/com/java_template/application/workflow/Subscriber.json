@@ -1,0 +1,65 @@
+{
+    "active": true,
+    "desc": "Workflow for processing Subscriber entity lifecycle",
+    "initialState": "none",
+    "name": "Subscriber Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "email_validation": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "EmailValidityCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "email_valid",
+                    "next": "persisted"
+                },
+                {
+                    "manual": false,
+                    "name": "email_invalid",
+                    "next": "rejected"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "create_subscriber",
+                    "next": "email_validation"
+                }
+            ]
+        },
+        "persisted": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "finalize_processing",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "SubscriberProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "rejected": {
+            "transitions": []
+        }
+    },
+    "version": "1.0"
+}
