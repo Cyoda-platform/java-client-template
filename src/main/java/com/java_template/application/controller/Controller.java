@@ -59,7 +59,7 @@ public class Controller {
 
             logger.info("Created WeeklyCatFactJob with id {}", technicalId);
 
-            processWeeklyCatFactJob(technicalId, job);
+            // processWeeklyCatFactJob removed
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException e) {
@@ -164,7 +164,7 @@ public class Controller {
 
             logger.info("Created Subscriber with id {} and email {}", technicalId, email);
 
-            processSubscriber(technicalId, subscriber);
+            // processSubscriber removed
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException e) {
@@ -256,68 +256,4 @@ public class Controller {
         }
     }
 
-    private void processWeeklyCatFactJob(UUID technicalId, WeeklyCatFactJob job) {
-        logger.info("Processing WeeklyCatFactJob id {}", technicalId);
-        try {
-            // Step 2: Data Ingestion - call external Cat Fact API
-            RestTemplate restTemplate = new RestTemplate();
-            Map<String, Object> response = restTemplate.getForObject("https://catfact.ninja/fact", Map.class);
-            if (response == null || !response.containsKey("fact")) {
-                throw new RuntimeException("Failed to retrieve cat fact from API");
-            }
-            String fact = (String) response.get("fact");
-
-            // Create and save CatFact entity
-            CatFact catFact = new CatFact();
-            catFact.setFact(fact);
-            catFact.setRetrievedDate(LocalDateTime.now());
-
-            CompletableFuture<UUID> catFactIdFuture = entityService.addItem(
-                    CatFact.ENTITY_NAME,
-                    ENTITY_VERSION,
-                    catFact
-            );
-            UUID catFactId = catFactIdFuture.get();
-
-            logger.info("Retrieved and saved CatFact id {}: {}", catFactId, fact);
-
-            // Count active subscribers
-            Condition condition = Condition.of("$.status", "EQUALS", "ACTIVE");
-            SearchConditionRequest searchRequest = SearchConditionRequest.group("AND", condition);
-            CompletableFuture<ArrayNode> activeSubscribersFuture = entityService.getItemsByCondition(
-                    Subscriber.ENTITY_NAME,
-                    ENTITY_VERSION,
-                    searchRequest,
-                    true
-            );
-            ArrayNode activeSubscribersNodes = activeSubscribersFuture.get();
-
-            int activeSubscribers = activeSubscribersNodes == null ? 0 : activeSubscribersNodes.size();
-
-            // Compose email content and send emails (simulate)
-            logger.info("Sending cat fact email to {} active subscribers", activeSubscribers);
-            // Email sending logic simulated by logging
-
-            // Update job status and details
-            job.setCatFact(fact);
-            job.setSubscriberCount(activeSubscribers);
-            job.setEmailSentDate(LocalDateTime.now());
-            job.setStatus("COMPLETED");
-
-            // TODO: Update WeeklyCatFactJob - update operations are not supported, so skipping
-
-            logger.info("WeeklyCatFactJob id {} completed successfully", technicalId);
-        } catch (Exception e) {
-            job.setStatus("FAILED");
-            // TODO: Update WeeklyCatFactJob with failed status - skipping update as per instructions
-            logger.error("WeeklyCatFactJob id {} failed: {}", technicalId, e.getMessage());
-        }
-    }
-
-    private void processSubscriber(UUID technicalId, Subscriber subscriber) {
-        logger.info("Processing Subscriber id {} email {}", technicalId, subscriber.getEmail());
-        // Validation already done in controller checks
-        // Here could be additional processing or integration if needed
-        logger.info("Subscriber id {} processed successfully", technicalId);
-    }
-}
+} // end Controller
