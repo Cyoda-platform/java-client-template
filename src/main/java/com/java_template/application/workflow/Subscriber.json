@@ -1,84 +1,84 @@
 {
-    "active": true,
-    "desc": "Workflow for processing WeeklyCatFactJob lifecycle",
-    "initialState": "none",
-    "name": "WeeklyCatFactJob Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "data_ingestion": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "catFactRetrieved"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "cat_fact_retrieved",
-                    "next": "email_preparation"
-                },
-                {
-                    "manual": false,
-                    "name": "error_occurred",
-                    "next": "failed"
-                }
-            ]
-        },
-        "email_preparation": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "subscribers_counted",
-                    "next": "publishing"
-                },
-                {
-                    "manual": false,
-                    "name": "error_occurred",
-                    "next": "failed"
-                }
-            ]
-        },
-        "failed": {
-            "transitions": []
-        },
-        "job_created": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "trigger_process",
-                    "next": "data_ingestion"
-                }
-            ]
-        },
-        "none": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "start_processing",
-                    "next": "job_created"
-                }
-            ]
-        },
-        "publishing": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "emails_sent",
-                    "next": "completed"
-                },
-                {
-                    "manual": false,
-                    "name": "error_occurred",
-                    "next": "failed"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow for processing WeeklyCatFactJob lifecycle",
+  "initialState": "none",
+  "name": "WeeklyCatFactJob Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "start_processing",
+          "next": "job_created"
         }
+      ]
     },
-    "version": "1.0"
+    "job_created": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "trigger_process",
+          "next": "data_ingestion"
+        }
+      ]
+    },
+    "data_ingestion": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "catFactRetrieved"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "cat_fact_retrieved",
+          "next": "email_preparation"
+        },
+        {
+          "manual": false,
+          "name": "error_occurred",
+          "next": "failed"
+        }
+      ]
+    },
+    "email_preparation": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "subscribers_counted",
+          "next": "publishing"
+        },
+        {
+          "manual": false,
+          "name": "error_occurred",
+          "next": "failed"
+        }
+      ]
+    },
+    "publishing": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "emails_sent",
+          "next": "completed"
+        },
+        {
+          "manual": false,
+          "name": "error_occurred",
+          "next": "failed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
