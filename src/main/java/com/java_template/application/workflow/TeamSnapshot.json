@@ -1,0 +1,122 @@
+{
+    "active": true,
+    "desc": "Workflow for processing SnapshotJob through validation, processing, change detection and completion states",
+    "initialState": "none",
+    "name": "SnapshotJob Workflow",
+    "states": {
+        "change_detection": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ChangeDetectionSuccessCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "change_detection_success",
+                    "next": "completed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ChangeDetectionFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "change_detection_failed",
+                    "next": "failed"
+                }
+            ]
+        },
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "start_validation",
+                    "next": "validating"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "SnapshotJobProcessingSuccessCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "processing_success",
+                    "next": "change_detection",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "SnapshotJobProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "SnapshotJobProcessingFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "processing_failed",
+                    "next": "failed"
+                }
+            ]
+        },
+        "validating": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "SnapshotJobValidationCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "validation_passed",
+                    "next": "processing"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "SnapshotJobValidationFailedCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "validation_failed",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
