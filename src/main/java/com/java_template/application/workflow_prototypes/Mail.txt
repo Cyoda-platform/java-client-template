@@ -1,0 +1,30 @@
+// Extracted processing methods and helpers for Mail entity
+
+private void processMail(String technicalId, Mail mail) {
+    try {
+        if (Boolean.TRUE.equals(mail.getIsHappy())) {
+            sendHappyMail(mail.getMailList());
+            logger.info("Processed sendHappyMail for technicalId: {}", technicalId);
+        } else {
+            sendGloomyMail(mail.getMailList());
+            logger.info("Processed sendGloomyMail for technicalId: {}", technicalId);
+        }
+        // Completion and notification logic can be added here
+    } catch (Exception e) {
+        logger.error("Error processing mail with technicalId: {}", technicalId, e);
+    }
+}
+
+private void sendHappyMail(List<String> recipients) {
+    if (recipients == null) return;
+    for (String recipient : recipients) {
+        logger.info("Sending HAPPY mail to {}", recipient);
+    }
+}
+
+private void sendGloomyMail(List<String> recipients) {
+    if (recipients == null) return;
+    for (String recipient : recipients) {
+        logger.info("Sending GLOOMY mail to {}", recipient);
+    }
+}
