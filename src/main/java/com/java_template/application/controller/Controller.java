@@ -1,21 +1,25 @@
 package com.java_template.application.controller;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.java_template.application.entity.SnapshotJob;
+import com.java_template.application.entity.TeamSnapshot;
+import com.java_template.application.entity.SquadSnapshot;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.UUID;
+
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping(path = "/entity")
@@ -24,11 +28,12 @@ import java.util.UUID;
 public class Controller {
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     // ================= SnapshotJob Endpoints =================
 
     @PostMapping("/snapshotJob")
-    public ResponseEntity<Map<String, String>> createSnapshotJob(@RequestBody SnapshotJob job) {
+    public ResponseEntity<Map<String, String>> createSnapshotJob(@Valid @RequestBody SnapshotJob job) throws InterruptedException, ExecutionException {
         try {
             if (!job.isValid()) {
                 log.error("Invalid SnapshotJob data");
@@ -44,8 +49,6 @@ public class Controller {
 
             log.info("Created SnapshotJob with id {}", technicalIdStr);
 
-            // processSnapshotJob call removed
-
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalIdStr);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -54,7 +57,7 @@ public class Controller {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         } catch (InterruptedException | ExecutionException e) {
             log.error("Failed to create SnapshotJob", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            throw e;
         } catch (Exception e) {
             log.error("Unexpected error creating SnapshotJob", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
@@ -62,7 +65,7 @@ public class Controller {
     }
 
     @GetMapping("/snapshotJob/{id}")
-    public ResponseEntity<SnapshotJob> getSnapshotJob(@PathVariable String id) {
+    public ResponseEntity<SnapshotJob> getSnapshotJob(@PathVariable String id) throws InterruptedException, ExecutionException, JsonProcessingException {
         try {
             UUID technicalId;
             try {
@@ -77,14 +80,17 @@ public class Controller {
                 log.error("SnapshotJob not found: {}", id);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
-            SnapshotJob job = node.traverse().readValueAs(SnapshotJob.class);
+            SnapshotJob job = objectMapper.treeToValue(node, SnapshotJob.class);
             return ResponseEntity.ok(job);
         } catch (IllegalArgumentException e) {
             log.error("Invalid argument when getting SnapshotJob", e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         } catch (InterruptedException | ExecutionException e) {
             log.error("Failed to get SnapshotJob", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            throw e;
+        } catch (JsonProcessingException e) {
+            log.error("JSON processing error when getting SnapshotJob", e);
+            throw e;
         } catch (Exception e) {
             log.error("Unexpected error getting SnapshotJob", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
@@ -94,7 +100,7 @@ public class Controller {
     // ================= TeamSnapshot Endpoints =================
 
     @GetMapping("/teamSnapshot/{id}")
-    public ResponseEntity<TeamSnapshot> getTeamSnapshot(@PathVariable String id) {
+    public ResponseEntity<TeamSnapshot> getTeamSnapshot(@PathVariable String id) throws InterruptedException, ExecutionException, JsonProcessingException {
         try {
             UUID technicalId;
             try {
@@ -109,14 +115,17 @@ public class Controller {
                 log.error("TeamSnapshot not found: {}", id);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
-            TeamSnapshot teamSnapshot = node.traverse().readValueAs(TeamSnapshot.class);
+            TeamSnapshot teamSnapshot = objectMapper.treeToValue(node, TeamSnapshot.class);
             return ResponseEntity.ok(teamSnapshot);
         } catch (IllegalArgumentException e) {
             log.error("Invalid argument when getting TeamSnapshot", e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         } catch (InterruptedException | ExecutionException e) {
             log.error("Failed to get TeamSnapshot", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            throw e;
+        } catch (JsonProcessingException e) {
+            log.error("JSON processing error when getting TeamSnapshot", e);
+            throw e;
         } catch (Exception e) {
             log.error("Unexpected error getting TeamSnapshot", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
@@ -126,7 +135,7 @@ public class Controller {
     // ================= SquadSnapshot Endpoints =================
 
     @GetMapping("/squadSnapshot/{id}")
-    public ResponseEntity<SquadSnapshot> getSquadSnapshot(@PathVariable String id) {
+    public ResponseEntity<SquadSnapshot> getSquadSnapshot(@PathVariable String id) throws InterruptedException, ExecutionException, JsonProcessingException {
         try {
             UUID technicalId;
             try {
@@ -141,19 +150,21 @@ public class Controller {
                 log.error("SquadSnapshot not found: {}", id);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
-            SquadSnapshot squadSnapshot = node.traverse().readValueAs(SquadSnapshot.class);
+            SquadSnapshot squadSnapshot = objectMapper.treeToValue(node, SquadSnapshot.class);
             return ResponseEntity.ok(squadSnapshot);
         } catch (IllegalArgumentException e) {
             log.error("Invalid argument when getting SquadSnapshot", e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         } catch (InterruptedException | ExecutionException e) {
             log.error("Failed to get SquadSnapshot", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            throw e;
+        } catch (JsonProcessingException e) {
+            log.error("JSON processing error when getting SquadSnapshot", e);
+            throw e;
         } catch (Exception e) {
             log.error("Unexpected error getting SquadSnapshot", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
-    // Removed process methods for SnapshotJob and related helpers
 }
