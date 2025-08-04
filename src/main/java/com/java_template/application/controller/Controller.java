@@ -1,5 +1,7 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.CatFact;
@@ -15,16 +17,16 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/controller")
@@ -35,6 +37,7 @@ public class Controller {
     private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     private final AtomicLong weeklyCatFactJobIdCounter = new AtomicLong(1);
     private final AtomicLong catFactIdCounter = new AtomicLong(1);
@@ -73,7 +76,7 @@ public class Controller {
 
     // GET /controller/weeklyCatFactJob/{id} - retrieve WeeklyCatFactJob by id
     @GetMapping("/weeklyCatFactJob/{id}")
-    public ResponseEntity<WeeklyCatFactJob> getWeeklyCatFactJob(@PathVariable String id) {
+    public ResponseEntity<WeeklyCatFactJob> getWeeklyCatFactJob(@PathVariable String id) throws JsonProcessingException {
         try {
             UUID technicalId = UUID.fromString(id);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
@@ -86,16 +89,7 @@ public class Controller {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
 
-            WeeklyCatFactJob job = new WeeklyCatFactJob();
-            // Map fields from node to job, ignoring technicalId field
-            if (node.has("status")) job.setStatus(node.get("status").asText());
-            if (node.has("catFact")) job.setCatFact(node.get("catFact").asText());
-            if (node.has("subscriberCount")) job.setSubscriberCount(node.get("subscriberCount").asInt());
-            if (node.has("emailSentDate") && !node.get("emailSentDate").isNull()) {
-                job.setEmailSentDate(LocalDateTime.parse(node.get("emailSentDate").asText()));
-            } else {
-                job.setEmailSentDate(null);
-            }
+            WeeklyCatFactJob job = objectMapper.treeToValue(node, WeeklyCatFactJob.class);
 
             return ResponseEntity.ok(job);
         } catch (IllegalArgumentException e) {
@@ -178,7 +172,7 @@ public class Controller {
 
     // GET /controller/subscriber/{id} - retrieve Subscriber by id
     @GetMapping("/subscriber/{id}")
-    public ResponseEntity<Subscriber> getSubscriber(@PathVariable String id) {
+    public ResponseEntity<Subscriber> getSubscriber(@PathVariable String id) throws JsonProcessingException {
         try {
             UUID technicalId = UUID.fromString(id);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
@@ -191,15 +185,7 @@ public class Controller {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
 
-            Subscriber subscriber = new Subscriber();
-            if (node.has("email")) subscriber.setEmail(node.get("email").asText());
-            if (node.has("subscribedDate") && !node.get("subscribedDate").isNull()) {
-                subscriber.setSubscribedDate(LocalDateTime.parse(node.get("subscribedDate").asText()));
-            } else {
-                subscriber.setSubscribedDate(null);
-            }
-            if (node.has("status")) subscriber.setStatus(node.get("status").asText());
-            if (node.has("interactionCount")) subscriber.setInteractionCount(node.get("interactionCount").asInt());
+            Subscriber subscriber = objectMapper.treeToValue(node, Subscriber.class);
 
             return ResponseEntity.ok(subscriber);
         } catch (IllegalArgumentException e) {
@@ -219,7 +205,7 @@ public class Controller {
 
     // GET /controller/catFact/{id} - retrieve CatFact by id
     @GetMapping("/catFact/{id}")
-    public ResponseEntity<CatFact> getCatFact(@PathVariable String id) {
+    public ResponseEntity<CatFact> getCatFact(@PathVariable String id) throws JsonProcessingException {
         try {
             UUID technicalId = UUID.fromString(id);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
@@ -232,13 +218,7 @@ public class Controller {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
 
-            CatFact catFact = new CatFact();
-            if (node.has("fact")) catFact.setFact(node.get("fact").asText());
-            if (node.has("retrievedDate") && !node.get("retrievedDate").isNull()) {
-                catFact.setRetrievedDate(LocalDateTime.parse(node.get("retrievedDate").asText()));
-            } else {
-                catFact.setRetrievedDate(null);
-            }
+            CatFact catFact = objectMapper.treeToValue(node, CatFact.class);
 
             return ResponseEntity.ok(catFact);
         } catch (IllegalArgumentException e) {
