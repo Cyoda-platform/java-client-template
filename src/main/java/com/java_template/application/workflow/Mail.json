@@ -1,0 +1,89 @@
+{
+    "active": true,
+    "desc": "Workflow for processing Mail entity from creation to sending with validation and status updates",
+    "initialState": "none",
+    "name": "Mail Workflow",
+    "states": {
+        "none": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "start_processing",
+                    "next": "validating"
+                }
+            ]
+        },
+        "sending_gloomy": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "send_gloomy_mail",
+                    "next": "sent",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "MailProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "sending_happy": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "send_happy_mail",
+                    "next": "sent",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "MailProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "sent": {
+            "transitions": []
+        },
+        "validating": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsMailHappy"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "validate_happy_mail",
+                    "next": "sending_happy"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsMailGloomy"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "validate_gloomy_mail",
+                    "next": "sending_gloomy"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
