@@ -1,0 +1,6 @@
+private void processSubscriber(UUID technicalId, Subscriber subscriber) {
+    logger.info("Processing Subscriber id {} email {}", technicalId, subscriber.getEmail());
+    // Validation already done in controller checks
+    // Here could be additional processing or integration if needed
+    logger.info("Subscriber id {} processed successfully", technicalId);
+}
