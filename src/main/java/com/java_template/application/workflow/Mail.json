@@ -1,123 +1,123 @@
 {
-    "active": true,
-    "desc": "Workflow for mail processing including validation, sending happy or gloomy mails, and failure handling",
-    "initialState": "none",
-    "name": "Mail Entity Workflow",
-    "states": {
-        "failed": {
-            "transitions": []
-        },
-        "gloomy_mail_sent": {
-            "transitions": []
-        },
-        "happy_mail_sent": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "create_mail",
-                    "next": "validation"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IsHappyCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "send_happy_mail",
-                    "next": "happy_mail_sent",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "MailProcessor"
-                        }
-                    ]
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IsNotHappyCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "send_gloomy_mail",
-                    "next": "gloomy_mail_sent",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "MailProcessor"
-                        }
-                    ]
-                },
-                {
-                    "manual": false,
-                    "name": "processing_failed",
-                    "next": "failed"
-                }
-            ]
-        },
-        "validation": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "MailListEmptyOrInvalidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "validate_fail_empty_or_invalid",
-                    "next": "validation_failed"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "MailListValidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "validate_success",
-                    "next": "processing"
-                }
-            ]
-        },
-        "validation_failed": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "mark_failed_post_validation",
-                    "next": "failed"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow for mail processing including validation, sending happy or gloomy mails, and failure handling",
+  "initialState": "none",
+  "name": "Mail Entity Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "create_mail",
+          "next": "validation"
         }
+      ]
     },
-    "version": "1.0"
+    "validation": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "MailListEmptyOrInvalidCriterion"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "validate_fail_empty_or_invalid",
+          "next": "validation_failed"
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "MailListValidCriterion"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "validate_success",
+          "next": "processing"
+        }
+      ]
+    },
+    "validation_failed": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "mark_failed_post_validation",
+          "next": "failed"
+        }
+      ]
+    },
+    "failed": {
+      "transitions": []
+    },
+    "processing": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IsHappyCriterion"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "send_happy_mail",
+          "next": "happy_mail_sent",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "MailProcessor"
+            }
+          ]
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IsNotHappyCriterion"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "send_gloomy_mail",
+          "next": "gloomy_mail_sent",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "MailProcessor"
+            }
+          ]
+        },
+        {
+          "manual": false,
+          "name": "processing_failed",
+          "next": "failed"
+        }
+      ]
+    },
+    "happy_mail_sent": {
+      "transitions": []
+    },
+    "gloomy_mail_sent": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
