@@ -1,0 +1,72 @@
+// Extracted processMail and its directly called private helper methods
+private void processMail(UUID technicalId, Mail mail) {
+    logger.info("Processing Mail with technicalId: {}", technicalId);
+
+    // Validate mailList emails format (simple validation)
+    boolean validEmails = mail.getMailList().stream()
+            .allMatch(email -> email != null && email.contains("@") && !email.isBlank());
+    if (!validEmails) {
+        logger.error("Mail processing failed: invalid email addresses");
+        return;
+    }
+
+    // Validate subject and content
+    if (mail.getSubject() == null || mail.getSubject().isBlank() ||
+            mail.getContent() == null || mail.getContent().isBlank()) {
+        logger.error("Mail processing failed: subject or content is blank");
+        return;
+    }
+
+    // Determine criteria for happy or gloomy mail
+    boolean isHappy = checkMailHappyCriteria(mail) || (!checkMailGloomyCriteria(mail) && Boolean.TRUE.equals(mail.getIsHappy()));
+    mail.setIsHappy(isHappy);
+
+    logger.info("Mail classified as happy: {}", isHappy);
+
+    if (isHappy) {
+        sendHappyMail(technicalId, mail);
+    } else {
+        sendGloomyMail(technicalId, mail);
+    }
+
+    // Create HappyMailJob entity referencing this mail to track sending status
+    HappyMailJob job = new HappyMailJob();
+    job.setMailTechnicalId("mail-" + technicalId.toString());
+    job.setStatus("PENDING");
+    job.setCreatedAt(LocalDateTime.now());
+
+    try {
+        CompletableFuture<UUID> jobIdFuture = entityService.addItem(HappyMailJob.ENTITY_NAME, ENTITY_VERSION, job);
+        UUID jobUuid = jobIdFuture.get();
+        String jobId = "job-" + jobUuid.toString();
+        logger.info("HappyMailJob created with technicalId: {}", jobId);
+
+        processHappyMailJob(jobUuid, job);
+    } catch (Exception e) {
+        logger.error("Failed to create HappyMailJob after Mail processing: {}", e.getMessage(), e);
+    }
+}
+
+private boolean checkMailHappyCriteria(Mail mail) {
+    String contentLower = mail.getContent().toLowerCase();
+    String subjectLower = mail.getSubject().toLowerCase();
+    List<String> happyKeywords = Arrays.asList("congratulations", "celebrate", "joy");
+    return happyKeywords.stream().anyMatch(keyword -> contentLower.contains(keyword) || subjectLower.contains(keyword));
+}
+
+private boolean checkMailGloomyCriteria(Mail mail) {
+    String contentLower = mail.getContent().toLowerCase();
+    String subjectLower = mail.getSubject().toLowerCase();
+    List<String> gloomyKeywords = Arrays.asList("sorry", "regret", "unfortunate");
+    return gloomyKeywords.stream().anyMatch(keyword -> contentLower.contains(keyword) || subjectLower.contains(keyword));
+}
+
+private void sendHappyMail(UUID technicalId, Mail mail) {
+    logger.info("Sending happy mail with technicalId: {}", technicalId);
+    mail.getMailList().forEach(email -> logger.info("Happy mail sent to: {}", email));
+}
+
+private void sendGloomyMail(UUID technicalId, Mail mail) {
+    logger.info("Sending gloomy mail with technicalId: {}", technicalId);
+    mail.getMailList().forEach(email -> logger.info("Gloomy mail sent to: {}", email));
+}
