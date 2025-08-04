@@ -1,0 +1,124 @@
+{
+    "active": true,
+    "desc": "Workflow managing the lifecycle of SnapshotJob entity",
+    "initialState": "none",
+    "name": "SnapshotJobWorkflow",
+    "states": {
+        "changesDetected": {
+            "transitions": [
+                {
+                    "name": "notify_and_complete",
+                    "next": "completed"
+                }
+            ]
+        },
+        "completed": {
+            "transitions": []
+        },
+        "detectChanges": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "HasChangesDetected"
+                        },
+                        "type": "function"
+                    },
+                    "name": "changes_detected",
+                    "next": "changesDetected"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "HasNoChanges"
+                        },
+                        "type": "function"
+                    },
+                    "name": "no_changes_detected",
+                    "next": "noChanges"
+                }
+            ]
+        },
+        "failed": {
+            "transitions": []
+        },
+        "inProgress": {
+            "transitions": [
+                {
+                    "name": "process_snapshots",
+                    "next": "detectChanges",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "SquadSnapshotProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "noChanges": {
+            "transitions": [
+                {
+                    "name": "complete_without_changes",
+                    "next": "completed"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "init_to_pending",
+                    "next": "pending"
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsValidJob"
+                        },
+                        "type": "function"
+                    },
+                    "name": "validate_job_success",
+                    "next": "valid"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsInvalidJob"
+                        },
+                        "type": "function"
+                    },
+                    "name": "validate_job_fail",
+                    "next": "failed"
+                }
+            ]
+        },
+        "valid": {
+            "transitions": [
+                {
+                    "name": "valid_to_inProgress",
+                    "next": "inProgress"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
