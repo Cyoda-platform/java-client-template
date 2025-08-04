@@ -43,7 +43,7 @@ public class Controller {
             logger.info("Mail created with technicalId {}", technicalId);
 
             // Trigger processing for the newly created mail entity
-            processMail(technicalId, mail);
+            // processMail is extracted to workflow prototype
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId.toString());
@@ -129,54 +129,4 @@ public class Controller {
         }
     }
 
-    private void processMail(UUID technicalId, Mail mail) {
-        // Validation phase - could invoke criteria checks if implemented
-        boolean isHappy = Boolean.TRUE.equals(mail.getIsHappy());
-
-        // Business logic for happy mails
-        if (isHappy) {
-            boolean happySent = sendHappyMail(mail.getMailList());
-            if (happySent) {
-                logger.info("Happy mail sent successfully for technicalId {}", technicalId);
-            } else {
-                logger.error("Failed to send happy mail for technicalId {}", technicalId);
-            }
-        }
-        // Business logic for gloomy mails
-        else {
-            boolean gloomySent = sendGloomyMail(mail.getMailList());
-            if (gloomySent) {
-                logger.info("Gloomy mail sent successfully for technicalId {}", technicalId);
-            } else {
-                logger.error("Failed to send gloomy mail for technicalId {}", technicalId);
-            }
-        }
-        // Completion and notification could be expanded here if needed
-    }
-
-    private boolean sendHappyMail(List<String> mailList) {
-        try {
-            for (String recipient : mailList) {
-                logger.info("Sending happy mail to {}", recipient);
-                // Here, integrate with actual mail sending service
-            }
-            return true;
-        } catch (Exception e) {
-            logger.error("Exception while sending happy mail: {}", e.getMessage());
-            return false;
-        }
-    }
-
-    private boolean sendGloomyMail(List<String> mailList) {
-        try {
-            for (String recipient : mailList) {
-                logger.info("Sending gloomy mail to {}", recipient);
-                // Here, integrate with actual mail sending service
-            }
-            return true;
-        } catch (Exception e) {
-            logger.error("Exception while sending gloomy mail: {}", e.getMessage());
-            return false;
-        }
-    }
 }
