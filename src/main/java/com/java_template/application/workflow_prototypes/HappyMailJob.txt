@@ -1,0 +1,57 @@
+// Extracted processHappyMailJob method
+private void processHappyMailJob(UUID technicalId, HappyMailJob job) {
+    logger.info("Processing HappyMailJob with technicalId: {}", technicalId);
+
+    try {
+        String mailTechId = job.getMailTechnicalId();
+        if (mailTechId == null || mailTechId.isBlank()) {
+            logger.error("HappyMailJob processing failed: mailTechnicalId is null or blank");
+            job.setStatus("FAILED");
+            return;
+        }
+        UUID mailUuid;
+        try {
+            mailUuid = UUID.fromString(stripPrefix(mailTechId, "mail-"));
+        } catch (IllegalArgumentException ex) {
+            logger.error("Invalid mailTechnicalId format in HappyMailJob: {}", mailTechId);
+            job.setStatus("FAILED");
+            return;
+        }
+
+        CompletableFuture<ObjectNode> mailNodeFuture = entityService.getItem(
+                Mail.ENTITY_NAME,
+                ENTITY_VERSION,
+                mailUuid
+        );
+        ObjectNode mailNode = mailNodeFuture.get();
+        if (mailNode == null || mailNode.isEmpty()) {
+            logger.error("HappyMailJob processing failed: referenced Mail not found with technicalId: {}", mailTechId);
+            job.setStatus("FAILED");
+            return;
+        }
+        Mail mail = mailNode.traverse().readValueAs(Mail.class);
+
+        List<String> mailList = mail.getMailList();
+        if (mailList == null || mailList.isEmpty()) {
+            logger.error("HappyMailJob processing failed: mailList is empty");
+            job.setStatus("FAILED");
+            return;
+        }
+
+        for (String email : mailList) {
+            if (Boolean.TRUE.equals(mail.getIsHappy())) {
+                logger.info("Happy mail sent to: {}", email);
+            } else {
+                logger.info("Gloomy mail sent to: {}", email);
+            }
+        }
+        job.setStatus("SENT");
+        logger.info("HappyMailJob with technicalId {} completed successfully", technicalId);
+
+        // TODO: Update job status in external service if needed (not supported now)
+
+    } catch (Exception e) {
+        logger.error("Error during HappyMailJob processing: {}", e.getMessage(), e);
+        job.setStatus("FAILED");
+    }
+}
