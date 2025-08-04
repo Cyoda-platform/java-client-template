@@ -44,12 +44,7 @@ public class Controller {
             UUID technicalId = idFuture.get(5, TimeUnit.SECONDS);
             log.info("Mail entity saved with technicalId {}", technicalId);
 
-            try {
-                processMail(technicalId.toString(), mail);
-            } catch (Exception e) {
-                log.error("Error processing mail with technicalId {}: {}", technicalId, e.getMessage());
-                // Continue, as per EDA principles
-            }
+            // Removed processMail call here as processMail method extracted
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId.toString());
@@ -132,52 +127,6 @@ public class Controller {
         } catch (Exception e) {
             log.error("Unexpected error retrieving mails by isHappy {}: {}", isHappy, e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
-
-    private void processMail(String technicalId, Mail mail) {
-        if (mail.getMailList().isEmpty()) {
-            log.error("Mail {} has empty mailList", technicalId);
-            // TODO: update status via entityService (update operation not supported)
-            mail.setStatus("FAILED");
-            return;
-        }
-        for (String email : mail.getMailList()) {
-            if (email == null || email.isBlank()) {
-                log.error("Mail {} has invalid email in mailList", technicalId);
-                // TODO: update status via entityService (update operation not supported)
-                mail.setStatus("FAILED");
-                return;
-            }
-        }
-        if (Boolean.TRUE.equals(mail.getIsHappy())) {
-            sendHappyMail(mail.getMailList(), technicalId);
-        } else {
-            sendGloomyMail(mail.getMailList(), technicalId);
-        }
-    }
-
-    private void sendHappyMail(List<String> mailList, String technicalId) {
-        String subject = "Happy Greetings!";
-        String content = "Wishing you a joyful and happy day!";
-        boolean success = mailSender.sendEmails(mailList, subject, content);
-        // TODO: update status via entityService (update operation not supported)
-        if (success) {
-            log.info("Happy mail sent successfully for technicalId {}", technicalId);
-        } else {
-            log.error("Failed to send happy mail for technicalId {}", technicalId);
-        }
-    }
-
-    private void sendGloomyMail(List<String> mailList, String technicalId) {
-        String subject = "Thoughtful Reflections";
-        String content = "Sometimes, a quiet moment is needed to reflect.";
-        boolean success = mailSender.sendEmails(mailList, subject, content);
-        // TODO: update status via entityService (update operation not supported)
-        if (success) {
-            log.info("Gloomy mail sent successfully for technicalId {}", technicalId);
-        } else {
-            log.error("Failed to send gloomy mail for technicalId {}", technicalId);
         }
     }
 
