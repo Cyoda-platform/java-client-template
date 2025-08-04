@@ -54,7 +54,7 @@ public class Controller {
             UUID technicalId = idFuture.get(5, TimeUnit.SECONDS);
 
             // Trigger processing
-            processMail(technicalId.toString(), mail);
+            // processMail method removed for workflow extraction
 
             logger.info("Mail created with technicalId: {}", technicalId);
             Map<String, String> response = new HashMap<>();
@@ -111,36 +111,6 @@ public class Controller {
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             logger.error("Exception in getMail", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
-
-    // Business logic for processing Mail entity
-    private void processMail(String technicalId, Mail mail) {
-        try {
-            if (Boolean.TRUE.equals(mail.getIsHappy())) {
-                sendHappyMail(mail.getMailList());
-                logger.info("Processed sendHappyMail for technicalId: {}", technicalId);
-            } else {
-                sendGloomyMail(mail.getMailList());
-                logger.info("Processed sendGloomyMail for technicalId: {}", technicalId);
-            }
-            // Completion and notification logic can be added here
-        } catch (Exception e) {
-            logger.error("Error processing mail with technicalId: {}", technicalId, e);
-        }
-    }
-
-    private void sendHappyMail(List<String> recipients) {
-        if (recipients == null) return;
-        for (String recipient : recipients) {
-            logger.info("Sending HAPPY mail to {}", recipient);
-        }
-    }
-
-    private void sendGloomyMail(List<String> recipients) {
-        if (recipients == null) return;
-        for (String recipient : recipients) {
-            logger.info("Sending GLOOMY mail to {}", recipient);
         }
     }
 
