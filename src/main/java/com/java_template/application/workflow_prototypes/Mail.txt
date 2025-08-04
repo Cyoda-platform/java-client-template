@@ -1,0 +1,56 @@
+// Extracted processMail method and its helper private methods
+
+private void processMail(UUID technicalId, Mail mail) {
+    // Step 1: Validation is already done before saving
+
+    // Step 2: Check Happy Criteria
+    boolean isHappy = checkMailHappyCriteria(mail);
+
+    // Step 3: Check Gloomy Criteria (only if not happy)
+    if (!isHappy) {
+        isHappy = !checkMailGloomyCriteria(mail) ? false : false;
+    }
+
+    // Step 4: Set isHappy field in mail entity
+    mail.setIsHappy(isHappy);
+
+    // Step 5: Process sending mail based on classification
+    try {
+        if (isHappy) {
+            sendHappyMail(mail);
+            // todo: update status to COMPLETED in external service if supported
+            logger.info("Sent happy mail for ID: {}", technicalId);
+        } else {
+            sendGloomyMail(mail);
+            // todo: update status to COMPLETED in external service if supported
+            logger.info("Sent gloomy mail for ID: {}", technicalId);
+        }
+    } catch (Exception e) {
+        // todo: update status to FAILED in external service if supported
+        logger.error("Failed to send mail for ID: {}. Error: {}", technicalId, e.getMessage());
+    }
+}
+
+private boolean checkMailHappyCriteria(Mail mail) {
+    String content = mail.getContent() != null ? mail.getContent().toLowerCase() : "";
+    List<String> positiveKeywords = Arrays.asList("happy", "joy", "great", "good", "love", "excellent");
+    return positiveKeywords.stream().anyMatch(content::contains);
+}
+
+private boolean checkMailGloomyCriteria(Mail mail) {
+    String content = mail.getContent() != null ? mail.getContent().toLowerCase() : "";
+    List<String> negativeKeywords = Arrays.asList("sad", "bad", "terrible", "hate", "gloomy", "angry");
+    return negativeKeywords.stream().anyMatch(content::contains);
+}
+
+private void sendHappyMail(Mail mail) {
+    for (String recipient : mail.getMailList()) {
+        logger.info("Sending HAPPY mail to {} with content: {}", recipient, mail.getContent());
+    }
+}
+
+private void sendGloomyMail(Mail mail) {
+    for (String recipient : mail.getMailList()) {
+        logger.info("Sending GLOOMY mail to {} with content: {}", recipient, mail.getContent());
+    }
+}
