@@ -1,0 +1,323 @@
+package com.java_template.application.controller;
+
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.java_template.application.entity.CatFact;
+import com.java_template.application.entity.Subscriber;
+import com.java_template.application.entity.WeeklyCatFactJob;
+import com.java_template.common.service.EntityService;
+import com.java_template.common.util.Condition;
+import com.java_template.common.util.SearchConditionRequest;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
+
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
+
+import static com.java_template.common.config.Config.*;
+
+@RestController
+@RequestMapping(path = "/controller")
+@RequiredArgsConstructor
+@Slf4j
+public class Controller {
+
+    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
+
+    private final EntityService entityService;
+
+    private final AtomicLong weeklyCatFactJobIdCounter = new AtomicLong(1);
+    private final AtomicLong catFactIdCounter = new AtomicLong(1);
+    private final AtomicLong subscriberIdCounter = new AtomicLong(1);
+
+    // POST /controller/weeklyCatFactJob - create WeeklyCatFactJob and trigger processing
+    @PostMapping("/weeklyCatFactJob")
+    public ResponseEntity<Map<String, String>> createWeeklyCatFactJob() {
+        try {
+            WeeklyCatFactJob job = new WeeklyCatFactJob();
+            job.setStatus("PENDING");
+            job.setCatFact("");
+            job.setSubscriberCount(0);
+            job.setEmailSentDate(null);
+
+            CompletableFuture<UUID> idFuture = entityService.addItem(
+                    WeeklyCatFactJob.ENTITY_NAME,
+                    ENTITY_VERSION,
+                    job
+            );
+            UUID technicalId = idFuture.get();
+
+            logger.info("Created WeeklyCatFactJob with id {}", technicalId);
+
+            processWeeklyCatFactJob(technicalId, job);
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
+        } catch (IllegalArgumentException e) {
+            logger.error("Invalid argument creating WeeklyCatFactJob: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        } catch (Exception e) {
+            logger.error("Error creating WeeklyCatFactJob: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    // GET /controller/weeklyCatFactJob/{id} - retrieve WeeklyCatFactJob by id
+    @GetMapping("/weeklyCatFactJob/{id}")
+    public ResponseEntity<WeeklyCatFactJob> getWeeklyCatFactJob(@PathVariable String id) {
+        try {
+            UUID technicalId = UUID.fromString(id);
+            CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
+                    WeeklyCatFactJob.ENTITY_NAME,
+                    ENTITY_VERSION,
+                    technicalId
+            );
+            ObjectNode node = itemFuture.get();
+            if (node == null || node.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            }
+
+            WeeklyCatFactJob job = new WeeklyCatFactJob();
+            // Map fields from node to job, ignoring technicalId field
+            if (node.has("status")) job.setStatus(node.get("status").asText());
+            if (node.has("catFact")) job.setCatFact(node.get("catFact").asText());
+            if (node.has("subscriberCount")) job.setSubscriberCount(node.get("subscriberCount").asInt());
+            if (node.has("emailSentDate") && !node.get("emailSentDate").isNull()) {
+                job.setEmailSentDate(LocalDateTime.parse(node.get("emailSentDate").asText()));
+            } else {
+                job.setEmailSentDate(null);
+            }
+
+            return ResponseEntity.ok(job);
+        } catch (IllegalArgumentException e) {
+            logger.error("Invalid UUID format WeeklyCatFactJob id {}: {}", id, e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        } catch (ExecutionException e) {
+            if (e.getCause() instanceof NoSuchElementException) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            }
+            logger.error("Execution exception getting WeeklyCatFactJob id {}: {}", id, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        } catch (Exception e) {
+            logger.error("Error getting WeeklyCatFactJob id {}: {}", id, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    // POST /controller/subscriber - create Subscriber and trigger processing
+    @PostMapping("/subscriber")
+    public ResponseEntity<Map<String, String>> createSubscriber(@RequestBody Map<String, String> body) {
+        try {
+            String email = body.get("email");
+            if (email == null || email.isBlank()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+            }
+
+            // Check if email already subscribed using getItemsByCondition
+            Condition condition = Condition.of("$.email", "IEQUALS", email);
+            SearchConditionRequest searchRequest = SearchConditionRequest.group("AND", condition);
+            CompletableFuture<ArrayNode> filteredItemsFuture = entityService.getItemsByCondition(
+                    Subscriber.ENTITY_NAME,
+                    ENTITY_VERSION,
+                    searchRequest,
+                    true
+            );
+            ArrayNode matchedSubscribers = filteredItemsFuture.get();
+
+            boolean exists = false;
+            if (matchedSubscribers != null && matchedSubscribers.size() > 0) {
+                for (int i = 0; i < matchedSubscribers.size(); i++) {
+                    ObjectNode node = (ObjectNode) matchedSubscribers.get(i);
+                    if (node.has("status") && "ACTIVE".equalsIgnoreCase(node.get("status").asText())) {
+                        exists = true;
+                        break;
+                    }
+                }
+            }
+
+            if (exists) {
+                logger.info("Subscriber with email {} already exists", email);
+                return ResponseEntity.status(HttpStatus.CONFLICT).build();
+            }
+
+            Subscriber subscriber = new Subscriber();
+            subscriber.setEmail(email);
+            subscriber.setSubscribedDate(LocalDateTime.now());
+            subscriber.setStatus("ACTIVE");
+            subscriber.setInteractionCount(0);
+
+            CompletableFuture<UUID> idFuture = entityService.addItem(
+                    Subscriber.ENTITY_NAME,
+                    ENTITY_VERSION,
+                    subscriber
+            );
+            UUID technicalId = idFuture.get();
+
+            logger.info("Created Subscriber with id {} and email {}", technicalId, email);
+
+            processSubscriber(technicalId, subscriber);
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
+        } catch (IllegalArgumentException e) {
+            logger.error("Invalid argument creating Subscriber: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        } catch (Exception e) {
+            logger.error("Error creating Subscriber: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    // GET /controller/subscriber/{id} - retrieve Subscriber by id
+    @GetMapping("/subscriber/{id}")
+    public ResponseEntity<Subscriber> getSubscriber(@PathVariable String id) {
+        try {
+            UUID technicalId = UUID.fromString(id);
+            CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
+                    Subscriber.ENTITY_NAME,
+                    ENTITY_VERSION,
+                    technicalId
+            );
+            ObjectNode node = itemFuture.get();
+            if (node == null || node.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            }
+
+            Subscriber subscriber = new Subscriber();
+            if (node.has("email")) subscriber.setEmail(node.get("email").asText());
+            if (node.has("subscribedDate") && !node.get("subscribedDate").isNull()) {
+                subscriber.setSubscribedDate(LocalDateTime.parse(node.get("subscribedDate").asText()));
+            } else {
+                subscriber.setSubscribedDate(null);
+            }
+            if (node.has("status")) subscriber.setStatus(node.get("status").asText());
+            if (node.has("interactionCount")) subscriber.setInteractionCount(node.get("interactionCount").asInt());
+
+            return ResponseEntity.ok(subscriber);
+        } catch (IllegalArgumentException e) {
+            logger.error("Invalid UUID format Subscriber id {}: {}", id, e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        } catch (ExecutionException e) {
+            if (e.getCause() instanceof NoSuchElementException) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            }
+            logger.error("Execution exception getting Subscriber id {}: {}", id, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        } catch (Exception e) {
+            logger.error("Error getting Subscriber id {}: {}", id, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    // GET /controller/catFact/{id} - retrieve CatFact by id
+    @GetMapping("/catFact/{id}")
+    public ResponseEntity<CatFact> getCatFact(@PathVariable String id) {
+        try {
+            UUID technicalId = UUID.fromString(id);
+            CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
+                    CatFact.ENTITY_NAME,
+                    ENTITY_VERSION,
+                    technicalId
+            );
+            ObjectNode node = itemFuture.get();
+            if (node == null || node.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            }
+
+            CatFact catFact = new CatFact();
+            if (node.has("fact")) catFact.setFact(node.get("fact").asText());
+            if (node.has("retrievedDate") && !node.get("retrievedDate").isNull()) {
+                catFact.setRetrievedDate(LocalDateTime.parse(node.get("retrievedDate").asText()));
+            } else {
+                catFact.setRetrievedDate(null);
+            }
+
+            return ResponseEntity.ok(catFact);
+        } catch (IllegalArgumentException e) {
+            logger.error("Invalid UUID format CatFact id {}: {}", id, e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        } catch (ExecutionException e) {
+            if (e.getCause() instanceof NoSuchElementException) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            }
+            logger.error("Execution exception getting CatFact id {}: {}", id, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        } catch (Exception e) {
+            logger.error("Error getting CatFact id {}: {}", id, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    private void processWeeklyCatFactJob(UUID technicalId, WeeklyCatFactJob job) {
+        logger.info("Processing WeeklyCatFactJob id {}", technicalId);
+        try {
+            // Step 2: Data Ingestion - call external Cat Fact API
+            RestTemplate restTemplate = new RestTemplate();
+            Map<String, Object> response = restTemplate.getForObject("https://catfact.ninja/fact", Map.class);
+            if (response == null || !response.containsKey("fact")) {
+                throw new RuntimeException("Failed to retrieve cat fact from API");
+            }
+            String fact = (String) response.get("fact");
+
+            // Create and save CatFact entity
+            CatFact catFact = new CatFact();
+            catFact.setFact(fact);
+            catFact.setRetrievedDate(LocalDateTime.now());
+
+            CompletableFuture<UUID> catFactIdFuture = entityService.addItem(
+                    CatFact.ENTITY_NAME,
+                    ENTITY_VERSION,
+                    catFact
+            );
+            UUID catFactId = catFactIdFuture.get();
+
+            logger.info("Retrieved and saved CatFact id {}: {}", catFactId, fact);
+
+            // Count active subscribers
+            Condition condition = Condition.of("$.status", "EQUALS", "ACTIVE");
+            SearchConditionRequest searchRequest = SearchConditionRequest.group("AND", condition);
+            CompletableFuture<ArrayNode> activeSubscribersFuture = entityService.getItemsByCondition(
+                    Subscriber.ENTITY_NAME,
+                    ENTITY_VERSION,
+                    searchRequest,
+                    true
+            );
+            ArrayNode activeSubscribersNodes = activeSubscribersFuture.get();
+
+            int activeSubscribers = activeSubscribersNodes == null ? 0 : activeSubscribersNodes.size();
+
+            // Compose email content and send emails (simulate)
+            logger.info("Sending cat fact email to {} active subscribers", activeSubscribers);
+            // Email sending logic simulated by logging
+
+            // Update job status and details
+            job.setCatFact(fact);
+            job.setSubscriberCount(activeSubscribers);
+            job.setEmailSentDate(LocalDateTime.now());
+            job.setStatus("COMPLETED");
+
+            // TODO: Update WeeklyCatFactJob - update operations are not supported, so skipping
+
+            logger.info("WeeklyCatFactJob id {} completed successfully", technicalId);
+        } catch (Exception e) {
+            job.setStatus("FAILED");
+            // TODO: Update WeeklyCatFactJob with failed status - skipping update as per instructions
+            logger.error("WeeklyCatFactJob id {} failed: {}", technicalId, e.getMessage());
+        }
+    }
+
+    private void processSubscriber(UUID technicalId, Subscriber subscriber) {
+        logger.info("Processing Subscriber id {} email {}", technicalId, subscriber.getEmail());
+        // Validation already done in controller checks
+        // Here could be additional processing or integration if needed
+        logger.info("Subscriber id {} processed successfully", technicalId);
+    }
+}
