@@ -49,7 +49,7 @@ public class Controller {
             UUID technicalId = idFuture.get(5, TimeUnit.SECONDS);
 
             // After creation, process mail asynchronously
-            processMailAsync(technicalId, mail);
+            // processMailAsync removed
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId.toString());
@@ -62,45 +62,6 @@ public class Controller {
             logger.error("Failed to create mail", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
-    }
-
-    private void processMailAsync(UUID technicalId, Mail mail) {
-        // Run asynchronously - fire and forget
-        CompletableFuture.runAsync(() -> {
-            try {
-                // Retrieve fresh mail object from service to avoid stale data
-                CompletableFuture<ObjectNode> itemFuture = entityService.getItem(Mail.ENTITY_NAME, ENTITY_VERSION, technicalId);
-                ObjectNode node = itemFuture.get(5, TimeUnit.SECONDS);
-                if (node == null) {
-                    logger.error("Mail not found for processing technicalId: {}", technicalId);
-                    return;
-                }
-                Mail mailToProcess = node.traverse().readValueAs(Mail.class);
-
-                // Classification criteria
-                boolean happyCriteria = checkMailHappyCriteria(mailToProcess);
-                boolean gloomyCriteria = checkMailGloomyCriteria(mailToProcess);
-
-                if (happyCriteria) {
-                    mailToProcess.setIsHappy(true);
-                    sendHappyMail(mailToProcess);
-                } else if (gloomyCriteria) {
-                    mailToProcess.setIsHappy(false);
-                    sendGloomyMail(mailToProcess);
-                } else {
-                    mailToProcess.setIsHappy(false);
-                    sendGloomyMail(mailToProcess);
-                }
-
-                mailToProcess.setStatus("SENT");
-
-                // TODO: Update mail entity - update operation not supported, so skip
-
-            } catch (Exception e) {
-                logger.error("Processing Mail failed for technicalId: {}", technicalId, e);
-                // Can't update status due to no update support
-            }
-        });
     }
 
     @GetMapping("/{technicalId}")
@@ -154,25 +115,4 @@ public class Controller {
         }
     }
 
-    private boolean checkMailHappyCriteria(Mail mail) {
-        String subject = mail.getSubject() != null ? mail.getSubject().toLowerCase() : "";
-        String content = mail.getContent() != null ? mail.getContent().toLowerCase() : "";
-        return subject.contains("happy") || content.contains("happy");
-    }
-
-    private boolean checkMailGloomyCriteria(Mail mail) {
-        String subject = mail.getSubject() != null ? mail.getSubject().toLowerCase() : "";
-        String content = mail.getContent() != null ? mail.getContent().toLowerCase() : "";
-        return subject.contains("sad") || content.contains("sad") || subject.contains("gloomy") || content.contains("gloomy");
-    }
-
-    private void sendHappyMail(Mail mail) {
-        logger.info("Sending happy mail to recipients: {}", mail.getMailList());
-        // Real mail sending logic would go here
-    }
-
-    private void sendGloomyMail(Mail mail) {
-        logger.info("Sending gloomy mail to recipients: {}", mail.getMailList());
-        // Real mail sending logic would go here
-    }
 }
