@@ -55,7 +55,7 @@ public class Controller {
 
             logger.info("Mail created with technicalId: {}", technicalId);
 
-            processMail(technicalIdUuid, mail);
+            // Removed processMail call
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId);
@@ -132,7 +132,7 @@ public class Controller {
 
             logger.info("HappyMailJob created with technicalId: {}", technicalId);
 
-            processHappyMailJob(technicalIdUuid, job);
+            // Removed processHappyMailJob call
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId);
@@ -187,136 +187,7 @@ public class Controller {
         }
     }
 
-    // Business logic for processing Mail entity according to requirements
-    private void processMail(UUID technicalId, Mail mail) {
-        logger.info("Processing Mail with technicalId: {}", technicalId);
-
-        // Validate mailList emails format (simple validation)
-        boolean validEmails = mail.getMailList().stream()
-                .allMatch(email -> email != null && email.contains("@") && !email.isBlank());
-        if (!validEmails) {
-            logger.error("Mail processing failed: invalid email addresses");
-            return;
-        }
-
-        // Validate subject and content
-        if (mail.getSubject() == null || mail.getSubject().isBlank() ||
-                mail.getContent() == null || mail.getContent().isBlank()) {
-            logger.error("Mail processing failed: subject or content is blank");
-            return;
-        }
-
-        // Determine criteria for happy or gloomy mail
-        boolean isHappy = checkMailHappyCriteria(mail) || (!checkMailGloomyCriteria(mail) && Boolean.TRUE.equals(mail.getIsHappy()));
-        mail.setIsHappy(isHappy);
-
-        logger.info("Mail classified as happy: {}", isHappy);
-
-        if (isHappy) {
-            sendHappyMail(technicalId, mail);
-        } else {
-            sendGloomyMail(technicalId, mail);
-        }
-
-        // Create HappyMailJob entity referencing this mail to track sending status
-        HappyMailJob job = new HappyMailJob();
-        job.setMailTechnicalId("mail-" + technicalId.toString());
-        job.setStatus("PENDING");
-        job.setCreatedAt(LocalDateTime.now());
-
-        try {
-            CompletableFuture<UUID> jobIdFuture = entityService.addItem(HappyMailJob.ENTITY_NAME, ENTITY_VERSION, job);
-            UUID jobUuid = jobIdFuture.get();
-            String jobId = "job-" + jobUuid.toString();
-            logger.info("HappyMailJob created with technicalId: {}", jobId);
-
-            processHappyMailJob(jobUuid, job);
-        } catch (Exception e) {
-            logger.error("Failed to create HappyMailJob after Mail processing: {}", e.getMessage(), e);
-        }
-    }
-
-    private boolean checkMailHappyCriteria(Mail mail) {
-        String contentLower = mail.getContent().toLowerCase();
-        String subjectLower = mail.getSubject().toLowerCase();
-        List<String> happyKeywords = Arrays.asList("congratulations", "celebrate", "joy");
-        return happyKeywords.stream().anyMatch(keyword -> contentLower.contains(keyword) || subjectLower.contains(keyword));
-    }
-
-    private boolean checkMailGloomyCriteria(Mail mail) {
-        String contentLower = mail.getContent().toLowerCase();
-        String subjectLower = mail.getSubject().toLowerCase();
-        List<String> gloomyKeywords = Arrays.asList("sorry", "regret", "unfortunate");
-        return gloomyKeywords.stream().anyMatch(keyword -> contentLower.contains(keyword) || subjectLower.contains(keyword));
-    }
-
-    private void sendHappyMail(UUID technicalId, Mail mail) {
-        logger.info("Sending happy mail with technicalId: {}", technicalId);
-        mail.getMailList().forEach(email -> logger.info("Happy mail sent to: {}", email));
-    }
-
-    private void sendGloomyMail(UUID technicalId, Mail mail) {
-        logger.info("Sending gloomy mail with technicalId: {}", technicalId);
-        mail.getMailList().forEach(email -> logger.info("Gloomy mail sent to: {}", email));
-    }
-
-    // Process HappyMailJob entity - send mails and update status
-    private void processHappyMailJob(UUID technicalId, HappyMailJob job) {
-        logger.info("Processing HappyMailJob with technicalId: {}", technicalId);
-
-        try {
-            String mailTechId = job.getMailTechnicalId();
-            if (mailTechId == null || mailTechId.isBlank()) {
-                logger.error("HappyMailJob processing failed: mailTechnicalId is null or blank");
-                job.setStatus("FAILED");
-                return;
-            }
-            UUID mailUuid;
-            try {
-                mailUuid = UUID.fromString(stripPrefix(mailTechId, "mail-"));
-            } catch (IllegalArgumentException ex) {
-                logger.error("Invalid mailTechnicalId format in HappyMailJob: {}", mailTechId);
-                job.setStatus("FAILED");
-                return;
-            }
-
-            CompletableFuture<ObjectNode> mailNodeFuture = entityService.getItem(
-                    Mail.ENTITY_NAME,
-                    ENTITY_VERSION,
-                    mailUuid
-            );
-            ObjectNode mailNode = mailNodeFuture.get();
-            if (mailNode == null || mailNode.isEmpty()) {
-                logger.error("HappyMailJob processing failed: referenced Mail not found with technicalId: {}", mailTechId);
-                job.setStatus("FAILED");
-                return;
-            }
-            Mail mail = mailNode.traverse().readValueAs(Mail.class);
-
-            List<String> mailList = mail.getMailList();
-            if (mailList == null || mailList.isEmpty()) {
-                logger.error("HappyMailJob processing failed: mailList is empty");
-                job.setStatus("FAILED");
-                return;
-            }
-
-            for (String email : mailList) {
-                if (Boolean.TRUE.equals(mail.getIsHappy())) {
-                    logger.info("Happy mail sent to: {}", email);
-                } else {
-                    logger.info("Gloomy mail sent to: {}", email);
-                }
-            }
-            job.setStatus("SENT");
-            logger.info("HappyMailJob with technicalId {} completed successfully", technicalId);
-
-            // TODO: Update job status in external service if needed (not supported now)
-
-        } catch (Exception e) {
-            logger.error("Error during HappyMailJob processing: {}", e.getMessage(), e);
-            job.setStatus("FAILED");
-        }
-    }
+    // Removed processMail and processHappyMailJob methods and their direct helpers
 
     private String stripPrefix(String original, String prefix) {
         if (original != null && original.startsWith(prefix)) {
