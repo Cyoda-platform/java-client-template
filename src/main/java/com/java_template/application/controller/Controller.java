@@ -44,7 +44,7 @@ public class Controller {
 
             log.info("Created SnapshotJob with id {}", technicalIdStr);
 
-            processSnapshotJob(technicalIdStr, job);
+            // processSnapshotJob call removed
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalIdStr);
@@ -155,78 +155,5 @@ public class Controller {
         }
     }
 
-
-    // ================= Process Methods =================
-
-    private void processSnapshotJob(String technicalId, SnapshotJob job) {
-        log.info("Processing SnapshotJob id: {}", technicalId);
-        try {
-            if (job.getDateRangeStart().isBlank() || job.getDateRangeEnd().isBlank() || job.getSeason().isBlank()) {
-                log.error("SnapshotJob validation failed for id: {}", technicalId);
-                job.setStatus("FAILED");
-                updateSnapshotJobStatus(technicalId, job);
-                return;
-            }
-            Date startDate = java.sql.Date.valueOf(job.getDateRangeStart());
-            Date endDate = java.sql.Date.valueOf(job.getDateRangeEnd());
-            if (!startDate.before(endDate)) {
-                log.error("SnapshotJob dateRangeStart is not before dateRangeEnd for id: {}", technicalId);
-                job.setStatus("FAILED");
-                updateSnapshotJobStatus(technicalId, job);
-                return;
-            }
-
-            // Simulated data fetch and entity creation:
-            // Create one team snapshot as example
-            TeamSnapshot teamSnapshot = new TeamSnapshot();
-            teamSnapshot.setSeason(job.getSeason());
-            teamSnapshot.setEffectiveDate(job.getDateRangeStart());
-            teamSnapshot.setTeamId(1);
-            teamSnapshot.setTeamName("FC Bayern München");
-            teamSnapshot.setVenue("Allianz Arena");
-            teamSnapshot.setCrestUrl("https://crests.example.com/fcbayern.png");
-            teamSnapshot.setCreatedAt(new Date().toInstant().toString());
-
-            CompletableFuture<UUID> teamSnapshotIdFuture = entityService.addItem(TeamSnapshot.ENTITY_NAME, ENTITY_VERSION, teamSnapshot);
-            UUID teamSnapshotUUID = teamSnapshotIdFuture.get();
-            String teamSnapshotId = "teamSnapshot-" + teamSnapshotUUID.toString();
-
-            // Create one squad snapshot linked to above team snapshot
-            SquadSnapshot squadSnapshot = new SquadSnapshot();
-            squadSnapshot.setTeamSnapshotId(teamSnapshotId);
-            squadSnapshot.setPlayerId(10);
-            squadSnapshot.setPlayerName("Thomas Müller");
-            squadSnapshot.setPosition("Midfielder");
-            squadSnapshot.setDateOfBirth("1989-09-13");
-            squadSnapshot.setNationality("German");
-            squadSnapshot.setSquadNumber(25);
-            squadSnapshot.setContractStartDate("2012-07-01");
-            squadSnapshot.setContractEndDate("2024-06-30");
-            squadSnapshot.setCreatedAt(new Date().toInstant().toString());
-
-            CompletableFuture<UUID> squadSnapshotIdFuture = entityService.addItem(SquadSnapshot.ENTITY_NAME, ENTITY_VERSION, squadSnapshot);
-            UUID squadSnapshotUUID = squadSnapshotIdFuture.get();
-            // String squadSnapshotId = "squadSnapshot-" + squadSnapshotUUID.toString(); // not used
-
-            // Change detection and notification logic omitted for prototype
-
-            job.setStatus("COMPLETED");
-            updateSnapshotJobStatus(technicalId, job);
-            log.info("Completed processing SnapshotJob id: {}", technicalId);
-        } catch (Exception e) {
-            log.error("Error processing SnapshotJob id: {}", technicalId, e);
-            job.setStatus("FAILED");
-            try {
-                updateSnapshotJobStatus(technicalId, job);
-            } catch (Exception ex) {
-                log.error("Failed to update SnapshotJob status to FAILED for id: {}", technicalId, ex);
-            }
-        }
-    }
-
-    private void updateSnapshotJobStatus(String technicalId, SnapshotJob job) throws Exception {
-        // TODO: update operation not supported by EntityService, skipping update
-        // Just log that update would happen here
-        log.warn("TODO: update SnapshotJob status for id: {} to {}", technicalId, job.getStatus());
-    }
+    // Removed process methods for SnapshotJob and related helpers
 }
