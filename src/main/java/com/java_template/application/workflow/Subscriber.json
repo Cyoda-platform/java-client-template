@@ -1,13 +1,13 @@
 {
     "active": true,
-    "desc": "Workflow for processing Subscriber entity lifecycle",
+    "desc": "Workflow for processing WeeklyCatFactJob lifecycle",
     "initialState": "none",
-    "name": "Subscriber Workflow",
+    "name": "WeeklyCatFactJob Workflow",
     "states": {
         "completed": {
             "transitions": []
         },
-        "email_validation": {
+        "data_ingestion": {
             "transitions": [
                 {
                     "criterion": {
@@ -15,18 +15,44 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "EmailValidityCriterion"
+                            "name": "catFactRetrieved"
                         },
                         "type": "function"
                     },
                     "manual": false,
-                    "name": "email_valid",
-                    "next": "persisted"
+                    "name": "cat_fact_retrieved",
+                    "next": "email_preparation"
                 },
                 {
                     "manual": false,
-                    "name": "email_invalid",
-                    "next": "rejected"
+                    "name": "error_occurred",
+                    "next": "failed"
+                }
+            ]
+        },
+        "email_preparation": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "subscribers_counted",
+                    "next": "publishing"
+                },
+                {
+                    "manual": false,
+                    "name": "error_occurred",
+                    "next": "failed"
+                }
+            ]
+        },
+        "failed": {
+            "transitions": []
+        },
+        "job_created": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "trigger_process",
+                    "next": "data_ingestion"
                 }
             ]
         },
@@ -34,31 +60,24 @@
             "transitions": [
                 {
                     "manual": false,
-                    "name": "create_subscriber",
-                    "next": "email_validation"
+                    "name": "start_processing",
+                    "next": "job_created"
                 }
             ]
         },
-        "persisted": {
+        "publishing": {
             "transitions": [
                 {
                     "manual": false,
-                    "name": "finalize_processing",
-                    "next": "completed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "SubscriberProcessor"
-                        }
-                    ]
+                    "name": "emails_sent",
+                    "next": "completed"
+                },
+                {
+                    "manual": false,
+                    "name": "error_occurred",
+                    "next": "failed"
                 }
             ]
-        },
-        "rejected": {
-            "transitions": []
         }
     },
     "version": "1.0"
