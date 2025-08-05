@@ -1,0 +1,61 @@
+{
+  "version": "1.0",
+  "name": "Workflow Workflow",
+  "desc": "Workflow for processing Workflow entity",
+  "initialState": "pending",
+  "active": true,
+  "states": {
+    "pending": {
+      "transitions": [
+        {
+          "name": "validate_parameters",
+          "next": "validated",
+          "manual": false,
+          "processors": [
+            {
+              "name": "WorkflowParametersValidator",
+              "executionMode": "SYNC",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          ]
+        }
+      ]
+    },
+    "validated": {
+      "transitions": [
+        {
+          "name": "orchestrate_processing",
+          "next": "processing",
+          "manual": false,
+          "processors": [
+            {
+              "name": "WorkflowOrchestrator",
+              "executionMode": "SYNC",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          ]
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "name": "complete_workflow",
+          "next": "completed",
+          "manual": false
+        },
+        {
+          "name": "fail_workflow",
+          "next": "failed",
+          "manual": false
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  }
+}
