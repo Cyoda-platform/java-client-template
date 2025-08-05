@@ -26,7 +26,7 @@ public class DefaultReconnectionStrategy implements ReconnectionStrategy {
         if (!reconnectionScheduler.isShutdown()) {
             reconnectionScheduler.shutdownNow();
         }
-        log.info("Reconnection scheduler has been shut down.");
+        log.info("Reconnection scheduler has been shutdown.");
     }
 
     @Override

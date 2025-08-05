@@ -3,6 +3,9 @@ package com.java_template.common.service;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import jakarta.annotation.Nullable;
+import jakarta.validation.constraints.NotNull;
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -11,13 +14,21 @@ import java.util.concurrent.CompletableFuture;
 public interface EntityService {
 
     //      Retrieve a single item based on its ID.
-    CompletableFuture<ObjectNode> getItem(String entityModel, String entityVersion, UUID technicalId);
+    CompletableFuture<ObjectNode> getItem(
+            @NotNull UUID technicalId
+    );
 
     //      Retrieve a single item based on its ID along with the entity meta fields.
     CompletableFuture<ObjectNode> getItemWithMetaFields(String entityModel, String entityVersion, UUID technicalId);
 
     //     Retrieve multiple items based on the entity model and version.
-    CompletableFuture<ArrayNode> getItems(String entityModel, String entityVersion);
+    CompletableFuture<ArrayNode> getItems(
+            @NotNull String entityModel,
+            @NotNull String entityVersion,
+            @Nullable Integer pageSize,
+            @Nullable Integer pageNumber,
+            @Nullable Date pointTime
+    );
 
     //     Retrieve multiple items based on the entity model and version along with their entity meta fields.
     CompletableFuture<ArrayNode> getItemsWithMetaFields(String entityModel, String entityVersion);

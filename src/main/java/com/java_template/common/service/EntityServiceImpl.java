@@ -7,6 +7,10 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.auth.Authentication;
 import com.java_template.common.repository.CrudRepository;
 import com.java_template.common.repository.dto.Meta;
+import jakarta.annotation.Nullable;
+import jakarta.validation.constraints.NotNull;
+import java.util.Date;
+import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +26,9 @@ import java.util.concurrent.CompletableFuture;
 
 @Service
 public class EntityServiceImpl implements EntityService {
+
+    private static final int DEFAULT_PAGE_SIZE = 100;
+    private static final int FIRST_PAGE = 100;
 
     private static final int MAX_TOKEN_RETRY_ATTEMPTS = 3;
 
@@ -42,28 +49,39 @@ public class EntityServiceImpl implements EntityService {
 
     /**
      * Executes repository method with automatic retry on 401 Unauthorized.
+     *
      * @param repositoryCall repository method to call (as functional interface)
-     * @param <T> result type
+     * @param <T>            result type
      * @return result of repository call
      */
+
+    @Deprecated
     private <T> CompletableFuture<T> executeWithTokenRetryInternal(TokenRepositoryCall<T> repositoryCall, int attempt) {
-        String token = auth.getAccessToken().getTokenValue();
+        final var token = auth.getAccessToken().getTokenValue();
         return repositoryCall.call(token).handle((result, ex) -> {
             if (ex == null) {
                 return CompletableFuture.completedFuture(result);
             }
-            Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
-            if (attempt < MAX_TOKEN_RETRY_ATTEMPTS &&
-                    cause instanceof ResponseStatusException &&
-                    ((ResponseStatusException) cause).getStatusCode().value() == HttpStatus.UNAUTHORIZED.value()) {
-                logger.warn("Request to Cyoda failed with 401 Unauthorized, invalidating token and retrying (attempt {} of {})...", attempt + 1, MAX_TOKEN_RETRY_ATTEMPTS);
+            final Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
+            if (attempt < MAX_TOKEN_RETRY_ATTEMPTS && isUnauthorized(cause)) {
+                logger.warn(
+                        "Request to Cyoda failed with 401 Unauthorized, invalidating token and retrying (attempt {} of {})...",
+                        attempt + 1,
+                        MAX_TOKEN_RETRY_ATTEMPTS
+                );
                 auth.invalidateTokens();
                 return executeWithTokenRetryInternal(repositoryCall, attempt + 1);
             }
-            CompletableFuture<T> failed = new CompletableFuture<>();
+
+            final var failed = new CompletableFuture<T>();
             failed.completeExceptionally(cause);
             return failed;
-        }).thenCompose(f -> f);
+        }).thenCompose(Function.identity());
+    }
+
+    private boolean isUnauthorized(Throwable cause) {
+        return cause instanceof ResponseStatusException
+                && ((ResponseStatusException) cause).getStatusCode().value() == HttpStatus.UNAUTHORIZED.value();
     }
 
     // Functional interface for repository calls that require a token
@@ -73,55 +91,59 @@ public class EntityServiceImpl implements EntityService {
     }
 
     @Override
-    public CompletableFuture<ObjectNode> getItem(String entityModel, String entityVersion, UUID technicalId) {
-        return executeWithTokenRetry(token -> {
-//            Meta meta = repository.getMeta(token, entityModel, entityVersion);
-            return repository.findById(technicalId).thenApplyAsync(resultNode -> {
-                ObjectNode dataNode = resultNode.path("data").deepCopy();
-                JsonNode idNode = resultNode.at("/meta/id");
-                if (!idNode.isMissingNode()) {
-                    dataNode.put("technicalId", idNode.asText());
-                }
-                return dataNode;
-            });
+    public CompletableFuture<ObjectNode> getItem(@NotNull final UUID technicalId) {
+        return repository.findById(technicalId)
+                .thenApply(resultNode -> {
+                    final ObjectNode dataNode = resultNode.path("data").deepCopy();
+                    final var idNode = resultNode.at("/meta/id");
+                    if (!idNode.isMissingNode()) {
+                        dataNode.put("technicalId", idNode.asText());
+                    }
+                    return dataNode;
+                });
+    }
+
+    @Override
+    public CompletableFuture<ObjectNode> getItemWithMetaFields(
+            String entityModel,
+            String entityVersion,
+            UUID technicalId
+    ) {
+        return repository.findById(technicalId);
+    }
+
+    @Override
+    public CompletableFuture<ArrayNode> getItems(
+            @NotNull final String entityModel,
+            @NotNull final String entityVersion,
+            @Nullable final Integer pageSize,
+            @Nullable final Integer pageNumber,
+            @Nullable final Date pointTime
+    ) {
+        return repository.findAll(
+                entityModel,
+                Integer.parseInt(entityVersion),
+                pageSize != null ? pageSize : DEFAULT_PAGE_SIZE,
+                pageNumber != null ? pageNumber : FIRST_PAGE,
+                pointTime
+        ).thenApply(resultArray -> {
+            final var simplifiedArray = JsonNodeFactory.instance.arrayNode();
+            for (final var item : resultArray) {
+                final ObjectNode data = item.path("data").deepCopy();
+                final var technicalId = item.at("/meta/id");
+                data.set("technicalId", technicalId);
+                simplifiedArray.add(data);
+            }
+            return simplifiedArray;
         });
     }
 
     @Override
-    public CompletableFuture<ObjectNode> getItemWithMetaFields(String entityModel, String entityVersion, UUID technicalId) {
-        return executeWithTokenRetry(token -> {
-            Meta meta = repository.getMeta(token, entityModel, entityVersion);
-            return repository.findById(technicalId);
-        });
-    }
-
-    @Override
-    public CompletableFuture<ArrayNode> getItems(String entityModel, String entityVersion) {
-        return executeWithTokenRetry(token -> {
-            Meta meta = repository.getMeta(token, entityModel, entityVersion);
-            return repository.findAll(meta).thenApply(resultArray -> {
-                ArrayNode simplifiedArray = JsonNodeFactory.instance.arrayNode();
-                for (JsonNode item : resultArray) {
-                    ObjectNode data = (ObjectNode) item.path("data").deepCopy();
-                    JsonNode technicalId = item.at("/meta/id");
-                    data.set("technicalId", technicalId);
-                    simplifiedArray.add(data);
-                }
-                return simplifiedArray;
-            });
-        });
-    }
-
-    @Override
-    public CompletableFuture<ArrayNode> getItemsWithMetaFields(String entityModel, String entityVersion) {
-        return executeWithTokenRetry(token -> {
-            Meta meta = repository.getMeta(token, entityModel, entityVersion);
-            return repository.findAll(meta);
-        });
-    }
-
-    @Override
-    public CompletableFuture<Optional<ObjectNode>> getFirstItemByCondition(String entityModel, String entityVersion, Object condition) {
+    public CompletableFuture<Optional<ObjectNode>> getFirstItemByCondition(
+            String entityModel,
+            String entityVersion,
+            Object condition
+    ) {
         return executeWithTokenRetry(token -> {
             Meta meta = repository.getMeta(token, entityModel, entityVersion);
             return repository.findAllByCriteria(meta, condition).thenApply(items -> {
@@ -144,7 +166,11 @@ public class EntityServiceImpl implements EntityService {
     }
 
     @Override
-    public CompletableFuture<ArrayNode> getItemsByCondition(String entityModel, String entityVersion, Object condition) {
+    public CompletableFuture<ArrayNode> getItemsByCondition(
+            String entityModel,
+            String entityVersion,
+            Object condition
+    ) {
         return executeWithTokenRetry(token -> {
             Meta meta = repository.getMeta(token, entityModel, entityVersion);
             return repository.findAllByCriteria(meta, condition).thenApply(items -> {
@@ -161,7 +187,12 @@ public class EntityServiceImpl implements EntityService {
     }
 
     @Override
-    public CompletableFuture<ArrayNode> getItemsByCondition(String entityModel, String entityVersion, Object condition, boolean inMemory) {
+    public CompletableFuture<ArrayNode> getItemsByCondition(
+            String entityModel,
+            String entityVersion,
+            Object condition,
+            boolean inMemory
+    ) {
         return executeWithTokenRetry(token -> {
             Meta meta = repository.getMeta(token, entityModel, entityVersion);
             return repository.findAllByCriteria(meta, condition, inMemory).thenApply(items -> {
@@ -191,7 +222,7 @@ public class EntityServiceImpl implements EntityService {
         return executeWithTokenRetry(token -> {
             Meta meta = repository.getMeta(token, entityModel, entityVersion);
             return repository.save(meta, entity)
-                    .thenApply(resultArray ->{
+                    .thenApply(resultArray -> {
                         JsonNode first = resultArray.get(0);
                         return UUID.fromString(first.get("entityIds").get(0).asText());
                     });
@@ -199,7 +230,11 @@ public class EntityServiceImpl implements EntityService {
     }
 
     @Override
-    public CompletableFuture<ArrayNode> addItemAndReturnTransactionInfo(String entityModel, String entityVersion, Object entity) {
+    public CompletableFuture<ArrayNode> addItemAndReturnTransactionInfo(
+            String entityModel,
+            String entityVersion,
+            Object entity
+    ) {
         return executeWithTokenRetry(token -> {
             Meta meta = repository.getMeta(auth.getAccessToken().getTokenValue(), entityModel, entityVersion);
             return repository.save(meta, entity);
@@ -226,7 +261,11 @@ public class EntityServiceImpl implements EntityService {
     }
 
     @Override
-    public CompletableFuture<ArrayNode> addItemsAndReturnTransactionInfo(String entityModel, String entityVersion, Object entities) {
+    public CompletableFuture<ArrayNode> addItemsAndReturnTransactionInfo(
+            String entityModel,
+            String entityVersion,
+            Object entities
+    ) {
         return executeWithTokenRetry(token -> {
             Meta meta = repository.getMeta(token, entityModel, entityVersion);
             return repository.saveAll(meta, entities);
@@ -234,7 +273,12 @@ public class EntityServiceImpl implements EntityService {
     }
 
     @Override
-    public CompletableFuture<UUID> updateItem(String entityModel, String entityVersion, UUID technicalId, Object entity) {
+    public CompletableFuture<UUID> updateItem(
+            String entityModel,
+            String entityVersion,
+            UUID technicalId,
+            Object entity
+    ) {
         return executeWithTokenRetry(token -> {
             Meta meta = repository.getMeta(token, entityModel, entityVersion);
             return repository.update(meta, technicalId, entity)

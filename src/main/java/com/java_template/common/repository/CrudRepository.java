@@ -4,12 +4,16 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.repository.dto.Meta;
 
+import jakarta.annotation.Nullable;
+import jakarta.validation.constraints.NotNull;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 public interface CrudRepository {
 
+    @Deprecated
     Meta getMeta(String token, String entityModel, String entityVersion);
 
     CompletableFuture<ObjectNode> count(Meta meta);
@@ -28,7 +32,13 @@ public interface CrudRepository {
 
     CompletableFuture<ObjectNode> existsByKey(Meta meta, Object key);
 
-    CompletableFuture<ArrayNode> findAll(Meta meta);
+    CompletableFuture<ArrayNode> findAll(
+            @NotNull final String modelName,
+            final int modelVersion,
+            final int pageSize,
+            final int pageNumber,
+            @Nullable final Date pointInTime
+    );
 
     CompletableFuture<ObjectNode> findAllByKey(Meta meta, List<Object> keys);
 
