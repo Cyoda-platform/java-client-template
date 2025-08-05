@@ -1,9 +1,17 @@
 {
     "active": true,
-    "desc": "Business workflow for Workflow entity lifecycle management",
+    "desc": "Business workflow for processing orders through validation, reservation, shipping scheduling, approval, and completion",
     "initialState": "none",
-    "name": "Workflow Workflow",
+    "name": "Order Processing Workflow",
     "states": {
+        "approved": {
+            "transitions": [
+                {
+                    "name": "transition_to_completed",
+                    "next": "completed"
+                }
+            ]
+        },
         "completed": {
             "transitions": []
         },
@@ -13,12 +21,12 @@
         "none": {
             "transitions": [
                 {
-                    "name": "transition_to_pending",
-                    "next": "pending"
+                    "name": "transition_to_placed",
+                    "next": "placed"
                 }
             ]
         },
-        "pending": {
+        "placed": {
             "transitions": [
                 {
                     "criterion": {
@@ -26,7 +34,7 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "IsValid"
+                            "name": "isOrderValid"
                         },
                         "type": "function"
                     },
@@ -39,41 +47,80 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "IsNotValid"
+                            "name": "isOrderInvalid"
                         },
                         "type": "function"
                     },
-                    "name": "transition_to_failed_due_to_invalid",
+                    "name": "transition_to_failed_due_to_invalid_order",
                     "next": "failed"
                 }
             ]
         },
-        "running": {
+        "reserved": {
             "transitions": [
                 {
-                    "name": "transition_to_completed",
-                    "next": "completed"
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "isShipDateMissing"
+                        },
+                        "type": "function"
+                    },
+                    "name": "transition_to_shipping_scheduled",
+                    "next": "shipping_scheduled"
                 },
                 {
-                    "name": "transition_to_failed_due_to_error",
-                    "next": "failed"
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "isShipDatePresent"
+                        },
+                        "type": "function"
+                    },
+                    "name": "transition_to_approved",
+                    "next": "approved"
+                }
+            ]
+        },
+        "shipping_scheduled": {
+            "transitions": [
+                {
+                    "name": "transition_to_approved",
+                    "next": "approved"
                 }
             ]
         },
         "validated": {
             "transitions": [
                 {
-                    "name": "transition_to_running",
-                    "next": "running",
-                    "processors": [
-                        {
+                    "criterion": {
+                        "function": {
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "executionMode": "SYNC",
-                            "name": "WorkflowProcessor"
-                        }
-                    ]
+                            "name": "isPetAvailable"
+                        },
+                        "type": "function"
+                    },
+                    "name": "transition_to_reserved",
+                    "next": "reserved"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "isPetNotAvailable"
+                        },
+                        "type": "function"
+                    },
+                    "name": "transition_to_failed_due_to_pet_unavailable",
+                    "next": "failed"
                 }
             ]
         }
