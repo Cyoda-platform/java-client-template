@@ -1,0 +1,53 @@
+{
+  "version": "1.0",
+  "name": "FunPetMatch Workflow",
+  "desc": "Workflow for processing FunPetMatch entity",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": [
+        {
+          "name": "validate_criteria",
+          "next": "validated",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateFunPetMatchCriteria",
+              "executionMode": "SYNC",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          ]
+        }
+      ]
+    },
+    "validated": {
+      "transitions": [
+        {
+          "name": "calculate_match_score",
+          "next": "scored",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CalculateMatchScore",
+              "executionMode": "SYNC",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          ]
+        }
+      ]
+    },
+    "scored": {
+      "transitions": [
+        {
+          "name": "complete_process",
+          "next": "completed",
+          "manual": false
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    }
+  }
+}
