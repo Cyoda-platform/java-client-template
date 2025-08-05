@@ -48,7 +48,7 @@ public class Controller {
             UUID technicalId = idFuture.get();
 
             log.info("Workflow created with technicalId: {}", technicalId.toString());
-            processWorkflow(technicalId.toString(), workflow);
+            //processWorkflow(technicalId.toString(), workflow);
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId.toString());
@@ -90,35 +90,6 @@ public class Controller {
         }
     }
 
-    private void processWorkflow(String technicalId, Workflow workflow) {
-        // 1. Initial State: Workflow created with status = PENDING if not set
-        if (workflow.getStatus() == null || workflow.getStatus().isBlank()) {
-            workflow.setStatus("PENDING");
-            log.info("Workflow {} initial status set to PENDING", technicalId);
-        }
-
-        // 2. Validation
-        if (workflow.getName() == null || workflow.getName().isBlank()) {
-            log.error("Workflow {} validation failed: name is blank", technicalId);
-            workflow.setStatus("FAILED");
-            return;
-        }
-
-        // 3. Orchestration: Example - trigger processing pets/orders if metadata indicates
-        log.info("Processing Workflow orchestration for {}", technicalId);
-        workflow.setStatus("RUNNING");
-
-        // Simulate orchestration logic (e.g., triggering pet or order events)
-        // For prototype, just log
-        log.info("Workflow {} orchestration running", technicalId);
-
-        // 4. Completion
-        workflow.setStatus("COMPLETED");
-        log.info("Workflow {} completed", technicalId);
-
-        // 5. Notification or downstream events could be triggered here
-    }
-
     // ----------- PET ENDPOINTS -----------
 
     @PostMapping("/pets")
@@ -132,7 +103,7 @@ public class Controller {
             UUID technicalId = idFuture.get();
 
             log.info("Pet created with technicalId: {}", technicalId.toString());
-            processPet(technicalId.toString(), pet);
+            //processPet(technicalId.toString(), pet);
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId.toString());
@@ -174,30 +145,6 @@ public class Controller {
         }
     }
 
-    private void processPet(String technicalId, Pet pet) {
-        // 1. Initial State: Set default status if missing
-        if (pet.getStatus() == null || pet.getStatus().isBlank()) {
-            pet.setStatus("AVAILABLE");
-            log.info("Pet {} initial status set to AVAILABLE", technicalId);
-        }
-
-        // 2. Validation of key fields already done in isValid()
-
-        // 3. Processing: Simulate syncing/enriching pet info with Petstore API data
-        log.info("Processing Pet {} syncing with Petstore API data", technicalId);
-        // In real implementation, call Petstore API here
-
-        // 4. Update status based on business rules (simulate adoption)
-        if ("SOLD".equalsIgnoreCase(pet.getStatus())) {
-            log.info("Pet {} marked SOLD", technicalId);
-        } else if ("PENDING".equalsIgnoreCase(pet.getStatus())) {
-            log.info("Pet {} marked PENDING", technicalId);
-        }
-
-        // 5. Completion: Finalize pet state
-        log.info("Pet {} processing completed", technicalId);
-    }
-
     // ----------- ORDER ENDPOINTS -----------
 
     @PostMapping("/orders")
@@ -211,7 +158,7 @@ public class Controller {
             UUID technicalId = idFuture.get();
 
             log.info("Order created with technicalId: {}", technicalId.toString());
-            processOrder(technicalId.toString(), order);
+            //processOrder(technicalId.toString(), order);
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId.toString());
@@ -250,64 +197,6 @@ public class Controller {
         } catch (Exception e) {
             log.error("Error retrieving Order", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
-
-    private void processOrder(String technicalId, Order order) {
-        try {
-            // 1. Initial State: Set default status if missing
-            if (order.getStatus() == null || order.getStatus().isBlank()) {
-                order.setStatus("PLACED");
-                log.info("Order {} initial status set to PLACED", technicalId);
-            }
-
-            // 2. Validation of key fields already done in isValid()
-
-            // 3. Processing: Check pet availability and reserve pet (simulate)
-            log.info("Processing Order {} for petId {}", technicalId, order.getPetId());
-
-            // Retrieve pets by petId field using condition (case sensitive)
-            Condition petIdCondition = Condition.of("$.petId", "EQUALS", order.getPetId());
-            SearchConditionRequest searchCondition = SearchConditionRequest.group("AND", petIdCondition);
-            CompletableFuture<ArrayNode> petsFuture = entityService.getItemsByCondition(Pet.ENTITY_NAME, ENTITY_VERSION, searchCondition, true);
-            ArrayNode pets = petsFuture.get();
-
-            if (pets == null || pets.size() == 0) {
-                log.error("Pet {} not found for Order {}", order.getPetId(), technicalId);
-                order.setStatus("FAILED");
-                return;
-            }
-
-            // Take first pet matching
-            ObjectNode petNode = (ObjectNode) pets.get(0);
-            Pet pet = Pet.fromObjectNode(petNode);
-
-            if (!"AVAILABLE".equalsIgnoreCase(pet.getStatus())) {
-                log.error("Pet {} is not available for Order {}", pet.getPetId(), technicalId);
-                order.setStatus("FAILED");
-                return;
-            }
-
-            pet.setStatus("PENDING");
-            log.info("Pet {} status set to PENDING due to Order {}", pet.getPetId(), technicalId);
-
-            // TODO: Update pet entity status in EntityService - no update API available, skipping
-
-            // 4. Shipping: Simulate setting shipDate if missing
-            if (order.getShipDate() == null || order.getShipDate().isBlank()) {
-                order.setShipDate(new Date().toString());
-                log.info("Order {} shipDate set to current date", technicalId);
-            }
-
-            // 5. Completion: Mark order as APPROVED
-            order.setStatus("APPROVED");
-            log.info("Order {} status set to APPROVED", technicalId);
-
-            // TODO: Update order entity in EntityService - no update API available, skipping
-
-            // 6. Notification or downstream events could be triggered here
-        } catch (Exception e) {
-            log.error("Error processing Order {}", technicalId, e);
         }
     }
 }
