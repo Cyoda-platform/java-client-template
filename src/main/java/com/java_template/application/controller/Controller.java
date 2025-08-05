@@ -41,8 +41,6 @@ public class Controller {
             );
             UUID technicalId = idFuture.get();
 
-            // processMail logic preserved from prototype
-            processMail(technicalId.toString(), mail);
             log.info("Mail processed successfully with id {}", technicalId);
 
             Map<String, String> response = new HashMap<>();
@@ -82,8 +80,6 @@ public class Controller {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
 
-            // Convert ObjectNode to Mail - assuming Mail has a constructor or method to parse ObjectNode
-            // Otherwise, use Jackson ObjectMapper or similar (assuming available)
             Mail mail = convertObjectNodeToMail(node);
             if (mail == null) {
                 log.error("Failed to convert data to Mail entity for id {}", id);
@@ -105,47 +101,11 @@ public class Controller {
 
     private Mail convertObjectNodeToMail(ObjectNode node) {
         try {
-            // Assuming Mail class has a static method fromJson or similar or use ObjectMapper
-            // Here we use Jackson ObjectMapper assuming it's available via Spring Boot context
             com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
             return mapper.treeToValue(node, Mail.class);
         } catch (Exception e) {
             log.error("Error converting ObjectNode to Mail: {}", e.getMessage(), e);
             return null;
-        }
-    }
-
-    private void processMail(String technicalId, Mail mail) {
-        // Validation: check mailList not empty and content not blank
-        if (mail.getMailList() == null || mail.getMailList().isEmpty()) {
-            log.error("Mail list is empty for mail id {}", technicalId);
-            throw new IllegalArgumentException("mailList cannot be empty");
-        }
-        if (mail.getContent() == null || mail.getContent().isBlank()) {
-            log.error("Mail content is blank for mail id {}", technicalId);
-            throw new IllegalArgumentException("content cannot be blank");
-        }
-        // Processing: send happy or gloomy mail based on isHappy flag
-        if (mail.isHappy()) {
-            sendHappyMail(technicalId, mail);
-        } else {
-            sendGloomyMail(technicalId, mail);
-        }
-        // Completion: persist sending status if needed (simulate here)
-        log.info("Mail with id {} sent successfully. isHappy={}", technicalId, mail.isHappy());
-    }
-
-    private void sendHappyMail(String technicalId, Mail mail) {
-        for (String recipient : mail.getMailList()) {
-            // Simulate sending happy mail
-            log.info("Sending HAPPY mail to {}: {}", recipient, mail.getContent());
-        }
-    }
-
-    private void sendGloomyMail(String technicalId, Mail mail) {
-        for (String recipient : mail.getMailList()) {
-            // Simulate sending gloomy mail
-            log.info("Sending GLOOMY mail to {}: {}", recipient, mail.getContent());
         }
     }
 }
