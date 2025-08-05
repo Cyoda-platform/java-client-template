@@ -1,0 +1,4 @@
+// No explicit processPet method starting with 'processPet' was found outside the extracted ones in processWorkflow.
+// The processPet method was already extracted with Workflow processing since it is directly called by processWorkflow.
+// No additional processing method for Pet entity found to extract.
+// TODO: Implement Pet business logic processing method later if needed.
