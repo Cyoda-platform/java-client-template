@@ -1,13 +1,14 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Mail;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -16,23 +17,26 @@ import org.springframework.web.bind.annotation.*;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 import java.util.UUID;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/mail")
-@RequiredArgsConstructor
-@Slf4j
 public class Controller {
 
     private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
+
+    public Controller(EntityService entityService, ObjectMapper objectMapper) {
+        this.entityService = entityService;
+        this.objectMapper = objectMapper;
+    }
 
     @PostMapping
-    public ResponseEntity<Map<String, String>> createMail(@RequestBody Mail mail) {
+    public ResponseEntity<Map<String, String>> createMail(@Valid @RequestBody Mail mail) throws JsonProcessingException {
         try {
             if (mail == null || !mail.isValid()) {
                 logger.error("Invalid Mail entity submitted");
@@ -57,7 +61,7 @@ public class Controller {
     }
 
     @GetMapping("/{technicalId}")
-    public ResponseEntity<Mail> getMailById(@PathVariable String technicalId) {
+    public ResponseEntity<Mail> getMailById(@PathVariable String technicalId) throws JsonProcessingException {
         try {
             UUID id = UUID.fromString(technicalId);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(Mail.ENTITY_NAME, ENTITY_VERSION, id);
@@ -66,7 +70,7 @@ public class Controller {
                 logger.error("Mail not found for technicalId: {}", technicalId);
                 return ResponseEntity.notFound().build();
             }
-            Mail mail = node.traverse().readValueAs(Mail.class);
+            Mail mail = objectMapper.treeToValue(node, Mail.class);
             logger.info("Retrieved Mail entity for technicalId: {}", technicalId);
             return ResponseEntity.ok(mail);
         } catch (IllegalArgumentException e) {
@@ -82,15 +86,15 @@ public class Controller {
     }
 
     @GetMapping
-    public ResponseEntity<List<Mail>> getMailsByCriteria(@RequestParam(required = false) Boolean isHappy) {
+    public ResponseEntity<List<Mail>> getMailsByCriteria(@RequestParam(required = false) Boolean isHappy) throws JsonProcessingException {
         try {
+            List<Mail> result = new ArrayList<>();
             if (isHappy == null) {
                 CompletableFuture<ArrayNode> itemsFuture = entityService.getItems(Mail.ENTITY_NAME, ENTITY_VERSION);
                 ArrayNode nodes = itemsFuture.get();
-                List<Mail> result = new ArrayList<>();
                 for (int i = 0; i < nodes.size(); i++) {
                     ObjectNode node = (ObjectNode) nodes.get(i);
-                    Mail mail = node.traverse().readValueAs(Mail.class);
+                    Mail mail = objectMapper.treeToValue(node, Mail.class);
                     result.add(mail);
                 }
                 logger.info("Retrieved {} Mail entities", result.size());
@@ -100,10 +104,9 @@ public class Controller {
                 SearchConditionRequest condition = SearchConditionRequest.group("AND", cond);
                 CompletableFuture<ArrayNode> filteredItemsFuture = entityService.getItemsByCondition(Mail.ENTITY_NAME, ENTITY_VERSION, condition, true);
                 ArrayNode nodes = filteredItemsFuture.get();
-                List<Mail> result = new ArrayList<>();
                 for (int i = 0; i < nodes.size(); i++) {
                     ObjectNode node = (ObjectNode) nodes.get(i);
-                    Mail mail = node.traverse().readValueAs(Mail.class);
+                    Mail mail = objectMapper.treeToValue(node, Mail.class);
                     result.add(mail);
                 }
                 logger.info("Retrieved {} Mail entities by criteria isHappy={}", result.size(), isHappy);
