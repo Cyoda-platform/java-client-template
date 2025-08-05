@@ -1,0 +1,127 @@
+{
+    "active": true,
+    "desc": "Business workflow for Pet entity lifecycle management",
+    "initialState": "none",
+    "name": "Pet Workflow",
+    "states": {
+        "available": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "finalizing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetStatusSoldCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "status_sold",
+                    "next": "sold"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetStatusPendingCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "status_pending",
+                    "next": "pending"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetStatusAvailableCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "status_available",
+                    "next": "available"
+                }
+            ]
+        },
+        "initialize_status": {
+            "transitions": [
+                {
+                    "name": "to_validation",
+                    "next": "validation"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "start_initialization",
+                    "next": "initialize_status"
+                }
+            ]
+        },
+        "pending": {
+            "transitions": []
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "name": "to_final_status",
+                    "next": "finalizing",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "PetProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "sold": {
+            "transitions": []
+        },
+        "validation": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "valid_pet_transition",
+                    "next": "processing"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "PetInvalidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "name": "invalid_pet_transition",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
