@@ -42,7 +42,7 @@ public class Controller {
             CompletableFuture<UUID> idFuture = entityService.addItem(Mail.ENTITY_NAME, ENTITY_VERSION, mail);
             UUID technicalId = idFuture.get();
             logger.info("Mail entity created with technicalId {}", technicalId.toString());
-            processMail(technicalId.toString(), mail);
+            // processMail call removed for workflow extraction
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId.toString());
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -112,42 +112,5 @@ public class Controller {
         }
     }
 
-    private void processMail(String technicalId, Mail mail) {
-        try {
-            if (mail.getMailList() == null || mail.getMailList().isEmpty()) {
-                logger.error("Mail with technicalId {} has empty mailList", technicalId);
-                return;
-            }
-            if (mail.getContent() == null || mail.getContent().isBlank()) {
-                logger.error("Mail with technicalId {} has empty content", technicalId);
-                return;
-            }
-
-            if (Boolean.TRUE.equals(mail.getIsHappy())) {
-                sendHappyMail(technicalId, mail);
-            } else if (Boolean.FALSE.equals(mail.getIsHappy())) {
-                sendGloomyMail(technicalId, mail);
-            } else {
-                logger.info("Mail with technicalId {} has undefined isHappy status", technicalId);
-            }
-        } catch (Exception e) {
-            logger.error("Exception in processMail for technicalId {}", technicalId, e);
-        }
-    }
-
-    private void sendHappyMail(String technicalId, Mail mail) {
-        for (String recipient : mail.getMailList()) {
-            logger.info("Sending HAPPY mail to {}: {}", recipient, mail.getContent());
-            // Real mail sending logic with JavaMail or external API would go here
-        }
-        logger.info("Completed sending happy mail for technicalId {}", technicalId);
-    }
-
-    private void sendGloomyMail(String technicalId, Mail mail) {
-        for (String recipient : mail.getMailList()) {
-            logger.info("Sending GLOOMY mail to {}: {}", recipient, mail.getContent());
-            // Real mail sending logic with JavaMail or external API would go here
-        }
-        logger.info("Completed sending gloomy mail for technicalId {}", technicalId);
-    }
+// Removed processMail and its private helpers for workflow extraction
 }
