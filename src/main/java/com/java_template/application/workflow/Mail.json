@@ -1,100 +1,100 @@
 {
-    "active": true,
-    "desc": "Workflow representing Mail entity lifecycle from creation to sending or failure",
-    "initialState": "none",
-    "name": "Mail Workflow",
-    "states": {
-        "Failed": {
-            "transitions": []
-        },
-        "MailCreated": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "ValidateMail"
-                        },
-                        "type": "function"
-                    },
-                    "name": "validate_mail_success",
-                    "next": "Validated"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "ValidateMailNegation"
-                        },
-                        "type": "function"
-                    },
-                    "name": "validate_mail_failure",
-                    "next": "Failed"
-                }
-            ]
-        },
-        "Processing": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "ProcessSucceeded"
-                        },
-                        "type": "function"
-                    },
-                    "name": "sending_succeeded",
-                    "next": "Sent"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "ProcessFailed"
-                        },
-                        "type": "function"
-                    },
-                    "name": "sending_failed",
-                    "next": "Failed"
-                }
-            ]
-        },
-        "Sent": {
-            "transitions": []
-        },
-        "Validated": {
-            "transitions": [
-                {
-                    "name": "process_mail",
-                    "next": "Processing",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "MailProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "none": {
-            "transitions": [
-                {
-                    "name": "create_mail",
-                    "next": "MailCreated"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow representing Mail entity lifecycle from creation to sending or failure",
+  "initialState": "none",
+  "name": "Mail Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "create_mail",
+          "next": "MailCreated"
         }
+      ]
     },
-    "version": "1.0"
+    "MailCreated": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "ValidateMail"
+            },
+            "type": "function"
+          },
+          "name": "validate_mail_success",
+          "next": "Validated"
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "ValidateMailNegation"
+            },
+            "type": "function"
+          },
+          "name": "validate_mail_failure",
+          "next": "Failed"
+        }
+      ]
+    },
+    "Validated": {
+      "transitions": [
+        {
+          "name": "process_mail",
+          "next": "Processing",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "MailProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "Processing": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "ProcessSucceeded"
+            },
+            "type": "function"
+          },
+          "name": "sending_succeeded",
+          "next": "Sent"
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "ProcessFailed"
+            },
+            "type": "function"
+          },
+          "name": "sending_failed",
+          "next": "Failed"
+        }
+      ]
+    },
+    "Sent": {
+      "transitions": []
+    },
+    "Failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
