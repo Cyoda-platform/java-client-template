@@ -1,0 +1,144 @@
+{
+    "active": true,
+    "desc": "Workflow for processing Mail entity based on isHappy field",
+    "initialState": "created",
+    "name": "Mail Workflow",
+    "states": {
+        "checkMailIsGloomy": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "transition_to_sendGloomyMail",
+                    "next": "sendGloomyMail"
+                }
+            ]
+        },
+        "checkMailIsHappy": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "transition_to_sendHappyMail",
+                    "next": "sendHappyMail"
+                }
+            ]
+        },
+        "completed": {
+            "transitions": []
+        },
+        "created": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "transition_to_validation_or_processing",
+                    "next": "validation"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsHappyTrueCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "transition_to_sendHappyMail",
+                    "next": "sendHappyMail"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsHappyFalseCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "transition_to_sendGloomyMail",
+                    "next": "sendGloomyMail"
+                }
+            ]
+        },
+        "sendGloomyMail": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "transition_to_completed",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "SendGloomyMailProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "sendHappyMail": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "transition_to_completed",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "SendHappyMailProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "validation": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "CheckMailIsHappyCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "transition_to_checkMailIsHappy",
+                    "next": "checkMailIsHappy"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "CheckMailIsGloomyCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "transition_to_checkMailIsGloomy",
+                    "next": "checkMailIsGloomy"
+                },
+                {
+                    "manual": false,
+                    "name": "transition_to_processing_without_validation",
+                    "next": "processing"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
