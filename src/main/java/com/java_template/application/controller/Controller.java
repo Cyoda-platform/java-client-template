@@ -1,6 +1,7 @@
 package com.java_template.application.controller;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Mail;
 import com.java_template.common.service.EntityService;
@@ -24,6 +25,7 @@ import static com.java_template.common.config.Config.*;
 public class Controller {
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     @PostMapping
     public ResponseEntity<Map<String, String>> createMail(@RequestBody Mail mail) {
@@ -36,8 +38,6 @@ public class Controller {
             UUID technicalId = idFuture.get(); // blocking get since method is synchronous
 
             log.info("Mail created with technicalId={}", technicalId);
-
-            // processMail method removed for workflow extraction
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId.toString());
@@ -56,7 +56,7 @@ public class Controller {
     }
 
     @GetMapping("/{technicalId}")
-    public ResponseEntity<Mail> getMailById(@PathVariable String technicalId) {
+    public ResponseEntity<Mail> getMailById(@PathVariable String technicalId) throws JsonProcessingException {
         try {
             UUID techIdUuid = UUID.fromString(technicalId);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(Mail.ENTITY_NAME, ENTITY_VERSION, techIdUuid);
@@ -67,7 +67,7 @@ public class Controller {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
 
-            Mail mail = node.traverse().readValueAs(Mail.class);
+            Mail mail = objectMapper.treeToValue(node, Mail.class);
             log.info("Mail retrieved for technicalId={}", technicalId);
             return ResponseEntity.ok(mail);
         } catch (IllegalArgumentException e) {
@@ -76,9 +76,6 @@ public class Controller {
         } catch (InterruptedException | ExecutionException e) {
             log.error("ExecutionException in getMailById", e);
             Thread.currentThread().interrupt();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        } catch (Exception e) {
-            log.error("Exception in getMailById", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
