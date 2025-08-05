@@ -1,0 +1,102 @@
+{
+    "active": true,
+    "desc": "Workflow for processing Pet entity on persistence event",
+    "initialState": "none",
+    "name": "Pet Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "enrichment": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "enrich_and_persist",
+                    "next": "persistence",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "WorkflowProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "start_validation",
+                    "next": "validation"
+                }
+            ]
+        },
+        "notification": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "notify_success",
+                    "next": "completed"
+                },
+                {
+                    "manual": false,
+                    "name": "notify_failure",
+                    "next": "failed"
+                }
+            ]
+        },
+        "persistence": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "persist_success",
+                    "next": "notification"
+                },
+                {
+                    "manual": false,
+                    "name": "persist_failure",
+                    "next": "failed"
+                }
+            ]
+        },
+        "validation": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ValidatePet"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "valid_pet",
+                    "next": "enrichment"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ValidatePetNegation"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "invalid_pet",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
