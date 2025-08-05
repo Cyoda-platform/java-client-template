@@ -1,98 +1,98 @@
 {
-    "active": true,
-    "desc": "Workflow to process Order entity from creation to completion",
-    "initialState": "none",
-    "name": "OrderProcessingWorkflow",
-    "states": {
-        "business_logic": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "apply_business_rules",
-                    "next": "persistence",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "OrderProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "completed": {
-            "transitions": []
-        },
-        "completion_approved": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "finalize_approval",
-                    "next": "notification"
-                }
-            ]
-        },
-        "completion_rejected": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "finalize_rejection",
-                    "next": "completed"
-                }
-            ]
-        },
-        "none": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "to_validation",
-                    "next": "validation"
-                }
-            ]
-        },
-        "notification": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "notify_shipment_and_billing",
-                    "next": "completed"
-                }
-            ]
-        },
-        "persistence": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "persist_order",
-                    "next": "completion_approved"
-                }
-            ]
-        },
-        "validation": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "OrderIsValid"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "valid_order",
-                    "next": "business_logic"
-                },
-                {
-                    "manual": false,
-                    "name": "invalid_order",
-                    "next": "completion_rejected"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow to process Order entity from creation to completion",
+  "initialState": "none",
+  "name": "OrderProcessingWorkflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "to_validation",
+          "next": "validation"
         }
+      ]
     },
-    "version": "1.0"
+    "validation": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "OrderIsValid"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "valid_order",
+          "next": "business_logic"
+        },
+        {
+          "manual": false,
+          "name": "invalid_order",
+          "next": "completion_rejected"
+        }
+      ]
+    },
+    "business_logic": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "apply_business_rules",
+          "next": "persistence",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "OrderProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "persistence": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "persist_order",
+          "next": "completion_approved"
+        }
+      ]
+    },
+    "completion_approved": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "finalize_approval",
+          "next": "notification"
+        }
+      ]
+    },
+    "notification": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "notify_shipment_and_billing",
+          "next": "completed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "completion_rejected": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "finalize_rejection",
+          "next": "completed"
+        }
+      ]
+    }
+  },
+  "version": "1.0"
 }
