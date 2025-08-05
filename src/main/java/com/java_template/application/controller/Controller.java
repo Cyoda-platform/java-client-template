@@ -53,7 +53,7 @@ public class Controller {
 
             logger.info("Mail entity created with technicalId: {}", technicalIdStr);
 
-            processMail(technicalIdStr, mail);
+// Removed processMail call and its helper methods extraction done
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalIdStr);
@@ -93,82 +93,4 @@ public class Controller {
         }
     }
 
-    private void processMail(String technicalId, Mail mail) {
-        logger.info("Processing Mail entity with technicalId: {}", technicalId);
-
-        // Validate mail fields (already partially validated in isValid)
-        if (mail.getMailList() == null || mail.getMailList().isEmpty()) {
-            logger.error("MailList is empty for Mail with technicalId: {}", technicalId);
-            mail.setStatus("FAILED");
-            updateMailStatus(technicalId, mail);
-            return;
-        }
-        if (mail.getSubject() == null || mail.getSubject().isBlank()) {
-            logger.error("Subject is blank for Mail with technicalId: {}", technicalId);
-            mail.setStatus("FAILED");
-            updateMailStatus(technicalId, mail);
-            return;
-        }
-        if (mail.getContent() == null || mail.getContent().isBlank()) {
-            logger.error("Content is blank for Mail with technicalId: {}", technicalId);
-            mail.setStatus("FAILED");
-            updateMailStatus(technicalId, mail);
-            return;
-        }
-
-        try {
-            if (Boolean.TRUE.equals(mail.getIsHappy())) {
-                if (checkMailHappy(mail)) {
-                    sendHappyMail(mail);
-                    mail.setStatus("SENT");
-                } else {
-                    logger.error("Mail did not pass happy criteria for technicalId: {}", technicalId);
-                    mail.setStatus("FAILED");
-                }
-            } else {
-                if (checkMailGloomy(mail)) {
-                    sendGloomyMail(mail);
-                    mail.setStatus("SENT");
-                } else {
-                    logger.error("Mail did not pass gloomy criteria for technicalId: {}", technicalId);
-                    mail.setStatus("FAILED");
-                }
-            }
-        } catch (Exception e) {
-            logger.error("Exception during mail processing for technicalId: {}: {}", technicalId, e.getMessage());
-            mail.setStatus("FAILED");
-        }
-
-        updateMailStatus(technicalId, mail);
-        logger.info("Processing completed for Mail with technicalId: {} with status: {}", technicalId, mail.getStatus());
-    }
-
-    private void updateMailStatus(String technicalId, Mail mail) {
-        // TODO: No update operation available in EntityService. Implement update logic or leave as TODO.
-        // Current workaround: log status update only.
-        logger.info("Updating Mail status for technicalId: {} to {}", technicalId, mail.getStatus());
-        // Ideally, should call entityService update method here, but it's not supported.
-    }
-
-    private boolean checkMailHappy(Mail mail) {
-        // Criteria: isHappy == true
-        return Boolean.TRUE.equals(mail.getIsHappy());
-    }
-
-    private boolean checkMailGloomy(Mail mail) {
-        // Criteria: isHappy == false
-        return Boolean.FALSE.equals(mail.getIsHappy());
-    }
-
-    private void sendHappyMail(Mail mail) {
-        // Simulate sending happy mail
-        logger.info("Sending Happy Mail to recipients: {}", mail.getMailList());
-        // Here could be integration with SMTP or external mail service
-    }
-
-    private void sendGloomyMail(Mail mail) {
-        // Simulate sending gloomy mail
-        logger.info("Sending Gloomy Mail to recipients: {}", mail.getMailList());
-        // Here could be integration with SMTP or external mail service
-    }
 }
