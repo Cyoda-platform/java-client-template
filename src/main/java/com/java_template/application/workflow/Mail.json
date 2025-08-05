@@ -1,0 +1,144 @@
+{
+  "version": "1.0",
+  "name": "Mail Workflow",
+  "desc": "Workflow for processing Mail entity based on isHappy field",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": [
+        {
+          "name": "transition_to_validation_or_processing",
+          "next": "validation",
+          "manual": false
+        }
+      ]
+    },
+    "validation": {
+      "transitions": [
+        {
+          "name": "transition_to_checkMailIsHappy",
+          "next": "checkMailIsHappy",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "CheckMailIsHappyCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "transition_to_checkMailIsGloomy",
+          "next": "checkMailIsGloomy",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "CheckMailIsGloomyCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "transition_to_processing_without_validation",
+          "next": "processing",
+          "manual": false
+        }
+      ]
+    },
+    "checkMailIsHappy": {
+      "transitions": [
+        {
+          "name": "transition_to_sendHappyMail",
+          "next": "sendHappyMail",
+          "manual": false
+        }
+      ]
+    },
+    "checkMailIsGloomy": {
+      "transitions": [
+        {
+          "name": "transition_to_sendGloomyMail",
+          "next": "sendGloomyMail",
+          "manual": false
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "name": "transition_to_sendHappyMail",
+          "next": "sendHappyMail",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsHappyTrueCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "transition_to_sendGloomyMail",
+          "next": "sendGloomyMail",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsHappyFalseCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "sendHappyMail": {
+      "transitions": [
+        {
+          "name": "transition_to_completed",
+          "next": "completed",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendHappyMailProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "sendGloomyMail": {
+      "transitions": [
+        {
+          "name": "transition_to_completed",
+          "next": "completed",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendGloomyMailProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    }
+  }
+}
