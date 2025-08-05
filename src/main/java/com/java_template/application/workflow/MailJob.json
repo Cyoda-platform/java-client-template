@@ -1,0 +1,104 @@
+{
+  "version": "1.0",
+  "name": "MailJob Workflow",
+  "desc": "Workflow for processing MailJob entity including validation and sending happy or gloomy mails.",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": [
+        {
+          "name": "validate_mailjob",
+          "next": "validated",
+          "manual": false,
+          "processors": [
+            {
+              "name": "MailJobValidationProcessor",
+              "executionMode": "SYNC",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          ]
+        }
+      ]
+    },
+    "validated": {
+      "transitions": [
+        {
+          "name": "send_happy_mail",
+          "next": "sending_happy_mail",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsHappyCriterion",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          }
+        },
+        {
+          "name": "send_gloomy_mail",
+          "next": "sending_gloomy_mail",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsNotHappyCriterion",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          }
+        }
+      ]
+    },
+    "sending_happy_mail": {
+      "transitions": [
+        {
+          "name": "update_status_after_happy",
+          "next": "completed_or_failed",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendHappyMailProcessor",
+              "executionMode": "SYNC",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          ]
+        }
+      ]
+    },
+    "sending_gloomy_mail": {
+      "transitions": [
+        {
+          "name": "update_status_after_gloomy",
+          "next": "completed_or_failed",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendGloomyMailProcessor",
+              "executionMode": "SYNC",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          ]
+        }
+      ]
+    },
+    "completed_or_failed": {
+      "transitions": [
+        {
+          "name": "complete_or_fail",
+          "next": "final",
+          "manual": false,
+          "processors": [
+            {
+              "name": "UpdateMailJobStatusProcessor",
+              "executionMode": "SYNC",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          ]
+        }
+      ]
+    },
+    "final": {
+      "transitions": []
+    }
+  }
+}
