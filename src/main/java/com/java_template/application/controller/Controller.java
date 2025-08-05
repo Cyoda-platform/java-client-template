@@ -38,7 +38,7 @@ public class Controller {
             CompletableFuture<UUID> idFuture = entityService.addItem(Mail.ENTITY_NAME, ENTITY_VERSION, mail);
             UUID technicalId = idFuture.join();
             logger.info("Mail entity created with technicalId: {}", technicalId);
-            processMail(technicalId.toString(), mail);
+            // processMail call removed as it is extracted to workflow prototype
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException e) {
             logger.error("Invalid argument in createMail: {}", e.getMessage());
@@ -74,45 +74,6 @@ public class Controller {
         } catch (Exception e) {
             logger.error("Failed to retrieve Mail entity: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
-        }
-    }
-
-    // Business logic processing for Mail entity
-    private void processMail(String technicalId, Mail mail) {
-        logger.info("Processing Mail entity with technicalId: {}", technicalId);
-        try {
-            boolean criteriaResult = checkMailIsHappy(mail);
-            if (criteriaResult) {
-                sendHappyMail(mail);
-                mail.setStatus("COMPLETED");
-                logger.info("Happy mail sent for technicalId: {}", technicalId);
-            } else {
-                sendGloomyMail(mail);
-                mail.setStatus("COMPLETED");
-                logger.info("Gloomy mail sent for technicalId: {}", technicalId);
-            }
-        } catch (Exception e) {
-            mail.setStatus("FAILED");
-            logger.error("Failed to process mail with technicalId: {}. Error: {}", technicalId, e.getMessage());
-        }
-    }
-
-    // Criteria check method
-    private boolean checkMailIsHappy(Mail mail) {
-        return mail.isHappy();
-    }
-
-    // Processor for sending happy mails
-    private void sendHappyMail(Mail mail) {
-        for (String recipient : mail.getMailList()) {
-            logger.info("Sending HAPPY mail to {}", recipient);
-        }
-    }
-
-    // Processor for sending gloomy mails
-    private void sendGloomyMail(Mail mail) {
-        for (String recipient : mail.getMailList()) {
-            logger.info("Sending GLOOMY mail to {}", recipient);
         }
     }
 
