@@ -5,12 +5,22 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.protobuf.InvalidProtocolBufferException;
+import com.java_template.common.grpc.client_v2.CloudEventBuilder;
+import com.java_template.common.grpc.client_v2.CloudEventParser;
 import com.java_template.common.repository.dto.Meta;
 import com.java_template.common.util.HttpUtils;
+import io.cloudevents.v1.proto.CloudEvent;
+import java.util.function.Function;
+import org.cyoda.cloud.api.event.common.BaseEvent;
+import org.cyoda.cloud.api.event.common.DataPayload;
+import org.cyoda.cloud.api.event.search.EntityGetRequest;
+import org.cyoda.cloud.api.event.search.EntityResponse;
+import org.cyoda.cloud.api.grpc.CloudEventsServiceGrpc;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Repository;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
@@ -22,22 +32,34 @@ import java.util.concurrent.TimeoutException;
 
 import static com.java_template.common.config.Config.CYODA_API_URL;
 
-@Component
+@Repository
 public class CyodaRepository implements CrudRepository {
     private final Logger logger = LoggerFactory.getLogger(CyodaRepository.class);
     private final HttpUtils httpUtils;
     private final ObjectMapper objectMapper;
+    private final CloudEventsServiceGrpc.CloudEventsServiceBlockingStub cloudEventsServiceBlockingStub;
+    private final CloudEventBuilder cloudEventBuilder;
+    private final CloudEventParser cloudEventParser;
 
     private final String FORMAT = "JSON"; // or "XML"
 
-    public CyodaRepository(HttpUtils httpUtils, ObjectMapper objectMapper) {
+    public CyodaRepository(
+            final HttpUtils httpUtils,
+            final ObjectMapper objectMapper,
+            final CloudEventsServiceGrpc.CloudEventsServiceBlockingStub cloudEventsServiceBlockingStub,
+            final CloudEventBuilder cloudEventBuilder,
+            final CloudEventParser cloudEventParser
+    ) {
         this.objectMapper = objectMapper;
         this.httpUtils = httpUtils;
+        this.cloudEventsServiceBlockingStub = cloudEventsServiceBlockingStub;
+        this.cloudEventBuilder = cloudEventBuilder;
+        this.cloudEventParser = cloudEventParser;
     }
 
     @Override
-    public CompletableFuture<ObjectNode> findById(Meta meta, UUID id) {
-        return getById(meta, id);
+    public CompletableFuture<ObjectNode> findById(final UUID id) {
+        return getById(id);
     }
 
     @Override
@@ -148,10 +170,40 @@ public class CyodaRepository implements CrudRepository {
                 });
     }
 
-    private CompletableFuture<ObjectNode> getById(Meta meta, UUID id) {
-        String path = String.format("entity/%s", id);
-        return httpUtils.sendGetRequest(meta.getToken(), CYODA_API_URL, path)
-                .thenApply(response -> (ObjectNode) response.get("json"));
+    private <RESPONSE_TYPE extends BaseEvent> CompletableFuture<RESPONSE_TYPE> sendAndGet(
+            final Function<CloudEvent, CloudEvent> apiCall,
+            final BaseEvent baseEvent,
+            final Class<RESPONSE_TYPE> responseType
+    ) {
+        try {
+            final CloudEvent requestEvent = cloudEventBuilder.buildEvent(baseEvent);
+            return CompletableFuture.supplyAsync(() -> {
+                try {
+                    return apiCall.apply(requestEvent);
+                } catch (Exception e) {
+                    throw new CompletionException(e);
+                }
+            }).thenApply(responseEvent ->
+                    cloudEventParser.parseCloudEvent(responseEvent, responseType).orElse(null)
+            );
+        } catch (InvalidProtocolBufferException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private CompletableFuture<ObjectNode> getById(final UUID entityId) {
+        return sendAndGet(
+                cloudEventsServiceBlockingStub::entityManage,
+                new EntityGetRequest().withId(UUID.randomUUID().toString()).withEntityId(entityId),
+                EntityResponse.class
+        ).thenApplyAsync(EntityResponse::getPayload)
+                .thenApplyAsync(DataPayload::getData)
+                .thenApplyAsync(it -> (ObjectNode) it);
+
+//        String path = String.format("entity/%s", id);
+//
+//        return httpUtils.sendGetRequest(meta.getToken(), CYODA_API_URL, path)
+//                .thenApply(response -> (ObjectNode) response.get("json"));
     }
 
     private CompletableFuture<ArrayNode> saveNewEntities(Meta meta, Object data) {
@@ -185,13 +237,15 @@ public class CyodaRepository implements CrudRepository {
     private CompletableFuture<ObjectNode> deleteEntity(Meta meta, UUID id) {
         String path = String.format("entity/%s", id);
 
-        return httpUtils.sendDeleteRequest(meta.getToken(), CYODA_API_URL, path).thenApply(response -> (ObjectNode) response.get("json"));
+        return httpUtils.sendDeleteRequest(meta.getToken(), CYODA_API_URL, path)
+                .thenApply(response -> (ObjectNode) response.get("json"));
     }
 
     private CompletableFuture<ArrayNode> deleteAllByModel(Meta meta) {
         String path = String.format("entity/%s/%s", meta.getEntityModel(), meta.getEntityVersion());
 
-        return httpUtils.sendDeleteRequest(meta.getToken(), CYODA_API_URL, path).thenApply(response -> (ArrayNode) response.get("json"));
+        return httpUtils.sendDeleteRequest(meta.getToken(), CYODA_API_URL, path)
+                .thenApply(response -> (ArrayNode) response.get("json"));
     }
 
     private CompletableFuture<ArrayNode> findAllByCondition(Meta meta, Object condition) {
@@ -234,7 +288,10 @@ public class CyodaRepository implements CrudRepository {
                     Throwable cause = ex instanceof CompletionException ? ex.getCause() : ex;
                     if (cause instanceof ResponseStatusException rsEx &&
                             rsEx.getStatusCode() == HttpStatus.NOT_FOUND) {
-                        logger.warn("Model not found for in-memory search, returning empty array: {}", rsEx.getReason());
+                        logger.warn(
+                                "Model not found for in-memory search, returning empty array: {}",
+                                rsEx.getReason()
+                        );
                         return objectMapper.createArrayNode();
                     }
                     throw new CompletionException("Unhandled error in in-memory search", cause);
@@ -254,7 +311,12 @@ public class CyodaRepository implements CrudRepository {
                     }
                     try {
                         return waitForSearchCompletion(meta.getToken(), snapshotId, 10_000, 500)
-                                .thenCompose(statusResponse -> getSearchResult(meta.getToken(), snapshotId, pageSize, pageNumber));
+                                .thenCompose(statusResponse -> getSearchResult(
+                                        meta.getToken(),
+                                        snapshotId,
+                                        pageSize,
+                                        pageNumber
+                                ));
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
@@ -265,7 +327,12 @@ public class CyodaRepository implements CrudRepository {
         return searchEntitiesInMemory(meta, condition, 1000, 60000);
     }
 
-    private CompletableFuture<ObjectNode> searchEntitiesInMemory(Meta meta, Object condition, int limit, int timeoutMillis) {
+    private CompletableFuture<ObjectNode> searchEntitiesInMemory(
+            Meta meta,
+            Object condition,
+            int limit,
+            int timeoutMillis
+    ) {
         String searchPath = String.format("search/%s/%s", meta.getEntityModel(), meta.getEntityVersion());
 
         // Create search request with parameters
@@ -287,8 +354,10 @@ public class CyodaRepository implements CrudRepository {
             queryParams.put("limit", String.valueOf(limit));
             queryParams.put("timeoutMillis", String.valueOf(timeoutMillis));
 
-            logger.info("Performing in-memory search for entity: {}/{} with condition: {}",
-                       meta.getEntityModel(), meta.getEntityVersion(), searchRequest);
+            logger.info(
+                    "Performing in-memory search for entity: {}/{} with condition: {}",
+                    meta.getEntityModel(), meta.getEntityVersion(), searchRequest
+            );
 
             return httpUtils.sendPostRequest(meta.getToken(), CYODA_API_URL, searchPath, searchRequest, queryParams);
 
@@ -298,18 +367,34 @@ public class CyodaRepository implements CrudRepository {
         }
     }
 
-    private CompletableFuture<String> createSnapshotSearch(String token, String entityModel, String entityVersion, Object condition) {
+    private CompletableFuture<String> createSnapshotSearch(
+            String token,
+            String entityModel,
+            String entityVersion,
+            Object condition
+    ) {
         String searchPath = String.format("search/snapshot/%s/%s", entityModel, entityVersion);
         return httpUtils.sendPostRequest(token, CYODA_API_URL, searchPath, condition)
                 .thenApply(response -> response.get("json").asText());
     }
 
-    private CompletableFuture<ObjectNode> waitForSearchCompletion(String token, String snapshotId, long timeoutMillis, long intervalMillis) throws IOException {
+    private CompletableFuture<ObjectNode> waitForSearchCompletion(
+            String token,
+            String snapshotId,
+            long timeoutMillis,
+            long intervalMillis
+    ) throws IOException {
         long startTime = System.currentTimeMillis();
         return pollSnapshotStatus(token, snapshotId, startTime, timeoutMillis, intervalMillis);
     }
 
-    private CompletableFuture<ObjectNode> pollSnapshotStatus(String token, String snapshotId, long startTime, long timeoutMillis, long intervalMillis) throws IOException {
+    private CompletableFuture<ObjectNode> pollSnapshotStatus(
+            String token,
+            String snapshotId,
+            long startTime,
+            long timeoutMillis,
+            long intervalMillis
+    ) throws IOException {
         return getSnapshotStatus(token, snapshotId).thenCompose(statusResponse -> {
             String status = statusResponse.get("json").get("snapshotStatus").asText();
 
@@ -324,7 +409,10 @@ public class CyodaRepository implements CrudRepository {
                 return CompletableFuture.failedFuture(new TimeoutException("Timeout exceeded after " + timeoutMillis + " ms"));
             }
 
-            return CompletableFuture.runAsync(() -> {}, CompletableFuture.delayedExecutor(intervalMillis, TimeUnit.MILLISECONDS))
+            return CompletableFuture.runAsync(
+                            () -> {},
+                            CompletableFuture.delayedExecutor(intervalMillis, TimeUnit.MILLISECONDS)
+                    )
                     .thenCompose(ignored -> {
                         try {
                             return pollSnapshotStatus(token, snapshotId, startTime, timeoutMillis, intervalMillis);
@@ -340,9 +428,19 @@ public class CyodaRepository implements CrudRepository {
         return httpUtils.sendGetRequest(token, CYODA_API_URL, path);
     }
 
-    private CompletableFuture<ObjectNode> getSearchResult(String token, String snapshotId, int pageSize, int pageNumber) {
+    private CompletableFuture<ObjectNode> getSearchResult(
+            String token,
+            String snapshotId,
+            int pageSize,
+            int pageNumber
+    ) {
         String path = String.format("search/snapshot/%s", snapshotId);
-        Map<String, String> params = Map.of("pageSize", String.valueOf(pageSize), "pageNumber", String.valueOf(pageNumber));
+        Map<String, String> params = Map.of(
+                "pageSize",
+                String.valueOf(pageSize),
+                "pageNumber",
+                String.valueOf(pageNumber)
+        );
 
         return httpUtils.sendGetRequest(token, CYODA_API_URL, path, params)
                 .thenApply(response -> {

@@ -30,7 +30,7 @@ public class AckEventStrategy implements EventHandlingStrategy<BaseEvent> {
 
     @Override
     public BaseEvent handleEvent(@NotNull final CloudEvent cloudEvent) {
-        final CloudEventType cloudEventType = CloudEventType.fromValue(cloudEvent.getType());
+        final var cloudEventType = CloudEventType.fromValue(cloudEvent.getType());
 
         log.debug(
                 "[IN] Received event {}: \n{}",

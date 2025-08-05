@@ -9,6 +9,7 @@ import org.cyoda.cloud.api.event.common.BaseEvent;
 import org.cyoda.cloud.api.event.common.CloudEventType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -20,13 +21,13 @@ class CyodaCalculationMemberClient implements EventHandler {
 
     private final EventSender eventSender;
     private final CalculationExecutionStrategy calculationExecutionStrategy;
-    private final EventBuilder eventBuilder;
+    private final CloudEventBuilder eventBuilder;
     private final List<EventHandlingStrategy<? extends BaseEvent>> eventHandlingStrategies;
 
     CyodaCalculationMemberClient(
-            final EventSender eventSender,
+            @Lazy final EventSender eventSender,
             final CalculationExecutionStrategy calculationExecutionStrategy,
-            final EventBuilder eventBuilder,
+            final CloudEventBuilder eventBuilder,
             final List<EventHandlingStrategy<? extends BaseEvent>> eventHandlingStrategies
     ) {
         this.eventSender = eventSender;
@@ -68,7 +69,11 @@ class CyodaCalculationMemberClient implements EventHandler {
                 if (response != null) {
                     sendEvent(response);
                 } else {
-                    log.info("No response for the event of type '{}' with id '{}'", cloudEventType, cloudEvent.getId());
+                    log.debug(
+                            "No response for the event of type '{}' with id '{}'",
+                            cloudEventType,
+                            cloudEvent.getId()
+                    );
                 }
 
             } catch (Exception e) {
@@ -94,7 +99,7 @@ class CyodaCalculationMemberClient implements EventHandler {
         }
 
         if (event.getSuccess()) {
-            log.debug("[OUT] Sending event {}, success: {}", cloudEvent.getType(), event.getSuccess());
+            log.info("[OUT] Sending event {}, success: {}", cloudEvent.getType(), event.getSuccess());
         } else {
             log.warn("[OUT] Sending event {}, success: {}", cloudEvent.getType(), event.getSuccess());
         }

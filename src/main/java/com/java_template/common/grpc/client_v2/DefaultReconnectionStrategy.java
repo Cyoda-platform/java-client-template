@@ -53,8 +53,8 @@ public class DefaultReconnectionStrategy implements ReconnectionStrategy {
             try {
                 log.info("Attempt to reconnect...");
                 reconnect.call();
+                log.info("Successful reconnected");
 
-                log.info("Reconnection successful");
                 failedReconnectsCount.set(0);
                 isReconnectScheduled.set(false);
             } catch (Exception e) {

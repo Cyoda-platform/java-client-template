@@ -4,25 +4,27 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import io.cloudevents.v1.proto.CloudEvent;
 import io.grpc.ConnectivityState;
-import io.grpc.ManagedChannel;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
+import org.cyoda.cloud.api.event.common.CloudEventType;
 import org.cyoda.cloud.api.event.processing.EventAckResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 @Component
-class GrpcConnectionMonitor implements EventTracker, ObserverStateTracker {
+class GrpcConnectionMonitor implements EventTracker, ConnectionStateTracker {
     public static final int SENT_EVENTS_CACHE_MAX_SIZE = 100; // TODO: Move to props
     public static final int MONITORING_SCHEDULER_INITIAL_DELAY_SECONDS = 10;  // TODO: Move to props
     public static final int MONITORING_SCHEDULER_DELAY_SECONDS = 30; // TODO: Move to props
@@ -47,22 +49,15 @@ class GrpcConnectionMonitor implements EventTracker, ObserverStateTracker {
     private final Map<
             Class<? extends MonitoringEvent>,
             List<MonitoringEventListener<MonitoringEvent>>
-            > monitoringEventListeners = new ConcurrentHashMap<>();
+            > monitoringEventListeners;
 
-    private final ManagedChannel managedChannel;
-
-    public GrpcConnectionMonitor(
-            final List<MonitoringEventListener<MonitoringEvent>> monitoringEventListeners,
-            final ManagedChannel managedChannel
-    ) {
-        for (final var listener : monitoringEventListeners) {
-            this.monitoringEventListeners.computeIfAbsent(
-                    listener.getEventType(),
-                    k -> new ArrayList<>()
-            ).add(listener);
-        }
-
-        this.managedChannel = managedChannel;
+    public GrpcConnectionMonitor(final List<MonitoringEventListener<MonitoringEvent>> monitoringEventListeners) {
+        this.monitoringEventListeners = monitoringEventListeners.stream().collect(
+                Collectors.groupingBy(
+                        MonitoringEventListener::getEventType,
+                        Collectors.toList()
+                )
+        );
     }
 
     @PostConstruct
@@ -77,19 +72,32 @@ class GrpcConnectionMonitor implements EventTracker, ObserverStateTracker {
 
     @PreDestroy
     private void shutdown() {
+        logger.info("Stopping monitoring...");
         monitorExecutor.shutdown();
+        logger.info("Monitoring stoped");
     }
 
     private void monitor() {
-        logConnectionState();
         checkSentEventsCacheSize();
         checkTimeSinceLastKeepAlive();
     }
 
+    private static final Set<String> EVENT_TYPES_TO_IGNORE = Set.of(
+                    CloudEventType.EVENT_ACK_RESPONSE,
+                    CloudEventType.CALCULATION_MEMBER_JOIN_EVENT
+            ).stream()
+            .map(Enum::toString)
+            .collect(Collectors.toSet());
+
     @Override
     public void trackEventSent(final CloudEvent cloudEvent) {
-        sentEventsCache.put(cloudEvent.getId(), cloudEvent);
-        broadcastMonitoringEvent(new EventSent(cloudEvent.getId(), cloudEvent.getType()));
+        logger.debug("Sent event type {} id {}", cloudEvent.getType(), cloudEvent.getId());
+        if (EVENT_TYPES_TO_IGNORE.stream().noneMatch(eventType -> eventType.equals(cloudEvent.getType()))) {
+            sentEventsCache.put(cloudEvent.getId(), cloudEvent);
+            broadcastMonitoringEvent(
+                    new EventSent(cloudEvent.getId(), cloudEvent.getType())
+            );
+        }
     }
 
     @Override
@@ -113,6 +121,8 @@ class GrpcConnectionMonitor implements EventTracker, ObserverStateTracker {
                 } else {
                     logger.warn("Event with Id: {} not found in cache", sourceEventId);
                 }
+            } else {
+                logger.debug("No event for {} with id {}", success ? "ACK" : "NACK", sourceEventId);
             }
         } else {
             logger.warn(
@@ -133,21 +143,25 @@ class GrpcConnectionMonitor implements EventTracker, ObserverStateTracker {
 
     @Override
     public void trackGreetReceived() {
+//        sentEventsCache.invalidate();
         trackObserverStateChange(ObserverState.READY);
     }
 
-    private void logConnectionState() {
-        final var lastConnectionState = this.lastConnectionState.get();
-        final var currentConnectionState = managedChannel.getState(false);
-        if (lastConnectionState != currentConnectionState) {
-            this.lastConnectionState.set(currentConnectionState);
-            logger.info(
-                    "gRPC connection state changed: {} -> {} (member status: {})",
-                    lastConnectionState,
-                    currentConnectionState,
-                    lastObserverState.get()
-            );
-        }
+    public void trackConnectionStateChanged(
+            final Supplier<ConnectivityState> newStateProvider,
+            final BiConsumer<ConnectivityState, Runnable> initNextListener
+    ) {
+        final var newState = newStateProvider.get();
+        initNextListener.accept(newState, () -> trackConnectionStateChanged(newStateProvider, initNextListener));
+        broadcastMonitoringEvent(new GrpcConnectionStateChangedEvent(newState));
+
+        final var oldState = this.lastConnectionState.getAndSet(newState);
+        logger.info(
+                "gRPC connection state changed: {} -> {} (member status: {})",
+                oldState,
+                newState,
+                lastObserverState.get()
+        );
     }
 
     private void checkSentEventsCacheSize() {
@@ -172,7 +186,11 @@ class GrpcConnectionMonitor implements EventTracker, ObserverStateTracker {
     private void checkTimeSinceLastKeepAlive() {
         final var lastKeepAliveTimestampMs = this.lastKeepAliveTimestampMs.get();
         if (lastKeepAliveTimestampMs < 0) {
-            logger.warn("Keep alive not received yet");
+            logger.warn(
+                    "Keep alive not received yet (Connection state: {}; Member state: {})",
+                    lastConnectionState.get(),
+                    lastObserverState.get()
+            );
             return;
         }
 
@@ -191,11 +209,19 @@ class GrpcConnectionMonitor implements EventTracker, ObserverStateTracker {
     @Override
     public void trackObserverStateChange(final ObserverState newState) {
         final var oldState = lastObserverState.getAndSet(newState);
-        logger.info("Connection state changes from {} to {}", oldState, newState);
-        broadcastMonitoringEvent(new GrpcConnectionEvent(newState));
+        logger.info(
+                "Observer state changes from {} to {} (connection state: {})",
+                oldState,
+                newState,
+                lastConnectionState.get()
+        );
+        broadcastMonitoringEvent(new StreamObserverStateChangedEvent(newState));
     }
 
     private void broadcastMonitoringEvent(final MonitoringEvent monitoringEvent) {
+        if (!monitoringEventListeners.containsKey(monitoringEvent.getClass())) {
+            return;
+        }
         for (final var monitoringEventListener : monitoringEventListeners.get(monitoringEvent.getClass())) {
             monitoringEventListener.handle(monitoringEvent);
         }
@@ -205,6 +231,7 @@ class GrpcConnectionMonitor implements EventTracker, ObserverStateTracker {
 enum ObserverState {
     DISCONNECTED,
     CONNECTING,
+    JOINING,
     CONNECTED,
     AWAITS_GREET,
     READY,
@@ -218,8 +245,12 @@ interface MonitoringEventListener<MONITORING_EVENT_TYPE extends MonitoringEvent>
 
 interface MonitoringEvent {}
 
-record GrpcConnectionEvent(
-        ObserverState connectionState
+record GrpcConnectionStateChangedEvent(
+        ConnectivityState connectionState
+) implements MonitoringEvent {}
+
+record StreamObserverStateChangedEvent(
+        ObserverState observerState
 ) implements MonitoringEvent {}
 
 record EventSent(

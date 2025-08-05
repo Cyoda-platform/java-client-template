@@ -34,7 +34,7 @@ public interface CrudRepository {
 
     CompletableFuture<ObjectNode> findByKey(Meta meta, Object key);
 
-    CompletableFuture<ObjectNode> findById(Meta meta, UUID id);
+    CompletableFuture<ObjectNode> findById(UUID id);
 
     CompletableFuture<ArrayNode> findAllByCriteria(Meta meta, Object criteria);
 

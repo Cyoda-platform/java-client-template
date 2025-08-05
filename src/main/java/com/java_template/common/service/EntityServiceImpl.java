@@ -75,9 +75,9 @@ public class EntityServiceImpl implements EntityService {
     @Override
     public CompletableFuture<ObjectNode> getItem(String entityModel, String entityVersion, UUID technicalId) {
         return executeWithTokenRetry(token -> {
-            Meta meta = repository.getMeta(token, entityModel, entityVersion);
-            return repository.findById(meta, technicalId).thenApply(resultNode -> {
-                ObjectNode dataNode = (ObjectNode) resultNode.path("data").deepCopy();
+//            Meta meta = repository.getMeta(token, entityModel, entityVersion);
+            return repository.findById(technicalId).thenApplyAsync(resultNode -> {
+                ObjectNode dataNode = resultNode.path("data").deepCopy();
                 JsonNode idNode = resultNode.at("/meta/id");
                 if (!idNode.isMissingNode()) {
                     dataNode.put("technicalId", idNode.asText());
@@ -91,7 +91,7 @@ public class EntityServiceImpl implements EntityService {
     public CompletableFuture<ObjectNode> getItemWithMetaFields(String entityModel, String entityVersion, UUID technicalId) {
         return executeWithTokenRetry(token -> {
             Meta meta = repository.getMeta(token, entityModel, entityVersion);
-            return repository.findById(meta, technicalId);
+            return repository.findById(technicalId);
         });
     }
 

@@ -7,15 +7,20 @@ import com.java_template.common.grpc.client.ClientAuthorizationInterceptor;
 import com.java_template.common.grpc.client.CyodaCalculationMemberClient;
 import com.java_template.common.grpc.client_v2.CalculationExecutionStrategy;
 import com.java_template.common.grpc.client_v2.DefaultReconnectionStrategy;
+import com.java_template.common.grpc.client_v2.PlatformThreadsCalculationExecutor;
+import com.java_template.common.grpc.client_v2.VirtualThreadsCalculationExecutor;
+import com.java_template.common.grpc.client_v2.ConnectionStateTracker;
 import com.java_template.common.grpc.client_v2.ReconnectionStrategy;
 import com.java_template.common.util.SslUtils;
 import io.cloudevents.core.format.EventFormat;
 import io.cloudevents.core.provider.EventFormatProvider;
 import io.cloudevents.protobuf.ProtobufFormat;
+import io.grpc.ConnectivityState;
 import io.grpc.ManagedChannel;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 import org.cyoda.cloud.api.grpc.CloudEventsServiceGrpc;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -27,11 +32,20 @@ import static com.java_template.common.config.Config.GRPC_SERVER_PORT;
 @Configuration
 public class GrpcClientAutoConfiguration {
 
-    private static final int EXTERNAL_CALCULATIONS_THREAD_POOL = 10; // TODO: Move to props
+    public static final int EXTERNAL_CALCULATIONS_THREAD_POOL = 10; // TODO: Move to props
 
     @Bean
-    public ManagedChannel managedChannel() {
-        return SslUtils.createGrpcChannelBuilder(GRPC_ADDRESS, GRPC_SERVER_PORT).build();
+    public ManagedChannel managedChannel(final ConnectionStateTracker connectionStateTracker) {
+        final ManagedChannel channel = SslUtils.createGrpcChannelBuilder(GRPC_ADDRESS, GRPC_SERVER_PORT, true).build();
+        final Supplier<ConnectivityState> currentStateProvider = () -> channel.getState(false);
+
+        final Runnable initSubscription = () -> connectionStateTracker.trackConnectionStateChanged(
+                currentStateProvider,
+                channel::notifyWhenStateChanged
+        );
+
+        channel.notifyWhenStateChanged(currentStateProvider.get(), initSubscription);
+        return channel;
     }
 
     @Bean
@@ -54,6 +68,28 @@ public class GrpcClientAutoConfiguration {
     }
 
     @Bean
+    public CloudEventsServiceGrpc.CloudEventsServiceBlockingStub cloudEventsServiceBlockingStub(
+            final Authentication authentication,
+            final ManagedChannel managedChannel
+    ) {
+        final var authInterceptor = new ClientAuthorizationInterceptor(authentication);
+        return CloudEventsServiceGrpc.newBlockingStub(managedChannel)
+                .withWaitForReady()
+                .withInterceptors(authInterceptor);
+    }
+
+    @Bean
+    public CloudEventsServiceGrpc.CloudEventsServiceFutureStub cloudEventsServiceFutureStub(
+            final Authentication authentication,
+            final ManagedChannel managedChannel
+    ) {
+        final var authInterceptor = new ClientAuthorizationInterceptor(authentication);
+        return CloudEventsServiceGrpc.newFutureStub(managedChannel)
+                .withWaitForReady()
+                .withInterceptors(authInterceptor);
+    }
+
+    @Bean
     public EventFormat eventFormat() {
         return EventFormatProvider.getInstance().resolveFormat(ProtobufFormat.PROTO_CONTENT_TYPE);
     }
@@ -61,19 +97,13 @@ public class GrpcClientAutoConfiguration {
     @Bean
     @ConditionalOnProperty(name = "execution.mode", havingValue = "platform", matchIfMissing = true)
     public CalculationExecutionStrategy platformThreadsCalculationExecutor() {
-        final var executor = createExternalCalculationExecutor(Thread.ofPlatform());
-        try (executor) {
-            return executor::submit;
-        }
+        return new PlatformThreadsCalculationExecutor();
     }
 
     @Bean
     @ConditionalOnProperty(name = "execution.mode", havingValue = "virtual")
     public CalculationExecutionStrategy virtualThreadsCalculationExecutor() {
-        final var executor = createExternalCalculationExecutor(Thread.ofVirtual());
-        try (executor) {
-            return executor::submit;
-        }
+        return new VirtualThreadsCalculationExecutor();
     }
 
     private ExecutorService createExternalCalculationExecutor(final Thread.Builder factoryBuilder) {

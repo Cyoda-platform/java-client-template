@@ -112,7 +112,8 @@ public class CyodaCalculationMemberClient implements DisposableBean, Initializin
 
             managedChannel = SslUtils.createGrpcChannelBuilder(
                     GRPC_ADDRESS,
-                    GRPC_SERVER_PORT
+                    GRPC_SERVER_PORT,
+                    true
             ).build();
 
             log.debug(

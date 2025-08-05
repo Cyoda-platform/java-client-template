@@ -6,10 +6,12 @@ import io.grpc.stub.StreamObserver;
 import java.util.Set;
 import java.util.UUID;
 import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 import org.cyoda.cloud.api.event.processing.CalculationMemberJoinEvent;
 import org.cyoda.cloud.api.grpc.CloudEventsServiceGrpc;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -18,24 +20,24 @@ class ConnectionManager implements EventSender {
 
     private final EventHandler eventHandler;
     private final EventTracker eventTracker;
-    private final ObserverStateTracker observerStateTracker;
-    private final EventBuilder eventBuilder;
+    private final ConnectionStateTracker connectionStateTracker;
+    private final CloudEventBuilder eventBuilder;
     private final CloudEventsServiceGrpc.CloudEventsServiceStub cloudEventsServiceStub;
     private final ReconnectionStrategy reconnectionStrategy;
 
     private StreamObserver<CloudEvent> streamObserver;
 
     public ConnectionManager(
-            final EventHandler eventHandler,
+            @Lazy final EventHandler eventHandler,
             final EventTracker eventTracker,
-            final ObserverStateTracker observerStateTracker,
-            final EventBuilder eventBuilder,
+            final ConnectionStateTracker connectionStateTracker,
+            final CloudEventBuilder eventBuilder,
             final CloudEventsServiceGrpc.CloudEventsServiceStub cloudEventsServiceStub,
             final ReconnectionStrategy reconnectionStrategy
     ) {
         this.eventHandler = eventHandler;
         this.eventTracker = eventTracker;
-        this.observerStateTracker = observerStateTracker;
+        this.connectionStateTracker = connectionStateTracker;
         this.eventBuilder = eventBuilder;
         this.cloudEventsServiceStub = cloudEventsServiceStub;
         this.reconnectionStrategy = reconnectionStrategy;
@@ -45,45 +47,51 @@ class ConnectionManager implements EventSender {
             final String id,
             final Set<String> tags
     ) throws InvalidProtocolBufferException {
-        final var event = new CalculationMemberJoinEvent();
-        event.setId(id);
-        event.setTags(tags.stream().toList());
-
-        log.info("Member status updated to JOINING with join event ID: {}", id);
-
-        return eventBuilder.buildEvent(event);
+        return eventBuilder.buildEvent(
+                new CalculationMemberJoinEvent().withId(id).withTags(tags.stream().toList())
+        );
     }
 
     @PostConstruct
     private void init() {
-        if (streamObserver != null) {
-            streamObserver.onCompleted();
-        }
         try {
-            streamObserver = connect();
+            initNewStreamObserver();
         } catch (Exception e) {
+            log.error("Failed to connect", e);
             requestReconnection();
         }
     }
 
+    @PreDestroy
+    private void shutdown() {
+        log.info("Stopping stream observer...");
+        if (streamObserver != null) {
+            streamObserver.onCompleted();
+        }
+        log.info("Stream observer stoped");
+    }
+
     private StreamObserver<CloudEvent> connect() throws InvalidProtocolBufferException {
-        observerStateTracker.trackObserverStateChange(ObserverState.CONNECTING);
+        connectionStateTracker.trackObserverStateChange(ObserverState.CONNECTING);
+
         final var newObserver = cloudEventsServiceStub.startStreaming(
                 new CloudEventStreamObserver(
                         eventHandler::handleEvent,
-                        e -> requestReconnection(),
-                        () -> observerStateTracker.trackObserverStateChange(ObserverState.DISCONNECTED)
+                        e -> {
+                            log.error("Stream observer error:", e);
+                            requestReconnection();
+                        },
+                        () -> connectionStateTracker.trackObserverStateChange(ObserverState.DISCONNECTED)
                 )
         );
-        observerStateTracker.trackObserverStateChange(ObserverState.CONNECTED);
 
-        final CloudEvent joinEvent = createJoinEvent(
-                UUID.randomUUID().toString(),
-                eventHandler.getSupportedTags()
-        );
+        connectionStateTracker.trackObserverStateChange(ObserverState.JOINING);
 
+        final var joinEvent = createJoinEvent(UUID.randomUUID().toString(), eventHandler.getSupportedTags());
         sendEvent(newObserver, joinEvent);
-        observerStateTracker.trackObserverStateChange(ObserverState.AWAITS_GREET);
+
+        connectionStateTracker.trackObserverStateChange(ObserverState.AWAITS_GREET);
+
         return newObserver;
     }
 
@@ -104,11 +112,15 @@ class ConnectionManager implements EventSender {
 
     private void requestReconnection() {
         reconnectionStrategy.requestReconnection(() -> {
-            if (streamObserver != null) {
-                streamObserver.onCompleted();
-            }
-            streamObserver = connect();
+            initNewStreamObserver();
             return null;
         });
+    }
+
+    private void initNewStreamObserver() throws InvalidProtocolBufferException {
+        if (streamObserver != null) {
+            streamObserver.onCompleted();
+        }
+        streamObserver = connect();
     }
 }
