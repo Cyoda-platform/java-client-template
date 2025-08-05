@@ -1,23 +1,23 @@
 package com.java_template.application.controller;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Mail;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.UUID;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/mails")
@@ -26,6 +26,7 @@ import static com.java_template.common.config.Config.*;
 public class Controller {
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     @PostMapping
     public ResponseEntity<Map<String, String>> createMail(@RequestBody Mail mail) {
@@ -59,7 +60,7 @@ public class Controller {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Mail> getMailById(@PathVariable("id") String id) {
+    public ResponseEntity<Mail> getMailById(@PathVariable("id") String id) throws JsonProcessingException {
         try {
             UUID technicalId;
             try {
@@ -80,12 +81,7 @@ public class Controller {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
 
-            Mail mail = convertObjectNodeToMail(node);
-            if (mail == null) {
-                log.error("Failed to convert data to Mail entity for id {}", id);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-            }
-
+            Mail mail = objectMapper.treeToValue(node, Mail.class);
             return ResponseEntity.ok(mail);
         } catch (IllegalArgumentException e) {
             log.error("Illegal argument: {}", e.getMessage(), e);
@@ -93,19 +89,6 @@ public class Controller {
         } catch (InterruptedException | ExecutionException e) {
             log.error("Error retrieving Mail entity: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        } catch (Exception e) {
-            log.error("Unexpected error: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
-
-    private Mail convertObjectNodeToMail(ObjectNode node) {
-        try {
-            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-            return mapper.treeToValue(node, Mail.class);
-        } catch (Exception e) {
-            log.error("Error converting ObjectNode to Mail: {}", e.getMessage(), e);
-            return null;
         }
     }
 }
