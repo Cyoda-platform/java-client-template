@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "name": "Pet Workflow",
+  "desc": "Workflow for pet entity state management",
+  "initialState": "new",
+  "active": true,
+  "states": {
+    "new": {
+      "transitions": [
+        {
+          "name": "update_status",
+          "next": "statusUpdated",
+          "manual": false
+        }
+      ]
+    },
+    "statusUpdated": {
+      "transitions": [
+        {
+          "name": "finalize",
+          "next": "finalized",
+          "manual": false
+        }
+      ]
+    },
+    "finalized": {
+      "transitions": []
+    }
+  }
+}
