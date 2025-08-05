@@ -1,0 +1,82 @@
+{
+    "active": true,
+    "desc": "Business workflow for Workflow entity lifecycle management",
+    "initialState": "none",
+    "name": "Workflow Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "transition_to_pending",
+                    "next": "pending"
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsValid"
+                        },
+                        "type": "function"
+                    },
+                    "name": "transition_to_validated",
+                    "next": "validated"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsNotValid"
+                        },
+                        "type": "function"
+                    },
+                    "name": "transition_to_failed_due_to_invalid",
+                    "next": "failed"
+                }
+            ]
+        },
+        "running": {
+            "transitions": [
+                {
+                    "name": "transition_to_completed",
+                    "next": "completed"
+                },
+                {
+                    "name": "transition_to_failed_due_to_error",
+                    "next": "failed"
+                }
+            ]
+        },
+        "validated": {
+            "transitions": [
+                {
+                    "name": "transition_to_running",
+                    "next": "running",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "WorkflowProcessor"
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
