@@ -33,7 +33,7 @@ public class Controller {
             CompletableFuture<UUID> idFuture = entityService.addItem(Mail.ENTITY_NAME, ENTITY_VERSION, mail);
             UUID technicalId = idFuture.get();
             log.info("Mail entity created with technicalId: {}", technicalId);
-            processMail(technicalId.toString(), mail);
+            // processMail method removed for workflow extraction
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId.toString());
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -74,35 +74,4 @@ public class Controller {
         }
     }
 
-    private void processMail(String technicalId, Mail mail) {
-        if (mail.getMailList() == null || mail.getMailList().isEmpty()) {
-            log.error("MailList is empty for mail with technicalId: {}", technicalId);
-            return;
-        }
-        if (mail.getContent() == null || mail.getContent().isBlank()) {
-            log.error("Mail content is blank for mail with technicalId: {}", technicalId);
-            return;
-        }
-        if (Boolean.TRUE.equals(mail.getIsHappy())) {
-            processMailSendHappy(technicalId, mail);
-        } else {
-            processMailSendGloomy(technicalId, mail);
-        }
-    }
-
-    private void processMailSendHappy(String technicalId, Mail mail) {
-        for (String recipient : mail.getMailList()) {
-            log.info("Sending HAPPY mail to {}: {}", recipient, mail.getContent());
-            // Implement actual mail sending logic here if needed
-        }
-        log.info("All happy mails sent successfully for mail with technicalId: {}", technicalId);
-    }
-
-    private void processMailSendGloomy(String technicalId, Mail mail) {
-        for (String recipient : mail.getMailList()) {
-            log.info("Sending GLOOMY mail to {}: {}", recipient, mail.getContent());
-            // Implement actual mail sending logic here if needed
-        }
-        log.info("All gloomy mails sent successfully for mail with technicalId: {}", technicalId);
-    }
 }
