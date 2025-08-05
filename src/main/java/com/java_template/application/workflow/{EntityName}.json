@@ -1,0 +1,9 @@
+Created a workflow JSON for the entity Mail based on the functional requirements:
+
+- Initial state "created" transitions to "validated"
+- In "validated", two conditional transitions based on isHappy: to "sendHappy" or "sendGloomy"
+- "sendHappy" state processes sendHappyMail processor and transitions to "completed"
+- "sendGloomy" state processes sendGloomyMail processor and transitions to "completed"
+- "completed" state has no transitions
+
+The workflow JSON is saved to src/main/java/com/java_template/application/workflow/Mail.json.
