@@ -1,17 +1,14 @@
 {
     "active": true,
-    "desc": "Workflow for processing Pet entity from creation to completion",
+    "desc": "Workflow to process Order entity from creation to completion",
     "initialState": "none",
-    "name": "Pet Workflow",
+    "name": "OrderProcessingWorkflow",
     "states": {
-        "completed": {
-            "transitions": []
-        },
-        "enrichment": {
+        "business_logic": {
             "transitions": [
                 {
                     "manual": false,
-                    "name": "enrich_and_persist",
+                    "name": "apply_business_rules",
                     "next": "persistence",
                     "processors": [
                         {
@@ -19,20 +16,38 @@
                                 "calculationNodesTags": "cyoda_application"
                             },
                             "executionMode": "SYNC",
-                            "name": "PetProcessor"
+                            "name": "OrderProcessor"
                         }
                     ]
                 }
             ]
         },
-        "failed": {
+        "completed": {
             "transitions": []
+        },
+        "completion_approved": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "finalize_approval",
+                    "next": "notification"
+                }
+            ]
+        },
+        "completion_rejected": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "finalize_rejection",
+                    "next": "completed"
+                }
+            ]
         },
         "none": {
             "transitions": [
                 {
                     "manual": false,
-                    "name": "start_validation",
+                    "name": "to_validation",
                     "next": "validation"
                 }
             ]
@@ -41,13 +56,8 @@
             "transitions": [
                 {
                     "manual": false,
-                    "name": "notify_success",
+                    "name": "notify_shipment_and_billing",
                     "next": "completed"
-                },
-                {
-                    "manual": false,
-                    "name": "notify_failure",
-                    "next": "failed"
                 }
             ]
         },
@@ -55,13 +65,8 @@
             "transitions": [
                 {
                     "manual": false,
-                    "name": "persist_success",
-                    "next": "notification"
-                },
-                {
-                    "manual": false,
-                    "name": "persist_failure",
-                    "next": "failed"
+                    "name": "persist_order",
+                    "next": "completion_approved"
                 }
             ]
         },
@@ -73,27 +78,18 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "ValidatePet"
+                            "name": "OrderIsValid"
                         },
                         "type": "function"
                     },
                     "manual": false,
-                    "name": "valid_pet",
-                    "next": "enrichment"
+                    "name": "valid_order",
+                    "next": "business_logic"
                 },
                 {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "ValidatePetNegation"
-                        },
-                        "type": "function"
-                    },
                     "manual": false,
-                    "name": "invalid_pet",
-                    "next": "failed"
+                    "name": "invalid_order",
+                    "next": "completion_rejected"
                 }
             ]
         }
