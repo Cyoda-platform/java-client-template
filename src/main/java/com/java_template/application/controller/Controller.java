@@ -47,7 +47,7 @@ public class Controller {
             );
             UUID technicalId = idFuture.get(5, TimeUnit.SECONDS);
             log.info("Workflow created with technicalId: {}", technicalId);
-            processWorkflow(technicalId.toString(), workflow);
+            // processWorkflow call removed
             return ResponseEntity.status(HttpStatus.CREATED).body(Collections.singletonMap("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException e) {
             log.error("Bad request creating Workflow", e);
@@ -99,7 +99,7 @@ public class Controller {
             );
             UUID technicalId = idFuture.get(5, TimeUnit.SECONDS);
             log.info("Pet created with technicalId: {}", technicalId);
-            processPet(technicalId.toString(), pet);
+            // processPet call removed
             return ResponseEntity.status(HttpStatus.CREATED).body(Collections.singletonMap("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException e) {
             log.error("Bad request creating Pet", e);
@@ -218,7 +218,7 @@ public class Controller {
             );
             UUID technicalId = idFuture.get(5, TimeUnit.SECONDS);
             log.info("Order created with technicalId: {}", technicalId);
-            processOrder(technicalId.toString(), order);
+            // processOrder call removed
             return ResponseEntity.status(HttpStatus.CREATED).body(Collections.singletonMap("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException e) {
             log.error("Bad request creating Order", e);
@@ -298,67 +298,5 @@ public class Controller {
             log.error("Error getting Orders", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
-    }
-
-    // -------- Process Methods -----------
-
-    private void processWorkflow(String technicalId, Workflow workflow) {
-        // 1. Validate workflow parameters
-        if (workflow.getName() == null || workflow.getName().isBlank()) {
-            log.error("Workflow {} has blank name", technicalId);
-            return;
-        }
-        if (workflow.getStatus() == null || workflow.getStatus().isBlank()) {
-            log.error("Workflow {} has blank status", technicalId);
-            return;
-        }
-        log.info("Processing Workflow id {} with status {}", technicalId, workflow.getStatus());
-        // 2. Trigger orchestrated entity creations example: could trigger pets or orders (simulated here)
-        // 3. Monitor and update status as needed (not implemented)
-        // 4. Log completion
-        log.info("Workflow {} processing completed", technicalId);
-    }
-
-    private void processPet(String technicalId, Pet pet) {
-        // Validate pet name and category
-        if (pet.getName() == null || pet.getName().isBlank() || pet.getCategory() == null || pet.getCategory().isBlank()) {
-            log.error("Pet {} validation failed: name or category blank", technicalId);
-            return;
-        }
-        // Assign default tags if empty
-        if (pet.getTags() == null) {
-            pet.setTags(new ArrayList<>());
-        }
-        if (!pet.getTags().contains("fun")) {
-            pet.getTags().add("fun");
-        }
-        // Assign default photoUrls if empty
-        if (pet.getPhotoUrls() == null) {
-            pet.setPhotoUrls(new ArrayList<>());
-        }
-        if (pet.getPhotoUrls().isEmpty()) {
-            pet.getPhotoUrls().add("https://example.com/default-pet-photo.jpg");
-        }
-        log.info("Processed Pet id {} with name {}", technicalId, pet.getName());
-        // Notify inventory system or other services here (not implemented)
-    }
-
-    private void processOrder(String technicalId, Order order) {
-        // Check quantity positive
-        if (order.getQuantity() == null || order.getQuantity() <= 0) {
-            log.error("Order {} validation failed: quantity invalid", technicalId);
-            return;
-        }
-        // Check petId exists - already done in createOrder
-        // Calculate ship date if missing - here just log it
-        if (order.getShipDate() == null || order.getShipDate().isBlank()) {
-            log.info("Order {} has no shipDate set, defaulting to today", technicalId);
-            order.setShipDate(java.time.LocalDate.now().toString());
-        }
-        // Approve order by default
-        order.setStatus("approved");
-        order.setComplete(Boolean.FALSE);
-        log.info("Processed Order id {} for petId {} with quantity {}", technicalId, order.getPetId(), order.getQuantity());
-        // Trigger shipment or billing workflows here (not implemented)
     }
 }
