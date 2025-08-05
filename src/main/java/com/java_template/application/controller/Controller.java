@@ -1,10 +1,10 @@
 package com.java_template.application.controller;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
+import com.java_template.application.entity.Mail;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
@@ -16,7 +16,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/entity")
@@ -27,6 +27,7 @@ public class Controller {
     private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     @PostMapping("/mails")
     public ResponseEntity<?> createMail(@RequestBody Mail mail) {
@@ -38,7 +39,6 @@ public class Controller {
             CompletableFuture<UUID> idFuture = entityService.addItem(Mail.ENTITY_NAME, ENTITY_VERSION, mail);
             UUID technicalId = idFuture.join();
             logger.info("Mail entity created with technicalId: {}", technicalId);
-            // processMail call removed as it is extracted to workflow prototype
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException e) {
             logger.error("Invalid argument in createMail: {}", e.getMessage());
@@ -50,7 +50,7 @@ public class Controller {
     }
 
     @GetMapping("/mails/{technicalId}")
-    public ResponseEntity<?> getMailById(@PathVariable String technicalId) {
+    public ResponseEntity<?> getMailById(@PathVariable String technicalId) throws JsonProcessingException {
         try {
             UUID techId = UUID.fromString(technicalId);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(Mail.ENTITY_NAME, ENTITY_VERSION, techId);
@@ -59,8 +59,7 @@ public class Controller {
                 logger.error("Mail entity not found for technicalId: {}", technicalId);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Mail not found"));
             }
-            // deserialize ObjectNode to Mail
-            Mail mail = JsonUtils.convert(node, Mail.class);
+            Mail mail = objectMapper.treeToValue(node, Mail.class);
             Map<String, Object> response = Map.of(
                     "technicalId", technicalId,
                     "isHappy", mail.isHappy(),
@@ -76,5 +75,4 @@ public class Controller {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
         }
     }
-
 }
