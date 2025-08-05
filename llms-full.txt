@@ -40,7 +40,7 @@ A structured template for building scalable web clients using **Spring Boot**, d
 
 ## 🛠️ Getting Started
 
-> ☕ **Java 21 Required**  
+> ☕ **Java 21 Required**
 > Make sure Java 21 is installed and set as the active version.
 
 ### 1. Clone the Project
@@ -146,7 +146,7 @@ Domain logic structure. Contains entity structures.
 
 For all methods that require a `technicalId` (such as `updateItem` or `deleteItem`), this field is **automatically included** in the returned entity when using methods like `getItem(...)`, `getItems(...)`, or `getItemsByCondition(...)`.
 
-The `technicalId` represents the internal unique identifier of the entity instance and is required for update or delete operations.  
+The `technicalId` represents the internal unique identifier of the entity instance and is required for update or delete operations.
 It is injected into the resulting `ObjectNode` during data retrieval:
 
 ```java
@@ -429,9 +429,11 @@ public class AddLastModifiedTimestamp implements CyodaProcessor {
     }
 
     @Override
-    public boolean supports(OperationSpecification modelKey) {
-        // Match based on processor name from workflow configuration
-        return "example_function_name".equals(modelKey.operationName());
+    public boolean supports(OperationSpecification opSpec) {
+        // Entity-based processing: check operation name AND model compatibility
+        return "example_function_name".equals(opSpec.operationName()) &&
+               "Pet".equals(opSpec.modelKey().getName()) &&
+               opSpec.modelKey().getVersion() >= 1;
     }
 }
 ```
@@ -563,7 +565,31 @@ To register a processor or criterion:
 3. **Implement the `supports()` method** to define when this component should be used
 4. **Implement the processing method** (`process()` for processors, `check()` for criteria)
 
-> ✅ Component operation names are matched against the `processors[].name` or `criterion.function.name` in workflow configuration via the `supports()` method. The `supports()` method should return `true` when `modelKey.operationName()` matches the expected operation name.
+### `supports()` Method Implementation
+
+The `supports()` method determines when a component should handle a specific operation. Implementation depends on your processing approach:
+
+#### **For JsonNode-based Processing** (JSON payload handling):
+```java
+@Override
+public boolean supports(OperationSpecification opSpec) {
+    // Only check operation name - works with any entity type
+    return "example_function_name".equals(opSpec.operationName());
+}
+```
+
+#### **For Entity-based Processing** (using `toEntity()` or `extractEntity()`):
+```java
+@Override
+public boolean supports(OperationSpecification opSpec) {
+    // Check both operation name AND model compatibility
+    return "example_function_name".equals(opSpec.operationName()) &&
+           "Pet".equals(opSpec.modelKey().getName()) &&
+           opSpec.modelKey().getVersion() >= 1;
+}
+```
+
+> ✅ **Rule**: If your component uses `toEntity(Class)` or `extractEntity(Class)`, you MUST check model name and version compatibility in `supports()`. If you only process JSON payloads, checking operation name is sufficient.
 
 ---
 

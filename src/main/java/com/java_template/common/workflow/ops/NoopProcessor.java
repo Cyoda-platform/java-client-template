@@ -41,8 +41,8 @@ public class NoopProcessor implements CyodaProcessor {
     }
 
     @Override
-    public boolean supports(OperationSpecification modelKey) {
-        return Config.INCLUDE_DEFAULT_OPERATIONS || className.equals(modelKey.operationName());
+    public boolean supports(OperationSpecification opSpec) {
+        return Config.INCLUDE_DEFAULT_OPERATIONS || className.equals(opSpec.operationName());
     }
 
 }
