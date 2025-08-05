@@ -1,107 +1,107 @@
 {
-    "active": true,
-    "desc": "Workflow for processing Mail entity with validation and sending happy or gloomy mails",
-    "initialState": "none",
-    "name": "MailWorkflow",
-    "states": {
-        "Completed": {
-            "transitions": []
-        },
-        "MailCreated": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IsMailValid"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "mailCreated_to_validated",
-                    "next": "Validated"
-                }
-            ]
-        },
-        "ProcessingGloomy": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "processingGloomy_to_completed",
-                    "next": "Completed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "MailProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "ProcessingHappy": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "processingHappy_to_completed",
-                    "next": "Completed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "MailProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "Validated": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IsMailHappy"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "validated_to_processingHappy",
-                    "next": "ProcessingHappy"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IsMailGloomy"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "validated_to_processingGloomy",
-                    "next": "ProcessingGloomy"
-                }
-            ]
-        },
-        "none": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "start_to_mailCreated",
-                    "next": "MailCreated"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow for processing Mail entity with validation and sending happy or gloomy mails",
+  "initialState": "none",
+  "name": "MailWorkflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "start_to_mailCreated",
+          "next": "MailCreated"
         }
+      ]
     },
-    "version": "1.0"
+    "MailCreated": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IsMailValid"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "mailCreated_to_validated",
+          "next": "Validated"
+        }
+      ]
+    },
+    "Validated": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IsMailHappy"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "validated_to_processingHappy",
+          "next": "ProcessingHappy"
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IsMailGloomy"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "validated_to_processingGloomy",
+          "next": "ProcessingGloomy"
+        }
+      ]
+    },
+    "ProcessingHappy": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "processingHappy_to_completed",
+          "next": "Completed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "MailProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "Completed": {
+      "transitions": []
+    },
+    "ProcessingGloomy": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "processingGloomy_to_completed",
+          "next": "Completed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "MailProcessor"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "version": "1.0"
 }
