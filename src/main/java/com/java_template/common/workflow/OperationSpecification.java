@@ -11,6 +11,7 @@ import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -59,6 +60,18 @@ public sealed class OperationSpecification
     @JsonProperty("operationName")
     public @NotNull String getOperationName() {
         return operationName;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        OperationSpecification that = (OperationSpecification) o;
+        return Objects.equals(modelKey, that.modelKey) && Objects.equals(operationName, that.operationName);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(modelKey, operationName);
     }
 
     /**
@@ -147,6 +160,19 @@ public sealed class OperationSpecification
         public @NotNull String getWorkflowName() {
             return workflowName;
         }
+
+        @Override
+        public boolean equals(Object o) {
+            if (o == null || getClass() != o.getClass()) return false;
+            if (!super.equals(o)) return false;
+            Criterion criterion = (Criterion) o;
+            return Objects.equals(stateName, criterion.stateName) && Objects.equals(transitionName, criterion.transitionName) && Objects.equals(workflowName, criterion.workflowName);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(super.hashCode(), stateName, transitionName, workflowName);
+        }
     }
 
     /**
@@ -219,6 +245,19 @@ public sealed class OperationSpecification
         @JsonProperty("workflowName")
         public @NotNull String getWorkflowName() {
             return workflowName;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (o == null || getClass() != o.getClass()) return false;
+            if (!super.equals(o)) return false;
+            Processor processor = (Processor) o;
+            return Objects.equals(stateName, processor.stateName) && Objects.equals(transitionName, processor.transitionName) && Objects.equals(workflowName, processor.workflowName);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(super.hashCode(), stateName, transitionName, workflowName);
         }
     }
 
