@@ -1,0 +1,30 @@
+private void processMail(String technicalId, Mail mail) {
+    boolean happyCriteriaMet = checkMailHappy(mail);
+    boolean gloomyCriteriaMet = checkMailGloomy(mail);
+
+    if (happyCriteriaMet) {
+        sendHappyMail(technicalId, mail);
+    } else if (gloomyCriteriaMet) {
+        sendGloomyMail(technicalId, mail);
+    } else {
+        logger.error("Mail entity with technicalId {} failed criteria check", technicalId);
+    }
+}
+
+private boolean checkMailHappy(Mail mail) {
+    return Boolean.TRUE.equals(mail.getIsHappy());
+}
+
+private boolean checkMailGloomy(Mail mail) {
+    return Boolean.FALSE.equals(mail.getIsHappy());
+}
+
+private void sendHappyMail(String technicalId, Mail mail) {
+    logger.info("Sending happy mail for technicalId: {}, to recipients: {}", technicalId, mail.getMailList());
+    // TODO: Implement sending happy mail logic or integrate with external mail service
+}
+
+private void sendGloomyMail(String technicalId, Mail mail) {
+    logger.info("Sending gloomy mail for technicalId: {}, to recipients: {}", technicalId, mail.getMailList());
+    // TODO: Implement sending gloomy mail logic or integrate with external mail service
+}
