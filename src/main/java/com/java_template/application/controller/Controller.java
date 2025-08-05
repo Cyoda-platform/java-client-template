@@ -1,5 +1,7 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Mail;
@@ -17,7 +19,6 @@ import org.springframework.web.bind.annotation.*;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 import java.util.UUID;
 
 import static com.java_template.common.config.Config.*;
@@ -31,9 +32,10 @@ public class Controller {
     private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper; // Inject ObjectMapper via constructor
 
     @PostMapping
-    public ResponseEntity<Map<String, String>> createMail(@RequestBody Mail mail) {
+    public ResponseEntity<Map<String, String>> createMail(@RequestBody Mail mail) throws JsonProcessingException {
         try {
             if (mail == null || !mail.isValid()) {
                 logger.error("Invalid Mail entity received");
@@ -42,21 +44,20 @@ public class Controller {
             CompletableFuture<UUID> idFuture = entityService.addItem(Mail.ENTITY_NAME, ENTITY_VERSION, mail);
             UUID technicalId = idFuture.get();
             logger.info("Mail entity created with technicalId {}", technicalId.toString());
-            // processMail call removed for workflow extraction
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId.toString());
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (IllegalArgumentException e) {
             logger.error("Illegal argument exception in createMail", e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        } catch (Exception e) {
+        } catch (InterruptedException | ExecutionException e) {
             logger.error("Exception in createMail", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
     @GetMapping("/{technicalId}")
-    public ResponseEntity<Mail> getMailById(@PathVariable String technicalId) {
+    public ResponseEntity<Mail> getMailById(@PathVariable String technicalId) throws JsonProcessingException {
         try {
             UUID uuid;
             try {
@@ -71,21 +72,19 @@ public class Controller {
                 logger.error("Mail entity not found for technicalId {}", technicalId);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
-            // Remove technicalId field from node before mapping to Mail
-            node.remove("technicalId");
-            Mail mail = node.traverse().readValueAs(Mail.class);
+            Mail mail = objectMapper.treeToValue(node, Mail.class);
             return ResponseEntity.ok(mail);
         } catch (IllegalArgumentException e) {
             logger.error("Illegal argument exception in getMailById", e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        } catch (Exception e) {
+        } catch (InterruptedException | ExecutionException e) {
             logger.error("Exception in getMailById", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
     @GetMapping(params = "isHappy")
-    public ResponseEntity<List<Mail>> getMailsByHappiness(@RequestParam Boolean isHappy) {
+    public ResponseEntity<List<Mail>> getMailsByHappiness(@RequestParam Boolean isHappy) throws JsonProcessingException {
         try {
             Condition cond = Condition.of("$.isHappy", "EQUALS", isHappy);
             SearchConditionRequest conditionRequest = SearchConditionRequest.group("AND", cond);
@@ -98,15 +97,14 @@ public class Controller {
             List<Mail> mails = new ArrayList<>();
             for (int i = 0; i < arrayNode.size(); i++) {
                 ObjectNode node = (ObjectNode) arrayNode.get(i);
-                node.remove("technicalId");
-                Mail mail = node.traverse().readValueAs(Mail.class);
+                Mail mail = objectMapper.treeToValue(node, Mail.class);
                 mails.add(mail);
             }
             return ResponseEntity.ok(mails);
         } catch (IllegalArgumentException e) {
             logger.error("Illegal argument exception in getMailsByHappiness", e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        } catch (Exception e) {
+        } catch (InterruptedException | ExecutionException e) {
             logger.error("Exception in getMailsByHappiness", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
