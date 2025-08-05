@@ -1,0 +1,97 @@
+// Extracted processWorkflow and its directly called private helper methods from Controller.java
+
+// Process Workflow: fetch pets from Petstore API by petCategory, save Pet entities immutably
+private void processWorkflow(UUID technicalId, Workflow workflow) {
+    logger.info("Processing Workflow {} with petCategory {}", technicalId, workflow.getPetCategory());
+
+    // Validate required fields again before processing
+    if (workflow.getPetCategory() == null || workflow.getPetCategory().isBlank()) {
+        logger.error("Workflow petCategory is missing or blank");
+        workflow.setStatus("FAILED");
+        // TODO: update workflow status via entityService (update not supported, skip)
+        return;
+    }
+
+    // Simulate calling external Petstore API to fetch pets by category
+    List<Pet> fetchedPets = fetchPetsFromPetstoreApi(workflow.getPetCategory());
+    if (fetchedPets == null) {
+        logger.error("Failed to fetch pets from Petstore API");
+        workflow.setStatus("FAILED");
+        // TODO: update workflow status via entityService (update not supported, skip)
+        return;
+    }
+
+    // Save each pet immutably using entityService.addItem
+    for (Pet pet : fetchedPets) {
+        pet.setCreatedAt(Instant.now().toString());
+        try {
+            CompletableFuture<UUID> petIdFuture = entityService.addItem(
+                    Pet.ENTITY_NAME,
+                    ENTITY_VERSION,
+                    pet
+            );
+            UUID petTechnicalId = petIdFuture.get();
+            processPet(petTechnicalId, pet);
+        } catch (Exception e) {
+            logger.error("Error processing Pet", e);
+        }
+    }
+
+    workflow.setStatus("COMPLETED");
+    // TODO: update workflow status via entityService (update not supported, skip)
+    logger.info("Workflow {} completed successfully", technicalId);
+}
+
+// Process Pet: enrich or tag pet data, mark as processed
+private void processPet(UUID technicalId, Pet pet) {
+    logger.info("Processing Pet {} named {}", technicalId, pet.getName());
+    // Example enrichment: add emoji tags based on category
+    String tags = pet.getTags() != null ? pet.getTags() : "";
+    if ("cats".equalsIgnoreCase(pet.getCategory())) {
+        tags += (tags.isEmpty() ? "" : ",") + "63A";
+    } else if ("dogs".equalsIgnoreCase(pet.getCategory())) {
+        tags += (tags.isEmpty() ? "" : ",") + "436";
+    }
+    pet.setTags(tags);
+    // TODO: update pet with new tags via entityService (update not supported, skip)
+    logger.info("Pet {} processed with tags: {}", technicalId, pet.getTags());
+}
+
+// Simulated external API call to Petstore API - returns list of pets for given category
+private List<Pet> fetchPetsFromPetstoreApi(String category) {
+    // In a real app, this would be an HTTP call to Petstore API.
+    // Here, we simulate with dummy data.
+
+    List<Pet> pets = new ArrayList<>();
+    if ("cats".equalsIgnoreCase(category)) {
+        Pet p1 = new Pet();
+        p1.setPetId(101L);
+        p1.setName("Whiskers");
+        p1.setCategory("cats");
+        p1.setStatus("available");
+        p1.setPhotoUrls("http://example.com/photo1.jpg,http://example.com/photo2.jpg");
+        p1.setTags("playful,fluffy");
+        pets.add(p1);
+
+        Pet p2 = new Pet();
+        p2.setPetId(102L);
+        p2.setName("Snowball");
+        p2.setCategory("cats");
+        p2.setStatus("pending");
+        p2.setPhotoUrls("http://example.com/photo3.jpg");
+        p2.setTags("sleepy");
+        pets.add(p2);
+    } else if ("dogs".equalsIgnoreCase(category)) {
+        Pet p1 = new Pet();
+        p1.setPetId(201L);
+        p1.setName("Buddy");
+        p1.setCategory("dogs");
+        p1.setStatus("available");
+        p1.setPhotoUrls("http://example.com/dog1.jpg");
+        p1.setTags("friendly,energetic");
+        pets.add(p1);
+    } else {
+        // Return empty list for other categories
+    }
+    return pets;
+}
