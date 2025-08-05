@@ -1,5 +1,7 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Mail;
 import com.java_template.common.service.EntityService;
@@ -9,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.validation.Valid;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -22,9 +25,10 @@ import static com.java_template.common.config.Config.*;
 public class Controller {
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     @PostMapping
-    public ResponseEntity<Map<String, String>> createMail(@RequestBody Mail mailRequest) {
+    public ResponseEntity<Map<String, String>> createMail(@Valid @RequestBody Mail mailRequest) throws JsonProcessingException {
         try {
             if (mailRequest == null || mailRequest.getMailList() == null || mailRequest.getMailList().isEmpty() || mailRequest.getContent() == null || mailRequest.getContent().isBlank()) {
                 log.error("Invalid mail creation request");
@@ -49,7 +53,7 @@ public class Controller {
             ObjectNode createdNode = itemFuture.get();
             Mail createdMail = null;
             if (createdNode != null) {
-                createdMail = entityService.getMapper().treeToValue(createdNode, Mail.class);
+                createdMail = objectMapper.treeToValue(createdNode, Mail.class);
             }
 
             if (createdMail == null) {
@@ -70,14 +74,11 @@ public class Controller {
         } catch (InterruptedException | ExecutionException e) {
             log.error("Exception during mail creation", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        } catch (Exception e) {
-            log.error("Unexpected exception during mail creation", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
     @GetMapping("/{technicalId}")
-    public ResponseEntity<Mail> getMailById(@PathVariable String technicalId) {
+    public ResponseEntity<Mail> getMailById(@PathVariable String technicalId) throws JsonProcessingException {
         try {
             UUID technicalUUID;
             try {
@@ -99,7 +100,7 @@ public class Controller {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
 
-            Mail mail = entityService.getMapper().treeToValue(node, Mail.class);
+            Mail mail = objectMapper.treeToValue(node, Mail.class);
             log.info("Mail with technicalId {} retrieved", technicalId);
             return ResponseEntity.ok(mail);
 
@@ -108,9 +109,6 @@ public class Controller {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         } catch (InterruptedException | ExecutionException e) {
             log.error("Exception during mail retrieval", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        } catch (Exception e) {
-            log.error("Unexpected exception during mail retrieval", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
