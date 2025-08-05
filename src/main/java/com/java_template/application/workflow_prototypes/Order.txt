@@ -1,0 +1,57 @@
+private void processOrder(String technicalId, Order order) {
+    try {
+        // 1. Initial State: Set default status if missing
+        if (order.getStatus() == null || order.getStatus().isBlank()) {
+            order.setStatus("PLACED");
+            log.info("Order {} initial status set to PLACED", technicalId);
+        }
+
+        // 2. Validation of key fields already done in isValid()
+
+        // 3. Processing: Check pet availability and reserve pet (simulate)
+        log.info("Processing Order {} for petId {}", technicalId, order.getPetId());
+
+        // Retrieve pets by petId field using condition (case sensitive)
+        Condition petIdCondition = Condition.of("$.petId", "EQUALS", order.getPetId());
+        SearchConditionRequest searchCondition = SearchConditionRequest.group("AND", petIdCondition);
+        CompletableFuture<ArrayNode> petsFuture = entityService.getItemsByCondition(Pet.ENTITY_NAME, ENTITY_VERSION, searchCondition, true);
+        ArrayNode pets = petsFuture.get();
+
+        if (pets == null || pets.size() == 0) {
+            log.error("Pet {} not found for Order {}", order.getPetId(), technicalId);
+            order.setStatus("FAILED");
+            return;
+        }
+
+        // Take first pet matching
+        ObjectNode petNode = (ObjectNode) pets.get(0);
+        Pet pet = Pet.fromObjectNode(petNode);
+
+        if (!"AVAILABLE".equalsIgnoreCase(pet.getStatus())) {
+            log.error("Pet {} is not available for Order {}", pet.getPetId(), technicalId);
+            order.setStatus("FAILED");
+            return;
+        }
+
+        pet.setStatus("PENDING");
+        log.info("Pet {} status set to PENDING due to Order {}", pet.getPetId(), technicalId);
+
+        // TODO: Update pet entity status in EntityService - no update API available, skipping
+
+        // 4. Shipping: Simulate setting shipDate if missing
+        if (order.getShipDate() == null || order.getShipDate().isBlank()) {
+            order.setShipDate(new Date().toString());
+            log.info("Order {} shipDate set to current date", technicalId);
+        }
+
+        // 5. Completion: Mark order as APPROVED
+        order.setStatus("APPROVED");
+        log.info("Order {} status set to APPROVED", technicalId);
+
+        // TODO: Update order entity in EntityService - no update API available, skipping
+
+        // 6. Notification or downstream events could be triggered here
+    } catch (Exception e) {
+        log.error("Error processing Order {}", technicalId, e);
+    }
+}
