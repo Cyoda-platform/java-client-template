@@ -61,7 +61,7 @@ public class Controller {
             }
 
             // Process mail (evaluate happiness and send accordingly)
-            processMail(technicalId.toString(), createdMail);
+            // processMail method extracted
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId.toString());
@@ -116,35 +116,5 @@ public class Controller {
             log.error("Unexpected exception during mail retrieval", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
-    }
-
-    // Process method implementing business logic as per requirements
-    private void processMail(String technicalId, Mail mail) {
-        // Criteria evaluation: simple happiness criteria example - content contains happy keywords
-        String contentLower = mail.getContent().toLowerCase(Locale.ROOT);
-        boolean isHappy = contentLower.contains("happy") || contentLower.contains("joy") || contentLower.contains("glad");
-        mail.setIsHappy(isHappy);
-        log.info("Mail {} happiness evaluated: {}", technicalId, isHappy);
-
-        // Processors
-        if (isHappy) {
-            sendHappyMail(technicalId, mail);
-        } else {
-            sendGloomyMail(technicalId, mail);
-        }
-    }
-
-    private void sendHappyMail(String technicalId, Mail mail) {
-        // Simulate sending happy mail
-        log.info("Sending HAPPY mail to {} with content: {}", mail.getMailList(), mail.getContent());
-        // Here would be integration with mail sending service
-        log.info("Happy mail sent successfully for technicalId {}", technicalId);
-    }
-
-    private void sendGloomyMail(String technicalId, Mail mail) {
-        // Simulate sending gloomy mail
-        log.info("Sending GLOOMY mail to {} with content: {}", mail.getMailList(), mail.getContent());
-        // Here would be integration with mail sending service
-        log.info("Gloomy mail sent successfully for technicalId {}", technicalId);
     }
 }
