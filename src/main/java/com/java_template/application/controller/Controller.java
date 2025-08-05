@@ -41,7 +41,6 @@ public class Controller {
             CompletableFuture<UUID> idFuture = entityService.addItem(Mail.ENTITY_NAME, ENTITY_VERSION, mail);
             UUID technicalId = idFuture.get();
             logger.info("Mail entity created with technicalId: {}", technicalId);
-            processMail(technicalId.toString(), mail);
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId.toString());
             return ResponseEntity.status(201).body(response);
@@ -117,36 +116,5 @@ public class Controller {
             logger.error("Unexpected error retrieving Mail entities by criteria", e);
             return ResponseEntity.status(500).build();
         }
-    }
-
-    private void processMail(String technicalId, Mail mail) {
-        boolean happyCriteriaMet = checkMailHappy(mail);
-        boolean gloomyCriteriaMet = checkMailGloomy(mail);
-
-        if (happyCriteriaMet) {
-            sendHappyMail(technicalId, mail);
-        } else if (gloomyCriteriaMet) {
-            sendGloomyMail(technicalId, mail);
-        } else {
-            logger.error("Mail entity with technicalId {} failed criteria check", technicalId);
-        }
-    }
-
-    private boolean checkMailHappy(Mail mail) {
-        return Boolean.TRUE.equals(mail.getIsHappy());
-    }
-
-    private boolean checkMailGloomy(Mail mail) {
-        return Boolean.FALSE.equals(mail.getIsHappy());
-    }
-
-    private void sendHappyMail(String technicalId, Mail mail) {
-        logger.info("Sending happy mail for technicalId: {}, to recipients: {}", technicalId, mail.getMailList());
-        // TODO: Implement sending happy mail logic or integrate with external mail service
-    }
-
-    private void sendGloomyMail(String technicalId, Mail mail) {
-        logger.info("Sending gloomy mail for technicalId: {}, to recipients: {}", technicalId, mail.getMailList());
-        // TODO: Implement sending gloomy mail logic or integrate with external mail service
     }
 }
