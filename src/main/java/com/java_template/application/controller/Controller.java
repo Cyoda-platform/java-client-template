@@ -53,8 +53,6 @@ public class Controller {
 
             logger.info("Mail entity created with technicalId: {}", technicalIdStr);
 
-            // Removed processMail call and its helper methods extraction done
-
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalIdStr);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
