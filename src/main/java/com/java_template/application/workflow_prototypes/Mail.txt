@@ -1,0 +1,33 @@
+private void processMail(String technicalId, Mail mail) {
+    // Validation: check mailList not empty and content not blank
+    if (mail.getMailList() == null || mail.getMailList().isEmpty()) {
+        log.error("Mail list is empty for mail id {}", technicalId);
+        throw new IllegalArgumentException("mailList cannot be empty");
+    }
+    if (mail.getContent() == null || mail.getContent().isBlank()) {
+        log.error("Mail content is blank for mail id {}", technicalId);
+        throw new IllegalArgumentException("content cannot be blank");
+    }
+    // Processing: send happy or gloomy mail based on isHappy flag
+    if (mail.isHappy()) {
+        sendHappyMail(technicalId, mail);
+    } else {
+        sendGloomyMail(technicalId, mail);
+    }
+    // Completion: persist sending status if needed (simulate here)
+    log.info("Mail with id {} sent successfully. isHappy={}", technicalId, mail.isHappy());
+}
+
+private void sendHappyMail(String technicalId, Mail mail) {
+    for (String recipient : mail.getMailList()) {
+        // Simulate sending happy mail
+        log.info("Sending HAPPY mail to {}: {}", recipient, mail.getContent());
+    }
+}
+
+private void sendGloomyMail(String technicalId, Mail mail) {
+    for (String recipient : mail.getMailList()) {
+        // Simulate sending gloomy mail
+        log.info("Sending GLOOMY mail to {}: {}", recipient, mail.getContent());
+    }
+}
