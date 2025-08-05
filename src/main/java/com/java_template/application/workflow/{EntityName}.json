@@ -1,0 +1,6 @@
+Workflows for the entities have been created and saved:
+
+1. MailJob workflow saved to src/main/java/com/java_template/application/workflow/MailJob.json
+2. Mail workflow saved to src/main/java/com/java_template/application/workflow/Mail.json
+
+Each workflow is designed as a finite state machine (FSM) based on the functional requirements you provided, with states, transitions, processors, and criteria appropriately defined. Let me know if you need any modifications or additional workflows.
