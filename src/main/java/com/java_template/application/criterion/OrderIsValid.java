@@ -43,29 +43,27 @@ public class OrderIsValid implements CyodaCriterion {
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Order> context) {
+
         Order order = context.entity();
 
-        // Check petId is not null or blank
         if (order.getPetId() == null || order.getPetId().isBlank()) {
             return EvaluationOutcome.fail("petId is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
 
-        // Check quantity is positive
         if (order.getQuantity() == null || order.getQuantity() <= 0) {
             return EvaluationOutcome.fail("quantity must be positive", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
 
-        // Business rule: if shipDate is set, it must not be in the past (simplified check)
-        if (order.getShipDate() != null && !order.getShipDate().isBlank()) {
-            // A real implementation would parse the date and compare to current date
-            // Here we assume ISO string, so just a placeholder check for future date string
-            // (In real code, parse and compare properly)
-            // Skipping actual date parsing due to constraints
-        }
-
-        // Check status is not null or blank
         if (order.getStatus() == null || order.getStatus().isBlank()) {
             return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+
+        // Additional business logic check: If complete is true, status must be 'approved' or 'delivered'
+        if (Boolean.TRUE.equals(order.getComplete())) {
+            String status = order.getStatus();
+            if (!"approved".equalsIgnoreCase(status) && !"delivered".equalsIgnoreCase(status)) {
+                return EvaluationOutcome.fail("complete orders must have status approved or delivered", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+            }
         }
 
         return EvaluationOutcome.success();
