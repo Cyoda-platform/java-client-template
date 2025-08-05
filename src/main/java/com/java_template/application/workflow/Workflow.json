@@ -1,0 +1,65 @@
+{
+  "version": "1.0",
+  "name": "Workflow Workflow",
+  "desc": "Workflow for managing workflows and adoption event creation",
+  "initialState": "pending",
+  "active": true,
+  "states": {
+    "pending": {
+      "transitions": [
+        {
+          "name": "validate_criteria",
+          "next": "criteriaValidated",
+          "manual": false
+        }
+      ]
+    },
+    "criteriaValidated": {
+      "transitions": [
+        {
+          "name": "query_petstore",
+          "next": "processing",
+          "manual": false,
+          "processors": [
+            {
+              "name": "QueryPetstoreApi",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "name": "create_adoption_events",
+          "next": "completed",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CreateAdoptionEvents",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "fail_processing",
+          "next": "failed",
+          "manual": false
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  }
+}
