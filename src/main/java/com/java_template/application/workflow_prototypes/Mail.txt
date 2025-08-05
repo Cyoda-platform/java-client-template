@@ -1,0 +1,40 @@
+// Extracted processMail and helper methods from Controller.java
+
+// Business logic processing for Mail entity
+private void processMail(String technicalId, Mail mail) {
+    logger.info("Processing Mail entity with technicalId: {}", technicalId);
+    try {
+        boolean criteriaResult = checkMailIsHappy(mail);
+        if (criteriaResult) {
+            sendHappyMail(mail);
+            mail.setStatus("COMPLETED");
+            logger.info("Happy mail sent for technicalId: {}", technicalId);
+        } else {
+            sendGloomyMail(mail);
+            mail.setStatus("COMPLETED");
+            logger.info("Gloomy mail sent for technicalId: {}", technicalId);
+        }
+    } catch (Exception e) {
+        mail.setStatus("FAILED");
+        logger.error("Failed to process mail with technicalId: {}. Error: {}", technicalId, e.getMessage());
+    }
+}
+
+// Criteria check method
+private boolean checkMailIsHappy(Mail mail) {
+    return mail.isHappy();
+}
+
+// Processor for sending happy mails
+private void sendHappyMail(Mail mail) {
+    for (String recipient : mail.getMailList()) {
+        logger.info("Sending HAPPY mail to {}", recipient);
+    }
+}
+
+// Processor for sending gloomy mails
+private void sendGloomyMail(Mail mail) {
+    for (String recipient : mail.getMailList()) {
+        logger.info("Sending GLOOMY mail to {}", recipient);
+    }
+}
