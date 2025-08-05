@@ -37,7 +37,7 @@ public class Controller {
 
             log.info("Mail created with technicalId={}", technicalId);
 
-            processMail(technicalId.toString(), mail);
+            // processMail method removed for workflow extraction
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId.toString());
@@ -83,27 +83,4 @@ public class Controller {
         }
     }
 
-    private void processMail(String technicalId, Mail mail) {
-        try {
-            log.info("Processing Mail with technicalId={}", technicalId);
-
-            if (mail.getIsHappy()) {
-                sendHappyMail(technicalId, mail);
-            } else {
-                sendGloomyMail(technicalId, mail);
-            }
-        } catch (Exception e) {
-            log.error("Exception in processMail for technicalId={}", technicalId, e);
-        }
-    }
-
-    private void sendHappyMail(String technicalId, Mail mail) {
-        log.info("Sending Happy Mail to recipients: {}", mail.getMailList());
-        // Simulate sending mails
-    }
-
-    private void sendGloomyMail(String technicalId, Mail mail) {
-        log.info("Sending Gloomy Mail to recipients: {}", mail.getMailList());
-        // Simulate sending mails
-    }
 }
