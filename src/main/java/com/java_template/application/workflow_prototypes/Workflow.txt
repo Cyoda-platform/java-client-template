@@ -1,0 +1,28 @@
+private void processWorkflow(String technicalId, Workflow workflow) {
+    // 1. Initial State: Workflow created with status = PENDING if not set
+    if (workflow.getStatus() == null || workflow.getStatus().isBlank()) {
+        workflow.setStatus("PENDING");
+        log.info("Workflow {} initial status set to PENDING", technicalId);
+    }
+
+    // 2. Validation
+    if (workflow.getName() == null || workflow.getName().isBlank()) {
+        log.error("Workflow {} validation failed: name is blank", technicalId);
+        workflow.setStatus("FAILED");
+        return;
+    }
+
+    // 3. Orchestration: Example - trigger processing pets/orders if metadata indicates
+    log.info("Processing Workflow orchestration for {}", technicalId);
+    workflow.setStatus("RUNNING");
+
+    // Simulate orchestration logic (e.g., triggering pet or order events)
+    // For prototype, just log
+    log.info("Workflow {} orchestration running", technicalId);
+
+    // 4. Completion
+    workflow.setStatus("COMPLETED");
+    log.info("Workflow {} completed", technicalId);
+
+    // 5. Notification or downstream events could be triggered here
+}
