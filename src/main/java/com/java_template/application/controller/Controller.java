@@ -45,9 +45,9 @@ public class Controller {
         CompletableFuture<UUID> idFuture = entityService.addItem(Mail.ENTITY_NAME, ENTITY_VERSION, mail);
         UUID technicalId = idFuture.get();
 
-        String technicalIdStr = technicalId.toString();
-
-        logger.info("Mail entity created with technicalId: {}", technicalIdStr);
+            Map<String, String> response = new HashMap<>();
+            response.put("technicalId", technicalIdStr);
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
 
         Map<String, String> response = new HashMap<>();
         response.put("technicalId", technicalIdStr);
