@@ -1,103 +1,103 @@
 {
-    "active": true,
-    "desc": "Workflow for processing orders from placement to approval or failure",
-    "initialState": "none",
-    "name": "Order Workflow",
-    "states": {
-        "approved": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "name": "init_order_status",
-                    "next": "placed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "OrderProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "pet_available": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "PetAvailableCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "pet_available_true",
-                    "next": "reserved"
-                },
-                {
-                    "name": "pet_unavailable",
-                    "next": "failed"
-                }
-            ]
-        },
-        "placed": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "OrderValidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "validate_order_success",
-                    "next": "pet_available"
-                },
-                {
-                    "name": "validate_order_failure",
-                    "next": "failed"
-                }
-            ]
-        },
-        "reserved": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "ShipDateMissingCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "name": "ship_date_missing",
-                    "next": "shipping_scheduled"
-                },
-                {
-                    "name": "ship_date_present",
-                    "next": "approved"
-                }
-            ]
-        },
-        "shipping_scheduled": {
-            "transitions": [
-                {
-                    "name": "approve_order",
-                    "next": "approved"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow for processing orders from placement to approval or failure",
+  "initialState": "none",
+  "name": "Order Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "init_order_status",
+          "next": "placed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "OrderProcessor"
+            }
+          ]
         }
+      ]
     },
-    "version": "1.0"
+    "placed": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "OrderValidCriterion"
+            },
+            "type": "function"
+          },
+          "name": "validate_order_success",
+          "next": "pet_available"
+        },
+        {
+          "name": "validate_order_failure",
+          "next": "failed"
+        }
+      ]
+    },
+    "pet_available": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "PetAvailableCriterion"
+            },
+            "type": "function"
+          },
+          "name": "pet_available_true",
+          "next": "reserved"
+        },
+        {
+          "name": "pet_unavailable",
+          "next": "failed"
+        }
+      ]
+    },
+    "reserved": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "ShipDateMissingCriterion"
+            },
+            "type": "function"
+          },
+          "name": "ship_date_missing",
+          "next": "shipping_scheduled"
+        },
+        {
+          "name": "ship_date_present",
+          "next": "approved"
+        }
+      ]
+    },
+    "shipping_scheduled": {
+      "transitions": [
+        {
+          "name": "approve_order",
+          "next": "approved"
+        }
+      ]
+    },
+    "approved": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
