@@ -1,5 +1,6 @@
 package com.java_template.common.repository;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.repository.dto.Meta;
@@ -11,6 +12,10 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
+import org.cyoda.cloud.api.event.entity.EntityDeleteAllResponse;
+import org.cyoda.cloud.api.event.entity.EntityDeleteResponse;
+import org.cyoda.cloud.api.event.entity.EntityTransactionResponse;
+
 public interface CrudRepository {
 
     @Deprecated
@@ -18,11 +23,7 @@ public interface CrudRepository {
 
     CompletableFuture<ObjectNode> count(Meta meta);
 
-    CompletableFuture<ObjectNode> deleteById(Meta meta, UUID id);
-
     CompletableFuture<ObjectNode> delete(Meta meta, Object entity);
-
-    CompletableFuture<ArrayNode> deleteAll(Meta meta);
 
     CompletableFuture<ObjectNode> deleteAllEntities(Meta meta, List<Object> entities);
 
@@ -32,30 +33,48 @@ public interface CrudRepository {
 
     CompletableFuture<ObjectNode> existsByKey(Meta meta, Object key);
 
+    CompletableFuture<ObjectNode> findAllByKey(Meta meta, List<Object> keys);
+
+    CompletableFuture<ObjectNode> findByKey(Meta meta, Object key);
+
+    CompletableFuture<ObjectNode> updateAll(Meta meta, List<Object> entities);
+
+    CompletableFuture<EntityDeleteResponse> deleteById(@NotNull UUID id);
+
+    CompletableFuture<EntityDeleteAllResponse> deleteAll(
+            @NotNull final String modelName,
+            final int modelVersion);
+
     CompletableFuture<ArrayNode> findAll(
             @NotNull final String modelName,
             final int modelVersion,
             final int pageSize,
             final int pageNumber,
-            @Nullable final Date pointInTime
-    );
-
-    CompletableFuture<ObjectNode> findAllByKey(Meta meta, List<Object> keys);
-
-    CompletableFuture<ObjectNode> findByKey(Meta meta, Object key);
+            @Nullable final Date pointInTime);
 
     CompletableFuture<ObjectNode> findById(UUID id);
 
-    CompletableFuture<ArrayNode> findAllByCriteria(Meta meta, Object criteria);
+    CompletableFuture<ArrayNode> findAllByCriteria(
+            @NotNull String modelName,
+            int modelVersion,
+            @NotNull Object criteria,
+            final int pageSize,
+            final int pageNumber,
+            boolean inMemory);
 
-    CompletableFuture<ArrayNode> findAllByCriteria(Meta meta, Object criteria, boolean inMemory);
+    CompletableFuture<EntityTransactionResponse> save(
+            @NotNull String entityModel,
+            int entityVersion,
+            @NotNull JsonNode entity);
 
-    CompletableFuture<ArrayNode> save(Meta meta, Object entity);
+    CompletableFuture<EntityTransactionResponse> saveAll(
+            @NotNull String entityModel,
+            int entityVersion,
+            @NotNull JsonNode entity);
 
-    CompletableFuture<ArrayNode> saveAll(Meta meta, Object entities);
-
-    CompletableFuture<ObjectNode> update(Meta meta, UUID id, Object entity);
-
-    CompletableFuture<ObjectNode> updateAll(Meta meta, List<Object> entities);
+    CompletableFuture<EntityTransactionResponse> update(
+            @NotNull final String entityModel,
+            final int entityVersion,
+            @NotNull final UUID id,
+            @NotNull final JsonNode entity);
 }
-
