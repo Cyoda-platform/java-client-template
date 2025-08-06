@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "name": "Pet Workflow",
+  "desc": "Workflow for processing Pet entity lifecycle.",
+  "initialState": "validation",
+  "active": true,
+  "states": {
+    "validation": {
+      "transitions": [
+        {
+          "name": "check_pet_status",
+          "next": "persistence",
+          "manual": false
+        }
+      ]
+    },
+    "persistence": {
+      "transitions": [
+        {
+          "name": "save_pet",
+          "next": "post_processing",
+          "manual": false
+        }
+      ]
+    },
+    "post_processing": {
+      "transitions": []
+    }
+  }
+}
