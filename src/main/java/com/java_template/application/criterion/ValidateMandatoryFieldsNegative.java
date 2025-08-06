@@ -46,12 +46,24 @@ public class ValidateMandatoryFieldsNegative implements CyodaCriterion {
 
         HackerNewsItem hackerNewsItem = context.entity();
 
-        // Negative validation logic based on business requirements
+        // Negative validation logic - succeeds when entity is invalid
+        // This criterion should pass when mandatory fields are missing
 
-        if (hackerNewsItem.getId() != null && !(hackerNewsItem.getType() == null || hackerNewsItem.getType().isBlank())) {
-            return EvaluationOutcome.fail("Entity should be invalid for this criterion", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        boolean hasValidId = hackerNewsItem.getId() != null;
+        boolean hasValidType = hackerNewsItem.getType() != null && !hackerNewsItem.getType().isBlank();
+        boolean hasValidItem = hackerNewsItem.getItem() != null;
+
+        boolean hasValidJsonId = hasValidItem && hackerNewsItem.getItem().hasNonNull("id");
+        boolean hasValidJsonType = hasValidItem &&
+            hackerNewsItem.getItem().hasNonNull("type") &&
+            !hackerNewsItem.getItem().get("type").asText().isBlank();
+
+        // If all validations pass, this negative criterion should fail
+        if (hasValidId && hasValidType && hasValidItem && hasValidJsonId && hasValidJsonType) {
+            return EvaluationOutcome.fail("Entity is valid, negative validation should fail", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
 
+        // If any validation fails, this negative criterion succeeds
         return EvaluationOutcome.success();
     }
 }

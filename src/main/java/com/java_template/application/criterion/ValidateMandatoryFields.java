@@ -46,7 +46,7 @@ public class ValidateMandatoryFields implements CyodaCriterion {
 
         HackerNewsItem hackerNewsItem = context.entity();
 
-        // Validation logic based on business requirements
+        // Validation logic based on business requirements from prototype
 
         if (hackerNewsItem.getId() == null) {
             return EvaluationOutcome.fail("Field 'id' is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
@@ -54,6 +54,21 @@ public class ValidateMandatoryFields implements CyodaCriterion {
 
         if (hackerNewsItem.getType() == null || hackerNewsItem.getType().isBlank()) {
             return EvaluationOutcome.fail("Field 'type' is required and cannot be blank", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+
+        // Validate that item JSON data is present
+        if (hackerNewsItem.getItem() == null) {
+            return EvaluationOutcome.fail("Item JSON data is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+
+        // Validate that the JSON item contains the required id and type fields
+        if (!hackerNewsItem.getItem().hasNonNull("id")) {
+            return EvaluationOutcome.fail("JSON item must contain 'id' field", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+
+        if (!hackerNewsItem.getItem().hasNonNull("type") ||
+            hackerNewsItem.getItem().get("type").asText().isBlank()) {
+            return EvaluationOutcome.fail("JSON item must contain non-blank 'type' field", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
 
         return EvaluationOutcome.success();

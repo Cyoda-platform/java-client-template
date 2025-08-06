@@ -16,6 +16,9 @@ import org.springframework.stereotype.Component;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 
+import java.time.Instant;
+import java.time.format.DateTimeFormatter;
+
 @Component
 public class HackerNewsItemProcessor implements CyodaProcessor {
 
@@ -53,10 +56,14 @@ public class HackerNewsItemProcessor implements CyodaProcessor {
     private HackerNewsItem processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<HackerNewsItem> context) {
         HackerNewsItem entity = context.entity();
 
-        // Business logic from processHackerNewsItem:
-        // Add importTimestamp (current time in ISO 8601 format)
+        // Business logic: Enrich with importTimestamp (current time in ISO 8601 format)
         String importTimestamp = DateTimeFormatter.ISO_INSTANT.format(Instant.now());
         entity.setImportTimestamp(importTimestamp);
+
+        // Add importTimestamp to the JSON item data as well for consistency
+        if (entity.getItem() != null) {
+            entity.getItem().put("importTimestamp", importTimestamp);
+        }
 
         logger.info("Processed HackerNewsItem with id: {} and importTimestamp: {}", entity.getId(), importTimestamp);
 

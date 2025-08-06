@@ -1,5 +1,6 @@
 package com.java_template.application.entity;
 
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.common.ModelSpec;
@@ -12,7 +13,7 @@ public class HackerNewsItem implements CyodaEntity {
 
     private Long id;
     private String type;
-    private String jsonData;
+    private ObjectNode item;  // Store full JSON data as ObjectNode
     private String importTimestamp;
 
     public HackerNewsItem() {}
@@ -27,10 +28,14 @@ public class HackerNewsItem implements CyodaEntity {
 
     @Override
     public boolean isValid() {
+        // Basic validation - detailed validation handled by criteria
         if (id == null) {
             return false;
         }
         if (type == null || type.isBlank()) {
+            return false;
+        }
+        if (item == null) {
             return false;
         }
         return true;

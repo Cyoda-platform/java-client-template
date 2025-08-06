@@ -1,18 +1,9 @@
 {
   "active": true,
-  "desc": "Workflow for processing HackerNewsItem entity from validation to persistence",
-  "initialState": "none",
+  "desc": "Workflow for processing HackerNewsItem entity from validation through enrichment to persistence",
+  "initialState": "created",
   "name": "HackerNewsItem Workflow",
   "states": {
-    "none": {
-      "transitions": [
-        {
-          "manual": false,
-          "name": "transition_to_created",
-          "next": "created"
-        }
-      ]
-    },
     "created": {
       "transitions": [
         {

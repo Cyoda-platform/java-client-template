@@ -29,28 +29,11 @@ public class Controller {
     @PostMapping
     public ResponseEntity<?> createHackerNewsItem(@RequestBody ObjectNode hackerNewsItemJson) throws JsonProcessingException {
         try {
-            // Validate mandatory fields 'id' and 'type'
-            if (!hackerNewsItemJson.hasNonNull("id")) {
-                log.error("Missing mandatory field 'id'");
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(Map.of("error", "Missing mandatory field 'id'"));
-            }
-            if (!hackerNewsItemJson.hasNonNull("type") || hackerNewsItemJson.get("type").asText().isBlank()) {
-                log.error("Missing or blank mandatory field 'type'");
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(Map.of("error", "Missing or blank mandatory field 'type'"));
-            }
-
-            // Enrich with importTimestamp
-            String importTimestamp = Instant.now().toString();
-            ObjectNode enrichedItem = hackerNewsItemJson.deepCopy();
-            enrichedItem.put("importTimestamp", importTimestamp);
-
-            // Use entityService to add item asynchronously
+            // Use entityService to add item - validation and enrichment handled by workflow
             CompletableFuture<UUID> idFuture = entityService.addItem(
                     HackerNewsItem.ENTITY_NAME,
                     ENTITY_VERSION,
-                    enrichedItem
+                    hackerNewsItemJson
             );
 
             UUID technicalId = idFuture.join();
@@ -93,9 +76,12 @@ public class Controller {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(Map.of("error", "HackerNewsItem not found"));
             }
-            HackerNewsItem hackerNewsItem = objectMapper.treeToValue(item, HackerNewsItem.class);
+            // Return the item with metadata fields
+            ObjectNode response = objectMapper.createObjectNode();
+            response.set("item", item);
+            response.put("technicalId", technicalId);
 
-            return ResponseEntity.ok(hackerNewsItem);
+            return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             log.error("Invalid argument in getHackerNewsItem", e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -107,8 +93,5 @@ public class Controller {
         }
     }
 
-    // Dummy HackerNewsItem class to hold ENTITY_NAME constant
-    private static class HackerNewsItem {
-        public static final String ENTITY_NAME = "HackerNewsItem";
-    }
+
 }
