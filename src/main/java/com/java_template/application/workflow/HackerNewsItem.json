@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "name": "HackerNewsItem Workflow",
-  "desc": "Workflow for processing HackerNewsItem entity including validation and enrichment",
+  "desc": "Simplified workflow for processing HackerNewsItem entity including validation, state assignment, timestamp addition, and persistence",
   "initialState": "created",
   "active": true,
   "states": {
