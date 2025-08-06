@@ -1,0 +1,65 @@
+{
+  "version": "1.0",
+  "name": "Pet Workflow",
+  "desc": "Pet entity creation and availability process",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": [
+        {
+          "name": "validate_fields",
+          "next": "validating",
+          "manual": false
+        }
+      ]
+    },
+    "validating": {
+      "transitions": [
+        {
+          "name": "check_mandatory_fields",
+          "next": "processing",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PetFieldValidationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "fail_validation",
+          "next": "failed",
+          "manual": false
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "name": "save_pet_data",
+          "next": "available",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PetDataSaveProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "available": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  }
+}
