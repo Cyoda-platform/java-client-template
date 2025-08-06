@@ -1,0 +1,48 @@
+{
+  "version": "1.0",
+  "name": "Pet Workflow",
+  "desc": "Workflow to manage the lifecycle of Pet entity",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": [
+        {
+          "name": "validate_pet",
+          "next": "validated",
+          "manual": false
+        }
+      ]
+    },
+    "validated": {
+      "transitions": [
+        {
+          "name": "enrich_pet_data",
+          "next": "enriched",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PetDataEnrichmentProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "enriched": {
+      "transitions": [
+        {
+          "name": "complete_pet",
+          "next": "completed",
+          "manual": false
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    }
+  }
+}
