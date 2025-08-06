@@ -1,0 +1,85 @@
+{
+    "active": true,
+    "desc": "Workflow for processing HackerNewsItem entity including validation, enrichment, state assignment and persistence.",
+    "initialState": "created",
+    "name": "HackerNewsItem Workflow",
+    "states": {
+        "created": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "validate_fields",
+                    "next": "validated"
+                }
+            ]
+        },
+        "enriched": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {},
+                            "name": "HasIdAndTypeCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "assign_state_valid",
+                    "next": "valid"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {},
+                            "name": "MissingIdOrTypeCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "assign_state_invalid",
+                    "next": "invalid"
+                }
+            ]
+        },
+        "invalid": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "persist_entity",
+                    "next": "persisted"
+                }
+            ]
+        },
+        "persisted": {
+            "transitions": []
+        },
+        "valid": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "persist_entity",
+                    "next": "persisted"
+                }
+            ]
+        },
+        "validated": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "enrich_with_timestamp",
+                    "next": "enriched",
+                    "processors": [
+                        {
+                            "config": {
+                                "timestampFormat": "ISO8601"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "ImportTimestampAssigner"
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
