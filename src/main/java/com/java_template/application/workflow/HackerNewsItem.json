@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "name": "HackerNewsItem Workflow",
-  "desc": "Simplified workflow for processing HackerNewsItem entity including validation, state assignment, timestamp addition, and persistence",
+  "desc": "Simplified workflow for processing HackerNewsItem entity including validation, status assignment, timestamp addition, and persistence",
   "initialState": "created",
   "active": true,
   "states": {
@@ -23,12 +23,12 @@
         },
         {
           "name": "invalid_fields",
-          "next": "assign_invalid_state",
+          "next": "assign_invalid_status",
           "manual": false
         }
       ]
     },
-    "assign_invalid_state": {
+    "assign_invalid_status": {
       "transitions": [
         {
           "name": "mark_invalid",
@@ -41,7 +41,7 @@
       "transitions": [
         {
           "name": "timestamp_added",
-          "next": "assign_valid_state",
+          "next": "assign_valid_status",
           "manual": false,
           "processors": [
             {
@@ -53,7 +53,7 @@
         }
       ]
     },
-    "assign_valid_state": {
+    "assign_valid_status": {
       "transitions": [
         {
           "name": "mark_valid",
