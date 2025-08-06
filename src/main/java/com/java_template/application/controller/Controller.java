@@ -1,7 +1,6 @@
 package com.java_template.application.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import lombok.RequiredArgsConstructor;
@@ -54,9 +53,6 @@ public class Controller {
 
             UUID technicalId = idFuture.join();
 
-            // Process entity event
-            processHackerNewsItem(technicalId.toString(), enrichedItem);
-
             log.info("HackerNewsItem saved with technicalId: {}", technicalId);
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(Map.of("technicalId", technicalId.toString()));
@@ -105,16 +101,6 @@ public class Controller {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Internal server error"));
         }
-    }
-
-    private void processHackerNewsItem(String technicalId, ObjectNode entity) {
-        // Business logic for processing HackerNewsItem:
-        // - Validation already done in controller
-        // - Enrichment done before saving
-        // - No external API calls specified
-        // - No workflows or notifications required
-        // This method can be extended as needed for future logic
-        log.info("Processing HackerNewsItem with technicalId: {}", technicalId);
     }
 
     // Dummy HackerNewsItem class to hold ENTITY_NAME constant
