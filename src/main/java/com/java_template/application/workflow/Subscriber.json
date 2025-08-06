@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "name": "Subscriber Workflow",
+  "desc": "Workflow for processing Subscriber entity lifecycle.",
+  "initialState": "validation",
+  "active": true,
+  "states": {
+    "validation": {
+      "transitions": [
+        {
+          "name": "validate_email_and_preferences",
+          "next": "persistence",
+          "manual": false
+        }
+      ]
+    },
+    "persistence": {
+      "transitions": [
+        {
+          "name": "save_subscriber",
+          "next": "post_processing",
+          "manual": false
+        }
+      ]
+    },
+    "post_processing": {
+      "transitions": []
+    }
+  }
+}
