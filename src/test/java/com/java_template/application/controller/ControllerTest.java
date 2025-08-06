@@ -176,7 +176,7 @@ class ControllerTest {
         // Assert
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
         assertNotNull(response.getBody());
-        assertTrue(response.getBody() instanceof Map);
+        assertInstanceOf(Map.class, response.getBody());
 
         @SuppressWarnings("unchecked")
         Map<String, String> responseBody = (Map<String, String>) response.getBody();
@@ -196,7 +196,7 @@ class ControllerTest {
         // Assert
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
         assertNotNull(response.getBody());
-        assertTrue(response.getBody() instanceof Map);
+        assertInstanceOf(Map.class, response.getBody());
 
         @SuppressWarnings("unchecked")
         Map<String, String> responseBody = (Map<String, String>) response.getBody();

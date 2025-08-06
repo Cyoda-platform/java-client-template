@@ -1,6 +1,5 @@
 package com.java_template.application.processor;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.HackerNewsItem;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;

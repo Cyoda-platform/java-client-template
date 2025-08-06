@@ -53,7 +53,7 @@ class ValidateMandatoryFieldsNegativeIntegrationTest {
         DataPayload dataPayload = new DataPayload();
         dataPayload.setData(payload);
         request.setPayload(dataPayload);
-        eventContext = new CyodaEventContext<EntityCriteriaCalculationRequest>() {
+        eventContext = new CyodaEventContext<>() {
             @Override
             public CloudEvent getCloudEvent() {
                 return mock(CloudEvent.class);

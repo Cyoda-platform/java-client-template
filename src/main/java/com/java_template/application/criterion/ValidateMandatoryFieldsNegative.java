@@ -7,8 +7,6 @@ import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 @Component
