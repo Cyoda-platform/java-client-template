@@ -1,79 +1,79 @@
 {
-    "active": true,
-    "desc": "Workflow for processing subscriber entity from creation to completion",
-    "initialState": "none",
-    "name": "Subscriber Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "start_validation",
-                    "next": "validating"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "persist_success",
-                    "next": "completed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "SubscriberProcessor"
-                        }
-                    ]
-                },
-                {
-                    "manual": false,
-                    "name": "persist_failure",
-                    "next": "failed"
-                }
-            ]
-        },
-        "validating": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "EmailValidAndUnique"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "validation_passed",
-                    "next": "processing"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "EmailInvalidOrNotUnique"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "validation_failed",
-                    "next": "failed"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow for processing subscriber entity from creation to completion",
+  "initialState": "none",
+  "name": "Subscriber Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "start_validation",
+          "next": "validating"
         }
+      ]
     },
-    "version": "1.0"
+    "validating": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "EmailValidAndUnique"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "validation_passed",
+          "next": "processing"
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "EmailInvalidOrNotUnique"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "validation_failed",
+          "next": "failed"
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "persist_success",
+          "next": "completed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "SubscriberProcessor"
+            }
+          ]
+        },
+        {
+          "manual": false,
+          "name": "persist_failure",
+          "next": "failed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
