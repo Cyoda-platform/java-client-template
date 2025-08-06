@@ -1,8 +1,8 @@
 {
     "active": true,
-    "desc": "Workflow for processing WeeklyCatFactJob entity",
+    "desc": "Workflow for processing subscriber entity from creation to completion",
     "initialState": "none",
-    "name": "WeeklyCatFactJobWorkflow",
+    "name": "Subscriber Workflow",
     "states": {
         "completed": {
             "transitions": []
@@ -23,7 +23,7 @@
             "transitions": [
                 {
                     "manual": false,
-                    "name": "processing_completed",
+                    "name": "persist_success",
                     "next": "completed",
                     "processors": [
                         {
@@ -31,13 +31,13 @@
                                 "calculationNodesTags": "cyoda_application"
                             },
                             "executionMode": "SYNC",
-                            "name": "WeeklyCatFactJobProcessor"
+                            "name": "SubscriberProcessor"
                         }
                     ]
                 },
                 {
                     "manual": false,
-                    "name": "processing_failed",
+                    "name": "persist_failure",
                     "next": "failed"
                 }
             ]
@@ -50,7 +50,7 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "SubscriberEmailValidCriterion"
+                            "name": "EmailValidAndUnique"
                         },
                         "type": "function"
                     },
@@ -64,7 +64,7 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "SubscriberEmailInvalidCriterion"
+                            "name": "EmailInvalidOrNotUnique"
                         },
                         "type": "function"
                     },
