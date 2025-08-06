@@ -1,0 +1,79 @@
+{
+    "active": true,
+    "desc": "Workflow for processing WeeklyCatFactJob entity",
+    "initialState": "none",
+    "name": "WeeklyCatFactJobWorkflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "start_validation",
+                    "next": "validating"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "processing_completed",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "WeeklyCatFactJobProcessor"
+                        }
+                    ]
+                },
+                {
+                    "manual": false,
+                    "name": "processing_failed",
+                    "next": "failed"
+                }
+            ]
+        },
+        "validating": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "SubscriberEmailValidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "validation_passed",
+                    "next": "processing"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "SubscriberEmailInvalidCriterion"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "validation_failed",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
