@@ -1,0 +1,80 @@
+{
+  "version": "1.0",
+  "name": "AdoptionRequest Workflow",
+  "desc": "AdoptionRequest entity processing and workflow creation",
+  "initialState": "pending",
+  "active": true,
+  "states": {
+    "pending": {
+      "transitions": [
+        {
+          "name": "validate_pet_availability",
+          "next": "validating",
+          "manual": false
+        }
+      ]
+    },
+    "validating": {
+      "transitions": [
+        {
+          "name": "confirm_pet_availability",
+          "next": "processing",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AdoptionRequestValidationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "fail_validation",
+          "next": "rejected",
+          "manual": false
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "name": "initiate_workflow_creation",
+          "next": "completed",
+          "manual": false,
+          "processors": [
+            {
+              "name": "WorkflowCreationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "completed": {
+      "transitions": [
+        {
+          "name": "update_status",
+          "next": "notified",
+          "manual": false
+        }
+      ]
+    },
+    "rejected": {
+      "transitions": [
+        {
+          "name": "notify_rejection",
+          "next": "notified",
+          "manual": false
+        }
+      ]
+    },
+    "notified": {
+      "transitions": []
+    }
+  }
+}
