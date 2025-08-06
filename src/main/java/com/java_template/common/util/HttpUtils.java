@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 
 @Component
 public class HttpUtils {
-    private final HttpClient client = HttpClient.newHttpClient();
+    private final HttpClient client = SslUtils.createHttpClient();
     private final Logger logger = LoggerFactory.getLogger(HttpUtils.class);
     private final ObjectMapper om;
     private final JsonUtils jsonUtils;
@@ -88,12 +88,12 @@ public class HttpUtils {
                                 result.put("json", responseJson.asText());
                             }
                         } else {
-                            result.put("json", responseJson);
+                            result.set("json", responseJson);
                         }
                         result.put("status", statusCode);
                         return result;
                     } catch (Exception e) {
-                        logger.warn("Failed to parse response JSON: {}", e.getMessage());
+                        logger.warn("Failed to parse response JSON: \"{}\". Message: {}", responseBody, e.getMessage());
                         result.put("status", statusCode);
                         result.put("json", responseBody);
                         return result;

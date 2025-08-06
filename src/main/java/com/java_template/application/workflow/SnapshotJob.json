@@ -1,23 +1,16 @@
 {
   "active": true,
   "desc": "Workflow for managing SnapshotJob lifecycle including validation, processing, change detection, and completion",
-  "initialState": "none",
+  "initialState": "validating",
   "name": "SnapshotJob Workflow",
   "states": {
-    "none": {
-      "transitions": [
-        {
-          "name": "start_validation",
-          "next": "validating"
-        }
-      ]
-    },
     "validating": {
       "transitions": [
         {
           "criterion": {
             "function": {
               "config": {
+                "attachEntity": true,
                 "calculationNodesTags": "cyoda_application"
               },
               "name": "ValidDateAndSeasonCriterion"
@@ -25,12 +18,14 @@
             "type": "function"
           },
           "name": "valid_date_and_season",
+          "manual": false,
           "next": "processing"
         },
         {
           "criterion": {
             "function": {
               "config": {
+                "attachEntity": true,
                 "calculationNodesTags": "cyoda_application"
               },
               "name": "InvalidDateOrSeasonCriterion"
@@ -38,6 +33,7 @@
             "type": "function"
           },
           "name": "invalid_date_or_season",
+          "manual": false,
           "next": "failed"
         }
       ]
@@ -46,10 +42,12 @@
       "transitions": [
         {
           "name": "processing_successful",
+          "manual": false,
           "next": "change_detection",
           "processors": [
             {
               "config": {
+                "attachEntity": true,
                 "calculationNodesTags": "cyoda_application"
               },
               "executionMode": "SYNC",
@@ -59,6 +57,7 @@
         },
         {
           "name": "processing_failed",
+          "manual": false,
           "next": "failed"
         }
       ]
@@ -67,10 +66,12 @@
       "transitions": [
         {
           "name": "changes_detected_and_notified",
+          "manual": true,
           "next": "completed"
         },
         {
           "name": "change_detection_failed",
+          "manual": true,
           "next": "failed"
         }
       ]

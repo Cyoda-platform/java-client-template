@@ -15,6 +15,7 @@ public class SnapshotJob implements CyodaEntity {
     private String dateRangeEnd; // ISO date, end of snapshot capture period
     private String status; // Job status: PENDING, COMPLETED, FAILED
     private String createdAt; // Timestamp when job was created
+    private String failReason; // Reason for failure when status is FAILED (optional)
 
     public SnapshotJob() {}
 

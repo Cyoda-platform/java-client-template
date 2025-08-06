@@ -7,6 +7,7 @@ SnapshotJob:
 - dateRangeEnd: String (ISO date, end of snapshot capture period)
 - status: String (Job status: PENDING, COMPLETED, FAILED)
 - createdAt: String (Timestamp when job was created)
+- failReason: String (Reason for failure when status is FAILED, optional)
 
 TeamSnapshot:
 - season: String (The Bundesliga season year this snapshot belongs to)
@@ -81,35 +82,60 @@ processChangeNotification() Flow:
 
 | Method | Path                  | Description                          | Request Body                      | Response Body                |
 |--------|-----------------------|----------------------------------|---------------------------------|-----------------------------|
-| POST   | /snapshotJob          | Create a SnapshotJob to ingest data | `{ "season": "...", "dateRangeStart": "...", "dateRangeEnd": "..." }` | `{ "technicalId": "job-uuid" }` |
-| GET    | /snapshotJob/{id}     | Retrieve SnapshotJob status/details | N/A                             | SnapshotJob entity data      |
-| GET    | /teamSnapshot/{id}    | Retrieve TeamSnapshot by technicalId | N/A                             | TeamSnapshot entity data     |
-| GET    | /squadSnapshot/{id}   | Retrieve SquadSnapshot by technicalId | N/A                             | SquadSnapshot entity data    |
-| GET    | /changeNotification/{id} | Retrieve ChangeNotification by technicalId | N/A                         | ChangeNotification entity data |
+| POST   | /entity/snapshotJob   | Create a SnapshotJob to ingest data | `{ "dateRangeStart": "...", "dateRangeEnd": "..." }` | `{ "technicalId": "job-uuid" }` |
+| GET    | /entity/snapshotJob/{id} | Retrieve SnapshotJob status/details | N/A                             | SnapshotJob entity data      |
+| GET    | /entity/teamSnapshot/{id} | Retrieve TeamSnapshot by technicalId | N/A                             | TeamSnapshot entity data     |
+| GET    | /entity/squadSnapshot/{id} | Retrieve SquadSnapshot by technicalId | N/A                             | SquadSnapshot entity data    |
+| GET    | /entity/changeNotification/{id} | Retrieve ChangeNotification by technicalId | N/A                         | ChangeNotification entity data |
 
 ---
 
 ### 4. Request/Response Formats
 
-**POST /snapshotJob Request Example**
+**POST /entity/snapshotJob Request Example**
 
 ```json
 {
-  "season": "2023",
   "dateRangeStart": "2023-08-01",
   "dateRangeEnd": "2024-05-31"
 }
 ```
 
-**POST /snapshotJob Response Example**
+**POST /entity/snapshotJob Response Example**
 
 ```json
 {
-  "technicalId": "uuid-job-1234"
+  "technicalId": "snapshotJob-uuid-1234"
 }
 ```
 
-**GET /teamSnapshot/{id} Response Example**
+**GET /entity/snapshotJob/{id} Response Example (Success)**
+
+```json
+{
+  "season": "2023",
+  "dateRangeStart": "2023-08-01",
+  "dateRangeEnd": "2024-05-31",
+  "status": "COMPLETED",
+  "createdAt": "2023-09-01T12:00:00Z",
+  "failReason": null
+}
+```
+
+**GET /entity/snapshotJob/{id} Response Example (Failure)**
+
+```json
+{
+  "season": "2023",
+  "dateRangeStart": "2024-05-31",
+  "dateRangeEnd": "2023-08-01",
+  "status": "FAILED",
+  "createdAt": "2023-09-01T12:00:00Z",
+  "failReason": "SnapshotJob date validation failed: dateRangeStart (2024-05-31) must be before dateRangeEnd (2023-08-01)"
+}
+```
+
+**GET /entity/teamSnapshot/{id} Response Example**
 
 ```json
 {
@@ -161,13 +187,14 @@ sequenceDiagram
     participant API
     participant Processor
 
-    User->>API: POST /snapshotJob {season, dateRange}
+    User->>API: POST /entity/snapshotJob {dateRangeStart, dateRangeEnd}
+    API->>API: Derive season from dateRange
     API->>Processor: processSnapshotJob()
     Processor->>API: Create TeamSnapshot & SquadSnapshot
     Processor->>Processor: Detect Changes
     Processor->>API: Create ChangeNotification
     Processor->>User: Job Completion Status
-    User->>API: GET /teamSnapshot/{id}
+    User->>API: GET /entity/teamSnapshot/{id}
     API-->>User: TeamSnapshot Data
 ```
 

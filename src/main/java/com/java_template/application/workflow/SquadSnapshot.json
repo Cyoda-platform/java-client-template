@@ -1,43 +1,39 @@
 {
   "active": true,
-  "desc": "Workflow managing the lifecycle of SnapshotJob entity",
-  "initialState": "none",
-  "name": "SnapshotJobWorkflow",
+  "desc": "Workflow managing the lifecycle of SquadSnapshot entity",
+  "initialState": "pending",
+  "name": "SquadSnapshotWorkflow",
   "states": {
-    "none": {
-      "transitions": [
-        {
-          "name": "init_to_pending",
-          "next": "pending"
-        }
-      ]
-    },
     "pending": {
       "transitions": [
         {
           "criterion": {
             "function": {
               "config": {
+                "attachEntity": true,
                 "calculationNodesTags": "cyoda_application"
               },
-              "name": "IsValidJob"
+              "name": "IsValidSquadSnapshot"
             },
             "type": "function"
           },
-          "name": "validate_job_success",
+          "name": "validate_squad_snapshot_success",
+          "manual": false,
           "next": "valid"
         },
         {
           "criterion": {
             "function": {
               "config": {
+                "attachEntity": true,
                 "calculationNodesTags": "cyoda_application"
               },
-              "name": "IsInvalidJob"
+              "name": "IsInvalidSquadSnapshot"
             },
             "type": "function"
           },
-          "name": "validate_job_fail",
+          "name": "validate_squad_snapshot_fail",
+          "manual": false,
           "next": "failed"
         }
       ]
@@ -46,6 +42,7 @@
       "transitions": [
         {
           "name": "valid_to_inProgress",
+          "manual": false,
           "next": "inProgress"
         }
       ]
@@ -54,13 +51,16 @@
       "transitions": [
         {
           "name": "process_snapshots",
+          "manual": false,
           "next": "detectChanges",
           "processors": [
             {
               "config": {
+                "attachEntity": true,
                 "calculationNodesTags": "cyoda_application"
               },
               "executionMode": "SYNC",
+              "manual": false,
               "name": "SquadSnapshotProcessor"
             }
           ]
@@ -73,26 +73,30 @@
           "criterion": {
             "function": {
               "config": {
+                "attachEntity": true,
                 "calculationNodesTags": "cyoda_application"
               },
-              "name": "HasChangesDetected"
+              "name": "SquadSnapshotChangesDetected"
             },
             "type": "function"
           },
           "name": "changes_detected",
+          "manual": false,
           "next": "changesDetected"
         },
         {
           "criterion": {
             "function": {
               "config": {
+                "attachEntity": true,
                 "calculationNodesTags": "cyoda_application"
               },
-              "name": "HasNoChanges"
+              "name": "SquadSnapshotNoChanges"
             },
             "type": "function"
           },
           "name": "no_changes_detected",
+          "manual": false,
           "next": "noChanges"
         }
       ]
@@ -101,6 +105,7 @@
       "transitions": [
         {
           "name": "notify_and_complete",
+          "manual": true,
           "next": "completed"
         }
       ]
@@ -112,6 +117,7 @@
       "transitions": [
         {
           "name": "complete_without_changes",
+          "manual": true,
           "next": "completed"
         }
       ]

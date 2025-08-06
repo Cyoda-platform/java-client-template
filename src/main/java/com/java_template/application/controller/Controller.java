@@ -3,6 +3,7 @@ package com.java_template.application.controller;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.java_template.application.dto.SnapshotJobRequest;
 import com.java_template.application.entity.SnapshotJob;
 import com.java_template.application.entity.TeamSnapshot;
 import com.java_template.application.entity.SquadSnapshot;
@@ -14,6 +15,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import static com.java_template.common.config.Config.ENTITY_VERSION;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -33,21 +37,45 @@ public class Controller {
     // ================= SnapshotJob Endpoints =================
 
     @PostMapping("/snapshotJob")
-    public ResponseEntity<Map<String, String>> createSnapshotJob(@Valid @RequestBody SnapshotJob job) throws InterruptedException, ExecutionException {
+    public ResponseEntity<Map<String, String>> createSnapshotJob(@Valid @RequestBody SnapshotJobRequest request) throws InterruptedException, ExecutionException {
         try {
-            if (!job.isValid()) {
-                log.error("Invalid SnapshotJob data");
+            // Validate date range
+            LocalDate startDate, endDate;
+            try {
+                startDate = LocalDate.parse(request.getDateRangeStart(), DateTimeFormatter.ISO_LOCAL_DATE);
+                endDate = LocalDate.parse(request.getDateRangeEnd(), DateTimeFormatter.ISO_LOCAL_DATE);
+            } catch (DateTimeParseException e) {
+                log.error("Invalid date format in SnapshotJob request", e);
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
             }
+
+            if (!startDate.isBefore(endDate)) {
+                log.error("dateRangeStart must be before dateRangeEnd");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+            }
+
+            // Derive season from start date (assuming Bundesliga season starts in August)
+            String season = String.valueOf(startDate.getMonthValue() >= 8 ? startDate.getYear() : startDate.getYear() - 1);
+
+            // Create SnapshotJob entity
+            SnapshotJob job = new SnapshotJob();
+            job.setSeason(season);
+            job.setDateRangeStart(request.getDateRangeStart());
+            job.setDateRangeEnd(request.getDateRangeEnd());
             job.setStatus("PENDING");
             job.setCreatedAt(new Date().toInstant().toString());
+
+            if (!job.isValid()) {
+                log.error("Invalid SnapshotJob data after creation");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+            }
 
             CompletableFuture<UUID> idFuture = entityService.addItem(SnapshotJob.ENTITY_NAME, ENTITY_VERSION, job);
             UUID technicalId = idFuture.get();
 
             String technicalIdStr = "snapshotJob-" + technicalId.toString();
 
-            log.info("Created SnapshotJob with id {}", technicalIdStr);
+            log.info("Created SnapshotJob with id {} for season {}", technicalIdStr, season);
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalIdStr);

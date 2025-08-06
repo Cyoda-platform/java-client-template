@@ -1,23 +1,16 @@
 {
   "active": true,
   "desc": "Workflow for processing SnapshotJob through validation, processing, change detection and completion states",
-  "initialState": "none",
+  "initialState": "validating",
   "name": "SnapshotJob Workflow",
   "states": {
-    "none": {
-      "transitions": [
-        {
-          "name": "start_validation",
-          "next": "validating"
-        }
-      ]
-    },
     "validating": {
       "transitions": [
         {
           "criterion": {
             "function": {
               "config": {
+                "attachEntity": true,
                 "calculationNodesTags": "cyoda_application"
               },
               "name": "SnapshotJobValidationCriterion"
@@ -25,12 +18,14 @@
             "type": "function"
           },
           "name": "validation_passed",
+          "manual": false,
           "next": "processing"
         },
         {
           "criterion": {
             "function": {
               "config": {
+                "attachEntity": true,
                 "calculationNodesTags": "cyoda_application"
               },
               "name": "SnapshotJobValidationFailedCriterion"
@@ -38,6 +33,7 @@
             "type": "function"
           },
           "name": "validation_failed",
+          "manual": false,
           "next": "failed"
         }
       ]
@@ -48,6 +44,7 @@
           "criterion": {
             "function": {
               "config": {
+                "attachEntity": true,
                 "calculationNodesTags": "cyoda_application"
               },
               "name": "SnapshotJobProcessingSuccessCriterion"
@@ -55,14 +52,16 @@
             "type": "function"
           },
           "name": "processing_success",
+          "manual": false,
           "next": "change_detection",
           "processors": [
             {
               "config": {
+                "attachEntity": true,
                 "calculationNodesTags": "cyoda_application"
               },
               "executionMode": "SYNC",
-              "name": "SnapshotJobProcessor"
+              "name": "TeamSnapshotProcessor"
             }
           ]
         },
@@ -70,6 +69,7 @@
           "criterion": {
             "function": {
               "config": {
+                "attachEntity": true,
                 "calculationNodesTags": "cyoda_application"
               },
               "name": "SnapshotJobProcessingFailedCriterion"
@@ -77,6 +77,7 @@
             "type": "function"
           },
           "name": "processing_failed",
+          "manual": false,
           "next": "failed"
         }
       ]
@@ -87,6 +88,7 @@
           "criterion": {
             "function": {
               "config": {
+                "attachEntity": true,
                 "calculationNodesTags": "cyoda_application"
               },
               "name": "ChangeDetectionSuccessCriterion"
@@ -94,12 +96,14 @@
             "type": "function"
           },
           "name": "change_detection_success",
+          "manual": false,
           "next": "completed"
         },
         {
           "criterion": {
             "function": {
               "config": {
+                "attachEntity": true,
                 "calculationNodesTags": "cyoda_application"
               },
               "name": "ChangeDetectionFailedCriterion"
@@ -107,6 +111,7 @@
             "type": "function"
           },
           "name": "change_detection_failed",
+          "manual": false,
           "next": "failed"
         }
       ]

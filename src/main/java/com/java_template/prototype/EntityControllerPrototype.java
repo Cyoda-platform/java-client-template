@@ -1,12 +1,21 @@
 package com.java_template.prototype;
 
+import com.java_template.application.dto.SnapshotJobRequest;
+import com.java_template.application.entity.SnapshotJob;
+import com.java_template.application.entity.SquadSnapshot;
+import com.java_template.application.entity.TeamSnapshot;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
 import lombok.extern.slf4j.Slf4j;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.*;
+
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping(path = "/prototype")
@@ -26,18 +35,43 @@ public class EntityControllerPrototype {
     // ================= SnapshotJob Endpoints =================
 
     @PostMapping("/snapshotJob")
-    public ResponseEntity<Map<String, String>> createSnapshotJob(@RequestBody SnapshotJob job) {
+    public ResponseEntity<Map<String, String>> createSnapshotJob(@Valid @RequestBody SnapshotJobRequest request) {
         try {
-            if (!job.isValid()) {
-                log.error("Invalid SnapshotJob data");
+            // Validate date range
+            LocalDate startDate, endDate;
+            try {
+                startDate = LocalDate.parse(request.getDateRangeStart(), DateTimeFormatter.ISO_LOCAL_DATE);
+                endDate = LocalDate.parse(request.getDateRangeEnd(), DateTimeFormatter.ISO_LOCAL_DATE);
+            } catch (DateTimeParseException e) {
+                log.error("Invalid date format in SnapshotJob request", e);
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
             }
-            String technicalId = "snapshotJob-" + snapshotJobIdCounter.getAndIncrement();
+
+            if (!startDate.isBefore(endDate)) {
+                log.error("dateRangeStart must be before dateRangeEnd");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+            }
+
+            // Derive season from start date (assuming Bundesliga season starts in August)
+            String season = String.valueOf(startDate.getMonthValue() >= 8 ? startDate.getYear() : startDate.getYear() - 1);
+
+            // Create SnapshotJob entity
+            SnapshotJob job = new SnapshotJob();
+            job.setSeason(season);
+            job.setDateRangeStart(request.getDateRangeStart());
+            job.setDateRangeEnd(request.getDateRangeEnd());
             job.setStatus("PENDING");
             job.setCreatedAt(new Date().toInstant().toString());
+
+            if (!job.isValid()) {
+                log.error("Invalid SnapshotJob data after creation");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+            }
+
+            String technicalId = "snapshotJob-" + snapshotJobIdCounter.getAndIncrement();
             snapshotJobCache.put(technicalId, job);
 
-            log.info("Created SnapshotJob with id {}", technicalId);
+            log.info("Created SnapshotJob with id {} for season {}", technicalId, season);
 
             processSnapshotJob(technicalId, job);
 
@@ -91,16 +125,20 @@ public class EntityControllerPrototype {
         try {
             // Validation: dateRangeStart < dateRangeEnd and season format
             if (job.getDateRangeStart().isBlank() || job.getDateRangeEnd().isBlank() || job.getSeason().isBlank()) {
+                String failureReason = "SnapshotJob validation failed: missing required fields (dateRangeStart, dateRangeEnd, or season)";
                 log.error("SnapshotJob validation failed for id: {}", technicalId);
                 job.setStatus("FAILED");
+                job.setFailReason(failureReason);
                 snapshotJobCache.put(technicalId, job);
                 return;
             }
             Date startDate = java.sql.Date.valueOf(job.getDateRangeStart());
             Date endDate = java.sql.Date.valueOf(job.getDateRangeEnd());
             if (!startDate.before(endDate)) {
+                String failureReason = "SnapshotJob date validation failed: dateRangeStart (" + job.getDateRangeStart() + ") must be before dateRangeEnd (" + job.getDateRangeEnd() + ")";
                 log.error("SnapshotJob dateRangeStart is not before dateRangeEnd for id: {}", technicalId);
                 job.setStatus("FAILED");
+                job.setFailReason(failureReason);
                 snapshotJobCache.put(technicalId, job);
                 return;
             }
