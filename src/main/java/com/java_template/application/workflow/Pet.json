@@ -1,45 +1,47 @@
 {
-  "version": "1.0",
-  "name": "Pet Workflow",
-  "desc": "Workflow for Pet entity processing including validation and storage.",
-  "initialState": "saved",
-  "active": true,
-  "states": {
-    "saved": {
-      "transitions": [
-        {
-          "name": "validate_pet",
-          "next": "validation",
-          "manual": false
-        }
-      ]
-    },
-    "validation": {
-      "transitions": [
-        {
-          "name": "valid_pet",
-          "next": "stored",
-          "manual": false,
-          "processors": [
-            {
-              "name": "PetValidationProcessor",
-              "executionMode": "SYNC",
-              "config": {"calculationNodesTags": "cyoda_application"}
-            }
-          ]
+    "active": true,
+    "desc": "Workflow for Pet entity processing including validation and storage.",
+    "initialState": "none",
+    "name": "Pet Workflow",
+    "states": {
+        "failed": {
+            "transitions": []
         },
-        {
-          "name": "invalid_pet",
-          "next": "failed",
-          "manual": false
+        "saved": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "validate_pet",
+                    "next": "validation"
+                }
+            ]
+        },
+        "stored": {
+            "transitions": []
+        },
+        "validation": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "valid_pet",
+                    "next": "stored",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "PetValidationProcessor"
+                        }
+                    ]
+                },
+                {
+                    "manual": false,
+                    "name": "invalid_pet",
+                    "next": "failed"
+                }
+            ]
         }
-      ]
     },
-    "stored": {
-      "transitions": []
-    },
-    "failed": {
-      "transitions": []
-    }
-  }
+    "version": "1.0"
 }
