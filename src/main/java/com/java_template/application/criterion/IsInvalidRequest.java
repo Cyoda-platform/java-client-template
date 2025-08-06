@@ -31,9 +31,9 @@ public class IsInvalidRequest implements CyodaCriterion {
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
         return serializer.withRequest(request)
-            .evaluateEntity(WeatherRequest.class, this::validateEntity)
-            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
-            .complete();
+                .evaluateEntity(WeatherRequest.class, this::validateEntity)
+                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+                .complete();
     }
 
     @Override
@@ -42,21 +42,22 @@ public class IsInvalidRequest implements CyodaCriterion {
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<WeatherRequest> context) {
+        WeatherRequest entity = context.entity();
 
-        WeatherRequest weatherRequest = context.entity();
-
-        // Inverse logic of IsValidRequest
-        if (weatherRequest.getRequestType() == null || weatherRequest.getRequestType().isBlank()) {
-            return EvaluationOutcome.success(); // This is invalid because requestType missing
+        if ((entity.getCityName() == null || entity.getCityName().isBlank()) && 
+            (entity.getLatitude() == null || entity.getLongitude() == null)) {
+            return EvaluationOutcome.success();
         }
 
-        boolean cityValid = weatherRequest.getCityName() != null && !weatherRequest.getCityName().isBlank();
-        boolean latLongValid = weatherRequest.getLatitude() != null && weatherRequest.getLongitude() != null;
-
-        if (!cityValid && !latLongValid) {
-            return EvaluationOutcome.success(); // Invalid because location info missing
+        if (entity.getRequestType() == null || entity.getRequestType().isBlank()) {
+            return EvaluationOutcome.success();
         }
 
-        return EvaluationOutcome.fail("Request is valid", StandardEvalReasonCategories.VALIDATION_FAILURE); // Fail because it is valid
+        // Here, this criterion considers invalid if requestType is not correct
+        if (!entity.getRequestType().equalsIgnoreCase("CURRENT") && !entity.getRequestType().equalsIgnoreCase("FORECAST")) {
+            return EvaluationOutcome.success();
+        }
+
+        return EvaluationOutcome.fail("Request is valid", StandardEvalReasonCategories.VALIDATION_FAILURE);
     }
 }
