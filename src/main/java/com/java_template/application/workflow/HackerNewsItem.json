@@ -1,0 +1,92 @@
+{
+    "active": true,
+    "desc": "Workflow for processing HackerNewsItem entity from validation to persistence",
+    "initialState": "none",
+    "name": "HackerNewsItem Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "created": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ValidateMandatoryFields"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "transition_to_validated_if_valid",
+                    "next": "validated"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ValidateMandatoryFieldsNegative"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "transition_to_validation_failed_if_invalid",
+                    "next": "validation_failed"
+                }
+            ]
+        },
+        "enriched": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "transition_to_persisted",
+                    "next": "persisted"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "transition_to_created",
+                    "next": "created"
+                }
+            ]
+        },
+        "persisted": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "transition_to_completed",
+                    "next": "completed"
+                }
+            ]
+        },
+        "validated": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "transition_to_enriched",
+                    "next": "enriched",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "HackerNewsItemProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "validation_failed": {
+            "transitions": []
+        }
+    },
+    "version": "1.0"
+}
