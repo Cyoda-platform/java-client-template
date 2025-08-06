@@ -1,0 +1,106 @@
+{
+    "active": true,
+    "desc": "Business workflow for processing WeatherRequest entity",
+    "initialState": "none",
+    "name": "WeatherRequest Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "created": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "transition_to_validated",
+                    "next": "validated"
+                }
+            ]
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "transition_to_created",
+                    "next": "created"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ProcessSuccess"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "transition_to_completed_if_success",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "WeatherDataProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "ProcessFailure"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "transition_to_failed_if_failure",
+                    "next": "failed"
+                }
+            ]
+        },
+        "validated": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsValidRequest"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "transition_to_processing_if_valid",
+                    "next": "processing"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsInvalidRequest"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "transition_to_failed_if_invalid",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
