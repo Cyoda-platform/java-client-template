@@ -1,97 +1,97 @@
 {
-    "active": true,
-    "desc": "Workflow for processing HackerNewsImportJob entities from creation to completion or failure",
-    "initialState": "none",
-    "name": "HackerNewsImportJobWorkflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "job_created": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "ValidateJobParameters"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "valid_params",
-                    "next": "processing"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "ValidateJobParametersNegation"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "invalid_params",
-                    "next": "failed"
-                }
-            ]
-        },
-        "none": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "create_job",
-                    "next": "job_created"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "ProcessJobItemsSuccess"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "all_items_processed_successfully",
-                    "next": "completed",
-                    "processor": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "HackerNewsImportJobProcessor"
-                        }
-                    ]
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "ProcessJobItemsFailure"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "processing_failed",
-                    "next": "failed"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow for processing HackerNewsImportJob entities from creation to completion or failure",
+  "initialState": "none",
+  "name": "HackerNewsImportJobWorkflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "create_job",
+          "next": "job_created"
         }
+      ]
     },
-    "version": "1.0"
+    "job_created": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "ValidateJobParameters"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "valid_params",
+          "next": "processing"
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "ValidateJobParametersNegation"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "invalid_params",
+          "next": "failed"
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "ProcessJobItemsSuccess"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "all_items_processed_successfully",
+          "next": "completed",
+          "processor": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "HackerNewsImportJobProcessor"
+            }
+          ]
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "ProcessJobItemsFailure"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "processing_failed",
+          "next": "failed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
