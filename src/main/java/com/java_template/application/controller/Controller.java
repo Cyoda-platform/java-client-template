@@ -48,7 +48,7 @@ public class Controller {
 
             log.info("Created HackerNewsImportJob with technicalId={}", jobTechnicalId);
 
-            processHackerNewsImportJob(jobTechnicalId, job, jobRequest.items);
+            // processHackerNewsImportJob method and helpers were extracted to workflow prototypes
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", jobTechnicalId.toString()));
         } catch (IllegalArgumentException e) {
@@ -127,63 +127,6 @@ public class Controller {
         } catch (Exception e) {
             log.error("Unexpected error retrieving item {}", technicalId, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
-        }
-    }
-
-    private void processHackerNewsImportJob(UUID jobTechnicalId, HackerNewsImportJob job, List<Map<String, Object>> items) {
-        boolean allSuccess = true;
-        List<HackerNewsItem> itemEntities = new ArrayList<>();
-        for (Map<String, Object> itemMap : items) {
-            try {
-                Object idObj = itemMap.get("id");
-                String itemIdStr = idObj != null ? idObj.toString() : null;
-                if (itemIdStr == null || itemIdStr.isBlank()) {
-                    log.error("Skipping item with missing id");
-                    allSuccess = false;
-                    continue;
-                }
-
-                HackerNewsItem item = new HackerNewsItem();
-                item.setId(Long.parseLong(itemIdStr));
-                String typeStr = itemMap.get("type") != null ? itemMap.get("type").toString() : "";
-                item.setType(typeStr);
-                item.setImportTimestamp(DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
-
-                // Store originalJson string in the item entity
-                item.setOriginalJson(objectMapper.writeValueAsString(itemMap));
-
-                processHackerNewsItem(item);
-
-                itemEntities.add(item);
-
-            } catch (Exception e) {
-                log.error("Failed processing item in job {}", jobTechnicalId, e);
-                allSuccess = false;
-            }
-        }
-        try {
-            if (!itemEntities.isEmpty()) {
-                CompletableFuture<List<UUID>> addItemsFuture = entityService.addItems(HackerNewsItem.ENTITY_NAME, ENTITY_VERSION, itemEntities);
-                addItemsFuture.get();
-            }
-            job.setStatus(allSuccess ? "COMPLETED" : "FAILED");
-            CompletableFuture<UUID> updateJobFuture = entityService.addItem(HackerNewsImportJob.ENTITY_NAME, ENTITY_VERSION, job);
-            updateJobFuture.get();
-            log.info("Job {} processing completed with status {}", jobTechnicalId, job.getStatus());
-        } catch (Exception e) {
-            log.error("Failed updating job {} status", jobTechnicalId, e);
-        }
-    }
-
-    private void processHackerNewsItem(HackerNewsItem item) {
-        boolean hasId = item.getId() != null;
-        boolean hasType = item.getType() != null && !item.getType().isBlank();
-        if (hasId && hasType) {
-            item.setState("VALID");
-            log.info("Item marked VALID");
-        } else {
-            item.setState("INVALID");
-            log.info("Item marked INVALID");
         }
     }
 
