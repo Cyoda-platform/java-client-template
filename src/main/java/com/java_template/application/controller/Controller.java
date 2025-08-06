@@ -1,8 +1,10 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
+import com.java_template.application.entity.HackerNewsItem;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -22,10 +24,10 @@ import static com.java_template.common.config.Config.*;
 public class Controller {
 
     private final EntityService entityService;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
     @PostMapping
-    public ResponseEntity<?> createHackerNewsItem(@RequestBody ObjectNode hackerNewsItemJson) {
+    public ResponseEntity<?> createHackerNewsItem(@RequestBody ObjectNode hackerNewsItemJson) throws JsonProcessingException {
         try {
             // Validate mandatory fields 'id' and 'type'
             if (!hackerNewsItemJson.hasNonNull("id")) {
@@ -68,7 +70,7 @@ public class Controller {
     }
 
     @GetMapping("/{technicalId}")
-    public ResponseEntity<?> getHackerNewsItem(@PathVariable String technicalId) {
+    public ResponseEntity<?> getHackerNewsItem(@PathVariable String technicalId) throws JsonProcessingException {
         try {
             UUID uuid;
             try {
@@ -91,7 +93,9 @@ public class Controller {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(Map.of("error", "HackerNewsItem not found"));
             }
-            return ResponseEntity.ok(item);
+            HackerNewsItem hackerNewsItem = objectMapper.treeToValue(item, HackerNewsItem.class);
+
+            return ResponseEntity.ok(hackerNewsItem);
         } catch (IllegalArgumentException e) {
             log.error("Invalid argument in getHackerNewsItem", e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
