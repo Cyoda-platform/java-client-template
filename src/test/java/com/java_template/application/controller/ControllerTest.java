@@ -52,7 +52,7 @@ class ControllerTest {
     }
 
     @Test
-    void createHackerNewsItem_Success() throws Exception {
+    void createHackerNewsItem_Success() {
         // Arrange
         when(entityService.addItem(eq(HackerNewsItem.ENTITY_NAME), eq(ENTITY_VERSION), any(ObjectNode.class)))
                 .thenReturn(CompletableFuture.completedFuture(testTechnicalId));
@@ -74,7 +74,7 @@ class ControllerTest {
     }
 
     @Test
-    void createHackerNewsItem_EntityServiceThrowsException() throws Exception {
+    void createHackerNewsItem_EntityServiceThrowsException() {
         // Arrange
         when(entityService.addItem(any(), any(), any()))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Service error")));
@@ -93,7 +93,7 @@ class ControllerTest {
     }
 
     @Test
-    void getHackerNewsItem_Success() throws Exception {
+    void getHackerNewsItem_Success() {
         // Arrange
         String technicalIdString = testTechnicalId.toString();
         ObjectMapper mapper = new ObjectMapper();
@@ -147,7 +147,7 @@ class ControllerTest {
     }
 
     @Test
-    void getHackerNewsItem_InvalidTechnicalIdFormat() throws Exception {
+    void getHackerNewsItem_InvalidTechnicalIdFormat() {
         // Act
         ResponseEntity<?> response = controller.getHackerNewsItem("invalid-uuid");
 
@@ -164,7 +164,7 @@ class ControllerTest {
     }
 
     @Test
-    void getHackerNewsItem_NotFound() throws Exception {
+    void getHackerNewsItem_NotFound() {
         // Arrange
         String technicalIdString = testTechnicalId.toString();
         when(entityService.getItemWithMetaFields(eq(HackerNewsItem.ENTITY_NAME), eq(ENTITY_VERSION), eq(testTechnicalId)))
@@ -184,7 +184,7 @@ class ControllerTest {
     }
 
     @Test
-    void getHackerNewsItem_EntityServiceThrowsException() throws Exception {
+    void getHackerNewsItem_EntityServiceThrowsException() {
         // Arrange
         String technicalIdString = testTechnicalId.toString();
         when(entityService.getItemWithMetaFields(any(), any(), any()))

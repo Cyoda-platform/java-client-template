@@ -30,7 +30,6 @@ class HackerNewsItemProcessorIntegrationTest {
     private ObjectMapper objectMapper;
     private HackerNewsItemProcessor processor;
     private EntityProcessorCalculationRequest request;
-    private ObjectNode testPayload;
     private CyodaEventContext<EntityProcessorCalculationRequest> eventContext;
 
     @BeforeEach
@@ -40,7 +39,7 @@ class HackerNewsItemProcessorIntegrationTest {
             List.of(new com.java_template.common.serializer.jackson.JacksonProcessorSerializer(objectMapper)),
             List.of()
         );
-        processor = new HackerNewsItemProcessor(serializerFactory, objectMapper);
+        processor = new HackerNewsItemProcessor(serializerFactory);
 
         // Create test request with real data
         request = new EntityProcessorCalculationRequest();
@@ -51,7 +50,7 @@ class HackerNewsItemProcessorIntegrationTest {
         request.setProcessorName("HackerNewsItemProcessor");
 
         // Create test payload matching HackerNewsItem structure
-        testPayload = objectMapper.createObjectNode();
+        ObjectNode testPayload = objectMapper.createObjectNode();
         testPayload.put("id", 8863L);
         testPayload.put("type", "story");
         testPayload.put("by", "dhouston");

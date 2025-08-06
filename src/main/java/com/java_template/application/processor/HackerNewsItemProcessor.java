@@ -23,7 +23,7 @@ public class HackerNewsItemProcessor implements CyodaProcessor {
     private final ProcessorSerializer serializer;
     private final String className = this.getClass().getSimpleName();
 
-    public HackerNewsItemProcessor(SerializerFactory serializerFactory, ObjectMapper objectMapper) {
+    public HackerNewsItemProcessor(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
     }
 

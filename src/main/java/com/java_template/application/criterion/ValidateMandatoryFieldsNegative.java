@@ -14,7 +14,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class ValidateMandatoryFieldsNegative implements CyodaCriterion {
 
-    private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final CriterionSerializer serializer;
     private final String className = this.getClass().getSimpleName();
 
