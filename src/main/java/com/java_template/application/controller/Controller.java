@@ -1,5 +1,7 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Job;
@@ -8,6 +10,7 @@ import com.java_template.application.entity.Subscriber;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
+import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
@@ -19,9 +22,8 @@ import org.springframework.web.bind.annotation.*;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/api")
@@ -32,11 +34,12 @@ public class Controller {
     private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     // --- JOB ENDPOINTS ---
 
     @PostMapping("/jobs")
-    public ResponseEntity<?> createJob(@RequestBody Job job) {
+    public ResponseEntity<?> createJob(@Valid @RequestBody Job job) {
         try {
             if (!job.isValid()) {
                 logger.error("Invalid Job data");
@@ -60,7 +63,7 @@ public class Controller {
     }
 
     @GetMapping("/jobs/{technicalId}")
-    public ResponseEntity<?> getJob(@PathVariable String technicalId) {
+    public ResponseEntity<?> getJob(@PathVariable String technicalId) throws JsonProcessingException {
         try {
             UUID uuid = UUID.fromString(technicalId);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(Job.ENTITY_NAME, ENTITY_VERSION, uuid);
@@ -69,7 +72,7 @@ public class Controller {
                 logger.error("Job not found: {}", technicalId);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
-            Job job = node.traverse().readValueAs(Job.class);
+            Job job = objectMapper.treeToValue(node, Job.class);
             return ResponseEntity.ok(job);
         } catch (IllegalArgumentException e) {
             logger.error("Invalid UUID format for job technicalId={}", technicalId, e);
@@ -90,7 +93,7 @@ public class Controller {
     // --- PET ENDPOINTS ---
 
     @GetMapping("/pets/{technicalId}")
-    public ResponseEntity<?> getPet(@PathVariable String technicalId) {
+    public ResponseEntity<?> getPet(@PathVariable String technicalId) throws JsonProcessingException {
         try {
             UUID uuid = UUID.fromString(technicalId);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(Pet.ENTITY_NAME, ENTITY_VERSION, uuid);
@@ -99,7 +102,7 @@ public class Controller {
                 logger.error("Pet not found: {}", technicalId);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
-            Pet pet = node.traverse().readValueAs(Pet.class);
+            Pet pet = objectMapper.treeToValue(node, Pet.class);
             return ResponseEntity.ok(pet);
         } catch (IllegalArgumentException e) {
             logger.error("Invalid UUID format for pet technicalId={}", technicalId, e);
@@ -118,14 +121,14 @@ public class Controller {
     }
 
     @GetMapping("/pets")
-    public ResponseEntity<?> getPets(@RequestParam(required = false) String status) {
+    public ResponseEntity<?> getPets(@RequestParam(required = false) String status) throws JsonProcessingException {
         try {
             CompletableFuture<ArrayNode> itemsFuture = entityService.getItems(Pet.ENTITY_NAME, ENTITY_VERSION);
             ArrayNode arrayNode = itemsFuture.get();
             List<Pet> pets = new ArrayList<>();
             if (arrayNode != null) {
                 for (var jsonNode : arrayNode) {
-                    Pet pet = jsonNode.traverse().readValueAs(Pet.class);
+                    Pet pet = objectMapper.treeToValue(jsonNode, Pet.class);
                     if (status == null || status.isBlank() || status.equalsIgnoreCase(pet.getStatus())) {
                         pets.add(pet);
                     }
@@ -144,7 +147,7 @@ public class Controller {
     // --- SUBSCRIBER ENDPOINTS ---
 
     @PostMapping("/subscribers")
-    public ResponseEntity<?> createSubscriber(@RequestBody Subscriber subscriber) {
+    public ResponseEntity<?> createSubscriber(@Valid @RequestBody Subscriber subscriber) {
         try {
             if (!subscriber.isValid()) {
                 logger.error("Invalid Subscriber data");
@@ -167,7 +170,7 @@ public class Controller {
     }
 
     @GetMapping("/subscribers/{technicalId}")
-    public ResponseEntity<?> getSubscriber(@PathVariable String technicalId) {
+    public ResponseEntity<?> getSubscriber(@PathVariable String technicalId) throws JsonProcessingException {
         try {
             UUID uuid = UUID.fromString(technicalId);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(Subscriber.ENTITY_NAME, ENTITY_VERSION, uuid);
@@ -176,7 +179,7 @@ public class Controller {
                 logger.error("Subscriber not found: {}", technicalId);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
-            Subscriber subscriber = node.traverse().readValueAs(Subscriber.class);
+            Subscriber subscriber = objectMapper.treeToValue(node, Subscriber.class);
             return ResponseEntity.ok(subscriber);
         } catch (IllegalArgumentException e) {
             logger.error("Invalid UUID format for subscriber technicalId={}", technicalId, e);
@@ -195,7 +198,7 @@ public class Controller {
     }
 
     @GetMapping("/subscribers")
-    public ResponseEntity<?> getSubscribers(@RequestParam(required = false) String petType) {
+    public ResponseEntity<?> getSubscribers(@RequestParam(required = false) String petType) throws JsonProcessingException {
         try {
             if (petType == null || petType.isBlank()) {
                 CompletableFuture<ArrayNode> itemsFuture = entityService.getItems(Subscriber.ENTITY_NAME, ENTITY_VERSION);
@@ -203,7 +206,7 @@ public class Controller {
                 List<Subscriber> subscribers = new ArrayList<>();
                 if (arrayNode != null) {
                     for (var jsonNode : arrayNode) {
-                        Subscriber subscriber = jsonNode.traverse().readValueAs(Subscriber.class);
+                        Subscriber subscriber = objectMapper.treeToValue(jsonNode, Subscriber.class);
                         subscribers.add(subscriber);
                     }
                 }
@@ -216,7 +219,7 @@ public class Controller {
                 List<Subscriber> subscribers = new ArrayList<>();
                 if (arrayNode != null) {
                     for (var jsonNode : arrayNode) {
-                        Subscriber subscriber = jsonNode.traverse().readValueAs(Subscriber.class);
+                        Subscriber subscriber = objectMapper.treeToValue(jsonNode, Subscriber.class);
                         subscribers.add(subscriber);
                     }
                 }
