@@ -1,0 +1,7 @@
+Workflows designed and saved for entities Workflow, Pet, and AdoptionRequest based on the functional requirements:
+
+1. Workflow.json - FSM with states: pending, validating, processing, completed, failed, done
+2. Pet.json - FSM with states: created, validating, processing, available, failed
+3. AdoptionRequest.json - FSM with states: pending, validating, processing, completed, rejected, notified
+
+Each FSM uses conditions where multiple transitions exist and includes 1-2 processors to handle processing logic as per the requirements.
