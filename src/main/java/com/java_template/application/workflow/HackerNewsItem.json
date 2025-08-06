@@ -1,0 +1,92 @@
+{
+  "version": "1.0",
+  "name": "HackerNewsItem Workflow",
+  "desc": "Workflow for processing HackerNewsItem entity including validation and enrichment",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": [
+        {
+          "name": "validate_fields",
+          "next": "validation",
+          "manual": false
+        }
+      ]
+    },
+    "validation": {
+      "transitions": [
+        {
+          "name": "valid_fields",
+          "next": "add_timestamp",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "HasValidIdAndType",
+              "config": {}
+            }
+          }
+        },
+        {
+          "name": "invalid_fields",
+          "next": "assign_invalid_state",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "HasInvalidIdOrType",
+              "config": {}
+            }
+          }
+        }
+      ]
+    },
+    "assign_invalid_state": {
+      "transitions": [
+        {
+          "name": "mark_invalid",
+          "next": "persistence",
+          "manual": false
+        }
+      ]
+    },
+    "add_timestamp": {
+      "transitions": [
+        {
+          "name": "timestamp_added",
+          "next": "assign_valid_state",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AddImportTimestampProcessor",
+              "executionMode": "SYNC",
+              "config": {}
+            }
+          ]
+        }
+      ]
+    },
+    "assign_valid_state": {
+      "transitions": [
+        {
+          "name": "mark_valid",
+          "next": "persistence",
+          "manual": false
+        }
+      ]
+    },
+    "persistence": {
+      "transitions": [
+        {
+          "name": "persist_entity",
+          "next": "complete",
+          "manual": false
+        }
+      ]
+    },
+    "complete": {
+      "transitions": []
+    }
+  }
+}
