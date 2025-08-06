@@ -79,20 +79,17 @@ public class CyodaInit {
             return CompletableFuture.completedFuture(null);
         }
 
-        ExecutorService executor = Executors.newFixedThreadPool(3);
+        try (ExecutorService executor = Executors.newFixedThreadPool(3);
+             Stream<Path> jsonFilesStream = Files.walk(entityDir)) {
 
-
-
-        try (Stream<Path> jsonFilesStream = Files.walk(entityDir)) {
             List<Path> jsonFiles = jsonFilesStream
                     .filter(path -> path.toString().toLowerCase().endsWith(".json"))
                     .filter(path -> path.getParent() != null)
                     .filter(path -> path.getParent().getFileName().toString().equals("workflow"))
-                    .collect(Collectors.toList());
+                    .toList();
 
             if (jsonFiles.isEmpty()) {
                 logger.warn("⚠️ No workflow JSON files found in directory: {}", entityDir);
-                executor.shutdown();
                 return CompletableFuture.completedFuture(null);
             }
 
@@ -111,12 +108,11 @@ public class CyodaInit {
                                             }
                                         }));
                     })
-                    .collect(Collectors.toList());
+                    .toList();
 
             return CompletableFuture
                     .allOf(futures.toArray(new CompletableFuture[0]))
                     .whenComplete((res, ex) -> {
-                        executor.shutdown();
                         if (ex != null) {
                             logger.error("❌ Errors occurred during workflow import: {}", ex.getMessage(), ex);
                         }
@@ -129,7 +125,6 @@ public class CyodaInit {
                     });
         } catch (IOException e) {
             logger.error("Error reading files at {}: {}", entityDir, e.getMessage(), e);
-            executor.shutdown();
             return CompletableFuture.failedFuture(e);
         }
     }
