@@ -1,97 +1,97 @@
 {
-    "active": true,
-    "desc": "Workflow for Job entity processing including validation, ingestion, notification, and completion.",
-    "initialState": "none",
-    "name": "Job Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": []
-        },
-        "ingestion_processing": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "ingest_pets",
-                    "next": "completed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "PetIngestionProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "notification_processing": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "send_notifications",
-                    "next": "completed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "NotificationProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "pending": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "validate_job",
-                    "next": "validation"
-                }
-            ]
-        },
-        "validation": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "JobTypeCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "valid_ingestion",
-                    "next": "ingestion_processing"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "JobTypeNotificationCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "valid_notification",
-                    "next": "notification_processing"
-                },
-                {
-                    "manual": false,
-                    "name": "invalid_job",
-                    "next": "failed"
-                }
-            ]
-        }
+  "active": true,
+  "desc": "Workflow for Job entity processing including validation, ingestion, notification, and completion.",
+  "initialState": "none",
+  "name": "Job Workflow",
+  "states": {
+    "completed": {
+      "transitions": []
     },
-    "version": "1.0"
+    "failed": {
+      "transitions": []
+    },
+    "ingestion_processing": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "ingest_pets",
+          "next": "completed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "PetIngestionProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "notification_processing": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "send_notifications",
+          "next": "completed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "NotificationProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "pending": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "validate_job",
+          "next": "validation"
+        }
+      ]
+    },
+    "validation": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "JobTypeCriterion"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "valid_ingestion",
+          "next": "ingestion_processing"
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "JobTypeNotificationCriterion"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "valid_notification",
+          "next": "notification_processing"
+        },
+        {
+          "manual": false,
+          "name": "invalid_job",
+          "next": "failed"
+        }
+      ]
+    }
+  },
+  "version": "1.0"
 }
