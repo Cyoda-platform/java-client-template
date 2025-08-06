@@ -1,97 +1,97 @@
 {
-    "active": true,
-    "desc": "Workflow managing the lifecycle of a WeatherRequest entity",
-    "initialState": "none",
-    "name": "WeatherRequest Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "created": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IsValidRequest"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "transition_to_processing_valid",
-                    "next": "processing"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IsInvalidRequest"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "transition_to_failed_invalid",
-                    "next": "failed"
-                }
-            ]
-        },
-        "failed": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "transition_to_created",
-                    "next": "created"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IsStoreSuccessful"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "transition_to_completed_success",
-                    "next": "completed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "WeatherRequestProcessor"
-                        }
-                    ]
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IsStoreFailed"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "transition_to_failed_storage_error",
-                    "next": "failed"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow managing the lifecycle of a WeatherRequest entity",
+  "initialState": "none",
+  "name": "WeatherRequest Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "transition_to_created",
+          "next": "created"
         }
+      ]
     },
-    "version": "1.0"
+    "created": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IsValidRequest"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "transition_to_processing_valid",
+          "next": "processing"
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IsInvalidRequest"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "transition_to_failed_invalid",
+          "next": "failed"
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IsStoreSuccessful"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "transition_to_completed_success",
+          "next": "completed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "WeatherRequestProcessor"
+            }
+          ]
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IsStoreFailed"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "transition_to_failed_storage_error",
+          "next": "failed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
