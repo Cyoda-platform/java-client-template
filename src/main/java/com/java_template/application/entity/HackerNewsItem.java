@@ -35,9 +35,6 @@ public class HackerNewsItem implements CyodaEntity {
         if (type == null || type.isBlank()) {
             return false;
         }
-        if (item == null) {
-            return false;
-        }
-        return true;
+        return item != null;
     }
 }

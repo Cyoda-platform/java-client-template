@@ -16,20 +16,15 @@ import org.springframework.stereotype.Component;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 
-import java.time.Instant;
-import java.time.format.DateTimeFormatter;
-
 @Component
 public class HackerNewsItemProcessor implements CyodaProcessor {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final ProcessorSerializer serializer;
-    private final ObjectMapper objectMapper;
     private final String className = this.getClass().getSimpleName();
 
     public HackerNewsItemProcessor(SerializerFactory serializerFactory, ObjectMapper objectMapper) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
-        this.objectMapper = objectMapper;
     }
 
     @Override

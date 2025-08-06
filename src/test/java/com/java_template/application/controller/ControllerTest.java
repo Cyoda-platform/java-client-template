@@ -63,8 +63,8 @@ class ControllerTest {
         // Assert
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         assertNotNull(response.getBody());
-        assertTrue(response.getBody() instanceof Map);
-        
+        assertInstanceOf(Map.class, response.getBody());
+
         @SuppressWarnings("unchecked")
         Map<String, String> responseBody = (Map<String, String>) response.getBody();
         assertEquals(testTechnicalId.toString(), responseBody.get("technicalId"));
@@ -85,8 +85,8 @@ class ControllerTest {
         // Assert
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
         assertNotNull(response.getBody());
-        assertTrue(response.getBody() instanceof Map);
-        
+        assertInstanceOf(Map.class, response.getBody());
+
         @SuppressWarnings("unchecked")
         Map<String, String> responseBody = (Map<String, String>) response.getBody();
         assertEquals("Internal server error", responseBody.get("error"));
@@ -154,12 +154,12 @@ class ControllerTest {
         // Assert
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertNotNull(response.getBody());
-        assertTrue(response.getBody() instanceof Map);
-        
+        assertInstanceOf(Map.class, response.getBody());
+
         @SuppressWarnings("unchecked")
         Map<String, String> responseBody = (Map<String, String>) response.getBody();
         assertEquals("Invalid technicalId format", responseBody.get("error"));
-        
+
         verify(entityService, never()).getItemWithMetaFields(any(), any(), any());
     }
 
@@ -197,7 +197,7 @@ class ControllerTest {
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
         assertNotNull(response.getBody());
         assertTrue(response.getBody() instanceof Map);
-        
+
         @SuppressWarnings("unchecked")
         Map<String, String> responseBody = (Map<String, String>) response.getBody();
         assertEquals("Internal server error", responseBody.get("error"));

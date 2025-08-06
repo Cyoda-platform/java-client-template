@@ -2,7 +2,6 @@ package com.java_template.application.processor;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.java_template.application.entity.HackerNewsItem;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.OperationSpecification;
@@ -15,13 +14,12 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import static org.mockito.Mockito.mock;
-
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
 
 /**
  * Integration test for HackerNewsItemProcessor using real serializer implementation
@@ -73,7 +71,7 @@ class HackerNewsItemProcessorIntegrationTest {
         payload.setData(testPayload);
         request.setPayload(payload);
 
-        eventContext = new CyodaEventContext<EntityProcessorCalculationRequest>() {
+        eventContext = new CyodaEventContext<>() {
             @Override
             public CloudEvent getCloudEvent() {
                 return mock(CloudEvent.class);
@@ -103,13 +101,13 @@ class HackerNewsItemProcessorIntegrationTest {
         // Verify the response contains the processed entity
         ObjectNode responseData = (ObjectNode) response.getPayload().getData();
         assertTrue(responseData.has("importTimestamp"));
-        
+
         String importTimestamp = responseData.get("importTimestamp").asText();
         assertNotNull(importTimestamp);
-        
+
         // Verify timestamp format is ISO 8601
         assertDoesNotThrow(() -> DateTimeFormatter.ISO_INSTANT.parse(importTimestamp));
-        
+
         // Verify timestamp is recent (within last few seconds)
         Instant timestamp = Instant.parse(importTimestamp);
         Instant afterProcessing = Instant.now();
@@ -119,7 +117,7 @@ class HackerNewsItemProcessorIntegrationTest {
         // Verify original data is preserved
         assertEquals(8863L, responseData.get("id").asLong());
         assertEquals("story", responseData.get("type").asText());
-        
+
         // Verify item data also has importTimestamp
         assertTrue(responseData.has("item"));
         ObjectNode itemData = (ObjectNode) responseData.get("item");
@@ -132,7 +130,7 @@ class HackerNewsItemProcessorIntegrationTest {
         // Arrange - create invalid payload (missing required fields)
         ObjectNode invalidPayload = objectMapper.createObjectNode();
         invalidPayload.put("invalidField", "value");
-        
+
         ObjectNode invalidItem = objectMapper.createObjectNode();
         invalidItem.put("invalidField", "value");
         invalidPayload.set("item", invalidItem);
@@ -186,16 +184,16 @@ class HackerNewsItemProcessorIntegrationTest {
         // Assert
         assertNotNull(response);
         assertTrue(response.getSuccess());
-        
+
         ObjectNode responseData = (ObjectNode) response.getPayload().getData();
-        
+
         // Verify all original fields are preserved
         assertEquals(8863L, responseData.get("id").asLong());
         assertEquals("story", responseData.get("type").asText());
         assertEquals("dhouston", responseData.get("by").asText());
         assertEquals(1175714200, responseData.get("time").asLong());
         assertEquals("Example story text", responseData.get("text").asText());
-        
+
         // Verify item structure is preserved
         assertTrue(responseData.has("item"));
         ObjectNode itemData = (ObjectNode) responseData.get("item");
@@ -204,7 +202,7 @@ class HackerNewsItemProcessorIntegrationTest {
         assertEquals("dhouston", itemData.get("by").asText());
         assertEquals(1175714200, itemData.get("time").asLong());
         assertEquals("Example story text", itemData.get("text").asText());
-        
+
         // Only importTimestamp should be added
         assertTrue(responseData.has("importTimestamp"));
         assertTrue(itemData.has("importTimestamp"));
@@ -216,7 +214,7 @@ class HackerNewsItemProcessorIntegrationTest {
         ObjectNode payloadWithoutItem = objectMapper.createObjectNode();
         payloadWithoutItem.put("id", 8863L);
         payloadWithoutItem.put("type", "story");
-        
+
         DataPayload payload = new DataPayload();
         payload.setData(payloadWithoutItem);
         request.setPayload(payload);
@@ -225,7 +223,7 @@ class HackerNewsItemProcessorIntegrationTest {
         assertDoesNotThrow(() -> {
             EntityProcessorCalculationResponse response = processor.process(eventContext);
             assertNotNull(response);
-            
+
             // Should still add importTimestamp to main entity
             ObjectNode responseData = (ObjectNode) response.getPayload().getData();
             assertTrue(responseData.has("importTimestamp"));

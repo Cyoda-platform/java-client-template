@@ -1,12 +1,7 @@
 package com.java_template.application.criterion;
 
 import com.java_template.application.entity.HackerNewsItem;
-import com.java_template.common.serializer.CriterionSerializer;
-import com.java_template.common.serializer.EvaluationOutcome;
-import com.java_template.common.serializer.ReasonAttachmentStrategy;
-import com.java_template.common.serializer.SerializerFactory;
-import com.java_template.common.serializer.StandardEvalReasonCategories;
-import com.java_template.common.config.Config;
+import com.java_template.common.serializer.*;
 import com.java_template.common.workflow.CyodaCriterion;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.OperationSpecification;

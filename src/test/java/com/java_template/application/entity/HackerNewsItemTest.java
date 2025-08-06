@@ -37,8 +37,8 @@ class HackerNewsItemTest {
 
         // Assert
         assertNotNull(modelKey);
-        assertTrue(modelKey instanceof OperationSpecification.Entity);
-        
+        assertInstanceOf(OperationSpecification.Entity.class, modelKey);
+
         ModelSpec modelSpec = modelKey.modelKey();
         assertEquals(HackerNewsItem.ENTITY_NAME, modelSpec.getName());
         assertEquals(Integer.parseInt(ENTITY_VERSION), modelSpec.getVersion());

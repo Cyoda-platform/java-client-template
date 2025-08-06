@@ -4,19 +4,19 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.java_template.common.service.EntityService;
 import com.java_template.application.entity.HackerNewsItem;
+import com.java_template.common.service.EntityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import java.time.Instant;
+
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/hackerNewsItems")
@@ -28,7 +28,7 @@ public class Controller {
     private final ObjectMapper objectMapper;
 
     @PostMapping
-    public ResponseEntity<?> createHackerNewsItem(@RequestBody ObjectNode hackerNewsItemJson) throws JsonProcessingException {
+    public ResponseEntity<?> createHackerNewsItem(@RequestBody ObjectNode hackerNewsItemJson) {
         try {
             // Use entityService to add item - validation and enrichment handled by workflow
             CompletableFuture<UUID> idFuture = entityService.addItem(
@@ -54,7 +54,7 @@ public class Controller {
     }
 
     @GetMapping("/{technicalId}")
-    public ResponseEntity<?> getHackerNewsItem(@PathVariable String technicalId) throws JsonProcessingException {
+    public ResponseEntity<?> getHackerNewsItem(@PathVariable String technicalId) {
         try {
             UUID uuid;
             try {
