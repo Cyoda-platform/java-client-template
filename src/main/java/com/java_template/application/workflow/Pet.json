@@ -8,7 +8,8 @@
     "validation": {
       "transitions": [
         {
-          "name": "check_pet_status",
+          "name": "pet_validation",
+          "processor": "petValidationProcessor",
           "next": "persistence",
           "manual": false
         }
