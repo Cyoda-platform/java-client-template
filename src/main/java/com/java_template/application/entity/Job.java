@@ -13,6 +13,8 @@ public class Job implements CyodaEntity {
     private String jobId;
     private String scheduleDetails;
     private String status;
+    private String jobType; // new field
+    private String createdBy; // new field
 
     public Job() {}
 
@@ -29,6 +31,8 @@ public class Job implements CyodaEntity {
         if (jobId == null || jobId.isBlank()) return false;
         if (scheduleDetails == null || scheduleDetails.isBlank()) return false;
         if (status == null || status.isBlank()) return false;
+        if (jobType == null || jobType.isBlank()) return false;
+        if (createdBy == null || createdBy.isBlank()) return false;
         return true;
     }
 }
