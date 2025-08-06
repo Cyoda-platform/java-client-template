@@ -1,0 +1,90 @@
+{
+  "version": "1.0",
+  "name": "HackerNewsImportJob Workflow",
+  "desc": "Workflow for processing HackerNewsImportJob entity including validation and state assignment.",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": [
+        {
+          "name": "validate_fields",
+          "next": "validation",
+          "manual": false
+        }
+      ]
+    },
+    "validation": {
+      "transitions": [
+        {
+          "name": "fields_present",
+          "next": "valid",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidateRequiredFields",
+              "config": {
+                "requiredFields": ["id", "type"]
+              }
+            }
+          }
+        },
+        {
+          "name": "fields_missing",
+          "next": "invalid",
+          "manual": false
+        }
+      ]
+    },
+    "valid": {
+      "transitions": [
+        {
+          "name": "persist_entity",
+          "next": "completed",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SetStateProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "state": "VALID"
+              }
+            },
+            {
+              "name": "PersistProcessor",
+              "executionMode": "SYNC",
+              "config": {}
+            }
+          ]
+        }
+      ]
+    },
+    "invalid": {
+      "transitions": [
+        {
+          "name": "persist_entity",
+          "next": "completed",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SetStateProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "state": "INVALID"
+              }
+            },
+            {
+              "name": "PersistProcessor",
+              "executionMode": "SYNC",
+              "config": {}
+            }
+          ]
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    }
+  }
+}
