@@ -1,0 +1,98 @@
+{
+  "version": "1.0",
+  "name": "HackerNewsItem Workflow",
+  "desc": "Workflow to process HackerNewsItem entity from creation to completion based on validation of jsonData fields.",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": [
+        {
+          "name": "validate_jsonData",
+          "next": "validation",
+          "manual": false
+        }
+      ]
+    },
+    "validation": {
+      "transitions": [
+        {
+          "name": "valid_data",
+          "next": "assign_valid_state",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidatePresenceOfIdAndType",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "invalid_data",
+          "next": "assign_invalid_state",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidateAbsenceOfIdOrType",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "assign_valid_state": {
+      "transitions": [
+        {
+          "name": "assign_timestamp_after_valid",
+          "next": "assign_import_timestamp",
+          "manual": false
+        }
+      ]
+    },
+    "assign_invalid_state": {
+      "transitions": [
+        {
+          "name": "assign_timestamp_after_invalid",
+          "next": "assign_import_timestamp",
+          "manual": false
+        }
+      ]
+    },
+    "assign_import_timestamp": {
+      "transitions": [
+        {
+          "name": "persist_entity",
+          "next": "persisted",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AddImportTimestampProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "persisted": {
+      "transitions": [
+        {
+          "name": "complete",
+          "next": "completed",
+          "manual": false
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    }
+  }
+}
