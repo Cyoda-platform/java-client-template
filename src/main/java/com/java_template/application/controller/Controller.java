@@ -1,6 +1,7 @@
 package com.java_template.application.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
@@ -64,22 +65,42 @@ public class Controller {
                         .body(Map.of("error", "Invalid technicalId format"));
             }
 
-            CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
+            CompletableFuture<ObjectNode> itemWithMetaFuture = entityService.getItemWithMetaFields(
                     HackerNewsItem.ENTITY_NAME,
                     ENTITY_VERSION,
                     uuid
             );
 
-            ObjectNode item = itemFuture.join();
-            if (item == null) {
+            ObjectNode itemWithMeta = itemWithMetaFuture.join();
+            if (itemWithMeta == null) {
                 log.error("HackerNewsItem not found for technicalId: {}", technicalId);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(Map.of("error", "HackerNewsItem not found"));
             }
-            // Return the item with metadata fields
+
+            // Extract item data from the data section
+            JsonNode itemData = itemWithMeta.path("data");
+            if (itemData.isMissingNode() || !itemData.isObject()) {
+                log.error("Invalid item data structure for technicalId: {}", technicalId);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(Map.of("error", "Invalid item data structure"));
+            }
+
+            // Extract metadata from the meta section
+            JsonNode metaNode = itemWithMeta.path("meta");
+            String state = metaNode.path("state").asText(null);
+            String creationDate = metaNode.path("creationDate").asText(null);
+
+            // Build response with item and metadata at top level
             ObjectNode response = objectMapper.createObjectNode();
-            response.set("item", item);
+            response.set("item", itemData);
             response.put("technicalId", technicalId);
+            if (state != null) {
+                response.put("state", state);
+            }
+            if (creationDate != null) {
+                response.put("creationDate", creationDate);
+            }
 
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {

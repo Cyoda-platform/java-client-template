@@ -1,5 +1,6 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.HackerNewsItem;
@@ -95,14 +96,28 @@ class ControllerTest {
     void getHackerNewsItem_Success() throws Exception {
         // Arrange
         String technicalIdString = testTechnicalId.toString();
-        ObjectNode itemData = new ObjectMapper().createObjectNode();
+        ObjectMapper mapper = new ObjectMapper();
+
+        // Create item data
+        ObjectNode itemData = mapper.createObjectNode();
         itemData.put("id", 8863);
         itemData.put("type", "story");
         itemData.put("importTimestamp", "2024-04-27T15:30:00Z");
 
-        when(entityService.getItem(eq(HackerNewsItem.ENTITY_NAME), eq(ENTITY_VERSION), eq(testTechnicalId)))
-                .thenReturn(CompletableFuture.completedFuture(itemData));
-        when(objectMapper.createObjectNode()).thenReturn(new ObjectMapper().createObjectNode());
+        // Create meta data
+        ObjectNode metaData = mapper.createObjectNode();
+        metaData.put("id", technicalIdString);
+        metaData.put("state", "completed");
+        metaData.put("creationDate", "2024-04-27T15:30:00Z");
+
+        // Create full response with data and meta
+        ObjectNode fullResponse = mapper.createObjectNode();
+        fullResponse.set("data", itemData);
+        fullResponse.set("meta", metaData);
+
+        when(entityService.getItemWithMetaFields(eq(HackerNewsItem.ENTITY_NAME), eq(ENTITY_VERSION), eq(testTechnicalId)))
+                .thenReturn(CompletableFuture.completedFuture(fullResponse));
+        when(objectMapper.createObjectNode()).thenReturn(mapper.createObjectNode());
 
         // Act
         ResponseEntity<?> response = controller.getHackerNewsItem(technicalIdString);
@@ -110,7 +125,25 @@ class ControllerTest {
         // Assert
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
-        verify(entityService).getItem(eq(HackerNewsItem.ENTITY_NAME), eq(ENTITY_VERSION), eq(testTechnicalId));
+
+        // Verify response structure
+        ObjectNode responseBody = (ObjectNode) response.getBody();
+        assertTrue(responseBody.has("item"));
+        assertTrue(responseBody.has("technicalId"));
+        assertTrue(responseBody.has("state"));
+        assertTrue(responseBody.has("creationDate"));
+
+        assertEquals(technicalIdString, responseBody.get("technicalId").asText());
+        assertEquals("completed", responseBody.get("state").asText());
+        assertEquals("2024-04-27T15:30:00Z", responseBody.get("creationDate").asText());
+
+        // Verify item data is separate and doesn't contain technicalId
+        JsonNode itemNode = responseBody.get("item");
+        assertEquals(8863, itemNode.get("id").asInt());
+        assertEquals("story", itemNode.get("type").asText());
+        assertFalse(itemNode.has("technicalId")); // technicalId should not be in item
+
+        verify(entityService).getItemWithMetaFields(eq(HackerNewsItem.ENTITY_NAME), eq(ENTITY_VERSION), eq(testTechnicalId));
     }
 
     @Test
@@ -127,14 +160,14 @@ class ControllerTest {
         Map<String, String> responseBody = (Map<String, String>) response.getBody();
         assertEquals("Invalid technicalId format", responseBody.get("error"));
         
-        verify(entityService, never()).getItem(any(), any(), any());
+        verify(entityService, never()).getItemWithMetaFields(any(), any(), any());
     }
 
     @Test
     void getHackerNewsItem_NotFound() throws Exception {
         // Arrange
         String technicalIdString = testTechnicalId.toString();
-        when(entityService.getItem(eq(HackerNewsItem.ENTITY_NAME), eq(ENTITY_VERSION), eq(testTechnicalId)))
+        when(entityService.getItemWithMetaFields(eq(HackerNewsItem.ENTITY_NAME), eq(ENTITY_VERSION), eq(testTechnicalId)))
                 .thenReturn(CompletableFuture.completedFuture(null));
 
         // Act
@@ -144,7 +177,7 @@ class ControllerTest {
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
         assertNotNull(response.getBody());
         assertTrue(response.getBody() instanceof Map);
-        
+
         @SuppressWarnings("unchecked")
         Map<String, String> responseBody = (Map<String, String>) response.getBody();
         assertEquals("HackerNewsItem not found", responseBody.get("error"));
@@ -154,7 +187,7 @@ class ControllerTest {
     void getHackerNewsItem_EntityServiceThrowsException() throws Exception {
         // Arrange
         String technicalIdString = testTechnicalId.toString();
-        when(entityService.getItem(any(), any(), any()))
+        when(entityService.getItemWithMetaFields(any(), any(), any()))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Service error")));
 
         // Act
