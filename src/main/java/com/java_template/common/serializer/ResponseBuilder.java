@@ -2,8 +2,6 @@ package com.java_template.common.serializer;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.java_template.common.workflow.CyodaEntity;
-import lombok.Getter;
-import lombok.Setter;
 import org.cyoda.cloud.api.event.common.Error;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
