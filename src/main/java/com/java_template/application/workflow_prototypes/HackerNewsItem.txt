@@ -1,3 +1,0 @@
-// No processHackerNewsItem method with entity-specific workflow beyond what is extracted in HackerNewsImportJob processing
-// File created as a placeholder with TODO
-// TODO: Implement business logic for HackerNewsItem processing
