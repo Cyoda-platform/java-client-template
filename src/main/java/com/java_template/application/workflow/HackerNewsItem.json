@@ -1,0 +1,85 @@
+{
+  "version": "1.0",
+  "name": "HackerNewsItem Workflow",
+  "desc": "Workflow for processing HackerNewsItem entity including validation, enrichment, state assignment and persistence.",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": [
+        {
+          "name": "validate_fields",
+          "next": "validated",
+          "manual": false
+        }
+      ]
+    },
+    "validated": {
+      "transitions": [
+        {
+          "name": "enrich_with_timestamp",
+          "next": "enriched",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ImportTimestampAssigner",
+              "executionMode": "SYNC",
+              "config": {
+                "timestampFormat": "ISO8601"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "enriched": {
+      "transitions": [
+        {
+          "name": "assign_state_valid",
+          "next": "valid",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "HasIdAndTypeCriterion",
+              "config": {}
+            }
+          }
+        },
+        {
+          "name": "assign_state_invalid",
+          "next": "invalid",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "MissingIdOrTypeCriterion",
+              "config": {}
+            }
+          }
+        }
+      ]
+    },
+    "valid": {
+      "transitions": [
+        {
+          "name": "persist_entity",
+          "next": "persisted",
+          "manual": false
+        }
+      ]
+    },
+    "invalid": {
+      "transitions": [
+        {
+          "name": "persist_entity",
+          "next": "persisted",
+          "manual": false
+        }
+      ]
+    },
+    "persisted": {
+      "transitions": []
+    }
+  }
+}
