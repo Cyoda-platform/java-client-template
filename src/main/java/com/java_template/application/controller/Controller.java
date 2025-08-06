@@ -49,7 +49,6 @@ public class Controller {
             UUID technicalId = idFuture.get();
 
             logger.info("Job created with technicalId={}", technicalId.toString());
-            processJob(technicalId.toString(), job);
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException e) {
             logger.error("Illegal argument in createJob", e);
@@ -157,7 +156,6 @@ public class Controller {
             UUID technicalId = idFuture.get();
 
             logger.info("Subscriber created with technicalId={}", technicalId.toString());
-            processSubscriber(technicalId.toString(), subscriber);
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException e) {
             logger.error("Illegal argument in createSubscriber", e);
@@ -233,108 +231,4 @@ public class Controller {
         }
     }
 
-    // --- PROCESS METHODS ---
-
-    private void processJob(String technicalId, Job job) {
-        logger.info("Processing Job with technicalId={} and jobType={}", technicalId, job.getJobType());
-        // Simulate validation criteria
-        if (!simulateJobTypeCriteria(job.getJobType())) {
-            job.setStatus("FAILED");
-            logger.error("Job {} failed validation due to invalid jobType", technicalId);
-            return;
-        }
-        if (job.getScheduledAt() == null || job.getScheduledAt().isBlank()) {
-            job.setStatus("FAILED");
-            logger.error("Job {} failed validation due to missing scheduledAt", technicalId);
-            return;
-        }
-        job.setStatus("RUNNING");
-        if ("INGESTION".equalsIgnoreCase(job.getJobType())) {
-            simulatePetstoreApiIngestion();
-            // Simulate ingestion of pets - create sample pets and process them
-            Pet pet = new Pet();
-            pet.setName("Ingested Pet");
-            Pet.Category category = new Pet.Category();
-            category.setId(1L);
-            category.setName("dog");
-            pet.setCategory(category);
-            pet.setPhotoUrls(List.of("https://example.com/photo1.jpg"));
-            Pet.Tag tag = new Pet.Tag();
-            tag.setId(1L);
-            tag.setName("friendly");
-            pet.setTags(List.of(tag));
-            pet.setStatus("available");
-
-            try {
-                CompletableFuture<UUID> petIdFuture = entityService.addItem(Pet.ENTITY_NAME, ENTITY_VERSION, pet);
-                UUID petTechnicalId = petIdFuture.get();
-                logger.info("Pet ingested with technicalId={}", petTechnicalId.toString());
-                processPet(petTechnicalId.toString(), pet);
-            } catch (Exception e) {
-                logger.error("Error ingesting pet", e);
-            }
-        } else if ("NOTIFICATION".equalsIgnoreCase(job.getJobType())) {
-            // Simulate fetching subscribers and pets and sending notifications
-            simulateFetchSubscribersAndPets();
-            simulateSendNotifications();
-        }
-        job.setStatus("COMPLETED");
-        logger.info("Job with technicalId={} completed", technicalId);
-        // TODO: Update job status in external service (update operation not supported)
-    }
-
-    private boolean simulateJobTypeCriteria(String jobType) {
-        return "INGESTION".equalsIgnoreCase(jobType) || "NOTIFICATION".equalsIgnoreCase(jobType);
-    }
-
-    private void simulatePetstoreApiIngestion() {
-        logger.info("Simulating Petstore API ingestion...");
-        // Simulate delay or API call
-    }
-
-    private void simulateFetchSubscribersAndPets() {
-        logger.info("Simulating fetching subscribers and pets for notifications...");
-        // Simulate data retrieval
-    }
-
-    private void simulateSendNotifications() {
-        logger.info("Simulating sending notifications to subscribers...");
-        // Simulate notification sending
-    }
-
-    private void processPet(String technicalId, Pet pet) {
-        logger.info("Processing Pet with technicalId={}", technicalId);
-        simulatePetValidation();
-        // Example validation logic
-        if (pet.getName() == null || pet.getName().isBlank() || pet.getStatus() == null || pet.getStatus().isBlank()) {
-            logger.error("Pet {} validation failed: missing name or status", technicalId);
-            return;
-        }
-        logger.info("Pet {} processed and stored successfully", technicalId);
-        // TODO: Update pet in external service (update operation not supported)
-    }
-
-    private void simulatePetValidation() {
-        logger.info("Simulating Pet validation...");
-    }
-
-    private void processSubscriber(String technicalId, Subscriber subscriber) {
-        logger.info("Processing Subscriber with technicalId={}", technicalId);
-        simulateSubscriberValidation();
-        // Example validation logic for email format
-        if (subscriber.getEmail() == null || subscriber.getEmail().isBlank() || !subscriber.getEmail().contains("@")) {
-            logger.error("Subscriber {} validation failed: invalid email", technicalId);
-            return;
-        }
-        if (subscriber.getPreferredPetTypes() == null || subscriber.getPreferredPetTypes().isEmpty()) {
-            logger.error("Subscriber {} validation failed: no preferred pet types", technicalId);
-            return;
-        }
-        logger.info("Subscriber {} processed and ready for notifications", technicalId);
-        // TODO: Update subscriber in external service (update operation not supported)
-    }
-
-    private void simulateSubscriberValidation() {
-        logger.info("Simulating Subscriber validation...");
-    }
 }
