@@ -1,0 +1,89 @@
+{
+  "version": "1.0",
+  "name": "Job Workflow",
+  "desc": "Workflow for Job entity processing including validation, ingestion, notification, and completion.",
+  "initialState": "pending",
+  "active": true,
+  "states": {
+    "pending": {
+      "transitions": [
+        {
+          "name": "validate_job",
+          "next": "validation",
+          "manual": false
+        }
+      ]
+    },
+    "validation": {
+      "transitions": [
+        {
+          "name": "valid_ingestion",
+          "next": "ingestion_processing",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "JobTypeCriterion",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          }
+        },
+        {
+          "name": "valid_notification",
+          "next": "notification_processing",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "JobTypeNotificationCriterion",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          }
+        },
+        {
+          "name": "invalid_job",
+          "next": "failed",
+          "manual": false
+        }
+      ]
+    },
+    "ingestion_processing": {
+      "transitions": [
+        {
+          "name": "ingest_pets",
+          "next": "completed",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PetIngestionProcessor",
+              "executionMode": "SYNC",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          ]
+        }
+      ]
+    },
+    "notification_processing": {
+      "transitions": [
+        {
+          "name": "send_notifications",
+          "next": "completed",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotificationProcessor",
+              "executionMode": "SYNC",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          ]
+        }
+      ]
+    },
+    "failed": {
+      "transitions": []
+    },
+    "completed": {
+      "transitions": []
+    }
+  }
+}
