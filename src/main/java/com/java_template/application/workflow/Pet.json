@@ -1,47 +1,47 @@
 {
-    "active": true,
-    "desc": "Workflow for Pet entity processing including validation and storage.",
-    "initialState": "none",
-    "name": "Pet Workflow",
-    "states": {
-        "failed": {
-            "transitions": []
-        },
-        "saved": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "validate_pet",
-                    "next": "validation"
-                }
-            ]
-        },
-        "stored": {
-            "transitions": []
-        },
-        "validation": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "valid_pet",
-                    "next": "stored",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "PetValidationProcessor"
-                        }
-                    ]
-                },
-                {
-                    "manual": false,
-                    "name": "invalid_pet",
-                    "next": "failed"
-                }
-            ]
-        }
+  "active": true,
+  "desc": "Workflow for Pet entity processing including validation and storage.",
+  "initialState": "none",
+  "name": "Pet Workflow",
+  "states": {
+    "failed": {
+      "transitions": []
     },
-    "version": "1.0"
+    "saved": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "validate_pet",
+          "next": "validation"
+        }
+      ]
+    },
+    "stored": {
+      "transitions": []
+    },
+    "validation": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "valid_pet",
+          "next": "stored",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "PetValidationProcessor"
+            }
+          ]
+        },
+        {
+          "manual": false,
+          "name": "invalid_pet",
+          "next": "failed"
+        }
+      ]
+    }
+  },
+  "version": "1.0"
 }
