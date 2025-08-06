@@ -1,0 +1,79 @@
+{
+    "active": true,
+    "desc": "Workflow for processing subscriber entity from creation to completion",
+    "initialState": "none",
+    "name": "Subscriber Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "start_validation",
+                    "next": "validating"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "persist_success",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "SubscriberProcessor"
+                        }
+                    ]
+                },
+                {
+                    "manual": false,
+                    "name": "persist_failure",
+                    "next": "failed"
+                }
+            ]
+        },
+        "validating": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "EmailInvalidOrNotUnique"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "email_invalid_or_not_unique",
+                    "next": "failed"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "EmailValidAndUnique"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "email_valid_and_unique",
+                    "next": "processing"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
