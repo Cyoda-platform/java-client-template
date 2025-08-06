@@ -1,47 +1,47 @@
 {
-    "active": true,
-    "desc": "Workflow for Subscriber entity processing including validation and readiness for notifications.",
-    "initialState": "none",
-    "name": "Subscriber Workflow",
-    "states": {
-        "failed": {
-            "transitions": []
-        },
-        "ready": {
-            "transitions": []
-        },
-        "saved": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "validate_subscriber",
-                    "next": "validation"
-                }
-            ]
-        },
-        "validation": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "valid_subscriber",
-                    "next": "ready",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "SubscriberValidationProcessor"
-                        }
-                    ]
-                },
-                {
-                    "manual": false,
-                    "name": "invalid_subscriber",
-                    "next": "failed"
-                }
-            ]
-        }
+  "active": true,
+  "desc": "Workflow for Subscriber entity processing including validation and readiness for notifications.",
+  "initialState": "none",
+  "name": "Subscriber Workflow",
+  "states": {
+    "failed": {
+      "transitions": []
     },
-    "version": "1.0"
+    "ready": {
+      "transitions": []
+    },
+    "saved": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "validate_subscriber",
+          "next": "validation"
+        }
+      ]
+    },
+    "validation": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "valid_subscriber",
+          "next": "ready",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "SubscriberValidationProcessor"
+            }
+          ]
+        },
+        {
+          "manual": false,
+          "name": "invalid_subscriber",
+          "next": "failed"
+        }
+      ]
+    }
+  },
+  "version": "1.0"
 }
