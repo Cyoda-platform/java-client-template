@@ -1,0 +1,45 @@
+{
+  "version": "1.0",
+  "name": "Subscriber Workflow",
+  "desc": "Workflow for Subscriber entity processing including validation and readiness for notifications.",
+  "initialState": "saved",
+  "active": true,
+  "states": {
+    "saved": {
+      "transitions": [
+        {
+          "name": "validate_subscriber",
+          "next": "validation",
+          "manual": false
+        }
+      ]
+    },
+    "validation": {
+      "transitions": [
+        {
+          "name": "valid_subscriber",
+          "next": "ready",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SubscriberValidationProcessor",
+              "executionMode": "SYNC",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          ]
+        },
+        {
+          "name": "invalid_subscriber",
+          "next": "failed",
+          "manual": false
+        }
+      ]
+    },
+    "ready": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  }
+}
