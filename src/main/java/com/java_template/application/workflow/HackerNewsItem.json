@@ -19,26 +19,12 @@
         {
           "name": "valid_fields",
           "next": "add_timestamp",
-          "manual": false,
-          "criterion": {
-            "type": "function",
-            "function": {
-              "name": "HasValidIdAndType",
-              "config": {}
-            }
-          }
+          "manual": false
         },
         {
           "name": "invalid_fields",
           "next": "assign_invalid_state",
-          "manual": false,
-          "criterion": {
-            "type": "function",
-            "function": {
-              "name": "HasInvalidIdOrType",
-              "config": {}
-            }
-          }
+          "manual": false
         }
       ]
     },
