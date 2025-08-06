@@ -13,7 +13,7 @@ public class HackerNewsItem implements CyodaEntity {
     private Long id; // Hacker News item unique identifier, required
     private String type; // Hacker News item type, required
     private String originalJson; // Raw JSON representation of the Hacker News item from Firebase HN API
-    private String state; // VALID or INVALID, assigned after validation
+    private String status; // VALID or INVALID, assigned after validation (replacing state)
     private String importTimestamp; // Timestamp of import, ISO 8601 format recommended
 
     public HackerNewsItem() {}
