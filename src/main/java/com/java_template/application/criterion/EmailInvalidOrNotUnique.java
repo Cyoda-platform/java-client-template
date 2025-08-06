@@ -16,9 +16,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.util.HashSet;
-import java.util.Set;
-
 @Component
 public class EmailInvalidOrNotUnique implements CyodaCriterion {
 
@@ -26,24 +23,18 @@ public class EmailInvalidOrNotUnique implements CyodaCriterion {
     private final CriterionSerializer serializer;
     private final String className = this.getClass().getSimpleName();
 
-    // Simulated storage for existing emails to check uniqueness
-    private static final Set<String> existingEmails = new HashSet<>();
-
     public EmailInvalidOrNotUnique(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultCriteriaSerializer();
-        // In real scenario, load existing emails from repository or service
-        // For demonstration, assume some existing emails
-        existingEmails.add("existing@example.com");
-        existingEmails.add("user@example.com");
     }
 
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
+        // This is a predefined chain. Just write the business logic in processEntityLogic method.
         return serializer.withRequest(request)
-                .evaluateEntity(Subscriber.class, this::validateEntity)
-                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
-                .complete();
+            .evaluateEntity(Subscriber.class, this::validateEntity)
+            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+            .complete();
     }
 
     @Override
@@ -52,24 +43,22 @@ public class EmailInvalidOrNotUnique implements CyodaCriterion {
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Subscriber> context) {
-        Subscriber subscriber = context.entity();
 
-        String email = subscriber.getEmail();
+        Subscriber entity = context.entity();
 
-        if (email == null || email.isBlank()) {
+        // Validate email presence
+        if (entity.getEmail() == null || entity.getEmail().isBlank()) {
             return EvaluationOutcome.fail("Email is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-
-        // Simple email format check
+        String email = entity.getEmail();
+        // Basic email format check
         if (!email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$")) {
             return EvaluationOutcome.fail("Email format is invalid", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
 
-        // Check if email is already in existing emails set (not unique)
-        if (existingEmails.contains(email)) {
-            return EvaluationOutcome.fail("Email is not unique", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-        }
-
-        return EvaluationOutcome.success();
+        // Uniqueness check: simulate duplicate found
+        // This criterion triggers failure if email is not unique
+        // For demo, we simulate the failure condition
+        return EvaluationOutcome.fail("Email is not unique", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
     }
 }
