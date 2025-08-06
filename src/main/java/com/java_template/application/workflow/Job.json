@@ -1,0 +1,69 @@
+{
+  "version": "1.0",
+  "name": "Job Workflow",
+  "desc": "Workflow for managing Job entity lifecycle and processing.",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": [
+        {
+          "name": "validate_schedule",
+          "next": "validated",
+          "manual": false
+        }
+      ]
+    },
+    "validated": {
+      "transitions": [
+        {
+          "name": "process_job",
+          "next": "processing",
+          "manual": false,
+          "processors": [
+            {
+              "name": "IngestPetDataProcessor",
+              "executionMode": "SYNC",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          ]
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "name": "complete_success",
+          "next": "completed",
+          "manual": false
+        },
+        {
+          "name": "complete_failure",
+          "next": "failed",
+          "manual": false
+        }
+      ]
+    },
+    "completed": {
+      "transitions": [
+        {
+          "name": "notify_completion",
+          "next": "notified",
+          "manual": false
+        }
+      ]
+    },
+    "failed": {
+      "transitions": [
+        {
+          "name": "notify_failure",
+          "next": "notified",
+          "manual": false
+        }
+      ]
+    },
+    "notified": {
+      "transitions": []
+    }
+  }
+}
