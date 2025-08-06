@@ -1,4 +1,0 @@
-private void processCatFactInteraction(UUID technicalId, CatFactInteraction interaction) {
-    logger.info("CatFactInteraction {} recorded: {} interaction by {}", technicalId,
-            interaction.getInteractionType(), interaction.getSubscriberEmail());
-}

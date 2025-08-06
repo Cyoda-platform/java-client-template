@@ -1,8 +1,0 @@
-private void processSubscriber(UUID technicalId, Subscriber subscriber) {
-    if (subscriber.getEmail() == null || subscriber.getEmail().isBlank() || !subscriber.getEmail().contains("@")) {
-        logger.error("Subscriber {} has invalid email format", technicalId);
-        return;
-    }
-    // Could add confirmation email logic here
-    logger.info("Subscriber {} processed successfully", technicalId);
-}
