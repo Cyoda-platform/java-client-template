@@ -30,6 +30,7 @@ public class IsProcessingFailed implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
+        // This is a predefined chain. Just write the business logic in processEntityLogic method.
         return serializer.withRequest(request)
             .evaluateEntity(Pet.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -45,16 +46,13 @@ public class IsProcessingFailed implements CyodaCriterion {
 
         Pet pet = context.entity();
 
-        // Business logic: For processing to be failed, status must NOT be "sold" or "pending"
-        String status = pet.getStatus();
-        if (status == null || status.isBlank()) {
-            return EvaluationOutcome.fail("Status is required to determine failure", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        // Business logic: Processing failed if pet status is "pending" or "available" meaning adoption or sale not completed
+        if (pet.getStatus() == null || pet.getStatus().isBlank()) {
+            return EvaluationOutcome.fail("Pet status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        String statusLower = status.toLowerCase();
-        if (!statusLower.equals("sold") && !statusLower.equals("pending")) {
-            return EvaluationOutcome.success();
-        } else {
-            return EvaluationOutcome.fail("Processing not failed: status indicates success", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        if ("sold".equalsIgnoreCase(pet.getStatus())) {
+            return EvaluationOutcome.fail("Pet processing not failed", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
+        return EvaluationOutcome.success();
     }
 }
