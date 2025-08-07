@@ -20,7 +20,7 @@ You can trigger the workflow programmatically using the GitHub REST API:
 ```bash
 curl -X POST \
   -H "Accept: application/vnd.github.v3+json" \
-  -H "Authorization: token YOUR_GITHUB_TOKEN" \
+  -H "Authorization: token ${GITHUB_TOKEN}" \
   https://api.github.com/repos/YOUR_USERNAME/YOUR_REPO/actions/workflows/build.yml/dispatches \
   -d '{
     "ref": "main",
