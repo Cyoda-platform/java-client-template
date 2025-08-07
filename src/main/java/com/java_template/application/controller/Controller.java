@@ -157,7 +157,7 @@ public class Controller {
         try {
             if (subscriber.getContactEmail() == null || subscriber.getContactEmail().isBlank()) {
                 logger.error("Subscriber creation failed: contactEmail is missing or blank");
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+                return ResponseEntity.status(HttpStatus).build();
             }
             if (subscriber.getActive() == null) {
                 logger.error("Subscriber creation failed: active flag is missing");
