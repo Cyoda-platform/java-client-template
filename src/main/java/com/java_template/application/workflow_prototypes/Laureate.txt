@@ -1,3 +1,5 @@
+// Extracted processLaureate method and its direct helper methods from Controller.java
+
 private void processLaureate(UUID technicalId, Laureate laureate) {
     try {
         logger.info("Processing Laureate with technicalId: {} and id: {}", technicalId, laureate.getId());
