@@ -1,92 +1,92 @@
 {
-    "active": true,
-    "desc": "Workflow for Job entity managing ingestion states and transitions",
-    "initialState": "none",
-    "name": "Job Workflow",
-    "states": {
-        "failed": {
-            "transitions": []
-        },
-        "ingesting": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IngestionSuccessCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "ingest_data_and_save_laureates",
-                    "next": "succeeded",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "DataIngestionProcessor"
-                        }
-                    ]
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IngestionFailureCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "ingest_data_failure",
-                    "next": "failed"
-                }
-            ]
-        },
-        "notified_subscribers": {
-            "transitions": []
-        },
-        "scheduled": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "validate_and_start_ingesting",
-                    "next": "ingesting",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "JobValidationProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "succeeded": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "notify_subscribers",
-                    "next": "notified_subscribers",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "SubscribersNotifierProcessor"
-                        }
-                    ]
-                }
-            ]
-        }
+  "active": true,
+  "desc": "Workflow for Job entity managing ingestion states and transitions",
+  "initialState": "none",
+  "name": "Job Workflow",
+  "states": {
+    "failed": {
+      "transitions": []
     },
-    "version": "1.0"
+    "ingesting": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IngestionSuccessCriterion"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "ingest_data_and_save_laureates",
+          "next": "succeeded",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "DataIngestionProcessor"
+            }
+          ]
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IngestionFailureCriterion"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "ingest_data_failure",
+          "next": "failed"
+        }
+      ]
+    },
+    "notified_subscribers": {
+      "transitions": []
+    },
+    "scheduled": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "validate_and_start_ingesting",
+          "next": "ingesting",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "JobValidationProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "succeeded": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "notify_subscribers",
+          "next": "notified_subscribers",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "SubscribersNotifierProcessor"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "version": "1.0"
 }
