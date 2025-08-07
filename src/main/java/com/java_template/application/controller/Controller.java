@@ -54,7 +54,7 @@ public class Controller {
             UUID technicalId = idFuture.get();
             logger.info("Job created with technicalId: {}", technicalId);
 
-            processJob(technicalId, job);
+            // processJob method removed
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException e) {
@@ -153,7 +153,7 @@ public class Controller {
             UUID technicalId = idFuture.get();
             logger.info("Subscriber created with technicalId: {}", technicalId);
 
-            processSubscriber(technicalId, subscriber);
+            // processSubscriber method removed
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException e) {
@@ -193,54 +193,7 @@ public class Controller {
         }
     }
 
-    // -------- PROCESS METHODS --------
-
-    private void processJob(UUID technicalId, Job job) {
-        try {
-            logger.info("Processing Job with technicalId: {} and jobName: {}", technicalId, job.getJobName());
-            simulateJobValidationProcessor(job);
-            job.setStatus("INGESTING");
-            logger.info("Job status updated to INGESTING for technicalId: {}", technicalId);
-
-            boolean ingestionSuccess = false;
-            List<Laureate> laureates = null;
-            try {
-                laureates = ingestLaureatesFromOpenDataSoft();
-                ingestionSuccess = laureates != null && !laureates.isEmpty();
-
-                for (Laureate laureate : laureates) {
-                    CompletableFuture<UUID> laureateIdFuture = entityService.addItem(Laureate.ENTITY_NAME, ENTITY_VERSION, laureate);
-                    UUID laureateId = laureateIdFuture.get();
-                    logger.info("Laureate created with technicalId: {} for laureate id: {}", laureateId, laureate.getId());
-                    processLaureate(laureateId, laureate);
-                }
-            } catch (Exception e) {
-                logger.error("Exception during laureate ingestion: {}", e.getMessage());
-                ingestionSuccess = false;
-            }
-
-            if (ingestionSuccess) {
-                job.setStatus("SUCCEEDED");
-                job.setFinishedAt(java.time.Instant.now().toString());
-                job.setDetails("Job completed successfully");
-                logger.info("Job ingestion succeeded for technicalId: {}", technicalId);
-            } else {
-                job.setStatus("FAILED");
-                job.setFinishedAt(java.time.Instant.now().toString());
-                job.setDetails("Job ingestion failed");
-                logger.error("Job ingestion failed for technicalId: {}", technicalId);
-            }
-
-            simulateSubscriberNotificationProcessor(job);
-
-            job.setStatus("NOTIFIED_SUBSCRIBERS");
-            logger.info("Job status updated to NOTIFIED_SUBSCRIBERS for technicalId: {}", technicalId);
-
-            // TODO: update job entity in EntityService if needed (no update operations allowed for now)
-        } catch (Exception e) {
-            logger.error("Exception in processJob: ", e);
-        }
-    }
+    // -------- SIMULATED PROCESSORS & CRITERIA --------
 
     private List<Laureate> ingestLaureatesFromOpenDataSoft() throws Exception {
         String url = "https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/nobel-prize-laureates/records?limit=10"; // limit to 10 for prototype
@@ -272,40 +225,6 @@ public class Controller {
             }
         }
         return laureates;
-    }
-
-    private void processLaureate(UUID technicalId, Laureate laureate) {
-        try {
-            logger.info("Processing Laureate with technicalId: {} and id: {}", technicalId, laureate.getId());
-            boolean valid = simulateLaureateValidationProcessor(laureate);
-            if (!valid) {
-                logger.error("Laureate validation failed for technicalId: {}", technicalId);
-                return;
-            }
-            simulateLaureateEnrichmentProcessor(laureate);
-            logger.info("Laureate processed and persisted immutably with technicalId: {}", technicalId);
-            // TODO: update laureate entity in EntityService if needed
-        } catch (Exception e) {
-            logger.error("Exception in processLaureate: ", e);
-        }
-    }
-
-    private void processSubscriber(UUID technicalId, Subscriber subscriber) {
-        try {
-            logger.info("Processing Subscriber with technicalId: {} and name: {}", technicalId, subscriber.getSubscriberName());
-            boolean valid = simulateSubscriberValidationProcessor(subscriber);
-            if (!valid) {
-                logger.error("Subscriber validation failed for technicalId: {}", technicalId);
-                return;
-            }
-            if (!"true".equalsIgnoreCase(subscriber.getActive()) && !"false".equalsIgnoreCase(subscriber.getActive())) {
-                subscriber.setActive("true"); // default to true if invalid value
-            }
-            logger.info("Subscriber processed and persisted immutably with technicalId: {}", technicalId);
-            // TODO: update subscriber entity in EntityService if needed
-        } catch (Exception e) {
-            logger.error("Exception in processSubscriber: ", e);
-        }
     }
 
     // -------- SIMULATED PROCESSORS & CRITERIA --------
