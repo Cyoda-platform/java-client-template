@@ -1,0 +1,91 @@
+{
+  "version": "1.0",
+  "name": "Job Workflow",
+  "desc": "Workflow to manage Job states from creation to notification",
+  "initialState": "scheduled",
+  "active": true,
+  "states": {
+    "scheduled": {
+      "transitions": [
+        {
+          "name": "validate_job",
+          "next": "ingesting",
+          "manual": false,
+          "processors": [
+            {
+              "name": "JobValidationProcessor",
+              "executionMode": "SYNC",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          ]
+        }
+      ]
+    },
+    "ingesting": {
+      "transitions": [
+        {
+          "name": "ingest_laureates",
+          "next": "completed",
+          "manual": false,
+          "processors": [
+            {
+              "name": "LaureateIngestionProcessor",
+              "executionMode": "SYNC",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          ]
+        }
+      ]
+    },
+    "completed": {
+      "transitions": [
+        {
+          "name": "check_success",
+          "next": "succeeded",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "JobSuccessCriterion",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          }
+        },
+        {
+          "name": "check_failure",
+          "next": "failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "JobFailureCriterion",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          }
+        }
+      ]
+    },
+    "succeeded": {
+      "transitions": [
+        {
+          "name": "notify_subscribers",
+          "next": "notified_subscribers",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotificationProcessor",
+              "executionMode": "SYNC",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          ]
+        }
+      ]
+    },
+    "failed": {
+      "transitions": []
+    },
+    "notified_subscribers": {
+      "transitions": []
+    }
+  }
+}
