@@ -1,0 +1,45 @@
+private void processWorkflow(String technicalId, Workflow workflow) {
+    logger.info("Processing Workflow with id: {}", technicalId);
+
+    try {
+        // Validation: Check pet exists and status is "available"
+        // We do a getItemsByCondition to find pet by technicalId equal to workflow.getPetId()
+
+        SearchConditionRequest condition = SearchConditionRequest.group("AND",
+                Condition.of("$.technicalId", "EQUALS", workflow.getPetId())
+        );
+
+        CompletableFuture<ArrayNode> petsFuture = entityService.getItemsByCondition(
+                Pet.ENTITY_NAME,
+                ENTITY_VERSION,
+                condition,
+                true
+        );
+
+        ArrayNode petNodes = petsFuture.get();
+        if (petNodes == null || petNodes.isEmpty()) {
+            logger.error("Pet referenced by Workflow {} not found", technicalId);
+            workflow.setStatus("FAILED");
+            return;
+        }
+
+        ObjectNode petNode = (ObjectNode) petNodes.get(0);
+        Pet pet = Pet.fromJsonNode(petNode);
+
+        if (!"available".equalsIgnoreCase(pet.getStatus())) {
+            logger.error("Pet {} is not available for Workflow {}", workflow.getPetId(), technicalId);
+            workflow.setStatus("FAILED");
+            return;
+        }
+
+        // Simulate triggering adoption request processing or other logic
+        workflow.setStatus("COMPLETED");
+        logger.info("Workflow {} processing COMPLETED", technicalId);
+
+        // TODO: Consider saving updated workflow status if needed. Currently no update method available.
+
+    } catch (Exception e) {
+        logger.error("Exception in processWorkflow", e);
+        workflow.setStatus("FAILED");
+    }
+}
