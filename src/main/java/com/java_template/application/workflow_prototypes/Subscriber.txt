@@ -1,0 +1,16 @@
+private void processSubscriber(String technicalId, Subscriber subscriber) {
+    logger.info("Processing subscriber {}", technicalId);
+    if (!simulateSubscriberValidation(subscriber)) {
+        logger.error("Subscriber validation failed for {}", technicalId);
+        return;
+    }
+    // todo: update subscriber entity if needed (no update method available)
+    logger.info("Subscriber {} processed and saved", technicalId);
+}
+
+private boolean simulateSubscriberValidation(Subscriber subscriber) {
+    if (subscriber == null) return false;
+    if (subscriber.getContactType() == null || subscriber.getContactType().isBlank()) return false;
+    if (subscriber.getContactAddress() == null || subscriber.getContactAddress().isBlank()) return false;
+    return true;
+}
