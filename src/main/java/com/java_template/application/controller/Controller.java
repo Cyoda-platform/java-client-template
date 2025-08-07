@@ -1,7 +1,6 @@
 package com.java_template.application.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Job;
@@ -10,8 +9,7 @@ import com.java_template.application.entity.Subscriber;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
-import lombok.AllArgsConstructor;
-import lombok.NoArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,7 +20,6 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.ResponseEntity as SpringResponseEntity;
 
 import java.io.IOException;
 import java.time.LocalDate;
@@ -32,29 +29,22 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 
 import static com.java_template.common.config.Config.*;
 
 @RestController
-@RequestMapping(path = "/entity")
+@RequestMapping(path = "/entities")
+@RequiredArgsConstructor
 @Slf4j
-@AllArgsConstructor
-@NoArgsConstructor
 public class Controller {
 
     private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
-    private EntityService entityService;
+    private final EntityService entityService;
 
     private final RestTemplate restTemplate = new RestTemplate();
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private final AtomicLong laureateIdCounter = new AtomicLong(1);
-
-    public Controller(EntityService entityService) {
-        this.entityService = entityService;
-    }
 
     // ------------------- JOB ENDPOINTS -------------------
 
@@ -66,10 +56,14 @@ public class Controller {
                 logger.error("Job creation failed: externalId is missing or blank");
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
             }
+            // Create Job object
             Job job = new Job();
             job.setExternalId(externalId);
             job.setState("SCHEDULED");
             job.setCreatedAt(OffsetDateTime.now());
+
+            // Validate job before adding
+            simulateValidationProcessorJob(job);
 
             CompletableFuture<UUID> idFuture = entityService.addItem(Job.ENTITY_NAME, ENTITY_VERSION, job);
             UUID technicalId = idFuture.get();
@@ -77,13 +71,14 @@ public class Controller {
 
             logger.info("Job created with technicalId {}", technicalId);
 
+            // Trigger processing asynchronously
             new Thread(() -> processJob(technicalId, job)).start();
 
             Map<String, UUID> response = new HashMap<>();
             response.put("technicalId", technicalId);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (IllegalArgumentException e) {
-            logger.error("Job creation failed with illegal argument: {}", e.getMessage());
+            logger.error("Job creation failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         } catch (Exception e) {
             logger.error("Job creation failed with unexpected error: {}", e.getMessage());
@@ -97,25 +92,25 @@ public class Controller {
             UUID technicalId = UUID.fromString(id);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(Job.ENTITY_NAME, ENTITY_VERSION, technicalId);
             ObjectNode node = itemFuture.get();
-            if (node == null) {
+            if (node == null || node.isEmpty()) {
                 logger.error("Job with id {} not found", id);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
-            Job job = objectMapper.treeToValue(node, Job.class);
+            Job job = node.traverse().readValueAs(Job.class);
             job.setId(technicalId);
             return ResponseEntity.ok(job);
         } catch (IllegalArgumentException e) {
-            logger.error("Get job failed with illegal argument: {}", e.getMessage());
+            logger.error("Invalid job id format: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         } catch (ExecutionException ee) {
-            if (ee.getCause() instanceof IllegalArgumentException) {
-                logger.error("Get job failed with illegal argument: {}", ee.getCause().getMessage());
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+            if (ee.getCause() instanceof NoSuchElementException) {
+                logger.error("Job with id {} not found", id);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
-            logger.error("Get job failed with execution error: {}", ee.getCause().getMessage());
+            logger.error("Error retrieving job {}: {}", id, ee.getCause().getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         } catch (Exception e) {
-            logger.error("Get job failed with unexpected error: {}", e.getMessage());
+            logger.error("Error retrieving job {}: {}", id, e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
@@ -128,25 +123,25 @@ public class Controller {
             UUID technicalId = UUID.fromString(id);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(Laureate.ENTITY_NAME, ENTITY_VERSION, technicalId);
             ObjectNode node = itemFuture.get();
-            if (node == null) {
+            if (node == null || node.isEmpty()) {
                 logger.error("Laureate with id {} not found", id);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
-            Laureate laureate = objectMapper.treeToValue(node, Laureate.class);
+            Laureate laureate = node.traverse().readValueAs(Laureate.class);
             laureate.setId(technicalId);
             return ResponseEntity.ok(laureate);
         } catch (IllegalArgumentException e) {
-            logger.error("Get laureate failed with illegal argument: {}", e.getMessage());
+            logger.error("Invalid laureate id format: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         } catch (ExecutionException ee) {
-            if (ee.getCause() instanceof IllegalArgumentException) {
-                logger.error("Get laureate failed with illegal argument: {}", ee.getCause().getMessage());
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+            if (ee.getCause() instanceof NoSuchElementException) {
+                logger.error("Laureate with id {} not found", id);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
-            logger.error("Get laureate failed with execution error: {}", ee.getCause().getMessage());
+            logger.error("Error retrieving laureate {}: {}", id, ee.getCause().getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         } catch (Exception e) {
-            logger.error("Get laureate failed with unexpected error: {}", e.getMessage());
+            logger.error("Error retrieving laureate {}: {}", id, e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
@@ -164,20 +159,26 @@ public class Controller {
                 logger.error("Subscriber creation failed: active flag is missing");
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
             }
+            if (!simulateValidationProcessorSubscriber(subscriber)) {
+                logger.error("Subscriber validation failed");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+            }
 
+            // Add subscriber to external service
             CompletableFuture<UUID> idFuture = entityService.addItem(Subscriber.ENTITY_NAME, ENTITY_VERSION, subscriber);
             UUID technicalId = idFuture.get();
             subscriber.setId(technicalId);
 
             logger.info("Subscriber created with technicalId {}", technicalId);
 
+            // Process subscriber asynchronously
             new Thread(() -> processSubscriber(technicalId, subscriber)).start();
 
             Map<String, UUID> response = new HashMap<>();
             response.put("technicalId", technicalId);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (IllegalArgumentException e) {
-            logger.error("Subscriber creation failed with illegal argument: {}", e.getMessage());
+            logger.error("Subscriber creation failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         } catch (Exception e) {
             logger.error("Subscriber creation failed with unexpected error: {}", e.getMessage());
@@ -191,25 +192,25 @@ public class Controller {
             UUID technicalId = UUID.fromString(id);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(Subscriber.ENTITY_NAME, ENTITY_VERSION, technicalId);
             ObjectNode node = itemFuture.get();
-            if (node == null) {
+            if (node == null || node.isEmpty()) {
                 logger.error("Subscriber with id {} not found", id);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
-            Subscriber subscriber = objectMapper.treeToValue(node, Subscriber.class);
+            Subscriber subscriber = node.traverse().readValueAs(Subscriber.class);
             subscriber.setId(technicalId);
             return ResponseEntity.ok(subscriber);
         } catch (IllegalArgumentException e) {
-            logger.error("Get subscriber failed with illegal argument: {}", e.getMessage());
+            logger.error("Invalid subscriber id format: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         } catch (ExecutionException ee) {
-            if (ee.getCause() instanceof IllegalArgumentException) {
-                logger.error("Get subscriber failed with illegal argument: {}", ee.getCause().getMessage());
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+            if (ee.getCause() instanceof NoSuchElementException) {
+                logger.error("Subscriber with id {} not found", id);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
-            logger.error("Get subscriber failed with execution error: {}", ee.getCause().getMessage());
+            logger.error("Error retrieving subscriber {}: {}", id, ee.getCause().getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         } catch (Exception e) {
-            logger.error("Get subscriber failed with unexpected error: {}", e.getMessage());
+            logger.error("Error retrieving subscriber {}: {}", id, e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
@@ -223,29 +224,38 @@ public class Controller {
             simulateValidationProcessorJob(job);
 
             job.setState("INGESTING");
-            // TODO: update job state in external service (no update method available)
+            // TODO: Update job state in external service - update operation not supported
 
             logger.info("Job {} state transitioned to INGESTING", technicalId);
 
+            // Fetch laureates from OpenDataSoft API
             String url = "https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/nobel-prize-laureates/records";
-            SpringResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(new HttpHeaders()), String.class);
+            org.springframework.http.ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(new HttpHeaders()), String.class);
             if (!response.getStatusCode().is2xxSuccessful()) {
                 job.setState("FAILED");
                 job.setResultSummary("Failed to fetch laureates data: HTTP status " + response.getStatusCodeValue());
                 job.setCompletedAt(OffsetDateTime.now());
-                // TODO: update job state in external service
+                // TODO: Update job state in external service - update operation not supported
                 logger.error("Job {} failed during data fetch", technicalId);
                 return;
             }
 
             String body = response.getBody();
-            JsonNode root = objectMapper.readTree(body);
+            JsonNode root = entityService.getClass().getClassLoader().loadClass("com.fasterxml.jackson.databind.ObjectMapper").getDeclaredConstructor().newInstance() instanceof com.fasterxml.jackson.databind.ObjectMapper ? new com.fasterxml.jackson.databind.ObjectMapper().readTree(body) : null;
+            if (root == null) {
+                job.setState("FAILED");
+                job.setResultSummary("Failed to parse laureates data");
+                job.setCompletedAt(OffsetDateTime.now());
+                // TODO: Update job state in external service - update operation not supported
+                logger.error("Job {} failed during laureates data parsing", technicalId);
+                return;
+            }
             JsonNode records = root.path("records");
             if (records.isMissingNode() || !records.isArray()) {
                 job.setState("FAILED");
                 job.setResultSummary("Invalid laureates data structure");
                 job.setCompletedAt(OffsetDateTime.now());
-                // TODO: update job state in external service
+                // TODO: Update job state in external service - update operation not supported
                 logger.error("Job {} failed due to invalid laureates data structure", technicalId);
                 return;
             }
@@ -257,7 +267,6 @@ public class Controller {
                 if (fields.isMissingNode()) continue;
 
                 Laureate laureate = new Laureate();
-                laureate.setId(null); // will be assigned by external service
                 laureate.setLaureateId(fields.path("id").asInt(0));
                 laureate.setFirstname(fields.path("firstname").asText(null));
                 laureate.setSurname(fields.path("surname").asText(null));
@@ -275,45 +284,43 @@ public class Controller {
                 laureate.setAffiliationCountry(fields.path("country").asText(null));
 
                 laureatesToAdd.add(laureate);
+                processedCount++;
             }
 
             if (!laureatesToAdd.isEmpty()) {
-                // Add laureates to external service
                 CompletableFuture<List<UUID>> idsFuture = entityService.addItems(Laureate.ENTITY_NAME, ENTITY_VERSION, laureatesToAdd);
-                List<UUID> technicalIds = idsFuture.get();
-
-                for (int i = 0; i < technicalIds.size(); i++) {
-                    UUID laureateId = technicalIds.get(i);
+                List<UUID> ids = idsFuture.get();
+                for (int i = 0; i < ids.size(); i++) {
+                    UUID laureateId = ids.get(i);
                     Laureate laureate = laureatesToAdd.get(i);
                     laureate.setId(laureateId);
                     processLaureate(laureateId, laureate);
-                    processedCount++;
                 }
             }
 
             job.setState("SUCCEEDED");
             job.setResultSummary("Ingested " + processedCount + " laureates");
             job.setCompletedAt(OffsetDateTime.now());
-            // TODO: update job state in external service
+            // TODO: Update job state in external service - update operation not supported
             logger.info("Job {} ingestion succeeded with {} laureates", technicalId, processedCount);
 
-            notifySubscribers(technicalId.toString(), job);
+            notifySubscribers(technicalId, job);
 
             job.setState("NOTIFIED_SUBSCRIBERS");
-            // TODO: update job state in external service
+            // TODO: Update job state in external service - update operation not supported
             logger.info("Job {} state transitioned to NOTIFIED_SUBSCRIBERS", technicalId);
 
         } catch (IOException e) {
             job.setState("FAILED");
             job.setResultSummary("Exception during processing: " + e.getMessage());
             job.setCompletedAt(OffsetDateTime.now());
-            // TODO: update job state in external service
+            // TODO: Update job state in external service - update operation not supported
             logger.error("Job {} failed with exception: {}", technicalId, e.getMessage());
         } catch (Exception e) {
             job.setState("FAILED");
             job.setResultSummary("Unexpected error: " + e.getMessage());
             job.setCompletedAt(OffsetDateTime.now());
-            // TODO: update job state in external service
+            // TODO: Update job state in external service - update operation not supported
             logger.error("Job {} failed with unexpected error: {}", technicalId, e.getMessage());
         }
     }
@@ -328,7 +335,7 @@ public class Controller {
 
         simulateEnrichmentProcessorLaureate(laureate);
 
-        // No update method, so assume immutable persistence done
+        // Already persisted immutably in external service
 
         logger.info("Laureate {} processed successfully", technicalId);
     }
@@ -339,7 +346,7 @@ public class Controller {
             logger.error("Subscriber {} validation failed", technicalId);
             return;
         }
-        // No update method, assume immutable persistence done
+        // Already persisted in external service
         logger.info("Subscriber {} processed successfully", technicalId);
     }
 
@@ -397,33 +404,30 @@ public class Controller {
 
     // ------------------- NOTIFICATIONS -------------------
 
-    private void notifySubscribers(String jobId, Job job) {
-        logger.info("Notifying subscribers for job {}", jobId);
+    private void notifySubscribers(UUID jobId, Job job) {
         try {
-            CompletableFuture<ArrayNode> subscribersFuture = entityService.getItemsByCondition(
-                    Subscriber.ENTITY_NAME,
-                    ENTITY_VERSION,
-                    SearchConditionRequest.group("AND", Condition.of("$.active", "EQUALS", true)),
-                    true);
-            ArrayNode subscribersArray = subscribersFuture.get();
+            CompletableFuture<ArrayNode> subsFuture = entityService.getItems(Subscriber.ENTITY_NAME, ENTITY_VERSION);
+            ArrayNode subscribersArray = subsFuture.get();
             if (subscribersArray == null) return;
 
-            for (JsonNode subscriberNode : subscribersArray) {
-                Subscriber subscriber = objectMapper.treeToValue(subscriberNode, Subscriber.class);
-                UUID subId = subscriberNode.has("technicalId") ? UUID.fromString(subscriberNode.get("technicalId").asText()) : null;
-                if (subId != null) subscriber.setId(subId);
-                try {
-                    if (subscriber.getWebhookUrl() != null && !subscriber.getWebhookUrl().isBlank()) {
-                        sendWebhookNotification(subscriber.getWebhookUrl(), job);
-                    } else {
-                        sendEmailNotification(subscriber.getContactEmail(), job);
+            for (JsonNode node : subscribersArray) {
+                Subscriber subscriber = node.traverse().readValueAs(Subscriber.class);
+                UUID subscriberId = UUID.fromString(node.path("technicalId").asText());
+                subscriber.setId(subscriberId);
+                if (Boolean.TRUE.equals(subscriber.getActive())) {
+                    try {
+                        if (subscriber.getWebhookUrl() != null && !subscriber.getWebhookUrl().isBlank()) {
+                            sendWebhookNotification(subscriber.getWebhookUrl(), job);
+                        } else {
+                            sendEmailNotification(subscriber.getContactEmail(), job);
+                        }
+                    } catch (Exception e) {
+                        logger.error("Failed to notify subscriber {}: {}", subscriber.getId(), e.getMessage());
                     }
-                } catch (Exception e) {
-                    logger.error("Failed to notify subscriber {}: {}", subId, e.getMessage());
                 }
             }
         } catch (Exception e) {
-            logger.error("Notification failed for job {}: {}", jobId, e.getMessage());
+            logger.error("Failed to notify subscribers for job {}: {}", jobId, e.getMessage());
         }
     }
 
