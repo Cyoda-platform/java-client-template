@@ -1,0 +1,83 @@
+{
+  "version": "1.0",
+  "name": "Job Workflow",
+  "desc": "Workflow describing the lifecycle of a Job entity from creation to notification.",
+  "initialState": "scheduled",
+  "active": true,
+  "states": {
+    "scheduled": {
+      "transitions": [
+        {
+          "name": "validate_job",
+          "next": "ingesting",
+          "manual": false,
+          "processors": [
+            {
+              "name": "JobValidationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ingesting": {
+      "transitions": [
+        {
+          "name": "process_ingestion",
+          "next": "succeeded",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "JobIngestionSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "process_ingestion_failed",
+          "next": "failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "JobIngestionFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "succeeded": {
+      "transitions": [
+        {
+          "name": "notify_subscribers",
+          "next": "notified_subscribers",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SubscriberNotificationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "failed": {
+      "transitions": []
+    },
+    "notified_subscribers": {
+      "transitions": []
+    }
+  }
+}
