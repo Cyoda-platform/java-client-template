@@ -1,6 +1,9 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.Job;
+import com.java_template.application.entity.Laureate;
+import com.java_template.application.entity.Subscriber;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
@@ -9,7 +12,6 @@ import com.java_template.common.workflow.OperationSpecification;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
@@ -22,7 +24,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -37,8 +38,8 @@ public class LaureateIngestionProcessor implements CyodaProcessor {
     private final ProcessorSerializer serializer;
     private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate;
-    private final String className = this.getClass().getSimpleName();
     private final EntityService entityService;
+    private final String className = this.getClass().getSimpleName();
 
     public LaureateIngestionProcessor(SerializerFactory serializerFactory, ObjectMapper objectMapper, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
@@ -53,10 +54,10 @@ public class LaureateIngestionProcessor implements CyodaProcessor {
         logger.info("Processing Job for request: {}", request.getId());
 
         return serializer.withRequest(request)
-            .toEntity(Job.class)
-            .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic)
-            .complete();
+                .toEntity(Job.class)
+                .validate(this::isValidEntity, "Invalid Job state")
+                .map(this::processEntityLogic)
+                .complete();
     }
 
     @Override
@@ -71,6 +72,7 @@ public class LaureateIngestionProcessor implements CyodaProcessor {
     private Job processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Job> context) {
         Job job = context.entity();
         String technicalId = context.request().getEntityId();
+
         try {
             simulateValidateJob(job);
             job.setStatus("INGESTING");
@@ -131,28 +133,38 @@ public class LaureateIngestionProcessor implements CyodaProcessor {
                 return false;
             }
 
-            List<Object> laureates = new ArrayList<>();
+            List<Laureate> laureates = new ArrayList<>();
 
             for (var recordNode : records) {
                 var fields = recordNode.path("fields");
-                var laureate = new Object();
+                Laureate laureate = new Laureate();
 
-                // We no longer set laureateId manually, it will be assigned by EntityService
-                // Only Laureate POJO properties should be set here if available
-                // But Laureate POJO is not provided, so using Object as placeholder
-                // You need to replace Object with actual Laureate class and set properties accordingly
+                laureate.setFirstname(getTextValue(fields, "firstname"));
+                laureate.setSurname(getTextValue(fields, "surname"));
+                laureate.setGender(getTextValue(fields, "gender"));
+                laureate.setBorn(parseDate(getTextValue(fields, "born")));
+                laureate.setDied(parseDate(getTextValue(fields, "died")));
+                laureate.setBorncountry(getTextValue(fields, "borncountry"));
+                laureate.setBorncountrycode(getTextValue(fields, "borncountrycode"));
+                laureate.setBorncity(getTextValue(fields, "borncity"));
+                laureate.setYear(getTextValue(fields, "year"));
+                laureate.setCategory(getTextValue(fields, "category"));
+                laureate.setMotivation(getTextValue(fields, "motivation"));
+                laureate.setAffiliationName(getTextValue(fields, "affiliationname"));
+                laureate.setAffiliationCity(getTextValue(fields, "affiliationcity"));
+                laureate.setAffiliationCountry(getTextValue(fields, "affiliationcountry"));
+
+                laureates.add(laureate);
             }
 
-            // Add all laureates at once
-            // CompletableFuture<List<UUID>> idsFuture = entityService.addItems(Laureate.ENTITY_NAME, ENTITY_VERSION, laureates);
-            // List<UUID> technicalIds = idsFuture.get();
+            CompletableFuture<List<UUID>> idsFuture = entityService.addItems(Laureate.ENTITY_NAME, "1", laureates);
+            List<UUID> technicalIds = idsFuture.get();
 
-            // Process each laureate after creation
-            // for (int i = 0; i < technicalIds.size(); i++) {
-            //     String techId = technicalIds.get(i).toString();
-            //     Laureate laureate = laureates.get(i);
-            //     processLaureate(techId, laureate);
-            // }
+            for (int i = 0; i < technicalIds.size(); i++) {
+                String techId = technicalIds.get(i).toString();
+                Laureate laureate = laureates.get(i);
+                processLaureate(techId, laureate);
+            }
 
             job.setResultDetails("Ingested " + records.size() + " laureates from external datasource.");
             return true;
@@ -162,12 +174,32 @@ public class LaureateIngestionProcessor implements CyodaProcessor {
         }
     }
 
+    private String getTextValue(com.fasterxml.jackson.databind.JsonNode node, String fieldName) {
+        var valueNode = node.get(fieldName);
+        if (valueNode == null || valueNode.isNull()) {
+            return null;
+        }
+        return valueNode.asText();
+    }
+
+    private LocalDate parseDate(String dateStr) {
+        if (dateStr == null || dateStr.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(dateStr);
+        } catch (Exception e) {
+            logger.warn("Failed to parse date: {}", dateStr);
+            return null;
+        }
+    }
+
     private void notifySubscribers(Job job) {
         try {
             Condition activeCondition = Condition.of("$.active", "EQUALS", true);
             SearchConditionRequest condition = SearchConditionRequest.group("AND", activeCondition);
-            CompletableFuture<ArrayNode> activeSubsFuture = entityService.getItemsByCondition("Subscriber", "1", condition, true);
-            ArrayNode activeSubscribers = activeSubsFuture.get();
+            CompletableFuture<com.fasterxml.jackson.databind.node.ArrayNode> activeSubsFuture = entityService.getItemsByCondition(Subscriber.ENTITY_NAME, "1", condition, true);
+            com.fasterxml.jackson.databind.node.ArrayNode activeSubscribers = activeSubsFuture.get();
             int notifiedCount = (activeSubscribers == null) ? 0 : activeSubscribers.size();
 
             logger.info("Notified {} active subscribers for job {}", notifiedCount, job.getJobName());
@@ -176,4 +208,7 @@ public class LaureateIngestionProcessor implements CyodaProcessor {
         }
     }
 
+    private void processLaureate(String technicalId, Laureate laureate) {
+        // This method can be implemented if additional processing for laureates is needed
+    }
 }
