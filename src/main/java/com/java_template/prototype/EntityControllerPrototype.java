@@ -142,7 +142,7 @@ public class EntityControllerPrototype {
     private boolean ingestNobelData(Job job) {
         try {
             // Example OpenDataSoft API URL for Nobel laureates
-            String url = "https://public.opendatasoft.com/api/records/1.0/search/?dataset=nobel-prizes&q=&rows=100&sort=year&facet=category&facet=gender&facet=borncountry";
+            String url = "https://public.opendatasoft.com/api/records/1.0/search/?dataset=laureates&q=&rows=100";
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
