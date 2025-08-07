@@ -1,98 +1,98 @@
 {
-    "active": true,
-    "desc": "Workflow for Job entity managing the ingestion process of Nobel laureates.",
-    "initialState": "none",
-    "name": "Job Workflow",
-    "states": {
-        "failed": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "notify_subscribers",
-                    "next": "notified_subscribers",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "NotifySubscribersProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "ingesting": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IngestionSuccessCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "ingestion_succeeded",
-                    "next": "succeeded",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "IngestNobelLaureatesProcessor"
-                        }
-                    ]
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IngestionFailureCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "ingestion_failed",
-                    "next": "failed"
-                }
-            ]
-        },
-        "notified_subscribers": {
-            "transitions": []
-        },
-        "scheduled": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "start_ingestion",
-                    "next": "ingesting"
-                }
-            ]
-        },
-        "succeeded": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "notify_subscribers",
-                    "next": "notified_subscribers",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "NotifySubscribersProcessor"
-                        }
-                    ]
-                }
-            ]
+  "active": true,
+  "desc": "Workflow for Job entity managing the ingestion process of Nobel laureates.",
+  "initialState": "none",
+  "name": "Job Workflow",
+  "states": {
+    "failed": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "notify_subscribers",
+          "next": "notified_subscribers",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "NotifySubscribersProcessor"
+            }
+          ]
         }
+      ]
     },
-    "version": "1.0"
+    "ingesting": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IngestionSuccessCriterion"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "ingestion_succeeded",
+          "next": "succeeded",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "IngestNobelLaureatesProcessor"
+            }
+          ]
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IngestionFailureCriterion"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "ingestion_failed",
+          "next": "failed"
+        }
+      ]
+    },
+    "notified_subscribers": {
+      "transitions": []
+    },
+    "scheduled": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "start_ingestion",
+          "next": "ingesting"
+        }
+      ]
+    },
+    "succeeded": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "notify_subscribers",
+          "next": "notified_subscribers",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "NotifySubscribersProcessor"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "version": "1.0"
 }
