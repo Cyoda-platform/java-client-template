@@ -15,6 +15,7 @@ on:
         type: choice
         options:
           - compile-only
+          - test-only
           - standard
           - workflow-import
           - both
@@ -66,7 +67,7 @@ jobs:
         fi
 
     - name: Run tests
-      if: ${{ inputs.build_type != 'compile-only' }}
+      if: ${{ inputs.build_type == 'standard' || inputs.build_type == 'test-only' }}
       run: ./gradlew test
 
     - name: Build standard JAR
