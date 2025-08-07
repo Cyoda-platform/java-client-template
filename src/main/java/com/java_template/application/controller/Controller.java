@@ -54,7 +54,7 @@ public class Controller {
             UUID technicalId = idFuture.get();
             logger.info("Job created with technicalId: {}", technicalId);
 
-            // processJob call removed
+            // processJob method removed
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException e) {
@@ -153,7 +153,7 @@ public class Controller {
             UUID technicalId = idFuture.get();
             logger.info("Subscriber created with technicalId: {}", technicalId);
 
-            // processSubscriber call removed
+            // processSubscriber method removed
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException e) {
@@ -191,40 +191,6 @@ public class Controller {
             logger.error("Exception in getSubscriber: ", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
         }
-    }
-
-    // -------- SIMULATED PROCESSORS & CRITERIA --------
-
-    private List<Laureate> ingestLaureatesFromOpenDataSoft() throws Exception {
-        String url = "https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/nobel-prize-laureates/records?limit=10"; // limit to 10 for prototype
-        String response = restTemplate.getForObject(url, String.class);
-        com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
-        com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(response);
-        com.fasterxml.jackson.databind.JsonNode records = root.path("records");
-        List<Laureate> laureates = new ArrayList<>();
-        if (records.isArray()) {
-            for (com.fasterxml.jackson.databind.JsonNode record : records) {
-                com.fasterxml.jackson.databind.JsonNode fields = record.path("fields");
-                Laureate laureate = new Laureate();
-                laureate.setId(fields.path("id").asInt());
-                laureate.setFirstname(fields.path("firstname").asText(null));
-                laureate.setSurname(fields.path("surname").asText(null));
-                laureate.setBorn(fields.path("born").asText(null));
-                laureate.setDied(fields.path("died").isNull() ? null : fields.path("died").asText(null));
-                laureate.setBorncountry(fields.path("borncountry").asText(null));
-                laureate.setBorncountrycode(fields.path("borncountrycode").asText(null));
-                laureate.setBorncity(fields.path("borncity").asText(null));
-                laureate.setGender(fields.path("gender").asText(null));
-                laureate.setYear(fields.path("year").asText(null));
-                laureate.setCategory(fields.path("category").asText(null));
-                laureate.setMotivation(fields.path("motivation").asText(null));
-                laureate.setName(fields.path("name").asText(null));
-                laureate.setCity(fields.path("city").asText(null));
-                laureate.setCountry(fields.path("country").asText(null));
-                laureates.add(laureate);
-            }
-        }
-        return laureates;
     }
 
     // -------- SIMULATED PROCESSORS & CRITERIA --------
