@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.Workflow;
+import com.java_template.application.entity.Pet;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -31,7 +31,7 @@ public class IsProcessingSuccessful implements CyodaCriterion {
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
         return serializer.withRequest(request)
-            .evaluateEntity(Workflow.class, this::validateEntity)
+            .evaluateEntity(Pet.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -41,17 +41,20 @@ public class IsProcessingSuccessful implements CyodaCriterion {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Workflow> context) {
+    private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Pet> context) {
 
-        Workflow workflow = context.entity();
+        Pet pet = context.entity();
 
-        if (workflow.getStatus() == null || workflow.getStatus().isBlank()) {
-            return EvaluationOutcome.fail("Workflow status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        // Business logic: For processing to be successful, pet status must be "sold" or "pending"
+        String status = pet.getStatus();
+        if (status == null || status.isBlank()) {
+            return EvaluationOutcome.fail("Status is required for processing check", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (!workflow.getStatus().equalsIgnoreCase("COMPLETED")) {
-            return EvaluationOutcome.fail("Workflow status must be COMPLETED", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        String statusLower = status.toLowerCase();
+        if (statusLower.equals("sold") || statusLower.equals("pending")) {
+            return EvaluationOutcome.success();
+        } else {
+            return EvaluationOutcome.fail("Processing not successful: invalid status", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
-
-        return EvaluationOutcome.success();
     }
 }
