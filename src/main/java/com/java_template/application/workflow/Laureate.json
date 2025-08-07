@@ -1,37 +1,37 @@
 {
-    "active": true,
-    "desc": "Workflow managing the processing and validation of Laureate entities",
-    "initialState": "none",
-    "name": "Laureate Workflow",
-    "states": {
-        "persisted": {
-            "transitions": []
-        },
-        "validation": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "enrich_and_persist",
-                    "next": "persisted",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "LaureateValidationProcessor"
-                        },
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "LaureateEnrichmentProcessor"
-                        }
-                    ]
-                }
-            ]
-        }
+  "active": true,
+  "desc": "Workflow managing the processing and validation of Laureate entities",
+  "initialState": "none",
+  "name": "Laureate Workflow",
+  "states": {
+    "persisted": {
+      "transitions": []
     },
-    "version": "1.0"
+    "validation": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "enrich_and_persist",
+          "next": "persisted",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "LaureateValidationProcessor"
+            },
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "LaureateEnrichmentProcessor"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "version": "1.0"
 }
