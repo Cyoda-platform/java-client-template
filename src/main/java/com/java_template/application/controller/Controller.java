@@ -54,7 +54,7 @@ public class Controller {
             UUID technicalId = idFuture.get();
             logger.info("Job created with technicalId: {}", technicalId);
 
-            // processJob method removed
+            // processJob call removed
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException e) {
@@ -153,7 +153,7 @@ public class Controller {
             UUID technicalId = idFuture.get();
             logger.info("Subscriber created with technicalId: {}", technicalId);
 
-            // processSubscriber method removed
+            // processSubscriber call removed
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException e) {
@@ -226,45 +226,4 @@ public class Controller {
         return true;
     }
 
-    private void simulateSubscriberNotificationProcessor(Job job) {
-        logger.info("Notifying subscribers for job: {}", job.getJobName());
-        try {
-            CompletableFuture<ArrayNode> laureatesFuture = entityService.getItems(Laureate.ENTITY_NAME, ENTITY_VERSION);
-            ArrayNode laureateNodes = laureatesFuture.get();
-            Set<String> laureateCategories = new HashSet<>();
-            for (int i = 0; i < laureateNodes.size(); i++) {
-                ObjectNode node = (ObjectNode) laureateNodes.get(i);
-                String category = node.has("category") && !node.get("category").isNull() ? node.get("category").asText() : null;
-                if (category != null) {
-                    laureateCategories.add(category);
-                }
-            }
-
-            CompletableFuture<ArrayNode> subscribersFuture = entityService.getItems(Subscriber.ENTITY_NAME, ENTITY_VERSION);
-            ArrayNode subscriberNodes = subscribersFuture.get();
-
-            for (int i = 0; i < subscriberNodes.size(); i++) {
-                ObjectNode node = (ObjectNode) subscriberNodes.get(i);
-                String active = node.has("active") && !node.get("active").isNull() ? node.get("active").asText() : null;
-                if (!"true".equalsIgnoreCase(active)) continue;
-                String subscribedCategories = node.has("subscribedCategories") && !node.get("subscribedCategories").isNull() ?
-                        node.get("subscribedCategories").asText() : "";
-                String[] categories = subscribedCategories.split(",");
-                boolean interested = false;
-                for (String cat : categories) {
-                    if (laureateCategories.contains(cat.trim())) {
-                        interested = true;
-                        break;
-                    }
-                }
-                if (interested) {
-                    String subscriberName = node.has("subscriberName") && !node.get("subscriberName").isNull() ? node.get("subscriberName").asText() : "unknown";
-                    String contactAddress = node.has("contactAddress") && !node.get("contactAddress").isNull() ? node.get("contactAddress").asText() : "unknown";
-                    logger.info("Notified subscriber: {} at {}", subscriberName, contactAddress);
-                }
-            }
-        } catch (Exception e) {
-            logger.error("Exception in simulateSubscriberNotificationProcessor: ", e);
-        }
-    }
 }
