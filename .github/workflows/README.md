@@ -80,6 +80,53 @@ Artifacts are retained for 30 days (JARs) or 7 days (test results).
 - Gradle wrapper must be present and executable
 - All dependencies must be available in Maven Central
 
+## Getting Build Status
+
+### Option 1: Using Helper Scripts
+
+```bash
+# Check latest build status
+./scripts/check-build-status.sh
+
+# Check specific run status
+./scripts/check-build-status.sh <run_id>
+
+# Trigger build and watch progress
+./scripts/trigger-and-watch.sh <branch> [build_type]
+```
+
+### Option 2: Using GitHub API
+
+```bash
+# Get latest workflow run status
+curl -H "Authorization: token ${GITHUB_TOKEN}" \
+  "https://api.github.com/repos/YOUR_USERNAME/YOUR_REPO/actions/workflows/build.yml/runs?per_page=1" \
+  | jq '.workflow_runs[0] | {id, status, conclusion, head_branch}'
+
+# Get specific run status
+curl -H "Authorization: token ${GITHUB_TOKEN}" \
+  "https://api.github.com/repos/YOUR_USERNAME/YOUR_REPO/actions/runs/{run_id}" \
+  | jq '{id, status, conclusion, head_branch, html_url}'
+```
+
+### Option 3: Using GitHub CLI
+
+```bash
+# List recent runs
+gh run list --workflow=build.yml
+
+# Watch a running workflow
+gh run watch <run_id>
+
+# View run details
+gh run view <run_id>
+```
+
+### Status Values
+
+- **status**: `queued`, `in_progress`, `completed`
+- **conclusion**: `success`, `failure`, `cancelled`, `skipped`
+
 ### Security Notes
 
 - The workflow requires appropriate GitHub token permissions

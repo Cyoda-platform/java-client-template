@@ -50,7 +50,16 @@ jobs:
       
     - name: Compile only (check for compilation errors)
       if: ${{ inputs.build_type == 'compile-only' }}
-      run: ./gradlew compileJava --continue
+      run: |
+        echo "::notice::Starting compilation check for branch ${{ inputs.branch }}"
+        if ./gradlew compileJava --continue; then
+          echo "::notice::✅ Compilation successful - no errors found"
+          echo "COMPILE_STATUS=success" >> $GITHUB_ENV
+        else
+          echo "::error::❌ Compilation failed - errors found"
+          echo "COMPILE_STATUS=failure" >> $GITHUB_ENV
+          exit 1
+        fi
 
     - name: Run tests
       if: ${{ inputs.build_type != 'compile-only' }}
@@ -103,9 +112,25 @@ jobs:
     steps:
     - name: Build Summary
       run: |
-        echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
-        echo "- **Branch:** ${{ inputs.branch }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Build Type:** ${{ inputs.build_type }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Build Status:** ${{ needs.build.result }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Workflow Run:** [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+        echo "## 🚀 Build Summary" >> $GITHUB_STEP_SUMMARY
+        echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+        echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+        echo "| **Branch** | \`${{ inputs.branch }}\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Build Type** | \`${{ inputs.build_type }}\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Status** | ${{ needs.build.result == 'success' && '✅ Success' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Triggered by** | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Run ID** | [\`${{ github.run_id }}\`](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Commit** | [\`${GITHUB_SHA:0:7}\`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [[ "${{ inputs.build_type }}" == "compile-only" ]]; then
+          echo "### 🔍 Compilation Check Results" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ needs.build.result }}" == "success" ]]; then
+            echo "✅ **All Java files compiled successfully** - No compilation errors found!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Compilation failed** - Please check the build logs for error details." >> $GITHUB_STEP_SUMMARY
+          fi
+        else
+          echo "### 📦 Build Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "Build artifacts are available in the [Actions tab](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for 30 days." >> $GITHUB_STEP_SUMMARY
+        fi
