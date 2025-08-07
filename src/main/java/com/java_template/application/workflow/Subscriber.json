@@ -1,39 +1,39 @@
 {
-  "version": "1.0",
-  "name": "Subscriber Workflow",
-  "desc": "Workflow for Subscriber entity validation and persistence",
-  "initialState": "created",
-  "active": true,
-  "states": {
-    "created": {
-      "transitions": [
-        {
-          "name": "validate_subscriber",
-          "next": "validated",
-          "manual": false,
-          "processors": [
-            {
-              "name": "SubscriberValidationProcessor",
-              "executionMode": "SYNC",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
-          ]
+    "active": true,
+    "desc": "Workflow for Subscriber entity validation and persistence",
+    "initialState": "none",
+    "name": "Subscriber Workflow",
+    "states": {
+        "created": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "validate_subscriber",
+                    "next": "validated",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "SubscriberValidationProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "persisted": {
+            "transitions": []
+        },
+        "validated": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "persist_subscriber",
+                    "next": "persisted"
+                }
+            ]
         }
-      ]
     },
-    "validated": {
-      "transitions": [
-        {
-          "name": "persist_subscriber",
-          "next": "persisted",
-          "manual": false
-        }
-      ]
-    },
-    "persisted": {
-      "transitions": []
-    }
-  }
+    "version": "1.0"
 }
