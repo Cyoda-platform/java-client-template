@@ -22,7 +22,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.ResponseEntity as SpringResponseEntity;
+import org.springframework.http.ResponseEntity;
 
 import java.io.IOException;
 import java.time.LocalDate;
@@ -72,7 +72,7 @@ public class Controller {
 
             CompletableFuture<UUID> idFuture = entityService.addItem(Job.ENTITY_NAME, ENTITY_VERSION, job);
             UUID technicalId = idFuture.get();
-            job.setId(technicalId);
+            job.setId((long) technicalId.hashCode());
 
             logger.info("Job created with technicalId {}", technicalId);
 
@@ -101,7 +101,7 @@ public class Controller {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
             Job job = objectMapper.treeToValue(node, Job.class);
-            job.setId(technicalId);
+            job.setId((long) technicalId.hashCode());
             return ResponseEntity.ok(job);
         } catch (IllegalArgumentException e) {
             logger.error("Get job failed with illegal argument: {}", e.getMessage());
@@ -132,7 +132,7 @@ public class Controller {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
             Laureate laureate = objectMapper.treeToValue(node, Laureate.class);
-            laureate.setId(technicalId);
+            laureate.setId((long) technicalId.hashCode());
             return ResponseEntity.ok(laureate);
         } catch (IllegalArgumentException e) {
             logger.error("Get laureate failed with illegal argument: {}", e.getMessage());
@@ -166,7 +166,7 @@ public class Controller {
 
             CompletableFuture<UUID> idFuture = entityService.addItem(Subscriber.ENTITY_NAME, ENTITY_VERSION, subscriber);
             UUID technicalId = idFuture.get();
-            subscriber.setId(technicalId);
+            subscriber.setId((long) technicalId.hashCode());
 
             logger.info("Subscriber created with technicalId {}", technicalId);
 
@@ -195,7 +195,7 @@ public class Controller {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
             Subscriber subscriber = objectMapper.treeToValue(node, Subscriber.class);
-            subscriber.setId(technicalId);
+            subscriber.setId((long) technicalId.hashCode());
             return ResponseEntity.ok(subscriber);
         } catch (IllegalArgumentException e) {
             logger.error("Get subscriber failed with illegal argument: {}", e.getMessage());
@@ -281,7 +281,7 @@ public class Controller {
             for (JsonNode subscriberNode : subscribersArray) {
                 Subscriber subscriber = objectMapper.treeToValue(subscriberNode, Subscriber.class);
                 UUID subId = subscriberNode.has("technicalId") ? UUID.fromString(subscriberNode.get("technicalId").asText()) : null;
-                if (subId != null) subscriber.setId(subId);
+                if (subId != null) subscriber.setId((long) subId.hashCode());
                 try {
                     if (subscriber.getWebhookUrl() != null && !subscriber.getWebhookUrl().isBlank()) {
                         sendWebhookNotification(subscriber.getWebhookUrl(), job);

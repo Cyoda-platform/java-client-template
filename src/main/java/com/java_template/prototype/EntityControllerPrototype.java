@@ -11,7 +11,7 @@ import com.java_template.application.entity.Job;
 import com.java_template.application.entity.Laureate;
 import com.java_template.application.entity.Subscriber;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.http.ResponseEntity as SpringResponseEntity;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -136,7 +136,7 @@ public class EntityControllerPrototype {
 
             // Fetch laureates from OpenDataSoft API
             String url = "https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/nobel-prize-laureates/records";
-            SpringResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(new HttpHeaders()), String.class);
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(new HttpHeaders()), String.class);
             if (!response.getStatusCode().is2xxSuccessful()) {
                 job.setState("FAILED");
                 job.setResultSummary("Failed to fetch laureates data: HTTP status " + response.getStatusCodeValue());

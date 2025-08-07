@@ -66,7 +66,7 @@ public class DataIngestionProcessor implements CyodaProcessor {
 
     private Job processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Job> context) {
         Job job = context.entity();
-        UUID technicalId = context.request().getEntityId();
+        String technicalId = context.request().getEntityId();
 
         try {
             logger.info("Processing job {} - state: {}", technicalId, job.getState());
@@ -134,7 +134,8 @@ public class DataIngestionProcessor implements CyodaProcessor {
                 for (int i = 0; i < technicalIds.size(); i++) {
                     UUID laureateId = technicalIds.get(i);
                     com.java_template.application.entity.Laureate laureate = (com.java_template.application.entity.Laureate) laureatesToAdd.get(i);
-                    laureate.setId(laureateId);
+                    // Convert UUID to Long for entity ID (using hashCode as a simple conversion)
+                    laureate.setId((long) laureateId.hashCode());
                     // Process laureate logic here if needed
                     logger.info("Laureate {} processed successfully", laureateId);
                     processedCount++;

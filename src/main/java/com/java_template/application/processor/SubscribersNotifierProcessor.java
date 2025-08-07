@@ -56,8 +56,8 @@ public class SubscribersNotifierProcessor implements CyodaProcessor {
 
         try {
             CompletableFuture<com.fasterxml.jackson.databind.node.ArrayNode> futureSubscribers = entityService.getItemsByCondition(
-                    "Subscriber", "1", new com.java_template.common.util.Condition("active", true), true);
-            List<com.fasterxml.jackson.databind.JsonNode> activeSubscribers = futureSubscribers.get();
+                    "Subscriber", "1", com.java_template.common.util.Condition.of("$.active", "EQUALS", true), true);
+            com.fasterxml.jackson.databind.node.ArrayNode activeSubscribers = futureSubscribers.get();
 
             int notifiedCount = 0;
             for (com.fasterxml.jackson.databind.JsonNode subscriberNode : activeSubscribers) {

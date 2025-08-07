@@ -1,0 +1,104 @@
+{
+  "mcpServers": {
+    "sentry": {
+      "url": "https://mcp.sentry.dev/mcp",
+      "transport": "http",
+      "authentication": {
+        "type": "bearer",
+        "token": "YOUR_SENTRY_AUTH_TOKEN_HERE"
+      },
+      "description": "Sentry MCP Server for error tracking and monitoring",
+      "features": [
+        "Create and manage Sentry issues",
+        "Query error data and metrics",
+        "Monitor application performance",
+        "Manage Sentry projects and organizations"
+      ]
+    },
+    "ai-assistant-universal": {
+      "url": "http://localhost:8002",
+      "transport": "http",
+      "authentication": {
+        "type": "bearer",
+        "token": "eyJraWQiOiIzMjZhY2U2MC1mNjZjLTQ5YmYtODJjZC00NzY3ODdmNmVmOWYiLCJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJwZFZBVEciLCJ1c2VySWQiOiJiNmQ5OWM3YS02NDNlLTExZjAtOWY3ZS0wMDAwMGFlOTYxYWIiLCJzY29wZXMiOlsiTTJNIl0sImlzcyI6IkN5b2RhIEx0ZC4iLCJpYXQiOjE3NTMxMDYzNDgsImV4cCI6MTc1MzEwNjY0OCwiY2Fhc19vcmdfaWQiOiJDWU9EQSJ9.XptS97I-PmMfmjpvqB_1gzI1oFt7hhj6q6W8pmd_vy0jtjIpoImFMs7FwOplyAxRDaYjaxBfSv3BqefFKAdqVsnISjpkeAm9kKZf3yC0jUFHM7QUvo0pV-9itzLRF2eW-ei7459e5S450rPfsUbPdZHVnHTM571qrfrP2j4oFqgElDewfmSExK93JDl1vYvtS5BvnrnNpX8pbjhRVpZNPcNoINyhFiWBIRIsS9jn19m8n4hCIUeBtPITps1KDGm5ZJa8LOtVtI3VNe-VT0PHL1GJH9n6Ovfh9SM03tgx4wzs5mh2h4nV4EMK5r-ODNP2gXyF1U-FTH6M7N1fs3trgQ"
+      },
+      "description": "Universal MCP Server with 89 tools (49 workflow + 40 Cyoda API)",
+      "features": [
+        "Smart authentication (environment-specific for workflow tools)",
+        "Automatic Cyoda environment detection from token",
+        "Complete Cyoda API proxy integration",
+        "Token forwarding for Cyoda tools"
+      ]
+    },
+    "ai-assistant-websocket": {
+      "url": "ws://localhost:8002/ws",
+      "transport": "websocket",
+      "authentication": {
+        "type": "bearer",
+        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      },
+      "description": "Universal MCP Server via WebSocket with real-time capabilities"
+    },
+    "ai-assistant-headers": {
+      "url": "http://localhost:8002",
+      "transport": "http",
+      "headers": {
+        "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      },
+      "description": "Alternative headers-based authentication (same functionality)"
+    }
+  },
+  "environments": {
+    "development": {
+      "ai-assistant-dev": {
+        "url": "http://localhost:8002",
+        "transport": "http",
+        "authentication": {
+          "type": "bearer",
+          "token": "dev_token_with_caas_org_id"
+        },
+        "description": "Local development server with 89 tools",
+        "notes": "Environment auto-detected from token caas_org_id"
+      }
+    },
+    "staging": {
+      "ai-assistant-staging": {
+        "url": "https://mcp-staging.yourdomain.com",
+        "transport": "http",
+        "authentication": {
+          "type": "bearer",
+          "token": "staging_token_with_caas_org_id"
+        },
+        "description": "Staging environment with full tool set",
+        "notes": "Smart authentication: workflow tools validated against user env"
+      }
+    },
+    "production": {
+      "ai-assistant-prod": {
+        "url": "https://mcp.yourdomain.com",
+        "transport": "http",
+        "authentication": {
+          "type": "bearer",
+          "token": "production_token_with_caas_org_id"
+        },
+        "description": "Production environment with 89 tools",
+        "notes": "Cyoda tools forward token directly to API"
+      }
+    }
+  },
+  "configuration_notes": {
+    "token_replacement": "Replace 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' with your actual OAuth2 access token",
+    "domain_replacement": "Replace 'yourdomain.com' with your actual domain",
+    "token_source": "Obtain tokens from your OAuth2 auth server using client credentials flow",
+    "cyoda_environment": "Cyoda environment is automatically detected from token caas_org_id - no user_env parameter needed",
+    "available_tools": [
+      "workflow tools (schedule_deploy_env, deploy_cyoda_env, etc.)",
+      "application tools (build_general_application, edit_existing_app, etc.)",
+      "web tools (web_search, read_link, web_scrape)",
+      "utility tools (get_weather, get_humidity, get_user_info)",
+      "cyoda api tools (getoneentity, searchentities, createclient, etc.)",
+      "state management tools (init_chats, fail_workflow, etc.)"
+    ],
+    "total_tools": "89 tools (49 workflow + 40 Cyoda API) automatically discovered"
+  }
+}
