@@ -46,32 +46,15 @@ public class IsPetValid implements CyodaCriterion {
 
         Pet pet = context.entity();
 
-        // Implement validation logic based on business requirements
         if (pet.getName() == null || pet.getName().isBlank()) {
             return EvaluationOutcome.fail("Name is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         if (pet.getCategory() == null || pet.getCategory().isBlank()) {
             return EvaluationOutcome.fail("Category is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (pet.getPhotoUrls() == null || pet.getPhotoUrls().isBlank()) {
-            return EvaluationOutcome.fail("Photo URLs are required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        }
-        if (pet.getTags() == null || pet.getTags().isBlank()) {
-            return EvaluationOutcome.fail("Tags are required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        }
         if (pet.getStatus() == null || pet.getStatus().isBlank()) {
             return EvaluationOutcome.fail("Status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (pet.getCreatedAt() == null || pet.getCreatedAt().isBlank()) {
-            return EvaluationOutcome.fail("Creation date is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        }
-
-        // Business rule: status must be one of available, pending, sold
-        String status = pet.getStatus().toLowerCase();
-        if (!status.equals("available") && !status.equals("pending") && !status.equals("sold")) {
-            return EvaluationOutcome.fail("Invalid status value", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-        }
-
         return EvaluationOutcome.success();
     }
 }
