@@ -39,7 +39,6 @@ import static com.java_template.common.config.Config.*;
 @RestController
 @RequestMapping(path = "/entity")
 @Slf4j
-@AllArgsConstructor
 @NoArgsConstructor
 public class Controller {
 
