@@ -1,0 +1,106 @@
+{
+    "active": true,
+    "desc": "Workflow for Pet entity processing and validation",
+    "initialState": "none",
+    "name": "Pet Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "created": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsPetValid"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "validate_pet",
+                    "next": "validated"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsPetInvalid"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "invalid_pet",
+                    "next": "failed"
+                }
+            ]
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "transition_to_created",
+                    "next": "created"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsProcessingSuccessful"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "complete_processing",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "PetProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsProcessingFailed"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "fail_processing",
+                    "next": "failed"
+                }
+            ]
+        },
+        "validated": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "start_processing",
+                    "next": "processing"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
