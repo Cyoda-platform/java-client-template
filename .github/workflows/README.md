@@ -45,6 +45,7 @@ gh workflow run build.yml \
   - Example: `feature/new-functionality`, `develop`, `release/v1.2.0`
 
 - **build_type** (optional): Type of build to perform
+  - `compile-only`: Only compiles the code to check for compilation errors (no tests, no JAR building)
   - `standard`: Builds the main application JAR
   - `workflow-import`: Builds the workflow import tool JAR
   - `both`: Builds both JARs
@@ -55,9 +56,11 @@ gh workflow run build.yml \
 1. **Checkout**: Checks out the specified branch
 2. **Setup**: Sets up Java 21 with Temurin distribution
 3. **Cache**: Caches Gradle dependencies for faster builds
-4. **Test**: Runs all unit tests
-5. **Build**: Builds the requested JAR(s) based on build_type parameter
-6. **Artifacts**: Uploads build artifacts and test results
+4. **Compile/Test**:
+   - For `compile-only`: Only compiles Java code to check for errors
+   - For other types: Runs all unit tests
+5. **Build**: Builds the requested JAR(s) based on build_type parameter (skipped for compile-only)
+6. **Artifacts**: Uploads build artifacts and test results (test results only for compile-only)
 7. **Summary**: Provides a build summary
 
 ### Artifacts
