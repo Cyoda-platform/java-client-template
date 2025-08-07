@@ -54,7 +54,7 @@ public class Controller {
 
             logger.info("Workflow created with id: {}", technicalId);
 
-            processWorkflow(technicalId, workflow);
+            // processWorkflow removed
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId);
@@ -116,7 +116,7 @@ public class Controller {
 
             logger.info("Pet created with id: {}", technicalId);
 
-            processPet(technicalId, pet);
+            // processPet removed
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId);
@@ -178,7 +178,7 @@ public class Controller {
 
             logger.info("AdoptionRequest created with id: {}", technicalId);
 
-            processAdoptionRequest(technicalId, adoptionRequest);
+            // processAdoptionRequest removed
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId);
@@ -220,128 +220,6 @@ public class Controller {
         }
     }
 
-    // Process Methods - Business Logic Implementation
+    // Removed all processEntity methods and their helper methods
 
-    private void processWorkflow(String technicalId, Workflow workflow) {
-        logger.info("Processing Workflow with id: {}", technicalId);
-
-        try {
-            // Validation: Check pet exists and status is "available"
-            // We do a getItemsByCondition to find pet by technicalId equal to workflow.getPetId()
-
-            SearchConditionRequest condition = SearchConditionRequest.group("AND",
-                    Condition.of("$.technicalId", "EQUALS", workflow.getPetId())
-            );
-
-            CompletableFuture<ArrayNode> petsFuture = entityService.getItemsByCondition(
-                    Pet.ENTITY_NAME,
-                    ENTITY_VERSION,
-                    condition,
-                    true
-            );
-
-            ArrayNode petNodes = petsFuture.get();
-            if (petNodes == null || petNodes.isEmpty()) {
-                logger.error("Pet referenced by Workflow {} not found", technicalId);
-                workflow.setStatus("FAILED");
-                return;
-            }
-
-            ObjectNode petNode = (ObjectNode) petNodes.get(0);
-            Pet pet = Pet.fromJsonNode(petNode);
-
-            if (!"available".equalsIgnoreCase(pet.getStatus())) {
-                logger.error("Pet {} is not available for Workflow {}", workflow.getPetId(), technicalId);
-                workflow.setStatus("FAILED");
-                return;
-            }
-
-            // Simulate triggering adoption request processing or other logic
-            workflow.setStatus("COMPLETED");
-            logger.info("Workflow {} processing COMPLETED", technicalId);
-
-            // TODO: Consider saving updated workflow status if needed. Currently no update method available.
-
-        } catch (Exception e) {
-            logger.error("Exception in processWorkflow", e);
-            workflow.setStatus("FAILED");
-        }
-    }
-
-    private void processPet(String technicalId, Pet pet) {
-        logger.info("Processing Pet with id: {}", technicalId);
-
-        try {
-            // Validation already done, simulate enrichment or sync with Petstore API
-
-            // Example: Log sync action (real external API call would be here)
-            logger.info("Syncing Pet {} data with external Petstore API", technicalId);
-
-            // Mark processing as complete
-            logger.info("Pet {} processing COMPLETED", technicalId);
-
-        } catch (Exception e) {
-            logger.error("Exception in processPet", e);
-        }
-    }
-
-    private void processAdoptionRequest(String technicalId, AdoptionRequest adoptionRequest) {
-        logger.info("Processing AdoptionRequest with id: {}", technicalId);
-
-        try {
-            // Validation: Check if pet exists and is available
-            SearchConditionRequest condition = SearchConditionRequest.group("AND",
-                    Condition.of("$.technicalId", "EQUALS", adoptionRequest.getPetId())
-            );
-
-            CompletableFuture<ArrayNode> petsFuture = entityService.getItemsByCondition(
-                    Pet.ENTITY_NAME,
-                    ENTITY_VERSION,
-                    condition,
-                    true
-            );
-
-            ArrayNode petNodes = petsFuture.get();
-            if (petNodes == null || petNodes.isEmpty()) {
-                logger.error("Pet {} referenced in AdoptionRequest {} not found", adoptionRequest.getPetId(), technicalId);
-                adoptionRequest.setStatus("REJECTED");
-                return;
-            }
-
-            ObjectNode petNode = (ObjectNode) petNodes.get(0);
-            Pet pet = Pet.fromJsonNode(petNode);
-
-            if (!"available".equalsIgnoreCase(pet.getStatus())) {
-                logger.error("Pet {} is not available for AdoptionRequest {}", adoptionRequest.getPetId(), technicalId);
-                adoptionRequest.setStatus("REJECTED");
-                return;
-            }
-
-            // Simulate updating pet status by creating a new Pet entity version (immutable)
-            Pet newPetVersion = new Pet();
-            newPetVersion.setName(pet.getName());
-            newPetVersion.setCategory(pet.getCategory());
-            newPetVersion.setPhotoUrls(pet.getPhotoUrls());
-            newPetVersion.setTags(pet.getTags());
-            newPetVersion.setCreatedAt(pet.getCreatedAt());
-            newPetVersion.setStatus("pending");
-
-            CompletableFuture<UUID> newPetIdFuture = entityService.addItem(
-                    Pet.ENTITY_NAME,
-                    ENTITY_VERSION,
-                    newPetVersion
-            );
-            UUID newPetTechnicalId = newPetIdFuture.get();
-            logger.info("Created new Pet version {} with status 'pending' due to AdoptionRequest {}", newPetTechnicalId, technicalId);
-
-            adoptionRequest.setStatus("APPROVED");
-            logger.info("AdoptionRequest {} APPROVED", technicalId);
-
-            // TODO: Consider saving updated adoptionRequest status if needed. Currently no update method available.
-
-        } catch (Exception e) {
-            logger.error("Exception in processAdoptionRequest", e);
-            adoptionRequest.setStatus("REJECTED");
-        }
-    }
 }
