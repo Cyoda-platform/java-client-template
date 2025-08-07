@@ -14,6 +14,7 @@ on:
         default: 'standard'
         type: choice
         options:
+          - compile-only
           - standard
           - workflow-import
           - both
@@ -47,9 +48,14 @@ jobs:
     - name: Make gradlew executable
       run: chmod +x ./gradlew
       
+    - name: Compile only (check for compilation errors)
+      if: ${{ inputs.build_type == 'compile-only' }}
+      run: ./gradlew compileJava --continue
+
     - name: Run tests
+      if: ${{ inputs.build_type != 'compile-only' }}
       run: ./gradlew test
-      
+
     - name: Build standard JAR
       if: ${{ inputs.build_type == 'standard' || inputs.build_type == 'both' }}
       run: ./gradlew bootJar
