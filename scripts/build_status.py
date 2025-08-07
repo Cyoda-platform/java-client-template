@@ -146,12 +146,19 @@ def display_run_status(run_data: Dict[Any, Any]) -> None:
     elif conclusion == 'failure':
         print(f"\n{Colors.RED}❌ Build failed. Check the logs for details.{Colors.NC}")
 
-def trigger_workflow(branch: str, build_type: str, token: str) -> str:
+def trigger_workflow(branch: str, build_type: str, token: str, use_tracker: bool = True) -> str:
     """Trigger a new workflow run and return the run ID."""
     import time
+    import uuid
+    import random
 
-    # Get baseline run ID before triggering
-    baseline_id = get_latest_run_id(token)
+    # Generate unique tracker ID if requested
+    tracker_id = None
+    if use_tracker:
+        timestamp = int(time.time())
+        random_part = random.randint(1000, 9999)
+        tracker_id = f"build-{timestamp}-{random_part}"
+        print(f"{Colors.BLUE}🏷️  Generated Tracker ID: {Colors.YELLOW}{tracker_id}{Colors.NC}")
 
     # Trigger workflow
     url = f"https://api.github.com/repos/{REPO}/actions/workflows/{WORKFLOW_FILE}/dispatches"
@@ -169,6 +176,9 @@ def trigger_workflow(branch: str, build_type: str, token: str) -> str:
         }
     }
 
+    if tracker_id:
+        payload['inputs']['tracker_id'] = tracker_id
+
     response = requests.post(url, headers=headers, json=payload)
 
     if response.status_code != 204:
@@ -179,9 +189,43 @@ def trigger_workflow(branch: str, build_type: str, token: str) -> str:
     print(f"{Colors.GREEN}✅ Workflow triggered successfully!{Colors.NC}")
     print(f"Branch: {Colors.GREEN}{branch}{Colors.NC}")
     print(f"Build Type: {Colors.YELLOW}{build_type}{Colors.NC}")
-    print(f"\n{Colors.BLUE}⏳ Waiting for workflow run to appear...{Colors.NC}")
 
-    # Wait for new run to appear
+    if use_tracker and tracker_id:
+        print(f"\n{Colors.BLUE}🔍 Finding run by tracker ID...{Colors.NC}")
+        return find_run_by_tracker(tracker_id, token)
+    else:
+        print(f"\n{Colors.BLUE}⏳ Finding run by baseline comparison...{Colors.NC}")
+        return find_run_by_baseline(token)
+
+def find_run_by_tracker(tracker_id: str, token: str) -> str:
+    """Find run by tracker ID."""
+    import time
+
+    max_attempts = 15
+    for attempt in range(1, max_attempts + 1):
+        time.sleep(3)
+
+        url = f"https://api.github.com/repos/{REPO}/actions/workflows/{WORKFLOW_FILE}/runs"
+        data = make_github_request(url, token)
+
+        for run in data.get('workflow_runs', []):
+            inputs = run.get('inputs', {})
+            if inputs and inputs.get('tracker_id') == tracker_id:
+                print(f"{Colors.GREEN}✅ Found run with tracker ID: {run['id']}{Colors.NC}")
+                return str(run['id'])
+
+        print(f"Attempt {attempt}/{max_attempts}: Waiting for run with tracker ID...")
+
+    print(f"{Colors.RED}Error: Timeout waiting for run with tracker ID: {tracker_id}{Colors.NC}")
+    sys.exit(1)
+
+def find_run_by_baseline(token: str) -> str:
+    """Find run by baseline comparison (fallback method)."""
+    import time
+
+    # Get baseline run ID before triggering
+    baseline_id = get_latest_run_id(token)
+
     max_attempts = 12
     for attempt in range(1, max_attempts + 1):
         time.sleep(3)
@@ -207,6 +251,8 @@ def main():
     parser.add_argument('--build-type', default='standard',
                        choices=['compile-only', 'standard', 'workflow-import', 'both'],
                        help='Build type (for trigger action)')
+    parser.add_argument('--no-tracker', action='store_true',
+                       help='Use baseline method instead of tracker ID (for trigger action)')
     
     args = parser.parse_args()
     token = get_github_token()
@@ -215,7 +261,8 @@ def main():
         if not args.branch:
             print(f"{Colors.RED}Error: --branch is required for trigger action{Colors.NC}")
             sys.exit(1)
-        run_id = trigger_workflow(args.branch, args.build_type, token)
+        use_tracker = not args.no_tracker
+        run_id = trigger_workflow(args.branch, args.build_type, token, use_tracker)
         print(f"\n{Colors.BLUE}📊 Getting initial status...{Colors.NC}")
         run_data = get_run_details(run_id, token)
         display_run_status(run_data)

@@ -18,6 +18,10 @@ on:
           - standard
           - workflow-import
           - both
+      tracker_id:
+        description: 'Unique tracker ID for identifying this run'
+        required: false
+        type: string
 
 jobs:
   build:
@@ -117,6 +121,7 @@ jobs:
         echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
         echo "| **Branch** | \`${{ inputs.branch }}\` |" >> $GITHUB_STEP_SUMMARY
         echo "| **Build Type** | \`${{ inputs.build_type }}\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Tracker ID** | \`${{ inputs.tracker_id || 'N/A' }}\` |" >> $GITHUB_STEP_SUMMARY
         echo "| **Status** | ${{ needs.build.result == 'success' && '✅ Success' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
         echo "| **Triggered by** | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
         echo "| **Run ID** | [\`${{ github.run_id }}\`](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |" >> $GITHUB_STEP_SUMMARY
