@@ -26,6 +26,7 @@ import java.io.IOException;
 @Slf4j
 public class EntityControllerPrototype {
 
+    // Cache and ID counters for entities
     private final ConcurrentHashMap<String, Job> jobCache = new ConcurrentHashMap<>();
     private final AtomicLong jobIdCounter = new AtomicLong(1);
 
@@ -52,11 +53,11 @@ public class EntityControllerPrototype {
         job.setId(Long.parseLong(technicalId));
         job.setExternalId(externalId);
         job.setState("SCHEDULED");
-        job.setCreatedAt(LocalDateTime.now());
+        job.setCreatedAt(OffsetDateTime.now());
         jobCache.put(technicalId, job);
         log.info("Job created with technicalId {}", technicalId);
 
-        // Trigger processing asynchronously (simulated with new thread)
+        // Trigger processing asynchronously
         new Thread(() -> processJob(technicalId, job)).start();
 
         Map<String, Long> response = new HashMap<>();
@@ -94,6 +95,10 @@ public class EntityControllerPrototype {
             log.error("Subscriber creation failed: contactEmail is missing or blank");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
+        if (subscriber.getActive() == null) {
+            log.error("Subscriber creation failed: active flag is missing");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
         String technicalId = String.valueOf(subscriberIdCounter.getAndIncrement());
         subscriber.setId(Long.parseLong(technicalId));
         subscriberCache.put(technicalId, subscriber);
@@ -123,7 +128,6 @@ public class EntityControllerPrototype {
         try {
             log.info("Processing job {} - state: {}", technicalId, job.getState());
 
-            // Validation Processor
             simulateValidationProcessorJob(job);
 
             job.setState("INGESTING");
@@ -136,7 +140,7 @@ public class EntityControllerPrototype {
             if (!response.getStatusCode().is2xxSuccessful()) {
                 job.setState("FAILED");
                 job.setResultSummary("Failed to fetch laureates data: HTTP status " + response.getStatusCodeValue());
-                job.setCompletedAt(LocalDateTime.now());
+                job.setCompletedAt(OffsetDateTime.now());
                 jobCache.put(technicalId, job);
                 log.error("Job {} failed during data fetch", technicalId);
                 return;
@@ -148,21 +152,18 @@ public class EntityControllerPrototype {
             if (records.isMissingNode() || !records.isArray()) {
                 job.setState("FAILED");
                 job.setResultSummary("Invalid laureates data structure");
-                job.setCompletedAt(LocalDateTime.now());
+                job.setCompletedAt(OffsetDateTime.now());
                 jobCache.put(technicalId, job);
                 log.error("Job {} failed due to invalid laureates data structure", technicalId);
                 return;
             }
 
-            // For each laureate record, parse and save Laureate entity
             int processedCount = 0;
             for (JsonNode record : records) {
                 JsonNode fields = record.path("fields");
                 if (fields.isMissingNode()) continue;
 
                 Laureate laureate = new Laureate();
-                String laureateIdStr = fields.path("id").asText(null);
-                if (laureateIdStr == null) continue;
                 laureate.setId(laureateIdCounter.getAndIncrement());
                 laureate.setLaureateId(fields.path("id").asInt(0));
                 laureate.setFirstname(fields.path("firstname").asText(null));
@@ -188,11 +189,10 @@ public class EntityControllerPrototype {
 
             job.setState("SUCCEEDED");
             job.setResultSummary("Ingested " + processedCount + " laureates");
-            job.setCompletedAt(LocalDateTime.now());
+            job.setCompletedAt(OffsetDateTime.now());
             jobCache.put(technicalId, job);
             log.info("Job {} ingestion succeeded with {} laureates", technicalId, processedCount);
 
-            // Notify subscribers
             notifySubscribers(technicalId, job);
 
             job.setState("NOTIFIED_SUBSCRIBERS");
@@ -202,13 +202,13 @@ public class EntityControllerPrototype {
         } catch (IOException e) {
             job.setState("FAILED");
             job.setResultSummary("Exception during processing: " + e.getMessage());
-            job.setCompletedAt(LocalDateTime.now());
+            job.setCompletedAt(OffsetDateTime.now());
             jobCache.put(technicalId, job);
             log.error("Job {} failed with exception: {}", technicalId, e.getMessage());
         } catch (Exception e) {
             job.setState("FAILED");
             job.setResultSummary("Unexpected error: " + e.getMessage());
-            job.setCompletedAt(LocalDateTime.now());
+            job.setCompletedAt(OffsetDateTime.now());
             jobCache.put(technicalId, job);
             log.error("Job {} failed with unexpected error: {}", technicalId, e.getMessage());
         }
@@ -224,7 +224,7 @@ public class EntityControllerPrototype {
 
         simulateEnrichmentProcessorLaureate(laureate);
 
-        // Persist enriched laureate immutably (already saved in cache)
+        // Already persisted immutably in cache
 
         log.info("Laureate {} processed successfully", technicalId);
     }
@@ -235,14 +235,13 @@ public class EntityControllerPrototype {
             log.error("Subscriber {} validation failed", technicalId);
             return;
         }
-        // Persist subscriber (already saved in cache)
+        // Already persisted in cache
         log.info("Subscriber {} processed successfully", technicalId);
     }
 
     // ------------------- SIMULATE PROCESSORS AND CRITERIA -------------------
 
     private void simulateValidationProcessorJob(Job job) {
-        // Validate externalId non-blank and state is SCHEDULED before ingestion
         if (job.getExternalId() == null || job.getExternalId().isBlank()) {
             throw new IllegalArgumentException("Job externalId must not be blank");
         }
@@ -252,7 +251,6 @@ public class EntityControllerPrototype {
     }
 
     private boolean simulateValidationProcessorLaureate(Laureate laureate) {
-        // Check required fields: firstname, surname, gender, born, year, category
         if (laureate.getFirstname() == null || laureate.getFirstname().isBlank()) return false;
         if (laureate.getSurname() == null || laureate.getSurname().isBlank()) return false;
         if (laureate.getGender() == null || laureate.getGender().isBlank()) return false;
@@ -263,7 +261,6 @@ public class EntityControllerPrototype {
     }
 
     private void simulateEnrichmentProcessorLaureate(Laureate laureate) {
-        // Calculate age if possible, normalize country codes (Uppercase)
         try {
             if (laureate.getBorn() != null && !laureate.getBorn().isBlank()) {
                 LocalDate bornDate = LocalDate.parse(laureate.getBorn());
@@ -284,11 +281,9 @@ public class EntityControllerPrototype {
     }
 
     private boolean simulateValidationProcessorSubscriber(Subscriber subscriber) {
-        // Validate email format simple check and webhook URL if present
         if (subscriber.getContactEmail() == null || subscriber.getContactEmail().isBlank()) return false;
         if (!subscriber.getContactEmail().contains("@")) return false;
         if (subscriber.getWebhookUrl() != null && !subscriber.getWebhookUrl().isBlank()) {
-            // Simple URL check
             if (!subscriber.getWebhookUrl().startsWith("http://") && !subscriber.getWebhookUrl().startsWith("https://")) {
                 return false;
             }
@@ -296,35 +291,32 @@ public class EntityControllerPrototype {
         return true;
     }
 
-    // ------------------- NOTIFICATION -------------------
+    // ------------------- NOTIFICATIONS -------------------
 
     private void notifySubscribers(String jobId, Job job) {
         log.info("Notifying subscribers for job {}", jobId);
         subscriberCache.values().stream()
-                .filter(Subscriber::getActive)
-                .forEach(subscriber -> {
-                    try {
-                        // Send notification by email or webhook
-                        if (subscriber.getWebhookUrl() != null && !subscriber.getWebhookUrl().isBlank()) {
-                            sendWebhookNotification(subscriber.getWebhookUrl(), job);
-                        } else {
-                            sendEmailNotification(subscriber.getContactEmail(), job);
-                        }
-                    } catch (Exception e) {
-                        log.error("Failed to notify subscriber {}: {}", subscriber.getId(), e.getMessage());
+            .filter(Subscriber::getActive)
+            .forEach(subscriber -> {
+                try {
+                    if (subscriber.getWebhookUrl() != null && !subscriber.getWebhookUrl().isBlank()) {
+                        sendWebhookNotification(subscriber.getWebhookUrl(), job);
+                    } else {
+                        sendEmailNotification(subscriber.getContactEmail(), job);
                     }
-                });
+                } catch (Exception e) {
+                    log.error("Failed to notify subscriber {}: {}", subscriber.getId(), e.getMessage());
+                }
+            });
     }
 
     private void sendEmailNotification(String email, Job job) {
-        // Simulate email sending
         log.info("Sending email notification to {} for job {} with state {}", email, job.getId(), job.getState());
-        // Implement actual email sending logic here if needed
+        // Simulated email sending
     }
 
     private void sendWebhookNotification(String webhookUrl, Job job) {
-        // Simulate webhook call
         log.info("Sending webhook notification to {} for job {} with state {}", webhookUrl, job.getId(), job.getState());
-        // Implement actual webhook call here if needed
+        // Simulated webhook sending
     }
 }
