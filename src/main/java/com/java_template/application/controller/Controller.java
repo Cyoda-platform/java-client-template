@@ -1,45 +1,47 @@
 package com.java_template.application.controller;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Job;
 import com.java_template.application.entity.Laureate;
 import com.java_template.application.entity.Subscriber;
 import com.java_template.common.service.EntityService;
-import jakarta.validation.Valid;
+import com.java_template.common.util.Condition;
+import com.java_template.common.util.SearchConditionRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.Instant;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
-import static com.java_template.common.config.Config.ENTITY_VERSION;
+import static com.java_template.common.config.Config.*;
 
 @RestController
 @RequestMapping(path = "/entity")
+@Slf4j
 public class Controller {
 
     private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
-    private final ObjectMapper objectMapper;
+    private final RestTemplate restTemplate = new RestTemplate();
 
-    public Controller(EntityService entityService, ObjectMapper objectMapper) {
+    public Controller(EntityService entityService) {
         this.entityService = entityService;
-        this.objectMapper = objectMapper;
     }
 
     // ----------------- JOB ---------------------
 
     @PostMapping("/jobs")
-    public ResponseEntity<Map<String, String>> createJob(@RequestBody @Valid Map<String, String> request) throws ExecutionException, InterruptedException {
+    public ResponseEntity<Map<String, String>> createJob(@RequestBody Map<String, String> request) {
         try {
             String jobName = request.get("jobName");
             if (jobName == null || jobName.isBlank()) {
@@ -71,7 +73,7 @@ public class Controller {
     }
 
     @GetMapping("/jobs/{technicalId}")
-    public ResponseEntity<Job> getJob(@PathVariable String technicalId) throws ExecutionException, InterruptedException, JsonProcessingException {
+    public ResponseEntity<Job> getJob(@PathVariable String technicalId) {
         try {
             UUID technicalUUID = extractUUID(technicalId);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(Job.ENTITY_NAME, ENTITY_VERSION, technicalUUID);
@@ -80,14 +82,11 @@ public class Controller {
                 logger.error("Job not found for id {}", technicalId);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
-            Job job = objectMapper.treeToValue(node, Job.class);
+            Job job = parseJobFromNode(node);
             return ResponseEntity.ok(job);
         } catch (IllegalArgumentException e) {
             logger.error("Invalid technicalId format: {}", technicalId);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        } catch (JsonProcessingException e) {
-            logger.error("Error parsing Job from JSON: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         } catch (Exception e) {
             logger.error("Error retrieving job {}: {}", technicalId, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
@@ -97,7 +96,7 @@ public class Controller {
     // ----------------- SUBSCRIBER ---------------------
 
     @PostMapping("/subscribers")
-    public ResponseEntity<Map<String, String>> createSubscriber(@RequestBody @Valid Map<String, String> request) throws ExecutionException, InterruptedException {
+    public ResponseEntity<Map<String, String>> createSubscriber(@RequestBody Map<String, String> request) {
         try {
             String contactType = request.get("contactType");
             String contactValue = request.get("contactValue");
@@ -126,7 +125,7 @@ public class Controller {
     }
 
     @GetMapping("/subscribers/{technicalId}")
-    public ResponseEntity<Subscriber> getSubscriber(@PathVariable String technicalId) throws ExecutionException, InterruptedException, JsonProcessingException {
+    public ResponseEntity<Subscriber> getSubscriber(@PathVariable String technicalId) {
         try {
             UUID technicalUUID = extractUUID(technicalId);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(Subscriber.ENTITY_NAME, ENTITY_VERSION, technicalUUID);
@@ -135,14 +134,11 @@ public class Controller {
                 logger.error("Subscriber not found for id {}", technicalId);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
-            Subscriber subscriber = objectMapper.treeToValue(node, Subscriber.class);
+            Subscriber subscriber = parseSubscriberFromNode(node);
             return ResponseEntity.ok(subscriber);
         } catch (IllegalArgumentException e) {
             logger.error("Invalid technicalId format: {}", technicalId);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        } catch (JsonProcessingException e) {
-            logger.error("Error parsing Subscriber from JSON: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         } catch (Exception e) {
             logger.error("Error retrieving subscriber {}: {}", technicalId, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
@@ -152,7 +148,7 @@ public class Controller {
     // ----------------- LAUREATE ---------------------
 
     @GetMapping("/laureates/{technicalId}")
-    public ResponseEntity<Laureate> getLaureate(@PathVariable String technicalId) throws ExecutionException, InterruptedException, JsonProcessingException {
+    public ResponseEntity<Laureate> getLaureate(@PathVariable String technicalId) {
         try {
             UUID technicalUUID = extractUUID(technicalId);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(Laureate.ENTITY_NAME, ENTITY_VERSION, technicalUUID);
@@ -161,14 +157,11 @@ public class Controller {
                 logger.error("Laureate not found for id {}", technicalId);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
-            Laureate laureate = objectMapper.treeToValue(node, Laureate.class);
+            Laureate laureate = parseLaureateFromNode(node);
             return ResponseEntity.ok(laureate);
         } catch (IllegalArgumentException e) {
             logger.error("Invalid technicalId format: {}", technicalId);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        } catch (JsonProcessingException e) {
-            logger.error("Error parsing Laureate from JSON: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         } catch (Exception e) {
             logger.error("Error retrieving laureate {}: {}", technicalId, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
@@ -178,6 +171,7 @@ public class Controller {
     // ----------------- Helpers ---------------------
 
     private UUID extractUUID(String technicalId) {
+        // technicalId format: prefix-UUID
         if (technicalId == null) throw new IllegalArgumentException("technicalId is null");
         int dashIndex = technicalId.indexOf("-");
         if (dashIndex < 0 || dashIndex + 1 >= technicalId.length()) {
@@ -187,8 +181,33 @@ public class Controller {
         return UUID.fromString(uuidPart);
     }
 
-    // Placeholder for the job processing method
-    private void processJob(UUID technicalIdUuid, Job job) {
-        // Implementation omitted
+    private Job parseJobFromNode(ObjectNode node) {
+        try {
+            var objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            return objectMapper.treeToValue(node, Job.class);
+        } catch (Exception e) {
+            logger.error("Failed to parse Job from node: {}", e.getMessage(), e);
+            return null;
+        }
+    }
+
+    private Laureate parseLaureateFromNode(ObjectNode node) {
+        try {
+            var objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            return objectMapper.treeToValue(node, Laureate.class);
+        } catch (Exception e) {
+            logger.error("Failed to parse Laureate from node: {}", e.getMessage(), e);
+            return null;
+        }
+    }
+
+    private Subscriber parseSubscriberFromNode(ObjectNode node) {
+        try {
+            var objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            return objectMapper.treeToValue(node, Subscriber.class);
+        } catch (Exception e) {
+            logger.error("Failed to parse Subscriber from node: {}", e.getMessage(), e);
+            return null;
+        }
     }
 }
