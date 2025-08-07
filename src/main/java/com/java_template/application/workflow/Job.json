@@ -1,101 +1,101 @@
 {
-    "active": true,
-    "desc": "Workflow to manage Job states from creation to notification",
-    "initialState": "none",
-    "name": "Job Workflow",
-    "states": {
-        "completed": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "JobSuccessCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "check_success",
-                    "next": "succeeded"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "JobFailureCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "check_failure",
-                    "next": "failed"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow to manage Job states from creation to notification",
+  "initialState": "none",
+  "name": "Job Workflow",
+  "states": {
+    "completed": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "JobSuccessCriterion"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "check_success",
+          "next": "succeeded"
         },
-        "failed": {
-            "transitions": []
-        },
-        "ingesting": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "ingest_laureates",
-                    "next": "completed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "LaureateIngestionProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "notified_subscribers": {
-            "transitions": []
-        },
-        "scheduled": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "validate_job",
-                    "next": "ingesting",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "JobValidationProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "succeeded": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "notify_subscribers",
-                    "next": "notified_subscribers",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "NotificationProcessor"
-                        }
-                    ]
-                }
-            ]
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "JobFailureCriterion"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "check_failure",
+          "next": "failed"
         }
+      ]
     },
-    "version": "1.0"
+    "failed": {
+      "transitions": []
+    },
+    "ingesting": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "ingest_laureates",
+          "next": "completed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "LaureateIngestionProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "notified_subscribers": {
+      "transitions": []
+    },
+    "scheduled": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "validate_job",
+          "next": "ingesting",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "JobValidationProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "succeeded": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "notify_subscribers",
+          "next": "notified_subscribers",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "NotificationProcessor"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "version": "1.0"
 }
