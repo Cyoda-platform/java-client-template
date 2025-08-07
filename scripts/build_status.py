@@ -165,7 +165,7 @@ def trigger_workflow(branch: str, build_type: str, token: str, use_tracker: bool
     headers = {
         'Authorization': f'token {token}',
         'Accept': 'application/vnd.github.v3+json',
-        'Content-Type': 'application/json'
+        'Content-Type ': 'application/json'
     }
 
     payload = {
