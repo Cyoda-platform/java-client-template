@@ -54,7 +54,7 @@ public class Controller {
             UUID technicalId = idFuture.get();
             logger.info("Job created with technicalId: {}", technicalId);
 
-            // processJob method removed
+            // processJob call removed
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException e) {
@@ -153,7 +153,7 @@ public class Controller {
             UUID technicalId = idFuture.get();
             logger.info("Subscriber created with technicalId: {}", technicalId);
 
-            // processSubscriber method removed
+            // processSubscriber call removed
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException e) {
