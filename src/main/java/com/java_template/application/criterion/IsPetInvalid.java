@@ -30,6 +30,7 @@ public class IsPetInvalid implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
+        // This is a predefined chain. Just write the business logic in processEntityLogic method.
         return serializer.withRequest(request)
             .evaluateEntity(Pet.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -45,29 +46,15 @@ public class IsPetInvalid implements CyodaCriterion {
 
         Pet pet = context.entity();
 
-        // Inverse logic of IsPetValid: if any required field is missing or empty, or status is invalid, fail.
-        if (pet.getName() == null || pet.getName().isBlank()) {
-            return EvaluationOutcome.success();
+        if (pet.getName() != null && !pet.getName().isBlank()) {
+            return EvaluationOutcome.fail("Name should not be present for invalid pet", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (pet.getCategory() == null || pet.getCategory().isBlank()) {
-            return EvaluationOutcome.success();
+        if (pet.getCategory() != null && !pet.getCategory().isBlank()) {
+            return EvaluationOutcome.fail("Category should not be present for invalid pet", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (pet.getPhotoUrls() == null || pet.getPhotoUrls().isBlank()) {
-            return EvaluationOutcome.success();
+        if (pet.getStatus() != null && !pet.getStatus().isBlank()) {
+            return EvaluationOutcome.fail("Status should not be present for invalid pet", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (pet.getTags() == null || pet.getTags().isBlank()) {
-            return EvaluationOutcome.success();
-        }
-        if (pet.getStatus() == null || pet.getStatus().isBlank()) {
-            return EvaluationOutcome.success();
-        }
-
-        String status = pet.getStatus().toLowerCase();
-        if (!status.equals("available") && !status.equals("pending") && !status.equals("sold")) {
-            return EvaluationOutcome.success();
-        }
-
-        // If none of the above conditions met, then the pet is valid, so this criterion fails.
-        return EvaluationOutcome.fail("Pet is valid, so this criterion fails", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        return EvaluationOutcome.success();
     }
 }
