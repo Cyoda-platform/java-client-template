@@ -1,0 +1,17 @@
+private void processSubscriber(UUID technicalId, Subscriber subscriber) {
+    try {
+        logger.info("Processing Subscriber with technicalId: {} and name: {}", technicalId, subscriber.getSubscriberName());
+        boolean valid = simulateSubscriberValidationProcessor(subscriber);
+        if (!valid) {
+            logger.error("Subscriber validation failed for technicalId: {}", technicalId);
+            return;
+        }
+        if (!"true".equalsIgnoreCase(subscriber.getActive()) && !"false".equalsIgnoreCase(subscriber.getActive())) {
+            subscriber.setActive("true"); // default to true if invalid value
+        }
+        logger.info("Subscriber processed and persisted immutably with technicalId: {}", technicalId);
+        // TODO: update subscriber entity in EntityService if needed
+    } catch (Exception e) {
+        logger.error("Exception in processSubscriber: ", e);
+    }
+}
