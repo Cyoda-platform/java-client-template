@@ -29,10 +29,10 @@ public class JobValidationProcessor implements CyodaProcessor {
         logger.info("Validating Job for request: {}", request.getId());
 
         return serializer.withRequest(request)
-            .toEntity(Job.class)
-            .validate(this::isValidEntity, "Invalid Job state or externalId")
-            .map(this::processEntityLogic)
-            .complete();
+                .toEntity(Job.class)
+                .validate(this::isValidEntity, "Invalid Job entity state")
+                .map(this::processEntityLogic)
+                .complete();
     }
 
     @Override
@@ -46,8 +46,8 @@ public class JobValidationProcessor implements CyodaProcessor {
 
     private Job processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Job> context) {
         Job job = context.entity();
-        logger.info("Job externalId: {} is valid", job.getExternalId());
-        // No changes made in validation processor
+        logger.info("Job {} validated successfully", job.getId());
+        // No additional business logic, validation only
         return job;
     }
 }
