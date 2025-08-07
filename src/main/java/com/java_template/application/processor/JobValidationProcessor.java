@@ -30,7 +30,8 @@ public class JobValidationProcessor implements CyodaProcessor {
 
         return serializer.withRequest(request)
                 .toEntity(Job.class)
-                .validate(this::isValidEntity, "Invalid entity state")
+                .validate(this::isValidEntity, "Invalid Job state")
+                .map(this::processEntityLogic)
                 .complete();
     }
 
@@ -43,4 +44,9 @@ public class JobValidationProcessor implements CyodaProcessor {
         return entity != null && entity.isValid();
     }
 
+    private Job processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Job> context) {
+        Job job = context.entity();
+        // Validation logic is already done by isValidEntity
+        return job;
+    }
 }
