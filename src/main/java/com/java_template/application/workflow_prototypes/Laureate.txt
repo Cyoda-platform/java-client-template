@@ -1,0 +1,29 @@
+private void processLaureate(String technicalId, Laureate laureate) {
+    logger.info("Processing laureate {}", technicalId);
+
+    if (!simulateLaureateValidation(laureate)) {
+        logger.error("Laureate validation failed for {}", technicalId);
+        return;
+    }
+
+    simulateLaureateEnrichment(laureate);
+
+    // todo: update laureate entity if needed (no update method available)
+    logger.info("Laureate {} processed and saved", technicalId);
+}
+
+private boolean simulateLaureateValidation(Laureate laureate) {
+    if (laureate == null) return false;
+    if (laureate.getId() == null) return false;
+    if (laureate.getFirstname() == null || laureate.getFirstname().isBlank()) return false;
+    if (laureate.getSurname() == null || laureate.getSurname().isBlank()) return false;
+    if (laureate.getYear() == null || laureate.getYear().isBlank()) return false;
+    if (laureate.getCategory() == null || laureate.getCategory().isBlank()) return false;
+    return true;
+}
+
+private void simulateLaureateEnrichment(Laureate laureate) {
+    if (laureate.getBorncountrycode() != null) {
+        laureate.setBorncountrycode(laureate.getBorncountrycode().toUpperCase());
+    }
+}
