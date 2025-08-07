@@ -1,57 +1,57 @@
 {
-  "version": "1.0",
-  "name": "Laureate Workflow",
-  "desc": "Workflow for Laureate entity validation and enrichment",
-  "initialState": "created",
-  "active": true,
-  "states": {
-    "created": {
-      "transitions": [
-        {
-          "name": "validate_laureate",
-          "next": "validated",
-          "manual": false,
-          "processors": [
-            {
-              "name": "LaureateValidationProcessor",
-              "executionMode": "SYNC",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
-          ]
+    "active": true,
+    "desc": "Workflow for Laureate entity validation and enrichment",
+    "initialState": "none",
+    "name": "Laureate Workflow",
+    "states": {
+        "created": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "validate_laureate",
+                    "next": "validated",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "LaureateValidationProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "enriched": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "persist_laureate",
+                    "next": "persisted"
+                }
+            ]
+        },
+        "persisted": {
+            "transitions": []
+        },
+        "validated": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "enrich_laureate",
+                    "next": "enriched",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "LaureateEnrichmentProcessor"
+                        }
+                    ]
+                }
+            ]
         }
-      ]
     },
-    "validated": {
-      "transitions": [
-        {
-          "name": "enrich_laureate",
-          "next": "enriched",
-          "manual": false,
-          "processors": [
-            {
-              "name": "LaureateEnrichmentProcessor",
-              "executionMode": "SYNC",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
-          ]
-        }
-      ]
-    },
-    "enriched": {
-      "transitions": [
-        {
-          "name": "persist_laureate",
-          "next": "persisted",
-          "manual": false
-        }
-      ]
-    },
-    "persisted": {
-      "transitions": []
-    }
-  }
+    "version": "1.0"
 }
