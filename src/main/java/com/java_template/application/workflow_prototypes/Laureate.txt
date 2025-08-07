@@ -1,0 +1,31 @@
+private void processLaureate(String technicalId, Laureate entity) {
+        logger.info("Processing laureate {}", technicalId);
+
+        // Validation processor simulation
+        boolean valid = runLaureateValidationProcessor(entity);
+        if (!valid) {
+            logger.error("Laureate {} validation failed", technicalId);
+            return;
+        }
+
+        // Enrichment processor simulation
+        runLaureateEnrichmentProcessor(entity);
+
+        // Mark processing complete (immutable entity, so no update)
+        logger.info("Laureate {} processed successfully", technicalId);
+    }
+
+    private boolean runLaureateValidationProcessor(Laureate laureate) {
+        if (laureate.getLaureateId() == null || laureate.getLaureateId().isBlank()) return false;
+        if (laureate.getFirstname() == null || laureate.getFirstname().isBlank()) return false;
+        if (laureate.getSurname() == null || laureate.getSurname().isBlank()) return false;
+        if (laureate.getYear() == null || laureate.getYear().isBlank()) return false;
+        if (laureate.getCategory() == null || laureate.getCategory().isBlank()) return false;
+        return true;
+    }
+
+    private void runLaureateEnrichmentProcessor(Laureate laureate) {
+        if (laureate.getBornCountryCode() != null) {
+            laureate.setBornCountryCode(laureate.getBornCountryCode().toUpperCase());
+        }
+    }
