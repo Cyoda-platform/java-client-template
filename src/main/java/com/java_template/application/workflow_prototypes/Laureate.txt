@@ -1,14 +1,4 @@
-private void processLaureate(String technicalId, UUID technicalIdUuid, Laureate laureate) {
-    logger.info("Processing Laureate {}", technicalId);
-    if (!runValidateLaureate(laureate)) {
-        logger.error("Validation failed for Laureate {}", technicalId);
-        return;
-    }
-    runEnrichLaureate(laureate);
-    // TODO: Update laureate entity in EntityService if needed
-    logger.info("Laureate {} processed successfully", technicalId);
-}
-
+// Added runEnrichLaureate and runValidateLaureate to Laureate workflow prototype
 private boolean runValidateLaureate(Laureate laureate) {
     if (laureate.getFirstname() == null || laureate.getFirstname().isBlank()) return false;
     if (laureate.getSurname() == null || laureate.getSurname().isBlank()) return false;
