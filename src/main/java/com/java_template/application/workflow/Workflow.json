@@ -1,0 +1,97 @@
+{
+    "active": true,
+    "desc": "Workflow for Pet entity lifecycle including validation and processing",
+    "initialState": "none",
+    "name": "Pet Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "create_to_validated",
+                    "next": "validated"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsProcessingSuccessful"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "processing_to_completed",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "WorkflowProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsProcessingFailed"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "processing_to_failed",
+                    "next": "failed"
+                }
+            ]
+        },
+        "validated": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsPetValid"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "validated_to_processing",
+                    "next": "processing"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsPetInvalid"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "validated_to_failed",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
