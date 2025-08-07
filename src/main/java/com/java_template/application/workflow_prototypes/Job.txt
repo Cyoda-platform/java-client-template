@@ -1,0 +1,78 @@
+private void processJob(UUID technicalId, Job job) {
+    try {
+        logger.info("Processing Job with technicalId: {} and jobName: {}", technicalId, job.getJobName());
+        simulateJobValidationProcessor(job);
+        job.setStatus("INGESTING");
+        logger.info("Job status updated to INGESTING for technicalId: {}", technicalId);
+
+        boolean ingestionSuccess = false;
+        List<Laureate> laureates = null;
+        try {
+            laureates = ingestLaureatesFromOpenDataSoft();
+            ingestionSuccess = laureates != null && !laureates.isEmpty();
+
+            for (Laureate laureate : laureates) {
+                CompletableFuture<UUID> laureateIdFuture = entityService.addItem(Laureate.ENTITY_NAME, ENTITY_VERSION, laureate);
+                UUID laureateId = laureateIdFuture.get();
+                logger.info("Laureate created with technicalId: {} for laureate id: {}", laureateId, laureate.getId());
+                processLaureate(laureateId, laureate);
+            }
+        } catch (Exception e) {
+            logger.error("Exception during laureate ingestion: {}", e.getMessage());
+            ingestionSuccess = false;
+        }
+
+        if (ingestionSuccess) {
+            job.setStatus("SUCCEEDED");
+            job.setFinishedAt(java.time.Instant.now().toString());
+            job.setDetails("Job completed successfully");
+            logger.info("Job ingestion succeeded for technicalId: {}", technicalId);
+        } else {
+            job.setStatus("FAILED");
+            job.setFinishedAt(java.time.Instant.now().toString());
+            job.setDetails("Job ingestion failed");
+            logger.error("Job ingestion failed for technicalId: {}", technicalId);
+        }
+
+        simulateSubscriberNotificationProcessor(job);
+
+        job.setStatus("NOTIFIED_SUBSCRIBERS");
+        logger.info("Job status updated to NOTIFIED_SUBSCRIBERS for technicalId: {}", technicalId);
+
+        // TODO: update job entity in EntityService if needed (no update operations allowed for now)
+    } catch (Exception e) {
+        logger.error("Exception in processJob: ", e);
+    }
+}
+
+private List<Laureate> ingestLaureatesFromOpenDataSoft() throws Exception {
+    String url = "https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/nobel-prize-laureates/records?limit=10"; // limit to 10 for prototype
+    String response = restTemplate.getForObject(url, String.class);
+    com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
+    com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(response);
+    com.fasterxml.jackson.databind.JsonNode records = root.path("records");
+    List<Laureate> laureates = new ArrayList<>();
+    if (records.isArray()) {
+        for (com.fasterxml.jackson.databind.JsonNode record : records) {
+            com.fasterxml.jackson.databind.JsonNode fields = record.path("fields");
+            Laureate laureate = new Laureate();
+            laureate.setId(fields.path("id").asInt());
+            laureate.setFirstname(fields.path("firstname").asText(null));
+            laureate.setSurname(fields.path("surname").asText(null));
+            laureate.setBorn(fields.path("born").asText(null));
+            laureate.setDied(fields.path("died").isNull() ? null : fields.path("died").asText(null));
+            laureate.setBorncountry(fields.path("borncountry").asText(null));
+            laureate.setBorncountrycode(fields.path("borncountrycode").asText(null));
+            laureate.setBorncity(fields.path("borncity").asText(null));
+            laureate.setGender(fields.path("gender").asText(null));
+            laureate.setYear(fields.path("year").asText(null));
+            laureate.setCategory(fields.path("category").asText(null));
+            laureate.setMotivation(fields.path("motivation").asText(null));
+            laureate.setName(fields.path("name").asText(null));
+            laureate.setCity(fields.path("city").asText(null));
+            laureate.setCountry(fields.path("country").asText(null));
+            laureates.add(laureate);
+        }
+    }
+    return laureates;
+}
