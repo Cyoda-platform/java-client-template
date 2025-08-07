@@ -114,3 +114,13 @@ private void processJob(UUID technicalId, Job job) {
 
         logger.info("Laureate {} processed successfully", technicalId);
     }
+
+    private void processSubscriber(UUID technicalId, Subscriber subscriber) {
+        logger.info("Processing subscriber {}", technicalId);
+        if (!simulateValidationProcessorSubscriber(subscriber)) {
+            logger.error("Subscriber {} validation failed", technicalId);
+            return;
+        }
+        // No update method, assume immutable persistence done
+        logger.info("Subscriber {} processed successfully", technicalId);
+    }
