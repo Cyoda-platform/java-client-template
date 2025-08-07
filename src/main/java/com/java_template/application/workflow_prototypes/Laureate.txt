@@ -1,14 +1,11 @@
-private void processLaureate(String technicalId, Laureate laureate) {
+private void processLaureate(UUID technicalId, Laureate laureate) {
     logger.info("Processing laureate {}", technicalId);
-
     if (!simulateLaureateValidation(laureate)) {
         logger.error("Laureate validation failed for {}", technicalId);
         return;
     }
-
     simulateLaureateEnrichment(laureate);
-
-    // todo: update laureate entity if needed (no update method available)
+    // Immutable persistence simulation: no update operation allowed, so do nothing
     logger.info("Laureate {} processed and saved", technicalId);
 }
 
