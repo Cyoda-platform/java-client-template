@@ -1,0 +1,81 @@
+{
+  "version": "1.0",
+  "name": "Laureate Workflow",
+  "desc": "Workflow for Laureate entity including validation and enrichment",
+  "initialState": "validation",
+  "active": true,
+  "states": {
+    "validation": {
+      "transitions": [
+        {
+          "name": "validate_success",
+          "next": "enrichment",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "LaureateValidationSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          },
+          "processors": [
+            {
+              "name": "ValidateLaureateProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "validate_failure",
+          "next": "invalid",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "LaureateValidationFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "enrichment": {
+      "transitions": [
+        {
+          "name": "enrich_and_persist",
+          "next": "persisted",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EnrichLaureateProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            },
+            {
+              "name": "PersistLaureateProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "invalid": {
+      "transitions": []
+    },
+    "persisted": {
+      "transitions": []
+    }
+  }
+}
