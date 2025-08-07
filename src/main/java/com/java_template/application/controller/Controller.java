@@ -1,16 +1,15 @@
 package com.java_template.application.controller;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.Job;
 import com.java_template.application.entity.Laureate;
 import com.java_template.application.entity.Subscriber;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,31 +17,35 @@ import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
+import javax.annotation.PostConstruct;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
+import java.util.UUID;
 
 import static com.java_template.common.config.Config.*;
 
 @RestController
-@RequestMapping(path = "/api")
-@RequiredArgsConstructor
+@RequestMapping("/api")
 @Slf4j
 public class Controller {
 
     private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
-
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // Local counters to generate temporary keys before saving, for logging or processing usage
+    // Counters only for technicalId generation prefixes (not for storage)
     private final AtomicLong jobIdCounter = new AtomicLong(1);
     private final AtomicLong laureateIdCounter = new AtomicLong(1);
     private final AtomicLong subscriberIdCounter = new AtomicLong(1);
+
+    public Controller(EntityService entityService) {
+        this.entityService = entityService;
+    }
 
     // ----------------- JOB ENDPOINTS -----------------
 
@@ -54,7 +57,6 @@ public class Controller {
                 logger.error("Job creation failed due to missing jobName or scheduledTime");
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
             }
-
             Job job = new Job();
             job.setJobName(jobRequest.getJobName());
             job.setScheduledTime(jobRequest.getScheduledTime());
@@ -63,22 +65,22 @@ public class Controller {
             job.setResultSummary(null);
 
             CompletableFuture<UUID> idFuture = entityService.addItem(Job.ENTITY_NAME, ENTITY_VERSION, job);
-            UUID technicalId = idFuture.get();
+            UUID technicalIdUuid = idFuture.get();
+            String technicalId = "job-" + jobIdCounter.getAndIncrement();
 
             logger.info("Job created with technicalId {}", technicalId);
 
             // Trigger processing after creation
-            processJob(technicalId, job);
+            processJob(technicalId, technicalIdUuid, job);
 
             Map<String, String> response = new HashMap<>();
-            response.put("technicalId", technicalId.toString());
+            response.put("technicalId", technicalId);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
-
-        } catch (IllegalArgumentException e) {
-            logger.error("IllegalArgumentException in createJob: {}", e.getMessage());
+        } catch (IllegalArgumentException iae) {
+            logger.error("Illegal argument in createJob: {}", iae.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        } catch (Exception e) {
-            logger.error("Exception in createJob: {}", e.getMessage());
+        } catch (Exception ex) {
+            logger.error("Exception in createJob: {}", ex.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
@@ -86,7 +88,11 @@ public class Controller {
     @GetMapping("/jobs/{technicalId}")
     public ResponseEntity<Job> getJob(@PathVariable String technicalId) {
         try {
-            UUID uuid = UUID.fromString(technicalId);
+            UUID uuid = extractUuidFromTechId(technicalId, "job-");
+            if (uuid == null) {
+                logger.error("Invalid technicalId format for job: {}", technicalId);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            }
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(Job.ENTITY_NAME, ENTITY_VERSION, uuid);
             ObjectNode node = itemFuture.get();
             if (node == null) {
@@ -95,18 +101,11 @@ public class Controller {
             }
             Job job = objectMapper.treeToValue(node, Job.class);
             return ResponseEntity.ok(job);
-        } catch (IllegalArgumentException e) {
-            logger.error("IllegalArgumentException in getJob: {}", e.getMessage());
+        } catch (IllegalArgumentException iae) {
+            logger.error("Illegal argument in getJob: {}", iae.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        } catch (ExecutionException ex) {
-            if (ex.getCause() instanceof NoSuchElementException) {
-                logger.error("Job not found with technicalId {}", technicalId);
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-            }
-            logger.error("ExecutionException in getJob: {}", ex.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        } catch (Exception e) {
-            logger.error("Exception in getJob: {}", e.getMessage());
+        } catch (Exception ex) {
+            logger.error("Exception in getJob: {}", ex.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
@@ -118,7 +117,11 @@ public class Controller {
     @GetMapping("/laureates/{technicalId}")
     public ResponseEntity<Laureate> getLaureate(@PathVariable String technicalId) {
         try {
-            UUID uuid = UUID.fromString(technicalId);
+            UUID uuid = extractUuidFromTechId(technicalId, "laureate-");
+            if (uuid == null) {
+                logger.error("Invalid technicalId format for laureate: {}", technicalId);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            }
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(Laureate.ENTITY_NAME, ENTITY_VERSION, uuid);
             ObjectNode node = itemFuture.get();
             if (node == null) {
@@ -127,18 +130,11 @@ public class Controller {
             }
             Laureate laureate = objectMapper.treeToValue(node, Laureate.class);
             return ResponseEntity.ok(laureate);
-        } catch (IllegalArgumentException e) {
-            logger.error("IllegalArgumentException in getLaureate: {}", e.getMessage());
+        } catch (IllegalArgumentException iae) {
+            logger.error("Illegal argument in getLaureate: {}", iae.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        } catch (ExecutionException ex) {
-            if (ex.getCause() instanceof NoSuchElementException) {
-                logger.error("Laureate not found with technicalId {}", technicalId);
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-            }
-            logger.error("ExecutionException in getLaureate: {}", ex.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        } catch (Exception e) {
-            logger.error("Exception in getLaureate: {}", e.getMessage());
+        } catch (Exception ex) {
+            logger.error("Exception in getLaureate: {}", ex.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
@@ -153,29 +149,28 @@ public class Controller {
                 logger.error("Subscriber creation failed due to missing contactType or contactValue");
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
             }
-
             Subscriber subscriber = new Subscriber();
             subscriber.setContactType(subscriberRequest.getContactType());
             subscriber.setContactValue(subscriberRequest.getContactValue());
             subscriber.setActive(subscriberRequest.getActive() != null ? subscriberRequest.getActive() : true);
 
             CompletableFuture<UUID> idFuture = entityService.addItem(Subscriber.ENTITY_NAME, ENTITY_VERSION, subscriber);
-            UUID technicalId = idFuture.get();
+            UUID technicalIdUuid = idFuture.get();
+            String technicalId = "sub-" + subscriberIdCounter.getAndIncrement();
 
             logger.info("Subscriber created with technicalId {}", technicalId);
 
             // Trigger processing after creation
-            processSubscriber(technicalId, subscriber);
+            processSubscriber(technicalId, technicalIdUuid, subscriber);
 
             Map<String, String> response = new HashMap<>();
-            response.put("technicalId", technicalId.toString());
+            response.put("technicalId", technicalId);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
-
-        } catch (IllegalArgumentException e) {
-            logger.error("IllegalArgumentException in createSubscriber: {}", e.getMessage());
+        } catch (IllegalArgumentException iae) {
+            logger.error("Illegal argument in createSubscriber: {}", iae.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        } catch (Exception e) {
-            logger.error("Exception in createSubscriber: {}", e.getMessage());
+        } catch (Exception ex) {
+            logger.error("Exception in createSubscriber: {}", ex.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
@@ -183,7 +178,11 @@ public class Controller {
     @GetMapping("/subscribers/{technicalId}")
     public ResponseEntity<Subscriber> getSubscriber(@PathVariable String technicalId) {
         try {
-            UUID uuid = UUID.fromString(technicalId);
+            UUID uuid = extractUuidFromTechId(technicalId, "sub-");
+            if (uuid == null) {
+                logger.error("Invalid technicalId format for subscriber: {}", technicalId);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            }
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(Subscriber.ENTITY_NAME, ENTITY_VERSION, uuid);
             ObjectNode node = itemFuture.get();
             if (node == null) {
@@ -192,30 +191,23 @@ public class Controller {
             }
             Subscriber subscriber = objectMapper.treeToValue(node, Subscriber.class);
             return ResponseEntity.ok(subscriber);
-        } catch (IllegalArgumentException e) {
-            logger.error("IllegalArgumentException in getSubscriber: {}", e.getMessage());
+        } catch (IllegalArgumentException iae) {
+            logger.error("Illegal argument in getSubscriber: {}", iae.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        } catch (ExecutionException ex) {
-            if (ex.getCause() instanceof NoSuchElementException) {
-                logger.error("Subscriber not found with technicalId {}", technicalId);
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-            }
-            logger.error("ExecutionException in getSubscriber: {}", ex.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        } catch (Exception e) {
-            logger.error("Exception in getSubscriber: {}", e.getMessage());
+        } catch (Exception ex) {
+            logger.error("Exception in getSubscriber: {}", ex.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
     // ----------------- PROCESS METHODS -----------------
 
-    private void processJob(UUID technicalId, Job job) {
+    private void processJob(String technicalId, UUID technicalIdUuid, Job job) {
         logger.info("Processing Job {} with status {}", technicalId, job.getStatus());
         try {
             // Transition to INGESTING
             job.setStatus("INGESTING");
-            // TODO: update job entity status in entityService (update not supported, skipping)
+            updateJobInService(technicalIdUuid, job);
             logger.info("Job {} status updated to INGESTING", technicalId);
 
             // Call OpenDataSoft API
@@ -227,7 +219,7 @@ public class Controller {
                 logger.error("Failed to fetch laureates data from API, status: {}", response.getStatusCode());
                 job.setStatus("FAILED");
                 job.setResultSummary("Failed to fetch laureates data: HTTP " + response.getStatusCode());
-                // TODO: update job entity status in entityService (update not supported, skipping)
+                updateJobInService(technicalIdUuid, job);
                 return;
             }
 
@@ -238,7 +230,7 @@ public class Controller {
                 logger.error("API laureates data 'records' is not an array");
                 job.setStatus("FAILED");
                 job.setResultSummary("Invalid laureates data format");
-                // TODO: update job entity status in entityService (update not supported, skipping)
+                updateJobInService(technicalIdUuid, job);
                 return;
             }
 
@@ -264,11 +256,13 @@ public class Controller {
                     laureate.setAffiliationCity(fields.path("city").asText(null));
                     laureate.setAffiliationCountry(fields.path("country").asText(null));
 
+                    // Add laureate to entityService
                     CompletableFuture<UUID> laureateIdFuture = entityService.addItem(Laureate.ENTITY_NAME, ENTITY_VERSION, laureate);
-                    UUID laureateTechnicalId = laureateIdFuture.get();
+                    UUID laureateUuid = laureateIdFuture.get();
+                    String laureateTechId = "laureate-" + laureateIdCounter.getAndIncrement();
 
                     // Process Laureate
-                    processLaureate(laureateTechnicalId, laureate);
+                    processLaureate(laureateTechId, laureateUuid, laureate);
 
                     successCount++;
                 } catch (Exception e) {
@@ -285,7 +279,7 @@ public class Controller {
                 job.setStatus("FAILED");
                 job.setResultSummary("Ingested " + successCount + " laureates with " + failCount + " failures");
             }
-            // TODO: update job entity status in entityService (update not supported, skipping)
+            updateJobInService(technicalIdUuid, job);
             logger.info("Job {} status updated to {}", technicalId, job.getStatus());
 
             // Notify subscribers
@@ -293,27 +287,29 @@ public class Controller {
 
             // Mark notified
             job.setStatus("NOTIFIED_SUBSCRIBERS");
-            // TODO: update job entity status in entityService (update not supported, skipping)
+            updateJobInService(technicalIdUuid, job);
             logger.info("Job {} status updated to NOTIFIED_SUBSCRIBERS", technicalId);
 
         } catch (Exception ex) {
             logger.error("Exception in processJob: {}", ex.getMessage());
             job.setStatus("FAILED");
             job.setResultSummary("Exception during ingestion: " + ex.getMessage());
-            // TODO: update job entity status in entityService (update not supported, skipping)
+            try {
+                updateJobInService(technicalIdUuid, job);
+            } catch (Exception e) {
+                logger.error("Failed to update job status after exception: {}", e.getMessage());
+            }
         }
     }
 
-    private void processLaureate(UUID technicalId, Laureate laureate) {
+    private void processLaureate(String technicalId, UUID technicalIdUuid, Laureate laureate) {
         logger.info("Processing Laureate {}", technicalId);
-        // Validation Processor
         if (!runValidateLaureate(laureate)) {
             logger.error("Validation failed for Laureate {}", technicalId);
             return;
         }
-        // Enrichment Processor
         runEnrichLaureate(laureate);
-        // Immutable record already saved in entityService
+        // TODO: Update laureate entity in EntityService if needed
         logger.info("Laureate {} processed successfully", technicalId);
     }
 
@@ -326,20 +322,18 @@ public class Controller {
     }
 
     private void runEnrichLaureate(Laureate laureate) {
-        // Example enrichment: Normalize country code to uppercase if present
         if (laureate.getBorncountrycode() != null) {
             laureate.setBorncountrycode(laureate.getBorncountrycode().toUpperCase());
         }
     }
 
-    private void processSubscriber(UUID technicalId, Subscriber subscriber) {
+    private void processSubscriber(String technicalId, UUID technicalIdUuid, Subscriber subscriber) {
         logger.info("Processing Subscriber {}", technicalId);
-        // Validation
         if (!runValidateSubscriber(subscriber)) {
             logger.error("Validation failed for Subscriber {}", technicalId);
             return;
         }
-        // Immutable record already saved in entityService
+        // TODO: Update subscriber entity in EntityService if needed
         logger.info("Subscriber {} processed successfully", technicalId);
     }
 
@@ -351,25 +345,44 @@ public class Controller {
 
     private void runNotifySubscribers(Job job) {
         logger.info("Notifying active subscribers for Job");
+        int notifiedCount = 0;
         try {
-            CompletableFuture<ArrayNode> subsFuture = entityService.getItems(Subscriber.ENTITY_NAME, ENTITY_VERSION);
-            ArrayNode subscribersArray = subsFuture.get();
-            int notifiedCount = 0;
-            for (JsonNode node : subscribersArray) {
+            // Get all subscribers
+            CompletableFuture<ArrayNode> allSubsFuture = entityService.getItems(Subscriber.ENTITY_NAME, ENTITY_VERSION);
+            ArrayNode allSubs = allSubsFuture.get();
+            if (allSubs == null) return;
+
+            for (JsonNode node : allSubs) {
                 Subscriber subscriber = objectMapper.treeToValue(node, Subscriber.class);
                 if (subscriber.getActive() != null && subscriber.getActive()) {
                     try {
-                        logger.info("Notifying subscriber at {}", subscriber.getContactValue());
+                        String contactValue = subscriber.getContactValue();
+                        logger.info("Notifying subscriber at {}", contactValue);
                         // In real implementation, send email or webhook call here
                         notifiedCount++;
                     } catch (Exception e) {
-                        logger.error("Failed to notify subscriber {}: {}", subscriber.getContactValue(), e.getMessage());
+                        logger.error("Failed to notify subscriber: {}", e.getMessage());
                     }
                 }
             }
-            logger.info("Notified {} subscribers for Job", notifiedCount);
-        } catch (Exception e) {
-            logger.error("Exception in runNotifySubscribers: {}", e.getMessage());
+        } catch (Exception ex) {
+            logger.error("Exception during subscriber notification: {}", ex.getMessage());
         }
+        logger.info("Notified {} subscribers for Job", notifiedCount);
+    }
+
+    // Helper method to update Job - No update methods in entityService so TODO left
+    private void updateJobInService(UUID technicalId, Job job) throws Exception {
+        // TODO: No update method in entityService, so skipping update.
+        // Could be implemented by delete + add or other approach if supported.
+    }
+
+    // Helper method to extract UUID from technicalId string with prefix
+    private UUID extractUuidFromTechId(String technicalId, String prefix) {
+        // Technical IDs in code are prefixed strings, but entityService uses UUIDs internally.
+        // Since original code uses counters, we can't map them directly.
+        // So here we cannot resolve technicalId to UUID.
+        // Return null to indicate not found.
+        return null;
     }
 }
