@@ -61,7 +61,7 @@ public class Controller {
 
             logger.info("Job created with technicalId {}", techIdStr);
 
-            processJob(techIdStr, job);
+            // processJob removed - extracted to workflow prototype
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", techIdStr));
         } catch (IllegalArgumentException ex) {
@@ -133,7 +133,7 @@ public class Controller {
 
             logger.info("Subscriber created with technicalId {}", techIdStr);
 
-            processSubscriber(techIdStr, subscriber);
+            // processSubscriber removed - extracted to workflow prototype
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", techIdStr));
         } catch (IllegalArgumentException ex) {
@@ -165,180 +165,4 @@ public class Controller {
         }
     }
 
-    // --- Processing Methods ---
-
-    private void processJob(String technicalId, Job job) {
-        try {
-            simulateValidateJob(job);
-            job.setStatus("INGESTING");
-            logger.info("Job {} status updated to INGESTING", technicalId);
-
-            boolean ingestionSuccess = ingestNobelData(job);
-
-            if (ingestionSuccess) {
-                job.setStatus("SUCCEEDED");
-                logger.info("Job {} ingestion succeeded", technicalId);
-            } else {
-                job.setStatus("FAILED");
-                logger.error("Job {} ingestion failed", technicalId);
-            }
-            job.setCompletedAt(LocalDateTime.now());
-
-            notifySubscribers(job);
-
-            job.setStatus("NOTIFIED_SUBSCRIBERS");
-            logger.info("Job {} notifications sent to subscribers", technicalId);
-
-            // TODO: consider updating job entity status in EntityService if update supported
-        } catch (Exception e) {
-            logger.error("Error processing job {}: {}", technicalId, e.getMessage(), e);
-        }
-    }
-
-    private void simulateValidateJob(Job job) {
-        if (job.getJobName() == null || job.getJobName().isBlank()) {
-            logger.error("Job validation failed: jobName is blank");
-            throw new IllegalArgumentException("jobName must be provided");
-        }
-        logger.info("Job validation succeeded for jobName {}", job.getJobName());
-    }
-
-    private boolean ingestNobelData(Job job) {
-        try {
-            String url = "https://public.opendatasoft.com/api/records/1.0/search/?dataset=laureates&q=&rows=100";
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            HttpEntity<String> entity = new HttpEntity<>(headers);
-
-            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
-
-            if (!response.getStatusCode().is2xxSuccessful()) {
-                logger.error("Failed to fetch Nobel laureates data, status code: {}", response.getStatusCode());
-                return false;
-            }
-
-            String json = response.getBody();
-            var objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
-            var rootNode = objectMapper.readTree(json);
-            var records = rootNode.path("records");
-
-            if (!records.isArray()) {
-                logger.error("No records array found in Nobel laureates data");
-                return false;
-            }
-
-            for (var recordNode : records) {
-                var fields = recordNode.path("fields");
-                Laureate laureate = new Laureate();
-
-                // We no longer set laureateId locally as id is handled by entityService
-                laureate.setFirstname(getTextValue(fields, "firstname"));
-                laureate.setSurname(getTextValue(fields, "surname"));
-                laureate.setGender(getTextValue(fields, "gender"));
-                laureate.setBorn(parseDate(getTextValue(fields, "born")));
-                laureate.setDied(parseDate(getTextValue(fields, "died")));
-                laureate.setBorncountry(getTextValue(fields, "borncountry"));
-                laureate.setBorncountrycode(getTextValue(fields, "borncountrycode"));
-                laureate.setBorncity(getTextValue(fields, "borncity"));
-                laureate.setYear(getTextValue(fields, "year"));
-                laureate.setCategory(getTextValue(fields, "category"));
-                laureate.setMotivation(getTextValue(fields, "motivation"));
-                laureate.setAffiliationName(getTextValue(fields, "affiliationname"));
-                laureate.setAffiliationCity(getTextValue(fields, "affiliationcity"));
-                laureate.setAffiliationCountry(getTextValue(fields, "affiliationcountry"));
-
-                CompletableFuture<UUID> idFuture = entityService.addItem(Laureate.ENTITY_NAME, ENTITY_VERSION, laureate);
-                UUID techId = idFuture.join();
-                String techIdStr = techId.toString();
-
-                processLaureate(techIdStr, laureate);
-            }
-            job.setResultDetails("Ingested " + records.size() + " laureates from external datasource.");
-            return true;
-        } catch (Exception e) {
-            logger.error("Exception during ingestion of Nobel laureates: {}", e.getMessage(), e);
-            return false;
-        }
-    }
-
-    private String getTextValue(com.fasterxml.jackson.databind.JsonNode node, String fieldName) {
-        var valueNode = node.get(fieldName);
-        if (valueNode == null || valueNode.isNull()) {
-            return null;
-        }
-        return valueNode.asText();
-    }
-
-    private LocalDate parseDate(String dateStr) {
-        if (dateStr == null || dateStr.isBlank()) {
-            return null;
-        }
-        try {
-            return LocalDate.parse(dateStr);
-        } catch (Exception e) {
-            logger.warn("Failed to parse date: {}", dateStr);
-            return null;
-        }
-    }
-
-    private void notifySubscribers(Job job) {
-        try {
-            CompletableFuture<ArrayNode> subscribersFuture = entityService.getItemsByCondition(
-                    Subscriber.ENTITY_NAME,
-                    ENTITY_VERSION,
-                    SearchConditionRequest.group("AND", Condition.of("$.active", "EQUALS", true)),
-                    true);
-            ArrayNode subscribers = subscribersFuture.join();
-
-            long notifiedCount = 0;
-            if (subscribers != null) {
-                notifiedCount = subscribers.size();
-            }
-            logger.info("Notified {} active subscribers for job {}", notifiedCount, job.getJobName());
-        } catch (Exception e) {
-            logger.error("Error notifying subscribers: {}", e.getMessage(), e);
-        }
-    }
-
-    private void processLaureate(String technicalId, Laureate laureate) {
-        try {
-            simulateValidateLaureate(laureate);
-            simulateEnrichLaureate(laureate);
-            logger.info("Processed laureate {}", technicalId);
-        } catch (Exception e) {
-            logger.error("Error processing laureate {}: {}", technicalId, e.getMessage(), e);
-        }
-    }
-
-    private void simulateValidateLaureate(Laureate laureate) {
-        if (laureate.getFirstname() == null || laureate.getFirstname().isBlank()
-                || laureate.getSurname() == null || laureate.getSurname().isBlank()
-                || laureate.getYear() == null || laureate.getYear().isBlank()
-                || laureate.getCategory() == null || laureate.getCategory().isBlank()) {
-            logger.error("Laureate validation failed: required fields missing");
-            throw new IllegalArgumentException("Required laureate fields missing");
-        }
-        logger.info("Laureate validation succeeded");
-    }
-
-    private void simulateEnrichLaureate(Laureate laureate) {
-        if (laureate.getBorncountrycode() != null) {
-            laureate.setBorncountrycode(laureate.getBorncountrycode().toUpperCase());
-        }
-        logger.info("Laureate enrichment completed");
-    }
-
-    private void processSubscriber(String technicalId, Subscriber subscriber) {
-        try {
-            if (subscriber.getContactType() == null || subscriber.getContactType().isBlank() ||
-                    subscriber.getContactAddress() == null || subscriber.getContactAddress().isBlank()) {
-                logger.error("Subscriber validation failed for technicalId {}", technicalId);
-                throw new IllegalArgumentException("Subscriber contactType and contactAddress are required");
-            }
-            logger.info("Processed subscriber {}", technicalId);
-        } catch (Exception e) {
-            logger.error("Error processing subscriber {}: {}", technicalId, e.getMessage(), e);
-        }
-    }
 }
