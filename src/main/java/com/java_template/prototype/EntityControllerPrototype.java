@@ -74,9 +74,9 @@ public class EntityControllerPrototype {
     @PostMapping("/subscribers")
     public ResponseEntity<Map<String, String>> createSubscriber(@RequestBody Subscriber subscriber) {
         if (subscriber.getContactType() == null || subscriber.getContactType().isBlank() ||
-            subscriber.getContactAddress() == null || subscriber.getContactAddress().isBlank()) {
-            log.error("Subscriber creation failed: contactType or contactAddress missing");
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "contactType and contactAddress are required"));
+            subscriber.getContactAddress() == null || subscriber.getContactAddress().isBlank() || subscriber.getActive() == null || !subscriber.getActive()) {
+            log.error("Subscriber creation failed: contactType or contactAddress missing or subscriber inactive");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "contactType, contactAddress are required and subscriber must be active"));
         }
         String technicalId = "sub-" + subscriberIdCounter.getAndIncrement();
         subscriber.setSubscriberId(technicalId);
@@ -162,7 +162,7 @@ public class EntityControllerPrototype {
     private void simulateNotifySubscribers(Job job) {
         // Simulate notifying all active subscribers
         long notifiedCount = subscriberCache.values().stream()
-                .filter(Subscriber::isActive)
+                .filter(sub -> sub.getActive() != null && sub.getActive())
                 .count();
         log.info("Notified {} active subscribers for job {}", notifiedCount, job.getJobName());
     }
