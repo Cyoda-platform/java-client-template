@@ -1,34 +1,13 @@
 {
     "active": true,
-    "desc": "Workflow for AdoptionRequest entity processing from creation to completion or failure",
+    "desc": "Workflow for Pet entity processing and validation",
     "initialState": "none",
-    "name": "AdoptionRequest Workflow",
+    "name": "Pet Workflow",
     "states": {
-        "approved": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "approved_to_completed",
-                    "next": "completed"
-                }
-            ]
-        },
         "completed": {
             "transitions": []
         },
-        "none": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "create_to_submitted",
-                    "next": "submitted"
-                }
-            ]
-        },
-        "rejected": {
-            "transitions": []
-        },
-        "submitted": {
+        "created": {
             "transitions": [
                 {
                     "criterion": {
@@ -36,13 +15,13 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "IsAdoptionRequestValid"
+                            "name": "IsPetValid"
                         },
                         "type": "function"
                     },
                     "manual": false,
-                    "name": "submitted_to_under_review",
-                    "next": "under_review"
+                    "name": "validate_pet",
+                    "next": "validated"
                 },
                 {
                     "criterion": {
@@ -50,17 +29,29 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "IsAdoptionRequestInvalid"
+                            "name": "IsPetInvalid"
                         },
                         "type": "function"
                     },
                     "manual": false,
-                    "name": "submitted_to_rejected",
-                    "next": "rejected"
+                    "name": "invalid_pet",
+                    "next": "failed"
                 }
             ]
         },
-        "under_review": {
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "transition_to_created",
+                    "next": "created"
+                }
+            ]
+        },
+        "processing": {
             "transitions": [
                 {
                     "criterion": {
@@ -68,20 +59,20 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "IsReviewSuccessful"
+                            "name": "IsProcessingSuccessful"
                         },
                         "type": "function"
                     },
                     "manual": false,
-                    "name": "under_review_to_approved",
-                    "next": "approved",
+                    "name": "complete_processing",
+                    "next": "completed",
                     "processors": [
                         {
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
                             "executionMode": "SYNC",
-                            "name": "AdoptionRequestProcessor"
+                            "name": "PetProcessor"
                         }
                     ]
                 },
@@ -91,13 +82,22 @@
                             "config": {
                                 "calculationNodesTags": "cyoda_application"
                             },
-                            "name": "IsReviewUnsuccessful"
+                            "name": "IsProcessingFailed"
                         },
                         "type": "function"
                     },
                     "manual": false,
-                    "name": "under_review_to_rejected",
-                    "next": "rejected"
+                    "name": "fail_processing",
+                    "next": "failed"
+                }
+            ]
+        },
+        "validated": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "start_processing",
+                    "next": "processing"
                 }
             ]
         }
