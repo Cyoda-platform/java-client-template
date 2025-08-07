@@ -68,7 +68,7 @@ public class Controller {
 
             logger.info("Job created with UUID {}", jobUuid);
 
-            processJob(jobUuid, job);
+            // processJob(jobUuid, job); // Removed process method call
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", jobUuid.toString());
@@ -132,7 +132,7 @@ public class Controller {
 
             logger.info("Subscriber created with UUID {}", technicalId);
 
-            processSubscriber(technicalId, subscriber);
+            // processSubscriber(technicalId, subscriber); // Removed process method call
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId.toString());
@@ -258,165 +258,7 @@ public class Controller {
         }
     }
 
-    // ------------------- PROCESS METHODS ----------------------
-
-    private void processJob(UUID technicalId, Job job) {
-        logger.info("Processing job {}", technicalId);
-
-        try {
-            if (!simulateJobValidation(job)) {
-                job.setStatus("FAILED");
-                job.setFinishedAt(Instant.now().atOffset(ZoneOffset.UTC).format(DateTimeFormatter.ISO_INSTANT));
-                job.setErrorMessage("Job validation failed");
-                logger.error("Job validation failed for job {}", technicalId);
-                // TODO: update job status in EntityService - not supported now
-                return;
-            }
-            job.setStatus("INGESTING");
-            job.setStartedAt(Instant.now().atOffset(ZoneOffset.UTC).format(DateTimeFormatter.ISO_INSTANT));
-            logger.info("Job {} status set to INGESTING", technicalId);
-
-            // TODO: update job status in EntityService - not supported now
-
-            // Call OpenDataSoft API to ingest Nobel laureates data
-            String apiUrl = "https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/nobel-prize-laureates/records?limit=1000";
-            org.springframework.http.ResponseEntity<String> response = restTemplate.getForEntity(apiUrl, String.class);
-
-            if (!response.getStatusCode().is2xxSuccessful()) {
-                job.setStatus("FAILED");
-                job.setFinishedAt(Instant.now().atOffset(ZoneOffset.UTC).format(DateTimeFormatter.ISO_INSTANT));
-                job.setErrorMessage("Failed to fetch data from OpenDataSoft API. HTTP status: " + response.getStatusCodeValue());
-                logger.error("Failed to fetch data from API, status {}", response.getStatusCodeValue());
-                // TODO: update job status in EntityService
-                return;
-            }
-
-            String body = response.getBody();
-            JsonNode root = objectMapper.readTree(body);
-            JsonNode records = root.path("records");
-
-            if (records.isMissingNode() || !records.isArray()) {
-                job.setStatus("FAILED");
-                job.setFinishedAt(Instant.now().atOffset(ZoneOffset.UTC).format(DateTimeFormatter.ISO_INSTANT));
-                job.setErrorMessage("Malformed API response: missing records array");
-                logger.error("Malformed API response: missing records array");
-                // TODO: update job status in EntityService
-                return;
-            }
-
-            List<Laureate> laureatesToAdd = new ArrayList<>();
-
-            for (JsonNode record : records) {
-                JsonNode fields = record.path("fields");
-                if (fields.isMissingNode()) {
-                    continue; // skip malformed record
-                }
-                Laureate laureate = new Laureate();
-
-                // parse and set fields with null-safe extraction
-                laureate.setId(fields.path("id").isInt() ? fields.path("id").intValue() : null);
-                laureate.setFirstname(fields.path("firstname").asText(null));
-                laureate.setSurname(fields.path("surname").asText(null));
-                laureate.setBorn(fields.path("born").asText(null));
-                laureate.setDied(fields.path("died").isNull() ? null : fields.path("died").asText(null));
-                laureate.setBorncountry(fields.path("borncountry").asText(null));
-                laureate.setBorncountrycode(fields.path("borncountrycode").asText(null));
-                laureate.setBorncity(fields.path("borncity").asText(null));
-                laureate.setGender(fields.path("gender").asText(null));
-                laureate.setYear(fields.path("year").asText(null));
-                laureate.setCategory(fields.path("category").asText(null));
-                laureate.setMotivation(fields.path("motivation").asText(null));
-                laureate.setName(fields.path("name").asText(null));
-                laureate.setCity(fields.path("city").asText(null));
-                laureate.setCountry(fields.path("country").asText(null));
-
-                if (simulateLaureateValidation(laureate)) {
-                    simulateLaureateEnrichment(laureate);
-                    laureatesToAdd.add(laureate);
-                } else {
-                    logger.warn("Skipping invalid laureate record id {}", laureate.getId());
-                }
-            }
-
-            if (!laureatesToAdd.isEmpty()) {
-                // Add all laureates via EntityService
-                CompletableFuture<List<UUID>> addItemsFuture = entityService.addItems(Laureate.ENTITY_NAME, ENTITY_VERSION, laureatesToAdd);
-                List<UUID> laureateUuids = addItemsFuture.get();
-                for (int i = 0; i < laureateUuids.size(); i++) {
-                    UUID uuid = laureateUuids.get(i);
-                    logger.info("Laureate entity created with UUID {}", uuid);
-                    processLaureate(uuid, laureatesToAdd.get(i));
-                }
-            }
-
-            job.setStatus("SUCCEEDED");
-            job.setFinishedAt(Instant.now().atOffset(ZoneOffset.UTC).format(DateTimeFormatter.ISO_INSTANT));
-            logger.info("Job {} ingestion succeeded", technicalId);
-            // TODO: update job status in EntityService
-
-            // Notify all active subscribers
-            notifySubscribers();
-
-            job.setStatus("NOTIFIED_SUBSCRIBERS");
-            logger.info("Job {} status updated to NOTIFIED_SUBSCRIBERS", technicalId);
-            // TODO: update job status in EntityService
-
-        } catch (Exception e) {
-            job.setStatus("FAILED");
-            job.setFinishedAt(Instant.now().atOffset(ZoneOffset.UTC).format(DateTimeFormatter.ISO_INSTANT));
-            job.setErrorMessage("Exception during job processing: " + e.getMessage());
-            logger.error("Exception during job processing for job {}", technicalId, e);
-            // TODO: update job status in EntityService
-        }
-    }
-
-    private boolean simulateJobValidation(Job job) {
-        return job != null && job.getStatus() != null && job.getStatus().equals("SCHEDULED");
-    }
-
-    private void processLaureate(UUID technicalId, Laureate laureate) {
-        logger.info("Processing laureate {}", technicalId);
-        if (!simulateLaureateValidation(laureate)) {
-            logger.error("Laureate validation failed for {}", technicalId);
-            return;
-        }
-        simulateLaureateEnrichment(laureate);
-        // Immutable persistence simulation: no update operation allowed, so do nothing
-        logger.info("Laureate {} processed and saved", technicalId);
-    }
-
-    private boolean simulateLaureateValidation(Laureate laureate) {
-        if (laureate == null) return false;
-        if (laureate.getId() == null) return false;
-        if (laureate.getFirstname() == null || laureate.getFirstname().isBlank()) return false;
-        if (laureate.getSurname() == null || laureate.getSurname().isBlank()) return false;
-        if (laureate.getYear() == null || laureate.getYear().isBlank()) return false;
-        if (laureate.getCategory() == null || laureate.getCategory().isBlank()) return false;
-        return true;
-    }
-
-    private void simulateLaureateEnrichment(Laureate laureate) {
-        if (laureate.getBorncountrycode() != null) {
-            laureate.setBorncountrycode(laureate.getBorncountrycode().toUpperCase());
-        }
-    }
-
-    private void processSubscriber(UUID technicalId, Subscriber subscriber) {
-        logger.info("Processing subscriber {}", technicalId);
-        if (!simulateSubscriberValidation(subscriber)) {
-            logger.error("Subscriber validation failed for {}", technicalId);
-            return;
-        }
-        // Immutable persistence simulated by addItem already done
-        logger.info("Subscriber {} processed and saved", technicalId);
-    }
-
-    private boolean simulateSubscriberValidation(Subscriber subscriber) {
-        if (subscriber == null) return false;
-        if (subscriber.getContactType() == null || subscriber.getContactType().isBlank()) return false;
-        if (subscriber.getContactAddress() == null || subscriber.getContactAddress().isBlank()) return false;
-        return true;
-    }
+    // ------------------- PROCESS METHODS REMOVED ----------------------
 
     private void notifySubscribers() {
         logger.info("Notifying active subscribers");
