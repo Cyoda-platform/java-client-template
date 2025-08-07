@@ -1,10 +1,10 @@
-private void processSubscriber(String technicalId, Subscriber subscriber) {
+private void processSubscriber(UUID technicalId, Subscriber subscriber) {
     logger.info("Processing subscriber {}", technicalId);
     if (!simulateSubscriberValidation(subscriber)) {
         logger.error("Subscriber validation failed for {}", technicalId);
         return;
     }
-    // todo: update subscriber entity if needed (no update method available)
+    // Immutable persistence simulated by addItem already done
     logger.info("Subscriber {} processed and saved", technicalId);
 }
 
