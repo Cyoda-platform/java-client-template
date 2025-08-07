@@ -71,7 +71,7 @@ public class Controller {
 
             logger.info("Job created with ID {}", technicalId);
 
-            // processJob call removed - extracted to workflow prototype
+            // processJob(technicalId, job);
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId);
@@ -134,7 +134,7 @@ public class Controller {
 
             logger.info("Subscriber created with ID {}", technicalId);
 
-            // processSubscriber call removed - extracted to workflow prototype
+            // processSubscriber(technicalId, subscriber);
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId);
@@ -294,11 +294,6 @@ public class Controller {
         } catch (Exception e) {
             logger.error("Failed to notify subscribers", e);
         }
-    }
-
-    // Helper method to update job: no update method in EntityService, so todo
-    private void updateJob(Job job) {
-        // todo: Implement update operation when supported
     }
 
     // Helper method to strip prefix and parse UUID
