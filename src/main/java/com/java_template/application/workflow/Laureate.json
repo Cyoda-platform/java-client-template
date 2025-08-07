@@ -1,37 +1,37 @@
 {
-    "active": true,
-    "desc": "Workflow for Laureate entity processing and validation.",
-    "initialState": "none",
-    "name": "Laureate Workflow",
-    "states": {
-        "new": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "process_laureate",
-                    "next": "processed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "ValidateLaureateProcessor"
-                        },
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "EnrichLaureateProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "processed": {
-            "transitions": []
+  "active": true,
+  "desc": "Workflow for Laureate entity processing and validation.",
+  "initialState": "none",
+  "name": "Laureate Workflow",
+  "states": {
+    "new": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "process_laureate",
+          "next": "processed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "ValidateLaureateProcessor"
+            },
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "EnrichLaureateProcessor"
+            }
+          ]
         }
+      ]
     },
-    "version": "1.0"
+    "processed": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
