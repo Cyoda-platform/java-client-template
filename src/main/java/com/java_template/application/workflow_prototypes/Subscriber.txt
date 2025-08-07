@@ -1,6 +1,0 @@
-// Added runValidateSubscriber to Subscriber workflow prototype
-private boolean runValidateSubscriber(Subscriber subscriber) {
-    if (subscriber.getContactType() == null || subscriber.getContactType().isBlank()) return false;
-    if (subscriber.getContactValue() == null || subscriber.getContactValue().isBlank()) return false;
-    return true;
-}
