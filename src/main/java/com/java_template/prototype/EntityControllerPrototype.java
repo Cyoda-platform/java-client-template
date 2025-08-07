@@ -12,6 +12,14 @@ import java.time.format.DateTimeFormatter;
 import com.java_template.application.entity.Job;
 import com.java_template.application.entity.Laureate;
 import com.java_template.application.entity.Subscriber;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @RestController
 @RequestMapping(path = "/prototype")
@@ -26,6 +34,9 @@ public class EntityControllerPrototype {
 
     private final ConcurrentHashMap<String, Subscriber> subscriberCache = new ConcurrentHashMap<>();
     private final AtomicLong subscriberIdCounter = new AtomicLong(1);
+
+    private final RestTemplate restTemplate = new RestTemplate();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     // --- Job Endpoints ---
 
@@ -103,7 +114,7 @@ public class EntityControllerPrototype {
         job.setStatus("INGESTING");
         log.info("Job {} status updated to INGESTING", technicalId);
 
-        boolean ingestionSuccess = simulateIngestNobelData(job);
+        boolean ingestionSuccess = ingestNobelData(job);
 
         if (ingestionSuccess) {
             job.setStatus("SUCCEEDED");
@@ -114,7 +125,7 @@ public class EntityControllerPrototype {
         }
         job.setCompletedAt(LocalDateTime.now());
 
-        simulateNotifySubscribers(job);
+        notifySubscribers(job);
 
         job.setStatus("NOTIFIED_SUBSCRIBERS");
         log.info("Job {} notifications sent to subscribers", technicalId);
@@ -128,39 +139,84 @@ public class EntityControllerPrototype {
         log.info("Job validation succeeded for jobName {}", job.getJobName());
     }
 
-    private boolean simulateIngestNobelData(Job job) {
-        // Simulate calling external API and ingesting laureates
-        // For demonstration, create some dummy laureates
+    private boolean ingestNobelData(Job job) {
+        try {
+            // Example OpenDataSoft API URL for Nobel laureates
+            String url = "https://public.opendatasoft.com/api/records/1.0/search/?dataset=laureates&q=&rows=100";
 
-        for (int i = 0; i < 3; i++) {
-            Laureate laureate = new Laureate();
-            String laureateId = "laureate-" + laureateIdCounter.getAndIncrement();
-            laureate.setLaureateId((int)(Math.random()*10000));
-            laureate.setFirstname("Firstname" + i);
-            laureate.setSurname("Surname" + i);
-            laureate.setGender("unknown");
-            laureate.setBorn(LocalDate.of(1970+i,1,1));
-            laureate.setDied(null);
-            laureate.setBorncountry("Country" + i);
-            laureate.setBorncountrycode("CC");
-            laureate.setBorncity("City" + i);
-            laureate.setYear("20" + (10+i));
-            laureate.setCategory("Category" + i);
-            laureate.setMotivation("Motivation " + i);
-            laureate.setAffiliationName("Affiliation " + i);
-            laureate.setAffiliationCity("AffCity" + i);
-            laureate.setAffiliationCountry("AffCountry" + i);
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<String> entity = new HttpEntity<>(headers);
 
-            String techId = laureateId;
-            laureateCache.put(techId, laureate);
-            processLaureate(techId, laureate);
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                log.error("Failed to fetch Nobel laureates data, status code: {}", response.getStatusCode());
+                return false;
+            }
+
+            String json = response.getBody();
+            JsonNode rootNode = objectMapper.readTree(json);
+            JsonNode records = rootNode.path("records");
+
+            if (!records.isArray()) {
+                log.error("No records array found in Nobel laureates data");
+                return false;
+            }
+
+            for (JsonNode recordNode : records) {
+                JsonNode fields = recordNode.path("fields");
+                Laureate laureate = new Laureate();
+
+                laureate.setLaureateId(laureateIdCounter.getAndIncrement());
+                laureate.setFirstname(getTextValue(fields, "firstname"));
+                laureate.setSurname(getTextValue(fields, "surname"));
+                laureate.setGender(getTextValue(fields, "gender"));
+                laureate.setBorn(parseDate(getTextValue(fields, "born")));
+                laureate.setDied(parseDate(getTextValue(fields, "died")));
+                laureate.setBorncountry(getTextValue(fields, "borncountry"));
+                laureate.setBorncountrycode(getTextValue(fields, "borncountrycode"));
+                laureate.setBorncity(getTextValue(fields, "borncity"));
+                laureate.setYear(getTextValue(fields, "year"));
+                laureate.setCategory(getTextValue(fields, "category"));
+                laureate.setMotivation(getTextValue(fields, "motivation"));
+                laureate.setAffiliationName(getTextValue(fields, "affiliationname"));
+                laureate.setAffiliationCity(getTextValue(fields, "affiliationcity"));
+                laureate.setAffiliationCountry(getTextValue(fields, "affiliationcountry"));
+
+                String techId = "laureate-" + laureate.getLaureateId();
+                laureateCache.put(techId, laureate);
+                processLaureate(techId, laureate);
+            }
+            job.setResultDetails("Ingested " + records.size() + " laureates from external datasource.");
+            return true;
+        } catch (Exception e) {
+            log.error("Exception during ingestion of Nobel laureates: {}", e.getMessage(), e);
+            return false;
         }
-        job.setResultDetails("Ingested 3 dummy laureates");
-        return true;
     }
 
-    private void simulateNotifySubscribers(Job job) {
-        // Simulate notifying all active subscribers
+    private String getTextValue(JsonNode node, String fieldName) {
+        JsonNode valueNode = node.get(fieldName);
+        if (valueNode == null || valueNode.isNull()) {
+            return null;
+        }
+        return valueNode.asText();
+    }
+
+    private LocalDate parseDate(String dateStr) {
+        if (dateStr == null || dateStr.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(dateStr);
+        } catch (Exception e) {
+            log.warn("Failed to parse date: {}", dateStr);
+            return null;
+        }
+    }
+
+    private void notifySubscribers(Job job) {
         long notifiedCount = subscriberCache.values().stream()
                 .filter(sub -> sub.getActive() != null && sub.getActive())
                 .count();
@@ -170,7 +226,6 @@ public class EntityControllerPrototype {
     private void processLaureate(String technicalId, Laureate laureate) {
         simulateValidateLaureate(laureate);
         simulateEnrichLaureate(laureate);
-        // Persistence is simulated by caching on creation
         log.info("Processed laureate {}", technicalId);
     }
 
@@ -186,7 +241,6 @@ public class EntityControllerPrototype {
     }
 
     private void simulateEnrichLaureate(Laureate laureate) {
-        // Normalize borncountrycode to uppercase
         if (laureate.getBorncountrycode() != null) {
             laureate.setBorncountrycode(laureate.getBorncountrycode().toUpperCase());
         }
@@ -194,7 +248,6 @@ public class EntityControllerPrototype {
     }
 
     private void processSubscriber(String technicalId, Subscriber subscriber) {
-        // Validate subscriber contact info
         if (subscriber.getContactType() == null || subscriber.getContactType().isBlank() ||
             subscriber.getContactAddress() == null || subscriber.getContactAddress().isBlank()) {
             log.error("Subscriber validation failed for technicalId {}", technicalId);
