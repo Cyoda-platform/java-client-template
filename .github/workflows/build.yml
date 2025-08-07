@@ -55,7 +55,7 @@ jobs:
       run: chmod +x ./gradlew
       
     - name: Compile only (check for compilation errors)
-      if: ${{ inputs.build_type == 'compile-only' }}
+      if: ${{ inputs.build_type == 'compile-only' || inputs.build_type == 'workflow-validation' }}
       run: |
         echo "::notice::Starting compilation check for branch ${{ inputs.branch }}"
         if ./gradlew compileJava --continue; then
