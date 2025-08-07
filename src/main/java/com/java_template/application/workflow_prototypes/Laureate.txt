@@ -1,1 +1,29 @@
-// TODO: Implement business logic for Laureate processing later.
+private void processLaureate(String technicalId, Laureate laureate) {
+    try {
+        simulateValidateLaureate(laureate);
+        simulateEnrichLaureate(laureate);
+        logger.info("Processed laureate {}", technicalId);
+    } catch (IllegalArgumentException e) {
+        logger.error("Validation error in processLaureate for {}: {}", technicalId, e.getMessage());
+    } catch (Exception e) {
+        logger.error("Error in processLaureate for {}: {}", technicalId, e.getMessage(), e);
+    }
+}
+
+private void simulateValidateLaureate(Laureate laureate) {
+    if (laureate.getFirstname() == null || laureate.getFirstname().isBlank()
+            || laureate.getSurname() == null || laureate.getSurname().isBlank()
+            || laureate.getYear() == null || laureate.getYear().isBlank()
+            || laureate.getCategory() == null || laureate.getCategory().isBlank()) {
+        logger.error("Laureate validation failed: required fields missing");
+        throw new IllegalArgumentException("Required laureate fields missing");
+    }
+    logger.info("Laureate validation succeeded");
+}
+
+private void simulateEnrichLaureate(Laureate laureate) {
+    if (laureate.getBorncountrycode() != null) {
+        laureate.setBorncountrycode(laureate.getBorncountrycode().toUpperCase());
+    }
+    logger.info("Laureate enrichment completed");
+}
