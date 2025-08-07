@@ -1,0 +1,106 @@
+{
+    "active": true,
+    "desc": "Workflow for AdoptionRequest entity processing from creation to completion or failure",
+    "initialState": "none",
+    "name": "AdoptionRequest Workflow",
+    "states": {
+        "approved": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "approved_to_completed",
+                    "next": "completed"
+                }
+            ]
+        },
+        "completed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "create_to_submitted",
+                    "next": "submitted"
+                }
+            ]
+        },
+        "rejected": {
+            "transitions": []
+        },
+        "submitted": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsAdoptionRequestValid"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "submitted_to_under_review",
+                    "next": "under_review"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsAdoptionRequestInvalid"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "submitted_to_rejected",
+                    "next": "rejected"
+                }
+            ]
+        },
+        "under_review": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsReviewSuccessful"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "under_review_to_approved",
+                    "next": "approved",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "AdoptionRequestProcessor"
+                        }
+                    ]
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsReviewUnsuccessful"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "under_review_to_rejected",
+                    "next": "rejected"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
