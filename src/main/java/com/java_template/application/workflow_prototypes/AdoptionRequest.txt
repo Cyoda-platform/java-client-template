@@ -1,0 +1,59 @@
+private void processAdoptionRequest(String technicalId, AdoptionRequest adoptionRequest) {
+    logger.info("Processing AdoptionRequest with id: {}", technicalId);
+
+    try {
+        // Validation: Check if pet exists and is available
+        SearchConditionRequest condition = SearchConditionRequest.group("AND",
+                Condition.of("$.technicalId", "EQUALS", adoptionRequest.getPetId())
+        );
+
+        CompletableFuture<ArrayNode> petsFuture = entityService.getItemsByCondition(
+                Pet.ENTITY_NAME,
+                ENTITY_VERSION,
+                condition,
+                true
+        );
+
+        ArrayNode petNodes = petsFuture.get();
+        if (petNodes == null || petNodes.isEmpty()) {
+            logger.error("Pet {} referenced in AdoptionRequest {} not found", adoptionRequest.getPetId(), technicalId);
+            adoptionRequest.setStatus("REJECTED");
+            return;
+        }
+
+        ObjectNode petNode = (ObjectNode) petNodes.get(0);
+        Pet pet = Pet.fromJsonNode(petNode);
+
+        if (!"available".equalsIgnoreCase(pet.getStatus())) {
+            logger.error("Pet {} is not available for AdoptionRequest {}", adoptionRequest.getPetId(), technicalId);
+            adoptionRequest.setStatus("REJECTED");
+            return;
+        }
+
+        // Simulate updating pet status by creating a new Pet entity version (immutable)
+        Pet newPetVersion = new Pet();
+        newPetVersion.setName(pet.getName());
+        newPetVersion.setCategory(pet.getCategory());
+        newPetVersion.setPhotoUrls(pet.getPhotoUrls());
+        newPetVersion.setTags(pet.getTags());
+        newPetVersion.setCreatedAt(pet.getCreatedAt());
+        newPetVersion.setStatus("pending");
+
+        CompletableFuture<UUID> newPetIdFuture = entityService.addItem(
+                Pet.ENTITY_NAME,
+                ENTITY_VERSION,
+                newPetVersion
+        );
+        UUID newPetTechnicalId = newPetIdFuture.get();
+        logger.info("Created new Pet version {} with status 'pending' due to AdoptionRequest {}", newPetTechnicalId, technicalId);
+
+        adoptionRequest.setStatus("APPROVED");
+        logger.info("AdoptionRequest {} APPROVED", technicalId);
+
+        // TODO: Consider saving updated adoptionRequest status if needed. Currently no update method available.
+
+    } catch (Exception e) {
+        logger.error("Exception in processAdoptionRequest", e);
+        adoptionRequest.setStatus("REJECTED");
+    }
+}
