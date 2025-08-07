@@ -146,16 +146,21 @@ def display_run_status(run_data: Dict[Any, Any]) -> None:
     elif conclusion == 'failure':
         print(f"\n{Colors.RED}❌ Build failed. Check the logs for details.{Colors.NC}")
 
-def trigger_workflow(branch: str, build_type: str, token: str) -> None:
-    """Trigger a new workflow run."""
+def trigger_workflow(branch: str, build_type: str, token: str) -> str:
+    """Trigger a new workflow run and return the run ID."""
+    import time
+
+    # Get baseline run ID before triggering
+    baseline_id = get_latest_run_id(token)
+
+    # Trigger workflow
     url = f"https://api.github.com/repos/{REPO}/actions/workflows/{WORKFLOW_FILE}/dispatches"
-    
     headers = {
         'Authorization': f'token {token}',
         'Accept': 'application/vnd.github.v3+json',
         'Content-Type': 'application/json'
     }
-    
+
     payload = {
         'ref': branch,
         'inputs': {
@@ -163,19 +168,36 @@ def trigger_workflow(branch: str, build_type: str, token: str) -> None:
             'build_type': build_type
         }
     }
-    
+
     response = requests.post(url, headers=headers, json=payload)
-    
-    if response.status_code == 204:
-        print(f"{Colors.GREEN}✅ Workflow triggered successfully!{Colors.NC}")
-        print(f"Branch: {Colors.GREEN}{branch}{Colors.NC}")
-        print(f"Build Type: {Colors.YELLOW}{build_type}{Colors.NC}")
-        print(f"\n{Colors.BLUE}⏳ Waiting for workflow to start...{Colors.NC}")
-        print(f"{Colors.BLUE}Check status with: python {sys.argv[0]} latest{Colors.NC}")
-    else:
+
+    if response.status_code != 204:
         print(f"{Colors.RED}Error triggering workflow: {response.status_code}{Colors.NC}")
         print(response.text)
         sys.exit(1)
+
+    print(f"{Colors.GREEN}✅ Workflow triggered successfully!{Colors.NC}")
+    print(f"Branch: {Colors.GREEN}{branch}{Colors.NC}")
+    print(f"Build Type: {Colors.YELLOW}{build_type}{Colors.NC}")
+    print(f"\n{Colors.BLUE}⏳ Waiting for workflow run to appear...{Colors.NC}")
+
+    # Wait for new run to appear
+    max_attempts = 12
+    for attempt in range(1, max_attempts + 1):
+        time.sleep(3)
+        try:
+            current_latest_id = get_latest_run_id(token)
+            if current_latest_id != baseline_id:
+                print(f"{Colors.GREEN}✅ Found new run ID: {current_latest_id}{Colors.NC}")
+                return current_latest_id
+        except:
+            pass
+
+        print(f"Attempt {attempt}/{max_attempts}: Waiting for run to appear...")
+
+    print(f"{Colors.RED}Error: Timeout waiting for workflow run to appear{Colors.NC}")
+    print(f"{Colors.BLUE}💡 Check manually: https://github.com/{REPO}/actions{Colors.NC}")
+    sys.exit(1)
 
 def main():
     parser = argparse.ArgumentParser(description='GitHub Actions Build Status Checker')
@@ -193,7 +215,10 @@ def main():
         if not args.branch:
             print(f"{Colors.RED}Error: --branch is required for trigger action{Colors.NC}")
             sys.exit(1)
-        trigger_workflow(args.branch, args.build_type, token)
+        run_id = trigger_workflow(args.branch, args.build_type, token)
+        print(f"\n{Colors.BLUE}📊 Getting initial status...{Colors.NC}")
+        run_data = get_run_details(run_id, token)
+        display_run_status(run_data)
         return
     
     # Get run ID

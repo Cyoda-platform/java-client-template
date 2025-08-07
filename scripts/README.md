@@ -44,14 +44,20 @@ python scripts/build_status.py trigger --branch main --build-type both
 
 ### Quick Status Check
 ```bash
-# Get latest run status
+# Get latest run status using /runs endpoint
 curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
   "https://api.github.com/repos/Cyoda-platform/java-client-template/actions/workflows/build.yml/runs?per_page=1" \
   | jq '.workflow_runs[0] | {id, status, conclusion, head_branch}'
 ```
 
-### Trigger Compilation Check
+### Trigger and Get Run ID
 ```bash
+# 1. Get baseline run ID
+BASELINE_ID=$(curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
+  "https://api.github.com/repos/Cyoda-platform/java-client-template/actions/workflows/build.yml/runs?per_page=1" \
+  | jq -r '.workflow_runs[0].id')
+
+# 2. Trigger workflow
 curl -X POST \
   -H "Authorization: token ${GITHUB_TOKEN}" \
   -H "Content-Type: application/json" \
@@ -63,6 +69,14 @@ curl -X POST \
       "build_type": "compile-only"
     }
   }'
+
+# 3. Wait and get new run ID
+sleep 5
+NEW_RUN_ID=$(curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
+  "https://api.github.com/repos/Cyoda-platform/java-client-template/actions/workflows/build.yml/runs?per_page=1" \
+  | jq -r '.workflow_runs[0].id')
+
+echo "New Run ID: $NEW_RUN_ID"
 ```
 
 ## Build Types

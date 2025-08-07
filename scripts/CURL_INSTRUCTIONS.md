@@ -214,20 +214,122 @@ echo "$body" | jq '.'
 - **404**: Repository or workflow not found
 - **422**: Invalid request (e.g., workflow doesn't have workflow_dispatch trigger)
 
-## 7. One-Liner Examples
+## 7. Getting Run ID After Triggering
 
-### Trigger and Get Run ID
+### The Problem
+The POST `/dispatches` endpoint returns HTTP 204 with no run ID. You need to query the `/runs` endpoint to find your triggered run.
+
+### Method 1: Get Latest Run (Simple)
 ```bash
-# Trigger build and wait for run to appear
+# 1. Trigger workflow
 curl -X POST -H "Authorization: token ${GITHUB_TOKEN}" \
   -H "Content-Type: application/json" \
   https://api.github.com/repos/Cyoda-platform/java-client-template/actions/workflows/build.yml/dispatches \
-  -d '{"ref":"main","inputs":{"branch":"main","build_type":"compile-only"}}' && \
-sleep 5 && \
-curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
+  -d '{"ref":"main","inputs":{"branch":"main","build_type":"compile-only"}}'
+
+# 2. Wait for run to appear (usually 2-10 seconds)
+sleep 5
+
+# 3. Get latest run ID
+RUN_ID=$(curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
   "https://api.github.com/repos/Cyoda-platform/java-client-template/actions/workflows/build.yml/runs?per_page=1" \
-  | jq -r '.workflow_runs[0].id'
+  | jq -r '.workflow_runs[0].id')
+
+echo "Run ID: $RUN_ID"
 ```
+
+### Method 2: Filter by Timestamp (More Reliable)
+```bash
+# Get timestamp before triggering
+TRIGGER_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+# Trigger workflow
+curl -X POST -H "Authorization: token ${GITHUB_TOKEN}" \
+  -H "Content-Type: application/json" \
+  https://api.github.com/repos/Cyoda-platform/java-client-template/actions/workflows/build.yml/dispatches \
+  -d '{"ref":"main","inputs":{"branch":"main","build_type":"compile-only"}}'
+
+# Wait and find runs created after trigger time
+sleep 5
+RUN_ID=$(curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
+  "https://api.github.com/repos/Cyoda-platform/java-client-template/actions/workflows/build.yml/runs" \
+  | jq -r --arg trigger_time "$TRIGGER_TIME" \
+  '.workflow_runs[] | select(.created_at > $trigger_time) | .id' | head -1)
+
+echo "Run ID: $RUN_ID"
+```
+
+### Method 3: Filter by Actor and Branch
+```bash
+# Get your GitHub username
+GITHUB_USER=$(curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
+  https://api.github.com/user | jq -r '.login')
+
+# Trigger workflow
+curl -X POST -H "Authorization: token ${GITHUB_TOKEN}" \
+  -H "Content-Type: application/json" \
+  https://api.github.com/repos/Cyoda-platform/java-client-template/actions/workflows/build.yml/dispatches \
+  -d '{"ref":"feature-branch","inputs":{"branch":"feature-branch","build_type":"standard"}}'
+
+# Find your most recent run on the specific branch
+sleep 5
+RUN_ID=$(curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
+  "https://api.github.com/repos/Cyoda-platform/java-client-template/actions/workflows/build.yml/runs" \
+  | jq -r --arg user "$GITHUB_USER" --arg branch "feature-branch" \
+  '.workflow_runs[] | select(.actor.login == $user and .head_branch == $branch) | .id' | head -1)
+
+echo "Run ID: $RUN_ID"
+```
+
+### Method 4: Complete Script with Retry Logic
+```bash
+#!/bin/bash
+trigger_and_get_run_id() {
+  local branch="$1"
+  local build_type="$2"
+  local max_attempts=12
+
+  # Get baseline run ID before triggering
+  local baseline_id=$(curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
+    "https://api.github.com/repos/Cyoda-platform/java-client-template/actions/workflows/build.yml/runs?per_page=1" \
+    | jq -r '.workflow_runs[0].id // "0"')
+
+  # Trigger workflow
+  local http_code=$(curl -s -w "%{http_code}" -X POST \
+    -H "Authorization: token ${GITHUB_TOKEN}" \
+    -H "Content-Type: application/json" \
+    https://api.github.com/repos/Cyoda-platform/java-client-template/actions/workflows/build.yml/dispatches \
+    -d "{\"ref\":\"$branch\",\"inputs\":{\"branch\":\"$branch\",\"build_type\":\"$build_type\"}}" \
+    | tail -c 3)
+
+  if [[ "$http_code" != "204" ]]; then
+    echo "Error: Failed to trigger workflow (HTTP $http_code)" >&2
+    return 1
+  fi
+
+  # Wait for new run to appear
+  for ((i=1; i<=max_attempts; i++)); do
+    sleep 3
+    local latest_id=$(curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
+      "https://api.github.com/repos/Cyoda-platform/java-client-template/actions/workflows/build.yml/runs?per_page=1" \
+      | jq -r '.workflow_runs[0].id // "0"')
+
+    if [[ "$latest_id" != "$baseline_id" && "$latest_id" != "0" ]]; then
+      echo "$latest_id"
+      return 0
+    fi
+  done
+
+  echo "Error: Timeout waiting for run to appear" >&2
+  return 1
+}
+
+# Usage
+RUN_ID=$(trigger_and_get_run_id "main" "compile-only")
+echo "Run ID: $RUN_ID"
+```
+
+## 8. One-Liner Examples
 
 ### Quick Status Check
 ```bash
