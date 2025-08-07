@@ -6,17 +6,11 @@ import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
-import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-
-import java.util.concurrent.CompletableFuture;
 
 @Component
 public class NotificationProcessor implements CyodaProcessor {
@@ -24,11 +18,9 @@ public class NotificationProcessor implements CyodaProcessor {
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final ProcessorSerializer serializer;
     private final String className = this.getClass().getSimpleName();
-    private final EntityService entityService;
 
-    public NotificationProcessor(SerializerFactory serializerFactory, EntityService entityService) {
+    public NotificationProcessor(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
-        this.entityService = entityService;
     }
 
     @Override
@@ -38,7 +30,7 @@ public class NotificationProcessor implements CyodaProcessor {
 
         return serializer.withRequest(request)
                 .toEntity(Job.class)
-                .validate(this::isValidEntity, "Invalid entity state")
+                .validate(this::isValidEntity, "Invalid Job state")
                 .map(this::processEntityLogic)
                 .complete();
     }
@@ -54,18 +46,7 @@ public class NotificationProcessor implements CyodaProcessor {
 
     private Job processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Job> context) {
         Job job = context.entity();
-        try {
-            Condition activeCondition = Condition.of("$.active", "EQUALS", true);
-            SearchConditionRequest condition = SearchConditionRequest.group("AND", activeCondition);
-            CompletableFuture<ArrayNode> activeSubsFuture = entityService.getItemsByCondition("Subscriber", "1", condition, true);
-            ArrayNode activeSubscribers = activeSubsFuture.get();
-            int notifiedCount = (activeSubscribers == null) ? 0 : activeSubscribers.size();
-
-            logger.info("Notified {} active subscribers for job {}", notifiedCount, job.getJobName());
-        } catch (Exception e) {
-            logger.error("Error notifying subscribers: {}", e.getMessage(), e);
-        }
+        // Notification logic handled in LaureateIngestionProcessor after ingestion
         return job;
     }
-
-}}
+}
