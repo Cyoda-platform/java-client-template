@@ -1,14 +1,12 @@
 package com.java_template.application.processor;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.Job;
-import com.java_template.application.entity.Laureate;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
+import com.java_template.common.service.EntityService;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
@@ -16,9 +14,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.time.OffsetDateTime;
@@ -32,16 +31,16 @@ public class DataIngestionProcessor implements CyodaProcessor {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final ProcessorSerializer serializer;
-    private final ObjectMapper objectMapper;
-    private final RestTemplate restTemplate;
     private final String className = this.getClass().getSimpleName();
-    private final com.java_template.common.service.EntityService entityService;
+    private final EntityService entityService;
+    private final RestTemplate restTemplate;
+    private final ObjectMapper objectMapper;
 
-    public DataIngestionProcessor(SerializerFactory serializerFactory, ObjectMapper objectMapper, com.java_template.common.service.EntityService entityService, RestTemplate restTemplate) {
+    public DataIngestionProcessor(SerializerFactory serializerFactory, EntityService entityService, RestTemplate restTemplate, ObjectMapper objectMapper) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
-        this.objectMapper = objectMapper;
         this.entityService = entityService;
         this.restTemplate = restTemplate;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -50,10 +49,10 @@ public class DataIngestionProcessor implements CyodaProcessor {
         logger.info("Processing Job for request: {}", request.getId());
 
         return serializer.withRequest(request)
-            .toEntity(Job.class)
-            .validate(this::isValidEntity, "Invalid Job state")
-            .map(this::processEntityLogic)
-            .complete();
+                .toEntity(Job.class)
+                .validate(this::isValidEntity, "Invalid entity state")
+                .map(this::processEntityLogic)
+                .complete();
     }
 
     @Override
@@ -68,17 +67,19 @@ public class DataIngestionProcessor implements CyodaProcessor {
     private Job processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Job> context) {
         Job job = context.entity();
         UUID technicalId = context.request().getEntityId();
+
         try {
             logger.info("Processing job {} - state: {}", technicalId, job.getState());
 
-            // Validation is assumed done by workflow criteria
+            // Validation logic moved to isValidEntity
 
             job.setState("INGESTING");
+            // No update method available for external service, assume persistence handled externally
 
             logger.info("Job {} state transitioned to INGESTING", technicalId);
 
             String url = "https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/nobel-prize-laureates/records";
-            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(new HttpHeaders()), String.class);
+            org.springframework.http.ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(new HttpHeaders()), String.class);
             if (!response.getStatusCode().is2xxSuccessful()) {
                 job.setState("FAILED");
                 job.setResultSummary("Failed to fetch laureates data: HTTP status " + response.getStatusCodeValue());
@@ -99,13 +100,14 @@ public class DataIngestionProcessor implements CyodaProcessor {
             }
 
             int processedCount = 0;
-            List<Laureate> laureatesToAdd = new ArrayList<>();
+            List<Object> laureatesToAdd = new ArrayList<>();
+
             for (JsonNode record : records) {
                 JsonNode fields = record.path("fields");
                 if (fields.isMissingNode()) continue;
 
-                Laureate laureate = new Laureate();
-                laureate.setId(null);
+                com.java_template.application.entity.Laureate laureate = new com.java_template.application.entity.Laureate();
+                laureate.setId(null); // will be assigned by external service
                 laureate.setLaureateId(fields.path("id").asInt(0));
                 laureate.setFirstname(fields.path("firstname").asText(null));
                 laureate.setSurname(fields.path("surname").asText(null));
@@ -126,14 +128,15 @@ public class DataIngestionProcessor implements CyodaProcessor {
             }
 
             if (!laureatesToAdd.isEmpty()) {
-                CompletableFuture<List<UUID>> idsFuture = entityService.addItems(Laureate.ENTITY_NAME, com.java_template.common.config.Config.ENTITY_VERSION, laureatesToAdd);
-                List<UUID> technicalIds = idsFuture.get();
+                CompletableFuture<java.util.List<UUID>> idsFuture = entityService.addItems(com.java_template.application.entity.Laureate.ENTITY_NAME, "1", laureatesToAdd);
+                java.util.List<UUID> technicalIds = idsFuture.get();
 
                 for (int i = 0; i < technicalIds.size(); i++) {
                     UUID laureateId = technicalIds.get(i);
-                    Laureate laureate = laureatesToAdd.get(i);
+                    com.java_template.application.entity.Laureate laureate = (com.java_template.application.entity.Laureate) laureatesToAdd.get(i);
                     laureate.setId(laureateId);
-                    // Process Laureate logic is not part of this processor per instructions
+                    // Process laureate logic here if needed
+                    logger.info("Laureate {} processed successfully", laureateId);
                     processedCount++;
                 }
             }
@@ -143,10 +146,7 @@ public class DataIngestionProcessor implements CyodaProcessor {
             job.setCompletedAt(OffsetDateTime.now());
             logger.info("Job {} ingestion succeeded with {} laureates", technicalId, processedCount);
 
-            // Notification logic not implemented here
-
-            job.setState("NOTIFIED_SUBSCRIBERS");
-            logger.info("Job {} state transitioned to NOTIFIED_SUBSCRIBERS", technicalId);
+            // Notify subscribers and set state to NOTIFIED_SUBSCRIBERS should be handled by another processor
 
         } catch (IOException e) {
             job.setState("FAILED");
@@ -159,6 +159,7 @@ public class DataIngestionProcessor implements CyodaProcessor {
             job.setCompletedAt(OffsetDateTime.now());
             logger.error("Job {} failed with unexpected error: {}", technicalId, e.getMessage());
         }
+
         return job;
     }
 }
