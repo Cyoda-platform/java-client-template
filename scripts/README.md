@@ -82,6 +82,8 @@ echo "New Run ID: $NEW_RUN_ID"
 ## Build Types
 
 - **`compile-only`**: Only compile Java code, no tests or JAR building
+- **`test-only`**: Run all tests without building JARs
+- **`workflow-validation`**: Validate workflow components (processors and criteria)
 - **`standard`**: Run tests and build main application JAR
 - **`workflow-import`**: Build workflow import tool JAR
 - **`both`**: Build both standard and workflow-import JARs
@@ -97,6 +99,7 @@ echo "New Run ID: $NEW_RUN_ID"
 - **`CURL_INSTRUCTIONS.md`**: Comprehensive curl examples
 - **`check-build-status.sh`**: Bash script for status checking
 - **`trigger-and-watch.sh`**: Bash script for triggering and watching
+- **`validate-workflow-components.sh`**: Bash script for validating workflow components
 
 ## Examples
 
@@ -129,3 +132,38 @@ while true; do
   sleep 30
 done
 ```
+
+## Workflow Component Validation
+
+### Overview
+The `validate-workflow-components.sh` script validates that all processors and criteria referenced in workflow JSON files have corresponding Java implementation classes.
+
+### Usage
+```bash
+# Run validation locally
+./scripts/validate-workflow-components.sh
+
+# Trigger validation in GitHub Actions
+python scripts/build_status.py trigger --branch main --build-type workflow-validation
+```
+
+### What it validates
+- **Processors**: Every processor in `transitions[].processors[].name` must have a corresponding Java class in `src/main/java/com/java_template/application/processor/`
+- **Criteria**: Every criterion in `transitions[].criterion.function.name` must have a corresponding Java class in `src/main/java/com/java_template/application/criterion/`
+
+### Example output
+```bash
+🔍 Starting workflow component validation...
+Found 3 workflow files
+
+📄 Processing workflow: Job.json
+  📦 Processors: DataIngestionProcessor JobValidationProcessor SubscribersNotifierProcessor
+  🎯 Criteria: IngestionFailureCriterion IngestionSuccessCriterion
+
+✅ All workflow components validation passed!
+✅ All 6 processors found
+✅ All 2 criteria found
+```
+
+### Requirements
+- `jq` (JSON processor) - install with `sudo apt-get install jq` or `brew install jq`

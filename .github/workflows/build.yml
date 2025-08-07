@@ -16,6 +16,7 @@ on:
         options:
           - compile-only
           - test-only
+          - workflow-validation
           - standard
           - workflow-import
           - both
@@ -69,6 +70,10 @@ jobs:
     - name: Run tests
       if: ${{ inputs.build_type == 'standard' || inputs.build_type == 'test-only' }}
       run: ./gradlew test
+
+    - name: Run workflow validation test
+      if: ${{ inputs.build_type == 'workflow-validation' }}
+      run: ./gradlew test --tests WorkflowComponentValidationStandaloneTest
 
     - name: Build standard JAR
       if: ${{ inputs.build_type == 'standard' || inputs.build_type == 'both' }}
@@ -135,6 +140,13 @@ jobs:
             echo "✅ **All Java files compiled successfully** - No compilation errors found!" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ **Compilation failed** - Please check the build logs for error details." >> $GITHUB_STEP_SUMMARY
+          fi
+        elif [[ "${{ inputs.build_type }}" == "workflow-validation" ]]; then
+          echo "### 🔍 Workflow Validation Results" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ needs.build.result }}" == "success" ]]; then
+            echo "✅ **All workflow components validated successfully** - All processors and criteria have corresponding Java implementations!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Workflow validation failed** - Some processors or criteria are missing their Java implementation files. Please check the build logs for details." >> $GITHUB_STEP_SUMMARY
           fi
         else
           echo "### 📦 Build Artifacts" >> $GITHUB_STEP_SUMMARY
