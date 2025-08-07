@@ -1,3 +1,5 @@
+// Extracted processSubscriber method and its direct helper methods from Controller.java
+
 private void processSubscriber(UUID technicalId, Subscriber subscriber) {
     try {
         logger.info("Processing Subscriber with technicalId: {} and name: {}", technicalId, subscriber.getSubscriberName());
