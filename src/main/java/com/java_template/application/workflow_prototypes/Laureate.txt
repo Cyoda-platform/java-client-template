@@ -1,0 +1,15 @@
+private void processLaureate(UUID technicalId, Laureate laureate) {
+    try {
+        logger.info("Processing Laureate with technicalId: {} and id: {}", technicalId, laureate.getId());
+        boolean valid = simulateLaureateValidationProcessor(laureate);
+        if (!valid) {
+            logger.error("Laureate validation failed for technicalId: {}", technicalId);
+            return;
+        }
+        simulateLaureateEnrichmentProcessor(laureate);
+        logger.info("Laureate processed and persisted immutably with technicalId: {}", technicalId);
+        // TODO: update laureate entity in EntityService if needed
+    } catch (Exception e) {
+        logger.error("Exception in processLaureate: ", e);
+    }
+}
