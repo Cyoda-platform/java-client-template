@@ -38,12 +38,15 @@ public interface CyodaCriterion {
     EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> request);
 
     /**
-     * Checks if this criteria checker supports the given model key.
-     * Used to filter criteria checkers based on entity operationName and version
-     * from event metadata before selecting by criteria operationName.
+     * Checks if this criterion supports the given operation specification.
+     * Used by OperationFactory to match criteria to workflow operations based on operation name.
+     * Implementations typically check if opsSpec.operationName() matches the criterion's expected operation name.
+     * Some implementations may also need to check opsSpec.modelKey().getName() and opsSpec.modelKey().getVersion()
+     * when using CriterionSerializer.extractEntity() approach to ensure compatibility with specific entity types and versions.
      *
-     * @param opsSpec the model key containing entity operationName and version
-     * @return true if this criteria checker supports the given model key, false otherwise
+     * @param opsSpec the operation specification containing the operation name from workflow configuration
+     *                and model specification with entity name and version
+     * @return true if this criterion supports the given operation specification, false otherwise
      */
     boolean supports(OperationSpecification opsSpec);
 

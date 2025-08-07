@@ -30,13 +30,16 @@ public interface CyodaProcessor {
     EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context);
 
     /**
-     * Checks if this processor supports the given model key.
-     * Used to filter processors based on entity operationName and version
-     * from event metadata before selecting by processor operationName.
+     * Checks if this processor supports the given operation specification.
+     * Used by OperationFactory to match processors to workflow operations based on operation name.
+     * Implementations typically check if opSpec.operationName() matches the processor's expected operation name.
+     * Some implementations may also need to check opSpec.modelKey().getName() and opSpec.modelKey().getVersion()
+     * when using ProcessorSerializer.toEntity() approach to ensure compatibility with specific entity types and versions.
      *
-     * @param modelKey the model key containing entity operationName and version
-     * @return true if this processor supports the given model key, false otherwise
+     * @param opSpec the operation specification containing the operation name from workflow configuration
+     *               and model specification with entity name and version
+     * @return true if this processor supports the given operation specification, false otherwise
      */
-    boolean supports(OperationSpecification modelKey);
+    boolean supports(OperationSpecification opSpec);
 
 }

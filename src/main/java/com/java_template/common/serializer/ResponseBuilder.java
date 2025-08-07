@@ -2,8 +2,7 @@ package com.java_template.common.serializer;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.java_template.common.workflow.CyodaEntity;
-import lombok.Getter;
-import lombok.Setter;
+import org.cyoda.cloud.api.event.common.Error;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
@@ -38,16 +37,6 @@ public final class ResponseBuilder {
     }
 
     /**
-     * Simple error information holder.
-     */
-    @Setter
-    @Getter
-    public static class ErrorInfo {
-        private String code;
-        private String message;
-    }
-
-    /**
      * Simplified criterion response builder.
      * Provides type-safe fluent API for criterion match and error responses.
      */
@@ -55,7 +44,7 @@ public final class ResponseBuilder {
         private final EntityCriteriaCalculationRequest request;
         private boolean success = false;
         private boolean matches = false;
-        private ErrorInfo errorInfo;
+        private Error error;
         private List<String> warnings;
 
         CriterionResponseBuilder(EntityCriteriaCalculationRequest request) {
@@ -86,9 +75,9 @@ public final class ResponseBuilder {
         public CriterionResponseBuilder withError(String code, String message) {
             this.success = false;
             this.matches = false;
-            this.errorInfo = new ErrorInfo();
-            this.errorInfo.setCode(code);
-            this.errorInfo.setMessage(message);
+            this.error = new Error();
+            this.error.setCode(code);
+            this.error.setMessage(message);
             return this;
         }
 
@@ -140,9 +129,9 @@ public final class ResponseBuilder {
             }
 
             // Set error information if present
-            if (errorInfo != null) {
+            if (error != null) {
                 response.setSuccess(false);
-                // Note: The actual error setting would depend on the specific response structure
+                response.setError(error);
             }
 
             return response;
@@ -157,7 +146,7 @@ public final class ResponseBuilder {
         private final EntityProcessorCalculationRequest request;
         private boolean success = false;
         private JsonNode jsonData;
-        private ErrorInfo errorInfo;
+        private Error error;
         private String additionalErrorDetails;
 
         ProcessorResponseBuilder(EntityProcessorCalculationRequest request) {
@@ -187,9 +176,9 @@ public final class ResponseBuilder {
          */
         public ProcessorResponseBuilder withError(String code, String message) {
             this.success = false;
-            this.errorInfo = new ErrorInfo();
-            this.errorInfo.setCode(code);
-            this.errorInfo.setMessage(message);
+            this.error = new Error();
+            this.error.setCode(code);
+            this.error.setMessage(message);
             return this;
         }
 
@@ -231,12 +220,12 @@ public final class ResponseBuilder {
             }
 
             // Set error information if present
-            if (errorInfo != null) {
+            if (error != null) {
                 if (additionalErrorDetails != null) {
-                    errorInfo.setMessage(errorInfo.getMessage() + " - " + additionalErrorDetails);
+                    error.setMessage(error.getMessage() + " - " + additionalErrorDetails);
                 }
                 response.setSuccess(false);
-                // Note: The actual error setting would depend on the specific response structure
+                response.setError(error);
             }
 
             return response;
