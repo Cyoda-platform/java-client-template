@@ -38,30 +38,20 @@ public class LaureateValidationProcessor implements CyodaProcessor {
         return "LaureateValidationProcessor".equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private boolean isValidEntity(Laureate laureate) {
-        if (laureate == null) {
-            return false;
-        }
-        if (laureate.getLaureateId() == null || laureate.getLaureateId() <= 0) {
-            return false;
-        }
-        if (laureate.getFirstname() == null || laureate.getFirstname().trim().isEmpty()) {
-            return false;
-        }
-        if (laureate.getSurname() == null || laureate.getSurname().trim().isEmpty()) {
-            return false;
-        }
-        if (laureate.getYear() == null || laureate.getYear().trim().isEmpty()) {
-            return false;
-        }
-        if (laureate.getCategory() == null || laureate.getCategory().trim().isEmpty()) {
-            return false;
-        }
+    private boolean isValidEntity(Laureate entity) {
+        // Required fields: laureateId, firstname, surname, year, category
+        if (entity == null) return false;
+        if (entity.getLaureateId() == null) return false;
+        if (entity.getFirstname() == null || entity.getFirstname().isEmpty()) return false;
+        if (entity.getSurname() == null || entity.getSurname().isEmpty()) return false;
+        if (entity.getYear() == null || entity.getYear().isEmpty()) return false;
+        if (entity.getCategory() == null || entity.getCategory().isEmpty()) return false;
         return true;
     }
 
-    private Laureate processEntityLogic(Laureate laureate) {
-        // No state change, just validation
-        return laureate;
+    private Laureate processEntityLogic(Laureate entity) {
+        // Additional validation or preprocessing can be done here
+        logger.info("Validated Laureate: {} {}", entity.getFirstname(), entity.getSurname());
+        return entity;
     }
 }
