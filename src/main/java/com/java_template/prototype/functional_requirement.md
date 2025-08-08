@@ -1,6 +1,10 @@
-### 1. Entity Definitions
+# Functional Requirements
 
-```
+---
+
+## 1. Entity Definitions
+
+```plaintext
 Job:
 - jobName: String (name/identifier of the ingestion job)
 - status: String (workflow state of the job, e.g., SCHEDULED, INGESTING, SUCCEEDED, FAILED, NOTIFIED_SUBSCRIBERS)
@@ -34,10 +38,10 @@ Subscriber:
 
 ---
 
-### 2. Process Method Flows
+## 2. Process Method Flows
 
-```
-processJob() Flow:
+### processJob() Flow:
+
 1. Initial State: Job created with status = SCHEDULED
 2. Transition: Change status to INGESTING
 3. Data Ingestion: Fetch Nobel laureates data from OpenDataSoft API
@@ -52,29 +56,26 @@ processJob() Flow:
    - Trigger processNotification() to notify all active Subscribers
 8. Final State:
    - Update Job status to NOTIFIED_SUBSCRIBERS
-```
 
-```
-processLaureate() Flow:
+### processLaureate() Flow:
+
 1. Validation:
    - Validate required fields (e.g., laureateId, firstname, surname, year, category)
 2. Enrichment:
    - Normalize country codes
    - Calculate derived data if needed (e.g., age at award)
 3. Persist enriched Laureate data
-```
 
-```
-processNotification() Flow:
+### processNotification() Flow:
+
 1. Retrieve all active Subscribers
 2. For each Subscriber:
    - Send notification containing the new laureate data or job status update
 3. Mark notifications as sent (if needed)
-```
 
 ---
 
-### 3. API Endpoints Design
+## 3. API Endpoints Design
 
 | Entity     | Endpoint                           | Method | Request Body                        | Response                    | Notes                                 |
 |------------|----------------------------------|--------|-----------------------------------|-----------------------------|---------------------------------------|
@@ -86,9 +87,9 @@ processNotification() Flow:
 
 ---
 
-### 4. Request / Response JSON Formats
+## 4. Request / Response JSON Formats
 
-**Create Job (POST /jobs)**
+### Create Job (POST /jobs)
 
 Request:
 ```json
@@ -106,7 +107,7 @@ Response:
 
 ---
 
-**Get Job by technicalId (GET /jobs/{technicalId})**
+### Get Job by technicalId (GET /jobs/{technicalId})
 
 Response:
 ```json
@@ -121,7 +122,7 @@ Response:
 
 ---
 
-**Get Laureate by technicalId (GET /laureates/{technicalId})**
+### Get Laureate by technicalId (GET /laureates/{technicalId})
 
 Response:
 ```json
@@ -146,7 +147,7 @@ Response:
 
 ---
 
-**Create Subscriber (POST /subscribers)**
+### Create Subscriber (POST /subscribers)
 
 Request:
 ```json
@@ -167,7 +168,7 @@ Response:
 
 ---
 
-**Get Subscriber by technicalId (GET /subscribers/{technicalId})**
+### Get Subscriber by technicalId (GET /subscribers/{technicalId})
 
 Response:
 ```json
@@ -181,7 +182,7 @@ Response:
 
 ---
 
-### 5. Visual Representation
+## 5. Visual Representation
 
 ```mermaid
 sequenceDiagram
