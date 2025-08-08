@@ -41,29 +41,30 @@ public class LaureateEnrichmentProcessor implements CyodaProcessor {
         return "LaureateEnrichmentProcessor".equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private boolean isValidEntity(Laureate laureate) {
-        return laureate != null;
+    private boolean isValidEntity(Laureate entity) {
+        return entity != null && entity.getBorncountrycode() != null && !entity.getBorncountrycode().isEmpty();
     }
 
-    private Laureate processEntityLogic(Laureate laureate) {
+    private Laureate processEntityLogic(Laureate entity) {
         // Normalize country code to uppercase
-        if (laureate.getBorncountrycode() != null) {
-            String normalizedCode = laureate.getBorncountrycode().toUpperCase();
-            laureate.setBorncountrycode(normalizedCode);
-            logger.info("Normalized borncountrycode to: {}", normalizedCode);
+        String countryCode = entity.getBorncountrycode();
+        if (countryCode != null) {
+            entity.setBorncountrycode(countryCode.toUpperCase());
         }
-        // Calculate age at award if born and year are valid
+
+        // Calculate age at award if born and year are present
         try {
-            if (laureate.getBorn() != null && laureate.getYear() != null && !laureate.getYear().trim().isEmpty()) {
-                int birthYear = laureate.getBorn().getYear();
-                int awardYear = Integer.parseInt(laureate.getYear());
-                int ageAtAward = awardYear - birthYear;
-                // Store or log age if needed; assuming no field to store, just logging
-                logger.info("Calculated age at award: {}", ageAtAward);
+            if (entity.getBorn() != null && entity.getYear() != null && !entity.getYear().isEmpty()) {
+                LocalDate bornDate = LocalDate.parse(entity.getBorn());
+                int awardYear = Integer.parseInt(entity.getYear());
+                int ageAtAward = awardYear - bornDate.getYear();
+                // Assuming Laureate has a setAgeAtAward property (not in original, so skip storing)
+                logger.info("Calculated age at award for {} {}: {}", entity.getFirstname(), entity.getSurname(), ageAtAward);
             }
         } catch (Exception e) {
-            logger.warn("Failed to calculate age at award: {}", e.getMessage());
+            logger.warn("Failed to calculate age at award for laureate {} {}", entity.getFirstname(), entity.getSurname());
         }
-        return laureate;
+
+        return entity;
     }
 }
