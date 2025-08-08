@@ -60,7 +60,7 @@ public class Controller {
     @PostMapping("/jobs")
     public ResponseEntity<Map<String, UUID>> createJob(@RequestBody Map<String, String> request) {
         try {
-            String externalId = request.get("externalId";
+            String externalId = request.get("externalId");
             if (externalId == null || externalId.isBlank()) {
                 logger.error("Job creation failed: externalId is missing or blank");
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
@@ -90,7 +90,7 @@ public class Controller {
         }
     }
 
-    @GetMapping("/jobs/{id}"
+    @GetMapping("/jobs/{id}")
     public ResponseEntity<Job> getJob(@PathVariable("id") String id) {
         try {
             UUID technicalId = UUID.fromString(id);
@@ -170,7 +170,7 @@ public class Controller {
 
             logger.info("Subscriber created with technicalId {}", technicalId);
 
-            ne Thread(() -> {/*processSubscriber(technicalId, subscriber)*/}).start();
+            new Thread(() -> {/*processSubscriber(technicalId, subscriber)*/}).start();
 
             Map<String, UUID> response = new HashMap<>();
             response.put("technicalId", technicalId);
