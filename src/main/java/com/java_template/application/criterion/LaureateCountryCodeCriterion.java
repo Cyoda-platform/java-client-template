@@ -4,7 +4,9 @@ import com.java_template.application.entity.Laureate;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
+import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.serializer.StandardEvalReasonCategories;
+import com.java_template.common.config.Config;
 import com.java_template.common.workflow.CyodaCriterion;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.OperationSpecification;
@@ -21,7 +23,7 @@ public class LaureateCountryCodeCriterion implements CyodaCriterion {
     private final CriterionSerializer serializer;
     private final String className = this.getClass().getSimpleName();
 
-    public LaureateCountryCodeCriterion(com.java_template.common.serializer.SerializerFactory serializerFactory) {
+    public LaureateCountryCodeCriterion(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultCriteriaSerializer();
     }
 
@@ -40,13 +42,10 @@ public class LaureateCountryCodeCriterion implements CyodaCriterion {
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Laureate> context) {
-        Laureate laureate = context.entity();
-        String code = laureate.getBorncountrycode();
-        if (code == null || code.trim().isEmpty()) {
-            return EvaluationOutcome.fail("Born country code is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        }
-        if (!code.matches("^[A-Z]{2}$")) {
-            return EvaluationOutcome.fail("Born country code must be two uppercase letters", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        Laureate entity = context.entity();
+        String code = entity.getBorncountrycode();
+        if (code == null || code.length() != 2 || !code.matches("[A-Z]{2}")) {
+            return EvaluationOutcome.fail("borncountrycode must be a 2-letter uppercase ISO code", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         return EvaluationOutcome.success();
     }
