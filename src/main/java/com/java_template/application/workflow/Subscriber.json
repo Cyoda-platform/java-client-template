@@ -1,0 +1,56 @@
+{
+  "version": "1.0",
+  "name": "Subscriber Workflow",
+  "desc": "Workflow for Subscriber entity managing notification subscriptions",
+  "initialState": "active_check",
+  "active": true,
+  "states": {
+    "active_check": {
+      "transitions": [
+        {
+          "name": "is_active",
+          "next": "notified",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsSubscriberActiveCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          },
+          "processors": [
+            {
+              "name": "SendNotificationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "is_inactive",
+          "next": "inactive",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsSubscriberInactiveCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "notified": {
+      "transitions": []
+    },
+    "inactive": {
+      "transitions": []
+    }
+  }
+}
