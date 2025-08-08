@@ -4,7 +4,9 @@ import com.java_template.application.entity.Laureate;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
+import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.serializer.StandardEvalReasonCategories;
+import com.java_template.common.config.Config;
 import com.java_template.common.workflow.CyodaCriterion;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.OperationSpecification;
@@ -21,7 +23,7 @@ public class LaureateRequiredFieldsCriterion implements CyodaCriterion {
     private final CriterionSerializer serializer;
     private final String className = this.getClass().getSimpleName();
 
-    public LaureateRequiredFieldsCriterion(com.java_template.common.serializer.SerializerFactory serializerFactory) {
+    public LaureateRequiredFieldsCriterion(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultCriteriaSerializer();
     }
 
@@ -40,21 +42,21 @@ public class LaureateRequiredFieldsCriterion implements CyodaCriterion {
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Laureate> context) {
-        Laureate laureate = context.entity();
-        if (laureate.getLaureateId() == null || laureate.getLaureateId() <= 0) {
-            return EvaluationOutcome.fail("LaureateId is required and must be positive", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        Laureate entity = context.entity();
+        if (entity.getLaureateId() == null) {
+            return EvaluationOutcome.fail("laureateId is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (laureate.getFirstname() == null || laureate.getFirstname().trim().isEmpty()) {
-            return EvaluationOutcome.fail("Firstname is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (entity.getFirstname() == null || entity.getFirstname().isEmpty()) {
+            return EvaluationOutcome.fail("firstname is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (laureate.getSurname() == null || laureate.getSurname().trim().isEmpty()) {
-            return EvaluationOutcome.fail("Surname is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (entity.getSurname() == null || entity.getSurname().isEmpty()) {
+            return EvaluationOutcome.fail("surname is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (laureate.getYear() == null || laureate.getYear().trim().isEmpty()) {
-            return EvaluationOutcome.fail("Year is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (entity.getYear() == null || entity.getYear().isEmpty()) {
+            return EvaluationOutcome.fail("year is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (laureate.getCategory() == null || laureate.getCategory().trim().isEmpty()) {
-            return EvaluationOutcome.fail("Category is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (entity.getCategory() == null || entity.getCategory().isEmpty()) {
+            return EvaluationOutcome.fail("category is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         return EvaluationOutcome.success();
     }
