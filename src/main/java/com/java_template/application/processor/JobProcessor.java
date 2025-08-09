@@ -1,26 +1,27 @@
 package com.java_template.application.processor;
 
-import com.java_template.application.entity.Job;
-import com.cyoda.plugins.mapping.entity.CyodaEntity;
-import com.cyoda.plugins.mapping.entity.EntityProcessorCalculationRequest;
-import com.cyoda.plugins.mapping.entity.EntityProcessorCalculationResponse;
-import com.cyoda.plugins.mapping.entity.CyodaEventContext;
-import com.cyoda.plugins.mapping.entity.OperationSpecification;
-import com.cyoda.plugins.mapping.entity.CyodaProcessor;
-import com.cyoda.plugins.mapping.entity.ProcessorSerializer;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.java_template.application.entity.job.version_1000.Job;
+import com.java_template.common.serializer.ProcessorSerializer;
+import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.workflow.CyodaEventContext;
+import com.java_template.common.workflow.CyodaProcessor;
+import com.java_template.common.workflow.OperationSpecification;
+import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
+import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.time.ZonedDateTime;
+import java.time.OffsetDateTime;
 
 @Component
 public class JobProcessor implements CyodaProcessor {
 
     private static final Logger logger = LoggerFactory.getLogger(JobProcessor.class);
+    private final ProcessorSerializer serializer;
 
-    @Autowired
-    private ProcessorSerializer serializer;
+    public JobProcessor(SerializerFactory serializerFactory) {
+        this.serializer = serializerFactory.getDefaultProcessorSerializer();
+    }
 
     @Override
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
@@ -43,12 +44,13 @@ public class JobProcessor implements CyodaProcessor {
         return job != null && job.getJobName() != null && !job.getJobName().isEmpty();
     }
 
-    private Job processEntityLogic(Job job) {
+    private Job processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Job> context) {
+        Job job = context.entity();
         // Implement business logic for Job lifecycle transitions
         String status = job.getStatus();
         if (status == null) {
             job.setStatus("SCHEDULED");
-            job.setCreatedAt(ZonedDateTime.now());
+            job.setCreatedAt(OffsetDateTime.now());
             logger.info("Job status set to SCHEDULED");
         } else {
             switch (status) {
@@ -63,7 +65,7 @@ public class JobProcessor implements CyodaProcessor {
                 case "SUCCEEDED":
                 case "FAILED":
                     job.setStatus("NOTIFIED_SUBSCRIBERS");
-                    job.setCompletedAt(ZonedDateTime.now());
+                    job.setCompletedAt(OffsetDateTime.now());
                     logger.info("Job status changed to NOTIFIED_SUBSCRIBERS");
                     break;
                 case "NOTIFIED_SUBSCRIBERS":

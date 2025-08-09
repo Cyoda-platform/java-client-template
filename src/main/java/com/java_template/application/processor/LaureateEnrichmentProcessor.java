@@ -1,28 +1,27 @@
 package com.java_template.application.processor;
 
-import com.java_template.application.entity.Laureate;
-import com.cyoda.plugins.mapping.entity.CyodaEntity;
-import com.cyoda.plugins.mapping.entity.EntityProcessorCalculationRequest;
-import com.cyoda.plugins.mapping.entity.EntityProcessorCalculationResponse;
-import com.cyoda.plugins.mapping.entity.CyodaEventContext;
-import com.cyoda.plugins.mapping.entity.OperationSpecification;
-import com.cyoda.plugins.mapping.entity.CyodaProcessor;
-import com.cyoda.plugins.mapping.entity.ProcessorSerializer;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.java_template.application.entity.laureate.version_1000.Laureate;
+import com.java_template.common.serializer.ProcessorSerializer;
+import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.workflow.CyodaEventContext;
+import com.java_template.common.workflow.CyodaProcessor;
+import com.java_template.common.workflow.OperationSpecification;
+import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
+import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.time.LocalDate;
-import java.time.Period;
-import java.time.format.DateTimeFormatter;
 
 @Component
 public class LaureateEnrichmentProcessor implements CyodaProcessor {
 
     private static final Logger logger = LoggerFactory.getLogger(LaureateEnrichmentProcessor.class);
+    private final ProcessorSerializer serializer;
 
-    @Autowired
-    private ProcessorSerializer serializer;
+    public LaureateEnrichmentProcessor(SerializerFactory serializerFactory) {
+        this.serializer = serializerFactory.getDefaultProcessorSerializer();
+    }
 
     @Override
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
@@ -45,7 +44,8 @@ public class LaureateEnrichmentProcessor implements CyodaProcessor {
         return entity != null && entity.getBorncountrycode() != null && !entity.getBorncountrycode().isEmpty();
     }
 
-    private Laureate processEntityLogic(Laureate entity) {
+    private Laureate processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Laureate> context) {
+        Laureate entity = context.entity();
         // Normalize country code to uppercase
         String countryCode = entity.getBorncountrycode();
         if (countryCode != null) {
@@ -55,7 +55,7 @@ public class LaureateEnrichmentProcessor implements CyodaProcessor {
         // Calculate age at award if born and year are present
         try {
             if (entity.getBorn() != null && entity.getYear() != null && !entity.getYear().isEmpty()) {
-                LocalDate bornDate = LocalDate.parse(entity.getBorn());
+                LocalDate bornDate = LocalDate.parse(entity.getBorn().toString());
                 int awardYear = Integer.parseInt(entity.getYear());
                 int ageAtAward = awardYear - bornDate.getYear();
                 // Assuming Laureate has a setAgeAtAward property (not in original, so skip storing)

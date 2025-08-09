@@ -1,16 +1,17 @@
-package com.java_template.application.entity;
+package com.java_template.application.entity.laureate.version_1000;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import lombok.Data;
-import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 import java.time.LocalDate;
 
 @Data
 public class Laureate implements CyodaEntity {
     public static final String ENTITY_NAME = "Laureate";
+    public static final Integer ENTITY_VERSION = 1000;
 
     private Integer laureateId;
     private String firstname;
@@ -31,14 +32,16 @@ public class Laureate implements CyodaEntity {
     public Laureate() {}
 
     @Override
+    @JsonIgnore
     public OperationSpecification getModelKey() {
         ModelSpec modelSpec = new ModelSpec();
         modelSpec.setName(ENTITY_NAME);
-        modelSpec.setVersion(Integer.parseInt(ENTITY_VERSION));
+        modelSpec.setVersion(ENTITY_VERSION);
         return new OperationSpecification.Entity(modelSpec, ENTITY_NAME);
     }
 
     @Override
+    @JsonIgnore
     public boolean isValid() {
         if (laureateId == null) return false;
         if (firstname == null || firstname.isBlank()) return false;

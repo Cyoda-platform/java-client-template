@@ -1,14 +1,13 @@
 package com.java_template.application.processor;
 
-import com.java_template.application.entity.Laureate;
-import com.cyoda.plugins.mapping.entity.CyodaEntity;
-import com.cyoda.plugins.mapping.entity.EntityProcessorCalculationRequest;
-import com.cyoda.plugins.mapping.entity.EntityProcessorCalculationResponse;
-import com.cyoda.plugins.mapping.entity.CyodaEventContext;
-import com.cyoda.plugins.mapping.entity.OperationSpecification;
-import com.cyoda.plugins.mapping.entity.CyodaProcessor;
-import com.cyoda.plugins.mapping.entity.ProcessorSerializer;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.java_template.application.entity.laureate.version_1000.Laureate;
+import com.java_template.common.serializer.ProcessorSerializer;
+import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.workflow.CyodaEventContext;
+import com.java_template.common.workflow.CyodaProcessor;
+import com.java_template.common.workflow.OperationSpecification;
+import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
+import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,9 +16,11 @@ import org.slf4j.LoggerFactory;
 public class LaureateValidationProcessor implements CyodaProcessor {
 
     private static final Logger logger = LoggerFactory.getLogger(LaureateValidationProcessor.class);
+    private final ProcessorSerializer serializer;
 
-    @Autowired
-    private ProcessorSerializer serializer;
+    public LaureateValidationProcessor(SerializerFactory serializerFactory) {
+        this.serializer = serializerFactory.getDefaultProcessorSerializer();
+    }
 
     @Override
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
@@ -49,7 +50,8 @@ public class LaureateValidationProcessor implements CyodaProcessor {
         return true;
     }
 
-    private Laureate processEntityLogic(Laureate entity) {
+    private Laureate processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Laureate> context) {
+        Laureate entity = context.entity();
         // Additional validation or preprocessing can be done here
         logger.info("Validated Laureate: {} {}", entity.getFirstname(), entity.getSurname());
         return entity;

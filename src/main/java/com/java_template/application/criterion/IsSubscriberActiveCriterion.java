@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.laureate.version_1000.Laureate;
+import com.java_template.application.entity.subscriber.version_1000.Subscriber;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -16,13 +16,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 @Component
-public class LaureateRequiredFieldsCriterion implements CyodaCriterion {
+public class IsSubscriberActiveCriterion implements CyodaCriterion {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final CriterionSerializer serializer;
     private final String className = this.getClass().getSimpleName();
 
-    public LaureateRequiredFieldsCriterion(SerializerFactory serializerFactory) {
+    public IsSubscriberActiveCriterion(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultCriteriaSerializer();
     }
 
@@ -30,7 +30,7 @@ public class LaureateRequiredFieldsCriterion implements CyodaCriterion {
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
         return serializer.withRequest(request)
-            .evaluateEntity(Laureate.class, this::validateEntity)
+            .evaluateEntity(Subscriber.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -40,23 +40,13 @@ public class LaureateRequiredFieldsCriterion implements CyodaCriterion {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Laureate> context) {
-        Laureate entity = context.entity();
-        if (entity.getLaureateId() == null) {
-            return EvaluationOutcome.fail("laureateId is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+    private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Subscriber> context) {
+        Subscriber entity = context.entity();
+
+        if (entity.getActive() != null && entity.getActive()) {
+            return EvaluationOutcome.success();
+        } else {
+            return EvaluationOutcome.fail("Subscriber is not active", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
-        if (entity.getFirstname() == null || entity.getFirstname().isEmpty()) {
-            return EvaluationOutcome.fail("firstname is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        }
-        if (entity.getSurname() == null || entity.getSurname().isEmpty()) {
-            return EvaluationOutcome.fail("surname is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        }
-        if (entity.getYear() == null || entity.getYear().isEmpty()) {
-            return EvaluationOutcome.fail("year is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        }
-        if (entity.getCategory() == null || entity.getCategory().isEmpty()) {
-            return EvaluationOutcome.fail("category is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        }
-        return EvaluationOutcome.success();
     }
 }

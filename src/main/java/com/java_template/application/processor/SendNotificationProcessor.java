@@ -1,6 +1,6 @@
 package com.java_template.application.processor;
 
-import com.java_template.application.entity.job.version_1000.Job;
+import com.java_template.application.entity.subscriber.version_1000.Subscriber;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
@@ -8,48 +8,46 @@ import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
-import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 @Component
-public class NotifySubscribersProcessor implements CyodaProcessor {
+public class SendNotificationProcessor implements CyodaProcessor {
 
-    private static final Logger logger = LoggerFactory.getLogger(NotifySubscribersProcessor.class);
+    private static final Logger logger = LoggerFactory.getLogger(SendNotificationProcessor.class);
     private final ProcessorSerializer serializer;
 
-    public NotifySubscribersProcessor(SerializerFactory serializerFactory) {
+    public SendNotificationProcessor(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
     }
 
     @Override
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
-        logger.info("Processing Job notification for request: {}", request.getId());
-
-        // Stub for notification logic
-        // In a real implementation, would retrieve active subscribers and send notifications
+        logger.info("Processing notification for request: {}", request.getId());
 
         return serializer.withRequest(request)
-            .toEntity(Job.class)
-            .validate(this::isValidEntity, "Invalid entity state")
+            .toEntity(Subscriber.class)
+            .validate(this::isValidEntity, "Invalid Subscriber entity")
             .map(this::processEntityLogic)
             .complete();
     }
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return "NotifySubscribersProcessor".equalsIgnoreCase(modelSpec.operationName());
+        return "SendNotificationProcessor".equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private boolean isValidEntity(Job entity) {
-        return entity != null && entity.getStatus() != null && !entity.getStatus().isEmpty();
+    private boolean isValidEntity(Subscriber entity) {
+        return entity != null && entity.getContactAddress() != null && !entity.getContactAddress().isEmpty();
     }
 
-    private Job processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Job> context) {
-        Job entity = context.entity();
-        logger.info("Notifying subscribers for job: {}", entity.getJobName());
+    private Subscriber processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Subscriber> context) {
+        Subscriber entity = context.entity();
+        logger.info("Sending notification to subscriber: {}", entity.getContactAddress());
         // Simulated notification logic
+        // In a real implementation, this would send actual notifications
         return entity;
     }
 }
