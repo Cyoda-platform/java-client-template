@@ -1,4 +1,4 @@
-package com.java_template.application.entity.version_1;
+package com.java_template.application.entity.job.version_1;
 
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
@@ -29,7 +29,9 @@ public class Job implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        // jobName and scheduledTime must not be blank
-        return jobName != null && !jobName.isBlank() && scheduledTime != null && !scheduledTime.isBlank();
+        if (jobName == null || jobName.isBlank()) return false;
+        if (status == null || status.isBlank()) return false;
+        if (scheduledTime == null || scheduledTime.isBlank()) return false;
+        return true;
     }
 }
