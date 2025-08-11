@@ -1,0 +1,57 @@
+{
+  "version": "1.0",
+  "name": "Laureate Workflow",
+  "desc": "Workflow for processing Nobel laureate entities",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": [
+        {
+          "name": "validate",
+          "next": "validated",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateLaureateProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "validated": {
+      "transitions": [
+        {
+          "name": "enrich",
+          "next": "enriched",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EnrichLaureateProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "enriched": {
+      "transitions": [
+        {
+          "name": "persist",
+          "next": "persisted",
+          "manual": false
+        }
+      ]
+    },
+    "persisted": {
+      "transitions": []
+    }
+  }
+}
