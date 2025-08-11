@@ -1,0 +1,28 @@
+{
+  "version": "1.0",
+  "name": "Laureate Workflow",
+  "desc": "Workflow for the Laureate entity handling validation and enrichment.",
+  "initialState": "new",
+  "active": true,
+  "states": {
+    "new": {
+      "transitions": [
+        {
+          "name": "validate_and_enrich",
+          "next": "validated",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ProcessLaureate",
+              "executionMode": "SYNC",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          ]
+        }
+      ]
+    },
+    "validated": {
+      "transitions": []
+    }
+  }
+}
