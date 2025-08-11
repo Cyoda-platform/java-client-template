@@ -1,0 +1,74 @@
+{
+  "version": "1.0",
+  "name": "Laureate Workflow",
+  "desc": "Workflow for Laureate entity ingestion process",
+  "initialState": "validation",
+  "active": true,
+  "states": {
+    "validation": {
+      "transitions": [
+        {
+          "name": "validate_laureate",
+          "next": "enrichment",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "LaureateValidationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          },
+          "processors": [
+            {
+              "name": "LaureateValidationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "validation_failed",
+          "next": "discarded",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "LaureateValidationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "enrichment": {
+      "transitions": [
+        {
+          "name": "enrich_and_persist",
+          "next": "persisted",
+          "manual": false,
+          "processors": [
+            {
+              "name": "LaureateEnrichmentProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "persisted": {
+      "transitions": []
+    },
+    "discarded": {
+      "transitions": []
+    }
+  }
+}
