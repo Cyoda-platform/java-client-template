@@ -40,16 +40,16 @@ public class Laureate implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        return laureateId != null &&
-               firstname != null && !firstname.isBlank() &&
-               surname != null && !surname.isBlank() &&
-               gender != null && !gender.isBlank() &&
-               born != null &&
-               borncountry != null && !borncountry.isBlank() &&
-               borncountrycode != null && !borncountrycode.isBlank() &&
-               borncity != null && !borncity.isBlank() &&
-               year != null && !year.isBlank() &&
-               category != null && !category.isBlank() &&
-               motivation != null && !motivation.isBlank();
+        return laureateId != null
+                && firstname != null && !firstname.isBlank()
+                && surname != null && !surname.isBlank()
+                && gender != null && !gender.isBlank()
+                && born != null
+                && borncountry != null && !borncountry.isBlank()
+                && borncountrycode != null && !borncountrycode.isBlank()
+                && borncity != null && !borncity.isBlank()
+                && year != null && !year.isBlank()
+                && category != null && !category.isBlank()
+                && motivation != null && !motivation.isBlank();
     }
 }
