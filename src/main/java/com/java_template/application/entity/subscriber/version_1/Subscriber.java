@@ -29,9 +29,8 @@ public class Subscriber implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        return contactType != null && !contactType.isBlank() &&
-               contactDetails != null && !contactDetails.isBlank() &&
-               active != null &&
-               subscribedAt != null;
+        return contactType != null && !contactType.isBlank()
+                && contactDetails != null && !contactDetails.isBlank()
+                && active != null;
     }
 }
