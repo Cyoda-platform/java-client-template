@@ -5,7 +5,7 @@ import org.cyoda.cloud.api.event.processing.EventAckResponse;
 
 public interface EventTracker {
     void trackEventSent(CloudEvent event);
-    void trackAcknowledge(EventAckResponse acknowledgeResponse);
+    void trackAcknowledgeReceived(EventAckResponse acknowledgeResponse);
     void trackKeepAlive(Long eventTimestamp);
     void trackGreetReceived();
 }

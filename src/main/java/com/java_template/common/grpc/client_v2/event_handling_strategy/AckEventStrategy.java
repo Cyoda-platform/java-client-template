@@ -39,7 +39,7 @@ public class AckEventStrategy implements EventHandlingStrategy<BaseEvent> {
         );
 
         cloudEventParser.parseCloudEvent(cloudEvent, EventAckResponse.class)
-                .ifPresent(eventTracker::trackAcknowledge);
+                .ifPresent(eventTracker::trackAcknowledgeReceived);
 
         return null;
     }

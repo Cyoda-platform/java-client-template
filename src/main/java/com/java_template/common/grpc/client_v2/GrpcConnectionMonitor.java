@@ -101,7 +101,7 @@ class GrpcConnectionMonitor implements EventTracker, ConnectionStateTracker {
     }
 
     @Override
-    public void trackAcknowledge(final EventAckResponse acknowledgeResponse) {
+    public void trackAcknowledgeReceived(final EventAckResponse acknowledgeResponse) {
         final var ackId = acknowledgeResponse.getId();
         final var sourceEventId = acknowledgeResponse.getSourceEventId();
         final var success = acknowledgeResponse.getSuccess();

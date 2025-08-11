@@ -14,7 +14,6 @@ import java.util.Collection;
 import java.util.Date;
 
 import java.util.Objects;
-import java.util.stream.Stream;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 import org.cyoda.cloud.api.event.entity.EntityDeleteResponse;
 import org.cyoda.cloud.api.event.entity.EntityTransactionInfo;
@@ -29,6 +28,7 @@ import java.util.concurrent.CompletableFuture;
 @Service
 public class EntityServiceImpl implements EntityService {
 
+    private static final String UPDATE_TRANSITION = "UPDATE";
     private static final int DEFAULT_PAGE_SIZE = 100;
     private static final int FIRST_PAGE = 1;
 
@@ -196,7 +196,7 @@ public class EntityServiceImpl implements EntityService {
 
     @Override
     public CompletableFuture<UUID> updateItem(@NotNull final UUID entityId, @NotNull final Object entity) {
-        return repository.update(entityId, objectMapper.valueToTree(entity))
+        return repository.update(entityId, objectMapper.valueToTree(entity), UPDATE_TRANSITION)
                 .thenApply(EntityTransactionResponse::getTransactionInfo)
                 .thenApply(EntityTransactionInfo::getEntityIds)
                 .thenApply(List::getFirst);
@@ -204,7 +204,7 @@ public class EntityServiceImpl implements EntityService {
 
     @Override
     public CompletableFuture<List<UUID>> updateItems(@NotNull final Object entities) {
-        return repository.updateAll(objectMapper.convertValue(entities, new TypeReference<>() {}))
+        return repository.updateAll(objectMapper.convertValue(entities, new TypeReference<>() {}), UPDATE_TRANSITION)
                 .thenApply(transactionResponses -> transactionResponses.stream()
                         .map(EntityTransactionResponse::getTransactionInfo)
                         .map(EntityTransactionInfo::getEntityIds)

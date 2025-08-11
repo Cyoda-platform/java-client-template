@@ -8,7 +8,6 @@ import com.google.common.collect.Streams;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.java_template.common.grpc.client_v2.CloudEventBuilder;
 import com.java_template.common.grpc.client_v2.CloudEventParser;
-import com.java_template.common.repository.dto.Meta;
 import io.cloudevents.v1.proto.CloudEvent;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
@@ -53,7 +52,7 @@ import java.util.concurrent.TimeoutException;
 
 @Repository
 public class CyodaRepository implements CrudRepository {
-    private final static String UPDATE_TRANSITION = "update";
+    private static final String FORMAT = "JSON" /*XML*/; // TODO: Move to props
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
@@ -61,8 +60,6 @@ public class CyodaRepository implements CrudRepository {
     private final CloudEventsServiceGrpc.CloudEventsServiceBlockingStub cloudEventsServiceBlockingStub;
     private final CloudEventBuilder cloudEventBuilder;
     private final CloudEventParser cloudEventParser;
-
-    private final String FORMAT = "JSON"; // or "XML"
 
     public CyodaRepository(
             final ObjectMapper objectMapper,
@@ -74,36 +71,6 @@ public class CyodaRepository implements CrudRepository {
         this.cloudEventsServiceBlockingStub = cloudEventsServiceBlockingStub;
         this.cloudEventBuilder = cloudEventBuilder;
         this.cloudEventParser = cloudEventParser;
-    }
-
-    @Override
-    public CompletableFuture<ObjectNode> count(Meta meta) {
-        return null;
-    }
-
-    @Override
-    public CompletableFuture<ObjectNode> delete(Meta meta, Object entity) {
-        return null;
-    }
-
-    @Override
-    public CompletableFuture<ObjectNode> deleteAllEntities(Meta meta, List<Object> entities) {
-        return null;
-    }
-
-    @Override
-    public CompletableFuture<ObjectNode> deleteAllByKey(Meta meta, List<Object> keys) {
-        return null;
-    }
-
-    @Override
-    public CompletableFuture<ObjectNode> deleteByKey(Meta meta, Object key) {
-        return null;
-    }
-
-    @Override
-    public CompletableFuture<ObjectNode> existsByKey(Meta meta, Object key) {
-        return null;
     }
 
     @Override
@@ -146,14 +113,18 @@ public class CyodaRepository implements CrudRepository {
     @Override
     public CompletableFuture<EntityTransactionResponse> update(
             @NotNull final UUID id,
-            @NotNull final JsonNode entity
+            @NotNull final JsonNode entity,
+            @NotNull final String transition
     ) {
-        return updateEntity(id, entity);
+        return updateEntity(id, entity, transition);
     }
 
     @Override
-    public CompletableFuture<List<EntityTransactionResponse>> updateAll(@NotNull final Collection<Object> entities) {
-        return updateEntities(entities);
+    public CompletableFuture<List<EntityTransactionResponse>> updateAll(
+            @NotNull final Collection<Object> entities,
+            @NotNull final String transition
+    ) {
+        return updateEntities(entities, transition);
     }
 
     @Override
@@ -178,16 +149,6 @@ public class CyodaRepository implements CrudRepository {
             @Nullable final Date pointInTime
     ) {
         return getAllEntities(modelName, modelVersion, pageSize, pageNumber, pointInTime);
-    }
-
-    @Override
-    public CompletableFuture<ObjectNode> findAllByKey(Meta meta, List<Object> keys) {
-        return null;
-    }
-
-    @Override
-    public CompletableFuture<ObjectNode> findByKey(Meta meta, Object key) {
-        return null;
     }
 
     private CompletableFuture<ArrayNode> getAllEntities(
@@ -282,10 +243,11 @@ public class CyodaRepository implements CrudRepository {
             final int modelVersion,
             @NotNull final JsonNode entity
     ) {
+        final var format = DataFormat.fromValue(FORMAT);
         return sendAndGet(
                 cloudEventsServiceBlockingStub::entityManage,
                 new EntityCreateRequest().withId(generateEventId())
-                        .withDataFormat(DataFormat.JSON)
+                        .withDataFormat(format)
                         .withPayload(
                                 new EntityCreatePayload()
                                         .withModel(new ModelSpec().withName(modelName).withVersion(modelVersion))
@@ -296,18 +258,26 @@ public class CyodaRepository implements CrudRepository {
 
     private CompletableFuture<EntityTransactionResponse> updateEntity(
             @NotNull final UUID id,
-            @NotNull final JsonNode entity
+            @NotNull final JsonNode entity,
+            @NotNull final String transition
     ) {
+        final var format = DataFormat.fromValue(FORMAT);
         return sendAndGet(
                 cloudEventsServiceBlockingStub::entityManage,
-                new EntityUpdateRequest().withId(generateEventId()).withDataFormat(DataFormat.JSON).withPayload(
-                        new EntityUpdatePayload().withEntityId(id).withData(entity).withTransition(UPDATE_TRANSITION)),
+                new EntityUpdateRequest().withId(generateEventId())
+                        .withDataFormat(format)
+                        .withPayload(
+                                new EntityUpdatePayload().withEntityId(id)
+                                        .withData(entity)
+                                        .withTransition(transition)
+                        ),
                 EntityTransactionResponse.class
         );
     }
 
     private CompletableFuture<List<EntityTransactionResponse>> updateEntities(
-            @NotNull final Collection<Object> entities
+            @NotNull final Collection<Object> entities,
+            @NotNull final String transition
     ) {
         final var entitiesByIds = entities.stream()
                 .map(objectMapper::valueToTree)
@@ -324,7 +294,7 @@ public class CyodaRepository implements CrudRepository {
                         .withDataFormat(DataFormat.JSON)
                         .withPayloads(entitiesByIds.entrySet()
                                 .stream()
-                                .map(entity -> new EntityUpdatePayload().withTransition(UPDATE_TRANSITION)
+                                .map(entity -> new EntityUpdatePayload().withTransition(transition)
                                         .withEntityId(entity.getKey())
                                         .withData(entity.getValue()))
                                 .toList()),

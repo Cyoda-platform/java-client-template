@@ -19,22 +19,6 @@ import org.cyoda.cloud.api.event.entity.EntityTransactionResponse;
 
 public interface CrudRepository {
 
-    CompletableFuture<ObjectNode> count(Meta meta);
-
-    CompletableFuture<ObjectNode> delete(Meta meta, Object entity);
-
-    CompletableFuture<ObjectNode> deleteAllEntities(Meta meta, List<Object> entities);
-
-    CompletableFuture<ObjectNode> deleteAllByKey(Meta meta, List<Object> keys);
-
-    CompletableFuture<ObjectNode> deleteByKey(Meta meta, Object key);
-
-    CompletableFuture<ObjectNode> existsByKey(Meta meta, Object key);
-
-    CompletableFuture<ObjectNode> findAllByKey(Meta meta, List<Object> keys);
-
-    CompletableFuture<ObjectNode> findByKey(Meta meta, Object key);
-
     CompletableFuture<EntityDeleteResponse> deleteById(@NotNull UUID id);
 
     CompletableFuture<Integer> deleteAll(
@@ -73,7 +57,14 @@ public interface CrudRepository {
             @NotNull JsonNode entity
     );
 
-    CompletableFuture<EntityTransactionResponse> update(@NotNull UUID id, @NotNull JsonNode entity);
+    CompletableFuture<EntityTransactionResponse> update(
+            @NotNull UUID id,
+            @NotNull JsonNode entity,
+            @NotNull String transition
+    );
 
-    CompletableFuture<List<EntityTransactionResponse>> updateAll(@NotNull Collection<Object> entities);
+    CompletableFuture<List<EntityTransactionResponse>> updateAll(
+            @NotNull Collection<Object> entities,
+            @NotNull String transition
+    );
 }
