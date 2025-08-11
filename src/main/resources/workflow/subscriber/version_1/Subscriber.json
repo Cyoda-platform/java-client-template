@@ -1,0 +1,65 @@
+{
+  "version": "1.0",
+  "name": "Subscriber Workflow",
+  "desc": "Workflow for Subscriber entity following processSubscriber() flow",
+  "initialState": "validating",
+  "active": true,
+  "states": {
+    "validating": {
+      "transitions": [
+        {
+          "name": "validation_success",
+          "next": "persisting",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "SubscriberValidationSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_failure",
+          "next": "failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "SubscriberValidationFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "persisting": {
+      "transitions": [
+        {
+          "name": "persist_success",
+          "next": "activating",
+          "manual": false
+        }
+      ]
+    },
+    "activating": {
+      "transitions": [
+        {
+          "name": "activate_subscriber",
+          "next": "completed",
+          "manual": false
+        }
+      ]
+    },
+    "failed": {
+      "transitions": []
+    },
+    "completed": {
+      "transitions": []
+    }
+  }
+}
