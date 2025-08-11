@@ -5,9 +5,9 @@ import static com.java_template.common.config.Config.*;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import com.java_template.common.service.EntityService;
-import com.java_template.application.entity.version_1.Job;
-import com.java_template.application.entity.version_1.Laureate;
-import com.java_template.application.entity.version_1.Subscriber;
+import com.java_template.application.entity.Job;
+import com.java_template.application.entity.Laureate;
+import com.java_template.application.entity.Subscriber;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,7 +34,7 @@ public class Controller {
         this.entityService = entityService;
     }
 
-    // POST /jobs - create Job entity with jobName only
+    // POST /jobs - create Job entity with jobName only, status handled in workflow
     @PostMapping("/jobs")
     public ResponseEntity<?> createJob(@RequestBody JobCreateRequest request) {
         try {
@@ -143,7 +143,7 @@ public class Controller {
         }
     }
 
-    // POST /subscribers - create Subscriber entity with contactType and contactDetails
+    // POST /subscribers - create Subscriber entity with contactType and contactDetails, active and subscribedAt handled in workflow
     @PostMapping("/subscribers")
     public ResponseEntity<?> createSubscriber(@RequestBody SubscriberCreateRequest request) {
         try {
