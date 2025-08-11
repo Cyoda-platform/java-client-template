@@ -23,13 +23,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import static com.java_template.common.config.Config.KEEP_ALIVE_WARNING_THRESHOLD;
+import static com.java_template.common.config.Config.MONITORING_SCHEDULER_DELAY_SECONDS;
+import static com.java_template.common.config.Config.MONITORING_SCHEDULER_INITIAL_DELAY_SECONDS;
+import static com.java_template.common.config.Config.SENT_EVENTS_CACHE_MAX_SIZE;
+
 @Component
 class GrpcConnectionMonitor implements EventTracker, ConnectionStateTracker {
-    public static final int SENT_EVENTS_CACHE_MAX_SIZE = 100; // TODO: Move to props
-    public static final int MONITORING_SCHEDULER_INITIAL_DELAY_SECONDS = 10;  // TODO: Move to props
-    public static final int MONITORING_SCHEDULER_DELAY_SECONDS = 30; // TODO: Move to props
-    public static final long KEEP_ALIVE_WARNING_THRESHOLD = 300; // TODO: Move to props
-
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final AtomicLong lastKeepAliveTimestampMs = new AtomicLong(-1);
     private final AtomicReference<ConnectivityState> lastConnectionState = new AtomicReference<>(ConnectivityState.SHUTDOWN);

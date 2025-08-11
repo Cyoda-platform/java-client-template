@@ -12,9 +12,10 @@ import java.util.UUID;
 import org.cyoda.cloud.api.event.common.BaseEvent;
 import org.springframework.stereotype.Component;
 
+import static com.java_template.common.config.Config.EVENT_SOURCE_URI;
+
 @Component
 public class CloudEventBuilder {
-    private static final String EVENT_SOURCE_URI = "urn:cyoda:calculation-member:" + Config.GRPC_PROCESSOR_TAG; // TODO: Move to props
 
     private final ObjectMapper objectMapper;
     private final EventFormat eventFormat;

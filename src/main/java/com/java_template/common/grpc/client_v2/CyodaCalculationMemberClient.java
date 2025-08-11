@@ -12,11 +12,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
+import static com.java_template.common.config.Config.GRPC_PROCESSOR_TAG;
+
 @Component
 class CyodaCalculationMemberClient implements EventHandler {
-
-    private static final Set<String> TAGS = Set.of(""); // TODO: Move to props
-
     private final Logger log = LoggerFactory.getLogger(this.getClass());
 
     private final EventSender eventSender;
@@ -84,7 +83,7 @@ class CyodaCalculationMemberClient implements EventHandler {
 
     @Override
     public Set<String> getSupportedTags() {
-        return TAGS;
+        return Set.of(GRPC_PROCESSOR_TAG);
     }
 
     private void sendEvent(final BaseEvent event) {

@@ -10,10 +10,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static com.java_template.common.config.Config.FAILED_RECONNECTS_LIMIT;
+import static com.java_template.common.config.Config.INITIAL_RECONNECT_DELAY_MS;
+import static com.java_template.common.config.Config.MAX_RECONNECT_DELAY_MS;
+
 public class DefaultReconnectionStrategy implements ReconnectionStrategy {
-    private static final long INITIAL_RECONNECT_DELAY_MS = 200; // TODO: Move to props
-    private static final long MAX_RECONNECT_DELAY_MS = 10 * 1000; // TODO: Move to props
-    private static final long FAILED_RECONNECTS_LIMIT = 10; // TODO: Move to props
 
     private final Logger log = LoggerFactory.getLogger(this.getClass());
     private final ScheduledExecutorService reconnectionScheduler = Executors.newSingleThreadScheduledExecutor();
@@ -43,7 +44,7 @@ public class DefaultReconnectionStrategy implements ReconnectionStrategy {
     private void scheduleReconnectWithBackoff(final Callable<Void> reconnect) {
         final int attempt = failedReconnectsCount.get();
         final long nextDelayMs = Math.min(
-                (long) (INITIAL_RECONNECT_DELAY_MS * Math.pow(2, attempt)),
+                (int) (INITIAL_RECONNECT_DELAY_MS * Math.pow(2, attempt)),
                 MAX_RECONNECT_DELAY_MS
         );
 

@@ -50,10 +50,10 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import static com.java_template.common.config.Config.GRPC_COMMUNICATION_DATA_FORMAT;
+
 @Repository
 public class CyodaRepository implements CrudRepository {
-    private static final String FORMAT = "JSON" /*XML*/; // TODO: Move to props
-
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
     private final ObjectMapper objectMapper;
@@ -243,11 +243,10 @@ public class CyodaRepository implements CrudRepository {
             final int modelVersion,
             @NotNull final JsonNode entity
     ) {
-        final var format = DataFormat.fromValue(FORMAT);
         return sendAndGet(
                 cloudEventsServiceBlockingStub::entityManage,
                 new EntityCreateRequest().withId(generateEventId())
-                        .withDataFormat(format)
+                        .withDataFormat(GRPC_COMMUNICATION_DATA_FORMAT)
                         .withPayload(
                                 new EntityCreatePayload()
                                         .withModel(new ModelSpec().withName(modelName).withVersion(modelVersion))
@@ -261,11 +260,10 @@ public class CyodaRepository implements CrudRepository {
             @NotNull final JsonNode entity,
             @NotNull final String transition
     ) {
-        final var format = DataFormat.fromValue(FORMAT);
         return sendAndGet(
                 cloudEventsServiceBlockingStub::entityManage,
                 new EntityUpdateRequest().withId(generateEventId())
-                        .withDataFormat(format)
+                        .withDataFormat(GRPC_COMMUNICATION_DATA_FORMAT)
                         .withPayload(
                                 new EntityUpdatePayload().withEntityId(id)
                                         .withData(entity)
