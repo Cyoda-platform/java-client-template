@@ -1,0 +1,102 @@
+{
+  "version": "1.0",
+  "name": "Job Workflow",
+  "desc": "Workflow for Job entity managing the ingestion process",
+  "initialState": "scheduled",
+  "active": true,
+  "states": {
+    "scheduled": {
+      "transitions": [
+        {
+          "name": "validate_parameters",
+          "next": "validating",
+          "manual": false,
+          "processors": [
+            {
+              "name": "JobValidationProcessor",
+              "executionMode": "SYNC",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          ]
+        }
+      ]
+    },
+    "validating": {
+      "transitions": [
+        {
+          "name": "parameters_valid",
+          "next": "ingesting",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "JobParametersValidCriterion",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          }
+        },
+        {
+          "name": "parameters_invalid",
+          "next": "failed",
+          "manual": false
+        }
+      ]
+    },
+    "ingesting": {
+      "transitions": [
+        {
+          "name": "ingest_success",
+          "next": "succeeded",
+          "manual": false,
+          "processors": [
+            {
+              "name": "JobIngestionProcessor",
+              "executionMode": "SYNC",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          ]
+        },
+        {
+          "name": "ingest_failure",
+          "next": "failed",
+          "manual": false
+        }
+      ]
+    },
+    "succeeded": {
+      "transitions": [
+        {
+          "name": "notify_subscribers",
+          "next": "notified_subscribers",
+          "manual": false,
+          "processors": [
+            {
+              "name": "JobNotificationProcessor",
+              "executionMode": "SYNC",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          ]
+        }
+      ]
+    },
+    "failed": {
+      "transitions": [
+        {
+          "name": "notify_failure",
+          "next": "notified_subscribers",
+          "manual": false,
+          "processors": [
+            {
+              "name": "JobFailureNotificationProcessor",
+              "executionMode": "SYNC",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          ]
+        }
+      ]
+    },
+    "notified_subscribers": {
+      "transitions": []
+    }
+  }
+}
