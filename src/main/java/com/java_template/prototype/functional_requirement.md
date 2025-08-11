@@ -1,4 +1,6 @@
-### 1. Entity Definitions
+# Functional Requirements
+
+## 1. Entity Definitions
 
 ```
 Job:
@@ -36,10 +38,10 @@ Subscriber:
 
 ---
 
-### 2. Process Method Flows
+## 2. Process Method Flows
 
-```
-processJob() Flow:
+### processJob() Flow:
+
 1. Initial State: Job is created with status = "SCHEDULED"
 2. Validation: Validate job parameters if present
 3. Processing:
@@ -52,10 +54,11 @@ processJob() Flow:
 5. Notification:
     - Notify all active Subscribers of job outcome
     - Set job status to "NOTIFIED_SUBSCRIBERS"
-```
 
-```
-processLaureate() Flow:
+---
+
+### processLaureate() Flow:
+
 1. Validation:
     - Check mandatory fields (e.g., laureateId, firstname, surname, category)
     - Validate data formats (dates, country codes)
@@ -63,34 +66,34 @@ processLaureate() Flow:
     - Normalize country codes or calculate additional attributes if needed
 3. Persistence:
     - Save laureate record as immutable entity
-```
 
-```
-processSubscriber() Flow:
+---
+
+### processSubscriber() Flow:
+
 1. Validation:
     - Verify contactType is either "email" or "webhook"
     - Verify contactDetails format matches contactType
 2. Persistence:
     - Save subscriber entity
 3. (No further processing or notification triggered here)
-```
 
 ---
 
-### 3. API Endpoints Design
+## 3. API Endpoints Design
 
 | Entity     | POST Endpoint               | POST Request Body                                                      | POST Response                  | GET by TechnicalId Endpoint             | GET Response                          |
 |------------|----------------------------|-----------------------------------------------------------------------|--------------------------------|----------------------------------------|-------------------------------------|
-| Job        | `/jobs`                    | `{ "parameters": "{...}" }` (optional)                               | `{ "technicalId": "string" }` | `/jobs/{technicalId}`                   | Full Job entity JSON                 |
+| Job        | `/jobs`                    | `{ "parameters": "{...}" }` (optional)                           | `{ "technicalId": "string" }` | `/jobs/{technicalId}`                   | Full Job entity JSON                 |
 | Laureate   | *No POST endpoint* (created via Job processing)                                                     | N/A                            | `/laureates/{technicalId}`             | Full Laureate entity JSON            |
-| Subscriber | `/subscribers`              | `{ "contactType": "email" \| "webhook", "contactDetails": "string", "active": true }` | `{ "technicalId": "string" }` | `/subscribers/{technicalId}`           | Full Subscriber entity JSON         |
+| Subscriber | `/subscribers`              | `{ "contactType": "email" | "webhook", "contactDetails": "string", "active": true }` | `{ "technicalId": "string" }` | `/subscribers/{technicalId}`           | Full Subscriber entity JSON         |
 
 - No update or delete endpoints for entities to maintain event immutability.
 - GET all or GET by conditions supported only if explicitly requested later.
 
 ---
 
-### 4. Request/Response JSON Examples
+## 4. Request/Response JSON Examples
 
 **POST /jobs**
 
@@ -167,7 +170,7 @@ Response:
 
 ---
 
-### 5. Mermaid Diagrams
+## 5. Mermaid Diagrams
 
 ```mermaid
 sequenceDiagram
