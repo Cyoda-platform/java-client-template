@@ -1,0 +1,92 @@
+{
+  "version": "1.0",
+  "name": "Laureate Workflow",
+  "desc": "Workflow for Laureate entity following processLaureate() flow",
+  "initialState": "validating",
+  "active": true,
+  "states": {
+    "validating": {
+      "transitions": [
+        {
+          "name": "validation_success",
+          "next": "enriching",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "LaureateValidationSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_failure",
+          "next": "failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "LaureateValidationFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "enriching": {
+      "transitions": [
+        {
+          "name": "enrichment_complete",
+          "next": "persisting",
+          "manual": false,
+          "processors": [
+            {
+              "name": "LaureateEnrichmentProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "persisting": {
+      "transitions": [
+        {
+          "name": "persist_success",
+          "next": "notifying",
+          "manual": false
+        }
+      ]
+    },
+    "notifying": {
+      "transitions": [
+        {
+          "name": "notify_subscribers",
+          "next": "completed",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotifySubscribersProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "failed": {
+      "transitions": []
+    },
+    "completed": {
+      "transitions": []
+    }
+  }
+}
