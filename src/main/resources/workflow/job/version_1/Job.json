@@ -1,0 +1,130 @@
+{
+  "version": "1.0",
+  "name": "Job Workflow",
+  "desc": "Workflow for Job entity following processJob() flow",
+  "initialState": "pending",
+  "active": true,
+  "states": {
+    "pending": {
+      "transitions": [
+        {
+          "name": "validate_job",
+          "next": "validating",
+          "manual": false
+        }
+      ]
+    },
+    "validating": {
+      "transitions": [
+        {
+          "name": "validation_success",
+          "next": "ingesting",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "JobValidationSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_failure",
+          "next": "failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "JobValidationFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ingesting": {
+      "transitions": [
+        {
+          "name": "ingestion_succeeded",
+          "next": "succeeded",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IngestionSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          },
+          "processors": [
+            {
+              "name": "FetchNobelLaureatesProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "ingestion_failed",
+          "next": "failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IngestionFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "succeeded": {
+      "transitions": [
+        {
+          "name": "notify_subscribers",
+          "next": "notified_subscribers",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotifySubscribersProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "failed": {
+      "transitions": [
+        {
+          "name": "notify_subscribers",
+          "next": "notified_subscribers",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotifySubscribersProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "notified_subscribers": {
+      "transitions": []
+    }
+  }
+}
