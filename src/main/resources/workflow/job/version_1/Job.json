@@ -1,0 +1,98 @@
+{
+  "version": "1.0",
+  "name": "Job Workflow",
+  "desc": "Workflow for processing ingestion jobs",
+  "initialState": "scheduled",
+  "active": true,
+  "states": {
+    "scheduled": {
+      "transitions": [
+        {
+          "name": "start_ingestion",
+          "next": "ingesting",
+          "manual": false
+        }
+      ]
+    },
+    "ingesting": {
+      "transitions": [
+        {
+          "name": "ingestion_succeeded",
+          "next": "succeeded",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IngestionSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          },
+          "processors": [
+            {
+              "name": "IngestNobelLaureatesProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "ingestion_failed",
+          "next": "failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IngestionFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "succeeded": {
+      "transitions": [
+        {
+          "name": "notify_subscribers",
+          "next": "notified_subscribers",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotifySubscribersProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "failed": {
+      "transitions": [
+        {
+          "name": "notify_subscribers",
+          "next": "notified_subscribers",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotifySubscribersProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "notified_subscribers": {
+      "transitions": []
+    }
+  }
+}
