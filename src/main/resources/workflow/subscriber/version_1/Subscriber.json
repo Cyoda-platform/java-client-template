@@ -1,0 +1,56 @@
+{
+  "version": "1.0",
+  "name": "Subscriber Workflow",
+  "desc": "Workflow for Subscriber entity creation and validation",
+  "initialState": "validation",
+  "active": true,
+  "states": {
+    "validation": {
+      "transitions": [
+        {
+          "name": "validate_subscriber",
+          "next": "persisted",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "SubscriberValidationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          },
+          "processors": [
+            {
+              "name": "SubscriberValidationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "validation_failed",
+          "next": "discarded",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "SubscriberValidationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "persisted": {
+      "transitions": []
+    },
+    "discarded": {
+      "transitions": []
+    }
+  }
+}
