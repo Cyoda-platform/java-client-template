@@ -1,0 +1,28 @@
+{
+  "version": "1.0",
+  "name": "Subscriber Workflow",
+  "desc": "Workflow for the Subscriber entity managing subscription validation.",
+  "initialState": "new",
+  "active": true,
+  "states": {
+    "new": {
+      "transitions": [
+        {
+          "name": "validate_subscription",
+          "next": "validated",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ProcessSubscriber",
+              "executionMode": "SYNC",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          ]
+        }
+      ]
+    },
+    "validated": {
+      "transitions": []
+    }
+  }
+}
