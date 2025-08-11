@@ -1,0 +1,28 @@
+{
+  "version": "1.0",
+  "name": "Subscriber Workflow",
+  "desc": "Workflow for Subscriber entity validation and persistence",
+  "initialState": "validate",
+  "active": true,
+  "states": {
+    "validate": {
+      "transitions": [
+        {
+          "name": "persist_subscriber",
+          "next": "persisted",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SubscriberValidationProcessor",
+              "executionMode": "SYNC",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          ]
+        }
+      ]
+    },
+    "persisted": {
+      "transitions": []
+    }
+  }
+}
