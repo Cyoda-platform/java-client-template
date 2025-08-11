@@ -1,4 +1,4 @@
-package com.java_template.application.entity.version_1;
+package com.java_template.application.entity.subscriber.version_1;
 
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
@@ -27,8 +27,9 @@ public class Subscriber implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        // Validate contactType and contactAddress are not blank
-        return contactType != null && !contactType.isBlank() &&
-               contactAddress != null && !contactAddress.isBlank();
+        if (contactType == null || contactType.isBlank()) return false;
+        if (contactAddress == null || contactAddress.isBlank()) return false;
+        if (active == null) return false;
+        return true;
     }
 }
