@@ -30,7 +30,7 @@ public class Job implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        return jobName != null && !jobName.isBlank() &&
-               status != null && !status.isBlank();
+        return jobName != null && !jobName.isBlank()
+                && status != null && !status.isBlank();
     }
 }
