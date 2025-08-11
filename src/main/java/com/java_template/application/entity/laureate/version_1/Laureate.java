@@ -1,4 +1,4 @@
-package com.java_template.application.entity;
+package com.java_template.application.entity.laureate.version_1;
 
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
