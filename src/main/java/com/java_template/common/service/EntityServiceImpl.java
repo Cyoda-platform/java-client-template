@@ -1,5 +1,6 @@
 package com.java_template.common.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -9,9 +10,11 @@ import com.google.common.collect.Streams;
 import com.java_template.common.repository.CrudRepository;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
+import java.util.Collection;
 import java.util.Date;
 
 import java.util.Objects;
+import java.util.stream.Stream;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 import org.cyoda.cloud.api.event.entity.EntityDeleteResponse;
 import org.cyoda.cloud.api.event.entity.EntityTransactionInfo;
@@ -160,7 +163,7 @@ public class EntityServiceImpl implements EntityService {
             @NotNull final Integer modelVersion,
             @NotNull final Object entity
     ) {
-        return repository.save(modelName, modelVersion, (JsonNode) entity)
+        return repository.save(modelName, modelVersion, objectMapper.valueToTree(entity))
                 .thenApply(EntityTransactionResponse::getTransactionInfo)
                 .thenApply(objectMapper::valueToTree);
 
@@ -186,26 +189,28 @@ public class EntityServiceImpl implements EntityService {
         return repository.saveAll(
                         modelName,
                         modelVersion,
-                        (JsonNode) entities
+                        objectMapper.valueToTree(entities)
                 ).thenApply(EntityTransactionResponse::getTransactionInfo)
                 .thenApply(objectMapper::valueToTree);
     }
 
     @Override
-    public CompletableFuture<UUID> updateItem(
-            @NotNull final String modelName,
-            @NotNull final Integer modelVersion,
-            @NotNull final UUID technicalId,
-            @NotNull final Object entity
-    ) {
-        return repository.update(
-                        modelName,
-                        modelVersion,
-                        technicalId,
-                        (JsonNode) entity
-                ).thenApply(EntityTransactionResponse::getTransactionInfo)
+    public CompletableFuture<UUID> updateItem(@NotNull final UUID entityId, @NotNull final Object entity) {
+        return repository.update(entityId, objectMapper.valueToTree(entity))
+                .thenApply(EntityTransactionResponse::getTransactionInfo)
                 .thenApply(EntityTransactionInfo::getEntityIds)
                 .thenApply(List::getFirst);
+    }
+
+    @Override
+    public CompletableFuture<List<UUID>> updateItems(@NotNull final Object entities) {
+        return repository.updateAll(objectMapper.convertValue(entities, new TypeReference<>() {}))
+                .thenApply(transactionResponses -> transactionResponses.stream()
+                        .map(EntityTransactionResponse::getTransactionInfo)
+                        .map(EntityTransactionInfo::getEntityIds)
+                        .flatMap(Collection::stream)
+                        .toList()
+                );
     }
 
     @Override

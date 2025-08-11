@@ -13,6 +13,7 @@ import io.cloudevents.v1.proto.CloudEvent;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.cyoda.cloud.api.event.common.BaseEvent;
 import org.cyoda.cloud.api.event.common.DataFormat;
@@ -26,6 +27,7 @@ import org.cyoda.cloud.api.event.entity.EntityDeleteAllResponse;
 import org.cyoda.cloud.api.event.entity.EntityDeleteRequest;
 import org.cyoda.cloud.api.event.entity.EntityDeleteResponse;
 import org.cyoda.cloud.api.event.entity.EntityTransactionResponse;
+import org.cyoda.cloud.api.event.entity.EntityUpdateCollectionRequest;
 import org.cyoda.cloud.api.event.entity.EntityUpdatePayload;
 import org.cyoda.cloud.api.event.entity.EntityUpdateRequest;
 import org.cyoda.cloud.api.event.search.EntityGetAllRequest;
@@ -51,7 +53,10 @@ import java.util.concurrent.TimeoutException;
 
 @Repository
 public class CyodaRepository implements CrudRepository {
-    private final Logger logger = LoggerFactory.getLogger(CyodaRepository.class);
+    private final static String UPDATE_TRANSITION = "update";
+
+    private final Logger logger = LoggerFactory.getLogger(this.getClass());
+
     private final ObjectMapper objectMapper;
     private final CloudEventsServiceGrpc.CloudEventsServiceBlockingStub cloudEventsServiceBlockingStub;
     private final CloudEventBuilder cloudEventBuilder;
@@ -69,11 +74,6 @@ public class CyodaRepository implements CrudRepository {
         this.cloudEventsServiceBlockingStub = cloudEventsServiceBlockingStub;
         this.cloudEventBuilder = cloudEventBuilder;
         this.cloudEventParser = cloudEventParser;
-    }
-
-    @Override
-    public CompletableFuture<ObjectNode> updateAll(Meta meta, List<Object> entities) {
-        return null;
     }
 
     @Override
@@ -145,12 +145,15 @@ public class CyodaRepository implements CrudRepository {
 
     @Override
     public CompletableFuture<EntityTransactionResponse> update(
-            @NotNull final String modelName,
-            final int modelVersion,
             @NotNull final UUID id,
             @NotNull final JsonNode entity
     ) {
-        return updateEntity(modelName, modelVersion, id, entity);
+        return updateEntity(id, entity);
+    }
+
+    @Override
+    public CompletableFuture<List<EntityTransactionResponse>> updateAll(@NotNull final Collection<Object> entities) {
+        return updateEntities(entities);
     }
 
     @Override
@@ -292,23 +295,48 @@ public class CyodaRepository implements CrudRepository {
     }
 
     private CompletableFuture<EntityTransactionResponse> updateEntity(
-            @NotNull final String modelName,
-            final int modelVersion,
             @NotNull final UUID id,
             @NotNull final JsonNode entity
     ) {
         return sendAndGet(
                 cloudEventsServiceBlockingStub::entityManage,
                 new EntityUpdateRequest().withId(generateEventId()).withDataFormat(DataFormat.JSON).withPayload(
-                        new EntityUpdatePayload().withEntityId(id).withData(entity).withTransition("update")),
+                        new EntityUpdatePayload().withEntityId(id).withData(entity).withTransition(UPDATE_TRANSITION)),
                 EntityTransactionResponse.class
         );
+    }
+
+    private CompletableFuture<List<EntityTransactionResponse>> updateEntities(
+            @NotNull final Collection<Object> entities
+    ) {
+        final var entitiesByIds = entities.stream()
+                .map(objectMapper::valueToTree)
+                .map(entity -> ((JsonNode) entity))
+                .collect(Collectors.toMap(
+                                entity -> UUID.fromString(entity.get("id").asText()),
+                                entity -> entity
+                        )
+                );
+
+        return sendAndGetCollection(
+                cloudEventsServiceBlockingStub::entityManageCollection,
+                new EntityUpdateCollectionRequest().withId(generateEventId())
+                        .withDataFormat(DataFormat.JSON)
+                        .withPayloads(entitiesByIds.entrySet()
+                                .stream()
+                                .map(entity -> new EntityUpdatePayload().withTransition(UPDATE_TRANSITION)
+                                        .withEntityId(entity.getKey())
+                                        .withData(entity.getValue()))
+                                .toList()),
+                EntityTransactionResponse.class
+        ).thenApply(Stream::toList);
     }
 
     private CompletableFuture<EntityDeleteResponse> deleteEntity(@NotNull final UUID id) {
         return sendAndGet(
                 cloudEventsServiceBlockingStub::entityManage,
-                new EntityDeleteRequest().withId(generateEventId()).withEntityId(id), EntityDeleteResponse.class
+                new EntityDeleteRequest().withId(generateEventId()).withEntityId(id),
+                EntityDeleteResponse.class
         );
     }
 
@@ -321,8 +349,7 @@ public class CyodaRepository implements CrudRepository {
                 new EntityDeleteAllRequest().withId(generateEventId())
                         .withModel(new ModelSpec().withName(modelName).withVersion(modelVersion)),
                 EntityDeleteAllResponse.class
-        )
-                .thenApply(events -> events.map(EntityDeleteAllResponse::getNumDeleted).reduce(0, (a, b) -> a + b));
+        ).thenApply(events -> events.map(EntityDeleteAllResponse::getNumDeleted).reduce(0, Integer::sum));
     }
 
     private static final int SNAPSHOT_CREATION_AWAIT_LIMIT_MS = 10_000;

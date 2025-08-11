@@ -7,6 +7,7 @@ import com.java_template.common.repository.dto.Meta;
 
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -33,8 +34,6 @@ public interface CrudRepository {
     CompletableFuture<ObjectNode> findAllByKey(Meta meta, List<Object> keys);
 
     CompletableFuture<ObjectNode> findByKey(Meta meta, Object key);
-
-    CompletableFuture<ObjectNode> updateAll(Meta meta, List<Object> entities);
 
     CompletableFuture<EntityDeleteResponse> deleteById(@NotNull UUID id);
 
@@ -74,10 +73,7 @@ public interface CrudRepository {
             @NotNull JsonNode entity
     );
 
-    CompletableFuture<EntityTransactionResponse> update(
-            @NotNull String modelName,
-            int modelVersion,
-            @NotNull UUID id,
-            @NotNull JsonNode entity
-    );
+    CompletableFuture<EntityTransactionResponse> update(@NotNull UUID id, @NotNull JsonNode entity);
+
+    CompletableFuture<List<EntityTransactionResponse>> updateAll(@NotNull Collection<Object> entities);
 }

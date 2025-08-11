@@ -17,6 +17,13 @@ public interface EntityService {
     // Retrieve a single item based on its ID.
     CompletableFuture<ObjectNode> getItem(@NotNull UUID entityId);
 
+    // Retrieve an item based on a condition.
+    CompletableFuture<Optional<ObjectNode>> getFirstItemByCondition(
+            @NotNull String modelName,
+            @NotNull Integer modelVersion,
+            @NotNull Object condition
+    );
+
     // Retrieve multiple items based on the entity model and version.
     CompletableFuture<ArrayNode> getItems(
             @NotNull String modelName,
@@ -24,13 +31,6 @@ public interface EntityService {
             @Nullable Integer pageSize,
             @Nullable Integer pageNumber,
             @Nullable Date pointTime
-    );
-
-    // Retrieve an item based on a condition.
-    CompletableFuture<Optional<ObjectNode>> getFirstItemByCondition(
-            @NotNull String modelName,
-            @NotNull Integer modelVersion,
-            @NotNull Object condition
     );
 
     // Retrieve items based on a condition with option for in-memory search.
@@ -72,12 +72,9 @@ public interface EntityService {
     );
 
     // Update an existing item in the repository.
-    CompletableFuture<UUID> updateItem(
-            @NotNull String modelName,
-            @NotNull Integer modelVersion,
-            @NotNull UUID entityId,
-            @NotNull Object entity
-    );
+    CompletableFuture<UUID> updateItem(@NotNull UUID entityId, @NotNull Object entity);
+
+    CompletableFuture<List<UUID>> updateItems(@NotNull Object entities);
 
     // Delete an item by ID.
     CompletableFuture<UUID> deleteItem(@NotNull UUID entityId);
