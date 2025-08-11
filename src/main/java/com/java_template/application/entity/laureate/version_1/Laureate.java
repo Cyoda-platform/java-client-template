@@ -1,4 +1,4 @@
-package com.java_template.application.entity.version_1;
+package com.java_template.application.entity.laureate.version_1;
 
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
@@ -38,11 +38,11 @@ public class Laureate implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        // Required fields: laureateId, firstname, surname, year, category
-        return laureateId != null &&
-               firstname != null && !firstname.isBlank() &&
-               surname != null && !surname.isBlank() &&
-               year != null && !year.isBlank() &&
-               category != null && !category.isBlank();
+        if (laureateId == null) return false;
+        if (firstname == null || firstname.isBlank()) return false;
+        if (surname == null || surname.isBlank()) return false;
+        if (year == null || year.isBlank()) return false;
+        if (category == null || category.isBlank()) return false;
+        return true;
     }
 }
