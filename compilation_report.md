@@ -2,27 +2,27 @@
 
 ## GitHub Actions Workflow Execution Details
 - Run ID: N/A
-- Status: Workflow triggering failed
+- Status: Failure to trigger workflow
 - Duration: N/A
 
 ## Compilation Status
-- FAILURE (No compilation run found)
+- FAILURE
 
 ## Generated Files
-- None (No compilation run)
+- No files compiled due to workflow trigger failure
 
 ## Error Analysis
-- The workflow failed to trigger properly. The error message was:
-  "Failed to trigger workflow: Error: Workflow triggered but run not found with tracker_id: tracker_1754942487"
-- Due to this, no compilation logs or build results were available for analysis.
+- The GitHub Actions workflow failed to trigger properly.
+- No compilation run was found for the triggered workflow.
+- As a result, no compilation logs or errors were available for analysis.
 
 ## Fixes Applied
-- None (No compilation run to fix)
+- No code fixes were applied since compilation did not occur.
 
 ## Summary
-- No compilation was performed because the GitHub Actions workflow did not start correctly.
+- The compilation process could not proceed due to CI/CD pipeline issues.
 
 ## Next Steps / Recommendations
-- Investigate and resolve the workflow triggering issue in the CI/CD pipeline.
-- Ensure that the workflow runs and completes so that compilation results can be analyzed.
-- Retry the compilation process after fixing the workflow trigger problem.
+- Investigate and resolve the workflow triggering issues in the GitHub Actions pipeline.
+- Ensure that the workflow run is properly detected and logs are available.
+- Rerun the compilation process once the workflow is triggered successfully.
