@@ -1,82 +1,81 @@
-### 1. Entity Definitions
-
-```
-Job:
-- jobName: String (name of the ingestion job)
-- status: String (job lifecycle state: SCHEDULED, INGESTING, SUCCEEDED, FAILED, NOTIFIED_SUBSCRIBERS)
-- createdAt: DateTime (timestamp when the job was created)
-- resultSummary: String (summary of ingestion results or errors)
-
-Laureate:
-- laureateId: Integer (unique ID from data source)
-- firstname: String (laureate first name)
-- surname: String (laureate surname)
-- gender: String (gender of laureate)
-- born: Date (birthdate)
-- died: Date (death date if applicable, nullable)
-- borncountry: String (country of birth)
-- borncountrycode: String (ISO country code)
-- borncity: String (city of birth)
-- year: String (year of Nobel Prize award)
-- category: String (award category)
-- motivation: String (award motivation text)
-- affiliationName: String (name of affiliated institution)
-- affiliationCity: String (affiliation city)
-- affiliationCountry: String (affiliation country)
-
-Subscriber:
-- contactType: String (type of contact, e.g., "email" or "webhook")
-- contactValue: String (email address or webhook URL)
-- isActive: Boolean (whether subscriber is active)
-```
+# Functional Requirements
 
 ---
 
-### 2. Process Method Flows
+## 1. Entity Definitions
 
-```
-processJob() Flow:
-1. Job entity is created with status = "SCHEDULED"
-2. Validate job parameters if any (via checkJob criteria if invoked)
-3. Update status to "INGESTING"
-4. Fetch Nobel laureates data from OpenDataSoft API
-5. For each laureate record, create a new Laureate entity (immutable creation)
-6. Upon successful ingestion of all laureates, update Job status to "SUCCEEDED"
-   If errors occur, update status to "FAILED"
-7. Trigger notification to all active Subscribers
-8. Update Job status to "NOTIFIED_SUBSCRIBERS"
-```
+### Job
+- **jobName**: String (name of the ingestion job)
+- **status**: String (job lifecycle state; possible values: `SCHEDULED`, `INGESTING`, `SUCCEEDED`, `FAILED`, `NOTIFIED_SUBSCRIBERS`)
+- **createdAt**: DateTime (timestamp when the job was created)
+- **resultSummary**: String (summary of ingestion results or errors)
 
-```
-processLaureate() Flow:
-1. Validate laureate data fields (via checkLaureate criteria if invoked)
-2. Enrich laureate data (e.g., normalize country codes, calculate age if needed)
-3. Persist laureate entity as immutable record
-4. No further processing unless explicitly triggered
-```
+### Laureate
+- **laureateId**: Integer (unique ID from data source)
+- **firstname**: String (laureate first name)
+- **surname**: String (laureate surname)
+- **gender**: String (gender of laureate)
+- **born**: Date (birthdate)
+- **died**: Date (death date if applicable, nullable)
+- **borncountry**: String (country of birth)
+- **borncountrycode**: String (ISO country code)
+- **borncity**: String (city of birth)
+- **year**: String (year of Nobel Prize award)
+- **category**: String (award category)
+- **motivation**: String (award motivation text)
+- **affiliationName**: String (name of affiliated institution)
+- **affiliationCity**: String (affiliation city)
+- **affiliationCountry**: String (affiliation country)
 
-```
-processSubscriber() Flow:
-1. Validate subscriber contact info (via checkSubscriber criteria if invoked)
-2. Persist subscriber entity
-3. No further automated processing upon subscriber save
-4. Subscribers are used during Job notification stage only
-```
+### Subscriber
+- **contactType**: String (type of contact, e.g., "email" or "webhook")
+- **contactValue**: String (email address or webhook URL)
+- **isActive**: Boolean (whether subscriber is active)
 
 ---
 
-### 3. API Endpoints
+## 2. Process Method Flows
 
-#### Job
+### processJob() Flow
+
+1. Job entity is created with status = `SCHEDULED`.
+2. Validate job parameters if any (via `checkJob` criteria if invoked).
+3. Update status to `INGESTING`.
+4. Fetch Nobel laureates data from OpenDataSoft API.
+5. For each laureate record, create a new Laureate entity (immutable creation).
+6. Upon successful ingestion of all laureates, update Job status to `SUCCEEDED`.
+   - If any errors occur during ingestion, update status to `FAILED`.
+7. Trigger notification to all active Subscribers.
+8. Update Job status to `NOTIFIED_SUBSCRIBERS`.
+
+### processLaureate() Flow
+
+1. Validate laureate data fields (via `checkLaureate` criteria if invoked).
+2. Enrich laureate data (e.g., normalize country codes, calculate age if needed).
+3. Persist laureate entity as immutable record.
+4. No further processing unless explicitly triggered.
+
+### processSubscriber() Flow
+
+1. Validate subscriber contact info (via `checkSubscriber` criteria if invoked).
+2. Persist subscriber entity.
+3. No further automated processing upon subscriber save.
+4. Subscribers are used during Job notification stage only.
+
+---
+
+## 3. API Endpoints
+
+### Job
 
 - **POST /jobs**  
-  Request:  
+  Request:
   ```json
   {
     "jobName": "Ingest Nobel Laureates 2024"
   }
   ```  
-  Response:  
+  Response:
   ```json
   {
     "technicalId": "string-generated-id"
@@ -84,7 +83,7 @@ processSubscriber() Flow:
   ```
 
 - **GET /jobs/{technicalId}**  
-  Response:  
+  Response:
   ```json
   {
     "jobName": "Ingest Nobel Laureates 2024",
@@ -94,10 +93,10 @@ processSubscriber() Flow:
   }
   ```
 
-#### Laureate
+### Laureate
 
 - **POST /laureates** *(optional: can be triggered internally, not exposed if not needed)*  
-  Request:  
+  Request:
   ```json
   {
     "laureateId": 853,
@@ -117,7 +116,7 @@ processSubscriber() Flow:
     "affiliationCountry": "Japan"
   }
   ```  
-  Response:  
+  Response:
   ```json
   {
     "technicalId": "string-generated-id"
@@ -127,10 +126,10 @@ processSubscriber() Flow:
 - **GET /laureates/{technicalId}**  
   Response contains full laureate data as above.
 
-#### Subscriber
+### Subscriber
 
 - **POST /subscribers**  
-  Request:  
+  Request:
   ```json
   {
     "contactType": "email",
@@ -138,7 +137,7 @@ processSubscriber() Flow:
     "isActive": true
   }
   ```  
-  Response:  
+  Response:
   ```json
   {
     "technicalId": "string-generated-id"
@@ -146,7 +145,7 @@ processSubscriber() Flow:
   ```
 
 - **GET /subscribers/{technicalId}**  
-  Response:  
+  Response:
   ```json
   {
     "contactType": "email",
@@ -157,7 +156,9 @@ processSubscriber() Flow:
 
 ---
 
-### 4. Mermaid Diagrams
+## 4. Mermaid Diagrams
+
+### Sequence Diagram
 
 ```mermaid
 sequenceDiagram
@@ -183,6 +184,8 @@ sequenceDiagram
     JobEntity->>JobEntity: update status to NOTIFIED_SUBSCRIBERS
     API->>Client: Return technicalId
 ```
+
+### State Diagram
 
 ```mermaid
 stateDiagram-v2
