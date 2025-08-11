@@ -32,7 +32,6 @@ public class Job implements CyodaEntity {
         if (jobName == null || jobName.isBlank()) return false;
         if (status == null || status.isBlank()) return false;
         if (scheduledAt == null || scheduledAt.isBlank()) return false;
-        // startedAt, finishedAt, resultSummary can be null or blank during lifecycle
         return true;
     }
 }
