@@ -105,9 +105,8 @@ class ConnectionManager implements EventSender {
             final CloudEvent event
     ) {
         eventTracker.trackEventSent(event);
-        log.debug("Cached sent event with ID: {}", event.getId());
-
         streamObserver.onNext(event);
+        log.debug("Sent event '{}':'{}'", event.getType(), event.getId());
     }
 
     private void requestReconnection() {

@@ -91,9 +91,9 @@ class GrpcConnectionMonitor implements EventTracker, ConnectionStateTracker {
 
     @Override
     public void trackEventSent(final CloudEvent cloudEvent) {
-        logger.debug("Sent event type {} id {}", cloudEvent.getType(), cloudEvent.getId());
         if (EVENT_TYPES_TO_IGNORE.stream().noneMatch(eventType -> eventType.equals(cloudEvent.getType()))) {
             sentEventsCache.put(cloudEvent.getId(), cloudEvent);
+            logger.debug("Cached sent event '{}':'{}'", cloudEvent.getType(), cloudEvent.getId());
             broadcastMonitoringEvent(
                     new EventSent(cloudEvent.getId(), cloudEvent.getType())
             );
@@ -118,11 +118,9 @@ class GrpcConnectionMonitor implements EventTracker, ConnectionStateTracker {
                             success ? "ACK" : "NACK",
                             estimatedSize
                     );
-                } else {
-                    logger.warn("Event with Id: {} not found in cache", sourceEventId);
                 }
             } else {
-                logger.debug("No event for {} with id {}", success ? "ACK" : "NACK", sourceEventId);
+                logger.debug("Event '{}' for received '{}' is not found", sourceEventId, success ? "ACK" : "NACK");
             }
         } else {
             logger.warn(
@@ -143,7 +141,6 @@ class GrpcConnectionMonitor implements EventTracker, ConnectionStateTracker {
 
     @Override
     public void trackGreetReceived() {
-//        sentEventsCache.invalidate();
         trackObserverStateChange(ObserverState.READY);
     }
 

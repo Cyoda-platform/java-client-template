@@ -70,7 +70,7 @@ class CyodaCalculationMemberClient implements EventHandler {
                     sendEvent(response);
                 } else {
                     log.debug(
-                            "No response for the event of type '{}' with id '{}'",
+                            "Nothing to respond for event '{}':'{}'",
                             cloudEventType,
                             cloudEvent.getId()
                     );
