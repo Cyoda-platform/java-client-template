@@ -1,44 +1,45 @@
-### 1. Entity Definitions
-
-```
-Job:
-- jobName: String (Name/identifier of the ingestion job)
-- status: String (State of the job, e.g., PENDING, INGESTING, SUCCEEDED, FAILED, NOTIFIED_SUBSCRIBERS)
-- scheduledTime: String (ISO 8601 timestamp when the job was scheduled)
-- startedTime: String (ISO 8601 timestamp when ingestion started)
-- finishedTime: String (ISO 8601 timestamp when ingestion finished)
-- errorMessage: String (Error details if ingestion or notification failed)
-
-Laureate:
-- laureateId: Integer (Unique identifier from source dataset)
-- firstname: String (Laureate's first name)
-- surname: String (Laureate's last name)
-- gender: String (Gender of the laureate)
-- born: String (ISO 8601 date of birth)
-- died: String (ISO 8601 date of death or null)
-- borncountry: String (Country where laureate was born)
-- borncountrycode: String (Country code of birth country)
-- borncity: String (Birth city)
-- year: String (Year laureate received the prize)
-- category: String (Prize category)
-- motivation: String (Reason for award)
-- affiliationName: String (Affiliation institution name)
-- affiliationCity: String (Affiliation city)
-- affiliationCountry: String (Affiliation country)
-
-Subscriber:
-- contactType: String (Type of contact, e.g., email, webhook)
-- contactValue: String (Email address or webhook URL)
-- active: Boolean (Indicates if subscriber is active for notifications)
-- subscriptionPreferences: String (Optional filter criteria, e.g., categories or years)
-```
+# Functional Requirements for Nobel Laureates Data Ingestion System
 
 ---
 
-### 2. Process Method Flows
+## 1. Entity Definitions
 
-```
-processJob() Flow:
+### Job
+- `jobName`: String (Name/identifier of the ingestion job)
+- `status`: String (State of the job, e.g., PENDING, INGESTING, SUCCEEDED, FAILED, NOTIFIED_SUBSCRIBERS)
+- `scheduledTime`: String (ISO 8601 timestamp when the job was scheduled)
+- `startedTime`: String (ISO 8601 timestamp when ingestion started)
+- `finishedTime`: String (ISO 8601 timestamp when ingestion finished)
+- `errorMessage`: String (Error details if ingestion or notification failed)
+
+### Laureate
+- `laureateId`: Integer (Unique identifier from source dataset)
+- `firstname`: String (Laureate's first name)
+- `surname`: String (Laureate's last name)
+- `gender`: String (Gender of the laureate)
+- `born`: String (ISO 8601 date of birth)
+- `died`: String (ISO 8601 date of death or null)
+- `borncountry`: String (Country where laureate was born)
+- `borncountrycode`: String (Country code of birth country)
+- `borncity`: String (Birth city)
+- `year`: String (Year laureate received the prize)
+- `category`: String (Prize category)
+- `motivation`: String (Reason for award)
+- `affiliationName`: String (Affiliation institution name)
+- `affiliationCity`: String (Affiliation city)
+- `affiliationCountry`: String (Affiliation country)
+
+### Subscriber
+- `contactType`: String (Type of contact, e.g., email, webhook)
+- `contactValue`: String (Email address or webhook URL)
+- `active`: Boolean (Indicates if subscriber is active for notifications)
+- `subscriptionPreferences`: String (Optional filter criteria, e.g., categories or years)
+
+---
+
+## 2. Process Method Flows
+
+### processJob() Flow
 1. Initial State: Job created with status = PENDING
 2. Transition status to INGESTING
 3. Fetch Nobel laureates data from OpenDataSoft API
@@ -50,24 +51,22 @@ processJob() Flow:
 7. Trigger notification to all active Subscribers by creating notification events/entities
 8. Update Job status to NOTIFIED_SUBSCRIBERS when all notifications are sent
 
-processLaureate() Flow:
+### processLaureate() Flow
 1. Validate laureate fields (trigger checkLaureateValidations if explicitly requested)
 2. Enrich data (e.g., normalize country codes, calculate derived fields)
 3. Persist laureate entity immutably
 4. No update/delete operations by default
 
-processSubscriber() Flow:
+### processSubscriber() Flow
 1. On subscriber creation, validate contact info if requested
 2. Store subscriber information immutably
 3. Not involved in orchestration, listens passively for notifications
-```
 
 ---
 
-### 3. API Endpoints Design
+## 3. API Endpoints Design
 
-**Job API**
-
+### Job API
 - `POST /jobs`
   - Request: Create new ingestion job (triggers processJob)
   - Request JSON:
@@ -97,8 +96,7 @@ processSubscriber() Flow:
     }
     ```
 
-**Laureate API**
-
+### Laureate API
 - `GET /laureates/{technicalId}`
   - Response JSON:
     ```json
@@ -125,8 +123,7 @@ processSubscriber() Flow:
   - Query params example: `?year=2010&category=Chemistry`
   - Response: List of laureate objects as above
 
-**Subscriber API**
-
+### Subscriber API
 - `POST /subscribers`
   - Request JSON:
     ```json
@@ -157,7 +154,7 @@ processSubscriber() Flow:
 
 ---
 
-### 4. Visual Representation
+## 4. Visual Representation
 
 ```mermaid
 sequenceDiagram
