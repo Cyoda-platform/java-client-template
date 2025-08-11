@@ -3,8 +3,11 @@ package com.java_template.application.controller;
 import static com.java_template.common.config.Config.*;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
+
 import com.java_template.common.service.EntityService;
+import com.java_template.application.entity.version_1.Job;
+import com.java_template.application.entity.version_1.Laureate;
+import com.java_template.application.entity.version_1.Subscriber;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,15 +34,13 @@ public class Controller {
         this.entityService = entityService;
     }
 
-    // POST /jobs - create Job with minimal input (jobName)
+    // POST /jobs - create Job entity with jobName only
     @PostMapping("/jobs")
     public ResponseEntity<?> createJob(@RequestBody JobCreateRequest request) {
         try {
-            // Prepare Job entity data JSON node
             ObjectNode jobNode = objectMapper.createObjectNode();
             jobNode.put("jobName", request.getJobName());
 
-            // Save job entity with EntityService
             CompletableFuture<UUID> idFuture = entityService.addItem(
                 Job.ENTITY_NAME,
                 String.valueOf(Job.ENTITY_VERSION),
@@ -142,7 +143,7 @@ public class Controller {
         }
     }
 
-    // POST /subscribers - create Subscriber
+    // POST /subscribers - create Subscriber entity with contactType and contactDetails
     @PostMapping("/subscribers")
     public ResponseEntity<?> createSubscriber(@RequestBody SubscriberCreateRequest request) {
         try {
@@ -231,23 +232,4 @@ public class Controller {
     public static class TechnicalIdResponse {
         private final String technicalId;
     }
-
-    // Placeholder references to entities with correct versioned package usage:
-    // These should be imported from the actual versioned entity packages.
-
-    private static class Job {
-        public static final String ENTITY_NAME = "Job";
-        public static final int ENTITY_VERSION = 1;
-    }
-
-    private static class Laureate {
-        public static final String ENTITY_NAME = "Laureate";
-        public static final int ENTITY_VERSION = 1;
-    }
-
-    private static class Subscriber {
-        public static final String ENTITY_NAME = "Subscriber";
-        public static final int ENTITY_VERSION = 1;
-    }
-
 }
