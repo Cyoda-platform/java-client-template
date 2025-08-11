@@ -1,0 +1,81 @@
+{
+  "version": "1.0",
+  "name": "Job Workflow",
+  "desc": "Workflow for the Job entity managing ingestion job states.",
+  "initialState": "pending",
+  "active": true,
+  "states": {
+    "pending": {
+      "transitions": [
+        {
+          "name": "start_ingestion",
+          "next": "ingesting",
+          "manual": false
+        }
+      ]
+    },
+    "ingesting": {
+      "transitions": [
+        {
+          "name": "ingestion_succeeded",
+          "next": "succeeded",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ProcessJob",
+              "executionMode": "SYNC",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          ]
+        },
+        {
+          "name": "ingestion_failed",
+          "next": "failed",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ProcessJob",
+              "executionMode": "SYNC",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          ]
+        }
+      ]
+    },
+    "succeeded": {
+      "transitions": [
+        {
+          "name": "notify_subscribers",
+          "next": "notified_subscribers",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotifySubscribers",
+              "executionMode": "SYNC",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          ]
+        }
+      ]
+    },
+    "failed": {
+      "transitions": [
+        {
+          "name": "notify_subscribers",
+          "next": "notified_subscribers",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotifySubscribers",
+              "executionMode": "SYNC",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          ]
+        }
+      ]
+    },
+    "notified_subscribers": {
+      "transitions": []
+    }
+  }
+}
