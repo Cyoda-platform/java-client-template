@@ -1,0 +1,44 @@
+{
+  "version": "1.0",
+  "name": "Laureate Workflow",
+  "desc": "Workflow for Laureate entity validation and enrichment",
+  "initialState": "initial_validation",
+  "active": true,
+  "states": {
+    "initial_validation": {
+      "transitions": [
+        {
+          "name": "validate_laureate",
+          "next": "enrich_data",
+          "manual": false,
+          "processors": [
+            {
+              "name": "LaureateValidator",
+              "executionMode": "SYNC",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          ]
+        }
+      ]
+    },
+    "enrich_data": {
+      "transitions": [
+        {
+          "name": "calculate_age_at_award",
+          "next": "persist_laureate",
+          "manual": false,
+          "processors": [
+            {
+              "name": "LaureateEnricher",
+              "executionMode": "SYNC",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          ]
+        }
+      ]
+    },
+    "persist_laureate": {
+      "transitions": []
+    }
+  }
+}
