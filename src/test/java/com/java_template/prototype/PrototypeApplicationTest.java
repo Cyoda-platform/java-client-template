@@ -1,11 +1,16 @@
 package com.java_template.prototype;
 
+import com.java_template.prototype.config.MockAuthenticationConfig;
+import com.java_template.prototype.config.MockGrpcConfig;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.condition.EnabledIf;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.FilterType;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.boot.autoconfigure.security.oauth2.client.OAuth2ClientAutoConfiguration;
 
@@ -19,9 +24,9 @@ import org.springframework.boot.autoconfigure.security.oauth2.client.OAuth2Clien
  * <p>
  * Access via:
  * <ul>
- * <li>Swagger UI: <a href="http://localhost:8080/swagger-ui/index.html">http://localhost:8080/swagger-ui/index.html</a></li>
- * <li>API Docs: <a href="http://localhost:8080/v3/api-docs">http://localhost:8080/v3/api-docs</a></li>
- * <li>Base URL: <a href="http://localhost:8080">http://localhost:8080</a></li>
+ * <li>Swagger UI: <a href="http://localhost:8081/swagger-ui/index.html">http://localhost:8081/swagger-ui/index.html</a></li>
+ * <li>API Docs: <a href="http://localhost:8081/v3/api-docs">http://localhost:8081/v3/api-docs</a></li>
+ * <li>Base URL: <a href="http://localhost:8081">http://localhost:8081</a></li>
  * </ul>
  * <p>
  * Note: This test is disabled by default to prevent it from running during normal test execution.
@@ -32,26 +37,28 @@ import org.springframework.boot.autoconfigure.security.oauth2.client.OAuth2Clien
     webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT
 )
 @TestPropertySource(properties = {
-    "server.port=8080",
+    "server.port=8081",
     "logging.level.com.java_template.prototype=DEBUG",
-    "spring.profiles.active=prototype-test"
+    "prototype.enabled=true",
+    "spring.profiles.active=prototype"
 })
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class PrototypeApplicationTest {
 
-    @SuppressWarnings("SpringComponentScan")  // entity packages shows up in concrete implementations of this template
     @Configuration
-    @ComponentScan(basePackages = {
-        "com.java_template.prototype",
-        "com.java_template.application.entity"
-    })
-    @org.springframework.boot.autoconfigure.EnableAutoConfiguration(exclude = {
+    @ComponentScan(
+            basePackages = {
+                    "com.java_template.prototype",
+                    "com.java_template.application",
+                    "com.java_template.common"
+            },
+            excludeFilters = @ComponentScan.Filter(type = FilterType.REGEX, pattern = "com.java_template.common.grpc.*|com.java_template.common.auth.*|com.java_template.common.service.*")
+    )
+    @EnableAutoConfiguration(exclude = {
         OAuth2ClientAutoConfiguration.class
     })
+    @Import({MockAuthenticationConfig.class, MockGrpcConfig.class})
     static class PrototypeConfig {
-        // This configuration only loads prototype and entity packages
-        // All common module beans are excluded
-        // Entities can still use common module interfaces - that's fine
     }
 
     /**
@@ -66,9 +73,9 @@ public class PrototypeApplicationTest {
     @EnabledIf("isPrototypeEnabled")
     void runPrototypeApplication() throws InterruptedException {
         System.out.println("🚀 Prototype Application Started!");
-        System.out.println("📍 Swagger UI: http://localhost:8080/swagger-ui/index.html");
-        System.out.println("📍 API Docs: http://localhost:8080/v3/api-docs");
-        System.out.println("📍 Base URL: http://localhost:8080");
+        System.out.println("📍 Swagger UI: http://localhost:8081/swagger-ui/index.html");
+        System.out.println("📍 API Docs: http://localhost:8081/v3/api-docs");
+        System.out.println("📍 Base URL: http://localhost:8081");
         System.out.println("🛑 Press Ctrl+C to stop");
 
         // Keep the application running indefinitely
