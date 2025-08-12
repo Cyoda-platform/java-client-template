@@ -26,6 +26,8 @@ import org.cyoda.cloud.api.event.entity.EntityDeleteAllResponse;
 import org.cyoda.cloud.api.event.entity.EntityDeleteRequest;
 import org.cyoda.cloud.api.event.entity.EntityDeleteResponse;
 import org.cyoda.cloud.api.event.entity.EntityTransactionResponse;
+import org.cyoda.cloud.api.event.entity.EntityTransitionRequest;
+import org.cyoda.cloud.api.event.entity.EntityTransitionResponse;
 import org.cyoda.cloud.api.event.entity.EntityUpdateCollectionRequest;
 import org.cyoda.cloud.api.event.entity.EntityUpdatePayload;
 import org.cyoda.cloud.api.event.entity.EntityUpdateRequest;
@@ -111,12 +113,36 @@ public class CyodaRepository implements CrudRepository {
     }
 
     @Override
+    public CompletableFuture<EntityTransitionResponse> applyTransition(
+            @NotNull final UUID entityId,
+            @NotNull final String transitionName
+    ) {
+        return sendAndGet(
+                cloudEventsServiceBlockingStub::entityManage,
+                new EntityTransitionRequest().withId(generateEventId())
+                        .withEntityId(entityId)
+                        .withTransition(transitionName),
+                EntityTransitionResponse.class
+        );
+    }
+
+    @Override
     public CompletableFuture<EntityTransactionResponse> update(
             @NotNull final UUID id,
             @NotNull final JsonNode entity,
             @NotNull final String transition
     ) {
-        return updateEntity(id, entity, transition);
+        return sendAndGet(
+                cloudEventsServiceBlockingStub::entityManage,
+                new EntityUpdateRequest().withId(generateEventId())
+                        .withDataFormat(GRPC_COMMUNICATION_DATA_FORMAT)
+                        .withPayload(
+                                new EntityUpdatePayload().withEntityId(id)
+                                        .withData(entity)
+                                        .withTransition(transition)
+                        ),
+                EntityTransactionResponse.class
+        );
     }
 
     @Override
@@ -124,7 +150,27 @@ public class CyodaRepository implements CrudRepository {
             @NotNull final Collection<Object> entities,
             @NotNull final String transition
     ) {
-        return updateEntities(entities, transition);
+        final var entitiesByIds = entities.stream()
+                .map(objectMapper::valueToTree)
+                .map(entity -> ((JsonNode) entity))
+                .collect(Collectors.toMap(
+                                entity -> UUID.fromString(entity.get("id").asText()),
+                                entity -> entity
+                        )
+                );
+
+        return sendAndGetCollection(
+                cloudEventsServiceBlockingStub::entityManageCollection,
+                new EntityUpdateCollectionRequest().withId(generateEventId())
+                        .withDataFormat(DataFormat.JSON)
+                        .withPayloads(entitiesByIds.entrySet()
+                                .stream()
+                                .map(entity -> new EntityUpdatePayload().withTransition(transition)
+                                        .withEntityId(entity.getKey())
+                                        .withData(entity.getValue()))
+                                .toList()),
+                EntityTransactionResponse.class
+        ).thenApply(Stream::toList);
     }
 
     @Override
@@ -248,56 +294,11 @@ public class CyodaRepository implements CrudRepository {
                 new EntityCreateRequest().withId(generateEventId())
                         .withDataFormat(GRPC_COMMUNICATION_DATA_FORMAT)
                         .withPayload(
-                                new EntityCreatePayload()
+                                new EntityCreatePayload().withData(entity)
                                         .withModel(new ModelSpec().withName(modelName).withVersion(modelVersion))
-                                        .withData(entity)),
-                EntityTransactionResponse.class
-        );
-    }
-
-    private CompletableFuture<EntityTransactionResponse> updateEntity(
-            @NotNull final UUID id,
-            @NotNull final JsonNode entity,
-            @NotNull final String transition
-    ) {
-        return sendAndGet(
-                cloudEventsServiceBlockingStub::entityManage,
-                new EntityUpdateRequest().withId(generateEventId())
-                        .withDataFormat(GRPC_COMMUNICATION_DATA_FORMAT)
-                        .withPayload(
-                                new EntityUpdatePayload().withEntityId(id)
-                                        .withData(entity)
-                                        .withTransition(transition)
                         ),
                 EntityTransactionResponse.class
         );
-    }
-
-    private CompletableFuture<List<EntityTransactionResponse>> updateEntities(
-            @NotNull final Collection<Object> entities,
-            @NotNull final String transition
-    ) {
-        final var entitiesByIds = entities.stream()
-                .map(objectMapper::valueToTree)
-                .map(entity -> ((JsonNode) entity))
-                .collect(Collectors.toMap(
-                                entity -> UUID.fromString(entity.get("id").asText()),
-                                entity -> entity
-                        )
-                );
-
-        return sendAndGetCollection(
-                cloudEventsServiceBlockingStub::entityManageCollection,
-                new EntityUpdateCollectionRequest().withId(generateEventId())
-                        .withDataFormat(DataFormat.JSON)
-                        .withPayloads(entitiesByIds.entrySet()
-                                .stream()
-                                .map(entity -> new EntityUpdatePayload().withTransition(transition)
-                                        .withEntityId(entity.getKey())
-                                        .withData(entity.getValue()))
-                                .toList()),
-                EntityTransactionResponse.class
-        ).thenApply(Stream::toList);
     }
 
     private CompletableFuture<EntityDeleteResponse> deleteEntity(@NotNull final UUID id) {

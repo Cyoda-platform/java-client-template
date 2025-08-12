@@ -18,6 +18,7 @@ import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 import org.cyoda.cloud.api.event.entity.EntityDeleteResponse;
 import org.cyoda.cloud.api.event.entity.EntityTransactionInfo;
 import org.cyoda.cloud.api.event.entity.EntityTransactionResponse;
+import org.cyoda.cloud.api.event.entity.EntityTransitionResponse;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -211,6 +212,15 @@ public class EntityServiceImpl implements EntityService {
                         .flatMap(Collection::stream)
                         .toList()
                 );
+    }
+
+    @Override
+    public CompletableFuture<List<String>> applyTransition(
+            @NotNull final UUID entityId,
+            @NotNull final String transitionName
+    ) {
+        return repository.applyTransition(entityId, transitionName)
+                .thenApply(EntityTransitionResponse::getAvailableTransitions);
     }
 
     @Override

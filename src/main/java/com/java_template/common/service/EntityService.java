@@ -76,6 +76,8 @@ public interface EntityService {
 
     CompletableFuture<List<UUID>> updateItems(@NotNull Object entities);
 
+    CompletableFuture<List<String>> applyTransition(@NotNull UUID entityId, @NotNull String transitionName);
+
     // Delete an item by ID.
     CompletableFuture<UUID> deleteItem(@NotNull UUID entityId);
 

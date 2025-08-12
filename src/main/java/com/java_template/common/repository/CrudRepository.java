@@ -16,6 +16,7 @@ import java.util.concurrent.CompletableFuture;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 import org.cyoda.cloud.api.event.entity.EntityDeleteResponse;
 import org.cyoda.cloud.api.event.entity.EntityTransactionResponse;
+import org.cyoda.cloud.api.event.entity.EntityTransitionResponse;
 
 public interface CrudRepository {
 
@@ -34,7 +35,7 @@ public interface CrudRepository {
             @Nullable Date pointInTime
     );
 
-    CompletableFuture<ObjectNode> findById(UUID id);
+    CompletableFuture<ObjectNode> findById(@NotNull UUID id);
 
     CompletableFuture<ArrayNode> findAllByCriteria(
             @NotNull String modelName,
@@ -67,4 +68,6 @@ public interface CrudRepository {
             @NotNull Collection<Object> entities,
             @NotNull String transition
     );
+
+    CompletableFuture<EntityTransitionResponse> applyTransition(@NotNull UUID entityId, @NotNull String transitionName);
 }
