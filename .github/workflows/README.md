@@ -26,7 +26,8 @@ curl -X POST \
     "ref": "main",
     "inputs": {
       "branch": "feature-branch-name",
-      "build_type": "standard"
+      "build_type": "standard",
+      "tracker_id": "unique-tracker-id-123"
     }
   }'
 ```
