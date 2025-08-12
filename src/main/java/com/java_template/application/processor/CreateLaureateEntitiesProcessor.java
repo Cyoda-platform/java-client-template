@@ -15,6 +15,11 @@ import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.concurrent.CompletableFuture;
+
+import static com.java_template.common.config.Config.*;
+import com.java_template.common.service.EntityService;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Component
 public class CreateLaureateEntitiesProcessor implements CyodaProcessor {
@@ -22,9 +27,12 @@ public class CreateLaureateEntitiesProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(CreateLaureateEntitiesProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final EntityService entityService;
 
-    public CreateLaureateEntitiesProcessor(SerializerFactory serializerFactory) {
+    @Autowired
+    public CreateLaureateEntitiesProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
     }
 
     @Override
@@ -93,8 +101,20 @@ public class CreateLaureateEntitiesProcessor implements CyodaProcessor {
                 laureate.setAffiliationCity(laureateNode.path("city").asText(null));
                 laureate.setAffiliationCountry(laureateNode.path("country").asText(null));
 
-                // Save laureate entity - assuming persistence is handled by workflow/event system
-                // Here we would call some repository or event producer if available
+                // Persist laureate entity asynchronously
+                CompletableFuture<UUID> idFuture = entityService.addItem(
+                    Laureate.ENTITY_NAME,
+                    String.valueOf(Laureate.ENTITY_VERSION),
+                    laureate
+                );
+                idFuture.whenComplete((id, ex) -> {
+                    if (ex != null) {
+                        logger.error("Failed to persist Laureate entity: {} {}", laureate.getFirstname(), laureate.getSurname(), ex);
+                    } else {
+                        logger.info("Persisted Laureate entity with ID: {}", id);
+                    }
+                });
+
                 logger.info("Created Laureate entity: {} {}", laureate.getFirstname(), laureate.getSurname());
             }
 
