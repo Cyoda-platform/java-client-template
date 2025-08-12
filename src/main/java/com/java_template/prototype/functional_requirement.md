@@ -1,6 +1,10 @@
-### 1. Entity Definitions
+# Functional Requirements
 
-```
+---
+
+## 1. Entity Definitions
+
+```plaintext
 Job:
 - jobName: String (name or description of the data ingestion job)
 - status: String (workflow state: SCHEDULED, INGESTING, SUCCEEDED, FAILED, NOTIFIED_SUBSCRIBERS)
@@ -36,10 +40,10 @@ Subscriber:
 
 ---
 
-### 2. Process Method Flows
+## 2. Process Method Flows
 
-```
-processJob() Flow:
+### processJob() Flow:
+
 1. Create Job with status=SCHEDULED
 2. Validate job parameters
 3. Set status=INGESTING
@@ -48,26 +52,23 @@ processJob() Flow:
 6. Set status=SUCCEEDED or FAILED
 7. Notify active Subscribers
 8. Set status=NOTIFIED_SUBSCRIBERS
-```
 
-```
-processLaureate() Flow:
+### processLaureate() Flow:
+
 1. Create Laureate entity
 2. Validate required fields (firstname, surname, year, category)
 3. Enrich/normalize data
 4. Persist laureate data
-```
 
-```
-processSubscriber() Flow:
+### processSubscriber() Flow:
+
 1. Create Subscriber entity
 2. Validate contactDetails based on contactType
 3. Persist subscriber data
-```
 
 ---
 
-### 3. API Endpoints
+## 3. API Endpoints
 
 | Entity    | Endpoint                      | Description                                  | Returns           |
 |-----------|-------------------------------|----------------------------------------------|-------------------|
@@ -79,9 +80,9 @@ processSubscriber() Flow:
 
 ---
 
-### 4. Request/Response Formats
+## 4. Request/Response Formats
 
-#### POST /jobs
+### POST /jobs
 
 Request JSON:
 ```json
@@ -100,7 +101,7 @@ Response JSON:
 
 ---
 
-#### GET /jobs/{technicalId}
+### GET /jobs/{technicalId}
 
 Response JSON:
 ```json
@@ -116,7 +117,7 @@ Response JSON:
 
 ---
 
-#### GET /laureates/{technicalId}
+### GET /laureates/{technicalId}
 
 Response JSON:
 ```json
@@ -141,7 +142,7 @@ Response JSON:
 
 ---
 
-#### POST /subscribers
+### POST /subscribers
 
 Request JSON:
 ```json
@@ -162,7 +163,7 @@ Response JSON:
 
 ---
 
-#### GET /subscribers/{technicalId}
+### GET /subscribers/{technicalId}
 
 Response JSON:
 ```json
@@ -177,7 +178,7 @@ Response JSON:
 
 ---
 
-### 5. Mermaid Diagrams
+## 5. Mermaid Diagrams
 
 ```mermaid
 sequenceDiagram
