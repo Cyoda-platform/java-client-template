@@ -1,9 +1,14 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.job.version_1.Job;
 import com.java_template.application.entity.subscriber.version_1.Subscriber;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.service.EntityService;
+import com.java_template.common.util.Condition;
+import com.java_template.common.util.SearchConditionRequest;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -12,6 +17,8 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
+import java.util.ArrayList;
 import java.util.List;
 
 @Component
@@ -20,9 +27,12 @@ public class NotifySubscribersProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(NotifySubscribersProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final EntityService entityService;
 
-    public NotifySubscribersProcessor(SerializerFactory serializerFactory) {
+    @Autowired
+    public NotifySubscribersProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
     }
 
     @Override
@@ -48,23 +58,45 @@ public class NotifySubscribersProcessor implements CyodaProcessor {
 
     private Job notifySubscribers(ProcessorSerializer.ProcessorEntityExecutionContext<Job> context) {
         Job job = context.entity();
-        // Simulate fetching active subscribers and notification
         logger.info("Fetching active subscribers for notification");
 
-        // Here, we would query the Subscriber repository to get active subscribers
-        // For demonstration, simulate with dummy list
-        List<Subscriber> activeSubscribers = List.of(); // TODO: Replace with actual query
+        try {
+            // Build search condition: active == "true"
+            SearchConditionRequest condition = SearchConditionRequest.group("AND",
+                Condition.of("$.active", "EQUALS", "true")
+            );
 
-        if (activeSubscribers.isEmpty()) {
-            logger.info("No active subscribers to notify");
-        } else {
-            for (Subscriber subscriber : activeSubscribers) {
-                // Simulate notification logic
-                logger.info("Notifying subscriber: {} via {}", subscriber.getSubscriberId(), subscriber.getContactType());
+            // Query active subscribers
+            ArrayNode activeSubscribersJson = entityService.getItemsByCondition(
+                Subscriber.ENTITY_NAME,
+                String.valueOf(Subscriber.ENTITY_VERSION),
+                condition,
+                true
+            ).get();
+
+            List<Subscriber> activeSubscribers = new ArrayList<>();
+            for (int i = 0; i < activeSubscribersJson.size(); i++) {
+                ObjectNode node = (ObjectNode) activeSubscribersJson.get(i);
+                Subscriber subscriber = serializer.deserialize(node.toString(), Subscriber.class);
+                activeSubscribers.add(subscriber);
             }
-        }
 
-        job.setStatus("NOTIFIED_SUBSCRIBERS");
+            if (activeSubscribers.isEmpty()) {
+                logger.info("No active subscribers to notify");
+            } else {
+                for (Subscriber subscriber : activeSubscribers) {
+                    // Implement notification logic here
+                    logger.info("Notifying subscriber: {} via {}", subscriber.getSubscriberId(), subscriber.getContactType());
+                    // For email, send email; for webhook, POST to URL. Here, simulate only.
+                }
+            }
+
+            job.setStatus("NOTIFIED_SUBSCRIBERS");
+        } catch (Exception e) {
+            logger.error("Error notifying subscribers", e);
+            job.setErrorDetails("Notification error: " + e.getMessage());
+            // We do not change status here to allow retry or manual fix
+        }
         return job;
     }
 }
