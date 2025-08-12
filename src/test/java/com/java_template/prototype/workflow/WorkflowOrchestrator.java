@@ -1,8 +1,11 @@
 package com.java_template.prototype.workflow;
 
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.workflow.CyodaEventContext;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationRequest;
+
+import java.util.function.Consumer;
 
 /**
  * Interface for workflow orchestrators that handle entity lifecycle transitions.
@@ -23,6 +26,19 @@ public interface WorkflowOrchestrator {
                CyodaEventContext<EntityProcessorCalculationRequest> processorContext,
                CyodaEventContext<EntityCriteriaCalculationRequest> criteriaContext,
                String transition);
+
+    /**
+     * Runs the workflow orchestrator with a callback that is invoked after each transition's processors
+     * have executed, providing the updated entity data to allow persistence.
+     * Default implementation delegates to the legacy run() without updates.
+     */
+    default String run(String technicalId,
+               CyodaEventContext<EntityProcessorCalculationRequest> processorContext,
+               CyodaEventContext<EntityCriteriaCalculationRequest> criteriaContext,
+               String transition,
+               Consumer<ObjectNode> onDataUpdated) {
+        return run(technicalId, processorContext, criteriaContext, transition);
+    }
 
     /**
      * Returns the entity model name that this orchestrator supports.

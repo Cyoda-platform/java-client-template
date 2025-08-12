@@ -178,7 +178,7 @@ public class InMemoryEntityService implements EntityService {
         storeEntity(entityModel, entityVersion, technicalId, entityNode);
 
         // Trigger workflow orchestrator
-        triggerWorkflowOrchestrator(entityModel, technicalId, entityNode, "state_initial");
+        triggerWorkflowOrchestrator(entityModel, entityVersion, technicalId, entityNode, "state_initial");
 
         return CompletableFuture.completedFuture(technicalId);
     }
@@ -216,7 +216,7 @@ public class InMemoryEntityService implements EntityService {
                 technicalIds.add(technicalId);
 
                 // Trigger workflow orchestrator for each entity
-                triggerWorkflowOrchestrator(entityModel, technicalId, entityNode, "state_initial");
+                triggerWorkflowOrchestrator(entityModel, entityVersion, technicalId, entityNode, "state_initial");
             }
         } else {
             // Single entity passed as Object
@@ -226,7 +226,7 @@ public class InMemoryEntityService implements EntityService {
             storeEntity(entityModel, entityVersion, technicalId, entityNode);
             technicalIds.add(technicalId);
 
-            triggerWorkflowOrchestrator(entityModel, technicalId, entityNode, "state_initial");
+            triggerWorkflowOrchestrator(entityModel, entityVersion, technicalId, entityNode, "state_initial");
         }
 
         return CompletableFuture.completedFuture(technicalIds);
@@ -276,7 +276,7 @@ public class InMemoryEntityService implements EntityService {
         storeEntity(entityModel, entityVersion, technicalId, entityNode);
 
         // Trigger workflow orchestrator with update transition
-        triggerWorkflowOrchestrator(entityModel, technicalId, entityNode, "entity_updated");
+        triggerWorkflowOrchestrator(entityModel, entityVersion, technicalId, entityNode, "entity_updated");
 
         return CompletableFuture.completedFuture(technicalId);
     }
@@ -388,18 +388,42 @@ public class InMemoryEntityService implements EntityService {
         return versionStorage.remove(technicalId);
     }
 
-    private void triggerWorkflowOrchestrator(String entityModel, UUID technicalId, ObjectNode entityNode, String transition) {
+    private void triggerWorkflowOrchestrator(String entityModel, String entityVersion, UUID technicalId, ObjectNode entityNode, String transition) {
         try {
             if (orchestratorFactory.hasOrchestrator(entityModel)) {
                 WorkflowOrchestrator orchestrator = orchestratorFactory.getOrchestrator(entityModel);
 
-                // Create mock contexts for the orchestrator using the original ObjectNode
-                CyodaEventContext<EntityProcessorCalculationRequest> processorContext =
-                        createMockProcessorContextWithData(technicalId.toString(), entityNode);
-                CyodaEventContext<EntityCriteriaCalculationRequest> criteriaContext =
-                        createMockCriteriaContextWithData(technicalId.toString(), entityNode);
+                // Create single mutable request instances so updated payload propagates across processors/transitions
+                final EntityProcessorCalculationRequest processorRequest = createMockProcessorRequestWithData(technicalId.toString(), entityNode);
+                final EntityCriteriaCalculationRequest criteriaRequest = createMockCriteriaRequestWithData(technicalId.toString(), entityNode);
 
-                String nextTransition = orchestrator.run(technicalId.toString(), processorContext, criteriaContext, transition);
+                CyodaEventContext<EntityProcessorCalculationRequest> processorContext = new CyodaEventContext<>() {
+                    @Override
+                    public CloudEvent getCloudEvent() { return CloudEvent.getDefaultInstance(); }
+                    @Override
+                    public EntityProcessorCalculationRequest getEvent() { return processorRequest; }
+                };
+                CyodaEventContext<EntityCriteriaCalculationRequest> criteriaContext = new CyodaEventContext<>() {
+                    @Override
+                    public CloudEvent getCloudEvent() { return CloudEvent.getDefaultInstance(); }
+                    @Override
+                    public EntityCriteriaCalculationRequest getEvent() { return criteriaRequest; }
+                };
+
+                String nextTransition = orchestrator.run(
+                        technicalId.toString(),
+                        processorContext,
+                        criteriaContext,
+                        transition,
+                        updatedData -> {
+                            // Persist updated data after each transition and propagate to contexts
+                            if (updatedData != null) {
+                                storeEntity(entityModel, entityVersion, technicalId, updatedData);
+                                try { processorRequest.getPayload().setData(updatedData); } catch (Exception ignored) {}
+                                try { criteriaRequest.getPayload().setData(updatedData); } catch (Exception ignored) {}
+                            }
+                        }
+                );
                 logger.info("Workflow orchestrator for {} completed. Next transition: {}",
                         entityModel, nextTransition);
             } else {

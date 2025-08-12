@@ -1,16 +1,20 @@
 package com.java_template.prototype.workflow;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.workflow.OperationFactory;
 import com.java_template.common.workflow.OperationSpecification;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.prototype.workflow.model.*;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
+import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 
@@ -49,6 +53,16 @@ public class GenericWorkflowOrchestrator implements WorkflowOrchestrator {
                      CyodaEventContext<EntityProcessorCalculationRequest> processorContext,
                      CyodaEventContext<EntityCriteriaCalculationRequest> criteriaContext,
                      String transition) {
+        // Delegate to extended run with no-op update callback
+        return run(technicalId, processorContext, criteriaContext, transition, null);
+    }
+
+    @Override
+    public String run(String technicalId,
+                     CyodaEventContext<EntityProcessorCalculationRequest> processorContext,
+                     CyodaEventContext<EntityCriteriaCalculationRequest> criteriaContext,
+                     String transition,
+                     Consumer<ObjectNode> onDataUpdated) {
 
         logger.info("Running GenericWorkflowOrchestrator for entity {} (model: {}) with transition: {}",
                 technicalId, supportedEntityModel, transition);
@@ -60,7 +74,7 @@ public class GenericWorkflowOrchestrator implements WorkflowOrchestrator {
         }
 
         try {
-            return executeWorkflowTransition(workflow, transition, processorContext, criteriaContext);
+            return executeWorkflowTransition(workflow, transition, processorContext, criteriaContext, onDataUpdated);
         } catch (Exception e) {
             logger.error("Error executing workflow transition: {} for entity model: {}", transition, supportedEntityModel, e);
             return "error_state";
@@ -76,7 +90,8 @@ public class GenericWorkflowOrchestrator implements WorkflowOrchestrator {
     private String executeWorkflowTransition(WorkflowDefinition workflow,
                                            String transitionName,
                                            CyodaEventContext<EntityProcessorCalculationRequest> processorContext,
-                                           CyodaEventContext<EntityCriteriaCalculationRequest> criteriaContext) {
+                                           CyodaEventContext<EntityCriteriaCalculationRequest> criteriaContext,
+                                           Consumer<ObjectNode> onDataUpdated) {
 
         String currentState;
 
@@ -93,11 +108,11 @@ public class GenericWorkflowOrchestrator implements WorkflowOrchestrator {
         // Handle specific transition
         else {
             logger.info("Executing specific transition: {}", transitionName);
-            return findAndExecuteTransition(workflow, transitionName, processorContext, criteriaContext);
+            return findAndExecuteTransition(workflow, transitionName, processorContext, criteriaContext, onDataUpdated);
         }
 
         // Execute the workflow from the current state
-        return executeWorkflowFromState(workflow, currentState, processorContext, criteriaContext);
+        return executeWorkflowFromState(workflow, currentState, processorContext, criteriaContext, onDataUpdated);
     }
 
     /**
@@ -106,7 +121,8 @@ public class GenericWorkflowOrchestrator implements WorkflowOrchestrator {
     private String executeWorkflowFromState(WorkflowDefinition workflow,
                                            String currentState,
                                            CyodaEventContext<EntityProcessorCalculationRequest> processorContext,
-                                           CyodaEventContext<EntityCriteriaCalculationRequest> criteriaContext) {
+                                           CyodaEventContext<EntityCriteriaCalculationRequest> criteriaContext,
+                                           Consumer<ObjectNode> onDataUpdated) {
 
         logger.debug("Executing workflow from state: {}", currentState);
 
@@ -130,7 +146,7 @@ public class GenericWorkflowOrchestrator implements WorkflowOrchestrator {
             String nextState = null;
             Transition executedTransition = null;
             for (Transition t : automaticTransitions) {
-                String candidateNext = executeTransition(t, processorContext, criteriaContext);
+                String candidateNext = executeTransition(t, processorContext, criteriaContext, onDataUpdated);
                 if (candidateNext != null) {
                     nextState = candidateNext;
                     executedTransition = t;
@@ -171,7 +187,8 @@ public class GenericWorkflowOrchestrator implements WorkflowOrchestrator {
     private String findAndExecuteTransition(WorkflowDefinition workflow,
                                           String transitionName,
                                           CyodaEventContext<EntityProcessorCalculationRequest> processorContext,
-                                          CyodaEventContext<EntityCriteriaCalculationRequest> criteriaContext) {
+                                          CyodaEventContext<EntityCriteriaCalculationRequest> criteriaContext,
+                                          Consumer<ObjectNode> onDataUpdated) {
 
         // Search all states for the transition
         for (Map.Entry<String, State> stateEntry : workflow.getStates().entrySet()) {
@@ -181,7 +198,7 @@ public class GenericWorkflowOrchestrator implements WorkflowOrchestrator {
             Transition transition = state.getTransition(transitionName);
             if (transition != null) {
                 logger.debug("Found transition {} in state {}", transitionName, stateName);
-                String result = executeTransition(transition, processorContext, criteriaContext);
+                String result = executeTransition(transition, processorContext, criteriaContext, onDataUpdated);
 
                 if (result != null) {
                     // Transition executed successfully
@@ -204,7 +221,8 @@ public class GenericWorkflowOrchestrator implements WorkflowOrchestrator {
      */
     private String executeTransition(Transition transition,
                                    CyodaEventContext<EntityProcessorCalculationRequest> processorContext,
-                                   CyodaEventContext<EntityCriteriaCalculationRequest> criteriaContext) {
+                                   CyodaEventContext<EntityCriteriaCalculationRequest> criteriaContext,
+                                   Consumer<ObjectNode> onDataUpdated) {
 
         // Check criteria if present - only execute transition if criteria matches
         if (transition.hasCriterion()) {
@@ -217,7 +235,20 @@ public class GenericWorkflowOrchestrator implements WorkflowOrchestrator {
 
         // Execute processors if present (only if criteria passed or no criteria)
         if (transition.hasProcessors()) {
-            executeProcessors(transition.getProcessors(), processorContext);
+            ObjectNode updated = executeProcessors(transition.getProcessors(), processorContext);
+            if (updated != null) {
+                // Propagate updated data to criteria context as well for subsequent evaluations
+                try {
+                    if (criteriaContext != null && criteriaContext.getEvent() != null && criteriaContext.getEvent().getPayload() != null) {
+                        criteriaContext.getEvent().getPayload().setData(updated);
+                    }
+                } catch (Exception ignored) {
+                    // best-effort in prototype
+                }
+                if (onDataUpdated != null) {
+                    onDataUpdated.accept(updated);
+                }
+            }
         }
 
         logger.debug("Transition {} executed successfully, moving to state: {}", transition.getName(), transition.getNextState());
@@ -256,11 +287,12 @@ public class GenericWorkflowOrchestrator implements WorkflowOrchestrator {
     }
 
     /**
-     * Executes processors for a transition.
+     * Executes processors for a transition and returns the updated payload data if any processor produced it.
      */
-    private void executeProcessors(java.util.List<ProcessorConfig> processors,
+    private ObjectNode executeProcessors(java.util.List<ProcessorConfig> processors,
                                  CyodaEventContext<EntityProcessorCalculationRequest> processorContext) {
 
+        ObjectNode lastData = null;
         for (ProcessorConfig processorConfig : processors) {
             String processorName = processorConfig.getName();
             logger.debug("Executing processor: {}", processorName);
@@ -274,13 +306,30 @@ public class GenericWorkflowOrchestrator implements WorkflowOrchestrator {
                     modelSpec, processorName, "", "", ""
                 );
 
-                operationFactory.getProcessorForModel(processorSpec).process(processorContext);
+                // Execute
+                EntityProcessorCalculationResponse response = operationFactory.getProcessorForModel(processorSpec).process(processorContext);
+                // Try to read updated payload and propagate into the context for subsequent processors
+                if (response != null && response.getPayload() != null && response.getPayload().getData() instanceof ObjectNode) {
+                    JsonNode data = response.getPayload().getData();
+                    if (data instanceof ObjectNode) {
+                        lastData = (ObjectNode) data;
+                        // Mutate the request payload data for following processors in this transition chain
+                        try {
+                            if (processorContext.getEvent() != null && processorContext.getEvent().getPayload() != null) {
+                                processorContext.getEvent().getPayload().setData(lastData);
+                            }
+                        } catch (Exception ignored) {
+                            // Best-effort in prototype orchestrator; continue regardless
+                        }
+                    }
+                }
                 logger.debug("Successfully executed processor: {}", processorName);
             } catch (Exception e) {
                 logger.error("Error executing processor: {}", processorName, e);
                 // Continue with other processors even if one fails
             }
         }
+        return lastData;
     }
 
     @Override
