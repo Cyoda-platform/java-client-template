@@ -1,0 +1,57 @@
+{
+  "version": "1.0",
+  "name": "Laureate Workflow",
+  "desc": "Workflow for Laureate entity based on ingestion and validation",
+  "initialState": "validating",
+  "active": true,
+  "states": {
+    "validating": {
+      "transitions": [
+        {
+          "name": "validate_laureate",
+          "next": "enriching",
+          "manual": false,
+          "processors": [
+            {
+              "name": "LaureateValidationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "enriching": {
+      "transitions": [
+        {
+          "name": "enrich_data",
+          "next": "storing",
+          "manual": false,
+          "processors": [
+            {
+              "name": "LaureateEnrichmentProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "storing": {
+      "transitions": [
+        {
+          "name": "store_laureate",
+          "next": "completed",
+          "manual": false
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    }
+  }
+}
