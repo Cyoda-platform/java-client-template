@@ -1,6 +1,9 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.job.version_1.Job;
+import com.java_template.application.entity.laureate.version_1.Laureate;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.service.EntityService;
@@ -13,6 +16,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 
@@ -72,41 +79,40 @@ public class JobValidationProcessor implements CyodaProcessor {
     }
 
     private void fetchAndPersistLaureates(Job job) throws Exception {
-        // Use HTTP client to fetch laureates data from OpenDataSoft API
-        java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
-        java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
-            .uri(java.net.URI.create("https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/nobel-prize-laureates/records"))
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+            .uri(URI.create("https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/nobel-prize-laureates/records"))
             .GET()
             .build();
 
-        java.net.http.HttpResponse<String> response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
         if (response.statusCode() != 200) {
             throw new RuntimeException("Failed to fetch laureate data, status code: " + response.statusCode());
         }
 
-        com.fasterxml.jackson.databind.ObjectMapper objectMapper = entityService.getObjectMapper();
-        com.fasterxml.jackson.databind.JsonNode rootNode = objectMapper.readTree(response.body());
-        com.fasterxml.jackson.databind.JsonNode recordsNode = rootNode.path("records");
+        ObjectMapper objectMapper = new ObjectMapper();
+        JsonNode rootNode = objectMapper.readTree(response.body());
+        JsonNode recordsNode = rootNode.path("records");
 
         if (!recordsNode.isArray()) {
             throw new RuntimeException("Invalid laureate data format: 'records' is not an array");
         }
 
         int count = 0;
-        for (com.fasterxml.jackson.databind.JsonNode recordNode : recordsNode) {
-            com.fasterxml.jackson.databind.JsonNode fieldsNode = recordNode.path("fields");
+        for (JsonNode recordNode : recordsNode) {
+            JsonNode fieldsNode = recordNode.path("fields");
             if (fieldsNode.isMissingNode()) {
                 continue;
             }
 
             // Map fieldsNode to Laureate entity
-            com.java_template.application.entity.laureate.version_1.Laureate laureate = objectMapper.treeToValue(fieldsNode, com.java_template.application.entity.laureate.version_1.Laureate.class);
+            Laureate laureate = objectMapper.treeToValue(fieldsNode, Laureate.class);
 
             // Persist laureate entity asynchronously
             CompletableFuture<java.util.UUID> idFuture = entityService.addItem(
-                com.java_template.application.entity.laureate.version_1.Laureate.ENTITY_NAME,
-                String.valueOf(com.java_template.application.entity.laureate.version_1.Laureate.ENTITY_VERSION),
+                Laureate.ENTITY_NAME,
+                String.valueOf(Laureate.ENTITY_VERSION),
                 laureate
             );
             idFuture.get();
