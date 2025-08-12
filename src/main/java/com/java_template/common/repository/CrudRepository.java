@@ -3,7 +3,6 @@ package com.java_template.common.repository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.java_template.common.repository.dto.Meta;
 
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;

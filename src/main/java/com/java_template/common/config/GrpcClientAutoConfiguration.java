@@ -2,12 +2,12 @@ package com.java_template.common.config;
 
 import com.java_template.common.auth.Authentication;
 import com.java_template.common.grpc.client.ClientAuthorizationInterceptor;
-import com.java_template.common.grpc.client_v2.CalculationExecutionStrategy;
-import com.java_template.common.grpc.client_v2.DefaultReconnectionStrategy;
-import com.java_template.common.grpc.client_v2.PlatformThreadsCalculationExecutor;
-import com.java_template.common.grpc.client_v2.VirtualThreadsCalculationExecutor;
-import com.java_template.common.grpc.client_v2.ConnectionStateTracker;
-import com.java_template.common.grpc.client_v2.ReconnectionStrategy;
+import com.java_template.common.grpc.client.CalculationExecutionStrategy;
+import com.java_template.common.grpc.client.connection.DefaultReconnectionStrategy;
+import com.java_template.common.grpc.client.PlatformThreadsCalculationExecutor;
+import com.java_template.common.grpc.client.VirtualThreadsCalculationExecutor;
+import com.java_template.common.grpc.client.monitoring.ConnectionStateTracker;
+import com.java_template.common.grpc.client.connection.ReconnectionStrategy;
 import com.java_template.common.util.SslUtils;
 import io.cloudevents.core.format.EventFormat;
 import io.cloudevents.core.provider.EventFormatProvider;
