@@ -1,6 +1,10 @@
-### 1. Entity Definitions
+# Functional Requirements
 
-```
+---
+
+## 1. Entity Definitions
+
+```plaintext
 Job:
 - jobName: String (name of the ingestion job)
 - status: String (current job status, e.g., PENDING, INGESTING, SUCCEEDED, FAILED, NOTIFIED_SUBSCRIBERS)
@@ -36,55 +40,52 @@ Subscriber:
 
 ---
 
-### 2. Process Method Flows
+## 2. Process Method Flows
 
-```
-processJob() Flow:
-1. Initial State: Job entity created with status = "PENDING"
-2. Validation: Optional checkJobParameters() to validate jobName and prerequisites
-3. Processing:
-    - Change status to "INGESTING"
-    - Call OpenDataSoft API to fetch Nobel laureates data
-    - For each laureate record, create a new Laureate entity (immutable creation)
-4. Completion:
-    - If all laureates processed successfully, set status to "SUCCEEDED"
-    - Else, set status to "FAILED"
-5. Notification:
-    - Trigger notification to all active Subscribers matching laureate categories
-    - Update Job status to "NOTIFIED_SUBSCRIBERS"
-```
+### processJob() Flow:
 
-```
-processLaureate() Flow:
+1. **Initial State:** Job entity created with status = "PENDING"
+2. **Validation:** Optional checkJobParameters() to validate jobName and prerequisites
+3. **Processing:**
+   - Change status to "INGESTING"
+   - Call OpenDataSoft API to fetch Nobel laureates data
+   - For each laureate record, create a new Laureate entity (immutable creation)
+4. **Completion:**
+   - If all laureates processed successfully, set status to "SUCCEEDED"
+   - Else, set status to "FAILED"
+5. **Notification:**
+   - Trigger notification to all active Subscribers matching laureate categories
+   - Update Job status to "NOTIFIED_SUBSCRIBERS"
+
+### processLaureate() Flow:
+
 1. Upon Laureate entity creation, validate required fields using checkLaureateFields() if explicitly requested
 2. Enrich or normalize data if needed (e.g., standardize country codes)
 3. Persist laureate data immutable to maintain event history
 4. No further automatic processing unless explicitly triggered
-```
 
-```
-processSubscriber() Flow:
+### processSubscriber() Flow:
+
 1. Create Subscriber entity with provided contact info and subscription preferences
 2. Validate contact details with checkSubscriberContact() if explicitly requested
 3. Persist subscriber immutable record
 4. Subscribers receive notifications only after Job completes and triggers notification step
-```
 
 ---
 
-### 3. API Endpoints
+## 3. API Endpoints
 
-| Entity     | POST Endpoint                 | Returns            | GET by technicalId Endpoint             | GET by condition Endpoint          |
-|------------|------------------------------|--------------------|----------------------------------------|-----------------------------------|
-| Job        | POST /jobs                   | `{ "technicalId": "string" }` | GET /jobs/{technicalId}               | Not required                      |
-| Laureate   | No POST (created by Job processing) | N/A                | GET /laureates/{technicalId}           | Optional (if user requests)        |
-| Subscriber | POST /subscribers            | `{ "technicalId": "string" }` | GET /subscribers/{technicalId}         | Optional (if user requests)        |
+| Entity     | POST Endpoint                 | Returns                     | GET by technicalId Endpoint    | GET by condition Endpoint       |
+|------------|------------------------------|-----------------------------|-------------------------------|--------------------------------|
+| Job        | POST /jobs                   | `{ "technicalId": "string" }` | GET /jobs/{technicalId}        | Not required                   |
+| Laureate   | No POST (created by Job processing) | N/A                         | GET /laureates/{technicalId}   | Optional (if user requests)    |
+| Subscriber | POST /subscribers            | `{ "technicalId": "string" }` | GET /subscribers/{technicalId} | Optional (if user requests)    |
 
 ---
 
-### 4. Request/Response Formats
+## 4. Request/Response Formats
 
-**POST /jobs**  
+### POST /jobs
 Request:
 ```json
 {
@@ -98,7 +99,7 @@ Response:
 }
 ```
 
-**GET /jobs/{technicalId}**  
+### GET /jobs/{technicalId}
 Response:
 ```json
 {
@@ -111,7 +112,7 @@ Response:
 }
 ```
 
-**POST /subscribers**  
+### POST /subscribers
 Request:
 ```json
 {
@@ -129,7 +130,7 @@ Response:
 }
 ```
 
-**GET /subscribers/{technicalId}**  
+### GET /subscribers/{technicalId}
 Response:
 ```json
 {
@@ -143,7 +144,7 @@ Response:
 
 ---
 
-### 5. Mermaid Diagrams
+## 5. Mermaid Diagrams
 
 ```mermaid
 sequenceDiagram
