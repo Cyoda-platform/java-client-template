@@ -1,0 +1,50 @@
+private void processWorkflow(String technicalId, Workflow workflow) {
+    logger.info("Processing Workflow: {}", technicalId);
+
+    try {
+        runValidateInputDataCriterion(workflow);
+
+        runProcessPetEntitiesProcessor(workflow);
+
+        workflow.setStatus("RUNNING");
+
+        try {
+            Pet newPet = new Pet();
+            newPet.setName("GeneratedPetFromWorkflow");
+            newPet.setCategory("Cat");
+            newPet.setStatus("available");
+            newPet.setPhotoUrls("http://example.com/photo.jpg");
+            newPet.setTags("generated,workflow");
+
+            // TODO: Replace this with entityService call for adding newPet
+            // For now just log and skip adding to EntityService
+            logger.info("TODO: Add Pet entity generated from Workflow '{}' to EntityService", technicalId);
+
+            workflow.setStatus("COMPLETED");
+        } catch (Exception e) {
+            logger.error("Error processing Workflow '{}': {}", technicalId, e.getMessage());
+            workflow.setStatus("FAILED");
+        }
+
+        logger.info("Workflow {} status updated to {}", technicalId, workflow.getStatus());
+
+    } catch (IllegalArgumentException e) {
+        logger.error("Validation failed during workflow processing: {}", e.getMessage());
+        workflow.setStatus("FAILED");
+    } catch (Exception e) {
+        logger.error("Unexpected error during workflow processing: {}", e.getMessage(), e);
+        workflow.setStatus("FAILED");
+    }
+}
+
+private void runValidateInputDataCriterion(Workflow workflow) {
+    if (workflow.getInputData() == null || workflow.getInputData().isBlank()) {
+        logger.error("Workflow inputData is invalid or missing.");
+        throw new IllegalArgumentException("Workflow inputData is invalid");
+    }
+    logger.info("Workflow inputData validation passed.");
+}
+
+private void runProcessPetEntitiesProcessor(Workflow workflow) {
+    logger.info("Processing Pet entities for Workflow: {}", workflow.getName());
+}
