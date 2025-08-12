@@ -1,88 +1,88 @@
 {
-    "active": true,
-    "desc": "Description of the workflow for Workflow",
-    "initialState": "none",
-    "name": "Workflow Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "created": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "validate_input_data",
-                    "next": "validating"
-                }
-            ]
-        },
-        "failed": {
-            "transitions": []
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "process_pet_entities",
-                    "next": "running",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "ProcessPetProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "running": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "WorkflowSuccessCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "complete_success",
-                    "next": "completed"
-                },
-                {
-                    "manual": false,
-                    "name": "complete_failure",
-                    "next": "failed"
-                }
-            ]
-        },
-        "validating": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "ValidateInputDataCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "validation_success",
-                    "next": "processing"
-                },
-                {
-                    "manual": false,
-                    "name": "validation_failure",
-                    "next": "failed"
-                }
-            ]
-        }
+  "active": true,
+  "desc": "Description of the workflow for Workflow",
+  "initialState": "none",
+  "name": "Workflow Workflow",
+  "states": {
+    "completed": {
+      "transitions": []
     },
-    "version": "1.0"
+    "created": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "validate_input_data",
+          "next": "validating"
+        }
+      ]
+    },
+    "failed": {
+      "transitions": []
+    },
+    "processing": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "process_pet_entities",
+          "next": "running",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "ProcessPetProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "running": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "WorkflowSuccessCriterion"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "complete_success",
+          "next": "completed"
+        },
+        {
+          "manual": false,
+          "name": "complete_failure",
+          "next": "failed"
+        }
+      ]
+    },
+    "validating": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "ValidateInputDataCriterion"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "validation_success",
+          "next": "processing"
+        },
+        {
+          "manual": false,
+          "name": "validation_failure",
+          "next": "failed"
+        }
+      ]
+    }
+  },
+  "version": "1.0"
 }
