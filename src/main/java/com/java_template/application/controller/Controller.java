@@ -50,8 +50,6 @@ public class Controller {
 
             logger.info("Created Workflow with technicalId: {}", technicalId);
 
-            processWorkflow(technicalId.toString(), workflow);
-
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException e) {
             logger.error("Bad request in createWorkflow: {}", e.getMessage());
@@ -111,8 +109,6 @@ public class Controller {
             UUID technicalId = idFuture.get();
 
             logger.info("Created Pet with technicalId: {}", technicalId);
-
-            processPet(technicalId.toString(), pet);
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("technicalId", technicalId.toString()));
         } catch (IllegalArgumentException e) {
@@ -196,121 +192,6 @@ public class Controller {
             logger.error("Internal server error in getPetsByStatus: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
         }
-    }
-
-    // --- Processing Methods ---
-
-    private void processWorkflow(String technicalId, Workflow workflow) {
-        logger.info("Processing Workflow: {}", technicalId);
-
-        try {
-            runValidateInputDataCriterion(workflow);
-
-            runProcessPetEntitiesProcessor(workflow);
-
-            workflow.setStatus("RUNNING");
-
-            try {
-                Pet newPet = new Pet();
-                newPet.setName("GeneratedPetFromWorkflow");
-                newPet.setCategory("Cat");
-                newPet.setStatus("available");
-                newPet.setPhotoUrls("http://example.com/photo.jpg");
-                newPet.setTags("generated,workflow");
-
-                // TODO: Replace this with entityService call for adding newPet
-                // For now just log and skip adding to EntityService
-                logger.info("TODO: Add Pet entity generated from Workflow '{}' to EntityService", technicalId);
-
-                workflow.setStatus("COMPLETED");
-            } catch (Exception e) {
-                logger.error("Error processing Workflow '{}': {}", technicalId, e.getMessage());
-                workflow.setStatus("FAILED");
-            }
-
-            logger.info("Workflow {} status updated to {}", technicalId, workflow.getStatus());
-
-        } catch (IllegalArgumentException e) {
-            logger.error("Validation failed during workflow processing: {}", e.getMessage());
-            workflow.setStatus("FAILED");
-        } catch (Exception e) {
-            logger.error("Unexpected error during workflow processing: {}", e.getMessage(), e);
-            workflow.setStatus("FAILED");
-        }
-    }
-
-    private void runValidateInputDataCriterion(Workflow workflow) {
-        if (workflow.getInputData() == null || workflow.getInputData().isBlank()) {
-            logger.error("Workflow inputData is invalid or missing.");
-            throw new IllegalArgumentException("Workflow inputData is invalid");
-        }
-        logger.info("Workflow inputData validation passed.");
-    }
-
-    private void runProcessPetEntitiesProcessor(Workflow workflow) {
-        logger.info("Processing Pet entities for Workflow: {}", workflow.getName());
-    }
-
-    private void processPet(String technicalId, Pet pet) {
-        logger.info("Processing Pet: {}", technicalId);
-
-        if (!checkPetStatusValid(pet.getStatus())) {
-            logger.error("Invalid Pet status: {}", pet.getStatus());
-            return;
-        }
-
-        if (!checkPetCategoryExists(pet.getCategory())) {
-            logger.error("Pet category does not exist: {}", pet.getCategory());
-            return;
-        }
-
-        runApplyTaggingProcessor(pet);
-
-        runValidatePhotoUrlsProcessor(pet);
-
-        logger.info("Pet processing completed for {}", technicalId);
-    }
-
-    private boolean checkPetStatusValid(String status) {
-        List<String> validStatuses = List.of("available", "pending", "sold");
-        boolean isValid = validStatuses.contains(status.toLowerCase());
-        if (!isValid) {
-            logger.error("Pet status '{}' is not valid", status);
-        }
-        return isValid;
-    }
-
-    private boolean checkPetCategoryExists(String category) {
-        List<String> validCategories = List.of("cat", "dog", "bird", "reptile");
-        boolean exists = validCategories.contains(category.toLowerCase());
-        if (!exists) {
-            logger.error("Pet category '{}' does not exist", category);
-        }
-        return exists;
-    }
-
-    private void runApplyTaggingProcessor(Pet pet) {
-        if (pet.getTags() == null || pet.getTags().isBlank()) {
-            pet.setTags("default");
-            logger.info("Tags were empty; set default tag.");
-        } else {
-            logger.info("Pet tags verified: {}", pet.getTags());
-        }
-    }
-
-    private void runValidatePhotoUrlsProcessor(Pet pet) {
-        String urls = pet.getPhotoUrls();
-        if (urls == null || urls.isBlank()) {
-            logger.error("Pet photoUrls are empty");
-            return;
-        }
-        String[] urlArray = urls.split(",");
-        for (String url : urlArray) {
-            if (!url.trim().startsWith("http")) {
-                logger.error("Invalid photo URL: {}", url);
-            }
-        }
-        logger.info("Photo URLs validated for Pet.");
     }
 
 }
