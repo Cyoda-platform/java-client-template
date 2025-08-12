@@ -1,0 +1,74 @@
+{
+  "version": "1.0",
+  "name": "Laureate Workflow",
+  "desc": "Workflow to manage Laureate entity creation, validation, enrichment, and persistence.",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": [
+        {
+          "name": "validate_laureate",
+          "next": "validating",
+          "manual": false
+        }
+      ]
+    },
+    "validating": {
+      "transitions": [
+        {
+          "name": "validation_success",
+          "next": "enriching",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "LaureateValidationSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_failure",
+          "next": "invalid",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "LaureateValidationFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "enriching": {
+      "transitions": [
+        {
+          "name": "enrichment_complete",
+          "next": "persisted",
+          "manual": false,
+          "processors": [
+            {
+              "name": "LaureateEnrichmentProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "invalid": {
+      "transitions": []
+    },
+    "persisted": {
+      "transitions": []
+    }
+  }
+}
