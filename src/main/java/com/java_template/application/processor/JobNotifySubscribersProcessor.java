@@ -1,8 +1,13 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.job.version_1.Job;
+import com.java_template.application.entity.subscriber.version_1.Subscriber;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.service.EntityService;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -12,15 +17,20 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
+import java.util.concurrent.CompletableFuture;
+
 @Component
 public class JobNotifySubscribersProcessor implements CyodaProcessor {
 
     private static final Logger logger = LoggerFactory.getLogger(JobNotifySubscribersProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final EntityService entityService;
 
-    public JobNotifySubscribersProcessor(SerializerFactory serializerFactory) {
+    public JobNotifySubscribersProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
     }
 
     @Override
@@ -31,7 +41,21 @@ public class JobNotifySubscribersProcessor implements CyodaProcessor {
         return serializer.withRequest(request)
             .toEntity(Job.class)
             .validate(this::isValidEntity, "Invalid job state for notification")
-            .map(this::processEntityLogic)
+            .map(context1 -> {
+                Job job = context1.entity();
+                try {
+                    notifySubscribers(job);
+                } catch (Exception e) {
+                    logger.error("Error notifying subscribers for job: {}", job.getJobName(), e);
+                    // We do not fail the processor, just log the error
+                }
+                // Update job state to NOTIFIED_SUBSCRIBERS and set completedAt timestamp if not already set
+                job.setStatus("NOTIFIED_SUBSCRIBERS");
+                if (job.getCompletedAt() == null) {
+                    job.setCompletedAt(Instant.now().toString());
+                }
+                return job;
+            })
             .complete();
     }
 
@@ -45,20 +69,29 @@ public class JobNotifySubscribersProcessor implements CyodaProcessor {
         return entity != null && ("SUCCEEDED".equalsIgnoreCase(entity.getStatus()) || "FAILED".equalsIgnoreCase(entity.getStatus()));
     }
 
-    private Job processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Job> context) {
-        Job entity = context.entity();
-        // Business logic: Notify all active subscribers about job completion
-        // This could involve triggering notification events or persisting notification entities
-        logger.info("Notifying subscribers for job: {}", entity.getJobName());
+    private void notifySubscribers(Job job) throws Exception {
+        // Fetch all active subscribers
+        CompletableFuture<ArrayNode> futureSubscribers = entityService.getItemsByCondition(
+            Subscriber.ENTITY_NAME,
+            String.valueOf(Subscriber.ENTITY_VERSION),
+            entityService.getSearchConditionRequest().group("AND",
+                entityService.getCondition().of("$.active", "EQUALS", true)
+            ),
+            true
+        );
 
-        // TODO: Implement actual notification logic here
+        ArrayNode subscribers = futureSubscribers.get();
+        logger.info("Found {} active subscribers to notify", subscribers.size());
 
-        // Update job state to NOTIFIED_SUBSCRIBERS and set completedAt timestamp if not already set
-        entity.setStatus("NOTIFIED_SUBSCRIBERS");
-        if (entity.getCompletedAt() == null) {
-            entity.setCompletedAt(java.time.Instant.now().toString());
+        for (JsonNode subNode : subscribers) {
+            Subscriber subscriber = entityService.getObjectMapper().treeToValue(subNode, Subscriber.class);
+            sendNotification(subscriber, job);
         }
+    }
 
-        return entity;
+    private void sendNotification(Subscriber subscriber, Job job) {
+        // For now, just log the notification attempt
+        logger.info("Sending notification to subscriber: {} via {}", subscriber.getContactValue(), subscriber.getContactType());
+        // TODO: Implement actual notification sending logic (email, webhook, etc.)
     }
 }
