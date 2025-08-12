@@ -1,31 +1,28 @@
 package com.java_template.application.processor;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.java_template.application.entity.job.version_1.Job;
 import com.java_template.application.entity.laureate.version_1.Laureate;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
-import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
-import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
-import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
+import com.java_template.common.service.EntityService;
+import com.java_template.common.util.Condition;
+import com.java_template.common.util.SearchConditionRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import org.springframework.web.reactive.function.client.WebClient;
 
+import java.net.URI;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.StreamSupport;
 
 @Component
 public class LaureateIngestionProcessor implements CyodaProcessor {
@@ -34,26 +31,31 @@ public class LaureateIngestionProcessor implements CyodaProcessor {
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
     private final EntityService entityService;
-    private final WebClient webClient;
-    private final ObjectMapper objectMapper;
 
-    public LaureateIngestionProcessor(SerializerFactory serializerFactory, EntityService entityService, ObjectMapper objectMapper) {
+    private static final String OPEN_DATA_SOFT_URL = "https://public.opendatasoft.com/api/records/1.0/search/?dataset=nobel-prizes&q=&rows=50";
+
+    @Autowired
+    public LaureateIngestionProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
         this.entityService = entityService;
-        this.objectMapper = objectMapper;
-        this.webClient = WebClient.builder().baseUrl("https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/nobel-prize-laureates/records").build();
     }
 
     @Override
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
-        logger.info("Ingesting laureates for Job: {}", request.getId());
+        logger.info("Processing Laureate ingestion for request: {}", request.getId());
 
         return serializer.withRequest(request)
-            .toEntity(Job.class)
-            .validate(this::isValidJob, "Invalid Job entity state for ingestion")
-            .map(this::processEntityLogic)
-            .complete();
+                .toEntity(Laureate.class)
+                .map(context1 -> {
+                    try {
+                        return ingestLaureates(request.getId().toString());
+                    } catch (Exception e) {
+                        logger.error("Error ingesting laureates", e);
+                        throw new RuntimeException(e);
+                    }
+                })
+                .complete();
     }
 
     @Override
@@ -61,92 +63,105 @@ public class LaureateIngestionProcessor implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private boolean isValidJob(Job job) {
-        return job != null && job.getJobName() != null && !job.getJobName().isEmpty();
+    private Laureate ingestLaureates(String jobId) throws ExecutionException, InterruptedException {
+        logger.info("Starting ingestion job {}", jobId);
+
+        // Update job status to STARTED
+        updateJobStatus(jobId, "STARTED");
+
+        // Fetch laureate data from OpenDataSoft API
+        ArrayNode records = fetchLaureateData();
+        if (records == null) {
+            updateJobStatus(jobId, "FAILED_TO_FETCH");
+            throw new RuntimeException("Failed to fetch laureate data");
+        }
+
+        // Process each laureate record
+        for (JsonNode record : records) {
+            try {
+                Laureate laureate = parseLaureate(record);
+                if (laureate != null) {
+                    CompletableFuture<UUID> idFuture = entityService.addItem(
+                            Laureate.ENTITY_NAME,
+                            String.valueOf(Laureate.ENTITY_VERSION),
+                            laureate
+                    );
+                    idFuture.get();
+                }
+            } catch (Exception e) {
+                logger.error("Error processing laureate record", e);
+            }
+        }
+
+        // Update job status to COMPLETED
+        updateJobStatus(jobId, "COMPLETED");
+
+        // Return dummy entity for completion
+        return new Laureate();
     }
 
-    private Job processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Job> context) {
-        Job job = context.entity();
+    private ArrayNode fetchLaureateData() {
         try {
-            // Update status to INGESTING and set startedAt timestamp
-            job.setStatus("INGESTING");
-            job.setStartedAt(Instant.now().toString());
-            logger.info("Job status updated to INGESTING: {}", job.getJobName());
-
-            // Fetch laureates from external API
-            List<Laureate> laureates = fetchLaureatesFromApi();
-
-            // Save each laureate (this triggers Laureate workflow)
-            List<CompletableFuture<?>> futures = new ArrayList<>();
-            for (Laureate laureate : laureates) {
-                logger.info("Saving Laureate: {} {}", laureate.getFirstname(), laureate.getSurname());
-                CompletableFuture<?> future = entityService.addItem(
-                    Laureate.ENTITY_NAME,
-                    String.valueOf(Laureate.ENTITY_VERSION),
-                    laureate
-                );
-                futures.add(future);
+            // Use Java's built-in HttpClient to avoid external dependencies
+            var client = java.net.http.HttpClient.newHttpClient();
+            var request = java.net.http.HttpRequest.newBuilder()
+                    .uri(URI.create(OPEN_DATA_SOFT_URL))
+                    .GET()
+                    .build();
+            var response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 200) {
+                var mapper = serializer.getObjectMapper();
+                JsonNode root = mapper.readTree(response.body());
+                return (ArrayNode) root.path("records");
+            } else {
+                logger.error("Failed to fetch laureate data: HTTP {}", response.statusCode());
             }
-
-            // Wait for all saves to complete
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-
-            // On success, update job status and finishedAt
-            job.setStatus("SUCCEEDED");
-            job.setFinishedAt(Instant.now().toString());
-            logger.info("Job status updated to SUCCEEDED: {}", job.getJobName());
-
         } catch (Exception e) {
-            job.setStatus("FAILED");
-            job.setErrorMessage(e.getMessage());
-            job.setFinishedAt(Instant.now().toString());
-            logger.error("Error ingesting laureates for Job {}: {}", job.getJobName(), e.getMessage());
+            logger.error("Exception fetching laureate data", e);
         }
-        return job;
+        return null;
     }
 
-    private List<Laureate> fetchLaureatesFromApi() throws Exception {
-        // Call external API and parse laureates
-        String responseBody = webClient.get()
-            .retrieve()
-            .bodyToMono(String.class)
-            .block();
-
-        if (responseBody == null || responseBody.isEmpty()) {
-            throw new Exception("Empty response from laureates API");
+    private Laureate parseLaureate(JsonNode record) {
+        try {
+            ObjectNode fields = (ObjectNode) record.path("fields");
+            Laureate laureate = new Laureate();
+            laureate.setId(fields.path("id").asText(null));
+            laureate.setFirstname(fields.path("firstname").asText(null));
+            laureate.setSurname(fields.path("surname").asText(null));
+            laureate.setBorn(fields.path("born").asText(null));
+            laureate.setDied(fields.path("died").asText(null));
+            laureate.setBornCountry(fields.path("born_country").asText(null));
+            laureate.setBornCity(fields.path("born_city").asText(null));
+            laureate.setGender(fields.path("gender").asText(null));
+            laureate.setPrizes(fields.path("prizes")); // Assuming prizes is a JSON array
+            return laureate;
+        } catch (Exception e) {
+            logger.error("Error parsing laureate record", e);
+            return null;
         }
+    }
 
-        JsonNode rootNode = objectMapper.readTree(responseBody);
-        JsonNode recordsNode = rootNode.path("records");
-
-        List<Laureate> laureates = new ArrayList<>();
-        if (recordsNode.isArray()) {
-            for (JsonNode recordNode : recordsNode) {
-                JsonNode fields = recordNode.path("record").path("fields");
-                Laureate laureate = parseLaureateFromJson(fields);
-                laureates.add(laureate);
+    private void updateJobStatus(String jobId, String status) {
+        try {
+            // Retrieve job entity
+            CompletableFuture<ObjectNode> jobFuture = entityService.getItem(
+                    "Job", // Assuming Job entity name
+                    "1",
+                    UUID.fromString(jobId)
+            );
+            ObjectNode job = jobFuture.get();
+            if (job != null) {
+                job.put("status", status);
+                if ("STARTED".equals(status)) {
+                    job.put("startedAt", Instant.now().toString());
+                } else if ("COMPLETED".equals(status)) {
+                    job.put("completedAt", Instant.now().toString());
+                }
+                entityService.addItem("Job", "1", job).get(); // Save updated job
             }
+        } catch (Exception e) {
+            logger.error("Failed to update job status", e);
         }
-        return laureates;
-    }
-
-    private Laureate parseLaureateFromJson(JsonNode fields) {
-        Laureate laureate = new Laureate();
-        laureate.setLaureateId(fields.path("id").isInt() ? fields.path("id").intValue() : null);
-        laureate.setFirstname(fields.path("firstname").asText(null));
-        laureate.setSurname(fields.path("surname").asText(null));
-        laureate.setGender(fields.path("gender").asText(null));
-        laureate.setBorn(fields.path("born").asText(null));
-        laureate.setDied(fields.path("died").asText(null));
-        laureate.setBorncountry(fields.path("borncountry").asText(null));
-        laureate.setBorncountrycode(fields.path("borncountrycode").asText(null));
-        laureate.setBorncity(fields.path("borncity").asText(null));
-        laureate.setYear(fields.path("year").asText(null));
-        laureate.setCategory(fields.path("category").asText(null));
-        laureate.setMotivation(fields.path("motivation").asText(null));
-        laureate.setAffiliationName(fields.path("name").asText(null));
-        laureate.setAffiliationCity(fields.path("city").asText(null));
-        laureate.setAffiliationCountry(fields.path("country").asText(null));
-        return laureate;
     }
 }
