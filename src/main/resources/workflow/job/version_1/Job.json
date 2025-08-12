@@ -1,0 +1,81 @@
+{
+  "version": "1.0",
+  "name": "Job Workflow",
+  "desc": "Workflow for Job entity lifecycle management",
+  "initialState": "scheduled",
+  "active": true,
+  "states": {
+    "scheduled": {
+      "transitions": [
+        {
+          "name": "start_validation",
+          "next": "validation",
+          "manual": false
+        },
+        {
+          "name": "skip_validation",
+          "next": "ingesting",
+          "manual": false
+        }
+      ]
+    },
+    "validation": {
+      "transitions": [
+        {
+          "name": "validation_passed",
+          "next": "ingesting",
+          "manual": false
+        },
+        {
+          "name": "validation_failed",
+          "next": "failed",
+          "manual": false
+        }
+      ]
+    },
+    "ingesting": {
+      "transitions": [
+        {
+          "name": "ingestion_succeeded",
+          "next": "succeeded",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FetchNobelLaureatesProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "ingestion_failed",
+          "next": "failed",
+          "manual": false
+        }
+      ]
+    },
+    "succeeded": {
+      "transitions": [
+        {
+          "name": "notify_subscribers",
+          "next": "notified_subscribers",
+          "manual": false
+        }
+      ]
+    },
+    "failed": {
+      "transitions": [
+        {
+          "name": "notify_subscribers",
+          "next": "notified_subscribers",
+          "manual": false
+        }
+      ]
+    },
+    "notified_subscribers": {
+      "transitions": []
+    }
+  }
+}
