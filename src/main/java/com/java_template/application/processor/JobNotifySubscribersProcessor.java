@@ -2,7 +2,6 @@ package com.java_template.application.processor;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.job.version_1.Job;
 import com.java_template.application.entity.subscriber.version_1.Subscriber;
 import com.java_template.common.serializer.ProcessorSerializer;
@@ -74,8 +73,8 @@ public class JobNotifySubscribersProcessor implements CyodaProcessor {
         CompletableFuture<ArrayNode> futureSubscribers = entityService.getItemsByCondition(
             Subscriber.ENTITY_NAME,
             String.valueOf(Subscriber.ENTITY_VERSION),
-            entityService.getSearchConditionRequest().group("AND",
-                entityService.getCondition().of("$.active", "EQUALS", true)
+            new com.java_template.common.util.SearchConditionRequest().group("AND",
+                com.java_template.common.util.Condition.of("$.active", "EQUALS", true)
             ),
             true
         );
@@ -84,7 +83,7 @@ public class JobNotifySubscribersProcessor implements CyodaProcessor {
         logger.info("Found {} active subscribers to notify", subscribers.size());
 
         for (JsonNode subNode : subscribers) {
-            Subscriber subscriber = entityService.getObjectMapper().treeToValue(subNode, Subscriber.class);
+            Subscriber subscriber = new com.fasterxml.jackson.databind.ObjectMapper().treeToValue(subNode, Subscriber.class);
             sendNotification(subscriber, job);
         }
     }
