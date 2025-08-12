@@ -1,0 +1,39 @@
+{
+  "version": "1.0",
+  "name": "Subscriber Workflow",
+  "desc": "Workflow for Subscriber entity based on validation and storage",
+  "initialState": "validating",
+  "active": true,
+  "states": {
+    "validating": {
+      "transitions": [
+        {
+          "name": "validate_subscriber",
+          "next": "storing",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SubscriberValidationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "storing": {
+      "transitions": [
+        {
+          "name": "store_subscriber",
+          "next": "completed",
+          "manual": false
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    }
+  }
+}
