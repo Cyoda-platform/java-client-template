@@ -4,9 +4,12 @@ import com.java_template.application.entity.job.version_1.Job;
 import com.java_template.application.entity.subscriber.version_1.Subscriber;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.service.EntityService;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
@@ -14,6 +17,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 @Component
 public class NotifySubscribersProcessor implements CyodaProcessor {
@@ -21,9 +26,11 @@ public class NotifySubscribersProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(NotifySubscribersProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final EntityService entityService;
 
-    public NotifySubscribersProcessor(SerializerFactory serializerFactory) {
+    public NotifySubscribersProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
     }
 
     @Override
@@ -49,19 +56,35 @@ public class NotifySubscribersProcessor implements CyodaProcessor {
 
     private Job processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Job> context) {
         Job job = context.entity();
-        // Business logic to notify all active subscribers
         logger.info("Starting notification process for job: {}", job.getJobName());
 
         try {
-            // TODO: Query active subscribers from persistence layer
-            List<Subscriber> activeSubscribers = List.of(); // Placeholder
+            // Query active subscribers
+            CompletableFuture<ArrayNode> future = entityService.getItemsByCondition(
+                    Subscriber.ENTITY_NAME,
+                    String.valueOf(Subscriber.ENTITY_VERSION),
+                    "$.active", true
+            );
+
+            ArrayNode activeSubscribersNode = future.join();
+
+            List<Subscriber> activeSubscribers = activeSubscribersNode.findValuesAsText("subscriberId").stream()
+                    .map(id -> {
+                        ObjectNode subscriberNode = (ObjectNode) activeSubscribersNode.findValue(id);
+                        Subscriber s = new Subscriber();
+                        s.setSubscriberId(subscriberNode.path("subscriberId").asText());
+                        s.setContactType(subscriberNode.path("contactType").asText());
+                        s.setContactAddress(subscriberNode.path("contactAddress").asText());
+                        s.setActive(subscriberNode.path("active").asBoolean());
+                        return s;
+                    })
+                    .collect(Collectors.toList());
 
             for (Subscriber subscriber : activeSubscribers) {
-                // TODO: Implement notification logic (e.g., send email or webhook)
+                // Simulate notification logic
                 logger.info("Notifying subscriber: {} at {}", subscriber.getSubscriberId(), subscriber.getContactAddress());
             }
 
-            // Update job status to NOTIFIED_SUBSCRIBERS
             job.setStatus("NOTIFIED_SUBSCRIBERS");
             logger.info("Job status updated to NOTIFIED_SUBSCRIBERS");
         } catch (Exception e) {
