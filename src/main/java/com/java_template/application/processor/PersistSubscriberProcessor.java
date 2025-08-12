@@ -1,8 +1,10 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.subscriber.version_1.Subscriber;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.service.EntityService;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -11,6 +13,9 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 @Component
 public class PersistSubscriberProcessor implements CyodaProcessor {
@@ -18,9 +23,12 @@ public class PersistSubscriberProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(PersistSubscriberProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final EntityService entityService;
 
-    public PersistSubscriberProcessor(SerializerFactory serializerFactory) {
+    @Autowired
+    public PersistSubscriberProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
     }
 
     @Override
@@ -59,8 +67,17 @@ public class PersistSubscriberProcessor implements CyodaProcessor {
 
     private Subscriber persistSubscriber(ProcessorSerializer.ProcessorEntityExecutionContext<Subscriber> context) {
         Subscriber subscriber = context.entity();
-        // Simulate persistence logic
-        logger.info("Persisting Subscriber: {}", subscriber.getSubscriberId());
+        try {
+            CompletableFuture<UUID> idFuture = entityService.addItem(
+                Subscriber.ENTITY_NAME,
+                String.valueOf(Subscriber.ENTITY_VERSION),
+                subscriber
+            );
+            UUID id = idFuture.get();
+            logger.info("Persisted Subscriber with generated id: {}", id);
+        } catch (Exception e) {
+            logger.error("Error persisting Subscriber", e);
+        }
         return subscriber;
     }
 }
