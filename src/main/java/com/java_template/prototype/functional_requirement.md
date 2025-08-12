@@ -1,4 +1,8 @@
-### 1. Entity Definitions
+# Functional Requirements
+
+---
+
+## 1. Entity Definitions
 
 ```
 Job:
@@ -9,8 +13,8 @@ Job:
 
 Laureate:
 - laureateId: String (unique identifier from source data)
-- firstname: String (laureate’s first name)
-- surname: String (laureate’s surname)
+- firstname: String (laureates first name)
+- surname: String (laureates surname)
 - born: String (date of birth in ISO format)
 - died: String (date of death in ISO format or null)
 - borncountry: String (country of birth)
@@ -33,7 +37,7 @@ Subscriber:
 
 ---
 
-### 2. Process Method Flows
+## 2. Process Method Flows
 
 ```
 processJob() Flow:
@@ -71,7 +75,7 @@ processSubscriber() Flow:
 
 ---
 
-### 3. API Endpoints
+## 3. API Endpoints
 
 | Entity    | POST Endpoint         | Response                  | GET by technicalId Endpoint | Response                        |
 |-----------|----------------------|---------------------------|-----------------------------|--------------------------------|
@@ -84,7 +88,7 @@ processSubscriber() Flow:
 
 ---
 
-### 4. Request/Response JSON Formats
+## 4. Request/Response JSON Formats
 
 **POST /jobs Request**  
 ```json
@@ -139,7 +143,7 @@ processSubscriber() Flow:
 
 ---
 
-### Mermaid Diagrams
+## Mermaid Diagrams
 
 ```mermaid
 sequenceDiagram
