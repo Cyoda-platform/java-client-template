@@ -1,0 +1,47 @@
+{
+  "version": "1.0",
+  "name": "HackerNewsItem Workflow",
+  "desc": "Workflow for processing HackerNewsItem entities",
+  "initialState": "START",
+  "active": true,
+  "states": {
+    "START": {
+      "transitions": [
+        {
+          "name": "validate_mandatory_fields",
+          "next": "INVALID",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "CheckMandatoryFieldsMissing",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validate_mandatory_fields_pass",
+          "next": "VALID",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "CheckMandatoryFieldsPresent",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "INVALID": {
+      "transitions": []
+    },
+    "VALID": {
+      "transitions": []
+    }
+  }
+}
