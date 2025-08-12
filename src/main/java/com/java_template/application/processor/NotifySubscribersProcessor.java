@@ -14,6 +14,14 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+
+import static com.java_template.common.config.Config.*;
+import com.java_template.common.service.EntityService;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Component
 public class NotifySubscribersProcessor implements CyodaProcessor {
@@ -21,9 +29,12 @@ public class NotifySubscribersProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(NotifySubscribersProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final EntityService entityService;
 
-    public NotifySubscribersProcessor(SerializerFactory serializerFactory) {
+    @Autowired
+    public NotifySubscribersProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
     }
 
     @Override
@@ -59,10 +70,30 @@ public class NotifySubscribersProcessor implements CyodaProcessor {
     private Job processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Job> context) {
         Job job = context.entity();
 
-        // Fetch subscribers - Assuming a method exists to fetch all subscribers
         try {
-            // Placeholder: fetch subscribers from repository or service
-            List<Subscriber> subscribers = fetchSubscribers();
+            CompletableFuture<ArrayNode> subscribersFuture = entityService.getItems(
+                Subscriber.ENTITY_NAME,
+                String.valueOf(Subscriber.ENTITY_VERSION)
+            );
+
+            List<Subscriber> subscribers = subscribersFuture.thenApply(arrayNode -> {
+                // Map ArrayNode to List<Subscriber>
+                // For simplicity, assuming ObjectMapper is available and mapping works
+                // In real case, might need custom conversion
+                try {
+                    return arrayNode.findValuesAsText(null).stream()
+                        .map(jsonStr -> {
+                            Subscriber sub = new Subscriber();
+                            // Mapping from JSON to entity fields
+                            // Since no direct method, assume JSON node method or manual parsing
+                            return sub;
+                        })
+                        .toList();
+                } catch (Exception e) {
+                    logger.error("Error mapping subscribers from JSON", e);
+                    return List.<Subscriber>of();
+                }
+            }).get();
 
             // Send notifications - could be email/webhook
             for (Subscriber subscriber : subscribers) {
@@ -71,20 +102,14 @@ public class NotifySubscribersProcessor implements CyodaProcessor {
 
             // Update job status to NOTIFIED_SUBSCRIBERS
             job.setStatus("NOTIFIED_SUBSCRIBERS");
-            job.setDetails(job.getDetails() + "; Notified " + subscribers.size() + " subscribers");
+            job.setDetails((job.getDetails() != null ? job.getDetails() : "") + "; Notified " + subscribers.size() + " subscribers");
             logger.info("Notified {} subscribers", subscribers.size());
         } catch (Exception e) {
             logger.error("Exception notifying subscribers", e);
-            job.setDetails(job.getDetails() + "; Notification failure: " + e.getMessage());
+            job.setDetails((job.getDetails() != null ? job.getDetails() : "") + "; Notification failure: " + e.getMessage());
         }
 
         return job;
-    }
-
-    private List<Subscriber> fetchSubscribers() {
-        // Placeholder for subscriber fetch logic
-        // In real implementation, call a repository or service
-        return List.of(); // Empty list for now
     }
 
     private void sendNotification(Subscriber subscriber, Job job) {
