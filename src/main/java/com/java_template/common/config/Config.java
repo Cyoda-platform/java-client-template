@@ -17,7 +17,7 @@ public class Config {
     public static final String CYODA_CLIENT_ID = getEnv("CYODA_CLIENT_ID");
     public static final String CYODA_CLIENT_SECRET = getEnv("CYODA_CLIENT_SECRET");
 
-    public static final String ENTITY_VERSION = getEnv("ENTITY_VERSION", "1000");
+    public static final String ENTITY_VERSION = getEnv("ENTITY_VERSION", "1");
     public static final String CHAT_ID = dotenv.get("CHAT_ID");
 
     public static final long KEEP_ALIVE_WARNING_THRESHOLD = Long.parseLong(dotenv.get("KEEP_ALIVE_WARNING_THRESHOLD", "60000"));

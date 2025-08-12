@@ -107,7 +107,7 @@ This file can be updated via project-specific tooling and should be maintained a
 
 - Use `Config` class constants instead of hardcoded values
 - Load environment variables via `Dotenv` in Config class
-- Use `Config.ENTITY_VERSION` for entity versioning (default '1000')
+- Use `Config.ENTITY_VERSION` for entity versioning (default '1')
 - Configure GRPC settings via environment variables
 - Use `Config.CYODA_HOST` and related constants for Cyoda integration
 - SSL and authentication settings should be configurable via environment
