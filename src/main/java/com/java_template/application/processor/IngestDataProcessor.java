@@ -17,8 +17,6 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Mono;
 
 import java.net.URI;
 import java.time.ZonedDateTime;
@@ -27,7 +25,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 
 @Component
 public class IngestDataProcessor implements CyodaProcessor {
@@ -36,7 +33,6 @@ public class IngestDataProcessor implements CyodaProcessor {
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
     private final EntityService entityService;
-    private final WebClient webClient;
     private final ObjectMapper objectMapper;
 
     private static final String OPEN_DATA_SOFT_API_URL = "https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/nobel-prize-laureates/records";
@@ -44,7 +40,6 @@ public class IngestDataProcessor implements CyodaProcessor {
     public IngestDataProcessor(SerializerFactory serializerFactory, EntityService entityService, ObjectMapper objectMapper) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
         this.entityService = entityService;
-        this.webClient = WebClient.create();
         this.objectMapper = objectMapper;
     }
 
@@ -111,15 +106,18 @@ public class IngestDataProcessor implements CyodaProcessor {
     }
 
     private List<Laureate> fetchLaureatesData() throws InterruptedException, ExecutionException {
-        Mono<String> responseMono = webClient.get()
+        // Using Java 11 HttpClient for HTTP request
+        java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
+        java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
             .uri(URI.create(OPEN_DATA_SOFT_API_URL))
-            .retrieve()
-            .bodyToMono(String.class);
-
-        String responseBody = responseMono.block();
-        List<Laureate> laureates = new ArrayList<>();
+            .GET()
+            .build();
 
         try {
+            java.net.http.HttpResponse<String> response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+            String responseBody = response.body();
+            List<Laureate> laureates = new ArrayList<>();
+
             JsonNode root = objectMapper.readTree(responseBody);
             JsonNode records = root.path("records");
             if (records.isArray()) {
@@ -129,12 +127,12 @@ public class IngestDataProcessor implements CyodaProcessor {
                     laureates.add(laureate);
                 }
             }
+
+            return laureates;
         } catch (Exception e) {
-            logger.error("Failed to parse laureates JSON", e);
+            logger.error("Failed to fetch or parse laureates data", e);
             throw new ExecutionException(e);
         }
-
-        return laureates;
     }
 
     private Laureate parseLaureate(JsonNode fields) {
