@@ -1,43 +1,44 @@
-### 1. Entity Definitions
-
-```
-Job:
-- jobName: String (Identifier for the job instance)
-- status: String (Current job state: SCHEDULED, INGESTING, SUCCEEDED, FAILED, NOTIFIED_SUBSCRIBERS)
-- scheduledAt: String (ISO8601 timestamp when job is scheduled)
-- startedAt: String (ISO8601 timestamp when ingestion begins)
-- completedAt: String (ISO8601 timestamp when job finishes)
-- resultSummary: String (Summary or message about job outcome)
-
-Laureate:
-- id: Integer (Unique laureate identifier from data source)
-- firstname: String (Laureate first name)
-- surname: String (Laureate last name)
-- gender: String (Gender of laureate)
-- born: String (ISO8601 date of birth)
-- died: String (ISO8601 date of death or null)
-- borncountry: String (Country of birth)
-- borncountrycode: String (Country code of birth)
-- borncity: String (City of birth)
-- year: String (Year Nobel prize awarded)
-- category: String (Prize category)
-- motivation: String (Award motivation text)
-- name: String (Affiliation/institution name)
-- city: String (Affiliation city)
-- country: String (Affiliation country)
-
-Subscriber:
-- contactType: String (Type of contact: e.g., email, webhook)
-- contactValue: String (Email address or webhook URL)
-- active: Boolean (Indicates if subscriber is active)
-```
+# Functional Requirements
 
 ---
 
-### 2. Process Method Flows
+## 1. Entity Definitions
 
-```
-processJob() Flow:
+### Job
+- **jobName:** String (Identifier for the job instance)
+- **status:** String (Current job state: SCHEDULED, INGESTING, SUCCEEDED, FAILED, NOTIFIED_SUBSCRIBERS)
+- **scheduledAt:** String (ISO8601 timestamp when job is scheduled)
+- **startedAt:** String (ISO8601 timestamp when ingestion begins)
+- **completedAt:** String (ISO8601 timestamp when job finishes)
+- **resultSummary:** String (Summary or message about job outcome)
+
+### Laureate
+- **id:** Integer (Unique laureate identifier from data source)
+- **firstname:** String (Laureate first name)
+- **surname:** String (Laureate last name)
+- **gender:** String (Gender of laureate)
+- **born:** String (ISO8601 date of birth)
+- **died:** String (ISO8601 date of death or null)
+- **borncountry:** String (Country of birth)
+- **borncountrycode:** String (Country code of birth)
+- **borncity:** String (City of birth)
+- **year:** String (Year Nobel prize awarded)
+- **category:** String (Prize category)
+- **motivation:** String (Award motivation text)
+- **name:** String (Affiliation/institution name)
+- **city:** String (Affiliation city)
+- **country:** String (Affiliation country)
+
+### Subscriber
+- **contactType:** String (Type of contact: e.g., email, webhook)
+- **contactValue:** String (Email address or webhook URL)
+- **active:** Boolean (Indicates if subscriber is active)
+
+---
+
+## 2. Process Method Flows
+
+### processJob() Flow:
 1. Initial State: Job created with status = "SCHEDULED".
 2. Validation: Validate required job parameters (e.g., jobName).
 3. Transition: Update status to "INGESTING" and set startedAt timestamp.
@@ -50,26 +51,21 @@ processJob() Flow:
    - Update job status to "FAILED".
 8. Trigger notification by persisting SubscriberNotification entity or invoking notification logic.
 9. Update job status to "NOTIFIED_SUBSCRIBERS" and set completedAt timestamp.
-```
 
-```
-processLaureate() Flow:
+### processLaureate() Flow:
 1. Validation: Execute checks on mandatory fields (firstname, surname, year, category).
 2. Enrichment: Normalize country codes, calculate additional attributes if needed.
 3. Persist enriched Laureate record.
 4. No direct external calls; processing limited to data normalization and storage.
-```
 
-```
-processSubscriber() Flow:
+### processSubscriber() Flow:
 1. Validation: Check if contactType and contactValue are valid and present.
 2. Store subscriber entity.
 3. No further processing unless triggered by job notification.
-```
 
 ---
 
-### 3. API Endpoints Design
+## 3. API Endpoints Design
 
 - **POST /jobs**  
   - Creates a new Job entity (immutable creation).  
@@ -99,23 +95,23 @@ processSubscriber() Flow:
 
 ---
 
-### 4. Request/Response Formats
+## 4. Request/Response Formats
 
-**POST /jobs Request:**
+### POST /jobs Request:
 ```json
 {
   "jobName": "NobelLaureatesIngestionJob"
 }
 ```
 
-**POST /jobs Response:**
+### POST /jobs Response:
 ```json
 {
   "technicalId": "job-123456"
 }
 ```
 
-**GET /jobs/{technicalId} Response:**
+### GET /jobs/{technicalId} Response:
 ```json
 {
   "jobName": "NobelLaureatesIngestionJob",
@@ -127,7 +123,7 @@ processSubscriber() Flow:
 }
 ```
 
-**POST /subscribers Request:**
+### POST /subscribers Request:
 ```json
 {
   "contactType": "email",
@@ -136,14 +132,14 @@ processSubscriber() Flow:
 }
 ```
 
-**POST /subscribers Response:**
+### POST /subscribers Response:
 ```json
 {
   "technicalId": "sub-987654"
 }
 ```
 
-**GET /subscribers/{technicalId} Response:**
+### GET /subscribers/{technicalId} Response:
 ```json
 {
   "contactType": "email",
@@ -152,7 +148,7 @@ processSubscriber() Flow:
 }
 ```
 
-**GET /laureates/{technicalId} Response:**
+### GET /laureates/{technicalId} Response:
 ```json
 {
   "id": 853,
@@ -175,7 +171,7 @@ processSubscriber() Flow:
 
 ---
 
-### 5. Mermaid Diagrams
+## 5. Mermaid Diagrams
 
 ```mermaid
 sequenceDiagram
