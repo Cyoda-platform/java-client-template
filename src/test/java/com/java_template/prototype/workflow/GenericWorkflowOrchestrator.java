@@ -11,6 +11,8 @@ import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.Map;
+import java.util.stream.Collectors;
+
 
 /**
  * Generic workflow orchestrator that executes workflows based on JSON definitions.
@@ -19,44 +21,44 @@ import java.util.Map;
  * Note: This class is not a Spring component. Instances are created by GenericWorkflowOrchestratorFactory.
  */
 public class GenericWorkflowOrchestrator implements WorkflowOrchestrator {
-    
+
     private static final Logger logger = LoggerFactory.getLogger(GenericWorkflowOrchestrator.class);
-    
+
     private final WorkflowDefinitionLoader workflowLoader;
     private final OperationFactory operationFactory;
     private final String supportedEntityModel;
-    
-    public GenericWorkflowOrchestrator(WorkflowDefinitionLoader workflowLoader, 
+
+    public GenericWorkflowOrchestrator(WorkflowDefinitionLoader workflowLoader,
                                      OperationFactory operationFactory) {
         this.workflowLoader = workflowLoader;
         this.operationFactory = operationFactory;
         this.supportedEntityModel = "GENERIC"; // Will be overridden by factory
     }
-    
+
     // Constructor for entity-specific instances
-    public GenericWorkflowOrchestrator(WorkflowDefinitionLoader workflowLoader, 
+    public GenericWorkflowOrchestrator(WorkflowDefinitionLoader workflowLoader,
                                      OperationFactory operationFactory,
                                      String entityModel) {
         this.workflowLoader = workflowLoader;
         this.operationFactory = operationFactory;
         this.supportedEntityModel = entityModel;
     }
-    
+
     @Override
     public String run(String technicalId,
                      CyodaEventContext<EntityProcessorCalculationRequest> processorContext,
                      CyodaEventContext<EntityCriteriaCalculationRequest> criteriaContext,
                      String transition) {
-        
-        logger.info("Running GenericWorkflowOrchestrator for entity {} (model: {}) with transition: {}", 
+
+        logger.info("Running GenericWorkflowOrchestrator for entity {} (model: {}) with transition: {}",
                 technicalId, supportedEntityModel, transition);
-        
+
         WorkflowDefinition workflow = workflowLoader.loadWorkflowDefinition(supportedEntityModel);
         if (workflow == null) {
             logger.error("No workflow definition found for entity model: {}", supportedEntityModel);
             return "error_state";
         }
-        
+
         try {
             return executeWorkflowTransition(workflow, transition, processorContext, criteriaContext);
         } catch (Exception e) {
@@ -64,7 +66,7 @@ public class GenericWorkflowOrchestrator implements WorkflowOrchestrator {
             return "error_state";
         }
     }
-    
+
     /**
      * Executes a workflow transition based on the workflow definition.
      * For state_initial: executes the entire workflow from the beginning.
@@ -115,28 +117,38 @@ public class GenericWorkflowOrchestrator implements WorkflowOrchestrator {
                 return "error_state";
             }
 
-            // Find automatic transitions (non-manual)
-            Transition automaticTransition = state.getTransitions().stream()
+            // Find automatic transitions (non-manual) and try them in order until one passes criteria
+            java.util.List<Transition> automaticTransitions = state.getTransitions().stream()
                     .filter(t -> !t.isManual())
-                    .findFirst()
-                    .orElse(null);
+                    .collect(Collectors.toList());
 
-            if (automaticTransition == null) {
+            if (automaticTransitions.isEmpty()) {
                 logger.debug("No automatic transitions found in state {}, workflow complete", currentState);
                 return currentState;
             }
 
-            // Execute the automatic transition
-            String nextState = executeTransition(automaticTransition, processorContext, criteriaContext);
+            String nextState = null;
+            Transition executedTransition = null;
+            for (Transition t : automaticTransitions) {
+                String candidateNext = executeTransition(t, processorContext, criteriaContext);
+                if (candidateNext != null) {
+                    nextState = candidateNext;
+                    executedTransition = t;
+                    break; // proceed with the first transition whose criteria passed
+                } else {
+                    logger.debug("Automatic transition {} failed criteria in state {}, trying next transition if any",
+                            t.getName(), currentState);
+                }
+            }
+
             if (nextState == null) {
-                // Criteria failed, workflow stops here
-                logger.debug("Automatic transition {} failed criteria in state {}, workflow stops",
-                        automaticTransition.getName(), currentState);
+                // None of the automatic transitions passed criteria; stop in the current state
+                logger.debug("All automatic transitions failed criteria in state {}, workflow stops", currentState);
                 return currentState;
             }
 
             logger.debug("Automatic transition {} executed: {} -> {}",
-                    automaticTransition.getName(), currentState, nextState);
+                    executedTransition.getName(), currentState, nextState);
             currentState = nextState;
         }
 
@@ -151,7 +163,7 @@ public class GenericWorkflowOrchestrator implements WorkflowOrchestrator {
         State state = workflow.getStates().get(stateName);
         return state == null || state.getTransitions().isEmpty();
     }
-    
+
     /**
      * Finds and executes a transition across all states in the workflow.
      * If criteria fails for a transition, it continues searching for other matching transitions.
@@ -185,7 +197,7 @@ public class GenericWorkflowOrchestrator implements WorkflowOrchestrator {
                 transitionName, workflow.getName());
         return "criteria_failed";
     }
-    
+
     /**
      * Executes a specific transition only if criteria matches.
      * Returns null if criteria fails, indicating the transition should not be executed.
@@ -211,7 +223,7 @@ public class GenericWorkflowOrchestrator implements WorkflowOrchestrator {
         logger.debug("Transition {} executed successfully, moving to state: {}", transition.getName(), transition.getNextState());
         return transition.getNextState();
     }
-    
+
     /**
      * Executes criteria for a transition.
      */

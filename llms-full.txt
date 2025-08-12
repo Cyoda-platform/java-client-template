@@ -743,7 +743,7 @@ This file helps both developers and AI agents follow conventions in the Java Cli
 
 - Use `Config` class constants instead of hardcoded values
 - Load environment variables via `Dotenv` in Config class
-- Use `Config.ENTITY_VERSION` for entity versioning (default '1000')
+- Use `Config.ENTITY_VERSION` for entity versioning (default '1')
 - Configure GRPC settings via environment variables
 - Use `Config.CYODA_HOST` and related constants for Cyoda integration
 - SSL and authentication settings should be configurable via environment

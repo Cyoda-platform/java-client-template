@@ -1,5 +1,6 @@
 package com.java_template.prototype.service;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -20,8 +21,12 @@ import io.cloudevents.v1.proto.CloudEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Profile;
+import org.springframework.context.annotation.Lazy;
+
 import org.springframework.stereotype.Service;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -43,7 +48,7 @@ public class InMemoryEntityService implements EntityService {
     // Storage: entityModel -> entityVersion -> technicalId -> entity data
     private final Map<String, Map<String, Map<UUID, ObjectNode>>> storage = new ConcurrentHashMap<>();
 
-    public InMemoryEntityService(WorkflowOrchestratorFactory orchestratorFactory) {
+    public InMemoryEntityService(@Lazy WorkflowOrchestratorFactory orchestratorFactory) {
         this.orchestratorFactory = orchestratorFactory;
         this.objectMapper = new ObjectMapper();
         this.objectMapper.registerModule(new JavaTimeModule());
@@ -315,8 +320,43 @@ public class InMemoryEntityService implements EntityService {
         } else if (entity instanceof JsonNode) {
             return (ObjectNode) entity;
         } else {
-            return objectMapper.valueToTree(entity);
+            return convertDeclaredFieldsToObjectNode(entity);
         }
+    }
+
+    /**
+     * Converts only the fields declared on the concrete class of the given entity (excluding superclass fields)
+     * into an ObjectNode. Static, transient, and synthetic fields are ignored. If a field has @JsonProperty
+     * with a non-empty value, that value is used as the property name.
+     */
+    private ObjectNode convertDeclaredFieldsToObjectNode(Object entity) {
+        ObjectNode node = JsonNodeFactory.instance.objectNode();
+        Class<?> clazz = entity.getClass();
+        for (Field field : clazz.getDeclaredFields()) {
+            int modifiers = field.getModifiers();
+            if (Modifier.isStatic(modifiers) || Modifier.isTransient(modifiers) || field.isSynthetic()) {
+                continue;
+            }
+            String propName = field.getName();
+            JsonProperty jsonProperty = field.getAnnotation(JsonProperty.class);
+            if (jsonProperty != null && jsonProperty.value() != null && !jsonProperty.value().isEmpty()) {
+                propName = jsonProperty.value();
+            }
+            try {
+                field.setAccessible(true);
+                Object value = field.get(entity);
+                if (value == null) {
+                    node.putNull(propName);
+                } else {
+                    JsonNode valueNode = objectMapper.valueToTree(value);
+                    node.set(propName, valueNode);
+                }
+            } catch (IllegalAccessException e) {
+                // Skip fields we cannot access in prototype mode
+                continue;
+            }
+        }
+        return node;
     }
 
     private void storeEntity(String entityModel, String entityVersion, UUID technicalId, ObjectNode entity) {

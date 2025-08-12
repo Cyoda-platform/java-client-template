@@ -94,18 +94,18 @@ public class WorkflowDefinitionLoader {
      * Gets the entity version for a given entity name using reflection.
      *
      * @param entityName The entity name
-     * @return The entity version, or 1000 as default
+     * @return The entity version, or 1 as default
      */
     private Integer getEntityVersion(String entityName) {
         try {
             // Try to load the entity class and get its ENTITY_VERSION constant
-            String className = String.format("com.java_template.application.entity.%s.version_1000.%s",
+            String className = String.format("com.java_template.application.entity.%s.version_1.%s",
                     entityName.toLowerCase(), entityName);
             Class<?> entityClass = Class.forName(className);
             return (Integer) entityClass.getField("ENTITY_VERSION").get(null);
         } catch (Exception e) {
-            logger.debug("Could not get entity version for {}, using default 1000", entityName, e);
-            return 1000; // Default fallback
+            logger.debug("Could not get entity version for {}, using default 1", entityName, e);
+            return 1; // Default fallback
         }
     }
     
