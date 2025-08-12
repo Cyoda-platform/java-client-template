@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.concurrent.CompletableFuture;
+import java.util.UUID;
 
 import static com.java_template.common.config.Config.*;
 import com.java_template.common.service.EntityService;
