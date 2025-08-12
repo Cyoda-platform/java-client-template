@@ -1,0 +1,52 @@
+{
+  "version": "1.0",
+  "name": "Laureate Workflow",
+  "desc": "Workflow for Laureate entity lifecycle management",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": [
+        {
+          "name": "start_validation",
+          "next": "validation",
+          "manual": false
+        },
+        {
+          "name": "skip_validation",
+          "next": "enrichment",
+          "manual": false
+        }
+      ]
+    },
+    "validation": {
+      "transitions": [
+        {
+          "name": "validation_passed",
+          "next": "enrichment",
+          "manual": false
+        },
+        {
+          "name": "validation_failed",
+          "next": "validation_failed",
+          "manual": false
+        }
+      ]
+    },
+    "enrichment": {
+      "transitions": [
+        {
+          "name": "complete_processing",
+          "next": "processed",
+          "manual": false
+        }
+      ]
+    },
+    "validation_failed": {
+      "transitions": []
+    },
+    "processed": {
+      "transitions": []
+    }
+  }
+}
