@@ -1,5 +1,7 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Pet;
@@ -15,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.validation.Valid;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -30,11 +33,12 @@ public class Controller {
     private static final Logger logger = LoggerFactory.getLogger(Controller.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     // --- Workflow Endpoints ---
 
     @PostMapping("/workflows")
-    public ResponseEntity<?> createWorkflow(@RequestBody Workflow workflow) {
+    public ResponseEntity<?> createWorkflow(@Valid @RequestBody Workflow workflow) throws ExecutionException, InterruptedException {
         try {
             if (workflow == null || !workflow.isValid()) {
                 logger.error("Invalid Workflow entity data received.");
@@ -61,7 +65,7 @@ public class Controller {
     }
 
     @GetMapping("/workflows/{technicalId}")
-    public ResponseEntity<?> getWorkflowById(@PathVariable String technicalId) {
+    public ResponseEntity<?> getWorkflowById(@PathVariable String technicalId) throws ExecutionException, InterruptedException, JsonProcessingException {
         try {
             UUID id = UUID.fromString(technicalId);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
@@ -74,9 +78,8 @@ public class Controller {
                 logger.error("Workflow not found for technicalId: {}", technicalId);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Workflow not found"));
             }
-            // Convert ObjectNode to Workflow
-            Workflow workflow = new Workflow();
-            workflow = Workflow.fromJson(node); // Assuming fromJson method exists, otherwise map manually
+            // Convert ObjectNode to Workflow using ObjectMapper
+            Workflow workflow = objectMapper.treeToValue(node, Workflow.class);
 
             logger.info("Retrieved Workflow with technicalId: {}", technicalId);
             return ResponseEntity.ok(workflow);
@@ -88,13 +91,12 @@ public class Controller {
             logger.error("Internal server error in getWorkflowById: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Internal server error"));
         }
-
     }
 
     // --- Pet Endpoints ---
 
     @PostMapping("/pets")
-    public ResponseEntity<?> createPet(@RequestBody Pet pet) {
+    public ResponseEntity<?> createPet(@Valid @RequestBody Pet pet) throws ExecutionException, InterruptedException {
         try {
             if (pet == null || !pet.isValid()) {
                 logger.error("Invalid Pet entity data received.");
@@ -121,7 +123,7 @@ public class Controller {
     }
 
     @GetMapping("/pets/{technicalId}")
-    public ResponseEntity<?> getPetById(@PathVariable String technicalId) {
+    public ResponseEntity<?> getPetById(@PathVariable String technicalId) throws ExecutionException, InterruptedException, JsonProcessingException {
         try {
             UUID id = UUID.fromString(technicalId);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
@@ -134,7 +136,7 @@ public class Controller {
                 logger.error("Pet not found for technicalId: {}", technicalId);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Pet not found"));
             }
-            Pet pet = Pet.fromJson(node); // Assuming fromJson method exists, else map manually
+            Pet pet = objectMapper.treeToValue(node, Pet.class);
 
             logger.info("Retrieved Pet with technicalId: {}", technicalId);
             return ResponseEntity.ok(pet);
@@ -149,7 +151,7 @@ public class Controller {
     }
 
     @GetMapping("/pets")
-    public ResponseEntity<?> getPetsByStatus(@RequestParam(required = false) String status) {
+    public ResponseEntity<?> getPetsByStatus(@RequestParam(required = false) String status) throws ExecutionException, InterruptedException, JsonProcessingException {
         try {
             if (status == null || status.isBlank()) {
                 CompletableFuture<ArrayNode> itemsFuture = entityService.getItems(
@@ -160,7 +162,7 @@ public class Controller {
 
                 List<Pet> result = new ArrayList<>();
                 for (var jsonNode : arrayNode) {
-                    Pet pet = Pet.fromJson((ObjectNode) jsonNode);
+                    Pet pet = objectMapper.treeToValue(jsonNode, Pet.class);
                     result.add(pet);
                 }
                 logger.info("Retrieved {} pets with no status filter", result.size());
@@ -179,7 +181,7 @@ public class Controller {
 
                 List<Pet> result = new ArrayList<>();
                 for (var jsonNode : arrayNode) {
-                    Pet pet = Pet.fromJson((ObjectNode) jsonNode);
+                    Pet pet = objectMapper.treeToValue(jsonNode, Pet.class);
                     result.add(pet);
                 }
                 logger.info("Retrieved {} pets with status '{}'", result.size(), status);
