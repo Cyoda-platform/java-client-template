@@ -1,4 +1,8 @@
-### 1. Entity Definitions
+# Functional Requirements
+
+---
+
+## 1. Entity Definitions
 
 ```
 Job:
@@ -35,19 +39,21 @@ Subscriber:
 
 ---
 
-### 2. Process Method Flows
+## 2. Process Method Flows
 
 ```
 processJob() Flow:
 1. Initial State: Job created with status = SCHEDULED
 2. Validation: Verify jobName and scheduledAt are present
 3. Processing:
+   - Update Job status to INGESTING and set startedAt timestamp
    - Fetch laureates data from OpenDataSoft API
    - For each laureate record, save a new Laureate entity (triggers processLaureate())
 4. Completion:
-   - On successful ingestion of all laureates, update Job status to SUCCEEDED and set finishedAt
-   - On failure, update Job status to FAILED with errorMessage
+   - On successful ingestion of all laureates, update Job status to SUCCEEDED and set finishedAt timestamp
+   - On failure, update Job status to FAILED with errorMessage and set finishedAt timestamp
 5. Notification:
+   - Query Subscribers interested in the categories of the ingested laureates
    - Create notification events to Subscribers based on subscribedCategories
    - Update Job status to NOTIFIED_SUBSCRIBERS after notifications are sent
 ```
@@ -70,7 +76,7 @@ processSubscriber() Flow:
 
 ---
 
-### 3. API Endpoints
+## 3. API Endpoints
 
 **Job**
 
@@ -104,7 +110,7 @@ processSubscriber() Flow:
 
 **Laureate**
 
-- No POST endpoint (created via processJob → processLaureate event)  
+- No POST endpoint (created via processJob  processLaureate event)  
 - `GET /laureates/{technicalId}`  
   - Response:  
     ```json
@@ -161,7 +167,7 @@ processSubscriber() Flow:
 
 ---
 
-### 4. Mermaid Diagrams
+## 4. Mermaid Diagrams
 
 ```mermaid
 sequenceDiagram
@@ -175,12 +181,13 @@ sequenceDiagram
     Client->>API: POST /jobs (create Job)
     API->>JobEntity: Save Job (status=SCHEDULED)
     JobEntity->>JobEntity: processJob()
+    JobEntity->>JobEntity: Update status INGESTING and set startedAt
     JobEntity->>API: Fetch laureates from OpenDataSoft API
     loop For each laureate
         JobEntity->>LaureateEntity: Save Laureate
         LaureateEntity->>LaureateEntity: processLaureate()
     end
-    JobEntity->>JobEntity: Update status SUCCEEDED/FAILED
+    JobEntity->>JobEntity: Update status SUCCEEDED/FAILED and set finishedAt
     JobEntity->>SubscriberEntity: Query subscribers by category
     loop For each subscriber
         JobEntity->>NotificationService: Send notification
