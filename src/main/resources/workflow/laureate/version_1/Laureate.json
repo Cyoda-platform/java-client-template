@@ -1,0 +1,65 @@
+{
+  "version": "1.0",
+  "name": "Laureate Workflow",
+  "desc": "Workflow for processing and persisting a Laureate entity",
+  "initialState": "validation",
+  "active": true,
+  "states": {
+    "validation": {
+      "transitions": [
+        {
+          "name": "validation_success",
+          "next": "enrichment",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "LaureateValidationSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_failure",
+          "next": "failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "LaureateValidationFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "enrichment": {
+      "transitions": [
+        {
+          "name": "enrichment_complete",
+          "next": "persisted",
+          "manual": false,
+          "processors": [
+            {
+              "name": "LaureateNormalizationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "persisted": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  }
+}
