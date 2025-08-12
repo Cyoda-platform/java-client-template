@@ -14,6 +14,14 @@ java {
     targetCompatibility = JavaVersion.VERSION_21
 }
 
+// Ensure the Java compiler reports many errors/warnings instead of stopping early
+// This helps CI show all compilation issues in one run
+tasks.withType(JavaCompile).configureEach {
+    // Increase maximum number of diagnostics shown by javac
+    options.compilerArgs += ['-Xmaxerrs', '1000', '-Xmaxwarns', '1000']
+}
+
+
 group = 'com.java-template'
 version = '1.0-SNAPSHOT'
 

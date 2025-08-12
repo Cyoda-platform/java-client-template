@@ -56,15 +56,20 @@ jobs:
     - name: Make gradlew executable
       run: chmod +x ./gradlew
 
-    - name: Compile only (check for compilation errors)
+    - name: Compile only (report all compilation errors)
       if: ${{ inputs.build_type == 'compile-only' || inputs.build_type == 'workflow-validation' }}
       run: |
         echo "::notice::Starting compilation check for branch ${{ inputs.branch }}"
-        if ./gradlew compileJava --continue; then
+        # Clean first to ensure a full recompile so all diagnostics are surfaced
+        # Use --continue so Gradle doesn't stop at the first failing task
+        # Use --console=plain and -i to make sure all javac diagnostics are printed in GH Actions logs
+        ./gradlew clean compileJava --continue --console=plain -i
+        status=$?
+        if [ $status -eq 0 ]; then
           echo "::notice::✅ Compilation successful - no errors found"
           echo "COMPILE_STATUS=success" >> $GITHUB_ENV
         else
-          echo "::error::❌ Compilation failed - errors found"
+          echo "::error::❌ Compilation failed - see above for all reported errors"
           echo "COMPILE_STATUS=failure" >> $GITHUB_ENV
           exit 1
         fi
