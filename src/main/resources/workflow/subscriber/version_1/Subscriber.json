@@ -1,0 +1,38 @@
+{
+  "version": "1.0",
+  "name": "Subscriber Workflow",
+  "desc": "Workflow for Subscriber entity lifecycle management",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": [
+        {
+          "name": "start_validation",
+          "next": "validation",
+          "manual": false
+        }
+      ]
+    },
+    "validation": {
+      "transitions": [
+        {
+          "name": "validation_passed",
+          "next": "active",
+          "manual": false
+        },
+        {
+          "name": "validation_failed",
+          "next": "validation_failed",
+          "manual": false
+        }
+      ]
+    },
+    "active": {
+      "transitions": []
+    },
+    "validation_failed": {
+      "transitions": []
+    }
+  }
+}
