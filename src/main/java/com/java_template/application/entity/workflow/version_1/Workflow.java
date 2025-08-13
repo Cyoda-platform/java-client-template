@@ -36,4 +36,4 @@ public class Workflow implements CyodaEntity {
         }
         return true;
     }
-}}
+}
