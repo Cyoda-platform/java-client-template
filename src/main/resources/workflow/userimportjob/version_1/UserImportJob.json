@@ -1,0 +1,47 @@
+{
+  "version": "1.0",
+  "name": "UserImportJob Workflow",
+  "desc": "Workflow for processing user import jobs",
+  "initialState": "pending",
+  "active": true,
+  "states": {
+    "pending": {
+      "transitions": [
+        {
+          "name": "start_processing",
+          "next": "processing",
+          "manual": false,
+          "processors": [
+            {
+              "name": "UserImportJobProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "name": "complete_success",
+          "next": "completed",
+          "manual": false
+        },
+        {
+          "name": "complete_failure",
+          "next": "failed",
+          "manual": false
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  }
+}
