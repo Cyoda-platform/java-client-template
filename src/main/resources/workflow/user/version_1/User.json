@@ -1,0 +1,48 @@
+{
+  "version": "1.0",
+  "name": "User Workflow",
+  "desc": "Workflow for processing User entity",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": [
+        {
+          "name": "validate_unique",
+          "next": "validated",
+          "manual": false,
+          "processors": [
+            {
+              "name": "UserValidationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "validated": {
+      "transitions": [
+        {
+          "name": "persist_user",
+          "next": "persisted",
+          "manual": false,
+          "processors": [
+            {
+              "name": "UserPersistenceProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "persisted": {
+      "transitions": []
+    }
+  }
+}
