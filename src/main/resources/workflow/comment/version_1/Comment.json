@@ -1,0 +1,47 @@
+{
+  "version": "1.0",
+  "name": "Comment Workflow",
+  "desc": "Workflow for processing sentiment analysis on each comment.",
+  "initialState": "comment_created",
+  "active": true,
+  "states": {
+    "comment_created": {
+      "transitions": [
+        {
+          "name": "start_sentiment_analysis",
+          "next": "analyzing_sentiment",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SentimentAnalysisProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "analyzing_sentiment": {
+      "transitions": [
+        {
+          "name": "analysis_completed",
+          "next": "completed",
+          "manual": false
+        },
+        {
+          "name": "analysis_failed",
+          "next": "failed",
+          "manual": false
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  }
+}
