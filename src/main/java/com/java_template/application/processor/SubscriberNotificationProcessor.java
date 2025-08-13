@@ -1,6 +1,7 @@
 package com.java_template.application.processor;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.job.version_1.Job;
 import com.java_template.application.entity.subscriber.version_1.Subscriber;
@@ -79,14 +80,15 @@ public class SubscriberNotificationProcessor implements CyodaProcessor {
             SearchConditionRequest condition = SearchConditionRequest.group("AND",
                 Condition.of("$.active", "EQUALS", true)
             );
-            CompletableFuture<java.util.List<ObjectNode>> futureSubscribers = entityService.getItemsByCondition(
+            CompletableFuture<ArrayNode> futureSubscribers = entityService.getItemsByCondition(
                 Subscriber.ENTITY_NAME,
                 String.valueOf(Subscriber.ENTITY_VERSION),
                 condition,
                 true
             );
 
-            List<ObjectNode> subscribers = futureSubscribers.get();
+            List<ObjectNode> subscribers = objectMapper.convertValue(futureSubscribers.get(), objectMapper.getTypeFactory().constructCollectionType(List.class, ObjectNode.class));
+
             if (subscribers.isEmpty()) {
                 logger.info("No active subscribers found for notification");
             } else {
