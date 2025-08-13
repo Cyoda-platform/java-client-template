@@ -1,16 +1,26 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.job.version_1.Job;
+import com.java_template.application.entity.subscriber.version_1.Subscriber;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.service.EntityService;
+import com.java_template.common.util.Condition;
+import com.java_template.common.util.SearchConditionRequest;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
-import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
+
+import java.util.concurrent.CompletableFuture;
+import java.util.List;
 
 @Component
 public class SubscriberNotificationProcessor implements CyodaProcessor {
@@ -18,9 +28,12 @@ public class SubscriberNotificationProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(SubscriberNotificationProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final EntityService entityService;
 
-    public SubscriberNotificationProcessor(SerializerFactory serializerFactory) {
+    @Autowired
+    public SubscriberNotificationProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
     }
 
     @Override
@@ -56,11 +69,38 @@ public class SubscriberNotificationProcessor implements CyodaProcessor {
         Job job = context.entity();
 
         // Business logic: Notify all active subscribers asynchronously
-        // This is a placeholder for actual notification logic, e.g., sending emails
         logger.info("Notifying subscribers for job: {} with status: {}", job.getJobName(), job.getStatus());
 
-        // After notification, update job status to NOTIFIED_SUBSCRIBERS
-        job.setStatus("NOTIFIED_SUBSCRIBERS");
+        // Build search condition for active subscribers
+        SearchConditionRequest condition = SearchConditionRequest.group(
+            "AND",
+            Condition.of("$.active", "EQUALS", true)
+        );
+
+        CompletableFuture<ArrayNode> activeSubscribersFuture = entityService.getItemsByCondition(
+            Subscriber.ENTITY_NAME,
+            String.valueOf(Subscriber.ENTITY_VERSION),
+            condition,
+            true
+        );
+
+        activeSubscribersFuture.thenAccept(activeSubscribers -> {
+            for (int i = 0; i < activeSubscribers.size(); i++) {
+                ObjectNode subscriberNode = (ObjectNode) activeSubscribers.get(i);
+                String email = subscriberNode.path("contactEmail").asText(null);
+                if (email != null) {
+                    // Simulate sending notification asynchronously
+                    logger.info("Sending notification to subscriber email: {}", email);
+                    // TODO: Integrate real email sending service or webhook
+                }
+            }
+            // Update job status to NOTIFIED_SUBSCRIBERS after notifications
+            job.setStatus("NOTIFIED_SUBSCRIBERS");
+            logger.info("All active subscribers notified for job: {}", job.getJobName());
+        }).exceptionally(ex -> {
+            logger.error("Failed to notify subscribers: {}", ex.getMessage());
+            return null;
+        });
 
         return job;
     }
