@@ -1,0 +1,44 @@
+{
+  "version": "1.0",
+  "name": "Product Workflow",
+  "desc": "Workflow for managing product lifecycle",
+  "initialState": "available",
+  "active": true,
+  "states": {
+    "available": {
+      "transitions": [
+        {
+          "name": "update_stock",
+          "next": "stock_updated",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ProductStockUpdateProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "discontinue",
+          "next": "discontinued",
+          "manual": false
+        }
+      ]
+    },
+    "stock_updated": {
+      "transitions": [
+        {
+          "name": "check_stock_levels",
+          "next": "available",
+          "manual": false
+        }
+      ]
+    },
+    "discontinued": {
+      "transitions": []
+    }
+  }
+}
