@@ -67,7 +67,6 @@ public class ProcessWorkflowProcessor implements CyodaProcessor {
 
         // Update status to RUNNING
         workflow.setStatus("RUNNING");
-        logger.info("Workflow status set to RUNNING for id: {}", workflow.getTechnicalId());
 
         String inputPetData = workflow.getInputPetData();
         List<CompletableFuture<UUID>> petFutures = new ArrayList<>();
@@ -139,7 +138,6 @@ public class ProcessWorkflowProcessor implements CyodaProcessor {
         }
 
         workflow.setStatus("COMPLETED");
-        logger.info("Workflow processing completed for id: {}", workflow.getTechnicalId());
 
         return workflow;
     }
