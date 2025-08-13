@@ -19,11 +19,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.time.Instant;
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 
 @Component
 public class CreateEmailDispatchesProcessor implements CyodaProcessor {
@@ -61,7 +58,6 @@ public class CreateEmailDispatchesProcessor implements CyodaProcessor {
 
     private CatFactJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<CatFactJob> context) {
         CatFactJob entity = context.entity();
-        // Business logic: For each active Subscriber (unsubscribedAt == null), create an EmailDispatch entity with catFact
 
         // Fetch active subscribers
         CompletableFuture<ArrayNode> activeSubscribersFuture = entityService.getItemsByCondition(
@@ -75,7 +71,8 @@ public class CreateEmailDispatchesProcessor implements CyodaProcessor {
 
         try {
             ArrayNode activeSubscribers = activeSubscribersFuture.get();
-            String catFact = entity.getStatus().equals("fact_retrieved") && entity.getCatFact() != null ? entity.getCatFact() : "No cat fact available";
+            String catFact = entity.getStatus().equalsIgnoreCase("fact_retrieved") && entity.getCatFact() != null
+                    ? entity.getCatFact() : "No cat fact available";
 
             for (int i = 0; i < activeSubscribers.size(); i++) {
                 ObjectNode subscriberNode = (ObjectNode) activeSubscribers.get(i);
