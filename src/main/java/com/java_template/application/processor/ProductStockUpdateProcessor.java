@@ -3,6 +3,7 @@ package com.java_template.application.processor;
 import com.java_template.application.entity.product.version_1.Product;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.service.EntityService;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -18,9 +19,11 @@ public class ProductStockUpdateProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(ProductStockUpdateProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final EntityService entityService;
 
-    public ProductStockUpdateProcessor(SerializerFactory serializerFactory) {
+    public ProductStockUpdateProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
     }
 
     @Override
@@ -55,10 +58,8 @@ public class ProductStockUpdateProcessor implements CyodaProcessor {
     private Product processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Product> context) {
         Product product = context.entity();
         // Business logic:
-        // 1. Update stock quantity as per event
-        // 2. Possibly trigger stock level checks or notifications
-
-        // TODO: Implement detailed stock update logic
+        // 1. Update stock quantity as per event (already done in entity state)
+        // 2. Possibly trigger stock level checks or notifications (not specified)
 
         logger.info("Product {} stock updated to {}", product.getProductId(), product.getStockQuantity());
 
