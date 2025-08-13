@@ -13,7 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
+import java.time.format.DateTimeParseException;
 
 @Component
 public class LaureateEnrichmentProcessor implements CyodaProcessor {
@@ -50,18 +50,17 @@ public class LaureateEnrichmentProcessor implements CyodaProcessor {
     private Laureate processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Laureate> context) {
         Laureate laureate = context.entity();
 
-        // Example enrichment: calculate age at award year if born and year are valid
+        // Enrichment: calculate age at award year if born and year are valid
         try {
             if (laureate.getBorn() != null && !laureate.getBorn().isEmpty() && laureate.getYear() != null && !laureate.getYear().isEmpty()) {
                 DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
                 LocalDate bornDate = LocalDate.parse(laureate.getBorn(), formatter);
                 int awardYear = Integer.parseInt(laureate.getYear());
                 int ageAtAward = awardYear - bornDate.getYear();
-                // Assuming Laureate has a setAgeAtAward method (if not, skip or log)
-                // Not adding new properties as per instructions
+                // Log enrichment info
                 logger.info("Enriched ageAtAward: {} for laureate {} {}", ageAtAward, laureate.getFirstname(), laureate.getSurname());
             }
-        } catch (Exception e) {
+        } catch (DateTimeParseException | NumberFormatException e) {
             logger.warn("Failed to enrich laureate ageAtAward: {}", e.getMessage());
         }
 
