@@ -1,8 +1,17 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.IntNode;
 import com.java_template.application.entity.cart.version_1.Cart;
+import com.java_template.application.entity.cartitem.version_1.CartItem;
+import com.java_template.application.entity.product.version_1.Product;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.service.EntityService;
+import com.java_template.common.util.Condition;
+import com.java_template.common.util.SearchConditionRequest;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -12,15 +21,20 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+
 @Component
 public class CartCheckoutProcessor implements CyodaProcessor {
 
     private static final Logger logger = LoggerFactory.getLogger(CartCheckoutProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final EntityService entityService;
 
-    public CartCheckoutProcessor(SerializerFactory serializerFactory) {
+    public CartCheckoutProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
     }
 
     @Override
@@ -58,20 +72,75 @@ public class CartCheckoutProcessor implements CyodaProcessor {
 
     private Cart processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Cart> context) {
         Cart cart = context.entity();
-        // Deduct stock for each CartItem's product, update Cart status to CHECKED_OUT
         // Business logic:
-        // 1. Verify stock availability for each item
-        // 2. If stock insufficient, log error and possibly throw exception or handle failure
+        // 1. Verify stock availability for each CartItem
+        // 2. If stock insufficient, log error and fail process
         // 3. If stock sufficient, deduct stock quantities
         // 4. Update Cart status to CHECKED_OUT
         // 5. Persist changes as needed (handled by framework)
 
-        // TODO: Implement detailed stock checks and deduction logic
+        boolean stockSufficient = true;
+        for (CartItem item : cart.getItems()) {
+            try {
+                CompletableFuture<ObjectNode> productFuture = entityService.getItem(
+                        Product.ENTITY_NAME, String.valueOf(Product.ENTITY_VERSION),
+                        java.util.UUID.fromString(item.getProductId())
+                );
+                ObjectNode productNode = productFuture.get();
 
-        // For now, simulate status update
+                if (productNode == null) {
+                    logger.error("Product not found for productId: {}", item.getProductId());
+                    stockSufficient = false;
+                    break;
+                }
+
+                Integer stockQuantity = productNode.has("stockQuantity") ? productNode.get("stockQuantity").asInt() : null;
+                if (stockQuantity == null || stockQuantity < item.getQuantity()) {
+                    logger.error("Insufficient stock for productId: {}. Available: {}, Requested: {}",
+                            item.getProductId(), stockQuantity, item.getQuantity());
+                    stockSufficient = false;
+                    break;
+                }
+            } catch (InterruptedException | ExecutionException e) {
+                logger.error("Failed to get product stock for productId: {}", item.getProductId(), e);
+                stockSufficient = false;
+                break;
+            }
+        }
+
+        if (!stockSufficient) {
+            throw new IllegalStateException("Insufficient stock for one or more cart items");
+        }
+
+        // Deduct stock quantities
+        for (CartItem item : cart.getItems()) {
+            try {
+                CompletableFuture<ObjectNode> productFuture = entityService.getItem(
+                        Product.ENTITY_NAME, String.valueOf(Product.ENTITY_VERSION),
+                        java.util.UUID.fromString(item.getProductId())
+                );
+                ObjectNode productNode = productFuture.get();
+
+                Integer stockQuantity = productNode.has("stockQuantity") ? productNode.get("stockQuantity").asInt() : 0;
+                int newStock = stockQuantity - item.getQuantity();
+
+                // Create new product node with updated stock
+                ObjectNode updatedProduct = productNode.deepCopy();
+                updatedProduct.put("stockQuantity", newStock);
+
+                // Persist updated product stock
+                entityService.addItem(Product.ENTITY_NAME, String.valueOf(Product.ENTITY_VERSION), updatedProduct);
+
+                logger.info("Deducted {} units from product {}. New stock: {}",
+                        item.getQuantity(), item.getProductId(), newStock);
+            } catch (InterruptedException | ExecutionException e) {
+                logger.error("Failed to deduct stock for productId: {}", item.getProductId(), e);
+                throw new IllegalStateException("Failed to deduct stock for productId: " + item.getProductId());
+            }
+        }
+
         cart.setStatus("checked_out");
         logger.info("Cart {} checked out successfully", cart.getCartId());
-
         return cart;
     }
 }
