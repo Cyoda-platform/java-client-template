@@ -1,0 +1,35 @@
+{
+  "version": "1.0",
+  "name": "Cart Workflow",
+  "desc": "Workflow for managing cart lifecycle",
+  "initialState": "active",
+  "active": true,
+  "states": {
+    "active": {
+      "transitions": [
+        {
+          "name": "modify_cart",
+          "next": "active",
+          "manual": false
+        },
+        {
+          "name": "checkout",
+          "next": "checked_out",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CartCheckoutProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "checked_out": {
+      "transitions": []
+    }
+  }
+}
