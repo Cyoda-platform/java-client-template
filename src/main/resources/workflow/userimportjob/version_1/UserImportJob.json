@@ -1,0 +1,65 @@
+{
+  "version": "1.0",
+  "name": "UserImportJob Workflow",
+  "desc": "Workflow for managing UserImportJob lifecycle including validation, processing, and completion.",
+  "initialState": "pending",
+  "active": true,
+  "states": {
+    "pending": {
+      "transitions": [
+        {
+          "name": "start_processing",
+          "next": "processing",
+          "manual": false,
+          "processors": [
+            {
+              "name": "UserImportJobProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "name": "mark_completed",
+          "next": "completed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "UserImportJobSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "mark_failed",
+          "next": "failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "UserImportJobFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  }
+}
