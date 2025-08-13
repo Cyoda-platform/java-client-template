@@ -1,0 +1,80 @@
+{
+  "version": "1.0",
+  "name": "Laureate Workflow",
+  "desc": "Workflow for Laureate entity handling ingestion validation and enrichment",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": [
+        {
+          "name": "start_validation",
+          "next": "validating",
+          "manual": false
+        }
+      ]
+    },
+    "validating": {
+      "transitions": [
+        {
+          "name": "validation_passed",
+          "next": "enriching",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "LaureateValidationPassedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_failed",
+          "next": "error",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "LaureateValidationFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "enriching": {
+      "transitions": [
+        {
+          "name": "data_enriched",
+          "next": "stored",
+          "manual": false
+        }
+      ]
+    },
+    "error": {
+      "transitions": [
+        {
+          "name": "discard_or_log",
+          "next": "end",
+          "manual": false
+        }
+      ]
+    },
+    "stored": {
+      "transitions": [
+        {
+          "name": "ready_for_queries",
+          "next": "end",
+          "manual": false
+        }
+      ]
+    },
+    "end": {
+      "transitions": []
+    }
+  }
+}
