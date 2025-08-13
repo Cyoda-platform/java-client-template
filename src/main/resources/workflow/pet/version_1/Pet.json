@@ -1,0 +1,39 @@
+{
+  "version": "1.0",
+  "name": "Pet Workflow",
+  "desc": "Processing workflow for Pet entity ingestion and validation",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": [
+        {
+          "name": "validate_pet",
+          "next": "validated",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidatePetProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "validated": {
+      "transitions": [
+        {
+          "name": "store_pet",
+          "next": "stored",
+          "manual": false
+        }
+      ]
+    },
+    "stored": {
+      "transitions": []
+    }
+  }
+}
