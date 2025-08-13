@@ -111,7 +111,7 @@ public class ProcessWorkflowProcessor implements CyodaProcessor {
                     // Persist pet entity asynchronously
                     CompletableFuture<UUID> future = entityService.addItem(
                             Pet.ENTITY_NAME,
-                            String.valueOf(Pet.ENTITY_VERSION),
+                            Pet.ENTITY_VERSION,
                             pet
                     );
                     petFutures.add(future);

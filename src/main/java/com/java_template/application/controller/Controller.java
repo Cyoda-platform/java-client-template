@@ -64,7 +64,7 @@ public class Controller {
 
             CompletableFuture<UUID> idFuture = entityService.addItem(
                 Workflow.ENTITY_NAME,
-                String.valueOf(Workflow.ENTITY_VERSION),
+                Workflow.ENTITY_VERSION,
                 workflow
             );
 
@@ -105,8 +105,6 @@ public class Controller {
         @PathVariable String technicalId) {
         try {
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
-                Workflow.ENTITY_NAME,
-                String.valueOf(Workflow.ENTITY_VERSION),
                 UUID.fromString(technicalId)
             );
 
@@ -156,8 +154,6 @@ public class Controller {
         @PathVariable String technicalId) {
         try {
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
-                Pet.ENTITY_NAME,
-                String.valueOf(Pet.ENTITY_VERSION),
                 UUID.fromString(technicalId)
             );
 
