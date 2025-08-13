@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "name": "SentimentAnalysisResult Workflow",
+  "desc": "Workflow representing the state transitions of sentiment analysis results.",
+  "initialState": "result_created",
+  "active": true,
+  "states": {
+    "result_created": {
+      "transitions": [
+        {
+          "name": "validate_result",
+          "next": "validated",
+          "manual": false
+        }
+      ]
+    },
+    "validated": {
+      "transitions": [
+        {
+          "name": "finalize",
+          "next": "completed",
+          "manual": false
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    }
+  }
+}
