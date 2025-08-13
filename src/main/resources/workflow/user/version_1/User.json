@@ -1,0 +1,12 @@
+{
+  "version": "1.0",
+  "name": "User Workflow",
+  "desc": "Workflow for User entity management - typically created immutable post UserImportJob.",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": []
+    }
+  }
+}
