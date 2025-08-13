@@ -5,11 +5,10 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.catfactjob.version_1.CatFactJob;
 import com.java_template.application.entity.emaildispatch.version_1.EmailDispatch;
 import com.java_template.application.entity.subscriber.version_1.Subscriber;
+import com.java_template.common.config.Config;
+import com.java_template.common.service.EntityService;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
-import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -38,13 +37,13 @@ public class CreateEmailDispatchesProcessor implements CyodaProcessor {
     @Override
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
-        logger.info("Processing CreateEmailDispatches for request: {}", request.getId());
+        logger.info("Processing CreateEmailDispatchesProcessor for request: {}", request.getId());
 
         return serializer.withRequest(request)
-            .toEntity(CatFactJob.class)
-            .validate(this::isValidEntity, "Invalid CatFactJob entity")
-            .map(this::processEntityLogic)
-            .complete();
+                .toEntity(CatFactJob.class)
+                .validate(this::isValidEntity, "Invalid entity state")
+                .map(this::processEntityLogic)
+                .complete();
     }
 
     @Override
@@ -53,53 +52,50 @@ public class CreateEmailDispatchesProcessor implements CyodaProcessor {
     }
 
     private boolean isValidEntity(CatFactJob entity) {
-        return entity != null && entity.getStatus() != null && !entity.getStatus().isEmpty();
+        return entity != null && entity.isValid();
     }
 
     private CatFactJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<CatFactJob> context) {
         CatFactJob entity = context.entity();
 
-        // Fetch active subscribers
-        CompletableFuture<ArrayNode> activeSubscribersFuture = entityService.getItemsByCondition(
-            Subscriber.ENTITY_NAME,
-            String.valueOf(Subscriber.ENTITY_VERSION),
-            SearchConditionRequest.group("AND",
-                Condition.of("$.unsubscribedAt", "EQUALS", null)
-            ),
-            true
-        );
-
         try {
+            // Fetch all active subscribers
+            CompletableFuture<ArrayNode> activeSubscribersFuture = entityService.getItemsByCondition(
+                    Subscriber.ENTITY_NAME,
+                    String.valueOf(Subscriber.ENTITY_VERSION),
+                    Config.SearchConditionRequest.group("AND",
+                            Config.Condition.of("$.status", "EQUALS", "active")
+                    ),
+                    true
+            );
             ArrayNode activeSubscribers = activeSubscribersFuture.get();
-            String catFact = entity.getStatus().equalsIgnoreCase("fact_retrieved") && entity.getCatFact() != null
-                    ? entity.getCatFact() : "No cat fact available";
 
+            // Determine cat fact string
+            String catFact = entity.getStatus() != null && entity.getStatus().equalsIgnoreCase("fact_retrieved")
+                    && entity.getFact() != null ? entity.getFact() : "No cat fact available";
+
+            // Create EmailDispatch entities for each active subscriber
             for (int i = 0; i < activeSubscribers.size(); i++) {
                 ObjectNode subscriberNode = (ObjectNode) activeSubscribers.get(i);
-                String email = subscriberNode.path("email").asText(null);
-                if (email == null) {
-                    logger.warn("Subscriber entity missing email field, skipping");
-                    continue;
-                }
+                Subscriber subscriber = context.serializer().toEntity(subscriberNode, Subscriber.class);
 
                 EmailDispatch emailDispatch = new EmailDispatch();
-                emailDispatch.setSubscriberEmail(email);
+                emailDispatch.setStatus("pending");
+                emailDispatch.setSubscriberId(subscriber.getId());
                 emailDispatch.setCatFact(catFact);
-                emailDispatch.setDispatchedAt(null); // Not dispatched yet
 
-                CompletableFuture<UUID> addFuture = entityService.addItem(
-                    EmailDispatch.ENTITY_NAME,
-                    String.valueOf(EmailDispatch.ENTITY_VERSION),
-                    emailDispatch
+                // Persist EmailDispatch
+                entityService.addItem(
+                        EmailDispatch.ENTITY_NAME,
+                        String.valueOf(EmailDispatch.ENTITY_VERSION),
+                        emailDispatch
                 );
-                UUID dispatchId = addFuture.get();
-                logger.info("Created EmailDispatch {} for subscriber: {}", dispatchId, email);
             }
 
-            entity.setStatus("COMPLETED");
+            entity.setStatus("completed");
         } catch (Exception e) {
             logger.error("Error creating email dispatches", e);
-            entity.setStatus("FAILED");
+            entity.setStatus("failed");
         }
 
         return entity;
