@@ -45,7 +45,7 @@ public class SubscribersNotificationProcessor implements CyodaProcessor {
 
         try {
             SearchConditionRequest condition = SearchConditionRequest.group("AND",
-                    Condition.of("$.status", "EQUALS", "ACTIVE")
+                    Condition.of("$.active", "EQUALS", true)
             );
 
             CompletableFuture<ArrayNode> subscribersFuture = entityService.getItemsByCondition(
@@ -66,22 +66,22 @@ public class SubscribersNotificationProcessor implements CyodaProcessor {
                         logger.error("Failed to deserialize Subscriber entity", e);
                     }
                 }
-                return list;
+                return list.stream()
+                        .filter(Subscriber::isValid)
+                        .collect(Collectors.toList());
             }).get();
 
             // Simulate sending notifications
             for (Subscriber subscriber : subscribers) {
-                logger.info("Notifying subscriber: {}", subscriber.getEmail());
+                logger.info("Notifying subscriber: type={}, address={}", subscriber.getContactType(), subscriber.getContactAddress());
                 // TODO: Integrate actual notification mechanism here
             }
 
-            // Optionally update job status or create audit logs here
         } catch (InterruptedException | ExecutionException e) {
             logger.error("Failed to fetch or notify subscribers", e);
             Thread.currentThread().interrupt();
         }
 
-        // Return a simple successful response
         EntityProcessorCalculationResponse response = new EntityProcessorCalculationResponse();
         response.setId(request.getId());
         response.setSuccess(true);
