@@ -54,4 +54,4 @@ public class Laureate implements CyodaEntity {
         if (country == null || country.isBlank()) return false;
         return true;
     }
-}}
+}
