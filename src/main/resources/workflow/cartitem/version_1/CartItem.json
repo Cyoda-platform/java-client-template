@@ -1,0 +1,35 @@
+{
+  "version": "1.0",
+  "name": "CartItem Workflow",
+  "desc": "Workflow for managing individual cart items",
+  "initialState": "added",
+  "active": true,
+  "states": {
+    "added": {
+      "transitions": [
+        {
+          "name": "update_quantity",
+          "next": "updated",
+          "manual": false
+        },
+        {
+          "name": "remove_item",
+          "next": "removed",
+          "manual": false
+        }
+      ]
+    },
+    "updated": {
+      "transitions": [
+        {
+          "name": "remove_item",
+          "next": "removed",
+          "manual": false
+        }
+      ]
+    },
+    "removed": {
+      "transitions": []
+    }
+  }
+}
