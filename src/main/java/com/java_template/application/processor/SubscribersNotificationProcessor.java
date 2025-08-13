@@ -82,10 +82,10 @@ public class SubscribersNotificationProcessor implements CyodaProcessor {
         }
 
         // Return a simple successful response
-        return EntityProcessorCalculationResponse.newBuilder()
-                .setId(request.getId())
-                .setSuccess(true)
-                .build();
+        EntityProcessorCalculationResponse response = new EntityProcessorCalculationResponse();
+        response.setId(request.getId());
+        response.setSuccess(true);
+        return response;
     }
 
     @Override
