@@ -1,0 +1,39 @@
+{
+  "version": "1.0",
+  "name": "Cart Workflow",
+  "desc": "Workflow for processing Cart entity",
+  "initialState": "active",
+  "active": true,
+  "states": {
+    "active": {
+      "transitions": [
+        {
+          "name": "validate_cart",
+          "next": "validated",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CartValidationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "validated": {
+      "transitions": [
+        {
+          "name": "checkout",
+          "next": "checked_out",
+          "manual": false
+        }
+      ]
+    },
+    "checked_out": {
+      "transitions": []
+    }
+  }
+}
