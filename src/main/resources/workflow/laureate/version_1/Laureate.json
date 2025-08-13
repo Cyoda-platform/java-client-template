@@ -1,0 +1,44 @@
+{
+  "version": "1.0",
+  "name": "Laureate Workflow",
+  "desc": "Workflow to validate, enrich and persist Laureate entity data",
+  "initialState": "validate",
+  "active": true,
+  "states": {
+    "validate": {
+      "transitions": [
+        {
+          "name": "enrich_data",
+          "next": "enrich",
+          "manual": false,
+          "processors": [
+            {
+              "name": "LaureateValidator",
+              "executionMode": "SYNC",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          ]
+        }
+      ]
+    },
+    "enrich": {
+      "transitions": [
+        {
+          "name": "persist_data",
+          "next": "persist",
+          "manual": false,
+          "processors": [
+            {
+              "name": "LaureateEnrichmentProcessor",
+              "executionMode": "SYNC",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          ]
+        }
+      ]
+    },
+    "persist": {
+      "transitions": []
+    }
+  }
+}
