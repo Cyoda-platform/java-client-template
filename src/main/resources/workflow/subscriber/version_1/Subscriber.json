@@ -1,0 +1,83 @@
+{
+  "version": "1.0",
+  "name": "Subscriber Workflow",
+  "desc": "Workflow for the Subscriber entity including validation and optional welcome email sending.",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "validate_subscriber",
+          "next": "validation",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SubscriberValidationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "validation": {
+      "transitions": [
+        {
+          "name": "validation_passed",
+          "next": "welcome_email",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidationPassedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_failed",
+          "next": "validation_failed_state",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidationFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "welcome_email": {
+      "transitions": [
+        {
+          "name": "send_welcome_email",
+          "next": "completed",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendWelcomeEmailProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "validation_failed_state": {
+      "transitions": []
+    },
+    "completed": {
+      "transitions": []
+    }
+  }
+}
