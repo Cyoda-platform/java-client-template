@@ -1,0 +1,70 @@
+{
+  "version": "1.0",
+  "name": "CatFactJob Workflow",
+  "desc": "Workflow for the CatFactJob entity managing the job lifecycle of fetching and dispatching cat facts.",
+  "initialState": "pending",
+  "active": true,
+  "states": {
+    "pending": {
+      "transitions": [
+        {
+          "name": "start_fetching_fact",
+          "next": "fetching_fact",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FetchCatFactProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "fetching_fact": {
+      "transitions": [
+        {
+          "name": "fact_retrieved",
+          "next": "dispatching_emails",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CreateEmailDispatchesProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "fact_retrieval_failed",
+          "next": "failed",
+          "manual": false
+        }
+      ]
+    },
+    "dispatching_emails": {
+      "transitions": [
+        {
+          "name": "emails_dispatched",
+          "next": "completed",
+          "manual": false
+        },
+        {
+          "name": "dispatch_failed",
+          "next": "failed",
+          "manual": false
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  }
+}
