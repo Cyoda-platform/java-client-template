@@ -1,0 +1,35 @@
+{
+  "version": "1.0",
+  "name": "Cart Workflow",
+  "desc": "Workflow for Cart entity including item updates and checkout process.",
+  "initialState": "active",
+  "active": true,
+  "states": {
+    "active": {
+      "transitions": [
+        {
+          "name": "add_or_remove_items",
+          "next": "active",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CartUpdateProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "checkout",
+          "next": "checked_out",
+          "manual": false
+        }
+      ]
+    },
+    "checked_out": {
+      "transitions": []
+    }
+  }
+}
