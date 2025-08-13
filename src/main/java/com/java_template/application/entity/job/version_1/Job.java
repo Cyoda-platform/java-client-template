@@ -34,4 +34,4 @@ public class Job implements CyodaEntity {
         if (scheduledAt == null || scheduledAt.isBlank()) return false;
         return true;
     }
-}}
+}
