@@ -31,4 +31,4 @@ public class Subscriber implements CyodaEntity {
         if (active == null) return false;
         return true;
     }
-}}
+}
