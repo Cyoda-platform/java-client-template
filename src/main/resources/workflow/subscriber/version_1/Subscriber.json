@@ -1,0 +1,44 @@
+{
+  "version": "1.0",
+  "name": "Subscriber Workflow",
+  "desc": "Workflow for Subscriber entity managing subscription and notification",
+  "initialState": "active",
+  "active": true,
+  "states": {
+    "active": {
+      "transitions": [
+        {
+          "name": "deactivate_subscription",
+          "next": "deactivated",
+          "manual": false
+        },
+        {
+          "name": "send_notification",
+          "next": "notified",
+          "manual": false
+        }
+      ]
+    },
+    "deactivated": {
+      "transitions": [
+        {
+          "name": "reactivate_subscription",
+          "next": "active",
+          "manual": false
+        }
+      ]
+    },
+    "notified": {
+      "transitions": [
+        {
+          "name": "notification_complete",
+          "next": "end",
+          "manual": false
+        }
+      ]
+    },
+    "end": {
+      "transitions": []
+    }
+  }
+}
