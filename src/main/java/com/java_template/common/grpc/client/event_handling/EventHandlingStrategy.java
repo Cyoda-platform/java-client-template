@@ -1,11 +1,9 @@
-package com.java_template.common.grpc.client;
+package com.java_template.common.grpc.client.event_handling;
 
 import io.cloudevents.v1.proto.CloudEvent;
 import org.cyoda.cloud.api.event.common.BaseEvent;
 import org.cyoda.cloud.api.event.common.CloudEventType;
 import org.jetbrains.annotations.NotNull;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Strategy interface for handling different types of CloudEvents.
@@ -29,7 +27,7 @@ public interface EventHandlingStrategy<TResponse extends BaseEvent> {
      * @param cloudEvent the CloudEvent to handle
      * @return CompletableFuture containing the response object to be sent
      */
-    @NotNull CompletableFuture<TResponse> handleEvent(@NotNull CloudEvent cloudEvent);
+    TResponse handleEvent(@NotNull CloudEvent cloudEvent);
 
     /**
      * Checks if this strategy supports the given event type.
