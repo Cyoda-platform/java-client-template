@@ -44,4 +44,4 @@ public class Pet implements CyodaEntity {
         }
         return true;
     }
-}}
+}
