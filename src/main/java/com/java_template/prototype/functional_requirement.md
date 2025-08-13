@@ -1,4 +1,8 @@
-### 1. Entity Definitions
+# Functional Requirements for Java Spring Boot Backend
+
+---
+
+## 1. Entity Definitions
 
 ```
 Job:
@@ -34,7 +38,7 @@ Subscriber:
 
 ---
 
-### 2. Process Method Flows
+## 2. Process Method Flows
 
 ```
 processJob() Flow:
@@ -63,7 +67,7 @@ processSubscriber() Flow:
 
 ---
 
-### 3. API Endpoints Specification
+## 3. API Endpoints Specification
 
 | Entity     | POST Endpoint                | Response           | GET by technicalId Endpoint        |
 |------------|-----------------------------|--------------------|-----------------------------------|
@@ -77,7 +81,7 @@ processSubscriber() Flow:
 
 ---
 
-### 4. Request/Response Formats
+## 4. Request/Response Formats
 
 **POST /jobs**  
 _Request Body:_
@@ -155,7 +159,7 @@ _Response Body:_
 
 ---
 
-### 5. Mermaid Diagrams
+## 5. Mermaid Diagrams
 
 **Job Entity State Diagram**
 
