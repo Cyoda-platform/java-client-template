@@ -1,6 +1,6 @@
 package com.java_template.common.workflow;
 
-import net.minidev.json.annotate.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 /**
  * Base interface for all Cyoda entities.
