@@ -1,14 +1,15 @@
-### 1. Entity Definitions
+# Functional Requirements
 
-```
-Job:
+## 1. Entity Definitions
+
+### Job
 - jobName: String (Name/identifier of the ingestion job)
 - sourceUrl: String (URL of the OpenDataSoft API endpoint)
 - status: String (Current job status, e.g., PENDING, INGESTING, SUCCEEDED, FAILED, NOTIFIED_SUBSCRIBERS)
 - createdAt: DateTime (Timestamp when the job was created)
 - finishedAt: DateTime (Timestamp when the job finished processing)
 
-Laureate:
+### Laureate
 - laureateId: String (Unique identifier from the source)
 - firstname: String (First name of the laureate)
 - surname: String (Surname of the laureate)
@@ -26,28 +27,25 @@ Laureate:
 - affiliationCountry: String (Country of affiliation)
 - ingestedAt: DateTime (Timestamp when the laureate was ingested)
 
-Subscriber:
+### Subscriber
 - contactType: String (Type of contact: email, webhook, etc.)
 - contactAddress: String (Email address or webhook URL)
 - active: Boolean (Subscriber active status)
 - subscribedAt: DateTime (Timestamp when subscription was created)
-```
 
 ---
 
-### 2. Entity Workflows
+## 2. Entity Workflows
 
-```
-Job workflow:
+### Job Workflow
 1. Initial State: Job created with status = PENDING
 2. Validation: Validate sourceUrl and jobName presence and format
-3. Processing: 
+3. Processing:
    - Fetch laureates data from sourceUrl
    - For each record, create Laureate entity events
 4. Completion: Update job status to SUCCEEDED or FAILED depending on ingestion result
 5. Notification: Trigger notifications to all active Subscribers
 6. Final State: Update job status to NOTIFIED_SUBSCRIBERS
-```
 
 ```mermaid
 stateDiagram-v2
@@ -62,16 +60,12 @@ stateDiagram-v2
     NOTIFIED_SUBSCRIBERS --> [*] : "Job complete"
 ```
 
----
-
-```
-Laureate workflow:
+### Laureate Workflow
 1. Initial State: Laureate entity created upon ingestion
 2. Validation: Check required fields and formats
 3. Enrichment: Normalize fields (e.g., country codes, calculate derived data)
 4. Persistence: Store enriched Laureate data for later retrieval
 5. End State: Laureate data stored and ready for query
-```
 
 ```mermaid
 stateDiagram-v2
@@ -84,15 +78,11 @@ stateDiagram-v2
     STORED --> [*] : "Ready for queries"
 ```
 
----
-
-```
-Subscriber workflow:
+### Subscriber Workflow
 1. Initial State: Subscriber entity created (active by default)
 2. Subscription Management: (Optional) Activate/deactivate subscription via new entity creation
 3. Notification: Receive notifications triggered by Job completion events
 4. End State: Subscriber notified or subscription updated
-```
 
 ```mermaid
 stateDiagram-v2
@@ -105,90 +95,90 @@ stateDiagram-v2
 
 ---
 
-### 3. API Endpoints
+## 3. API Endpoints
 
-- **Job**
-  - `POST /jobs`  
-    Request:  
-    ```json
-    {
-      "jobName": "Nobel Laureates Ingestion April 2024",
-      "sourceUrl": "https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/nobel-prize-laureates/records"
-    }
-    ```  
-    Response:  
-    ```json
-    {
-      "technicalId": "string"
-    }
-    ```
-  - `GET /jobs/{technicalId}`  
-    Response:  
-    ```json
-    {
-      "jobName": "Nobel Laureates Ingestion April 2024",
-      "sourceUrl": "https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/nobel-prize-laureates/records",
-      "status": "NOTIFIED_SUBSCRIBERS",
-      "createdAt": "2024-06-01T10:00:00Z",
-      "finishedAt": "2024-06-01T10:15:00Z"
-    }
-    ```
+### Job
+- `POST /jobs`  
+  Request:  
+  ```json
+  {
+    "jobName": "Nobel Laureates Ingestion April 2024",
+    "sourceUrl": "https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/nobel-prize-laureates/records"
+  }
+  ```  
+  Response:  
+  ```json
+  {
+    "technicalId": "string"
+  }
+  ```
+- `GET /jobs/{technicalId}`  
+  Response:  
+  ```json
+  {
+    "jobName": "Nobel Laureates Ingestion April 2024",
+    "sourceUrl": "https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/nobel-prize-laureates/records",
+    "status": "NOTIFIED_SUBSCRIBERS",
+    "createdAt": "2024-06-01T10:00:00Z",
+    "finishedAt": "2024-06-01T10:15:00Z"
+  }
+  ```
 
-- **Laureate**  
-  *Note: Laureates are created as part of the Job ingestion workflow (no separate POST endpoint)*  
-  - `GET /laureates/{technicalId}`  
-    Response:  
-    ```json
-    {
-      "laureateId": "853",
-      "firstname": "Akira",
-      "surname": "Suzuki",
-      "born": "1930-09-12",
-      "died": null,
-      "borncountry": "Japan",
-      "borncountrycode": "JP",
-      "borncity": "Mukawa",
-      "gender": "male",
-      "year": "2010",
-      "category": "Chemistry",
-      "motivation": "\"for palladium-catalyzed cross couplings in organic synthesis\"",
-      "affiliationName": "Hokkaido University",
-      "affiliationCity": "Sapporo",
-      "affiliationCountry": "Japan",
-      "ingestedAt": "2024-06-01T10:10:00Z"
-    }
-    ```
+### Laureate  
+*Note: Laureates are created as part of the Job ingestion workflow (no separate POST endpoint)*  
+- `GET /laureates/{technicalId}`  
+  Response:  
+  ```json
+  {
+    "laureateId": "853",
+    "firstname": "Akira",
+    "surname": "Suzuki",
+    "born": "1930-09-12",
+    "died": null,
+    "borncountry": "Japan",
+    "borncountrycode": "JP",
+    "borncity": "Mukawa",
+    "gender": "male",
+    "year": "2010",
+    "category": "Chemistry",
+    "motivation": "\"for palladium-catalyzed cross couplings in organic synthesis\"",
+    "affiliationName": "Hokkaido University",
+    "affiliationCity": "Sapporo",
+    "affiliationCountry": "Japan",
+    "ingestedAt": "2024-06-01T10:10:00Z"
+  }
+  ```
 
-- **Subscriber**
-  - `POST /subscribers`  
-    Request:  
-    ```json
-    {
-      "contactType": "email",
-      "contactAddress": "user@example.com",
-      "active": true
-    }
-    ```  
-    Response:  
-    ```json
-    {
-      "technicalId": "string"
-    }
-    ```
-  - `GET /subscribers/{technicalId}`  
-    Response:  
-    ```json
-    {
-      "contactType": "email",
-      "contactAddress": "user@example.com",
-      "active": true,
-      "subscribedAt": "2024-06-01T09:00:00Z"
-    }
-    ```
+### Subscriber
+- `POST /subscribers`  
+  Request:  
+  ```json
+  {
+    "contactType": "email",
+    "contactAddress": "user@example.com",
+    "active": true
+  }
+  ```  
+  Response:  
+  ```json
+  {
+    "technicalId": "string"
+  }
+  ```
+- `GET /subscribers/{technicalId}`  
+  Response:  
+  ```json
+  {
+    "contactType": "email",
+    "contactAddress": "user@example.com",
+    "active": true,
+    "subscribedAt": "2024-06-01T09:00:00Z"
+  }
+  ```
 
 ---
 
-### 4. Request/Response Flow Diagrams
+## 4. Request/Response Flow Diagrams
 
 ```mermaid
 sequenceDiagram
