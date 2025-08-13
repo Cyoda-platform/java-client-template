@@ -1,0 +1,12 @@
+{
+  "version": "1.0",
+  "name": "Subscriber Workflow",
+  "desc": "Simple workflow for Subscriber entity creation.",
+  "initialState": "active",
+  "active": true,
+  "states": {
+    "active": {
+      "transitions": []
+    }
+  }
+}
