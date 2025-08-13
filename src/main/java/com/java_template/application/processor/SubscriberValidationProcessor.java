@@ -19,7 +19,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.regex.Pattern;
 import java.util.concurrent.CompletableFuture;
-import java.util.UUID;
 
 @Component
 public class SubscriberValidationProcessor implements CyodaProcessor {
