@@ -12,6 +12,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
+
 @Component
 public class SendEmailProcessor implements CyodaProcessor {
 
@@ -49,7 +51,7 @@ public class SendEmailProcessor implements CyodaProcessor {
         // Simulate sending email
         logger.info("Sending cat fact email to: {}", entity.getSubscriberEmail());
         // Here would be the integration with an email service provider
-        entity.setDispatchedAt(java.time.Instant.now().toString());
+        entity.setDispatchedAt(Instant.now().toString());
         logger.info("Email sent at: {}", entity.getDispatchedAt());
         return entity;
     }
