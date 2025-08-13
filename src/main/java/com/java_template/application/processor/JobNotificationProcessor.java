@@ -1,9 +1,14 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.job.version_1.Job;
 import com.java_template.application.entity.subscriber.version_1.Subscriber;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.service.EntityService;
+import com.java_template.common.util.Condition;
+import com.java_template.common.util.SearchConditionRequest;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -11,9 +16,15 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
+import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.time.Instant;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 @Component
 public class JobNotificationProcessor implements CyodaProcessor {
@@ -21,9 +32,12 @@ public class JobNotificationProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(JobNotificationProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final EntityService entityService;
 
-    public JobNotificationProcessor(SerializerFactory serializerFactory) {
+    @Autowired
+    public JobNotificationProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
     }
 
     @Override
@@ -58,23 +72,86 @@ public class JobNotificationProcessor implements CyodaProcessor {
 
     private Job processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Job> context) {
         Job job = context.entity();
-        // Implement notification logic:
+
         // 1. Fetch active subscribers
-        // 2. Send notifications (e.g., email, webhook) to each active subscriber
-        // 3. Update job status to NOTIFIED_SUBSCRIBERS
+        SearchConditionRequest condition = SearchConditionRequest.group(
+                "AND",
+                Condition.of("$.active", "EQUALS", true)
+        );
 
-        // Placeholder: Simulate fetching subscribers and sending notifications
-        logger.info("Fetching active subscribers for notification...");
-        // In real implementation, inject repository/service for subscribers
+        CompletableFuture<ArrayNode> futureSubscribers = entityService.getItemsByCondition(
+                Subscriber.ENTITY_NAME,
+                String.valueOf(Subscriber.ENTITY_VERSION),
+                condition,
+                true
+        );
 
-        // Simulate notification sending
-        logger.info("Sending notifications for job completion status: {}", job.getStatus());
+        try {
+            ArrayNode subscribersArray = futureSubscribers.get();
+            for (int i = 0; i < subscribersArray.size(); i++) {
+                ObjectNode subscriberNode = (ObjectNode) subscribersArray.get(i);
+                Subscriber subscriber = entityService.convertNodeToEntity(subscriberNode, Subscriber.class);
+                // Send notification to subscriber
+                sendNotification(subscriber, job);
+            }
+        } catch (InterruptedException | ExecutionException e) {
+            logger.error("Failed to fetch or notify subscribers: {}", e.getMessage());
+            job.setMessage("Failed to notify some subscribers: " + e.getMessage());
+        }
 
-        // Update job status
+        // Update job status and completedAt timestamp
         job.setStatus("NOTIFIED_SUBSCRIBERS");
-        job.setCompletedAt(java.time.Instant.now().toString());
-
+        job.setCompletedAt(Instant.now().toString());
         logger.info("Job notifications sent successfully.");
+
         return job;
+    }
+
+    private void sendNotification(Subscriber subscriber, Job job) {
+        if (subscriber == null || !Boolean.TRUE.equals(subscriber.getActive())) {
+            logger.warn("Skipping inactive or null subscriber");
+            return;
+        }
+
+        logger.info("Sending notification to subscriber: {} with contact type: {}", subscriber.getContactValue(), subscriber.getContactType());
+
+        // Implement actual notification logic here based on contactType
+        // For example, send email or webhook call
+        switch (subscriber.getContactType().toLowerCase()) {
+            case "email":
+                // Send email notification
+                // Placeholder: log instead of sending email
+                logger.info("Email sent to {} for job status {}", subscriber.getContactValue(), job.getStatus());
+                break;
+            case "webhook":
+                // Send webhook notification
+                sendWebhookNotification(subscriber.getContactValue(), job);
+                break;
+            default:
+                logger.warn("Unknown contact type {} for subscriber {}", subscriber.getContactType(), subscriber.getContactValue());
+        }
+    }
+
+    private void sendWebhookNotification(String webhookUrl, Job job) {
+        try {
+            URL url = new URL(webhookUrl);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("POST");
+            conn.setDoOutput(true);
+            conn.setRequestProperty("Content-Type", "application/json");
+
+            String payload = String.format("{\"jobId\": \"%s\", \"status\": \"%s\"}", job.getApiUrl(), job.getStatus());
+            byte[] out = payload.getBytes();
+            conn.getOutputStream().write(out);
+
+            int responseCode = conn.getResponseCode();
+            if (responseCode >= 200 && responseCode < 300) {
+                logger.info("Webhook notification sent successfully to {}", webhookUrl);
+            } else {
+                logger.error("Failed webhook notification to {} with response code {}", webhookUrl, responseCode);
+            }
+        } catch (IOException e) {
+            logger.error("Exception sending webhook notification to {}: {}", webhookUrl, e.getMessage());
+        }
     }
 }
