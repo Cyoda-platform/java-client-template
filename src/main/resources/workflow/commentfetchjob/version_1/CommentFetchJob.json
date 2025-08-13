@@ -1,0 +1,47 @@
+{
+  "version": "1.0",
+  "name": "CommentFetchJob Workflow",
+  "desc": "Workflow for orchestrating the fetching of comments for a post.",
+  "initialState": "comment_fetch_job_created",
+  "active": true,
+  "states": {
+    "comment_fetch_job_created": {
+      "transitions": [
+        {
+          "name": "start_fetch",
+          "next": "fetching_comments",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FetchCommentsProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "fetching_comments": {
+      "transitions": [
+        {
+          "name": "comments_fetched",
+          "next": "completed",
+          "manual": false
+        },
+        {
+          "name": "fetch_failed",
+          "next": "failed",
+          "manual": false
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  }
+}
