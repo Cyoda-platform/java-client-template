@@ -34,4 +34,4 @@ public class Product implements CyodaEntity {
             && price != null
             && stockQuantity != null;
     }
-}}
+}
