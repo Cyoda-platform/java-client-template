@@ -50,4 +50,4 @@ public class Laureate implements CyodaEntity {
                category != null && !category.isBlank() &&
                motivation != null && !motivation.isBlank();
     }
-}}
+}
