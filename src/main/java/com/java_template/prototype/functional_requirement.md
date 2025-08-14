@@ -1,4 +1,6 @@
-### 1. Entity Definitions
+# Functional Requirements
+
+## 1. Entity Definitions
 
 ```
 Event:
@@ -25,7 +27,7 @@ Ticket:
 
 ---
 
-### 2. Entity workflows
+## 2. Entity workflows
 
 ```
 Event workflow:
@@ -89,7 +91,7 @@ stateDiagram-v2
 
 ---
 
-### 3. API Endpoints Design
+## 3. API Endpoints Design
 
 - **Event API**
   - POST `/events`  
@@ -114,9 +116,9 @@ stateDiagram-v2
 
 ---
 
-### 4. Request/Response Formats
+## 4. Request/Response Formats
 
-#### Event POST request and response
+### Event POST request and response
 ```mermaid
 sequenceDiagram
     participant Client
@@ -129,7 +131,7 @@ sequenceDiagram
     Note left of Server: Response body:<br>{ "technicalId": "string" }
 ```
 
-#### Booking POST request and response
+### Booking POST request and response
 ```mermaid
 sequenceDiagram
     participant Client
@@ -141,7 +143,7 @@ sequenceDiagram
     Note left of Server: Response body:<br>{ "technicalId": "string" }
 ```
 
-#### Ticket POST request and response
+### Ticket POST request and response
 ```mermaid
 sequenceDiagram
     participant Client
@@ -155,4 +157,4 @@ sequenceDiagram
 
 ---
 
-**Please review the generated entities and workflows. If you need any changes, please let me know. Feel free to click Approve if this requirement meets your expectations or if you are ready to proceed.**
+**The functional requirements are up to date and reflect the latest logic.**
