@@ -14,8 +14,6 @@ import io.cloudevents.core.provider.EventFormatProvider;
 import io.cloudevents.protobuf.ProtobufFormat;
 import io.grpc.ConnectivityState;
 import io.grpc.ManagedChannel;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.function.Supplier;
 import org.cyoda.cloud.api.grpc.CloudEventsServiceGrpc;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,7 +21,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import static com.java_template.common.config.Config.EXTERNAL_CALCULATIONS_THREAD_POOL;
 import static com.java_template.common.config.Config.GRPC_ADDRESS;
 import static com.java_template.common.config.Config.GRPC_SERVER_PORT;
 
