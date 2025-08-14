@@ -1,5 +1,7 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.userimportjob.version_1.UserImportJob;
 import com.java_template.application.entity.user.version_1.User;
 import com.java_template.common.serializer.ProcessorSerializer;
@@ -7,17 +9,18 @@ import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
+import com.java_template.common.service.EntityService;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
-import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.core.type.TypeReference;
-
-import java.util.ArrayList;
+import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 @Component
 public class ProcessUserImportJob implements CyodaProcessor {
@@ -26,9 +29,11 @@ public class ProcessUserImportJob implements CyodaProcessor {
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final EntityService entityService;
 
-    public ProcessUserImportJob(SerializerFactory serializerFactory) {
+    public ProcessUserImportJob(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
     }
 
     @Override
@@ -67,11 +72,23 @@ public class ProcessUserImportJob implements CyodaProcessor {
 
         try {
             List<User> users = objectMapper.readValue(job.getImportData(), new TypeReference<List<User>>() {});
-            // Here you would typically persist users to the database
-            logger.info("Parsed {} users from importData.", users.size());
+            for (User user : users) {
+                // Set createdAt timestamp
+                user.setCreatedAt(Instant.now());
+                // Add user entity asynchronously
+                CompletableFuture<UUID> future = entityService.addItem(
+                        User.ENTITY_NAME,
+                        String.valueOf(User.ENTITY_VERSION),
+                        user
+                );
+                // Wait for completion
+                future.get();
+                logger.info("User {} added successfully.", user.getUserId());
+            }
             job.setStatus("COMPLETED");
+            logger.info("UserImportJob {} completed successfully.", job.getJobId());
         } catch (Exception e) {
-            logger.error("Failed to parse importData: {}", e.getMessage());
+            logger.error("Failed to process UserImportJob {}: {}", job.getJobId(), e.getMessage());
             job.setStatus("FAILED");
         }
 
