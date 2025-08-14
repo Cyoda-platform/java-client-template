@@ -34,4 +34,4 @@ public class User implements CyodaEntity {
             && password != null && !password.isBlank()
             && role != null && !role.isBlank();
     }
-}}
+}
