@@ -32,4 +32,4 @@ public class Subscriber implements CyodaEntity {
                contactDetails != null && !contactDetails.isBlank() &&
                active != null;
     }
-}}
+}
