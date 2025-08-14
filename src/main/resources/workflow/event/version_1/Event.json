@@ -1,0 +1,75 @@
+{
+  "version": "1.0",
+  "name": "Event Workflow",
+  "desc": "Workflow for Event entity",
+  "initialState": "draft",
+  "active": true,
+  "states": {
+    "draft": {
+      "transitions": [
+        {
+          "name": "approve_event",
+          "next": "approved",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EventApprovalProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "approved": {
+      "transitions": [
+        {
+          "name": "promote_event",
+          "next": "promoted",
+          "manual": false
+        }
+      ]
+    },
+    "promoted": {
+      "transitions": [
+        {
+          "name": "open_for_bookings",
+          "next": "active",
+          "manual": false
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "mark_completed",
+          "next": "completed",
+          "manual": false
+        }
+      ]
+    },
+    "completed": {
+      "transitions": [
+        {
+          "name": "collect_feedback",
+          "next": "feedback",
+          "manual": false
+        }
+      ]
+    },
+    "feedback": {
+      "transitions": [
+        {
+          "name": "end_workflow",
+          "next": "end",
+          "manual": false
+        }
+      ]
+    },
+    "end": {
+      "transitions": []
+    }
+  }
+}
