@@ -1,0 +1,65 @@
+{
+  "version": "1.0",
+  "name": "DataDownloadJob Workflow",
+  "desc": "Workflow for DataDownloadJob managing download job lifecycle",
+  "initialState": "pending",
+  "active": true,
+  "states": {
+    "pending": {
+      "transitions": [
+        {
+          "name": "start_download",
+          "next": "in_progress",
+          "manual": false,
+          "processors": [
+            {
+              "name": "DownloadProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "in_progress": {
+      "transitions": [
+        {
+          "name": "complete_success",
+          "next": "completed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DownloadSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "complete_failure",
+          "next": "failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DownloadFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  }
+}
