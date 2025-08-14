@@ -1,0 +1,80 @@
+{
+  "version": "1.0",
+  "name": "Booking Workflow",
+  "desc": "Workflow for Booking entity",
+  "initialState": "pending",
+  "active": true,
+  "states": {
+    "pending": {
+      "transitions": [
+        {
+          "name": "validate_booking",
+          "next": "validated",
+          "manual": false,
+          "processors": [
+            {
+              "name": "BookingValidationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "validated": {
+      "transitions": [
+        {
+          "name": "confirm_booking",
+          "next": "confirmed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "BookingCapacityAvailableCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "waitlist_booking",
+          "next": "waitlist",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "BookingCapacityUnavailableCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "confirmed": {
+      "transitions": [
+        {
+          "name": "cancel_booking",
+          "next": "cancelled",
+          "manual": false
+        }
+      ]
+    },
+    "waitlist": {
+      "transitions": [
+        {
+          "name": "confirm_waitlisted_booking",
+          "next": "confirmed",
+          "manual": false
+        }
+      ]
+    },
+    "cancelled": {
+      "transitions": []
+    }
+  }
+}
