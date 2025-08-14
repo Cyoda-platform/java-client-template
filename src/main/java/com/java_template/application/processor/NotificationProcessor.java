@@ -1,9 +1,14 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.job.version_1.Job;
 import com.java_template.application.entity.subscriber.version_1.Subscriber;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.service.EntityService;
+import com.java_template.common.util.Condition;
+import com.java_template.common.util.SearchConditionRequest;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -12,8 +17,13 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
 
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 @Component
 public class NotificationProcessor implements CyodaProcessor {
@@ -21,9 +31,12 @@ public class NotificationProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(NotificationProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final EntityService entityService;
 
-    public NotificationProcessor(SerializerFactory serializerFactory) {
+    @Autowired
+    public NotificationProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
     }
 
     @Override
@@ -49,10 +62,48 @@ public class NotificationProcessor implements CyodaProcessor {
 
     private Job processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Job> context) {
         Job entity = context.entity();
-        // Implement notification logic here
-        // E.g., fetch active subscribers and send notifications asynchronously
-        logger.info("Notifying subscribers for job: {}", entity.getJobName());
-        // Placeholder for actual notification sending
+
+        try {
+            // Fetch active subscribers
+            Condition activeCondition = Condition.of("$.active", "EQUALS", true);
+            SearchConditionRequest searchCondition = SearchConditionRequest.group("AND", activeCondition);
+            CompletableFuture<com.fasterxml.jackson.databind.node.ArrayNode> subscribersFuture = entityService.getItemsByCondition(
+                    Subscriber.ENTITY_NAME,
+                    String.valueOf(Subscriber.ENTITY_VERSION),
+                    searchCondition,
+                    true
+            );
+
+            ArrayList<Subscriber> activeSubscribers = new ArrayList<>();
+            ArrayNode subscribersArray = subscribersFuture.get();
+            for (JsonNode subscriberNode : subscribersArray) {
+                Subscriber subscriber = context.serializer().toEntity(subscriberNode.toString(), Subscriber.class);
+                if (subscriber != null) {
+                    activeSubscribers.add(subscriber);
+                }
+            }
+
+            // Send notifications asynchronously
+            for (Subscriber subscriber : activeSubscribers) {
+                sendNotification(entity, subscriber);
+            }
+
+            entity.setStatus("NOTIFIED_SUBSCRIBERS");
+            entity.setCompletedAt(Instant.now().toString());
+            logger.info("All active subscribers notified for job: {}", entity.getJobName());
+
+        } catch (InterruptedException | ExecutionException e) {
+            logger.error("Failed to notify subscribers for job: {}, error: {}", entity.getJobName(), e.getMessage());
+        }
+
         return entity;
+    }
+
+    private void sendNotification(Job job, Subscriber subscriber) {
+        // Implement notification logic based on contactType
+        // Example: log notification event or simulate sending
+        logger.info("Sending notification to subscriber: {} via {} with details: {}",
+                subscriber.getSubscriberName(), subscriber.getContactType(), subscriber.getContactDetails());
+        // Actual notification sending (email, webhook, etc.) would be implemented here asynchronously
     }
 }
