@@ -1,0 +1,12 @@
+{
+  "version": "1.0",
+  "name": "Comment Workflow",
+  "desc": "Immutable storage workflow for Comment entity after fetching",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": []
+    }
+  }
+}
