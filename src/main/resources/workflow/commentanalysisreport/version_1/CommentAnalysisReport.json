@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "name": "CommentAnalysisReport Workflow",
+  "desc": "Workflow for CommentAnalysisReport entity managing report creation and email sending",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": [
+        {
+          "name": "send_email",
+          "next": "email_sent",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendEmailReportProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "email_sent": {
+      "transitions": []
+    }
+  }
+}
