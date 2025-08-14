@@ -33,4 +33,4 @@ public class CommentAnalysisReport implements CyodaEntity {
         if(createdAt == null || createdAt.isBlank()) return false;
         return true;
     }
-}}
+}
