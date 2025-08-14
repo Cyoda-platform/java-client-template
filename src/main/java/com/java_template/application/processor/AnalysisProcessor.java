@@ -170,9 +170,7 @@ public class AnalysisProcessor implements CyodaProcessor {
             CompletableFuture<List<ObjectNode>> subsFuture = entityService.getItems(
                 Subscriber.ENTITY_NAME,
                 String.valueOf(Subscriber.ENTITY_VERSION)
-            ).thenApply(nodes -> nodes.findValuesAsText("") != null ?
-                    nodes.findValuesAsText("") : null)
-            ;
+            );
 
             List<ObjectNode> subscribers = subsFuture.join();
             if (subscribers == null || subscribers.isEmpty()) {
