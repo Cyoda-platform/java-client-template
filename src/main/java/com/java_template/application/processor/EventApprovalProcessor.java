@@ -6,6 +6,7 @@ import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
+import com.java_template.common.service.EntityService;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.springframework.stereotype.Component;
@@ -18,9 +19,11 @@ public class EventApprovalProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(EventApprovalProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final EntityService entityService;
 
-    public EventApprovalProcessor(SerializerFactory serializerFactory) {
+    public EventApprovalProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
     }
 
     @Override
@@ -48,9 +51,9 @@ public class EventApprovalProcessor implements CyodaProcessor {
         Event event = context.entity();
 
         // Business logic:
-        // Approve event: Set status to "APPROVED"
+        // Approve event: set status to "APPROVED"
         event.setEventType(event.getEventType() != null ? event.getEventType() : "General");
-        // Assuming event has a status field, set to "APPROVED" - if status field exists
+
         try {
             java.lang.reflect.Method setStatus = event.getClass().getMethod("setStatus", String.class);
             setStatus.invoke(event, "APPROVED");
