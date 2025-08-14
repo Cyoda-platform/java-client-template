@@ -1,0 +1,156 @@
+{
+  "version": "1.0",
+  "name": "Job Workflow",
+  "desc": "Workflow for Job entity managing comment fetching and analysis",
+  "initialState": "pending",
+  "active": true,
+  "states": {
+    "pending": {
+      "transitions": [
+        {
+          "name": "start_fetching_comments",
+          "next": "in_progress",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FetchCommentsProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "in_progress": {
+      "transitions": [
+        {
+          "name": "fetch_successful",
+          "next": "comments_persisted",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "FetchSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "fetch_failed",
+          "next": "failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "FetchFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "comments_persisted": {
+      "transitions": [
+        {
+          "name": "start_analysis",
+          "next": "analyzing",
+          "manual": false,
+          "processors": [
+            {
+              "name": "StartSentimentAnalysisProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "analyzing": {
+      "transitions": [
+        {
+          "name": "analysis_successful",
+          "next": "report_generated",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AnalysisSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "analysis_failed",
+          "next": "failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AnalysisFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "report_generated": {
+      "transitions": [
+        {
+          "name": "email_sent",
+          "next": "email_sent",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendEmailReportProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "email_failed",
+          "next": "failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "EmailFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "email_sent": {
+      "transitions": [
+        {
+          "name": "complete_job",
+          "next": "completed",
+          "manual": false
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  }
+}
