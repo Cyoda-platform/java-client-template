@@ -29,4 +29,4 @@ public class UserImportJob implements CyodaEntity {
         return id != null && !id.isBlank()
             && status != null && !status.isBlank();
     }
-}}
+}
