@@ -1,0 +1,77 @@
+{
+  "version": "1.0",
+  "name": "ProductImportJob Workflow",
+  "desc": "Workflow for the ProductImportJob entity handling bulk product import processing.",
+  "initialState": "pending",
+  "active": true,
+  "states": {
+    "pending": {
+      "transitions": [
+        {
+          "name": "start_processing",
+          "next": "processing",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ProductImportJobProcessor",
+              "executionMode": "SYNC",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          ]
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "name": "to_validating",
+          "next": "validating",
+          "manual": false
+        }
+      ]
+    },
+    "validating": {
+      "transitions": [
+        {
+          "name": "validation_success",
+          "next": "creating",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ProductDataValidityCriterion",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          }
+        },
+        {
+          "name": "validation_failure",
+          "next": "failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ProductDataInvalidCriterion",
+              "config": {"calculationNodesTags": "cyoda_application"}
+            }
+          }
+        }
+      ]
+    },
+    "creating": {
+      "transitions": [
+        {
+          "name": "creation_complete",
+          "next": "success",
+          "manual": false
+        }
+      ]
+    },
+    "success": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  }
+}
