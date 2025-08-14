@@ -35,4 +35,4 @@ public class Comment implements CyodaEntity {
         if(body == null || body.isBlank()) return false;
         return true;
     }
-}}
+}
