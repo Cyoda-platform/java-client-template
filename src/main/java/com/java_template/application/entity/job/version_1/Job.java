@@ -33,4 +33,4 @@ public class Job implements CyodaEntity {
                status != null && !status.isBlank() &&
                createdAt != null && !createdAt.isBlank();
     }
-}}
+}
