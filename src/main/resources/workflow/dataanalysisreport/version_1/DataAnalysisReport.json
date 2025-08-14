@@ -1,0 +1,65 @@
+{
+  "version": "1.0",
+  "name": "DataAnalysisReport Workflow",
+  "desc": "Workflow for DataAnalysisReport managing report generation lifecycle",
+  "initialState": "pending",
+  "active": true,
+  "states": {
+    "pending": {
+      "transitions": [
+        {
+          "name": "start_analysis",
+          "next": "in_progress",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AnalysisProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "in_progress": {
+      "transitions": [
+        {
+          "name": "analysis_success",
+          "next": "completed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AnalysisSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "analysis_failure",
+          "next": "failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AnalysisFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  }
+}
