@@ -1,0 +1,12 @@
+{
+  "version": "1.0",
+  "name": "OrderItem Workflow",
+  "desc": "Simple workflow for OrderItem - no state transitions",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": []
+    }
+  }
+}
