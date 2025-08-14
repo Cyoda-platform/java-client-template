@@ -1,0 +1,56 @@
+{
+  "version": "1.0",
+  "name": "Ticket Workflow",
+  "desc": "Workflow for Ticket entity",
+  "initialState": "issued",
+  "active": true,
+  "states": {
+    "issued": {
+      "transitions": [
+        {
+          "name": "assign_ticket",
+          "next": "assigned",
+          "manual": false
+        }
+      ]
+    },
+    "assigned": {
+      "transitions": [
+        {
+          "name": "validate_ticket",
+          "next": "validated",
+          "manual": false,
+          "processors": [
+            {
+              "name": "TicketValidationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "validated": {
+      "transitions": [
+        {
+          "name": "transfer_ticket",
+          "next": "transferred",
+          "manual": false
+        },
+        {
+          "name": "cancel_ticket",
+          "next": "cancelled",
+          "manual": false
+        }
+      ]
+    },
+    "transferred": {
+      "transitions": []
+    },
+    "cancelled": {
+      "transitions": []
+    }
+  }
+}
