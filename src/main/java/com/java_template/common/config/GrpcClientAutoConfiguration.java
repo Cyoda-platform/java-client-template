@@ -18,6 +18,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Supplier;
 import org.cyoda.cloud.api.grpc.CloudEventsServiceGrpc;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -30,8 +31,11 @@ import static com.java_template.common.config.Config.GRPC_SERVER_PORT;
 public class GrpcClientAutoConfiguration {
 
     @Bean
-    public ManagedChannel managedChannel(final ConnectionStateTracker connectionStateTracker) {
-        final ManagedChannel channel = SslUtils.createGrpcChannelBuilder(GRPC_ADDRESS, GRPC_SERVER_PORT, true).build();
+    public ManagedChannel managedChannel(
+            final ConnectionStateTracker connectionStateTracker,
+            @Value("${connection.grpc.skip-sll:false}") final boolean grpcSkipSsl
+    ) {
+        final ManagedChannel channel = SslUtils.createGrpcChannelBuilder(GRPC_ADDRESS, GRPC_SERVER_PORT, grpcSkipSsl).build();
         final Supplier<ConnectivityState> currentStateProvider = () -> channel.getState(false);
 
         final Runnable initSubscription = () -> connectionStateTracker.trackConnectionStateChanged(
@@ -91,13 +95,6 @@ public class GrpcClientAutoConfiguration {
     @ConditionalOnProperty(name = "execution.mode", havingValue = "virtual")
     public CalculationExecutionStrategy virtualThreadsCalculationExecutor() {
         return new VirtualThreadsCalculationExecutor();
-    }
-
-    private ExecutorService createExternalCalculationExecutor(final Thread.Builder factoryBuilder) {
-        return Executors.newFixedThreadPool(
-                EXTERNAL_CALCULATIONS_THREAD_POOL,
-                factoryBuilder.name("external-calculation").factory()
-        );
     }
 
     @Bean
