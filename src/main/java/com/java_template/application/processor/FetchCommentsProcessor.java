@@ -19,6 +19,10 @@ import java.util.List;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.comment.version_1.Comment;
 import java.util.ArrayList;
+import java.util.concurrent.CompletableFuture;
+import static com.java_template.common.config.Config.*;
+import com.java_template.common.service.EntityService;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Component
 public class FetchCommentsProcessor implements CyodaProcessor {
@@ -27,9 +31,12 @@ public class FetchCommentsProcessor implements CyodaProcessor {
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final EntityService entityService;
 
-    public FetchCommentsProcessor(SerializerFactory serializerFactory) {
+    @Autowired
+    public FetchCommentsProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
     }
 
     @Override
@@ -79,12 +86,23 @@ public class FetchCommentsProcessor implements CyodaProcessor {
             List<Comment> comments = objectMapper.readValue(response.toString(),
                 objectMapper.getTypeFactory().constructCollectionType(ArrayList.class, Comment.class));
 
-            // Here we would persist comments in database - simulate by logging
+            // Persist comments in database
             for (Comment comment : comments) {
-                logger.info("Fetched comment: postId={}, commentId={}, name={}", comment.getPostId(), comment.getCommentId(), comment.getName());
+                CompletableFuture<java.util.UUID> idFuture = entityService.addItem(
+                    Comment.ENTITY_NAME,
+                    String.valueOf(Comment.ENTITY_VERSION),
+                    comment
+                );
+                idFuture.whenComplete((id, ex) -> {
+                    if (ex != null) {
+                        logger.error("Failed to persist comment: postId={}, commentId={}", comment.getPostId(), comment.getCommentId(), ex);
+                    } else {
+                        logger.info("Persisted comment: postId={}, commentId={}, id={}", comment.getPostId(), comment.getCommentId(), id);
+                    }
+                });
             }
 
-            // Update job status to in_progress to indicate fetch success
+            // Update job status to IN_PROGRESS to indicate fetch success
             job.setStatus("IN_PROGRESS");
         } catch (Exception e) {
             logger.error("Exception during fetching comments", e);
