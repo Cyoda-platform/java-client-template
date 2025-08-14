@@ -13,9 +13,16 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.java_template.common.service.EntityService;
+import static com.java_template.common.config.Config.*;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import java.util.UUID;
 
 @Component
 public class StartSentimentAnalysisProcessor implements CyodaProcessor {
@@ -23,9 +30,12 @@ public class StartSentimentAnalysisProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(StartSentimentAnalysisProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final EntityService entityService;
 
-    public StartSentimentAnalysisProcessor(SerializerFactory serializerFactory) {
+    @Autowired
+    public StartSentimentAnalysisProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
     }
 
     @Override
@@ -52,29 +62,58 @@ public class StartSentimentAnalysisProcessor implements CyodaProcessor {
     private Job processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Job> context) {
         Job job = context.entity();
         try {
-            // Simulate fetching comments for the postId from storage
-            List<Comment> comments = fetchCommentsForPost(job.getPostId());
-            if (comments == null || comments.isEmpty()) {
+            // Fetch comments for the postId from persistent storage
+            CompletableFuture<ArrayNode> commentsFuture = entityService.getItemsByCondition(
+                Comment.ENTITY_NAME,
+                String.valueOf(Comment.ENTITY_VERSION),
+                SearchConditionRequest.group("AND",
+                    com.java_template.common.util.Condition.of("$.postId", "EQUALS", job.getPostId())
+                ),
+                true
+            );
+
+            ArrayNode commentsNode = commentsFuture.get();
+            if (commentsNode == null || commentsNode.isEmpty()) {
                 logger.error("No comments found for postId: {}", job.getPostId());
                 job.setStatus("FAILED");
                 return job;
             }
 
-            // Perform sentiment analysis - simplistic example
+            // Deserialize commentsNode to List<Comment>
+            List<Comment> comments = new ArrayList<>();
+            for (int i = 0; i < commentsNode.size(); i++) {
+                ObjectNode commentNode = (ObjectNode) commentsNode.get(i);
+                Comment comment = objectMapper.convertValue(commentNode, Comment.class);
+                comments.add(comment);
+            }
+
+            // Perform sentiment analysis
             String sentimentSummary = analyzeSentiment(comments);
             String htmlReport = generateHtmlReport(sentimentSummary, comments);
 
-            // Create CommentAnalysisReport entity - simulate persist
+            // Create CommentAnalysisReport entity
             CommentAnalysisReport report = new CommentAnalysisReport();
             report.setPostId(job.getPostId());
             report.setSentimentSummary(sentimentSummary);
             report.setHtmlReport(htmlReport);
             report.setCreatedAt(java.time.Instant.now().toString());
 
-            logger.info("Generated CommentAnalysisReport for postId: {}", job.getPostId());
+            CompletableFuture<java.util.UUID> reportFuture = entityService.addItem(
+                CommentAnalysisReport.ENTITY_NAME,
+                String.valueOf(CommentAnalysisReport.ENTITY_VERSION),
+                report
+            );
 
-            // Update job status to report_generated
-            job.setStatus("REPORT_GENERATED");
+            reportFuture.whenComplete((id, ex) -> {
+                if (ex != null) {
+                    logger.error("Failed to persist CommentAnalysisReport for postId: {}", job.getPostId(), ex);
+                    job.setStatus("FAILED");
+                } else {
+                    logger.info("Persisted CommentAnalysisReport with id: {}", id);
+                    // Update job status to REPORT_GENERATED
+                    job.setStatus("REPORT_GENERATED");
+                }
+            });
 
         } catch (Exception e) {
             logger.error("Exception during sentiment analysis", e);
@@ -83,14 +122,9 @@ public class StartSentimentAnalysisProcessor implements CyodaProcessor {
         return job;
     }
 
-    private List<Comment> fetchCommentsForPost(Long postId) {
-        // In real implementation, fetch from persistent storage
-        // Here we simulate with dummy data or empty list
-        return new ArrayList<>(); // Simulate empty for failure
-    }
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
 
     private String analyzeSentiment(List<Comment> comments) {
-        // Simple sentiment analysis: count positive words
         long positiveCount = comments.stream()
             .filter(c -> c.getBody() != null && c.getBody().toLowerCase().contains("good"))
             .count();
