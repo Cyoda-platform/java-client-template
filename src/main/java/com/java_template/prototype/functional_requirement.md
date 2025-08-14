@@ -1,4 +1,8 @@
-### 1. Entity Definitions
+# Functional Requirements
+
+---
+
+## 1. Entity Definitions
 
 ```
 DataDownloadJob:
@@ -22,19 +26,19 @@ Subscriber:
 
 ---
 
-### 2. Entity Workflows
+## 2. Entity Workflows
 
 ```
 DataDownloadJob workflow:
 1. Initial State: Job created with status = PENDING when user submits URL
-2. Processing: System downloads data from the URL → status = IN_PROGRESS
-3. Completion: Download completes → status = COMPLETED or FAILED
+2. Processing: System downloads data from the URL  status = IN_PROGRESS
+3. Completion: Download completes  status = COMPLETED or FAILED
 4. Trigger: On COMPLETED, trigger DataAnalysisReport creation
 
 DataAnalysisReport workflow:
 1. Initial State: Report created with status = PENDING linked to DataDownloadJob
 2. Processing: Perform predefined analysis (summary statistics, trend analysis)
-3. Completion: Analysis completes → status = COMPLETED or FAILED
+3. Completion: Analysis completes  status = COMPLETED or FAILED
 4. Trigger: On COMPLETED, send report via email to all Subscribers
 
 Subscriber workflow:
@@ -44,7 +48,7 @@ Subscriber workflow:
 
 ---
 
-### Entity State Diagrams
+## Entity State Diagrams
 
 ```mermaid
 stateDiagram-v2
@@ -74,7 +78,7 @@ stateDiagram-v2
 
 ---
 
-### 3. API Endpoints
+## 3. API Endpoints
 
 - **POST /dataDownloadJobs**
   - Description: Create a new DataDownloadJob by providing the URL to download.
@@ -177,7 +181,7 @@ stateDiagram-v2
 
 ---
 
-### 4. Request/Response Flow Diagram for DataDownloadJob POST and Workflow
+## 4. Request/Response Flow Diagram for DataDownloadJob POST and Workflow
 
 ```mermaid
 sequenceDiagram
