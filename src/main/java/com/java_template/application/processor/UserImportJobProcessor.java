@@ -1,16 +1,23 @@
 package com.java_template.application.processor;
 
 import com.java_template.application.entity.userimportjob.version_1.UserImportJob;
+import com.java_template.application.entity.user.version_1.User;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.service.EntityService;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
-import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 @Component
 public class UserImportJobProcessor implements CyodaProcessor {
@@ -18,9 +25,12 @@ public class UserImportJobProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(UserImportJobProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final EntityService entityService;
 
-    public UserImportJobProcessor(SerializerFactory serializerFactory) {
+    @Autowired
+    public UserImportJobProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
     }
 
     @Override
@@ -44,39 +54,68 @@ public class UserImportJobProcessor implements CyodaProcessor {
         if (entity == null) {
             return false;
         }
-        // Basic validation: id and status must not be null
         if (entity.getId() == null || entity.getStatus() == null) {
             return false;
         }
-        // Status must be one of PENDING, PROCESSING, VALIDATING, CREATING, SUCCESS, FAILED
         String status = entity.getStatus();
-        return status.equals("pending") || status.equals("processing") || status.equals("validating") ||
-               status.equals("creating") || status.equals("success") || status.equals("failed");
+        return status.equalsIgnoreCase("pending") ||
+               status.equalsIgnoreCase("processing") ||
+               status.equalsIgnoreCase("validating") ||
+               status.equalsIgnoreCase("creating") ||
+               status.equalsIgnoreCase("success") ||
+               status.equalsIgnoreCase("failed");
     }
 
     private UserImportJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<UserImportJob> context) {
         UserImportJob entity = context.entity();
-        // Business logic implementation for UserImportJob processing
-        // TODO: Implement specific processing logic such as updating status, handling errors
+        try {
+            if (entity.getStatus().equalsIgnoreCase("pending")) {
+                entity.setStatus("processing");
+                logger.info("UserImportJob status updated to processing");
+            } else if (entity.getStatus().equalsIgnoreCase("processing")) {
+                logger.info("UserImportJob is processing user data ingestion");
+                // Simulate ingestion of user data
+                entity.setStatus("validating");
+                logger.info("UserImportJob status updated to validating");
+            } else if (entity.getStatus().equalsIgnoreCase("validating")) {
+                logger.info("UserImportJob is in validating state");
+                // Validation handled externally by criteria
+            } else if (entity.getStatus().equalsIgnoreCase("creating")) {
+                logger.info("Creating Users from import job");
 
-        // For MVP, simulate processing logic:
-        if (entity.getStatus().equalsIgnoreCase("pending")) {
-            entity.setStatus("processing");
-            logger.info("UserImportJob status updated to processing");
-        } else if (entity.getStatus().equalsIgnoreCase("processing")) {
-            logger.info("UserImportJob is processing user data ingestion");
-            entity.setStatus("validating");
-            logger.info("UserImportJob status updated to validating");
-        } else if (entity.getStatus().equalsIgnoreCase("validating")) {
-            logger.info("UserImportJob is in validating state");
-        } else if (entity.getStatus().equalsIgnoreCase("creating")) {
-            logger.info("Creating Users from import job");
-            entity.setStatus("success");
-            logger.info("UserImportJob status updated to success");
-        } else if (entity.getStatus().equalsIgnoreCase("success")) {
-            logger.info("UserImportJob completed successfully");
-        } else if (entity.getStatus().equalsIgnoreCase("failed")) {
-            logger.warn("UserImportJob failed with errors: {}", entity.getErrorMessages());
+                // Simulate user creation - create a sample user
+                User user = new User();
+                user.setId(UUID.randomUUID().toString());
+                user.setName("Sample User");
+                user.setEmail("sampleuser@example.com");
+                user.setPassword("hashedpassword");
+                user.setRole("Customer");
+
+                CompletableFuture<UUID> addFuture = entityService.addItem(
+                    User.ENTITY_NAME,
+                    String.valueOf(User.ENTITY_VERSION),
+                    user
+                );
+
+                try {
+                    addFuture.get();
+                    entity.setStatus("success");
+                    logger.info("UserImportJob status updated to success");
+                } catch (InterruptedException | ExecutionException e) {
+                    entity.setStatus("failed");
+                    entity.setErrorMessages("Failed to create user: " + e.getMessage());
+                    logger.error("Error creating user", e);
+                }
+
+            } else if (entity.getStatus().equalsIgnoreCase("success")) {
+                logger.info("UserImportJob completed successfully");
+            } else if (entity.getStatus().equalsIgnoreCase("failed")) {
+                logger.warn("UserImportJob failed with errors: {}", entity.getErrorMessages());
+            }
+        } catch (Exception e) {
+            logger.error("Unexpected error in UserImportJobProcessor", e);
+            entity.setStatus("failed");
+            entity.setErrorMessages("Unexpected error: " + e.getMessage());
         }
         return entity;
     }
