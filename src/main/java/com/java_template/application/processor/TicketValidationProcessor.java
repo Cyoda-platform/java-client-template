@@ -16,7 +16,7 @@ import org.slf4j.LoggerFactory;
 public class TicketValidationProcessor implements CyodaProcessor {
 
     private static final Logger logger = LoggerFactory.getLogger(TicketValidationProcessor.class);
-    private final String className = this.getClass().getSimpleName();
+    private f inal String  className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
 
     public TicketValidationProcessor(SerializerFactory serializerFactory) {

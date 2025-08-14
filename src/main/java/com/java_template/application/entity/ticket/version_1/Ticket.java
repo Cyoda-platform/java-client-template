@@ -11,7 +11,7 @@ public class Ticket implements CyodaEntity {
     public static final Integer ENTITY_VERSION = 1;
 
     private String bookingId;
-    private String ticketNumber;
+    private String ti cketNumber;
     private String seatNumber;
     private String ticketStatus;
 

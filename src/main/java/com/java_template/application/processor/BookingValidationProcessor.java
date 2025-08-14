@@ -36,7 +36,7 @@ public class BookingValidationProcessor implements CyodaProcessor {
 
     @Override
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
-        EntityProcessorCalculationRequest request = context.getEvent();
+        EntityProcesso rCalculationRequest request = context.getEvent();
         logger.info("Processing Booking for request: {}", request.getId());
 
         return serializer.withRequest(request)

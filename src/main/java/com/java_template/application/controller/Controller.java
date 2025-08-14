@@ -238,7 +238,7 @@ public class Controller {
         try {
             ObjectNode ticket = (ObjectNode) entityService.getItem(
                 Ticket.ENTITY_NAME,
-                String.valueOf(Ticket.ENTITY_VERSION),
+                String.valueOf(Ticke t.ENTITY_VERSION),
                 UUID.fromString(technicalId)
             ).get();
             return ResponseEntity.ok(ticket);

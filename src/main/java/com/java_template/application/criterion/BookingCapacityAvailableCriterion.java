@@ -29,7 +29,7 @@ public class BookingCapacityAvailableCriterion implements CyodaCriterion {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final CriterionSerializer serializer;
-    private final String className = this.getClass().getSimpleName();
+    private final String c lassName = this.getClass().getSimpleName();
     private final EntityService entityService;
 
     public BookingCapacityAvailableCriterion(SerializerFactory serializerFactory, EntityService entityService) {

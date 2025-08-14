@@ -14,7 +14,7 @@ public class Event implements CyodaEntity {
     private String eventType;
     private String eventDate;
     private String location;
-    private String description;
+    private String des cription;
     private Integer capacity;
 
     public Event() {}
