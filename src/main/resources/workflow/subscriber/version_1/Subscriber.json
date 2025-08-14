@@ -1,0 +1,12 @@
+{
+  "version": "1.0",
+  "name": "Subscriber Workflow",
+  "desc": "Workflow for Subscriber entity managing subscriber lifecycle",
+  "initialState": "active",
+  "active": true,
+  "states": {
+    "active": {
+      "transitions": []
+    }
+  }
+}
