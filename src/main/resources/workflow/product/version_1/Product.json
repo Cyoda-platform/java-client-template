@@ -1,0 +1,12 @@
+{
+  "version": "1.0",
+  "name": "Product Workflow",
+  "desc": "Workflow for the Product entity which is immutable after creation in MVP.",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": []
+    }
+  }
+}
