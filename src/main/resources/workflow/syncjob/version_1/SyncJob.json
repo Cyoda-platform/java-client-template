@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "name": "SyncJob Workflow",
-  "desc": "Simplified workflow for SyncJob orchestration: start -> fetch/transform -> enqueue -> monitor -> finalize. Combined fetch+transform into one processor to limit processor count.",
+  "desc": "Adjusted workflow for SyncJob orchestration: start -> fetch+transform -> enqueue -> monitor -> finalize. Fetch and transform combined into one processor to limit processor count.",
   "initialState": "PENDING",
   "active": true,
   "states": {
