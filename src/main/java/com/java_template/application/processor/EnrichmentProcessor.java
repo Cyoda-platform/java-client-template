@@ -1,8 +1,12 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.laureate.version_1.Laureate;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.service.EntityService;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -12,10 +16,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Component
 public class EnrichmentProcessor implements CyodaProcessor {
@@ -23,9 +25,13 @@ public class EnrichmentProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(EnrichmentProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final ObjectMapper objectMapper;
+    private final EntityService entityService;
 
-    public EnrichmentProcessor(SerializerFactory serializerFactory) {
+    public EnrichmentProcessor(SerializerFactory serializerFactory, EntityService entityService, ObjectMapper objectMapper) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -52,39 +58,49 @@ public class EnrichmentProcessor implements CyodaProcessor {
     private Laureate processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Laureate> context) {
         Laureate l = context.entity();
 
-        // compute matchTags - simple tokenization of fullName + category
-        List<String> tags = new ArrayList<>();
+        // compute matchTags - tokenize fullName + category
+        Set<String> tags = new LinkedHashSet<>();
         if (l.getFullName() != null) {
-            for (String token : l.getFullName().toLowerCase(Locale.ROOT).split("\\s+")) {
-                if (token.length() > 2) tags.add(token);
+            String[] tokens = l.getFullName().toLowerCase(Locale.ROOT).split("\\s+");
+            for (String t : tokens) {
+                if (t.length() > 2) tags.add(t.replaceAll("[^a-z0-9]", ""));
             }
         }
         if (l.getCategory() != null) {
             tags.add(l.getCategory().toLowerCase(Locale.ROOT));
         }
-        l.setMatchTags(tags);
+        // persist as comma-separated string in matchTags field (entity model uses String)
+        l.setMatchTags(String.join(",", tags));
 
-        // normalize affiliations to simple lowercase unique list
-        if (l.getAffiliations() != null) {
-            List<String> aff = new ArrayList<>();
-            for (String a : l.getAffiliations()) {
-                if (a == null) continue;
-                String norm = a.trim().toLowerCase(Locale.ROOT);
-                if (!aff.contains(norm)) aff.add(norm);
+        // normalize affiliations: input may be comma-separated string; normalize to unique lowercase list
+        String affIn = l.getAffiliations();
+        if (affIn != null && !affIn.isBlank()) {
+            List<String> parts = Arrays.stream(affIn.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(s -> s.toLowerCase(Locale.ROOT))
+                .distinct()
+                .collect(Collectors.toList());
+            l.setAffiliations(String.join(",", parts));
+        }
+
+        // Add simple provenance enrichment stored in sourceRecord (JSON string) to avoid adding new entity fields
+        try {
+            ObjectNode prov;
+            if (l.getSourceRecord() == null || l.getSourceRecord().isBlank()) {
+                prov = objectMapper.createObjectNode();
+            } else {
+                JsonNode existing = objectMapper.readTree(l.getSourceRecord());
+                prov = existing.isObject() ? (ObjectNode) existing : objectMapper.createObjectNode();
             }
-            l.setAffiliations(aff);
+            prov.put("enrichedAt", java.time.Instant.now().toString());
+            prov.put("matchTagsCount", tags.size());
+            l.setSourceRecord(objectMapper.writeValueAsString(prov));
+        } catch (Exception e) {
+            logger.warn("Failed to write provenance for laureate {}: {}", l.getLaureateId(), e.getMessage());
         }
 
-        // Add simple provenance enrichment if missing
-        if (l.getProvenance() == null) {
-            l.setProvenance(Map.of("enrichedAt", java.time.Instant.now().toString()));
-        } else {
-            Map<String, Object> p = l.getProvenance();
-            p.put("enrichedAt", java.time.Instant.now().toString());
-            l.setProvenance(p);
-        }
-
-        logger.info("Enriched laureate {} tags={} affiliations={} ", l.getLaureateId(), tags.size(), l.getAffiliations() == null ? 0 : l.getAffiliations().size());
+        logger.info("Enriched laureate {} tags={} affiliations={} ", l.getLaureateId(), tags.size(), l.getAffiliations() == null ? 0 : l.getAffiliations().split(",").length);
         return l;
     }
 }
