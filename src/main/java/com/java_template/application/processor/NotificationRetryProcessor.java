@@ -1,5 +1,6 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.laureate.version_1.Laureate;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
@@ -21,9 +22,11 @@ public class NotificationRetryProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(NotificationRetryProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final ObjectMapper objectMapper;
 
-    public NotificationRetryProcessor(SerializerFactory serializerFactory) {
+    public NotificationRetryProcessor(SerializerFactory serializerFactory, ObjectMapper objectMapper) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -64,13 +67,10 @@ public class NotificationRetryProcessor implements CyodaProcessor {
             }
         }
 
-        l.setProvenance(addRetrySummary(l.getProvenance(), retried));
+        Map<String, Object> newProv = new java.util.HashMap<>(l.getProvenance());
+        newProv.put("retried", retried);
+        l.setProvenance(newProv);
         logger.info("Notification retry summary for laureate {} retried={}", l.getLaureateId(), retried);
         return l;
-    }
-
-    private Map<String, Object> addRetrySummary(Map<String, Object> prov, int retried) {
-        prov.put("retried", retried);
-        return prov;
     }
 }
