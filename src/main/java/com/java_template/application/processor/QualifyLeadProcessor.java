@@ -3,6 +3,7 @@ package com.java_template.application.processor;
 import com.java_template.application.entity.lead.version_1.Lead;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.service.EntityService;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -12,15 +13,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.UUID;
+
 @Component
 public class QualifyLeadProcessor implements CyodaProcessor {
 
     private static final Logger logger = LoggerFactory.getLogger(QualifyLeadProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final EntityService entityService;
 
-    public QualifyLeadProcessor(SerializerFactory serializerFactory) {
+    public QualifyLeadProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
     }
 
     @Override
@@ -46,20 +51,28 @@ public class QualifyLeadProcessor implements CyodaProcessor {
 
     private Lead processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Lead> context) {
         Lead lead = context.entity();
+        String technicalId = null;
         try {
+            try { technicalId = context.request().getEntityId(); } catch (Exception ignored) {}
             // Simple qualification scoring based on presence of email, potentialValue
             int score = 0;
             if (lead.getEmail() != null && !lead.getEmail().isEmpty()) score += 40;
             if (lead.getPhone() != null && !lead.getPhone().isEmpty()) score += 20;
-            if (lead.getPotentialValue() != null && lead.getPotentialValue().doubleValue() > 10000) score += 40;
+            // In this Lead entity, potentialValue does not exist; mimic scoring via interestedProduct or company presence
+            if (lead.getCompany() != null && !lead.getCompany().isEmpty()) score += 40;
 
             if (score >= 60) {
                 lead.setStatus("QUALIFIED");
             } else {
                 lead.setStatus("DISCARDED");
             }
+
+            // persist updated lead status
+            if (technicalId != null) {
+                entityService.updateItem(Lead.ENTITY_NAME, String.valueOf(Lead.ENTITY_VERSION), UUID.fromString(technicalId), lead).join();
+            }
         } catch (Exception e) {
-            logger.error("Error qualifying lead {}: {}", lead.getTechnicalId(), e.getMessage());
+            logger.error("Error qualifying lead {}: {}", technicalId, e.getMessage());
         }
         return lead;
     }
