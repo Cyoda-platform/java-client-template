@@ -1,0 +1,106 @@
+{
+  "version": "1.0",
+  "name": "Booking Workflow",
+  "desc": "Workflow for Booking entity managing booking lifecycle from creation to confirmation or cancellation",
+  "initialState": "pending",
+  "active": true,
+  "states": {
+    "pending": {
+      "transitions": [
+        {
+          "name": "validate_booking",
+          "next": "validated",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "BookingValidationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "fail_booking_validation",
+          "next": "failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "BookingValidationFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "validated": {
+      "transitions": [
+        {
+          "name": "reserve_tickets",
+          "next": "reserved",
+          "manual": false,
+          "processors": [
+            {
+              "name": "TicketReservationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "reserved": {
+      "transitions": [
+        {
+          "name": "confirm_payment",
+          "next": "confirmed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PaymentSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "cancel_due_to_payment_failure",
+          "next": "cancelled",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PaymentFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "confirmed": {
+      "transitions": [
+        {
+          "name": "user_cancels_booking",
+          "next": "cancelled",
+          "manual": false
+        }
+      ]
+    },
+    "failed": {
+      "transitions": []
+    },
+    "cancelled": {
+      "transitions": []
+    }
+  }
+}
