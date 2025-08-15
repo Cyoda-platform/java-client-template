@@ -1,7 +1,8 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.ingestjob.version_1.IngestJob;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.java_template.application.entity.hnitem.version_1.HNItem;
+import com.java_template.application.entity.ingestjob.version_1.IngestJob;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -10,6 +11,10 @@ import com.java_template.common.serializer.StandardEvalReasonCategories;
 import com.java_template.common.workflow.CyodaCriterion;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.OperationSpecification;
+import com.java_template.application.processor.HNItemRepository;
+import com.java_template.common.service.EntityService;
+import com.java_template.common.util.Condition;
+import com.java_template.common.util.SearchConditionRequest;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
 import org.slf4j.Logger;
@@ -17,6 +22,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 
 @Component
 public class AllItemsStoredCriterion implements CyodaCriterion {
@@ -32,6 +39,8 @@ public class AllItemsStoredCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
+        logger.info("Evaluating AllItemsStoredCriterion for request: {}", request.getId());
+
         return serializer.withRequest(request)
             .evaluateEntity(IngestJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -46,27 +55,29 @@ public class AllItemsStoredCriterion implements CyodaCriterion {
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<IngestJob> context) {
         IngestJob job = context.entity();
         if (job == null) {
-            return EvaluationOutcome.fail("IngestJob missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("IngestJob is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
+
         List<String> tids = job.getCreatedItemTechnicalIds();
         if (tids == null || tids.isEmpty()) {
             // nothing to wait for
             return EvaluationOutcome.success();
         }
+
         for (String tid : tids) {
             HNItem item = HNItemRepository.getInstance().findByTechnicalId(tid);
             if (item == null) {
-                return EvaluationOutcome.fail("HNItem not found: " + tid, StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+                logger.info("HNItem {} not found yet, monitoring continues", tid);
+                return EvaluationOutcome.fail("Item not found", StandardEvalReasonCategories.VALIDATION_FAILURE);
             }
             String status = item.getStatus();
-            if (status == null) {
-                return EvaluationOutcome.fail("HNItem status unknown: " + tid, StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-            }
-            if (!"STORED".equalsIgnoreCase(status)) {
-                // if any item is not yet stored, the criterion fails (means job should not transition to COMPLETED)
+            if (!Objects.equals("STORED", status)) {
+                logger.info("HNItem {} status is {} - not yet stored", tid, status);
                 return EvaluationOutcome.fail("Not all items stored", StandardEvalReasonCategories.VALIDATION_FAILURE);
             }
         }
+
+        // all stored
         return EvaluationOutcome.success();
     }
 }
