@@ -29,6 +29,8 @@ public class IsSaveOperationCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
+        logger.info("Evaluating IsSaveOperationCriterion for request: {}", request.getId());
+
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(HackerNewsItem.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -43,17 +45,25 @@ public class IsSaveOperationCriterion implements CyodaCriterion {
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<HackerNewsItem> context) {
         HackerNewsItem entity = context.entity();
         if (entity == null) {
-            return EvaluationOutcome.fail("Entity missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("Entity is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        // Decide save operation: if payload contains at least id and type, consider it a save operation
-        Integer id = entity.getId();
+        String idStr = entity.getId();
         String type = entity.getType();
-        if (id == null || id < 0) {
-            return EvaluationOutcome.fail("id is required and must be >= 0", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (idStr == null || idStr.isBlank()) {
+            return EvaluationOutcome.fail("Missing id", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        if (type == null || type.trim().isEmpty()) {
-            return EvaluationOutcome.fail("type is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        try {
+            long id = Long.parseLong(idStr);
+            if (id < 0) {
+                return EvaluationOutcome.fail("id must be >= 0", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            }
+        } catch (NumberFormatException e) {
+            return EvaluationOutcome.fail("id must be an integer", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
+        if (type == null || type.isBlank()) {
+            return EvaluationOutcome.fail("Missing type", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        // Optionally warn on unknown types but allow them: return success
         return EvaluationOutcome.success();
     }
 }
