@@ -1,0 +1,14 @@
+{
+  "name": "Event",
+  "version": 1,
+  "states": ["DRAFT","VALIDATION","PUBLISHED","MONITORING","CANCELLED","COMPLETED"],
+  "transitions": [
+    {"from":"DRAFT","to":"VALIDATION","action":"EventValidationCriterion"},
+    {"from":"VALIDATION","to":"PUBLISHED","action":"PublishProcessor"},
+    {"from":"VALIDATION","to":"DRAFT","action":"ValidationFailedHandler"},
+    {"from":"PUBLISHED","to":"MONITORING","action":"CapacityMonitorProcessor"},
+    {"from":"PUBLISHED","to":"CANCELLED","action":"CancelEventProcessor"},
+    {"from":"PUBLISHED","to":"COMPLETED","action":"CompleteEventProcessor"},
+    {"from":"CANCELLED","to":"NOTIFY_BOOKINGS","action":"NotifyBookingsProcessor"}
+  ]
+}
