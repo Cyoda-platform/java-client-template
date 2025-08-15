@@ -1,0 +1,14 @@
+{
+  "workflowName": "User",
+  "version": 1,
+  "initialState": "pending_validation",
+  "states": [
+    { "name": "pending_validation", "transitions": [ { "to": "validating", "trigger": "StartUserValidationProcessor", "type": "automatic" } ] },
+    { "name": "validating", "transitions": [ { "to": "active", "trigger": "CreateOrUpdateUserProcessor", "type": "automatic" }, { "to": "pending_manual_review", "trigger": "DedupCriterionFail", "type": "automatic" } ] },
+    { "name": "pending_manual_review", "transitions": [ { "to": "active", "trigger": "ManualApproveAction", "type": "manual" } ] },
+    { "name": "active", "transitions": [ { "to": "suspended", "trigger": "AdminSuspendAction", "type": "manual" } ] },
+    { "name": "suspended", "transitions": [ { "to": "active", "trigger": "AdminReactivateAction", "type": "manual" } ] }
+  ],
+  "processors": [ "StartUserValidationProcessor", "CreateOrUpdateUserProcessor", "ManualApproveAction" ],
+  "criteria": [ "DedupCriterion", "DedupCriterionFail" ]
+}
