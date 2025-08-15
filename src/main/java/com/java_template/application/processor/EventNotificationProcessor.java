@@ -1,7 +1,7 @@
 package com.java_template.application.processor;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.java_template.application.entity.event.version_1.Event;
 import com.java_template.common.config.Config;
 import com.java_template.common.serializer.ProcessorSerializer;
@@ -59,7 +59,7 @@ public class EventNotificationProcessor implements CyodaProcessor {
 
     private Event processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Event> context) {
         Event entity = context.entity();
-        logger.info("Notifying subscribers about event: {}", entity.getTechnicalId());
+        logger.info("Notifying subscribers about event: {}", entity.getTitle());
 
         // Implement notification logic
         // For example, fetch all interested users or subscribers filtering by event category or location
@@ -71,7 +71,7 @@ public class EventNotificationProcessor implements CyodaProcessor {
                 Condition.of("$.category", "EQUALS", entity.getCategory())
             );
 
-            CompletableFuture<ObjectNode> subscribersFuture = entityService.getItemsByCondition(
+            CompletableFuture<ArrayNode> subscribersFuture = entityService.getItemsByCondition(
                     "Subscriber", // Assuming 'Subscriber' entity exists
                     "1",
                     condition,
@@ -84,7 +84,7 @@ public class EventNotificationProcessor implements CyodaProcessor {
             }).join();
 
         } catch (Exception e) {
-            logger.error("Error during notification processing for event {}: {}", entity.getTechnicalId(), e.getMessage(), e);
+            logger.error("Error during notification processing for event {}: {}", entity.getTitle(), e.getMessage(), e);
         }
 
         return entity;
