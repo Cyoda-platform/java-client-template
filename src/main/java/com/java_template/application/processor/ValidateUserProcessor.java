@@ -58,9 +58,6 @@ public class ValidateUserProcessor implements CyodaProcessor {
         if (user.getActive() == null) {
             user.setActive(false);
         }
-        if (user.getEmailVerified() == null) {
-            user.setEmailVerified(false);
-        }
 
         logger.info("User {} validated", user.getId());
 
