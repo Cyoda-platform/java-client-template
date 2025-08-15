@@ -31,4 +31,4 @@ public class Ticket implements CyodaEntity {
         if (status == null || status.isBlank()) return false;
         return true;
     }
-}}
+}
