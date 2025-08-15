@@ -1,0 +1,44 @@
+{
+  "version": "1.0",
+  "name": "User Workflow",
+  "desc": "Workflow for User entity",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "verify_user",
+          "next": "VERIFIED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "VerifyUserProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VERIFIED": {
+      "transitions": [
+        {
+          "name": "suspend_user",
+          "next": "SUSPENDED",
+          "manual": true
+        }
+      ]
+    },
+    "SUSPENDED": {
+      "transitions": [
+        {
+          "name": "reinstate_user",
+          "next": "VERIFIED",
+          "manual": true
+        }
+      ]
+    }
+  }
+}
