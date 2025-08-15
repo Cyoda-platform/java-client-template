@@ -49,9 +49,9 @@ public class NotifyUserProcessor implements CyodaProcessor {
     private User processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<User> context) {
         User user = context.entity();
 
-        // In a real system we'd call EmailService; here we just log
-        logger.info("Notify user {} at {}: verificationToken={}", user.getId(), user.getEmail(), user.getVerificationToken());
-        user.setLastNotifiedAt(Instant.now().toString());
+        // In a real system we'd call EmailService; here we only log
+        logger.info("Notify user {} at {}", user.getId(), user.getEmail());
+        // User model doesn't have verificationToken or lastNotifiedAt fields; avoid setting them
 
         return user;
     }
