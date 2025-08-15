@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "name": "Laureate Workflow",
-  "desc": "Workflow for Laureate entity processing (enrichment, matching, notifications)",
+  "desc": "Workflow for Laureate entity covering enrichment, matching, notification scheduling and audit",
   "initialState": "PERSISTED",
   "active": true,
   "states": {
@@ -10,6 +10,15 @@
         {
           "name": "start_enrichment",
           "next": "ENRICHING",
+          "manual": false
+        }
+      ]
+    },
+    "ENRICHING": {
+      "transitions": [
+        {
+          "name": "enrich_complete",
+          "next": "MATCHING",
           "manual": false,
           "processors": [
             {
@@ -22,88 +31,32 @@
         }
       ]
     },
-    "ENRICHING": {
-      "transitions": [
-        {
-          "name": "enrichment_complete",
-          "next": "MATCHING",
-          "manual": false,
-          "criterion": {
-            "type": "function",
-            "function": {
-              "name": "EnrichmentCompleteCriterion",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
-          }
-        }
-      ]
-    },
     "MATCHING": {
       "transitions": [
         {
-          "name": "found_subscribers",
+          "name": "matches_found",
           "next": "SCHEDULING",
           "manual": false,
-          "criterion": {
-            "type": "function",
-            "function": {
-              "name": "SubscriberMatchCriterion",
+          "processors": [
+            {
+              "name": "MatchingProcessor",
               "config": {
                 "calculationNodesTags": "cyoda_application"
               }
             }
-          }
-        },
-        {
-          "name": "requires_manual_review",
-          "next": "MANUAL_REVIEW",
-          "manual": false,
-          "criterion": {
-            "type": "function",
-            "function": {
-              "name": "ManualFlagCriterion",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
-          }
+          ]
         },
         {
           "name": "no_matches",
           "next": "AUDIT",
-          "manual": false,
-          "criterion": {
-            "type": "function",
-            "function": {
-              "name": "NoSubscriberMatchCriterion",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
-          }
-        }
-      ]
-    },
-    "MANUAL_REVIEW": {
-      "transitions": [
-        {
-          "name": "manual_approve",
-          "next": "SCHEDULING",
-          "manual": true
-        },
-        {
-          "name": "manual_reject",
-          "next": "AUDIT",
-          "manual": true
+          "manual": false
         }
       ]
     },
     "SCHEDULING": {
       "transitions": [
         {
-          "name": "schedule_dispatch",
+          "name": "schedule_notifications",
           "next": "DELIVERING",
           "manual": false,
           "processors": [
@@ -121,98 +74,43 @@
       "transitions": [
         {
           "name": "delivery_success",
-          "next": "DELIVERED",
-          "manual": false,
-          "criterion": {
-            "type": "function",
-            "function": {
-              "name": "DeliverySuccessCriterion",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
-          }
-        },
-        {
-          "name": "delivery_failure",
-          "next": "FAILED",
-          "manual": false,
-          "criterion": {
-            "type": "function",
-            "function": {
-              "name": "DeliveryFailureCriterion",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
-          }
-        }
-      ]
-    },
-    "DELIVERED": {
-      "transitions": [
-        {
-          "name": "audit_after_delivery",
           "next": "AUDIT",
           "manual": false,
           "processors": [
             {
-              "name": "AuditProcessor",
+              "name": "NotificationDispatchProcessor",
               "config": {
                 "calculationNodesTags": "cyoda_application"
               }
             }
           ]
-        }
-      ]
-    },
-    "FAILED": {
-      "transitions": [
-        {
-          "name": "allow_retry",
-          "next": "RETRYING",
-          "manual": false,
-          "criterion": {
-            "type": "function",
-            "function": {
-              "name": "NotificationRetryCriterion",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
-          }
         },
         {
-          "name": "give_up",
-          "next": "AUDIT",
-          "manual": false,
-          "criterion": {
-            "type": "function",
-            "function": {
-              "name": "NotificationGiveUpCriterion",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
-          }
+          "name": "delivery_failed",
+          "next": "RETRYING",
+          "manual": false
         }
       ]
     },
     "RETRYING": {
       "transitions": [
         {
-          "name": "retry_exhausted",
-          "next": "AUDIT",
+          "name": "retry_attempt",
+          "next": "DELIVERING",
           "manual": false,
-          "criterion": {
-            "type": "function",
-            "function": {
-              "name": "RetryExhaustedCriterion",
+          "processors": [
+            {
+              "name": "NotificationRetryProcessor",
               "config": {
                 "calculationNodesTags": "cyoda_application"
               }
             }
-          }
+          ]
+        },
+        {
+          "name": "retry_exhausted",
+          "next": "AUDIT",
+          "manual": false
         }
       ]
     },
