@@ -1,0 +1,13 @@
+{
+  "name": "Game",
+  "version": 1,
+  "states": ["CREATED","DEDUPLICATE","PERSIST","ENRICH","STORED","SKIP","FAILED"],
+  "transitions": [
+    {"from":"CREATED","to":"DEDUPLICATE","processor":"GameDedupProcessor"},
+    {"from":"DEDUPLICATE","to":"PERSIST","processor":"PersistGameProcessor"},
+    {"from":"PERSIST","to":"ENRICH","processor":"GameEnrichmentProcessor"},
+    {"from":"ENRICH","to":"STORED","processor":"MarkStoredProcessor"},
+    {"from":"DEDUPLICATE","to":"SKIP","processor":"SkipProcessor"},
+    {"from":"PERSIST","to":"FAILED","processor":"FailProcessor"}
+  ]
+}
