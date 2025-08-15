@@ -26,6 +26,9 @@ public class Order implements CyodaEntity {
     private String createdAt; // ISO8601
     private String updatedAt; // ISO8601
 
+    // Small metadata helpers used by processors
+    private String trackingNumber;
+
     public Order() {}
 
     @Override
@@ -53,14 +56,5 @@ public class Order implements CyodaEntity {
         if (shippingAddress == null || shippingAddress.isBlank()) return false;
         if (billingAddress == null || billingAddress.isBlank()) return false;
         return true;
-    }
-
-    @Data
-    public static class OrderItem {
-        private String productId; // UUID referencing Product
-        private Integer quantity;
-        private BigDecimal unitPrice;
-
-        public OrderItem() {}
     }
 }
