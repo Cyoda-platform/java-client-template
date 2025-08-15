@@ -1,5 +1,7 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.laureate.version_1.Laureate;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
@@ -13,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -22,9 +25,11 @@ public class ScheduleNotificationProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(ScheduleNotificationProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final ObjectMapper objectMapper;
 
-    public ScheduleNotificationProcessor(SerializerFactory serializerFactory) {
+    public ScheduleNotificationProcessor(SerializerFactory serializerFactory, ObjectMapper objectMapper) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -51,16 +56,26 @@ public class ScheduleNotificationProcessor implements CyodaProcessor {
     private Laureate processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Laureate> context) {
         Laureate l = context.entity();
 
-        // For prototype, read matchedSubscribers from provenance and create simple notification items
-        Map<String, Object> prov = l.getProvenance();
-        Object matches = prov != null ? prov.get("matchedSubscribers") : null;
+        // For prototype, read matchedSubscribers from sourceRecord JSON and create simple notification items
+        Map<String, Object> prov = new HashMap<>();
+        try {
+            if (l.getSourceRecord() != null && !l.getSourceRecord().isBlank()) {
+                prov = objectMapper.readValue(l.getSourceRecord(), Map.class);
+            }
+        } catch (Exception e) {
+            logger.debug("Failed to parse sourceRecord provenance for laureate {}: {}", l.getLaureateId(), e.getMessage());
+            prov = new HashMap<>();
+        }
+
+        Object matches = prov.get("matchedSubscribers");
 
         List<Map<String, Object>> notifications = new ArrayList<>();
         if (matches instanceof List) {
             for (Object sid : (List<?>) matches) {
+                String subscriberId = sid == null ? null : sid.toString();
                 notifications.add(Map.of(
-                    "notificationId", l.getLaureateId() + "-not-" + sid,
-                    "subscriberId", sid,
+                    "notificationId", l.getLaureateId() + "-not-" + (subscriberId == null ? "unknown" : subscriberId),
+                    "subscriberId", subscriberId,
                     "laureateId", l.getLaureateId(),
                     "deliveryPreference", "IMMEDIATE",
                     "changeType", l.getLifecycleStatus()
@@ -68,14 +83,10 @@ public class ScheduleNotificationProcessor implements CyodaProcessor {
             }
         }
 
-        l.setProvenance(addNotificationsToProvenance(l.getProvenance(), notifications));
+        Map<String, Object> newProv = new HashMap<>(prov);
+        newProv.put("notifications", notifications);
+        l.setProvenance(newProv);
         logger.info("Scheduled {} notifications for laureate {}", notifications.size(), l.getLaureateId());
         return l;
-    }
-
-    private Map<String, Object> addNotificationsToProvenance(Map<String, Object> prov, List<Map<String, Object>> notifications) {
-        if (prov == null) prov = Map.of();
-        prov.put("notifications", notifications);
-        return prov;
     }
 }
