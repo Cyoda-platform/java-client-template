@@ -27,6 +27,7 @@ public class Job implements CyodaEntity {
     private Integer attemptCount; // retry attempts made
     private Integer maxAttempts; // maximum retry attempts
     private Map<String,Object> subscriberFilters; // filters to select target subscribers
+    private String lastNotifiedAt; // ISO-8601 timestamp when subscribers were last notified
 
     public Job() {}
 
