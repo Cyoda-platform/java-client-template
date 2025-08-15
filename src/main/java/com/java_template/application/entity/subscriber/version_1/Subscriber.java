@@ -11,16 +11,18 @@ public class Subscriber implements CyodaEntity {
     public static final Integer ENTITY_VERSION = 1;
     // Add your entity fields here
 
+    private String technicalId; // internal technical id (UUID string)
     private String name; // subscriber name
     private String contactMethod; // email/webhook/sms
     private String contactAddress; // destination address or endpoint
     private Boolean active; // is subscription active
-    private String filters; // categories/keywords/year range expression
+    private String filters; // categories/keywords/year range expression (stored as JSON string)
     private String deliveryPreference; // immediate/digest/daily
     private String backfillFromDate; // optional date to backfill historical matches
     private String lastNotifiedAt; // timestamp
     private String notificationHistory; // reference to recent notifications
     private String createdAt; // timestamp
+    private String updatedAt; // timestamp
 
     public Subscriber() {}
 
