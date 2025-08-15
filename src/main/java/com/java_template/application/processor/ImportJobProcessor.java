@@ -7,6 +7,9 @@ import com.java_template.application.entity.hackernewsitem.version_1.HackerNewsI
 import com.java_template.application.entity.importtask.version_1.ImportTask;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.service.EntityService;
+import com.java_template.common.util.Condition;
+import com.java_template.common.util.SearchConditionRequest;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -18,6 +21,8 @@ import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 @Component
 public class ImportJobProcessor implements CyodaProcessor {
@@ -26,9 +31,11 @@ public class ImportJobProcessor implements CyodaProcessor {
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
     private final ObjectMapper mapper = new ObjectMapper();
+    private final EntityService entityService;
 
-    public ImportJobProcessor(SerializerFactory serializerFactory) {
+    public ImportJobProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
     }
 
     @Override
@@ -54,27 +61,49 @@ public class ImportJobProcessor implements CyodaProcessor {
 
     private ImportJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<ImportJob> context) {
         ImportJob job = context.entity();
-        // Mark job in progress (in real implementation persist status updates)
+        // Mark job in progress and set timestamps
         job.setStatus("IN_PROGRESS");
-        // Persist a HackerNewsItem representing this payload
+        job.setCreatedAt(job.getCreatedAt() == null ? Instant.now() : job.getCreatedAt());
+
+        // Persist a HackerNewsItem representing this payload using entityService
         HackerNewsItem item = new HackerNewsItem();
-        item.setTechnicalId(UUID.randomUUID().toString());
         item.setOriginalJson(job.getPayload());
         item.setCreatedAt(Instant.now());
-        // In a real implementation, you would persist item and create ImportTask records in datastore.
-        ImportTask task = new ImportTask();
-        task.setTechnicalId(UUID.randomUUID().toString());
-        task.setJobTechnicalId(job.getTechnicalId());
-        task.setHnItemTechnicalId(item.getTechnicalId());
-        task.setStatus("QUEUED");
-        task.setCreatedAt(Instant.now());
 
-        logger.info("ImportJobProcessor created HackerNewsItem technicalId={} and ImportTask technicalId={}",
-            item.getTechnicalId(), task.getTechnicalId());
+        try {
+            CompletableFuture<UUID> addFuture = entityService.addItem(
+                HackerNewsItem.ENTITY_NAME,
+                String.valueOf(HackerNewsItem.ENTITY_VERSION),
+                item
+            );
+            UUID hnTechnicalId = addFuture.get(10, TimeUnit.SECONDS);
 
-        // Update job counters
-        job.setItemsCreatedCount(1);
-        job.setStatus("IN_PROGRESS");
+            // Create ImportTask referencing the job and the created item
+            ImportTask task = new ImportTask();
+            task.setJobTechnicalId(job.getJobName());
+            task.setHnItemId(item.getId());
+            task.setStatus("QUEUED");
+            task.setAttempts(0);
+            task.setCreatedAt(Instant.now());
+
+            CompletableFuture<UUID> taskAdd = entityService.addItem(
+                ImportTask.ENTITY_NAME,
+                String.valueOf(com.java_template.application.entity.importtask.version_1.ImportTask.ENTITY_VERSION),
+                task
+            );
+            UUID taskTechnicalId = taskAdd.get(10, TimeUnit.SECONDS);
+
+            logger.info("ImportJobProcessor created HackerNewsItem technicalId={} and ImportTask technicalId={}",
+                hnTechnicalId, taskTechnicalId);
+
+            // Update job counters
+            job.setItemsCreatedCount(1);
+            job.setStatus("IN_PROGRESS");
+        } catch (Exception e) {
+            logger.error("Failed to persist HackerNewsItem or ImportTask: {}", e.getMessage());
+            job.setStatus("FAILED");
+            job.setCompletedAt(Instant.now());
+        }
         return job;
     }
 }
