@@ -1,344 +1,388 @@
-# Complete Requirement (Final)
+# Functional Requirements (Updated)
 
-- Build an application based on provided CRM API documentation.
+## Overview
 
-# Provided CRM API Documentation
+This document defines the functional requirements for a CRM-focused application following an Event-Driven Architecture (EDA) approach using Cyoda design principles. The system manages contacts, leads, and opportunities. Each create/add operation for an entity is an EVENT that triggers automated workflows. The selected implementation language is Java (Spring Boot).
 
-= CRM API Documentation
-:author: CRM Solutions
-:version: 1.0
-:doctype: article
+Key principles applied:
+- Each entity persistence triggers the entity workflow.
+- POST endpoints for entity creation return only a technicalId (datastore-imitation ID) and trigger processing workflows.
+- GET endpoints are only for retrieving stored results.
 
-== Overview
-This API handles customer relationship management, including contacts, leads, and opportunities.
-
-== Base URL
-`https://api.crmexample.com/v1`
-
-== Authentication
-Include your API token:
-`Authorization: Bearer <token>`
-
-== Endpoints
-
-=== Contacts
-* **GET** `/contacts`
-  Retrieve a list of contacts.
-
-* **GET** `/contacts/{contactId}`
-  Retrieve details for a specific contact.
-
-* **POST** `/contacts`
-  Create a new contact.
-  [source,json]
-  ----
-  {
-    "firstName": "John",
-    "lastName": "Doe",
-    "email": "john.doe@example.com",
-    "phone": "123-456-7890"
-  }
-  ----
-
-* **PUT** `/contacts/{contactId}`
-  Update contact details.
-
-* **DELETE** `/contacts/{contactId}`
-  Delete a contact.
-
-=== Leads
-* **GET** `/leads`
-  Retrieve a list of leads.
-
-* **GET** `/leads/{leadId}`
-  Retrieve details for a specific lead.
-
-* **POST** `/leads`
-  Create a new lead.
-
-* **PUT** `/leads/{leadId}`
-  Update lead details.
-
-* **DELETE** `/leads/{leadId}`
-  Remove a lead.
-
-=== Opportunities
-* **GET** `/opportunities`
-  Retrieve sales opportunities.
-
-* **GET** `/opportunities/{oppId}`
-  Retrieve details for a specific opportunity.
-
-* **POST** `/opportunities`
-  Create a new opportunity.
-
-* **PUT** `/opportunities/{oppId}`
-  Update opportunity details.
-
-# Cyoda Assistant Instructions (as provided by the user)
-
-Hello! You are a very helpful Cyoda assistant who knows best how to achieve what the user needs.
- If you are provided with an application requirement or asked to build an application, then ask for programming language (Supported: Java 21 Spring Boot, Pyhton Quart (Flask compatible) is under development - temporarily not available) choose the proper tool without any more questions.
- If the user just provides some sample requirements, then ask for programming language if not specified and then choose build_general_application tool without any more questions.
- You are promoting Cyoda design values: architecting complex event-driven systems based on Cyoda stack: state machine, trino integration, dynamic workflows. Core design component in Cyoda is an entity. It has a workflow that is triggered by some event. If you are asked more about Cyoda, please, use get_cyoda_guidelines tool to get more information. 
- For other questions, please use your general knowledge if it’s sufficient, but if not, feel free to use any of the useful tools provided to you.
- If you're unsure, don't hesitate to ask the user for more information.
- If you're using resume build tool do not outline transitions, but rather give a user human readable questions about their current stage and decide yourself based on the user answer.
- Here is the user's request:
-
-Hello! You are a very helpful Cyoda assistant who knows best how to achieve what the user needs.
- If you are provided with an application requirement or asked to build an application, then ask for programming language (Supported: Java 21 Spring Boot, Pyhton Quart (Flask compatible) is under development - temporarily not available) choose the proper tool without any more questions.
- If the user just provides some sample requirements, then ask for programming language if not specified and then choose build_general_application tool without any more questions.
- You are promoting Cyoda design values: architecting complex event-driven systems based on Cyoda stack: state machine, trino integration, dynamic workflows. Core design component in Cyoda is an entity. It has a workflow that is triggered by some event. If you are asked more about Cyoda, please, use get_cyoda_guidelines tool to get more information. 
- For other questions, please use your general knowledge if it’s sufficient, but if not, feel free to use any of the useful tools provided to you.
- If you're unsure, don't hesitate to ask the user for more information.
- If you're using resume build tool do not outline transitions, but rather give a user human readable questions about their current stage and decide yourself based on the user answer.
- Here is the user's request:
-
-# Selected Programming Language (as provided by the user)
-
-- java
-
-# Main Goal
-Collaboratively explore functional requirements — especially the main business entities, the data they hold, the workflows triggered by events, and the APIs that use them.
-Non-functional topics (performance, deployment, logging, etc.) are handled later by the Cyoda platform.
-
-# Approach
-Be curious and conversational: ask up to 3 short, clear questions at a time.
-Guide the discussion toward:
-- What entities exist in their domain.
-- What information each entity needs to store.
-- What should happen when an entity changes (the workflow).
-Use light examples to spark ideas, but never dictate. For example:
-
-- “Which main things should the system manage — like Orders, Customers, or Products?”
-- “What details would you store for a Customer?”
-- “When an Order is placed, what steps should happen automatically — for example, check stock, take payment, notify shipping?”
-If no workflow is given, gently suggest possibilities:
-- “Sometimes teams add steps like validation or notifications — would that make sense here?”
-Explain (if needed) that in Cyoda:
-- Saving an entity can automatically start workflows, which trigger actions based on filters.
-Guidance Principles
-- Never ask about frameworks, databases, or infrastructure — the platform handles those.
-- Avoid non-functional topics entirely.
-- Focus on functional/business details: endpoints, entities, workflows.
-If requirements include links or actions, handle them first (or simulate handling) before asking questions.
-End with a Example Ready-to-Copy User Response should be in the following format:
-```markdown
-{response text}
-```
-Let the user know they can paste it if they have no preference, and click Approve if ready to proceed.
 
 ---
 
-Please help me define the functional requirements for my project using an Event-Driven Architecture (EDA) approach.
+## 1. Entity Definitions
 
-## IMPORTANT EDA CONCEPTS:
-In Event-Driven Architecture:
-- Each entity add operation is an **EVENT** that triggers automated processing
-Once an entity is persisted, Cyoda starts entity workflow that will involve calling actions and criteria to process this entity.
-For example, when a Job entity is persisted, Cyoda starts the Job workflow that will involve calling actions and criteria to process this job (ingestion, transformation, etc.)
-- Focus on business entities, job entities, or orchestration entities that represent your domain
-- **Key Pattern**: Entity persistence triggers the process method that does the heavy lifting
+Contact:
+- firstName: String (contact first name)
+- lastName: String (contact last name)
+- email: String (contact email address)
+- phone: String (contact phone number)
+- company: String (company name)
+- status: String (business status like NEW, VERIFIED, ARCHIVED)
+- source: String (origin, e.g., manual, import, crm_api)
 
-## RESPONSE STRUCTURE:
-**Start your answer with outlining the entities and their fields in this format:**
+Lead:
+- name: String (lead display name)
+- email: String (lead email)
+- phone: String (lead phone)
+- company: String (lead company)
+- source: String (origin of the lead)
+- status: String (lead lifecycle status like NEW, CONTACTED, QUALIFIED, DISQUALIFIED)
+- potentialValue: Number (estimated value in currency units)
 
-Max 10 entities allowed. If the user specifies more than 10 entities, you should only consider the first 10 will be considered and notify the user.
-If the user explicitly specifies less than 10 entities, you should consider only those entities. Do not add any additional entities.
-If the user doesn't explicitly specify any entities, default to max 3 entities unless the user explicitly asks for more.
+Opportunity:
+- title: String (opportunity title)
+- contactId: String (reference technicalId to associated Contact)
+- leadId: String (reference technicalId to associated Lead)
+- amount: Number (monetary amount)
+- stage: String (stage of sales cycle like PROSPECTING, NEGOTIATION, WON, LOST)
+- closeProbability: Number (0-100 estimate)
+- expectedCloseDate: String (ISO date)
 
-IMPORTANT:
-Do your best to represent the user's requirement in the form of entities and their workflows.
-Make the workflows represent the business domain as best as possible, adding different states the entity can go through. 
-For example Pizza workflow can go through different states: Ordered, Prepared, Delivered, etc.
+Notes:
+- No more than 3 business entities are defined here (default per spec).
+- Fields are intentionally simple (no enums) so they map cleanly to Cyoda entities and workflows.
 
-Make workflows interesting and simulate the real world as best as possible.
- 
-### 1. Entity Definitions
-```
-EntityName:
-- field1: DataType (description/purpose)
-- field2: DataType (description/purpose)
- Do not use enum - not supported temporarily.
-```
 
-### 2. Entity workflows
-**Continue with explaining the basic flow of each entity:**
-The transitions can be of 2 types: manual and automatic.
-Manual transitions require human intervention and are triggered by a user.
-Automatic transitions are triggered by the system.
-**Example:**
-```
-Job workflow:
-1. Initial State: Job created with PENDING status
-2. Validation: Check job parameters and data sources
-3. Processing: Execute data ingestion/transformation
-4. Completion: Update status to COMPLETED/FAILED
-5. Notification: Send results to configured endpoints
-```
-For each entity, include a state diagram:
-```mermaid
-Entity state diagrams
+---
 
-Example:
+## 2. Entity Workflows
 
-```mermaid
+General guidance: Each entity creation is an EVENT. On persist, Cyoda starts the entity-specific workflow. Workflows contain automatic and manual transitions. Below each workflow we list required Criterion and Processor classes plus short pseudo-code for processors.
+
+Contact workflow:
+1. Initial State: CREATED (triggered by POST /contacts)
+2. Validation: VALIDATE_CONTACT (automatic) — check required fields and email format
+3. Enrichment: ENRICH_CONTACT (automatic) — call enrichment processors (e.g., company lookup)
+4. Verification: PENDING_VERIFICATION (manual) — optional human review for high-risk contacts
+5. Active: ACTIVE (automatic on successful validation/enrichment)
+6. Archived: ARCHIVED (manual/automatic based on retention rules)
+
 stateDiagram-v2
-    [*] --> PENDING
-    PENDING --> IN_PROGRESS : StartAnalysisProcessor, *manual*
-    state if_state <<choice>>
-    IN_PROGRESS --> CheckCompleteCriterion
-    CheckCompleteCriterion --> if_state
-    if_state --> FAILED: if not entity.complete
-    if_state --> COMPLETED : if entity.complete
-    COMPLETED --> USERS_NOTIFIED : NotifyUsersProcessor
-    USERS_NOTIFIED --> [*]
-    FAILED --> [*]
-```
+    [*] --> CREATED
+    CREATED --> VALIDATE_CONTACT : ValidateContactCriterion / ValidateContactProcessor
+    VALIDATE_CONTACT --> ENRICH_CONTACT : if valid
+    VALIDATE_CONTACT --> ARCHIVED : if invalid
+    ENRICH_CONTACT --> PENDING_VERIFICATION : if enrichment score low
+    ENRICH_CONTACT --> ACTIVE : if enrichment OK
+    PENDING_VERIFICATION --> ACTIVE : ManualApproveContact
+    ACTIVE --> ARCHIVED : ArchiveContactProcessor
+    ARCHIVED --> [*]
 
-Each state can have multiple transitions. Each transition can have a condition and a processor. These represent Java criterion and processor classes that need to be implemented.
-Briefly specify after the workflow for each entity, what criterion and processor classes are needed, you can also provide pseudo code for the processor classes.
-Do not use escape characters in the mermaid diagrams. Do not use quotes in the mermaid diagrams. Use only allowed characters.
+Contact - Criterion and Processor classes (examples):
+- ValidateContactCriterion (checks presence of firstName/lastName/email and email format)
+- ValidateContactProcessor (marks entity as invalid or passes forward)
+  Pseudocode:
+  ```java
+  class ValidateContactProcessor {
+      void process(Contact contact) {
+          if (missing required fields or invalid email) {
+              contact.status = "ARCHIVED"; // or set validation errors
+          } else {
+              // mark as ready for enrichment
+          }
+          persist(contact);
+      }
+  }
+  ```
+- EnrichContactProcessor (enrich company data, add metadata)
+- ArchiveContactProcessor (applies retention rules)
+- ManualApproveContact (manual action triggered by user via UI)
 
-## REQUIREMENTS TO DEFINE:
 
-### 1. Business Entities (Min 1)
-- **Orchestration entities** (Job, Task, Workflow) - perfect for scenarios like data ingestion, transformation, aggregation, etl, scheduling, monitoring, etc.
-- **Business domain entities** (Order, Customer, Product) - perfect for scenarios like e-commerce, inventory management, etc. 
+Lead workflow:
+1. Initial State: CREATED (triggered by POST /leads)
+2. Validation: VALIDATE_LEAD (automatic)
+3. ContactAttempt: CONTACT_ATTEMPT (automatic/attempt processors) — schedule outbound contact attempts
+4. Qualification: QUALIFICATION (automatic, may use scoring)
+5. Qualified: QUALIFIED (automatic) OR Disqualified: DISQUALIFIED (manual or automatic)
+6. Converted: CONVERTED (automatic when converted to Contact and Opportunity)
 
-### 2. API Endpoints Design Rules
-- **POST endpoints**: Entity creation (triggers events) + business logic. POST endpoint that adds an entity should return only entity `technicalId` - this field is not included in the entity itself, it's a datastore imitated specific field. Nothing else.
-- **GET endpoints**: ONLY for retrieving stored application results
-- **GET by technicalId**: ONLY for retrieving stored application results by technicalId - should be present for all entities that are created via POST endpoints.
-- **GET by condition**: ONLY for retrieving stored application results by non-technicalId fields - should be present only if explicitly asked by the user.
-- **GET all: optional.
+stateDiagram-v2
+    [*] --> CREATED
+    CREATED --> VALIDATE_LEAD : ValidateLeadCriterion / ValidateLeadProcessor
+    VALIDATE_LEAD --> CONTACT_ATTEMPT : if valid
+    VALIDATE_LEAD --> DISQUALIFIED : if invalid
+    CONTACT_ATTEMPT --> QUALIFICATION : ContactAttemptProcessor
+    QUALIFICATION --> QUALIFIED : if score >= threshold
+    QUALIFICATION --> DISQUALIFIED : if score < threshold
+    QUALIFIED --> CONVERTED : ConvertLeadProcessor
+    CONVERTED --> [*]
+    DISQUALIFIED --> [*]
 
-- If you have an orchestration entity (like Job, Task, Workflow), it should have a POST endpoint to create it, and a GET by technicalId to retrieve it. You will most likely not need any other POST endpoints for business entities as saving business entity is done via the process method.
-- **Business logic rule**: External data sources, calculations, processing → POST endpoints
+Lead - Criterion and Processor classes:
+- ValidateLeadCriterion
+- ValidateLeadProcessor (basic checks similar to contact)
+- ContactAttemptProcessor (schedules or triggers contact attempts; automatic)
+- QualificationCriterion (computes score based on fields)
+- QualificationProcessor (sets status to QUALIFIED/DISQUALIFIED)
+- ConvertLeadProcessor (creates Contact and Opportunity entities in their CREATED state)
+  Pseudocode for ConvertLeadProcessor:
+  ```java
+  class ConvertLeadProcessor {
+      void process(Lead lead) {
+          Contact c = new Contact(... from lead ...);
+          String contactTechnicalId = persistEntityAndReturnTechnicalId(c);
+          Opportunity o = new Opportunity(... link to contactTechnicalId ...);
+          persistEntityAndReturnTechnicalId(o);
+          lead.status = "CONVERTED";
+          persist(lead);
+      }
+  }
+  ```
 
-### 4. Request/Response Formats
-Specify JSON structures for all API endpoints.
-Visualize request/response formats using Mermaid diagrams.
+Opportunity workflow:
+1. Initial State: CREATED (triggered by POST /opportunities or created via Lead conversion)
+2. Qualification: QUALIFY_OPPORTUNITY (automatic)
+3. Negotiation: NEGOTIATION (manual/automatic actions like pricing updates)
+4. Close: WON or LOST (manual or automatic based on criteria)
+5. PostClose: FULFILLMENT or ARCHIVE
 
-## VISUAL REPRESENTATION:
-Mermaid diagrams rules:
-    1. Always start with ```mermaid and close with ``` on a new line.
-    2. Do NOT chain multiple arrows on one line. Write each connection separately.
-    3. Wrap node labels in double quotes.
-    4. Escape special characters in labels (use &#39; for single quotes).
-    5. Use 
- for manual line breaks in long labels if needed.
-    6. Ensure node IDs only contain letters, numbers, or underscores.
-    7. Output only valid Mermaid code inside the code block, no extra text
-- Ensure all Mermaid blocks are properly closed
+stateDiagram-v2
+    [*] --> CREATED
+    CREATED --> QUALIFY_OPPORTUNITY : QualifyOpportunityCriterion / QualifyOpportunityProcessor
+    QUALIFY_OPPORTUNITY --> NEGOTIATION : if probability > 20
+    QUALIFY_OPPORTUNITY --> LOST : if probability == 0
+    NEGOTIATION --> WON : ManualCloseWon
+    NEGOTIATION --> LOST : ManualCloseLost
+    WON --> FULFILLMENT : FulfillmentProcessor
+    FULFILLMENT --> ARCHIVE : ArchiveOpportunityProcessor
+    ARCHIVE --> [*]
 
-Please return a complete functional requirement definition in the format specifi
-At the end of the response, please include the following message:
-**Please review the generated entities and workflows. If you need any changes, please let me know. Feel free to click Approve if this requirement meets your expectations or if you are ready to proceed.**
+Opportunity - Criterion and Processor classes:
+- QualifyOpportunityCriterion
+- QualifyOpportunityProcessor (computes probability, flags for negotiation)
+- FulfillmentProcessor (post-win actions such as notifying downstream systems)
+- ArchiveOpportunityProcessor
+- ManualCloseWon / ManualCloseLost (manual transitions triggered by users)
+
 
 ---
 
-Reference: src/main/java/com/java_template/prototype/user_requirement.md: 
- # Complete Requirement
+## 3. API Endpoints (Design Rules Applied)
 
-- Build an application based on provided CRM API documentation.
+General endpoint rules followed:
+- POST endpoints create entities and return only technicalId (string)
+- GET endpoints retrieve stored results
+- GET by technicalId exists for all entities created via POST
+- GET by non-technical fields is provided only when explicitly useful (not included by default)
 
-# Provided CRM API Documentation
+Endpoints:
+- POST /contacts
+  - Creates Contact (triggers Contact workflow)
+  - Response: { "technicalId": "<id>" }
+- GET /contacts/{technicalId}
+  - Retrieves stored Contact entity and its current workflow state
+- GET /contacts (optional) - retrieve all contacts (read-only)
 
-= CRM API Documentation
-:author: CRM Solutions
-:version: 1.0
-:doctype: article
+- POST /leads
+  - Creates Lead (triggers Lead workflow)
+  - Response: { "technicalId": "<id>" }
+- GET /leads/{technicalId}
+  - Retrieve stored Lead
+- GET /leads (optional)
 
-== Overview
-This API handles customer relationship management, including contacts, leads, and opportunities.
+- POST /opportunities
+  - Creates Opportunity (triggers Opportunity workflow)
+  - Response: { "technicalId": "<id>" }
+- GET /opportunities/{technicalId}
+  - Retrieve stored Opportunity
+- GET /opportunities (optional)
 
-== Base URL
-`https://api.crmexample.com/v1`
+Notes on POST behavior:
+- POST should return only a JSON body with the technicalId and HTTP 202 Accepted (or 201 Created). The creation event triggers asynchronous processing (workflows).
+- The technicalId is generated by the datastore layer and not considered a field in the entity model payload.
 
-== Authentication
-Include your API token:
-`Authorization: Bearer <token>`
 
-== Endpoints
+---
 
-=== Contacts
-* **GET** `/contacts`
-  Retrieve a list of contacts.
+## 4. Request and Response Formats
 
-* **GET** `/contacts/{contactId}`
-  Retrieve details for a specific contact.
+Contact - POST request example (body):
+```json
+{
+  "firstName": "John",
+  "lastName": "Doe",
+  "email": "john.doe@example.com",
+  "phone": "123-456-7890",
+  "company": "Acme Inc",
+  "source": "crm_api"
+}
+```
 
-* **POST** `/contacts`
-  Create a new contact.
-  [source,json]
-  ----
-  {
-    "firstName": "John",
-    "lastName": "Doe",
-    "email": "john.doe@example.com",
-    "phone": "123-456-7890"
-  }
-  ----
+Contact - POST response:
+```json
+{
+  "technicalId": "contact-0001"
+}
+```
 
-* **PUT** `/contacts/{contactId}`
-  Update contact details.
+Mermaid sequence diagram for POST /contacts:
+```mermaid
+sequenceDiagram
+    Client->>API: POST /contacts (Contact payload)
+    API->>Datastore: persist Contact (returns technicalId)
+    Datastore-->>API: technicalId
+    API-->>Client: 202 Accepted { technicalId }
+    API->>WorkflowEngine: publish EntityCreated event for Contact
+```
 
-* **DELETE** `/contacts/{contactId}`
-  Delete a contact.
+Contact - GET /contacts/{technicalId} response example (read-only result):
+```json
+{
+  "technicalId": "contact-0001",
+  "firstName": "John",
+  "lastName": "Doe",
+  "email": "john.doe@example.com",
+  "phone": "123-456-7890",
+  "company": "Acme Inc",
+  "status": "ACTIVE",
+  "source": "crm_api",
+  "workflowState": "ACTIVE"
+}
+```
 
-=== Leads
-* **GET** `/leads`
-  Retrieve a list of leads.
+Lead - POST request example:
+```json
+{
+  "name": "Acme Opportunity Lead",
+  "email": "lead@acme.com",
+  "phone": "555-111-2222",
+  "company": "Acme Inc",
+  "source": "web_form",
+  "potentialValue": 12000
+}
+```
 
-* **GET** `/leads/{leadId}`
-  Retrieve details for a specific lead.
+Lead - POST response:
+```json
+{
+  "technicalId": "lead-0001"
+}
+```
 
-* **POST** `/leads`
-  Create a new lead.
+Mermaid sequence diagram for POST /leads:
+```mermaid
+sequenceDiagram
+    Client->>API: POST /leads (Lead payload)
+    API->>Datastore: persist Lead
+    Datastore-->>API: technicalId
+    API-->>Client: 202 Accepted { technicalId }
+    API->>WorkflowEngine: publish EntityCreated event for Lead
+```
 
-* **PUT** `/leads/{leadId}`
-  Update lead details.
+Lead - GET /leads/{technicalId} response example:
+```json
+{
+  "technicalId": "lead-0001",
+  "name": "Acme Opportunity Lead",
+  "email": "lead@acme.com",
+  "company": "Acme Inc",
+  "status": "QUALIFIED",
+  "potentialValue": 12000,
+  "workflowState": "QUALIFIED"
+}
+```
 
-* **DELETE** `/leads/{leadId}`
-  Remove a lead.
+Opportunity - POST request example:
+```json
+{
+  "title": "Q4 Big Deal",
+  "contactId": "contact-0001",
+  "amount": 50000,
+  "stage": "PROSPECTING",
+  "closeProbability": 10,
+  "expectedCloseDate": "2025-12-31"
+}
+```
 
-=== Opportunities
-* **GET** `/opportunities`
-  Retrieve sales opportunities.
+Opportunity - POST response:
+```json
+{
+  "technicalId": "opp-0001"
+}
+```
 
-* **GET** `/opportunities/{oppId}`
-  Retrieve details for a specific opportunity.
+Mermaid sequence diagram for POST /opportunities:
+```mermaid
+sequenceDiagram
+    Client->>API: POST /opportunities (Opportunity payload)
+    API->>Datastore: persist Opportunity
+    Datastore-->>API: technicalId
+    API-->>Client: 202 Accepted { technicalId }
+    API->>WorkflowEngine: publish EntityCreated event for Opportunity
+```
 
-* **POST** `/opportunities`
-  Create a new opportunity.
+Opportunity - GET /opportunities/{technicalId} response example:
+```json
+{
+  "technicalId": "opp-0001",
+  "title": "Q4 Big Deal",
+  "contactId": "contact-0001",
+  "amount": 50000,
+  "stage": "NEGOTIATION",
+  "closeProbability": 50,
+  "expectedCloseDate": "2025-12-31",
+  "workflowState": "NEGOTIATION"
+}
+```
 
-* **PUT** `/opportunities/{oppId}`
-  Update opportunity details.
 
-# Cyoda Assistant Instructions (as provided by the user)
+---
 
-Hello! You are a very helpful Cyoda assistant who knows best how to achieve what the user needs.
- If you are provided with an application requirement or asked to build an application, then ask for programming language (Supported: Java 21 Spring Boot, Pyhton Quart (Flask compatible) is under development - temporarily not available) choose the proper tool without any more questions.
- If the user just provides some sample requirements, then ask for programming language if not specified and then choose build_general_application tool without any more questions.
- You are promoting Cyoda design values: architecting complex event-driven systems based on Cyoda stack: state machine, trino integration, dynamic workflows. Core design component in Cyoda is an entity. It has a workflow that is triggered by some event. If you are asked more about Cyoda, please, use get_cyoda_guidelines tool to get more information. 
- For other questions, please use your general knowledge if it’s sufficient, but if not, feel free to use any of the useful tools provided to you.
- If you're unsure, don't hesitate to ask the user for more information.
- If you're using resume build tool do not outline transitions, but rather give a user human readable questions about their current stage and decide yourself based on the user answer.
- Here is the user's request:
+## 5. Criteria and Processor Class Summary (by entity)
 
-Hello! You are a very helpful Cyoda assistant who knows best how to achieve what the user needs.
- If you are provided with an application requirement or asked to build an application, then ask for programming language (Supported: Java 21 Spring Boot, Pyhton Quart (Flask compatible) is under development - temporarily not available) choose the proper tool without any more questions.
- If the user just provides some sample requirements, then ask for programming language if not specified and then choose build_general_application tool without any more questions.
- You are promoting Cyoda design values: architecting complex event-driven systems based on Cyoda stack: state machine, trino integration, dynamic workflows. Core design component in Cyoda is an entity. It has a workflow that is triggered by some event. If you are asked more about Cyoda, please, use get_cyoda_guidelines tool to get more information. 
- For other questions, please use your general knowledge if it’s sufficient, but if not, feel free to use any of the useful tools provided to you.
- If you're unsure, don't hesitate to ask the user for more information.
- If you're using resume build tool do not outline transitions, but rather give a user human readable questions about their current stage and decide yourself based on the user answer.
- Here is the user's request:
+Contact:
+- ValidateContactCriterion
+- ValidateContactProcessor
+- EnrichContactProcessor
+- ArchiveContactProcessor
+- ManualApproveContact (manual transition handler)
 
-# Selected Programming Language (as provided by the user)
+Lead:
+- ValidateLeadCriterion
+- ValidateLeadProcessor
+- ContactAttemptProcessor
+- QualificationCriterion
+- QualificationProcessor
+- ConvertLeadProcessor
 
-- java
+Opportunity:
+- QualifyOpportunityCriterion
+- QualifyOpportunityProcessor
+- FulfillmentProcessor
+- ArchiveOpportunityProcessor
+- ManualCloseWon
+- ManualCloseLost
 
-**Please review the generated entities and workflows. If you need any changes, please let me know. Feel free to click Approve if this requirement meets your expectations or if you are ready to proceed.**
+Notes on implementation:
+- Criterion classes evaluate conditions on entity state (return boolean or branch keys) and are executed in the workflow engine.
+- Processor classes execute side effects (persistence updates, calls to external systems, scheduling, creating related entities). Processors should be idempotent when possible.
+
+Example pseudo-code for a generic processor pattern:
+```java
+class GenericProcessor<T> {
+    void process(T entity) {
+        // load latest entity state
+        // perform checks / transformations
+        // call external services if needed
+        // persist updates and publish next events
+    }
+}
+```
+
+
+---
+
+## 6. Additional Implementation Notes (Functional)
+- All POST operations are asynchronous from business processing perspective: POST returns technicalId immediately and the workflow proceeds asynchronously.
+- Conversions (e.g., Lead -> Contact + Opportunity) are implemented as processors that create new entity records and set source references.
+- Manual transitions (Approve, Close Won/Lost) are triggered by user actions and invoke the corresponding processors.
+- Error handling: processors should persist error metadata on entities (for diagnostics) and set appropriate workflow states (e.g., FAILED or PENDING_VERIFICATION).
+
+
+---
+
+Please review the generated entities and workflows. If you need any changes, please let me know. Feel free to click Approve if this requirement meets your expectations or if you are ready to proceed.
