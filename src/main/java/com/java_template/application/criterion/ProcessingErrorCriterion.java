@@ -1,5 +1,7 @@
 package com.java_template.application.criterion;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.job.version_1.Job;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
@@ -15,17 +17,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.util.Map;
-
 @Component
 public class ProcessingErrorCriterion implements CyodaCriterion {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final CriterionSerializer serializer;
+    private final ObjectMapper objectMapper;
     private final String className = this.getClass().getSimpleName();
 
-    public ProcessingErrorCriterion(SerializerFactory serializerFactory) {
+    public ProcessingErrorCriterion(SerializerFactory serializerFactory, ObjectMapper objectMapper) {
         this.serializer = serializerFactory.getDefaultCriteriaSerializer();
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -46,14 +48,20 @@ public class ProcessingErrorCriterion implements CyodaCriterion {
         Job job = context.entity();
         if (job == null) return EvaluationOutcome.fail("Job payload missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
 
-        Map<String, Object> rs = job.getResultSummary();
-        if (rs == null) return EvaluationOutcome.success();
+        String rsStr = job.getResultSummary();
+        if (rsStr == null || rsStr.isBlank()) return EvaluationOutcome.success();
 
-        Object failed = rs.get("failed");
-        if (failed instanceof Number) {
-            if (((Number) failed).intValue() > 0) {
-                return EvaluationOutcome.fail("Processing errors detected", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+        try {
+            JsonNode rs = objectMapper.readTree(rsStr);
+            if (rs.has("failed") && rs.get("failed").isNumber()) {
+                if (rs.get("failed").asInt() > 0) {
+                    return EvaluationOutcome.fail("Processing errors detected", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+                }
             }
+        } catch (Exception e) {
+            logger.warn("Unable to parse resultSummary for job {}: {}", job.getTechnicalId(), e.getMessage());
+            // If parsing fails, conservatively succeed so as not to block flow
+            return EvaluationOutcome.success();
         }
 
         return EvaluationOutcome.success();
