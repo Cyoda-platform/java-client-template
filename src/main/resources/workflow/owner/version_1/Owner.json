@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "name": "Owner Workflow",
-  "desc": "Simplified workflow for Owner entity processing: validation -> duplicate check -> persist. Merge decision is manual.",
+  "desc": "Adjusted workflow for Owner entity processing: validation -> duplicate check -> persist. Merge decision remains manual.",
   "initialState": "CREATED",
   "active": true,
   "states": {
