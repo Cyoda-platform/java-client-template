@@ -1,0 +1,122 @@
+{
+  "version": "1.0",
+  "name": "WeeklyReport Workflow",
+  "desc": "Workflow for WeeklyReport entity",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "generate",
+          "next": "GENERATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "GenerateReportProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "GENERATING": {
+      "transitions": [
+        {
+          "name": "to_ready",
+          "next": "READY",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ReportCreationSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "to_failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ReportCreationFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "READY": {
+      "transitions": [
+        {
+          "name": "send",
+          "next": "SENT_PENDING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendReportProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SENT_PENDING": {
+      "transitions": [
+        {
+          "name": "to_sent",
+          "next": "SENT",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "EmailSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "to_failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "EmailFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "FAILED": {
+      "transitions": [
+        {
+          "name": "retry",
+          "next": "RETRY",
+          "manual": true
+        }
+      ]
+    },
+    "RETRY": {
+      "transitions": []
+    },
+    "SENT": {
+      "transitions": []
+    }
+  }
+}
