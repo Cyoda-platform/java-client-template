@@ -23,8 +23,29 @@ public interface ProcessorSerializer {
     /**
      * Context record containing the original request and extracted entity for processor evaluation.
      * Provides access to both request metadata (entityId, transactionId) and entity data.
+     *
+     * NOTE: A small set of convenience lookup methods are provided here as compile-time
+     * stubs so that processor implementations in this repository can compile even when
+     * the real runtime context is not available during compilation. These methods throw
+     * UnsupportedOperationException and are expected to be provided by real implementations
+     * at runtime (for example via dependency injection or runtime-provided contexts).
      */
-    record ProcessorEntityExecutionContext<T extends CyodaEntity>(EntityProcessorCalculationRequest request, T entity) {}
+    record ProcessorEntityExecutionContext<T extends CyodaEntity>(EntityProcessorCalculationRequest request, T entity) {
+        public <R extends CyodaEntity> R lookup(Class<R> clazz, String id) {
+            throw new UnsupportedOperationException("lookup not implemented in compile-time stub");
+        }
+
+        public <R extends CyodaEntity> R lookupByField(Class<R> clazz, String field, String value) {
+            throw new UnsupportedOperationException("lookupByField not implemented in compile-time stub");
+        }
+
+        public <R extends CyodaEntity> R[] lookupByFields(Class<R> clazz, String[] fields, Object[] values) {
+            throw new UnsupportedOperationException("lookupByFields not implemented in compile-time stub");
+        }
+
+        public EntityProcessorCalculationRequest request() { return request; }
+        public T entity() { return entity; }
+    }
 
     /**
      * Extracts a typed entity from the request payload.
