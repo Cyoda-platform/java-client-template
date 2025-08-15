@@ -35,8 +35,9 @@ public class HNItemRepository {
     public void save(HNItem item) {
         if (item.getTechnicalId() != null) {
             byTechnicalId.put(item.getTechnicalId(), item);
-            if (item.getHnId() != null) {
-                hnIdToTechnicalId.put(item.getHnId(), item.getTechnicalId());
+            // Use the HN item 'id' field (mapped to getId()) to populate hnId->technicalId map
+            if (item.getId() != null) {
+                hnIdToTechnicalId.put(item.getId(), item.getTechnicalId());
             }
         }
     }
