@@ -1,0 +1,150 @@
+{
+  "version": "1.0",
+  "name": "Cart Workflow",
+  "desc": "Workflow for Cart entity",
+  "initialState": "OPEN",
+  "active": true,
+  "states": {
+    "OPEN": {
+      "transitions": [
+        {
+          "name": "item_updated",
+          "next": "UPDATED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AddItemProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "abandon_ttl",
+          "next": "ABANDONED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "CartAbandonmentCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "UPDATED": {
+      "transitions": [
+        {
+          "name": "start_checkout",
+          "next": "VALIDATING_ON_CHECKOUT",
+          "manual": true
+        }
+      ]
+    },
+    "VALIDATING_ON_CHECKOUT": {
+      "transitions": [
+        {
+          "name": "reserve_inventory",
+          "next": "RESERVE_INVENTORY",
+          "manual": false,
+          "processors": [
+            {
+              "name": "StartCheckoutProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "RESERVE_INVENTORY": {
+      "transitions": [
+        {
+          "name": "inventory_available",
+          "next": "PROCESS_PAYMENT",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ReserveInventoryProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "inventory_insufficient",
+          "next": "OPEN",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "InventoryInsufficientCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "PROCESS_PAYMENT": {
+      "transitions": [
+        {
+          "name": "payment_success",
+          "next": "CHECKED_OUT",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PaymentProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "payment_failed",
+          "next": "OPEN",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ReleaseReservationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "CHECKED_OUT": {
+      "transitions": [
+        {
+          "name": "create_order",
+          "next": "END",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CreateOrderFromCartProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ABANDONED": {
+      "transitions": []
+    },
+    "END": {
+      "transitions": []
+    }
+  }
+}
