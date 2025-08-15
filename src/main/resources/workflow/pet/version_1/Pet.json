@@ -1,0 +1,159 @@
+{
+  "version": "1.0",
+  "name": "Pet Workflow",
+  "desc": "Workflow for Pet entity based on functional requirements",
+  "initialState": "AVAILABLE",
+  "active": true,
+  "states": {
+    "AVAILABLE": {
+      "transitions": [
+        {
+          "name": "to_media_verification",
+          "next": "MEDIA_VERIFICATION",
+          "manual": false,
+          "processors": [
+            {
+              "name": "MediaCheckProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "MEDIA_VERIFICATION": {
+      "transitions": [
+        {
+          "name": "media_ok",
+          "next": "AVAILABLE_VERIFIED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "MediaOkCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "media_failed",
+          "next": "NEEDS_MANUAL_REVIEW",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ScheduleManualReviewProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "AVAILABLE_VERIFIED": {
+      "transitions": [
+        {
+          "name": "receive_adoption_request",
+          "next": "PENDING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ReceiveAdoptionRequestProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "NEEDS_MANUAL_REVIEW": {
+      "transitions": [
+        {
+          "name": "manual_decision_after_review",
+          "next": "AVAILABLE_VERIFIED",
+          "manual": true
+        }
+      ]
+    },
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "place_hold",
+          "next": "RESERVED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "HoldTimerProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "RESERVED": {
+      "transitions": [
+        {
+          "name": "approve_adoption",
+          "next": "ADOPTED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "AdoptPetProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "cancel_hold",
+          "next": "RELEASED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "CancelHoldProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "RELEASED": {
+      "transitions": [
+        {
+          "name": "mark_available_post_release",
+          "next": "ARCHIVED",
+          "manual": false
+        }
+      ]
+    },
+    "ADOPTED": {
+      "transitions": [
+        {
+          "name": "archive_pet",
+          "next": "ARCHIVED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ArchivePetProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ARCHIVED": {
+      "transitions": []
+    }
+  }
+}
