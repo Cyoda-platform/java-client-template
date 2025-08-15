@@ -1,5 +1,7 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.hackernewsitem.version_1.HackerNewsItem;
 import com.java_template.application.store.InMemoryHnItemStore;
 import com.java_template.common.serializer.ProcessorSerializer;
@@ -22,6 +24,7 @@ public class RetrieveHnItemProcessor implements CyodaProcessor {
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
     private final InMemoryHnItemStore store;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public RetrieveHnItemProcessor(SerializerFactory serializerFactory, InMemoryHnItemStore store) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
@@ -46,7 +49,7 @@ public class RetrieveHnItemProcessor implements CyodaProcessor {
 
     private HackerNewsItem processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<HackerNewsItem> context) {
         HackerNewsItem entity = context.entity();
-        Integer id = entity != null ? entity.getId() : null;
+        String id = entity != null ? entity.getId() : null;
         if (id == null) {
             logger.warn("Retrieve called with null id");
             return entity;
