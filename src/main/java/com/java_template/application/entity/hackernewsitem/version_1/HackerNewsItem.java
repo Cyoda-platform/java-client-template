@@ -5,6 +5,8 @@ import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import lombok.Data;
 import java.time.Instant;
+import java.util.List;
+import java.util.ArrayList;
 
 @Data
 public class HackerNewsItem implements CyodaEntity {
@@ -19,6 +21,11 @@ public class HackerNewsItem implements CyodaEntity {
     private String state; // VALID or INVALID; assigned after validation that fields id and type are present
     private String validationErrors; // optional short message describing why state = INVALID
     private Instant createdAt; // when this entity record was created in the datastore
+
+    // Additional metadata fields
+    private String source; // e.g. domain extracted from URL in the original JSON
+    private List<String> tags = new ArrayList<>(); // optional tags extracted or assigned during enrichment
+    private Instant updatedAt; // last updated timestamp for the entity
 
     public HackerNewsItem() {}
 
