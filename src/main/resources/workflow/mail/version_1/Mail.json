@@ -1,0 +1,144 @@
+{
+  "version": "1.0",
+  "name": "Mail Workflow",
+  "desc": "Workflow for Mail entity handling evaluation and sending happy or gloomy mails",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "on_persist_start_evaluation",
+          "next": "EVALUATION",
+          "manual": false
+        }
+      ]
+    },
+    "EVALUATION": {
+      "transitions": [
+        {
+          "name": "evaluate_is_happy",
+          "next": "HAPPY",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsHappyCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "evaluate_is_gloomy",
+          "next": "GLOOMY",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsGloomyCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "HAPPY": {
+      "transitions": [
+        {
+          "name": "send_happy",
+          "next": "SENDING_HAPPY",
+          "manual": false,
+          "processors": [
+            {
+              "name": "sendHapppyMail",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "GLOOMY": {
+      "transitions": [
+        {
+          "name": "send_gloomy",
+          "next": "SENDING_GLOOMY",
+          "manual": false,
+          "processors": [
+            {
+              "name": "sendGloomyMail",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SENDING_HAPPY": {
+      "transitions": [
+        {
+          "name": "happy_send_success",
+          "next": "SENT",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.processingOutcome",
+            "operation": "EQUALS",
+            "value": "SUCCESS"
+          }
+        },
+        {
+          "name": "happy_send_failure",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.processingOutcome",
+            "operation": "EQUALS",
+            "value": "FAILURE"
+          }
+        }
+      ]
+    },
+    "SENDING_GLOOMY": {
+      "transitions": [
+        {
+          "name": "gloomy_send_success",
+          "next": "SENT",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.processingOutcome",
+            "operation": "EQUALS",
+            "value": "SUCCESS"
+          }
+        },
+        {
+          "name": "gloomy_send_failure",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.processingOutcome",
+            "operation": "EQUALS",
+            "value": "FAILURE"
+          }
+        }
+      ]
+    },
+    "SENT": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    }
+  }
+}
