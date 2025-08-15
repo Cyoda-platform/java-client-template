@@ -1,0 +1,140 @@
+{
+  "version": "1.0",
+  "name": "Job Workflow",
+  "desc": "Workflow for Job orchestration (SCHEDULED -> VALIDATING -> INGESTING -> SUCCEEDED/FAILED -> NOTIFIED_SUBSCRIBERS -> COMPLETED)",
+  "initialState": "SCHEDULED",
+  "active": true,
+  "states": {
+    "SCHEDULED": {
+      "transitions": [
+        {
+          "name": "to_validating",
+          "next": "VALIDATING",
+          "manual": false
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "validation_to_ingesting",
+          "next": "INGESTING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "JobValidationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "INGESTING": {
+      "transitions": [
+        {
+          "name": "start_ingestion",
+          "next": "INGESTING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "JobIngestionProcessor",
+              "executionMode": "ASYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "sourceUrl": "https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/nobel-prize-laureates/records"
+              }
+            }
+          ]
+        },
+        {
+          "name": "ingestion_succeeded",
+          "next": "SUCCEEDED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "JobNoFatalErrorsCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "ingestion_failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "JobHasFatalErrorsCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "SUCCEEDED": {
+      "transitions": [
+        {
+          "name": "succeeded_to_notify",
+          "next": "NOTIFIED_SUBSCRIBERS",
+          "manual": false,
+          "processors": [
+            {
+              "name": "JobNotificationProcessor",
+              "executionMode": "ASYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "FAILED": {
+      "transitions": [
+        {
+          "name": "failed_to_notify",
+          "next": "NOTIFIED_SUBSCRIBERS",
+          "manual": false,
+          "processors": [
+            {
+              "name": "JobNotificationProcessor",
+              "executionMode": "ASYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "NOTIFIED_SUBSCRIBERS": {
+      "transitions": [
+        {
+          "name": "notify_to_completed",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "JobFinalizeProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": []
+    }
+  }
+}
