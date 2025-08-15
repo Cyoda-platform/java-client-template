@@ -23,6 +23,11 @@ public class Owner implements CyodaEntity {
     private List<String> favorites = new ArrayList<>(); // pet ids
     private List<String> adoptionHistory = new ArrayList<>(); // adoptionRequest ids
 
+    // Additional compatibility fields
+    private String technicalId;
+    private Boolean verified;
+    private String verificationCompletedAt;
+
     public Owner() {}
 
     @Override
@@ -39,5 +44,31 @@ public class Owner implements CyodaEntity {
         if (name == null || name.isBlank()) return false;
         if (contactEmail == null || contactEmail.isBlank()) return false;
         return true;
+    }
+
+    // Convenience accessors used by processors
+    public String getTechnicalId() {
+        return technicalId != null ? technicalId : id;
+    }
+
+    public void setTechnicalId(String tid) {
+        this.technicalId = tid;
+        if (this.id == null) this.id = tid;
+    }
+
+    public Boolean getVerified() {
+        return verified;
+    }
+
+    public void setVerified(Boolean v) {
+        this.verified = v;
+    }
+
+    public String getVerificationCompletedAt() {
+        return verificationCompletedAt;
+    }
+
+    public void setVerificationCompletedAt(String t) {
+        this.verificationCompletedAt = t;
     }
 }
