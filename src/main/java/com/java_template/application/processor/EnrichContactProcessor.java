@@ -1,6 +1,5 @@
 package com.java_template.application.processor;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.contact.version_1.Contact;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
@@ -23,12 +22,10 @@ public class EnrichContactProcessor implements CyodaProcessor {
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
     private final EntityService entityService;
-    private final ObjectMapper objectMapper;
 
-    public EnrichContactProcessor(SerializerFactory serializerFactory, EntityService entityService, ObjectMapper objectMapper) {
+    public EnrichContactProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
         this.entityService = entityService;
-        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -68,9 +65,9 @@ public class EnrichContactProcessor implements CyodaProcessor {
                     contact.setCompany(domain);
                 }
             }
-            // set status to ENRICHED if not already
-            if (contact.getStatus() == null || contact.getStatus().isEmpty() || "PENDING".equals(contact.getStatus())) {
-                contact.setStatus("ENRICHED");
+            // Use title field to record enrichment status since Contact entity does not have a status field
+            if (contact.getTitle() == null || contact.getTitle().isEmpty()) {
+                contact.setTitle("ENRICHED");
             }
 
             // Persist enriched contact state
