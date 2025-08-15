@@ -5,8 +5,6 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.mail.version_1.Mail;
 import com.java_template.common.workflow.CyodaEventContext;
-import com.java_template.common.workflow.calculation.EntityProcessorCalculationRequest;
-import com.java_template.common.workflow.calculation.EntityProcessorCalculationResponse;
 import com.java_template.common.serializer.SerializerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +23,9 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
+import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
+import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 
 /**
  * Processor: sendHapppyMail
