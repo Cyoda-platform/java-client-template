@@ -24,6 +24,15 @@ public class Pet implements CyodaEntity {
     private List<String> tags = new ArrayList<>(); // search tags
     private String description; // free text
 
+    // Additional fields accessed by processors
+    private String externalId;
+    private String requestedBy;
+    private String requestedAt;
+    private String adoptedBy;
+    private String adoptedAt;
+    private String createdAt;
+    private String updatedAt;
+
     public Pet() {}
 
     @Override
