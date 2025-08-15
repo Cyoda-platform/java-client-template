@@ -1,0 +1,61 @@
+{
+  "version": "1.0",
+  "name": "Product Workflow",
+  "desc": "Workflow for product entity lifecycle, primarily driven by import jobs",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "imported_set_attributes",
+          "next": "AVAILABLE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SetImportedAttributesProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "AVAILABLE": {
+      "transitions": [
+        {
+          "name": "deplete_inventory",
+          "next": "OUT_OF_STOCK",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "OutOfStockCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "OUT_OF_STOCK": {
+      "transitions": [
+        {
+          "name": "restock",
+          "next": "AVAILABLE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RestockProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
