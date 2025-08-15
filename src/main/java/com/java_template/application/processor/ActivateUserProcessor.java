@@ -49,22 +49,23 @@ public class ActivateUserProcessor implements CyodaProcessor {
     private User processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<User> context) {
         User user = context.entity();
 
-        // Simple activation logic per functional requirements
-        if ("Admin".equalsIgnoreCase(user.getRole()) && Boolean.TRUE.equals(user.getCreatedByAdmin())) {
+        // Simplified activation logic using only existing User fields
+        if ("Admin".equalsIgnoreCase(user.getRole())) {
             user.setActive(true);
-            user.setEmailVerified(true);
+            // Admin accounts are active by default; no email verification field in model
         } else {
-            // Customer requires email verification
-            user.setActive(false);
-            user.setEmailVerified(false);
-            // In a full system we would generate a verification token and send an email
-            user.setVerificationToken("VERIF-" + user.getId());
-            user.setVerificationTokenExpiresAt(Instant.now().plusSeconds(24 * 3600).toString());
+            // For customers we leave account inactive until external verification is performed
+            if (user.getActive() == null) {
+                user.setActive(false);
+            }
         }
 
-        user.setUpdatedAt(Instant.now().toString());
+        // Ensure createdAt is set if missing
+        if (user.getCreatedAt() == null) {
+            user.setCreatedAt(Instant.now().toString());
+        }
 
-        logger.info("User {} activation processed: active={}, emailVerified={}", user.getId(), user.getActive(), user.getEmailVerified());
+        logger.info("User {} activation processed: active={}", user.getId(), user.getActive());
 
         return user;
     }
