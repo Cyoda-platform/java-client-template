@@ -19,6 +19,9 @@ public class Subscriber implements CyodaEntity {
     private String preferences; // JSON blob with subscriber preferences e.g., notifyOnSuccess, notifyOnFailure, filters
     private String lastNotifiedAt; // ISO-8601 datetime
 
+    // New fields referenced by processors
+    private String lastNotificationStatus; // DELIVERED or FAILED
+
     public Subscriber() {}
 
     @Override
