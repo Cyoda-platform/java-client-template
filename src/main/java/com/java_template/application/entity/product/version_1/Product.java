@@ -6,6 +6,7 @@ import org.cyoda.cloud.api.event.common.ModelSpec;
 import lombok.Data;
 
 import java.util.List;
+import com.java_template.application.entity.salessnapshot.version_1.SalesSnapshot;
 
 @Data
 public class Product implements CyodaEntity {
@@ -44,5 +45,3 @@ public class Product implements CyodaEntity {
         return true;
     }
 }
-
-// SalesSnapshot is referenced by Product.sales_history; define in its own entity file as required.
