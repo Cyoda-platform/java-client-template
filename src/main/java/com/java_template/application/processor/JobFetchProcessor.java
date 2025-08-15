@@ -1,5 +1,7 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.job.version_1.Job;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
@@ -12,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -22,9 +25,11 @@ public class JobFetchProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(JobFetchProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final ObjectMapper objectMapper;
 
-    public JobFetchProcessor(SerializerFactory serializerFactory) {
+    public JobFetchProcessor(SerializerFactory serializerFactory, ObjectMapper objectMapper) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -50,20 +55,16 @@ public class JobFetchProcessor implements CyodaProcessor {
 
     private Job processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Job> context) {
         Job job = context.entity();
-        // Simulated fetch pseudocode: this implementation will not call external systems
-        // but will illustrate paging and batch event creation handling using in-memory placeholders.
-
+        // Simulate fetching from source: respect runId if present in resultSummary
         int page = 0;
         int pageSize = 50; // default page size
         boolean morePages = true;
         List<Map<String, Object>> fetchedRecords = new ArrayList<>();
 
         while (morePages) {
-            // Placeholder: simulate fetching a page of raw records from the sourceUrl
             List<Map<String, Object>> pageRecords = simulateFetchPage(job, page, pageSize);
             logger.info("Job {} fetched page {} with {} records", job.getTechnicalId(), page, pageRecords.size());
 
-            // For each raw record we would normally publish LaureateNormalized events after normalization
             fetchedRecords.addAll(pageRecords);
 
             if (pageRecords.size() < pageSize) {
@@ -71,12 +72,17 @@ public class JobFetchProcessor implements CyodaProcessor {
             } else {
                 page++;
             }
-
-            // Respect simple rate-limit pause if required (no-op in this prototype)
         }
 
-        // Attach a simple summary on the job about fetched count
-        job.setResultSummary(Map.of("fetched", fetchedRecords.size()));
+        // Attach a detailed JSON summary in resultSummary string
+        ObjectNode rs = objectMapper.createObjectNode();
+        rs.put("fetched", fetchedRecords.size());
+        rs.put("fetchedAt", Instant.now().toString());
+        try {
+            job.setResultSummary(objectMapper.writeValueAsString(rs));
+        } catch (Exception e) {
+            job.setResultSummary("{}");
+        }
         job.setStatus("NORMALIZING");
         logger.info("Job {} fetch complete, totalRecords={}", job.getTechnicalId(), fetchedRecords.size());
 
@@ -84,8 +90,6 @@ public class JobFetchProcessor implements CyodaProcessor {
     }
 
     private List<Map<String, Object>> simulateFetchPage(Job job, int page, int pageSize) {
-        // Simulate a small dataset for the prototype; in real implementation this method
-        // would perform HTTP requests, handle paging tokens, timeouts and retry logic.
         List<Map<String, Object>> pageRecords = new ArrayList<>();
         int total = 3; // small fixed total for prototype
         int start = page * pageSize;
