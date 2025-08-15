@@ -1,0 +1,115 @@
+{
+  "version": "1.0",
+  "name": "Notification Workflow",
+  "desc": "Workflow for Notification: schedule, send with retry and finalize status.",
+  "initialState": "PENDING",
+  "active": true,
+  "states": {
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "schedule_send",
+          "next": "SCHEDULING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ScheduleNotificationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEDULING": {
+      "transitions": [
+        {
+          "name": "start_sending",
+          "next": "SENDING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendEmailNotificationProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 60000
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SENDING": {
+      "transitions": [
+        {
+          "name": "on_success",
+          "next": "SENT",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "OnSendSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "on_failure",
+          "next": "RETRY",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "OnSendFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "RETRY": {
+      "transitions": [
+        {
+          "name": "retry_send",
+          "next": "SENDING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RetrySendProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "retryPolicy": "EXPONENTIAL"
+              }
+            }
+          ]
+        },
+        {
+          "name": "max_retries",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "MaxRetriesReachedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "SENT": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    }
+  }
+}
