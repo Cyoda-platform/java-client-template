@@ -1,0 +1,109 @@
+{
+  "version": "1.0",
+  "name": "ImportTask Workflow",
+  "desc": "Workflow for processing an individual import task",
+  "initialState": "pending",
+  "active": true,
+  "states": {
+    "pending": {
+      "transitions": [
+        {
+          "name": "start_processing",
+          "next": "in_progress",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ProcessImportTaskProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "in_progress": {
+      "transitions": [
+        {
+          "name": "to_succeeded",
+          "next": "succeeded",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "TaskSucceededCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "to_failed",
+          "next": "failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "TaskFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "succeeded": {
+      "transitions": [
+        {
+          "name": "finish",
+          "next": "final",
+          "manual": false
+        }
+      ]
+    },
+    "failed": {
+      "transitions": [
+        {
+          "name": "to_retry_wait",
+          "next": "retry_wait",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RetryPolicyCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "retry_wait": {
+      "transitions": [
+        {
+          "name": "retry",
+          "next": "in_progress",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RetryProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "abort",
+          "next": "final",
+          "manual": true
+        }
+      ]
+    },
+    "final": {
+      "transitions": []
+    }
+  }
+}
