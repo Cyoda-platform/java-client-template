@@ -1,0 +1,91 @@
+{
+  "version": "1.0",
+  "name": "IngestionJob Workflow",
+  "desc": "Workflow for IngestionJob: orchestrates ingestion from sourceUrl to persisted Pets",
+  "initialState": "pending",
+  "active": true,
+  "states": {
+    "pending": {
+      "transitions": [
+        {
+          "name": "start_ingestion",
+          "next": "running",
+          "manual": true,
+          "processors": [
+            {
+              "name": "StartIngestionProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "running": {
+      "transitions": [
+        {
+          "name": "fetch_and_parse",
+          "next": "processing",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FetchAndParseProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "name": "persist_on_success",
+          "next": "completed",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "errors.length",
+            "operation": "EQUALS",
+            "value": 0
+          },
+          "processors": [
+            {
+              "name": "PersistPetsProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "fail_on_errors",
+          "next": "failed",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "errors.length",
+            "operation": "GREATER_THAN",
+            "value": 0
+          },
+          "processors": [
+            {
+              "name": "ErrorHandlerProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  }
+}
