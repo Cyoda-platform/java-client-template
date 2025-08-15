@@ -41,15 +41,16 @@ public class EnrichmentFailedCriterion implements CyodaCriterion {
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Laureate> context) {
-        Laureate l = context.entity();
-        if (l == null) {
+        Laureate laureate = context.entity();
+        if (laureate == null) {
             return EvaluationOutcome.fail("Laureate is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-
-        if (l.getDataEnriched() == null || !l.getDataEnriched()) {
-            return EvaluationOutcome.success();
+        if (laureate.getDataEnriched() == null) {
+            return EvaluationOutcome.fail("dataEnriched is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-
-        return EvaluationOutcome.fail("Laureate enrichment succeeded", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        if (laureate.getDataEnriched()) {
+            return EvaluationOutcome.fail("Laureate was enriched", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        return EvaluationOutcome.success();
     }
 }
