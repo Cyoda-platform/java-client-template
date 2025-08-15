@@ -1,0 +1,98 @@
+{
+  "version": "1.0",
+  "name": "Product Workflow",
+  "desc": "Workflow for Product entity",
+  "initialState": "SNAPSHOT_CREATED",
+  "active": true,
+  "states": {
+    "SNAPSHOT_CREATED": {
+      "transitions": [
+        {
+          "name": "aggregate",
+          "next": "AGGREGATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SaveProductSnapshotProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "AGGREGATING": {
+      "transitions": [
+        {
+          "name": "evaluate",
+          "next": "EVALUATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AggregateMetricsProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "EVALUATING": {
+      "transitions": [
+        {
+          "name": "to_alerted",
+          "next": "ALERTED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "RestockCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "to_normal",
+          "next": "NORMAL",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PerformanceOKCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ALERTED": {
+      "transitions": [
+        {
+          "name": "archive",
+          "next": "ARCHIVED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RetentionPurgeProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "NORMAL": {
+      "transitions": []
+    },
+    "ARCHIVED": {
+      "transitions": []
+    }
+  }
+}
