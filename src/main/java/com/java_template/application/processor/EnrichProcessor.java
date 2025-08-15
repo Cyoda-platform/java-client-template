@@ -14,6 +14,8 @@ import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.HashMap;
+import java.util.Map;
 
 @Component
 public class EnrichProcessor implements CyodaProcessor {
@@ -49,6 +51,9 @@ public class EnrichProcessor implements CyodaProcessor {
 
     private Laureate processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Laureate> context) {
         Laureate laureate = context.entity();
+        Map<String,String> validations = laureate.getValidations();
+        if (validations == null) validations = new HashMap<>();
+
         try {
             // Compute ageAtAward if born present and year is numeric
             if (laureate.getBorn() != null && !laureate.getBorn().isBlank() && laureate.getYear() != null && !laureate.getYear().isBlank()) {
@@ -59,6 +64,7 @@ public class EnrichProcessor implements CyodaProcessor {
                     laureate.setAgeAtAward(age);
                 } catch (DateTimeParseException | NumberFormatException e) {
                     logger.debug("Unable to compute ageAtAward for laureate id={}: {}", laureate.getId(), e.getMessage());
+                    validations.put("ageAtAward", "Unable to compute age: " + e.getMessage());
                 }
             }
 
@@ -68,14 +74,17 @@ public class EnrichProcessor implements CyodaProcessor {
             }
 
             // Status progression if currently VALIDATED
-            if ("VALIDATED".equalsIgnoreCase(laureate.getStatus())) {
+            if (laureate.getStatus() != null && "VALIDATED".equalsIgnoreCase(laureate.getStatus())) {
                 laureate.setStatus("ENRICHED");
             }
 
         } catch (Exception e) {
             logger.error("Unexpected error during enrichment for laureate id={}: {}", laureate.getId(), e.getMessage(), e);
-            laureate.setLastError(e.getMessage());
+            validations.put("enrichment", e.getMessage());
+            // Do not invent fields on Laureate; store validation message and preserve status
         }
+
+        laureate.setValidations(validations);
         return laureate;
     }
 }
