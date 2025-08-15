@@ -19,6 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.net.URI;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -70,11 +71,27 @@ public class HackerNewsItemEnrichmentProcessor implements CyodaProcessor {
             if (node.has("type") && !node.get("type").isNull()) {
                 entity.setType(node.get("type").asText());
             }
+            // Extract URL domain as source and set tags if URL present
+            if (node.has("url") && !node.get("url").isNull()) {
+                String url = node.get("url").asText();
+                try {
+                    URI uri = new URI(url);
+                    String host = uri.getHost();
+                    if (host != null) {
+                        entity.setSource(host.startsWith("www.") ? host.substring(4) : host);
+                        // add a simple tag indicating presence of URL
+                        if (!entity.getTags().contains("has-url")) entity.getTags().add("has-url");
+                    }
+                } catch (Exception e) {
+                    logger.debug("Failed to parse URL for enrichment: {}", e.getMessage());
+                }
+            }
         } catch (Exception e) {
             logger.warn("Failed to parse originalJson during enrichment: {}", e.getMessage());
             // leave fields as-is; state assigner will mark as invalid if necessary
         }
         entity.setImportTimestamp(Instant.now());
+        entity.setUpdatedAt(Instant.now());
 
         // Persist the enriched entity if it exists in datastore (find by originalJson)
         try {
