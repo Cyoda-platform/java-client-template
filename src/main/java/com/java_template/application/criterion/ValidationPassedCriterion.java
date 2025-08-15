@@ -29,6 +29,8 @@ public class ValidationPassedCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
+        logger.info("Evaluating ValidationPassedCriterion for request: {}", request.getId());
+
         return serializer.withRequest(request)
             .evaluateEntity(HNItem.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -43,11 +45,11 @@ public class ValidationPassedCriterion implements CyodaCriterion {
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<HNItem> context) {
         HNItem entity = context.entity();
         if (entity == null) {
-            return EvaluationOutcome.fail("HNItem missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("Entity is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         if ("VALIDATED".equalsIgnoreCase(entity.getStatus())) {
             return EvaluationOutcome.success();
         }
-        return EvaluationOutcome.fail("HNItem not validated", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        return EvaluationOutcome.fail("Entity has not passed validation", StandardEvalReasonCategories.VALIDATION_FAILURE);
     }
 }
