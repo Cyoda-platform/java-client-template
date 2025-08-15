@@ -1,0 +1,75 @@
+{
+  "version": "1.0",
+  "name": "Review Workflow",
+  "desc": "Workflow for Review entity",
+  "initialState": "SUBMITTED",
+  "active": true,
+  "states": {
+    "SUBMITTED": {
+      "transitions": [
+        {
+          "name": "auto_moderation",
+          "next": "MODERATION",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AutoModerationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "MODERATION": {
+      "transitions": [
+        {
+          "name": "publish_review",
+          "next": "PUBLISHED",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.moderation.passed",
+            "operation": "EQUALS",
+            "value": true
+          }
+        },
+        {
+          "name": "flag_review",
+          "next": "FLAGGED",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.moderation.passed",
+            "operation": "EQUALS",
+            "value": false
+          }
+        }
+      ]
+    },
+    "FLAGGED": {
+      "transitions": [
+        {
+          "name": "remove_review",
+          "next": "REMOVED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "AdminRemoveProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PUBLISHED": {
+      "transitions": []
+    },
+    "REMOVED": {
+      "transitions": []
+    }
+  }
+}
