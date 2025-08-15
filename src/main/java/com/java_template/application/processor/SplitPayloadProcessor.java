@@ -6,6 +6,7 @@ import com.java_template.application.entity.ingestjob.version_1.IngestJob;
 import com.java_template.application.entity.hnitem.version_1.HNItem;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.service.EntityService;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -21,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 @Component
 public class SplitPayloadProcessor implements CyodaProcessor {
@@ -29,9 +31,11 @@ public class SplitPayloadProcessor implements CyodaProcessor {
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
     private final ObjectMapper mapper = new ObjectMapper();
+    private final EntityService entityService;
 
-    public SplitPayloadProcessor(SerializerFactory serializerFactory) {
+    public SplitPayloadProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
     }
 
     @Override
@@ -74,6 +78,20 @@ public class SplitPayloadProcessor implements CyodaProcessor {
                 String now = OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
                 item.setCreatedAt(now);
                 item.setUpdatedAt(now);
+
+                // persist the hn item using entityService
+                try {
+                    CompletableFuture<java.util.UUID> fut = entityService.addItem(
+                        HNItem.ENTITY_NAME,
+                        String.valueOf(HNItem.ENTITY_VERSION),
+                        item
+                    );
+                    java.util.UUID id = fut.join();
+                    if (id != null) item.setTechnicalId(id.toString());
+                } catch (Exception ex) {
+                    logger.warn("Failed to persist HNItem via EntityService during split: {}", ex.getMessage());
+                }
+
                 HNItemRepository.getInstance().save(item);
                 technicalIds.add(tid);
                 job.setCreatedItemTechnicalIds(technicalIds);
@@ -93,12 +111,25 @@ public class SplitPayloadProcessor implements CyodaProcessor {
                 item.setTechnicalId(tid);
                 item.setRawJson(raw);
                 if (node.hasNonNull("id")) {
-                    item.setHnId(node.get("id").asLong());
+                    item.setId(node.get("id").asLong());
                 }
                 item.setStatus("RECEIVED");
                 String now = OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
                 item.setCreatedAt(now);
                 item.setUpdatedAt(now);
+
+                try {
+                    CompletableFuture<java.util.UUID> fut = entityService.addItem(
+                        HNItem.ENTITY_NAME,
+                        String.valueOf(HNItem.ENTITY_VERSION),
+                        item
+                    );
+                    java.util.UUID id = fut.join();
+                    if (id != null) item.setTechnicalId(id.toString());
+                } catch (Exception ex) {
+                    logger.warn("Failed to persist HNItem via EntityService during split: {}", ex.getMessage());
+                }
+
                 HNItemRepository.getInstance().save(item);
                 technicalIds.add(tid);
                 logger.info("Created HNItem {} from ingest job {}", tid, job.getTechnicalId());
