@@ -1,0 +1,47 @@
+{
+  "version": "1.0",
+  "name": "ValidationRecord Workflow",
+  "desc": "Workflow for persistence and optional notification of validation records",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "to_stored",
+          "next": "STORED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PersistValidationRecordProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "STORED": {
+      "transitions": [
+        {
+          "name": "to_notified",
+          "next": "NOTIFIED",
+          "manual": true
+        }
+      ]
+    },
+    "NOTIFIED": {
+      "transitions": [
+        {
+          "name": "to_completed",
+          "next": "COMPLETED",
+          "manual": false
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": []
+    }
+  }
+}
