@@ -30,7 +30,7 @@ public class GrpcClientAutoConfiguration {
     @Bean
     public ManagedChannel managedChannel(
             final ConnectionStateTracker connectionStateTracker,
-            @Value("${connection.grpc.skip-sll:false}") final boolean grpcSkipSsl
+            @Value("${connection.grpc.skip-ssl:false}") final boolean grpcSkipSsl
     ) {
         final ManagedChannel channel = SslUtils.createGrpcChannelBuilder(GRPC_ADDRESS, GRPC_SERVER_PORT, grpcSkipSsl).build();
         final Supplier<ConnectivityState> currentStateProvider = () -> channel.getState(false);
