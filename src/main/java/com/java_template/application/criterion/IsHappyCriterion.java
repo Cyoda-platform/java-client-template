@@ -54,7 +54,8 @@ public class IsHappyCriterion implements CyodaCriterion {
             return EvaluationOutcome.fail("mailList is required and must contain at least one recipient", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
 
-        boolean anyValid = false;
+        boolean anyHappyIndicator = false;
+
         for (String addr : entity.getMailList()) {
             if (addr == null || addr.isBlank()) {
                 return EvaluationOutcome.fail("mailList contains blank or null address", StandardEvalReasonCategories.VALIDATION_FAILURE);
@@ -62,21 +63,25 @@ public class IsHappyCriterion implements CyodaCriterion {
             if (!SIMPLE_EMAIL.matcher(addr).matches()) {
                 return EvaluationOutcome.fail("mailList contains invalid email: " + addr, StandardEvalReasonCategories.VALIDATION_FAILURE);
             }
-            // Business rule example: if recipient includes "happy" domain treat as happy
-            if (addr.toLowerCase().contains("happy@example.com") || addr.toLowerCase().contains("joy") ) {
-                anyValid = true;
-            }
-            // Another example: if recipient is 'gloom@example.com' it's explicitly gloomy -> not happy
+
+            // Explicit gloomy indicator means not happy
             if (addr.equalsIgnoreCase("gloom@example.com")) {
+                logger.debug("Found explicit gloomy address -> not happy: {}", addr);
                 return EvaluationOutcome.fail("Recipient indicates gloomy classification", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+            }
+
+            // Business rule: addresses containing "happy" domain or keyword or known happy domain
+            String lower = addr.toLowerCase();
+            if (lower.contains("happy") || lower.contains("joy") || lower.endsWith("@happy.example.com")) {
+                anyHappyIndicator = true;
             }
         }
 
-        if (anyValid) {
+        if (anyHappyIndicator) {
             return EvaluationOutcome.success();
         }
 
-        // Default to success of criterion if no explicit gloomy indicator found; higher level will choose gloom if needed
-        return EvaluationOutcome.success();
+        // No explicit happy indicator -> not happy (let IsGloomyCriterion determine gloominess or default)
+        return EvaluationOutcome.fail("No happy indicator found", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
     }
 }
