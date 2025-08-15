@@ -1,0 +1,46 @@
+{
+  "version": "1.0",
+  "name": "Favorite Workflow",
+  "desc": "Workflow for Favorite entity",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "activate_favorite",
+          "next": "ACTIVE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ActivateFavoriteProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "remove_favorite",
+          "next": "REMOVED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "RemoveFavoriteProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "REMOVED": {
+      "transitions": []
+    }
+  }
+}
