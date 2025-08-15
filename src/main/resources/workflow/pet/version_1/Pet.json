@@ -1,0 +1,204 @@
+{
+  "version": "1.0",
+  "name": "Pet Workflow",
+  "desc": "Workflow for Pet entity processing",
+  "initialState": "NEW",
+  "active": true,
+  "states": {
+    "NEW": {
+      "transitions": [
+        {
+          "name": "validate_pet",
+          "next": "VALIDATION",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PetValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATION": {
+      "transitions": [
+        {
+          "name": "validation_failed",
+          "next": "VALIDATION_FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PetValidationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_passed",
+          "next": "ENRICHMENT",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.validationPassed",
+            "operation": "EQUALS",
+            "value": true
+          }
+        }
+      ]
+    },
+    "ENRICHMENT": {
+      "transitions": [
+        {
+          "name": "enrich_pet",
+          "next": "DUPLICATE_CHECK",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PetEnrichmentProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "DUPLICATE_CHECK": {
+      "transitions": [
+        {
+          "name": "duplicate_found",
+          "next": "DUPLICATE_FOUND",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DuplicatePetCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "no_duplicate",
+          "next": "PERSISTING",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.duplicateFound",
+            "operation": "EQUALS",
+            "value": false
+          }
+        }
+      ]
+    },
+    "DUPLICATE_FOUND": {
+      "transitions": [
+        {
+          "name": "manual_merge",
+          "next": "MERGE_DECISION",
+          "manual": true
+        }
+      ]
+    },
+    "MERGE_DECISION": {
+      "transitions": [
+        {
+          "name": "merge_and_persist",
+          "next": "PERSISTING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "MergeProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PERSISTING": {
+      "transitions": [
+        {
+          "name": "persist_success",
+          "next": "AVAILABLE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PetPersistenceProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "persist_failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.persisted",
+            "operation": "EQUALS",
+            "value": false
+          }
+        }
+      ]
+    },
+    "AVAILABLE": {
+      "transitions": [
+        {
+          "name": "reserve_pet",
+          "next": "RESERVED",
+          "manual": true
+        },
+        {
+          "name": "adopt_pet",
+          "next": "ADOPTED",
+          "manual": true
+        }
+      ]
+    },
+    "RESERVED": {
+      "transitions": [
+        {
+          "name": "adopt_from_reserved",
+          "next": "ADOPTED",
+          "manual": true
+        }
+      ]
+    },
+    "ADOPTED": {
+      "transitions": [
+        {
+          "name": "notify_adoption",
+          "next": "NOTIFIED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotifyAdoptionProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "NOTIFIED": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    },
+    "VALIDATION_FAILED": {
+      "transitions": []
+    }
+  }
+}
