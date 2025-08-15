@@ -91,6 +91,8 @@ public class HackerNewsItemController {
             if (node.hasNonNull("state")) resp.setState(node.get("state").asText());
             if (node.hasNonNull("validationErrors")) resp.setValidationErrors(node.get("validationErrors").asText());
             if (node.hasNonNull("createdAt")) resp.setCreatedAt(node.get("createdAt").asText());
+            if (node.hasNonNull("source")) resp.setSource(node.get("source").asText());
+            if (node.hasNonNull("tags")) resp.setTags(node.get("tags").toString());
 
             return ResponseEntity.ok(resp);
         } catch (IllegalArgumentException iae) {
@@ -152,6 +154,8 @@ public class HackerNewsItemController {
             if (node.hasNonNull("state")) resp.setState(node.get("state").asText());
             if (node.hasNonNull("validationErrors")) resp.setValidationErrors(node.get("validationErrors").asText());
             if (node.hasNonNull("createdAt")) resp.setCreatedAt(node.get("createdAt").asText());
+            if (node.hasNonNull("source")) resp.setSource(node.get("source").asText());
+            if (node.hasNonNull("tags")) resp.setTags(node.get("tags").toString());
             return ResponseEntity.ok(resp);
         } catch (IllegalArgumentException iae) {
             logger.warn("Invalid request", iae);
@@ -253,5 +257,9 @@ public class HackerNewsItemController {
         private String validationErrors;
         @Schema(description = "Created at timestamp")
         private String createdAt;
+        @Schema(description = "Source/domain extracted from URL")
+        private String source;
+        @Schema(description = "Tags assigned during enrichment (JSON array as string)")
+        private String tags;
     }
 }
