@@ -1,8 +1,10 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.contact.version_1.Contact;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.service.EntityService;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -12,15 +14,21 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.UUID;
+
 @Component
 public class EnrichContactProcessor implements CyodaProcessor {
 
     private static final Logger logger = LoggerFactory.getLogger(EnrichContactProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
-    public EnrichContactProcessor(SerializerFactory serializerFactory) {
+    public EnrichContactProcessor(SerializerFactory serializerFactory, EntityService entityService, ObjectMapper objectMapper) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -46,8 +54,11 @@ public class EnrichContactProcessor implements CyodaProcessor {
 
     private Contact processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Contact> context) {
         Contact contact = context.entity();
-        // Enrichment logic: basic company enrichment and scoring
+        String technicalId = null;
         try {
+            try { technicalId = context.request().getEntityId(); } catch (Exception ignored) {}
+
+            // Enrichment logic: basic company enrichment and scoring
             String company = contact.getCompany();
             if (company == null || company.isEmpty()) {
                 // attempt to enrich company from email domain
@@ -61,8 +72,17 @@ public class EnrichContactProcessor implements CyodaProcessor {
             if (contact.getStatus() == null || contact.getStatus().isEmpty() || "PENDING".equals(contact.getStatus())) {
                 contact.setStatus("ENRICHED");
             }
+
+            // Persist enriched contact state
+            try {
+                if (technicalId != null) {
+                    entityService.updateItem(Contact.ENTITY_NAME, String.valueOf(Contact.ENTITY_VERSION), UUID.fromString(technicalId), contact).join();
+                }
+            } catch (Exception ex) {
+                logger.warn("Failed to persist enriched contact {}: {}", technicalId, ex.getMessage());
+            }
         } catch (Exception e) {
-            logger.error("Error enriching contact {}: {}", contact.getTechnicalId(), e.getMessage());
+            logger.error("Error enriching contact {}: {}", contact.getEmail(), e.getMessage());
         }
         return contact;
     }
