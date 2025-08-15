@@ -1,0 +1,13 @@
+{
+  "name": "Subscriber",
+  "version": 1,
+  "states": ["CREATED","VALIDATE","PERSIST","SEND_WELCOME","SUBSCRIBED","UNSUBSCRIBE","REJECTED"],
+  "transitions": [
+    {"from":"CREATED","to":"VALIDATE","processor":"ValidateEmailProcessor"},
+    {"from":"VALIDATE","to":"PERSIST","processor":"AddSubscriberProcessor"},
+    {"from":"PERSIST","to":"SEND_WELCOME","processor":"SendWelcomeEmailProcessor"},
+    {"from":"SEND_WELCOME","to":"SUBSCRIBED","processor":"MarkSubscribedProcessor"},
+    {"from":"SUBSCRIBED","to":"UNSUBSCRIBE","processor":"UnsubscribeProcessor"},
+    {"from":"VALIDATE","to":"REJECTED","processor":"RejectProcessor"}
+  ]
+}
