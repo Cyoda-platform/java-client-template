@@ -1,20 +1,34 @@
 # Final Functional Requirements (Event-Driven Architecture)
 
-Entity Definitions
-```
+This document defines the canonical functional requirements for the prototype order-management system using an event-driven architecture. It includes entity definitions, workflows, API contracts, and business rules. The document ensures consistency between entity definitions and their workflows.
+
+---
+
+## 1. Entity Definitions
+
+Notes:
+- Max entities considered: 5 (User, Product, ShoppingCart, Order, ImportJob)
+- Do not use enum constructs; fields that describe limited allowed values are represented as String with allowed values noted in parentheses.
+- Creation and update of entities are EVENTS that trigger automated processing (persistence triggers workflows). Both create and update operations may start the entity workflow unless explicitly noted otherwise.
+
+Entities (fields shown with types and allowed values where applicable):
+
 User:
+```
 - id: UUID (primary business identifier)
 - email: String (unique contact email; used for deduplication/merge)
 - fullName: String (customer or admin name)
-- role: String (Admin|Customer) (user role)
-- status: String (Active|Inactive) (account status)
+- role: String (Admin|Customer) (user role; default assigned on enrichment if missing)
+- status: String (Pending|Active|Inactive|Failed) (account lifecycle status; initial state is Pending)
 - createdAt: String (ISO8601 timestamp)
 - updatedAt: String (ISO8601 timestamp)
 - importSource: String (origin of import e.g., CSV|JSON|API)
 - importBatchId: String (reference to import batch)
 - importMetadata: Object (free-form metadata related to import)
+```
 
 Product:
+```
 - id: UUID (primary business identifier)
 - sku: String (unique stock keeping unit; used for deduplicate/upsert)
 - name: String (product name)
@@ -28,19 +42,24 @@ Product:
 - metadata: Object (additional product metadata)
 - importSource: String (origin of import e.g., CSV|JSON|API)
 - importBatchId: String (reference to import batch)
+```
 
 ShoppingCart:
+```
 - id: UUID (cart identifier)
 - customerId: UUID (references User.id)
 - items: List of Object { productId: UUID, sku: String, quantity: Integer, unitPrice: Decimal } (cart line items)
 - subtotal: Decimal (calculated subtotal before taxes/shipping)
 - taxes: Decimal (calculated taxes)
+- shipping: Decimal (calculated shipping cost)
 - total: Decimal (subtotal + taxes + shipping)
 - status: String (Open|CheckedOut|Abandoned)
 - createdAt: String (ISO8601 timestamp)
 - updatedAt: String (ISO8601 timestamp)
+```
 
 Order:
+```
 - id: UUID (order identifier)
 - orderNumber: String (human-friendly order number)
 - customerId: UUID (references User.id)
@@ -54,8 +73,10 @@ Order:
 - fulfillmentStatus: String (Pending|Confirmed|Shipped|Cancelled)
 - createdAt: String (ISO8601 timestamp)
 - updatedAt: String (ISO8601 timestamp)
+```
 
 ImportJob:
+```
 - id: UUID (import job identifier)
 - type: String (User|Product)
 - source: String (CSV|JSON|API) (format/source)
@@ -67,28 +88,30 @@ ImportJob:
 - resultSummary: Object (counts created/updated/errors and example row errors)
 ```
 
-Notes:
-- Max entities considered: 5 (User, Product, ShoppingCart, Order, ImportJob)
-- Do not use enum constructs (fields that describe limited allowed values are represented as String with allowed values noted in parentheses).
-- Each entity add operation is an EVENT that triggers automated processing (Cyoda will run entity workflows on persistence).
-
 ---
 
-## 2. Entity workflows
+## 2. Entity Workflows (event-driven)
 
-### User workflow:
-1. Initial State: User created with status set to Pending validation (persist event triggers workflow)  
-2. Validation: Check email format and required fields  
-3. Deduplication: Search by email; if duplicate found then merge or mark row-level error (based on import/processor criteria)  
-4. Enrichment: Assign default role if missing; populate importMetadata  
-5. Activation: Set status to Active or keep Inactive based on criteria  
-6. Post-processing: Optionally send welcome email (for Customer) or notify Admins on bulk import summary  
-7. Completion: Workflow ends with status Active/Inactive and Import result logged
+General notes:
+- Persistence (create or update) is an event that starts the entity workflow.
+- Workflows should be resilient: processors should retry transient failures and record permanent errors in resultSummary (for imports) or entity-level status fields.
+- Workflows should emit relevant domain events for downstream systems (notification, fulfillment, reporting).
+
+### User workflow
+1. Initial State: User persisted with status set to Pending (persist event triggers workflow)
+2. Validation: Check required fields and email format
+3. Deduplication: Search by email; if duplicate found then either merge or record a row-level error depending on import/processor configuration
+4. Enrichment: Assign default role if missing; populate importMetadata
+5. Activation: Based on verification and business criteria set status to Active or keep/set Inactive. On unrecoverable errors set status to Failed.
+6. Post-processing: Optionally send welcome email (for Customers) or include user in bulk-import summary notifications to Admins
+7. Completion: End with status (Active|Inactive|Failed) and log import/result metadata
+
+State diagram (conceptual):
 
 ```mermaid
 stateDiagram-v2
-    [*] --> "Created"
-    "Created" --> "Validation"
+    [*] --> "Created (Pending)"
+    "Created (Pending)" --> "Validation"
     "Validation" --> "Deduplication"
     "Deduplication" --> "Enrichment"
     "Enrichment" --> "Activation"
@@ -98,15 +121,18 @@ stateDiagram-v2
     "Deduplication" --> "Failed"
 ```
 
+Notes:
+- Deduplication behavior (merge vs error) is configurable per import/run and must be recorded in ImportJob.resultSummary.
+
 ---
 
-### Product workflow:
-1. Initial State: Product record persisted (event)  
-2. Validation: Verify SKU present, price >= 0, stockQuantity integer >= 0  
-3. Upsert: Deduplicate by SKU; create new product or update existing  
-4. Stock Processing: If stockQuantity changed then run stock-change processors (e.g., low-stock detection)  
-5. Activation: Mark product as active/inactive based on import flags or processors  
-6. Completion: Log import results and trigger low-stock notifications if criteria met
+### Product workflow
+1. Initial State: Product persisted (event)
+2. Validation: Verify SKU present, price >= 0, stockQuantity integer >= 0
+3. Upsert: Deduplicate by SKU; create new product or update existing
+4. Stock Processing: If stockQuantity changed then run stock-change processors (low-stock detection, reservation reconciliation, etc.)
+5. Activation: Set product.active = true/false based on import flags or business rules
+6. Completion: Log import results and trigger notifications if criteria met (e.g., low-stock alerts)
 
 ```mermaid
 stateDiagram-v2
@@ -121,14 +147,14 @@ stateDiagram-v2
 
 ---
 
-### ShoppingCart workflow:
-1. Initial State: ShoppingCart created with status=Open (creation is an event)  
-2. Item Management: Add/Update/Delete items triggers recalculation processors  
-3. Recalculation: Recompute subtotal, taxes, total on every save  
-4. Availability Validation: On save and especially on checkout, validate each item against Product.stockQuantity  
-5. Reservation (optional): Reserve inventory temporarily on checkout initiation  
-6. Checkout Trigger: When checkout event is invoked, mark cart status=CheckedOut and emit Order creation event  
-7. Expiration: If cart idle beyond threshold, mark as Abandoned and release any reservations
+### ShoppingCart workflow
+1. Initial State: ShoppingCart created with status = Open (create event triggers workflow)
+2. Item Management: Add/Update/Delete items triggers recalculation processors
+3. Recalculation: Recompute subtotal, taxes, shipping, and total on every change/save
+4. Availability Validation: On save and on checkout, validate each item against Product.stockQuantity
+5. Reservation (optional): On checkout initiation optionally reserve inventory temporarily
+6. Checkout Trigger: When checkout event is invoked, mark cart.status = CheckedOut and emit Order creation event
+7. Expiration: If cart idle beyond configured threshold, mark as Abandoned and release any reservations
 
 ```mermaid
 stateDiagram-v2
@@ -142,16 +168,20 @@ stateDiagram-v2
     "Open" --> "Abandoned"
 ```
 
+Notes:
+- Cart-level totals are computed deterministically by the recalculation processors (tax rules, shipping rules applied when relevant data is present).
+- Item.quantity must be >= 1 (business rule enforced during validation).
+
 ---
 
-### Order workflow:
-1. Initial State: Order created (event) with paymentStatus=Pending and fulfillmentStatus=Pending  
-2. Validation: Validate items, prices, customer, and order totals  
-3. Stock Check & Reservation: Check Product.stockQuantity; if sufficient reserve/decrement stock; if insufficient mark order as Failed and notify customer  
-4. Payment Processing: Call payment processor stub or integration; on success set paymentStatus=Paid; on failure set paymentStatus=Failed  
-5. Confirmation: On payment success set fulfillmentStatus=Confirmed and notify customer/admin  
-6. Fulfillment: Update fulfillmentStatus through Shipped, Cancelled as downstream events occur  
-7. Failure Handling: On payment or stock failure release reserved stock and set appropriate statuses
+### Order workflow
+1. Initial State: Order created (event) with paymentStatus = Pending and fulfillmentStatus = Pending
+2. Validation: Validate items, prices, customer identity and order totals
+3. Stock Check & Reservation: Validate Product.stockQuantity for each item; if sufficient reserve/decrement stock; if insufficient mark order as Failed and notify customer
+4. Payment Processing: Integrate with payment gateway or payment stub; on success set paymentStatus = Paid; on failure set paymentStatus = Failed
+5. Confirmation: On payment success set fulfillmentStatus = Confirmed and notify customer/admin
+6. Fulfillment: Update fulfillmentStatus through Shipped, Cancelled as downstream events occur
+7. Failure Handling: On payment or stock failure release any reserved stock and set appropriate statuses
 
 ```mermaid
 stateDiagram-v2
@@ -166,14 +196,18 @@ stateDiagram-v2
     "Failed" --> "Cancelled"
 ```
 
+Notes:
+- Checkout must validate stock and payment; on payment failure reserved stock is released and order remains unconfirmed.
+- Payment integration can be a real gateway or a configurable stub used for testing.
+
 ---
 
-### ImportJob workflow (orchestration entity):
-1. Initial State: ImportJob created with status=Pending (creation is an EVENT)  
-2. Validation: Validate file format/payload  
-3. Processing: Parse file/payload and emit per-record create/update entity events (each record persists as User/Product entity and triggers its workflow)  
-4. Aggregation: Collect per-record results (created/updated/errors)  
-5. Completion: Set ImportJob.status=Completed or Failed and populate resultSummary  
+### ImportJob workflow (orchestration entity)
+1. Initial State: ImportJob created with status = Pending (creation is an event)
+2. Validation: Validate file format/payload and required metadata
+3. Processing: Parse file/payload and emit per-record create/update entity events (each record persisted as User or Product triggers its workflow)
+4. Aggregation: Collect per-record results (created/updated/errors) and update progress/status
+5. Completion: Set ImportJob.status = Completed or Failed and populate resultSummary
 6. Notification: Notify uploader/admins with import result summary and error report (downloadable CSV if requested)
 
 ```mermaid
@@ -186,132 +220,56 @@ stateDiagram-v2
     "Processing" --> "Failed"
 ```
 
+Notes:
+- Processing must be able to emit per-record events idempotently and record per-row errors. The ImportJob.resultSummary should include counts and sample errors.
+
 ---
 
 ## 3. APIs (Event-Driven / EDA rules applied)
 
-API design rules applied:
-- POST endpoints create entities and trigger processing events.
-- POST endpoints return only {"technicalId": "string"}.
-- GET endpoints are for retrieving stored application results.
-- GET by technicalId endpoints are provided for entities created via POST endpoints (ImportJob, ShoppingCart, Order).
+API design rules:
+- POST endpoints create/persist entities and always trigger processing events.
+- POST endpoints return ONLY {"technicalId": "string"} where technicalId is an internal/persistent identifier for the created job/entity save operation.
+- GET endpoints retrieve stored application results (the persisted entity representation).
+- GET endpoints are provided for entities created via POST endpoints (ImportJob, ShoppingCart, Order) and for admin retrieval of Products and Users.
 
-Endpoints and JSON request/response formats
+Endpoints and JSON request/response formats (concise):
 
----
-
-### 1) Import Users (creates ImportJob of type=User)
+1) Import Users (creates ImportJob of type=User)
 - POST /api/import/users
   - Request JSON:
     {
       "source": "CSV|JSON|API",
       "uploadedBy": "UUID",
-      "fileUrl": "string (optional) or payload": { "records": [ ... ] }
+      "fileUrl": "string (optional)" or payload: { "records": [ ... ] }
     }
-  - Response JSON:
-    {
-      "technicalId": "string"
-    }
-
-Mermaid visualization of request/response:
-```mermaid
-graph LR
-    req["\"POST /api/import/users\\nRequest JSON\""] --> api["\"Import API (creates ImportJob)\""]
-    api --> res["\"Response JSON: {\\n  \\\"technicalId\\\": \\\"string\\\"\\n}\""]
-```
+  - Response JSON: { "technicalId": "string" }
 
 - GET ImportJob by technicalId
   - GET /api/imports/{technicalId}
-  - Response JSON:
-    {
-      "id": "UUID",
-      "type": "User",
-      "source": "CSV|JSON|API",
-      "uploadedBy": "UUID",
-      "status": "Pending|Processing|Completed|Failed",
-      "fileUrl": "string",
-      "createdAt": "ISO8601",
-      "completedAt": "ISO8601",
-      "resultSummary": { "created": 10, "updated": 2, "errors": 1 }
-    }
+  - Response JSON: ImportJob persisted object with fields as defined in Entities section
 
-Mermaid:
-```mermaid
-graph LR
-    req["\"GET /api/imports/{technicalId}\\nRequest\""] --> api["\"ImportJob Retrieval API\""]
-    api --> res["\"Response JSON with ImportJob status and resultSummary\""]
-```
-
----
-
-### 2) Import Products (creates ImportJob of type=Product)
+2) Import Products (creates ImportJob of type=Product)
 - POST /api/import/products
-  - Request JSON:
-    {
-      "source": "CSV|JSON|API",
-      "uploadedBy": "UUID",
-      "fileUrl": "string (optional) or payload": { "records": [ ... ] }
-    }
-  - Response JSON:
-    {
-      "technicalId": "string"
-    }
+  - Request JSON (same structure as Import Users)
+  - Response JSON: { "technicalId": "string" }
 
-Mermaid:
-```mermaid
-graph LR
-    req["\"POST /api/import/products\\nRequest JSON\""] --> api["\"Import API (creates ImportJob)\""]
-    api --> res["\"Response JSON: {\\n  \\\"technicalId\\\": \\\"string\\\"\\n}\""]
-```
+- GET ImportJob by technicalId: GET /api/imports/{technicalId}
 
----
-
-### 3) Create Shopping Cart (Customer)
+3) Create Shopping Cart (Customer)
 - POST /api/customers/{customerId}/carts
   - Request JSON:
     {
       "customerId": "UUID",
-      "items": [
-        { "productId": "UUID", "sku": "string", "quantity": 2, "unitPrice": 9.99 }
-      ]
+      "items": [ { "productId": "UUID", "sku": "string", "quantity": 2, "unitPrice": 9.99 } ]
     }
-  - Response JSON:
-    {
-      "technicalId": "string"
-    }
-
-Mermaid:
-```mermaid
-graph LR
-    req["\"POST /api/customers/{customerId}/carts\\nRequest JSON\""] --> api["\"Create ShoppingCart (persist event triggers Cart workflow)\""]
-    api --> res["\"Response JSON: {\\n  \\\"technicalId\\\": \\\"string\\\"\\n}\""]
-```
+  - Response JSON: { "technicalId": "string" }
 
 - GET ShoppingCart by technicalId
   - GET /api/carts/{technicalId}
-  - Response JSON:
-    {
-      "id": "UUID",
-      "customerId": "UUID",
-      "items": [ { "productId": "UUID", "sku": "string", "quantity": 2, "unitPrice": 9.99 } ],
-      "subtotal": 19.98,
-      "taxes": 1.50,
-      "total": 21.48,
-      "status": "Open|CheckedOut|Abandoned",
-      "createdAt": "ISO8601",
-      "updatedAt": "ISO8601"
-    }
+  - Response JSON: ShoppingCart persisted object with computed totals and status
 
-Mermaid:
-```mermaid
-graph LR
-    req["\"GET /api/carts/{technicalId}\\nRequest\""] --> api["\"ShoppingCart Retrieval API\""]
-    api --> res["\"Response JSON with cart fields\""]
-```
-
----
-
-### 4) Checkout (creates Order via event)
+4) Checkout (creates Order via event)
 - POST /api/customers/{customerId}/carts/{cartId}/checkout
   - Request JSON:
     {
@@ -320,129 +278,45 @@ graph LR
       "payment": { "method": "card|stub", "details": { /* card token or stub flags */ } },
       "shipping": { "address": "string", "method": "standard|express" }
     }
-  - Response JSON:
-    {
-      "technicalId": "string"
-    }
-
-Mermaid:
-```mermaid
-graph LR
-    req["\"POST /api/customers/{customerId}/carts/{cartId}/checkout\\nRequest JSON\""] --> api["\"Checkout API (creates Order event)\""]
-    api --> res["\"Response JSON: {\\n  \\\"technicalId\\\": \\\"string\\\"\\n}\""]
-```
+  - Response JSON: { "technicalId": "string" }
 
 - GET Order by technicalId
   - GET /api/orders/{technicalId}
-  - Response JSON:
-    {
-      "id": "UUID",
-      "orderNumber": "string",
-      "customerId": "UUID",
-      "items": [ { "productId": "UUID", "sku": "string", "quantity": 2, "unitPrice": 9.99 } ],
-      "subtotal": 19.98,
-      "taxes": 1.50,
-      "shipping": 5.00,
-      "total": 26.48,
-      "currency": "USD",
-      "paymentStatus": "Pending|Paid|Failed",
-      "fulfillmentStatus": "Pending|Confirmed|Shipped|Cancelled",
-      "createdAt": "ISO8601",
-      "updatedAt": "ISO8601"
-    }
+  - Response JSON: Order persisted object with fields as defined in Entities section
 
-Mermaid:
-```mermaid
-graph LR
-    req["\"GET /api/orders/{technicalId}\\nRequest\""] --> api["\"Order Retrieval API\""]
-    api --> res["\"Response JSON with order fields\""]
-```
-
----
-
-### 5) Admin Product & User retrieval (GET-only endpoints for stored application results)
-- GET /api/products (optional GET all)
-- GET /api/products/{productId} (retrieve product by productId)
-- GET /api/admin/users/{userId} (retrieve user by userId)
+5) Admin Product & User retrieval (GET-only endpoints for stored application results)
+- GET /api/products (optional: GET all / paginated)
+- GET /api/products/{productId}
+- GET /api/admin/users/{userId}
 
 These GET endpoints return full entity objects as persisted (same structure as entity definitions).
 
 ---
 
 ## 4. Business Rules (preserve critical logic)
-- Users imported must have unique email addresses; deduplicate or fail with row-level errors.  
-- Products must have unique SKU; price must be >= 0; stockQuantity must be integer >= 0.  
-- A ShoppingCart item quantity must be >= 1 and must not exceed available Product.stockQuantity at checkout.  
-- Checkout must validate stock and payment; if payment fails, the order is not confirmed and reserved stock is released.  
-- Admins can manage users, products, and view all orders.  
-- ImportJob parsing must emit per-record create/update events; each persisted record triggers its entity workflow in Cyoda.  
-- POST endpoints return only {"technicalId":"string"} and persist the entity which triggers Cyoda workflows.
+
+- Users imported must have unique email addresses; on duplicate detection the configured behavior is either to merge records or fail the row with an error. Deduplication behavior must be recorded in ImportJob.resultSummary.
+- Products must have unique SKU; price must be >= 0; stockQuantity must be integer >= 0.
+- ShoppingCart item quantity must be >= 1. At checkout the cart must validate that item.quantity does not exceed available Product.stockQuantity (inventory enforcement is configurable but default is enforced).
+- Checkout must validate stock and payment; if payment fails or stock is insufficient, reserved stock is released and order is not confirmed.
+- Admins can manage users, products, and view all orders via admin GET endpoints.
+- ImportJob parsing must emit per-record create/update events; each persisted record triggers its respective entity workflow.
+- POST endpoints return only { "technicalId": "string" } and persist the entity which triggers the event-driven workflows.
+- Workflows should record outcome metadata (success/failure, reasons) on the entity or ImportJob.resultSummary for observability and troubleshooting.
 
 ---
 
 ## 5. Request/Response Visualization note
-- All POST responses strictly: {"technicalId": "string"}  
-- All GET responses return the persisted entity JSON with fields as defined above.
+- All POST responses strictly: { "technicalId": "string" }
+- All GET responses return the persisted entity JSON with fields as defined in the Entity section above.
 
 ---
 
 ## 6. Questions (max 3, short)
-1. For imports, do you prefer CSV, JSON, or both?  
-2. Should product inventory (stockQuantity) be strictly enforced at checkout? (Yes or No)  
+1. For imports, do you prefer CSV, JSON, or both?
+2. Should product inventory (stockQuantity) be strictly enforced at checkout by default? (Yes or No)
 3. Do you want a real payment gateway integration or a payment placeholder/stub for testing?
 
 ---
 
-Ready-to-Copy Example User Response
-You can copy the text below and paste it if you have no specific preference. If it meets your needs you can click Approve to proceed.
-
-```markdown
-Build a simple sample order management system with product and user import functionality using Event-Driven Architecture.
-
-Entities:
-1. User
-   - Fields: id, email, fullName, role (Admin|Customer), status (Active|Inactive), createdAt, updatedAt, importSource, importBatchId, importMetadata
-   - Workflow: validate email, deduplicate by email, assign default role, send welcome email (optional), notify import summary
-
-2. Product
-   - Fields: id, sku, name, description, price (>=0), currency, stockQuantity (>=0), active, createdAt, updatedAt, metadata, importSource, importBatchId
-   - Workflow: validate SKU/price, upsert by SKU, trigger low-stock notification if stockQuantity changed and below threshold
-
-3. ShoppingCart
-   - Fields: id, customerId, items [{ productId, sku, quantity, unitPrice }], subtotal, taxes, total, status (Open|CheckedOut|Abandoned), createdAt, updatedAt
-   - Workflow: recalculate totals on save, validate item availability, reserve items (on checkout), expire abandoned carts
-
-4. Order
-   - Fields: id, orderNumber, customerId, items [{ productId, sku, quantity, unitPrice }], subtotal, taxes, shipping, total, currency, paymentStatus (Pending|Paid|Failed), fulfillmentStatus (Pending|Confirmed|Shipped|Cancelled), createdAt, updatedAt
-   - Workflow: validate order, check/reserve stock, process payment (stub/integration), confirm order on payment success, notify customer/Admin, release stock on failure
-
-5. ImportJob
-   - Fields: id, type (User|Product), source (CSV|JSON|API), uploadedBy, status (Pending|Processing|Completed|Failed), fileUrl/payload, createdAt, completedAt, resultSummary
-   - Workflow: validate file, parse records, emit per-record create/update events, aggregate results and notify uploader
-
-APIs:
-- POST /api/import/users  (creates ImportJob type=User) => returns {"technicalId":"string"}
-- POST /api/import/products  (creates ImportJob type=Product) => returns {"technicalId":"string"}
-- POST /api/customers/{customerId}/carts  (creates ShoppingCart) => returns {"technicalId":"string"}
-- POST /api/customers/{customerId}/carts/{cartId}/checkout  (creates Order) => returns {"technicalId":"string"}
-- GET /api/imports/{technicalId}  (ImportJob status & resultSummary)
-- GET /api/carts/{technicalId}  (ShoppingCart)
-- GET /api/orders/{technicalId}  (Order)
-- GET /api/products and GET /api/products/{productId}
-- GET /api/admin/users/{userId}
-
-Business rules:
-- Unique email for Users; deduplicate or row-level import errors.
-- Unique SKU for Products; price >= 0; stockQuantity >= 0.
-- Cart item quantity >= 1 and must not exceed available stock at checkout.
-- Checkout validates stock and payment; on payment failure, order not confirmed and stock released.
-- ImportJob parsing emits per-record persist events; each persisted record triggers its entity workflow.
-
-Questions:
-1) CSV, JSON, or both for imports?
-2) Enforce inventory at checkout? (Yes/No)
-3) Real payment gateway or payment stub?
-
-```
-
-Please review the generated entities and workflows. If you need any changes, please let me know. Feel free to click Approve if this requirement meets your expectations or if you are ready to proceed.
+If you want further updates (for example: explicit idempotency keys for POSTs, additional statuses, or expanded event contracts), tell me which area to change and I will update the requirements accordingly.
