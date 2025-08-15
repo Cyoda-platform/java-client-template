@@ -1,8 +1,6 @@
 package com.java_template.application.processor;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.validationrecord.version_1.ValidationRecord;
-import com.java_template.application.entity.hnitem.version_1.HNItem;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.service.EntityService;
@@ -26,7 +24,6 @@ public class PersistValidationRecordProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(PersistValidationRecordProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
-    private final ObjectMapper mapper = new ObjectMapper();
     private final EntityService entityService;
 
     public PersistValidationRecordProcessor(SerializerFactory serializerFactory, EntityService entityService) {
@@ -80,7 +77,7 @@ public class PersistValidationRecordProcessor implements CyodaProcessor {
 
             // persist to in-memory repo for demo purposes
             ValidationRecordRepository.getInstance().save(record);
-            logger.info("Persisted ValidationRecord {} for hnItem {}", record.getTechnicalId(), record.getHnItemTechnicalId());
+            logger.info("Persisted ValidationRecord {} for hnItemId {}", record.getTechnicalId(), record.getHnItemId());
             return record;
         } catch (Exception e) {
             logger.error("Error persisting ValidationRecord {}: {}", record == null ? "<null>" : record.getTechnicalId(), e.getMessage(), e);
