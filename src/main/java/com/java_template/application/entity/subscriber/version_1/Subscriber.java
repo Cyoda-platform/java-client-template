@@ -25,6 +25,7 @@ public class Subscriber implements CyodaEntity {
     private String verifiedAt; // ISO-8601 timestamp when contact verified
     private String lastNotifiedAt; // ISO-8601 timestamp
     private Map<String,Object> retryPolicy; // e.g., maxRetries, backoffSeconds
+    private Integer deliveryFailures; // number of consecutive delivery failures
 
     public Subscriber() {}
 
