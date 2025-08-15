@@ -1,0 +1,88 @@
+{
+  "version": "1.0",
+  "name": "Appointment Workflow",
+  "desc": "Workflow for Appointment entity",
+  "initialState": "REQUESTED",
+  "active": true,
+  "states": {
+    "REQUESTED": {
+      "transitions": [
+        {
+          "name": "precheck",
+          "next": "PRECHECK",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AppointmentPrecheckProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PRECHECK": {
+      "transitions": [
+        {
+          "name": "no_conflicts",
+          "next": "CONFIRMED",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.precheck.conflicts",
+            "operation": "EQUALS",
+            "value": false
+          }
+        },
+        {
+          "name": "conflicts_found",
+          "next": "CANCELLED",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.precheck.conflicts",
+            "operation": "EQUALS",
+            "value": true
+          }
+        }
+      ]
+    },
+    "CONFIRMED": {
+      "transitions": [
+        {
+          "name": "complete_appointment",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AppointmentCompletedProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "cancel_appointment",
+          "next": "CANCELLED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "CancelAppointmentProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "CANCELLED": {
+      "transitions": []
+    },
+    "COMPLETED": {
+      "transitions": []
+    }
+  }
+}
