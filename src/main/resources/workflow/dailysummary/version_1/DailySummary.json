@@ -1,0 +1,93 @@
+{
+  "version": "1.0",
+  "name": "DailySummary Workflow",
+  "desc": "Workflow for DailySummary: validate, persist and trigger notification creation.",
+  "initialState": "GENERATED",
+  "active": true,
+  "states": {
+    "GENERATED": {
+      "transitions": [
+        {
+          "name": "validate_summary",
+          "next": "VALIDATED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateSummaryCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATED": {
+      "transitions": [
+        {
+          "name": "persist_summary",
+          "next": "STORED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PersistSummaryProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "STORED": {
+      "transitions": [
+        {
+          "name": "trigger_notification",
+          "next": "NOTIFICATION_TRIGGERED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CreateNotificationFromSummaryProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "regenerate",
+          "next": "REGENERATE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RegenerateSummaryProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "NOTIFICATION_TRIGGERED": {
+      "transitions": []
+    },
+    "REGENERATE": {
+      "transitions": [
+        {
+          "name": "after_regenerate",
+          "next": "STORED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PersistSummaryProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
