@@ -1,0 +1,111 @@
+{
+  "version": "1.0",
+  "name": "Game Workflow",
+  "desc": "Workflow for Game entity: deduplicate, merge/insert, mark ready for notification if final, index and reconcile.",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "deduplicate",
+          "next": "DEDUPLICATION",
+          "manual": false,
+          "processors": [
+            {
+              "name": "DeduplicateGameCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "DEDUPLICATION": {
+      "transitions": [
+        {
+          "name": "merge_or_insert",
+          "next": "MERGED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "MergeOrInsertGameProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "MERGED": {
+      "transitions": [
+        {
+          "name": "mark_ready_if_final",
+          "next": "READY_FOR_NOTIFICATION",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "MarkReadyIfFinalCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "reconcile",
+          "next": "RECONCILE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ReconciliationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "READY_FOR_NOTIFICATION": {
+      "transitions": [
+        {
+          "name": "index_game",
+          "next": "INDEXED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "IndexGameProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "RECONCILE": {
+      "transitions": [
+        {
+          "name": "after_reconcile",
+          "next": "READY_FOR_NOTIFICATION",
+          "manual": false,
+          "processors": [
+            {
+              "name": "MarkReadyIfFinalCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "INDEXED": {
+      "transitions": []
+    }
+  }
+}
