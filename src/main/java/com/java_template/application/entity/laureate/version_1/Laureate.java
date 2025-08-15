@@ -34,6 +34,7 @@ public class Laureate implements CyodaEntity {
     private String status; // RECEIVED, VALIDATED, ...
     private Integer duplicateOf; // id of existing laureate record if deduplicated/merged
     private Map<String,String> validations; // validation messages/warnings
+    private String lastError; // last error message if processing failed
 
     public Laureate() {}
 
