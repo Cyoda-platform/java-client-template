@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "name": "SyncJob Workflow",
-  "desc": "Workflow for SyncJob orchestration entity",
+  "desc": "Simplified workflow for SyncJob orchestration: start -> fetch/transform -> enqueue -> monitor -> finalize. Combined fetch+transform into one processor to limit processor count.",
   "initialState": "PENDING",
   "active": true,
   "states": {
@@ -25,58 +25,12 @@
     "RUNNING": {
       "transitions": [
         {
-          "name": "begin_fetch",
-          "next": "FETCHING",
-          "manual": false,
-          "processors": [
-            {
-              "name": "FetchFromPetstoreProcessor",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
-          ]
-        }
-      ]
-    },
-    "FETCHING": {
-      "transitions": [
-        {
-          "name": "fetch_succeeded",
-          "next": "TRANSFORMING",
-          "manual": false,
-          "criterion": {
-            "type": "function",
-            "function": {
-              "name": "FetchSuccessCriterion",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
-          }
-        },
-        {
-          "name": "fetch_failed",
-          "next": "FAILED",
-          "manual": false,
-          "criterion": {
-            "type": "simple",
-            "jsonPath": "$.fetchSuccess",
-            "operation": "EQUALS",
-            "value": false
-          }
-        }
-      ]
-    },
-    "TRANSFORMING": {
-      "transitions": [
-        {
-          "name": "transform_data",
+          "name": "fetch_and_transform",
           "next": "QUEUE_ENTITIES",
           "manual": false,
           "processors": [
             {
-              "name": "TransformPetDataProcessor",
+              "name": "FetchAndTransformProcessor",
               "config": {
                 "calculationNodesTags": "cyoda_application"
               }
@@ -183,11 +137,7 @@
         }
       ]
     },
-    "NOTIFIED": {
-      "transitions": []
-    },
-    "NOTIFIED_FAILURE": {
-      "transitions": []
-    }
+    "NOTIFIED": { "transitions": [] },
+    "NOTIFIED_FAILURE": { "transitions": [] }
   }
 }
