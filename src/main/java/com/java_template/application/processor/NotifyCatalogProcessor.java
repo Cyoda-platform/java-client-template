@@ -51,7 +51,7 @@ public class NotifyCatalogProcessor implements CyodaProcessor {
 
         // In a real system we'd index into search and invalidate caches. Here we only log.
         logger.info("Notify catalog about product {} (sku={})", product.getId(), product.getSku());
-        product.setUpdatedAt(Instant.now().toString());
+        // product model does not include updatedAt; avoid setting non-existing fields
 
         return product;
     }
