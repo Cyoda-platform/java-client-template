@@ -1,16 +1,24 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.booking.version_1.Booking;
+import com.java_template.common.config.Config;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.util.Condition;
+import com.java_template.common.util.SearchConditionRequest;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
+import com.java_template.common.service.EntityService;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 @Component
 public class TicketReservationProcessor implements CyodaProcessor {
@@ -18,9 +26,11 @@ public class TicketReservationProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(TicketReservationProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final EntityService entityService;
 
-    public TicketReservationProcessor(SerializerFactory serializerFactory) {
+    public TicketReservationProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
     }
 
     @Override
@@ -45,11 +55,41 @@ public class TicketReservationProcessor implements CyodaProcessor {
     }
 
     private Booking processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Booking> context) {
-        Booking entity = context.entity();
-        // TODO: Implement ticket reservation logic
-        // Reserve the requested tickets, update booking status or inventory as needed
-        logger.info("Reserving tickets for booking: {}", entity.getTechnicalId());
-        // Reservation logic here
-        return entity;
+        Booking booking = context.entity();
+        logger.info("Reserving tickets for booking: {}", booking.getTechnicalId());
+
+        try {
+            // Validate event existence
+            CompletableFuture<ObjectNode> eventFuture = entityService.getItem(
+                    "Event",
+                    "1",
+                    UUID.fromString(booking.getEventId())
+            );
+            ObjectNode eventNode = eventFuture.join();
+            if (eventNode == null || eventNode.isEmpty()) {
+                logger.error("Event not found for booking: {}", booking.getTechnicalId());
+                // Mark booking status as FAILED
+                booking.setStatus("FAILED");
+                return booking;
+            }
+
+            // Check availability of tickets
+            int availableTickets = 100; // Placeholder: You can implement actual ticket availability logic here
+            if (booking.getTickets() > availableTickets) {
+                logger.error("Not enough tickets available for booking: {}", booking.getTechnicalId());
+                booking.setStatus("FAILED");
+                return booking;
+            }
+
+            // Reserve tickets logic: Update booking status
+            booking.setStatus("RESERVED");
+            logger.info("Tickets reserved for booking: {}", booking.getTechnicalId());
+
+        } catch (Exception e) {
+            logger.error("Error during ticket reservation for booking {}: {}", booking.getTechnicalId(), e.getMessage(), e);
+            booking.setStatus("FAILED");
+        }
+
+        return booking;
     }
 }
