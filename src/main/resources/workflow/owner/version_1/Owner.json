@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "name": "Owner Workflow",
-  "desc": "Workflow for Owner entity processing",
+  "desc": "Simplified workflow for Owner entity processing: validation -> duplicate check -> persist. Merge decision is manual.",
   "initialState": "CREATED",
   "active": true,
   "states": {
@@ -94,15 +94,7 @@
         {
           "name": "merge_and_persist",
           "next": "PERSISTING",
-          "manual": false,
-          "processors": [
-            {
-              "name": "OwnerMergeProcessor",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
-          ]
+          "manual": false
         }
       ]
     },
@@ -144,29 +136,13 @@
         {
           "name": "notify_owner",
           "next": "NOTIFIED",
-          "manual": false,
-          "processors": [
-            {
-              "name": "NotifyOwnerProcessor",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
-          ]
+          "manual": false
         }
       ]
     },
-    "DEACTIVATED": {
-      "transitions": []
-    },
-    "NOTIFIED": {
-      "transitions": []
-    },
-    "FAILED": {
-      "transitions": []
-    },
-    "VALIDATION_FAILED": {
-      "transitions": []
-    }
+    "DEACTIVATED": { "transitions": [] },
+    "NOTIFIED": { "transitions": [] },
+    "FAILED": { "transitions": [] },
+    "VALIDATION_FAILED": { "transitions": [] }
   }
 }
