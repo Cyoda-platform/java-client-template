@@ -16,9 +16,10 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class InMemoryHnItemStore {
     private static final Logger logger = LoggerFactory.getLogger(InMemoryHnItemStore.class);
-    private final Map<Integer, HackerNewsItem> store = new ConcurrentHashMap<>();
+    // Use String key because HackerNewsItem.id is modeled as String to preserve original JSON format
+    private final Map<String, HackerNewsItem> store = new ConcurrentHashMap<>();
 
-    public Optional<HackerNewsItem> get(Integer id) {
+    public Optional<HackerNewsItem> get(String id) {
         if (id == null) return Optional.empty();
         return Optional.ofNullable(store.get(id));
     }
@@ -30,7 +31,7 @@ public class InMemoryHnItemStore {
         if (item == null || item.getId() == null) {
             throw new IllegalArgumentException("Item and item.id must not be null");
         }
-        Integer id = item.getId();
+        String id = item.getId();
         HackerNewsItem previous = store.put(id, item);
         boolean created = previous == null;
         logger.info("Upserted HN item id={} created={}", id, created);
