@@ -1,20 +1,20 @@
 {
   "version": "1.0",
   "name": "Subscriber Workflow",
-  "desc": "Workflow for Subscriber entity",
+  "desc": "Registration, optional verification, activation and notification delivery for Subscriber entity",
   "initialState": "REGISTERED",
   "active": true,
   "states": {
     "REGISTERED": {
       "transitions": [
         {
-          "name": "needs_verification",
+          "name": "registered_to_pending",
           "next": "PENDING_VERIFICATION",
           "manual": false,
           "criterion": {
             "type": "function",
             "function": {
-              "name": "SubscriberActivationCriterion",
+              "name": "NeedsVerificationCriterion",
               "config": {
                 "calculationNodesTags": "cyoda_application"
               }
@@ -22,13 +22,13 @@
           }
         },
         {
-          "name": "no_verification_required",
+          "name": "registered_to_active",
           "next": "ACTIVE",
           "manual": false,
           "criterion": {
             "type": "function",
             "function": {
-              "name": "NoVerificationNeededCriterion",
+              "name": "NoVerificationRequiredCriterion",
               "config": {
                 "calculationNodesTags": "cyoda_application"
               }
@@ -40,24 +40,25 @@
     "PENDING_VERIFICATION": {
       "transitions": [
         {
-          "name": "verification_passed",
+          "name": "pending_to_active",
           "next": "ACTIVE",
           "manual": false,
-          "processors": [
-            {
-              "name": "SubscriberVerificationProcessor",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "SubscriberVerificationPassed",
               "config": {
                 "calculationNodesTags": "cyoda_application"
               }
             }
-          ]
+          }
         }
       ]
     },
     "ACTIVE": {
       "transitions": [
         {
-          "name": "manual_deactivate",
+          "name": "active_to_inactive",
           "next": "INACTIVE",
           "manual": true
         }
@@ -66,7 +67,7 @@
     "INACTIVE": {
       "transitions": [
         {
-          "name": "manual_reactivate",
+          "name": "inactive_to_active",
           "next": "ACTIVE",
           "manual": true
         }
