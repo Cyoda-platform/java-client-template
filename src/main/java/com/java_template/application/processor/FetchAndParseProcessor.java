@@ -131,7 +131,7 @@ public class FetchAndParseProcessor implements CyodaProcessor {
                     for (int i = 0; i < arr.size(); i++) candidates.add((ObjectNode) arr.get(i));
                 } else {
                     ObjectNode root = (ObjectNode) objectMapper.readTree(body);
-                    if (root.has("data") && root.get("data`).isArray()) {
+                    if (root.has("data") && root.get("data").isArray()) {
                         ArrayNode arr = (ArrayNode) root.get("data");
                         for (int i = 0; i < arr.size(); i++) candidates.add((ObjectNode) arr.get(i));
                     } else if (root.has("pets") && root.get("pets").isArray()) {
