@@ -1,14 +1,14 @@
 {
   "version": "1.0",
   "name": "Laureate Workflow",
-  "desc": "Workflow for Laureate entity",
+  "desc": "Validation, enrichment, deduplication, persistence and optional manual review for Laureate entity",
   "initialState": "IMPORTED",
   "active": true,
   "states": {
     "IMPORTED": {
       "transitions": [
         {
-          "name": "validate",
+          "name": "imported_to_validating",
           "next": "VALIDATING",
           "manual": false,
           "processors": [
@@ -25,21 +25,7 @@
     "VALIDATING": {
       "transitions": [
         {
-          "name": "validation_failed",
-          "next": "INVALID",
-          "manual": false,
-          "criterion": {
-            "type": "function",
-            "function": {
-              "name": "LaureateValidationFailedCriterion",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
-          }
-        },
-        {
-          "name": "validation_passed",
+          "name": "validating_to_enriching",
           "next": "ENRICHING",
           "manual": false,
           "criterion": {
@@ -51,13 +37,27 @@
               }
             }
           }
+        },
+        {
+          "name": "validating_to_invalid",
+          "next": "INVALID",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "LaureateValidationFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
         }
       ]
     },
     "INVALID": {
       "transitions": [
         {
-          "name": "send_to_review",
+          "name": "invalid_to_review",
           "next": "REVIEW",
           "manual": true
         }
@@ -66,7 +66,7 @@
     "REVIEW": {
       "transitions": [
         {
-          "name": "fix_and_reprocess",
+          "name": "review_to_enriching",
           "next": "ENRICHING",
           "manual": false,
           "processors": [
@@ -83,7 +83,7 @@
     "ENRICHING": {
       "transitions": [
         {
-          "name": "enrich_and_dedup",
+          "name": "enriching_to_dedup",
           "next": "DEDUP_CHECK",
           "manual": false,
           "processors": [
@@ -100,7 +100,7 @@
     "DEDUP_CHECK": {
       "transitions": [
         {
-          "name": "dedup_merge",
+          "name": "dedup_to_stored",
           "next": "STORED",
           "manual": false,
           "processors": [
@@ -117,8 +117,8 @@
     "STORED": {
       "transitions": [
         {
-          "name": "emit_event",
-          "next": "COMPLETED",
+          "name": "stored_to_emit",
+          "next": "EMITTED",
           "manual": false,
           "processors": [
             {
@@ -131,7 +131,7 @@
         }
       ]
     },
-    "COMPLETED": {
+    "EMITTED": {
       "transitions": []
     }
   }
