@@ -7,6 +7,8 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.util.List;
+import com.java_template.application.entity.reservation.version_1.Reservation;
+import com.java_template.application.entity.order.version_1.Order;
 
 @Data
 public class Cart implements CyodaEntity {
@@ -22,6 +24,13 @@ public class Cart implements CyodaEntity {
     private String status; // OPEN, CHECKOUT_IN_PROGRESS, CHECKED_OUT, ABANDONED
     private String createdAt; // ISO8601
     private String updatedAt; // ISO8601
+
+    // Additional metadata used by processors
+    private List<Reservation> reservations;
+    private String checkoutAttemptId;
+    private String linkedOrderId;
+    private Order linkedOrder;
+    private String lastActivityAt;
 
     public Cart() {}
 
@@ -47,14 +56,5 @@ public class Cart implements CyodaEntity {
         if (currency == null || currency.isBlank()) return false;
         if (status == null || status.isBlank()) return false;
         return true;
-    }
-
-    @Data
-    public static class CartItem {
-        private String productId; // UUID referencing Product
-        private Integer quantity;
-        private BigDecimal unitPrice; // snapshot of price at add time
-
-        public CartItem() {}
     }
 }
