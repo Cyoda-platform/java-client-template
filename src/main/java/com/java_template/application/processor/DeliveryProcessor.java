@@ -1,8 +1,11 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.subscriber.version_1.Subscriber;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.service.EntityService;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -12,6 +15,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.time.Instant;
 
 @Component
@@ -20,9 +28,14 @@ public class DeliveryProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(DeliveryProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final EntityService entityService;
+    private final ObjectMapper objectMapper;
+    private final HttpClient httpClient = HttpClient.newHttpClient();
 
-    public DeliveryProcessor(SerializerFactory serializerFactory) {
+    public DeliveryProcessor(SerializerFactory serializerFactory, EntityService entityService, ObjectMapper objectMapper) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -48,16 +61,110 @@ public class DeliveryProcessor implements CyodaProcessor {
 
     private Subscriber processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Subscriber> context) {
         Subscriber subscriber = context.entity();
+
         try {
             logger.info("Delivering notification to subscriber {} (type={})", subscriber.getTechnicalId(), subscriber.getContactType());
-            // In a real implementation: deliver by email or webhook depending on contactType
-            // Implement idempotency key for webhooks and retry logic for transient errors
-            subscriber.setLastNotifiedAt(Instant.now().toString());
-            subscriber.setLastNotificationStatus("DELIVERED");
+
+            boolean delivered = false;
+            String failureReason = null;
+
+            // Build a minimal payload from subscriber preferences if present - in many flows the payload will be passed via a separate event
+            ObjectNode payload = objectMapper.createObjectNode();
+            payload.put("subscriberTechnicalId", subscriber.getTechnicalId());
+            payload.put("timestamp", Instant.now().toString());
+
+            if (subscriber.getContactType() != null && subscriber.getContactType().equalsIgnoreCase("webhook")) {
+                String url = subscriber.getContactDetails();
+                String idempotencyKey = subscriber.getTechnicalId() + ":delivery"; // best-effort idempotency key
+                try {
+                    delivered = deliverWebhook(url, payload, idempotencyKey);
+                } catch (Exception e) {
+                    delivered = false;
+                    failureReason = e.getMessage();
+                }
+            } else if (subscriber.getContactType() != null && subscriber.getContactType().equalsIgnoreCase("email")) {
+                // Simulate email delivery for now (real implementation would integrate with an email provider)
+                logger.info("Simulating email delivery to {} for subscriber {}", subscriber.getContactDetails(), subscriber.getTechnicalId());
+                delivered = true;
+            } else {
+                logger.warn("Unknown contactType {} for subscriber {}", subscriber.getContactType(), subscriber.getTechnicalId());
+                delivered = false;
+                failureReason = "Unknown contactType";
+            }
+
+            if (delivered) {
+                subscriber.setLastNotifiedAt(Instant.now().toString());
+                // Keep lastNotificationStatus field consistent with other processors
+                try {
+                    subscriber.getClass().getDeclaredMethod("setLastNotificationStatus", String.class).invoke(subscriber, "DELIVERED");
+                } catch (NoSuchMethodException nsme) {
+                    // fallback if method not present
+                } catch (Exception ex) {
+                    logger.debug("Unable to set lastNotificationStatus via reflection: {}", ex.getMessage());
+                }
+            } else {
+                try {
+                    subscriber.getClass().getDeclaredMethod("setLastNotificationStatus", String.class).invoke(subscriber, "FAILED");
+                } catch (Exception ex) {
+                    // ignore
+                }
+            }
+
+            // Persist subscriber changes via entityService if technicalId is available
+            try {
+                if (subscriber.getTechnicalId() != null && !subscriber.getTechnicalId().isEmpty()) {
+                    entityService.updateItem(
+                        Subscriber.ENTITY_NAME,
+                        String.valueOf(Subscriber.ENTITY_VERSION),
+                        java.util.UUID.fromString(subscriber.getTechnicalId()),
+                        subscriber
+                    ).join();
+                }
+            } catch (Exception pe) {
+                logger.warn("Unable to persist subscriber {} notification status: {}", subscriber.getTechnicalId(), pe.getMessage());
+            }
+
+            if (!delivered) {
+                logger.warn("Delivery failed for subscriber {}: {}", subscriber.getTechnicalId(), failureReason);
+            }
+
         } catch (Exception e) {
-            logger.error("Delivery failed for subscriber {}: {}", subscriber.getTechnicalId(), e.getMessage(), e);
-            subscriber.setLastNotificationStatus("FAILED");
+            logger.error("Delivery failed for subscriber {}: {}", subscriber != null ? subscriber.getTechnicalId() : "unknown", e.getMessage(), e);
         }
+
         return subscriber;
+    }
+
+    private boolean deliverWebhook(String url, ObjectNode payload, String idempotencyKey) throws Exception {
+        int attempts = 0;
+        int maxAttempts = 3;
+        Duration backoff = Duration.ofSeconds(2);
+        while (attempts < maxAttempts) {
+            attempts++;
+            try {
+                HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .timeout(Duration.ofSeconds(20))
+                    .header("Content-Type", "application/json")
+                    .header("Idempotency-Key", idempotencyKey)
+                    .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
+                    .build();
+                HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+                int code = response.statusCode();
+                if (code >= 200 && code < 300) return true;
+                if (code >= 500 && attempts < maxAttempts) {
+                    Thread.sleep(backoff.toMillis());
+                    backoff = backoff.multipliedBy(2);
+                    continue;
+                }
+                // Non-retryable
+                throw new RuntimeException("HTTP error " + code + ": " + response.body());
+            } catch (Exception e) {
+                if (attempts >= maxAttempts) throw e;
+                Thread.sleep(backoff.toMillis());
+                backoff = backoff.multipliedBy(2);
+            }
+        }
+        return false;
     }
 }
