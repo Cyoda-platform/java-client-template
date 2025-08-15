@@ -3,6 +3,7 @@ package com.java_template.application.processor;
 import com.java_template.application.entity.contact.version_1.Contact;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.service.EntityService;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -12,15 +13,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.UUID;
+
 @Component
 public class ValidateContactCriterion implements CyodaProcessor {
 
     private static final Logger logger = LoggerFactory.getLogger(ValidateContactCriterion.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final EntityService entityService;
 
-    public ValidateContactCriterion(SerializerFactory serializerFactory) {
+    public ValidateContactCriterion(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
     }
 
     @Override
@@ -46,7 +51,10 @@ public class ValidateContactCriterion implements CyodaProcessor {
 
     private Contact processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Contact> context) {
         Contact contact = context.entity();
+        String technicalId = null;
         try {
+            try { technicalId = context.request().getEntityId(); } catch (Exception ignored) {}
+
             boolean missing = false;
             if (contact.getFirstName() == null || contact.getFirstName().isEmpty()) missing = true;
             if (contact.getLastName() == null || contact.getLastName().isEmpty()) missing = true;
@@ -58,8 +66,13 @@ public class ValidateContactCriterion implements CyodaProcessor {
             } else {
                 contact.setStatus("VALIDATED");
             }
+
+            // persist
+            if (technicalId != null) {
+                entityService.updateItem(Contact.ENTITY_NAME, String.valueOf(Contact.ENTITY_VERSION), UUID.fromString(technicalId), contact).join();
+            }
         } catch (Exception e) {
-            logger.error("Error validating contact {}: {}", contact.getTechnicalId(), e.getMessage());
+            logger.error("Error validating contact {}: {}", technicalId, e.getMessage());
         }
         return contact;
     }
