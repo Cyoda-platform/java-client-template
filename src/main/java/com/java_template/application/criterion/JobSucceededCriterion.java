@@ -43,19 +43,14 @@ public class JobSucceededCriterion implements CyodaCriterion {
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Job> context) {
         Job job = context.entity();
         if (job == null) {
-            return EvaluationOutcome.fail("Job entity is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("Job is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-
-        // Job is considered succeeded if no fatal errors and no failed records
-        if (job.getErrorDetails() != null && !job.getErrorDetails().isEmpty()) {
-            return EvaluationOutcome.fail("Job has fatal error details", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        if (job.getStatus() == null) {
+            return EvaluationOutcome.fail("Job status is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-
-        Integer failed = job.getFailedCount() == null ? 0 : job.getFailedCount();
-        if (failed > 0) {
-            return EvaluationOutcome.fail("Job has failed records", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        if ("SUCCEEDED".equalsIgnoreCase(job.getStatus())) {
+            return EvaluationOutcome.success();
         }
-
-        return EvaluationOutcome.success();
+        return EvaluationOutcome.fail("Job did not succeed", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
     }
 }
