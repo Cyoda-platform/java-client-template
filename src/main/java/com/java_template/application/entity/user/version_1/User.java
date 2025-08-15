@@ -21,6 +21,11 @@ public class User implements CyodaEntity {
     private String role; // customer/staff
     private List<String> favorites = new ArrayList<>(); // pet ids (serialized UUIDs)
 
+    // Additional fields expected by processors
+    private String status; // unverified/verified/active/suspended
+    private String createdAt;
+    private String updatedAt;
+
     public User() {}
 
     @Override
