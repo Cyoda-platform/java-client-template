@@ -55,7 +55,7 @@ public class EventApprovalProcessor implements CyodaProcessor {
         event.setEventType(event.getEventType() != null ? event.getEventType() : "General");
 
         try {
-            java.lang.refl ect .Method setStatus = event.getClass().getMethod("setStatus", String.class);
+            java.lang.reflect.Method setStatus = event.getClass().getMethod("setStatus", String.class);
             setStatus.invoke(event, "APPROVED");
         } catch (NoSuchMethodException e) {
             logger.warn("Event entity has no 'status' field to set");
