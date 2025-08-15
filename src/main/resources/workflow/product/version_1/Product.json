@@ -1,0 +1,59 @@
+{
+  "version": "1.0",
+  "name": "Product Workflow",
+  "desc": "Validate, upsert and process stock changes for products",
+  "initialState": "Created",
+  "active": true,
+  "states": {
+    "Created": {
+      "transitions": [
+        { "name": "to_validation", "next": "Validation", "manual": false }
+      ]
+    },
+    "Validation": {
+      "transitions": [
+        {
+          "name": "to_upsert",
+          "next": "Upsert",
+          "manual": false,
+          "processors": [
+            { "name": "ProductValidationProcessor", "executionMode": "SYNC", "config": { "calculationNodesTags": "cyoda_application" } }
+          ]
+        },
+        {
+          "name": "validation_failed",
+          "next": "Failed",
+          "manual": false,
+          "criterion": { "type": "function", "function": { "name": "ProductValidationFailedCriterion", "config": { "calculationNodesTags": "cyoda_application" } } }
+        }
+      ]
+    },
+    "Upsert": {
+      "transitions": [
+        {
+          "name": "to_stock_processing",
+          "next": "Stock Processing",
+          "manual": false,
+          "processors": [
+            { "name": "ProductUpsertProcessor", "executionMode": "SYNC", "config": { "calculationNodesTags": "cyoda_application" } }
+          ]
+        }
+      ]
+    },
+    "Stock Processing": {
+      "transitions": [
+        {
+          "name": "to_activation",
+          "next": "Activation",
+          "manual": false,
+          "processors": [
+            { "name": "ProductStockProcessor", "executionMode": "SYNC", "config": { "calculationNodesTags": "cyoda_application" } }
+          ]
+        }
+      ]
+    },
+    "Activation": { "transitions": [ { "name": "to_completed", "next": "Completed", "manual": false } ] },
+    "Completed": { "transitions": [] },
+    "Failed": { "transitions": [] }
+  }
+}
