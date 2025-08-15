@@ -24,6 +24,11 @@ public class Pet implements CyodaEntity {
     private String photoUrl; // media link
     private List<String> tags = new ArrayList<>(); // searchable labels
 
+    // Additional compatibility fields
+    private String technicalId;
+    private Reservation reservation;
+    private Boolean metadataVerified;
+
     public Pet() {}
 
     @Override
@@ -42,5 +47,42 @@ public class Pet implements CyodaEntity {
         if (status == null || status.isBlank()) return false;
         if (age != null && age < 0) return false;
         return true;
+    }
+
+    public String getTechnicalId() {
+        return technicalId != null ? technicalId : id;
+    }
+
+    public void setTechnicalId(String tid) {
+        this.technicalId = tid;
+        if (this.id == null) this.id = tid;
+    }
+
+    public Reservation getReservation() {
+        return reservation;
+    }
+
+    public void setReservation(Reservation r) {
+        this.reservation = r;
+    }
+
+    public Boolean getMetadataVerified() {
+        return metadataVerified;
+    }
+
+    public void setMetadataVerified(Boolean v) {
+        this.metadataVerified = v;
+    }
+
+    public static class Reservation {
+        private String reservedBy;
+        private String reservedUntil;
+
+        public Reservation() {}
+
+        public String getReservedBy() { return reservedBy; }
+        public void setReservedBy(String reservedBy) { this.reservedBy = reservedBy; }
+        public String getReservedUntil() { return reservedUntil; }
+        public void setReservedUntil(String reservedUntil) { this.reservedUntil = reservedUntil; }
     }
 }
