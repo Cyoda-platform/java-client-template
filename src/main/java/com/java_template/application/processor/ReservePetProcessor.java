@@ -59,7 +59,7 @@ public class ReservePetProcessor implements CyodaProcessor {
         Pet pet = context.entity();
         try {
             if (pet == null) return null;
-            // Attempt to load latest pet state from EntityService to perform optimistic reservation
+            // Best-effort: check remote state to avoid reserving if already reserved
             Pet remotePet = null;
             try {
                 var node = entityService.getItem(Pet.ENTITY_NAME, String.valueOf(Pet.ENTITY_VERSION), UUID.fromString(pet.getId())).join();
@@ -67,25 +67,22 @@ public class ReservePetProcessor implements CyodaProcessor {
                     remotePet = objectMapper.convertValue(node, Pet.class);
                 }
             } catch (Exception e) {
-                logger.warn("Unable to load remote pet {} for reservation: {}", pet.getId(), e.getMessage());
+                logger.warn("Unable to load remote pet {} for reservation check: {}", pet.getId(), e.getMessage());
             }
 
             Pet targetPet = remotePet != null ? remotePet : pet;
+            if (targetPet == null) return pet;
+
             if ("AVAILABLE".equalsIgnoreCase(targetPet.getStatus())) {
-                targetPet.setStatus("RESERVED");
-                List<String> tags = targetPet.getTags() == null ? new ArrayList<>() : new ArrayList<>(targetPet.getTags());
+                // Reserve by updating the entity in this processing context. Do NOT call entityService.updateItem for the same entity.
+                pet.setStatus("RESERVED");
+                List<String> tags = pet.getTags() == null ? new ArrayList<>() : new ArrayList<>(pet.getTags());
                 tags.removeIf(t -> t != null && t.startsWith("reserved_by:"));
                 tags.removeIf(t -> t != null && t.startsWith("reserved_until:"));
                 tags.add("reserved_by:unknown_request");
                 tags.add("reserved_until:" + Instant.now().plusSeconds(60 * 60).toString());
-                targetPet.setTags(tags);
-                try {
-                    entityService.updateItem(Pet.ENTITY_NAME, String.valueOf(Pet.ENTITY_VERSION), UUID.fromString(targetPet.getId()), targetPet).join();
-                    logger.info("Pet {} reserved (best-effort)", targetPet.getId());
-                    return targetPet;
-                } catch (Exception ex) {
-                    logger.warn("Failed to persist reservation for pet {}: {}", targetPet.getId(), ex.getMessage());
-                }
+                pet.setTags(tags);
+                logger.info("Pet {} marked RESERVED in processing context (best-effort)", pet.getId());
             } else {
                 logger.info("Pet {} not available for reservation (status={})", targetPet.getId(), targetPet.getStatus());
             }
