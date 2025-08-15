@@ -3,6 +3,7 @@ package com.java_template.application.processor;
 import com.java_template.application.entity.job.version_1.Job;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.service.EntityService;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -12,15 +13,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.UUID;
+
 @Component
 public class NotifyProcessor implements CyodaProcessor {
 
     private static final Logger logger = LoggerFactory.getLogger(NotifyProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final EntityService entityService;
 
-    public NotifyProcessor(SerializerFactory serializerFactory) {
+    public NotifyProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
     }
 
     @Override
@@ -46,12 +51,18 @@ public class NotifyProcessor implements CyodaProcessor {
 
     private Job processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Job> context) {
         Job job = context.entity();
+        String technicalId = null;
         try {
+            try { technicalId = context.request().getEntityId(); } catch (Exception ignored) {}
             job.setStatus("NOTIFIED");
             // In real system: notify downstream systems / send events
-            logger.info("Job {} notifications triggered", job.getTechnicalId());
+            logger.info("Job {} notifications triggered", technicalId);
+            // persist status
+            if (technicalId != null) {
+                entityService.updateItem(Job.ENTITY_NAME, String.valueOf(Job.ENTITY_VERSION), UUID.fromString(technicalId), job).join();
+            }
         } catch (Exception e) {
-            logger.error("Error notifying for job {}: {}", job.getTechnicalId(), e.getMessage());
+            logger.error("Error notifying for job {}: {}", technicalId, e.getMessage());
         }
         return job;
     }
