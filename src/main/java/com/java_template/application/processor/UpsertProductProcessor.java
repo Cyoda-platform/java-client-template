@@ -53,9 +53,7 @@ public class UpsertProductProcessor implements CyodaProcessor {
         if (product.getCreatedAt() == null) {
             product.setCreatedAt(Instant.now().toString());
         }
-        if (product.getUpdatedAt() == null) {
-            product.setUpdatedAt(Instant.now().toString());
-        }
+        // Product model does not include updatedAt; avoid setting it
         if (product.getActive() == null) {
             product.setActive(false);
         }
