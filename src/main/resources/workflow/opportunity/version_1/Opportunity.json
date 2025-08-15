@@ -1,0 +1,64 @@
+{
+  "version": "1.0",
+  "name": "Opportunity Workflow",
+  "desc": "Workflow for Opportunity entity",
+  "initialState": "PENDING",
+  "active": true,
+  "states": {
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "qualify_opportunity",
+          "next": "QUALIFIED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "QualifyOpportunityCriterion",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        }
+      ]
+    },
+    "QUALIFIED": {
+      "transitions": [
+        {
+          "name": "create_proposal",
+          "next": "PROPOSAL",
+          "manual": true
+        }
+      ]
+    },
+    "PROPOSAL": {
+      "transitions": [
+        {
+          "name": "close_won",
+          "next": "CLOSED_WON",
+          "manual": true
+        },
+        {
+          "name": "close_lost",
+          "next": "CLOSED_LOST",
+          "manual": true
+        }
+      ]
+    },
+    "CLOSED_WON": {
+      "transitions": [
+        {
+          "name": "process_revenue",
+          "next": "REVENUE_PROCESSED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RevenueRecognitionProcessor",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        }
+      ]
+    },
+    "REVENUE_PROCESSED": { "transitions": [] },
+    "CLOSED_LOST": { "transitions": [] }
+  }
+}
