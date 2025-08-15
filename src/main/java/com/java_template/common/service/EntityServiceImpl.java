@@ -33,9 +33,6 @@ public class EntityServiceImpl implements EntityService {
     private static final int DEFAULT_PAGE_SIZE = 100;
     private static final int FIRST_PAGE = 1;
 
-    // private static final Logger logger =
-    // LoggerFactory.getLogger(EntityServiceImpl.class);
-
     private final CrudRepository repository;
     private final ObjectMapper objectMapper;
 
@@ -152,7 +149,7 @@ public class EntityServiceImpl implements EntityService {
             @NotNull final Integer modelVersion,
             @NotNull final Object entity
     ) {
-        return repository.save(modelName, modelVersion, (JsonNode) entity)
+        return repository.save(modelName, modelVersion, objectMapper.valueToTree(entity))
                 .thenApply(EntityTransactionResponse::getTransactionInfo)
                 .thenApply(EntityTransactionInfo::getEntityIds)
                 .thenApply(List::getFirst);
