@@ -1,0 +1,106 @@
+{
+  "version": "1.0",
+  "name": "Product Workflow",
+  "desc": "Workflow for Product entity",
+  "initialState": "NEW",
+  "active": true,
+  "states": {
+    "NEW": {
+      "transitions": [
+        {
+          "name": "to_validating",
+          "next": "VALIDATING",
+          "manual": false
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "validate_product",
+          "next": "UPSERT_PRODUCT",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateProductProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "invalid",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ProductInvalidCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "UPSERT_PRODUCT": {
+      "transitions": [
+        {
+          "name": "upsert",
+          "next": "PUBLISHING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "UpsertProductProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PUBLISHING": {
+      "transitions": [
+        {
+          "name": "publish",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PublishProductProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "FAILED": {
+      "transitions": []
+    },
+    "COMPLETED": {
+      "transitions": [
+        {
+          "name": "notify_catalog",
+          "next": "END",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotifyCatalogProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "END": {
+      "transitions": []
+    }
+  }
+}
