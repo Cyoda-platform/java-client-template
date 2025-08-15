@@ -35,4 +35,4 @@ public class Booking implements CyodaEntity {
         if (status == null || status.isBlank()) return false;
         return true;
     }
-}}
+}
