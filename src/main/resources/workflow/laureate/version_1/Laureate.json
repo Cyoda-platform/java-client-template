@@ -1,19 +1,19 @@
 {
   "version": "1.0",
   "name": "Laureate Workflow",
-  "desc": "Workflow for Laureate entity based on import, validation, enrichment, deduplication, and storage",
+  "desc": "Workflow that manages Laureate lifecycle: import, validate, enrich, deduplicate and store.",
   "initialState": "IMPORTED",
   "active": true,
   "states": {
     "IMPORTED": {
       "transitions": [
         {
-          "name": "imported_to_validating",
+          "name": "import_to_validating",
           "next": "VALIDATING",
           "manual": false,
           "processors": [
             {
-              "name": "LaureateValidationProcessor",
+              "name": "LaureatePersistenceProcessor",
               "config": {
                 "calculationNodesTags": "cyoda_application"
               }
@@ -25,7 +25,7 @@
     "VALIDATING": {
       "transitions": [
         {
-          "name": "validating_to_invalid",
+          "name": "validation_failed",
           "next": "INVALID",
           "manual": false,
           "criterion": {
@@ -39,39 +39,12 @@
           }
         },
         {
-          "name": "validating_to_enriching",
-          "next": "ENRICHING",
-          "manual": false,
-          "criterion": {
-            "type": "function",
-            "function": {
-              "name": "LaureateValidationPassedCriterion",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
-          }
-        }
-      ]
-    },
-    "INVALID": {
-      "transitions": [
-        {
-          "name": "invalid_to_review",
-          "next": "REVIEW",
-          "manual": true
-        }
-      ]
-    },
-    "REVIEW": {
-      "transitions": [
-        {
-          "name": "review_to_enriching",
+          "name": "validation_passed",
           "next": "ENRICHING",
           "manual": false,
           "processors": [
             {
-              "name": "LaureateManualReviewHandler",
+              "name": "LaureateEnrichmentProcessor",
               "config": {
                 "calculationNodesTags": "cyoda_application"
               }
@@ -80,15 +53,24 @@
         }
       ]
     },
+    "INVALID": {
+      "transitions": [
+        {
+          "name": "send_to_review",
+          "next": "REVIEW",
+          "manual": true
+        }
+      ]
+    },
     "ENRICHING": {
       "transitions": [
         {
-          "name": "enriching_to_dedup",
+          "name": "enrich_to_dedup",
           "next": "DEDUP_CHECK",
           "manual": false,
           "processors": [
             {
-              "name": "LaureateEnrichmentProcessor",
+              "name": "LaureateDedupMergeProcessor",
               "config": {
                 "calculationNodesTags": "cyoda_application"
               }
@@ -105,7 +87,25 @@
           "manual": false,
           "processors": [
             {
-              "name": "LaureateDedupMergeProcessor",
+              "name": "LaureateNotificationEmitter",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "executionMode": "ASYNC_SAME_TX"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "REVIEW": {
+      "transitions": [
+        {
+          "name": "reviewed_to_enrich",
+          "next": "ENRICHING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "LaureateEnrichmentProcessor",
               "config": {
                 "calculationNodesTags": "cyoda_application"
               }
@@ -115,23 +115,6 @@
       ]
     },
     "STORED": {
-      "transitions": [
-        {
-          "name": "stored_to_emitted",
-          "next": "EMITTED",
-          "manual": false,
-          "processors": [
-            {
-              "name": "LaureateNotificationEmitter",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
-          ]
-        }
-      ]
-    },
-    "EMITTED": {
       "transitions": []
     }
   }
