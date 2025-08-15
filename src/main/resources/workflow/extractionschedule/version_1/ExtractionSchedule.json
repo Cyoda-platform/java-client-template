@@ -1,0 +1,115 @@
+{
+  "version": "1.0",
+  "name": "ExtractionSchedule Workflow",
+  "desc": "Workflow for ExtractionSchedule entity",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "persist_schedule",
+          "next": "SCHEDULED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PersistScheduleProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEDULED": {
+      "transitions": [
+        {
+          "name": "start_schedule",
+          "next": "RUNNING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "StartScheduleProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "RUNNING": {
+      "transitions": [
+        {
+          "name": "to_completed",
+          "next": "COMPLETED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ExtractionSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "to_failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ExtractionFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": [
+        {
+          "name": "finalize",
+          "next": "FINISHED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RescheduleProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "FAILED": {
+      "transitions": [
+        {
+          "name": "notify_failure",
+          "next": "PAUSED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotifyOnFailureProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PAUSED": {
+      "transitions": []
+    },
+    "FINISHED": {
+      "transitions": []
+    }
+  }
+}
