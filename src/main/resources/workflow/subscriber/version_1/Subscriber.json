@@ -1,14 +1,14 @@
 {
   "version": "1.0",
   "name": "Subscriber Workflow",
-  "desc": "Workflow for Subscriber registration, verification, activation, and deactivation",
+  "desc": "Workflow that manages Subscriber registration, verification and activation state.",
   "initialState": "REGISTERED",
   "active": true,
   "states": {
     "REGISTERED": {
       "transitions": [
         {
-          "name": "registered_to_pending",
+          "name": "requires_verification",
           "next": "PENDING_VERIFICATION",
           "manual": false,
           "criterion": {
@@ -22,43 +22,55 @@
           }
         },
         {
-          "name": "registered_to_active",
+          "name": "no_verification_needed",
           "next": "ACTIVE",
           "manual": false,
-          "criterion": {
-            "type": "function",
-            "function": {
-              "name": "NoVerificationRequiredCriterion",
+          "processors": [
+            {
+              "name": "SubscriberActivationProcessor",
               "config": {
                 "calculationNodesTags": "cyoda_application"
               }
             }
-          }
+          ]
         }
       ]
     },
     "PENDING_VERIFICATION": {
       "transitions": [
         {
-          "name": "pending_to_active",
+          "name": "verification_passed",
           "next": "ACTIVE",
           "manual": false,
-          "criterion": {
-            "type": "function",
-            "function": {
-              "name": "SubscriberVerificationPassed",
+          "processors": [
+            {
+              "name": "SubscriberVerificationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 120000
+              }
+            }
+          ]
+        },
+        {
+          "name": "verification_failed",
+          "next": "INACTIVE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SubscriberDeactivationProcessor",
               "config": {
                 "calculationNodesTags": "cyoda_application"
               }
             }
-          }
+          ]
         }
       ]
     },
     "ACTIVE": {
       "transitions": [
         {
-          "name": "active_to_inactive",
+          "name": "manual_deactivate",
           "next": "INACTIVE",
           "manual": true
         }
@@ -67,7 +79,7 @@
     "INACTIVE": {
       "transitions": [
         {
-          "name": "inactive_to_active",
+          "name": "manual_reactivate",
           "next": "ACTIVE",
           "manual": true
         }
