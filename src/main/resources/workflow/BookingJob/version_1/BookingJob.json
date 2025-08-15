@@ -1,0 +1,21 @@
+{
+  "name": "BookingJob",
+  "version": 1,
+  "states": [
+    {"name": "PENDING", "type": "start"},
+    {"name": "IN_PROGRESS"},
+    {"name": "VALIDATE_INPUT"},
+    {"name": "CREATE_BOOKING_ENTITY"},
+    {"name": "WAIT_FOR_BOOKING"},
+    {"name": "COMPLETED", "type": "end"},
+    {"name": "FAILED", "type": "end"}
+  ],
+  "transitions": [
+    {"from": "PENDING", "to": "IN_PROGRESS", "action": "StartBookingJobProcessor"},
+    {"from": "IN_PROGRESS", "to": "VALIDATE_INPUT", "action": "BookingJobValidationCriterion"},
+    {"from": "VALIDATE_INPUT", "to": "CREATE_BOOKING_ENTITY", "action": "CreateBookingProcessor"},
+    {"from": "CREATE_BOOKING_ENTITY", "to": "WAIT_FOR_BOOKING", "action": "MonitorBookingCriterion"},
+    {"from": "WAIT_FOR_BOOKING", "to": "COMPLETED", "action": "CompleteJobProcessor"},
+    {"from": "WAIT_FOR_BOOKING", "to": "FAILED", "action": "JobFailureHandler"}
+  ]
+}
