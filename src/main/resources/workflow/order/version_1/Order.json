@@ -1,0 +1,95 @@
+{
+  "version": "1.0",
+  "name": "Order Workflow",
+  "desc": "Workflow for Order entity: handle payment completion, fulfillment, and cancellation",
+  "initialState": "pending",
+  "active": true,
+  "states": {
+    "pending": {
+      "transitions": [
+        {
+          "name": "payment_result",
+          "next": "paid",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PaymentCompletionCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "payment_failed",
+          "next": "failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PaymentFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "cancel_order",
+          "next": "cancelled",
+          "manual": true
+        }
+      ]
+    },
+    "paid": {
+      "transitions": [
+        {
+          "name": "start_fulfillment",
+          "next": "processing",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FulfillmentProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "cancel_after_payment",
+          "next": "cancelled",
+          "manual": true
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "name": "ship_order",
+          "next": "shipped",
+          "manual": false
+        }
+      ]
+    },
+    "shipped": {
+      "transitions": [
+        {
+          "name": "confirm_delivery",
+          "next": "completed",
+          "manual": false
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    },
+    "cancelled": {
+      "transitions": []
+    }
+  }
+}
