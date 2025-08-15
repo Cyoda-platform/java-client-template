@@ -1,0 +1,21 @@
+{
+  "name": "ScoreFetchJob",
+  "version": 1,
+  "states": [
+    "CREATED",
+    "VALIDATING",
+    "FETCHING",
+    "STORING",
+    "NOTIFYING",
+    "COMPLETED",
+    "FAILED"
+  ],
+  "transitions": [
+    {"from":"CREATED","to":"VALIDATING","processor":"ValidateFetchJobProcessor"},
+    {"from":"VALIDATING","to":"FETCHING","processor":"FetchScoresProcessor"},
+    {"from":"FETCHING","to":"STORING","processor":"ParseAndPersistGamesProcessor"},
+    {"from":"STORING","to":"NOTIFYING","processor":"CreateNotificationProcessor"},
+    {"from":"NOTIFYING","to":"COMPLETED","processor":"MarkJobCompletedProcessor"},
+    {"from":"*","to":"FAILED","processor":"ErrorHandlingProcessor"}
+  ]
+}
