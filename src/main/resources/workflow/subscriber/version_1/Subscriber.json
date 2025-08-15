@@ -1,0 +1,93 @@
+{
+  "version": "1.0",
+  "name": "Subscriber Workflow",
+  "desc": "Workflow for Subscriber lifecycle (creation -> verification -> active -> suspension/deletion)",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "start_verification",
+          "next": "VERIFYING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SubscriberVerificationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VERIFYING": {
+      "transitions": [
+        {
+          "name": "verification_succeeded",
+          "next": "ACTIVE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "VerificationSucceededCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "verification_failed",
+          "next": "SUSPENDED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "VerificationFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "delivery_failure_suspend",
+          "next": "SUSPENDED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DeliveryFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "manual_delete",
+          "next": "DELETED",
+          "manual": true
+        }
+      ]
+    },
+    "SUSPENDED": {
+      "transitions": [
+        {
+          "name": "manual_reactivate",
+          "next": "ACTIVE",
+          "manual": true
+        }
+      ]
+    },
+    "DELETED": {
+      "transitions": []
+    }
+  }
+}
