@@ -28,7 +28,7 @@ public class NotifyCustomerProcessor implements CyodaProcessor {
         logger.info("Processing NotifyCustomer for request: {}", request.getId());
 
         return serializer.withRequest(request)
-            .map(ctx -> ctx.entity())
+            .map(ctx -> ctx.payload())
             .complete();
     }
 
