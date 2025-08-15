@@ -77,6 +77,10 @@ public class Pet implements CyodaEntity {
     public static class Reservation {
         private String reservedBy;
         private String reservedUntil;
++        private String requestTechnicalId;
++
++        public String getRequestTechnicalId() { return requestTechnicalId; }
++        public void setRequestTechnicalId(String requestTechnicalId) { this.requestTechnicalId = requestTechnicalId; }
 
         public Reservation() {}
 
