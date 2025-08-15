@@ -24,6 +24,11 @@ public class Job implements CyodaEntity {
     private String errorDetails; // detailed error / stacktrace if failure
     private String config; // JSON blob with job-specific configuration like limit, filters
 
+    // New fields referenced by processors
+    private Integer persistedRecordCount; // number of records persisted to datastore
+    private String dedupeStrategy; // deduplication strategy: UPSERT, SKIP_DUPLICATE, FAIL_ON_DUPLICATE
+    private String persistedAt; // ISO-8601 datetime when job was persisted/updated
+
     public Job() {}
 
     @Override
