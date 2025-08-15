@@ -1,0 +1,75 @@
+{
+  "version": "1.0",
+  "name": "Inventory Workflow",
+  "desc": "Workflow to check stock, reserve inventory or flag out-of-stock items",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "check_stock",
+          "next": "stock_checked",
+          "manual": false,
+          "processors": [
+            {
+              "name": "InventoryCheckProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "stock_checked": {
+      "transitions": [
+        {
+          "name": "reserve_if_available",
+          "next": "reserved",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.stockQuantity",
+            "operation": "GREATER_THAN",
+            "value": 0
+          }
+        },
+        {
+          "name": "mark_out_of_stock",
+          "next": "out_of_stock",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.stockQuantity",
+            "operation": "EQUALS",
+            "value": 0
+          }
+        }
+      ]
+    },
+    "reserved": {
+      "transitions": [
+        {
+          "name": "decrement_stock",
+          "next": "updated",
+          "manual": false,
+          "processors": [
+            {
+              "name": "InventoryReservationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "updated": {
+      "transitions": []
+    },
+    "out_of_stock": {
+      "transitions": []
+    }
+  }
+}
