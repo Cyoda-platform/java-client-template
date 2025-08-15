@@ -50,7 +50,7 @@ public class PublishProductProcessor implements CyodaProcessor {
         Product product = context.entity();
 
         product.setActive(Boolean.TRUE);
-        product.setUpdatedAt(Instant.now().toString());
+        // Product model does not include updatedAt; avoid setting non-existing fields
 
         logger.info("Product {} published", product.getId());
 
