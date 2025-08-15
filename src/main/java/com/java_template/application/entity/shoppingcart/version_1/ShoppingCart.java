@@ -1,4 +1,4 @@
-package com.java_template.application.entity.shoppingcart.version_1; // replace {entityName} with actual entity name in lowercase
+package com.java_template.application.entity.shoppingcart.version_1;
 
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
@@ -7,16 +7,20 @@ import lombok.Data;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.math.BigDecimal;
 
 @Data
 public class ShoppingCart implements CyodaEntity {
     public static final String ENTITY_NAME = "ShoppingCart";
     public static final Integer ENTITY_VERSION = 1;
-    // Add your entity fields here
 
     private String id;
-    private String customerId; // serialized UUID
+    private String userId; // serialized UUID
+    private String customerId; // legacy alias
     private List<CartItem> items = new ArrayList<>();
+    private BigDecimal subtotal = BigDecimal.ZERO;
+    private BigDecimal total = BigDecimal.ZERO;
+    private String currency;
     private String updatedAt;
 
     public ShoppingCart() {}
@@ -32,20 +36,8 @@ public class ShoppingCart implements CyodaEntity {
     @Override
     public boolean isValid() {
         if (id == null || id.isBlank()) return false;
-        if (customerId == null || customerId.isBlank()) return false;
+        if ((userId == null || userId.isBlank()) && (customerId == null || customerId.isBlank())) return false;
         if (items == null) return false;
         return true;
-    }
-
-    @Data
-    public static class CartItem {
-        private String productId; // serialized UUID
-        private Integer quantity;
-
-        public boolean isValid() {
-            if (productId == null || productId.isBlank()) return false;
-            if (quantity == null || quantity <= 0) return false;
-            return true;
-        }
     }
 }
