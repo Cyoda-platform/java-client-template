@@ -1,0 +1,76 @@
+{
+  "version": "1.0",
+  "name": "Subscriber Workflow",
+  "desc": "Workflow for Subscriber entity",
+  "initialState": "REGISTERED",
+  "active": true,
+  "states": {
+    "REGISTERED": {
+      "transitions": [
+        {
+          "name": "needs_verification",
+          "next": "PENDING_VERIFICATION",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "SubscriberActivationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "no_verification_required",
+          "next": "ACTIVE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "NoVerificationNeededCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "PENDING_VERIFICATION": {
+      "transitions": [
+        {
+          "name": "verification_passed",
+          "next": "ACTIVE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SubscriberVerificationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "manual_deactivate",
+          "next": "INACTIVE",
+          "manual": true
+        }
+      ]
+    },
+    "INACTIVE": {
+      "transitions": [
+        {
+          "name": "manual_reactivate",
+          "next": "ACTIVE",
+          "manual": true
+        }
+      ]
+    }
+  }
+}
