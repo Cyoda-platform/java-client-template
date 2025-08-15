@@ -1,0 +1,164 @@
+{
+  "version": "1.0",
+  "name": "Order Workflow",
+  "desc": "Workflow for Order entity",
+  "initialState": "PENDING_PAYMENT",
+  "active": true,
+  "states": {
+    "PENDING_PAYMENT": {
+      "transitions": [
+        {
+          "name": "process_payment",
+          "next": "PAYMENT_PROCESSING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PaymentProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PAYMENT_PROCESSING": {
+      "transitions": [
+        {
+          "name": "payment_success",
+          "next": "PAID",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PaymentSucceededCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "payment_failed",
+          "next": "PAYMENT_FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PaymentFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "PAYMENT_FAILED": {
+      "transitions": [
+        {
+          "name": "cancel_if_expired",
+          "next": "CANCELLED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PaymentExpiredCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "retry_payment",
+          "next": "PENDING_PAYMENT",
+          "manual": true
+        }
+      ]
+    },
+    "PAID": {
+      "transitions": [
+        {
+          "name": "send_to_fulfillment",
+          "next": "FULFILLMENT_PENDING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FulfillmentProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "FULFILLMENT_PENDING": {
+      "transitions": [
+        {
+          "name": "packed",
+          "next": "PACKED",
+          "manual": true
+        }
+      ]
+    },
+    "PACKED": {
+      "transitions": [
+        {
+          "name": "ship",
+          "next": "SHIPPED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ShipmentProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SHIPPED": {
+      "transitions": [
+        {
+          "name": "delivered",
+          "next": "DELIVERED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "DeliveryConfirmationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "DELIVERED": {
+      "transitions": []
+    },
+    "CANCELLED": {
+      "transitions": [
+        {
+          "name": "refund",
+          "next": "REFUNDED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RefundProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "REFUNDED": {
+      "transitions": []
+    }
+  }
+}
