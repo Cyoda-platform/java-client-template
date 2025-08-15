@@ -1,5 +1,6 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.product.version_1.Product;
@@ -16,9 +17,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @Component
@@ -58,14 +64,14 @@ public class AggregateMetricsProcessor implements CyodaProcessor {
     private Product processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Product> context) {
         Product product = context.entity();
         try {
-            // Load stored product record by product_id + store_id
+            // Load stored product records and try to find matching product by product_id + store_id
             CompletableFuture<ArrayNode> productsFuture = entityService.getItems(
                 Product.ENTITY_NAME, String.valueOf(Product.ENTITY_VERSION)
             );
             ArrayNode items = productsFuture.get();
             Product stored = null;
             if (items != null) {
-                Iterator<com.fasterxml.jackson.databind.JsonNode> it = items.elements();
+                Iterator<JsonNode> it = items.elements();
                 while (it.hasNext()) {
                     ObjectNode node = (ObjectNode) it.next();
                     if (node.has("product_id") && node.get("product_id").asText().equals(product.getProduct_id())
@@ -78,18 +84,41 @@ public class AggregateMetricsProcessor implements CyodaProcessor {
                         stored.setCost(node.has("cost") ? node.get("cost").asDouble() : product.getCost());
                         stored.setStock_level(node.has("stock_level") ? node.get("stock_level").asInt() : product.getStock_level());
                         stored.setStore_id(node.has("store_id") ? node.get("store_id").asText() : product.getStore_id());
-                        // reconstruct sales_history minimally
-                        stored.setSales_history(new ArrayList<>());
+
+                        // reconstruct sales_history if present
+                        List<SalesSnapshot> existingHistory = new ArrayList<>();
+                        if (node.has("sales_history") && node.get("sales_history").isArray()) {
+                            for (JsonNode hs : node.get("sales_history")) {
+                                try {
+                                    SalesSnapshot s = new SalesSnapshot();
+                                    s.setTimestamp(hs.has("timestamp") ? hs.get("timestamp").asText() : Instant.now().toString());
+                                    s.setQuantity(hs.has("quantity") ? hs.get("quantity").asInt() : 0);
+                                    s.setRevenue(hs.has("revenue") ? hs.get("revenue").asDouble() : 0.0);
+                                    existingHistory.add(s);
+                                } catch (Exception ignore) {
+                                    // ignore malformed history entries
+                                }
+                            }
+                        }
+                        stored.setSales_history(existingHistory);
+                        // parse tags if present
+                        if (node.has("tags") && node.get("tags").isArray()) {
+                            List<String> tags = new ArrayList<>();
+                            for (JsonNode t : node.get("tags")) {
+                                try { tags.add(t.asText()); } catch (Exception ignored) {}
+                            }
+                            stored.setTags(tags);
+                        }
                         break;
                     }
                 }
             }
 
             if (stored == null) {
-                // Nothing to aggregate against; just persist incoming product
+                // Nothing to aggregate against; just persist incoming product snapshot as new product
                 List<SalesSnapshot> history = product.getSales_history() != null ? product.getSales_history() : new ArrayList<>();
                 product.setSales_history(history);
-                CompletableFuture<java.util.UUID> idFuture = entityService.addItem(
+                CompletableFuture<UUID> idFuture = entityService.addItem(
                     Product.ENTITY_NAME, String.valueOf(Product.ENTITY_VERSION), product
                 );
                 logger.info("Persisted new product during aggregation");
@@ -102,30 +131,50 @@ public class AggregateMetricsProcessor implements CyodaProcessor {
             if (stored.getSales_history() != null) merged.addAll(stored.getSales_history());
             if (product.getSales_history() != null) merged.addAll(product.getSales_history());
 
+            // De-duplicate by (timestamp, quantity, revenue)
+            List<SalesSnapshot> deduped = new ArrayList<>();
+            Set<String> seen = new HashSet<>();
+            for (SalesSnapshot s : merged) {
+                if (s == null) continue;
+                String key = (s.getTimestamp() != null ? s.getTimestamp() : "") + "|" + (s.getQuantity()!=null?s.getQuantity():"") + "|" + (s.getRevenue()!=null?s.getRevenue():"");
+                if (!seen.contains(key)) {
+                    seen.add(key);
+                    deduped.add(s);
+                }
+            }
+
+            // Sort by timestamp ascending
+            deduped.sort(Comparator.comparing(s -> s.getTimestamp() != null ? s.getTimestamp() : ""));
+
             // Compute total sales volume and revenue across merged
             int totalQty = 0;
             double totalRevenue = 0.0;
-            for (SalesSnapshot s : merged) {
+            for (SalesSnapshot s : deduped) {
                 if (s == null) continue;
                 if (s.getQuantity() != null) totalQty += s.getQuantity();
                 if (s.getRevenue() != null) totalRevenue += s.getRevenue();
             }
 
             // Decide tags based on thresholds
-            List<String> tags = new ArrayList<>();
+            List<String> tags = stored.getTags() != null ? new ArrayList<>(stored.getTags()) : new ArrayList<>();
             if (totalQty < 5) {
-                tags.add("underperformer");
+                if (!tags.contains("underperformer")) tags.add("underperformer");
+            } else {
+                tags.remove("underperformer");
             }
             if (product.getStock_level() != null && product.getStock_level() < 10) {
-                tags.add("restock_candidate");
+                if (!tags.contains("restock_candidate")) tags.add("restock_candidate");
+            } else {
+                tags.remove("restock_candidate");
             }
 
-            stored.setSales_history(merged);
-            // Simple KPI fields are not present on Product entity; rely on tags to indicate state
-            stored.setStock_level(product.getStock_level());
+            stored.setSales_history(deduped);
+            stored.setTags(tags);
+            // Update stock level to latest snapshot's value if present
+            stored.setStock_level(product.getStock_level() != null ? product.getStock_level() : stored.getStock_level());
 
-            // Persist updated product as new entity (prototype simplification)
-            CompletableFuture<java.util.UUID> idFuture = entityService.addItem(
+            // Persist updated product as a new entity record (prototype simplification)
+            CompletableFuture<UUID> idFuture = entityService.addItem(
                 Product.ENTITY_NAME, String.valueOf(Product.ENTITY_VERSION), stored
             );
             idFuture.get();
