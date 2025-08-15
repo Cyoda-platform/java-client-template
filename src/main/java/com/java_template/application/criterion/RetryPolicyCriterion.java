@@ -45,7 +45,7 @@ public class RetryPolicyCriterion implements CyodaCriterion {
         if (job == null) {
             return EvaluationOutcome.fail("Job entity missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        Integer retries = job.getRetryCount();
+        Integer retries = job.getAttemptCount();
         if (retries == null) retries = 0;
         // Apply a simple retry policy: allow up to 3 retries
         if (retries < 3) {
