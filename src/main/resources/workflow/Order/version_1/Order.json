@@ -1,0 +1,19 @@
+{
+  "workflowName": "Order",
+  "version": 1,
+  "initialState": "cart",
+  "states": [
+    { "name": "cart", "transitions": [ { "to": "checkout_pending", "trigger": "CustomerCheckoutAction", "type": "manual" } ] },
+    { "name": "checkout_pending", "transitions": [ { "to": "reserving_inventory", "trigger": "InventoryReservationProcessor", "type": "automatic" } ] },
+    { "name": "reserving_inventory", "transitions": [ { "to": "reserved", "trigger": "InventoryReservedCriterion", "type": "automatic" }, { "to": "checkout_failed", "trigger": "InventoryShortageCriterion", "type": "automatic" } ] },
+    { "name": "reserved", "transitions": [ { "to": "payment_verification", "trigger": "StartPaymentProcessor", "type": "automatic" } ] },
+    { "name": "payment_verification", "transitions": [ { "to": "paid", "trigger": "PaymentSuccessCriterion", "type": "automatic" }, { "to": "cancelled", "trigger": "PaymentFailureCriterion", "type": "automatic" } ] },
+    { "name": "paid", "transitions": [ { "to": "shipped", "trigger": "FulfillmentProcessor", "type": "automatic" } ] },
+    { "name": "shipped", "transitions": [ { "to": "completed", "trigger": "DeliveryConfirmedCriterion", "type": "automatic" } ] },
+    { "name": "checkout_failed", "transitions": [ { "to": "cart", "trigger": "ManualAdjustCartAction", "type": "manual" } ] },
+    { "name": "cancelled", "transitions": [] },
+    { "name": "completed", "transitions": [] }
+  ],
+  "processors": [ "InventoryReservationProcessor", "StartPaymentProcessor", "FulfillmentProcessor", "ImportSummaryNotifier" ],
+  "criteria": [ "InventoryReservedCriterion", "InventoryShortageCriterion", "PaymentSuccessCriterion", "PaymentFailureCriterion", "DeliveryConfirmedCriterion" ]
+}
