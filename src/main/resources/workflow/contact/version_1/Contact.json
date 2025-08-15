@@ -1,0 +1,69 @@
+{
+  "version": "1.0",
+  "name": "Contact Workflow",
+  "desc": "Workflow for Contact entity",
+  "initialState": "PENDING",
+  "active": true,
+  "states": {
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "validate_contact",
+          "next": "VALIDATED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateContactCriterion",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        },
+        {
+          "name": "delete_direct",
+          "next": "DELETED",
+          "manual": true
+        }
+      ]
+    },
+    "VALIDATED": {
+      "transitions": [
+        {
+          "name": "enrich_contact",
+          "next": "ENRICHED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EnrichContactProcessor",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        }
+      ]
+    },
+    "ENRICHED": {
+      "transitions": [
+        {
+          "name": "activate_contact",
+          "next": "ACTIVE",
+          "manual": true
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "update_contact",
+          "next": "UPDATED",
+          "manual": true
+        },
+        {
+          "name": "delete_contact",
+          "next": "DELETED",
+          "manual": true
+        }
+      ]
+    },
+    "UPDATED": { "transitions": [] },
+    "DELETED": { "transitions": [] }
+  }
+}
