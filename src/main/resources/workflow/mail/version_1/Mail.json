@@ -1,0 +1,275 @@
+{
+  "version": "1.0",
+  "name": "Mail Workflow",
+  "desc": "Workflow for Mail entity managing evaluation, sending and a single retry leading to permanent failure if it fails again.",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "to_evaluated",
+          "next": "EVALUATED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EvaluateCriteriaProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "EVALUATED": {
+      "transitions": [
+        {
+          "name": "to_sending_happy",
+          "next": "SENDING_HAPPY",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsHappyCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "to_sending_gloomy",
+          "next": "SENDING_GLOOMY",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsGloomyCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "SENDING_HAPPY": {
+      "transitions": [
+        {
+          "name": "send_and_succeed",
+          "next": "SENT",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendMailProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.deliveryStatus.status",
+            "operation": "EQUALS",
+            "value": "SENT"
+          }
+        },
+        {
+          "name": "send_and_fail_first_attempt",
+          "next": "FAILED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendMailProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "group",
+            "operator": "AND",
+            "conditions": [
+              {
+                "type": "simple",
+                "jsonPath": "$.deliveryStatus.status",
+                "operation": "EQUALS",
+                "value": "FAILED"
+              },
+              {
+                "type": "simple",
+                "jsonPath": "$.deliveryStatus.attempts",
+                "operation": "LESS_OR_EQUAL",
+                "value": 1
+              }
+            ]
+          }
+        },
+        {
+          "name": "send_and_fail_permanent",
+          "next": "PERMANENTLY_FAILED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendMailProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "group",
+            "operator": "AND",
+            "conditions": [
+              {
+                "type": "simple",
+                "jsonPath": "$.deliveryStatus.status",
+                "operation": "EQUALS",
+                "value": "FAILED"
+              },
+              {
+                "type": "simple",
+                "jsonPath": "$.deliveryStatus.attempts",
+                "operation": "GREATER_THAN",
+                "value": 1
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "SENDING_GLOOMY": {
+      "transitions": [
+        {
+          "name": "send_and_succeed",
+          "next": "SENT",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendMailProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.deliveryStatus.status",
+            "operation": "EQUALS",
+            "value": "SENT"
+          }
+        },
+        {
+          "name": "send_and_fail_first_attempt",
+          "next": "FAILED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendMailProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "group",
+            "operator": "AND",
+            "conditions": [
+              {
+                "type": "simple",
+                "jsonPath": "$.deliveryStatus.status",
+                "operation": "EQUALS",
+                "value": "FAILED"
+              },
+              {
+                "type": "simple",
+                "jsonPath": "$.deliveryStatus.attempts",
+                "operation": "LESS_OR_EQUAL",
+                "value": 1
+              }
+            ]
+          }
+        },
+        {
+          "name": "send_and_fail_permanent",
+          "next": "PERMANENTLY_FAILED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendMailProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "group",
+            "operator": "AND",
+            "conditions": [
+              {
+                "type": "simple",
+                "jsonPath": "$.deliveryStatus.status",
+                "operation": "EQUALS",
+                "value": "FAILED"
+              },
+              {
+                "type": "simple",
+                "jsonPath": "$.deliveryStatus.attempts",
+                "operation": "GREATER_THAN",
+                "value": 1
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "FAILED": {
+      "transitions": [
+        {
+          "name": "to_retry",
+          "next": "RETRY",
+          "manual": true
+        }
+      ]
+    },
+    "RETRY": {
+      "transitions": [
+        {
+          "name": "retry_to_sending_happy",
+          "next": "SENDING_HAPPY",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsHappyCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "retry_to_sending_gloomy",
+          "next": "SENDING_GLOOMY",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsGloomyCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "SENT": {
+      "transitions": []
+    },
+    "PERMANENTLY_FAILED": {
+      "transitions": []
+    }
+  }
+}
