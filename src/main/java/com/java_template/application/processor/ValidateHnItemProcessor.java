@@ -42,9 +42,15 @@ public class ValidateHnItemProcessor implements CyodaProcessor {
 
     private boolean isValidEntity(HackerNewsItem entity) {
         if (entity == null) return false;
-        Integer id = entity.getId();
+        String idStr = entity.getId();
         String type = entity.getType();
-        if (id == null || id < 0) return false;
+        if (idStr == null) return false;
+        try {
+            long id = Long.parseLong(idStr);
+            if (id < 0) return false;
+        } catch (NumberFormatException e) {
+            return false;
+        }
         if (type == null || type.trim().isEmpty()) return false;
         return true;
     }
