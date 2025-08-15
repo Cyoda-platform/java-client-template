@@ -64,8 +64,16 @@ public class SendMailProcessor implements CyodaProcessor {
         }
 
         // Mark sending state and persist logically
-        entity.setState(sendingState);
-        entity.setUpdatedAt(Instant.now().toString());
+        try {
+            entity.setState(sendingState);
+        } catch (Exception e) {
+            logger.debug("Unable to set state on entity: {}", e.getMessage());
+        }
+        try {
+            entity.setUpdatedAt(Instant.now().toString());
+        } catch (Exception e) {
+            logger.debug("Unable to set updatedAt on entity: {}", e.getMessage());
+        }
 
         // Prepare delivery status structure
         if (entity.getDeliveryStatus() == null) {
@@ -74,6 +82,7 @@ public class SendMailProcessor implements CyodaProcessor {
             ds.put("status", "PENDING");
             ds.put("lastAttempt", null);
             ds.put("lastError", null);
+            ds.put("perRecipient", null);
             entity.setDeliveryStatus(ds);
         }
 
@@ -85,7 +94,11 @@ public class SendMailProcessor implements CyodaProcessor {
             for (String recipient : mailList) {
                 // Idempotency: if deliveryStatus contains a marker for recipient success, skip
                 Object attemptsObj = entity.getDeliveryStatus().get("attempts");
-                int attempts = attemptsObj instanceof Integer ? (Integer) attemptsObj : ((Number) attemptsObj).intValue();
+                int attempts = 0;
+                try {
+                    attempts = attemptsObj instanceof Integer ? (Integer) attemptsObj : ((Number) attemptsObj).intValue();
+                } catch (Exception ignored) {
+                }
 
                 // Simple send simulation: succeed if recipient contains "@" and not equal to "fail@example.com"
                 boolean success = recipient != null && recipient.contains("@") && !recipient.equalsIgnoreCase("fail@example.com");
@@ -98,19 +111,32 @@ public class SendMailProcessor implements CyodaProcessor {
             }
 
             // Update deliveryStatus
-            int prevAttempts = entity.getDeliveryStatus().get("attempts") instanceof Integer ? (Integer) entity.getDeliveryStatus().get("attempts") : ((Number) entity.getDeliveryStatus().get("attempts")).intValue();
+            int prevAttempts = 0;
+            try {
+                Object prev = entity.getDeliveryStatus().get("attempts");
+                prevAttempts = prev instanceof Integer ? (Integer) prev : ((Number) prev).intValue();
+            } catch (Exception ignored) {
+            }
             int newAttempts = prevAttempts + 1;
             entity.getDeliveryStatus().put("attempts", newAttempts);
             entity.getDeliveryStatus().put("lastAttempt", Instant.now().toString());
             if (overallSuccess) {
                 entity.getDeliveryStatus().put("status", "SENT");
                 entity.getDeliveryStatus().put("lastError", null);
-                entity.setState("SENT");
+                try {
+                    entity.setState("SENT");
+                } catch (Exception e) {
+                    logger.debug("Unable to set state to SENT on entity: {}", e.getMessage());
+                }
                 logger.info("Mail {} sent successfully to {} recipients", entity.getTechnicalId(), mailList.size());
             } else {
                 entity.getDeliveryStatus().put("status", "FAILED");
                 entity.getDeliveryStatus().put("lastError", "DELIVERY_FAIL");
-                entity.setState("FAILED");
+                try {
+                    entity.setState("FAILED");
+                } catch (Exception e) {
+                    logger.debug("Unable to set state to FAILED on entity: {}", e.getMessage());
+                }
                 logger.info("Mail {} failed to send to some recipients", entity.getTechnicalId());
             }
 
@@ -118,15 +144,26 @@ public class SendMailProcessor implements CyodaProcessor {
 
         } catch (Exception e) {
             logger.error("Unexpected error during send for mail {}", entity.getTechnicalId(), e);
-            entity.getDeliveryStatus().put("status", "FAILED");
-            entity.getDeliveryStatus().put("lastError", e.getMessage());
-            entity.getDeliveryStatus().put("lastAttempt", Instant.now().toString());
-            int prevAttempts = entity.getDeliveryStatus().get("attempts") instanceof Integer ? (Integer) entity.getDeliveryStatus().get("attempts") : ((Number) entity.getDeliveryStatus().get("attempts")).intValue();
-            entity.getDeliveryStatus().put("attempts", prevAttempts + 1);
-            entity.setState("FAILED");
+            try {
+                entity.getDeliveryStatus().put("status", "FAILED");
+                entity.getDeliveryStatus().put("lastError", e.getMessage());
+                entity.getDeliveryStatus().put("lastAttempt", Instant.now().toString());
+                int prevAttempts = entity.getDeliveryStatus().get("attempts") instanceof Integer ? (Integer) entity.getDeliveryStatus().get("attempts") : ((Number) entity.getDeliveryStatus().get("attempts")).intValue();
+                entity.getDeliveryStatus().put("attempts", prevAttempts + 1);
+                try {
+                    entity.setState("FAILED");
+                } catch (Exception ex) {
+                    logger.debug("Unable to set state to FAILED on entity: {}", ex.getMessage());
+                }
+            } catch (Exception ignored) {
+            }
         }
 
-        entity.setUpdatedAt(Instant.now().toString());
+        try {
+            entity.setUpdatedAt(Instant.now().toString());
+        } catch (Exception e) {
+            logger.debug("Unable to set updatedAt on entity: {}", e.getMessage());
+        }
         return entity;
     }
 }
