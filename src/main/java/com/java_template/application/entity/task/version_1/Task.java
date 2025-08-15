@@ -14,7 +14,7 @@ public class Task implements CyodaEntity {
     public static final Integer ENTITY_VERSION = 1;
     // Add your entity fields here
 
-    private String id; // business identifier for the task
+    private String id; // business identifier for the task (optional)
     private String projectId; // reference to the parent project.id
     private String title; // task title
     private String description; // task description
@@ -22,9 +22,10 @@ public class Task implements CyodaEntity {
     private String assigneeId; // reference id to the person assigned; may be null
     private String dueDate; // ISO 8601 due date; may be null
     private String priority; // priority label, e.g., low/medium/high
-    private List<String> dependencies; // list of task ids that must complete before this task starts
+    private List<String> dependencies; // list of task technicalIds that must complete before this task starts
     private String createdAt; // ISO 8601 datetime when the entity was created
     private String updatedAt; // ISO 8601 datetime when the entity was last updated
+    private String completedAt; // ISO 8601 datetime when the task was marked completed (optional)
     private Map<String, Object> metadata; // freeform key/value map for custom attributes
 
     public Task() {}
@@ -40,7 +41,7 @@ public class Task implements CyodaEntity {
     @Override
     public boolean isValid() {
         // Basic validation rules based on the functional requirements
-        if (id == null || id.isBlank()) return false;
+        // id is optional; projectId is required to associate a task with a project
         if (projectId == null || projectId.isBlank()) return false;
         if (title == null || title.isBlank()) return false;
         if (status == null || status.isBlank()) return false;
