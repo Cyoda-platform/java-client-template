@@ -2,6 +2,7 @@ package com.java_template.application.processor;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.job.version_1.Job;
 import com.java_template.application.entity.laureate.version_1.Laureate;
@@ -71,17 +72,21 @@ public class IngestJobProcessor implements CyodaProcessor {
             logger.info("Starting ingest for job: {}", job.getTechnicalId());
             job.setStartTime(Instant.now().toString());
             job.setStatus("INGESTING");
+            // Persist start state
+            persistJobSafe(job);
 
             // Validate sourceUrl
             if (job.getSourceUrl() == null || job.getSourceUrl().isEmpty()) {
                 job.setStatus("FAILED");
                 job.setErrorDetails("Missing sourceUrl");
                 job.setEndTime(Instant.now().toString());
+                persistJobSafe(job);
                 logger.error("Job {} failed because sourceUrl is missing", job.getTechnicalId());
                 return job;
             }
 
             job.setStatus("FETCHING");
+            persistJobSafe(job);
 
             // Fetch with retries
             JsonNode fetched = fetchWithRetries(job.getSourceUrl(), 3, Duration.ofSeconds(2));
@@ -89,6 +94,7 @@ public class IngestJobProcessor implements CyodaProcessor {
                 job.setStatus("FAILED");
                 job.setErrorDetails("Failed to fetch records from source");
                 job.setEndTime(Instant.now().toString());
+                persistJobSafe(job);
                 return job;
             }
 
@@ -120,6 +126,7 @@ public class IngestJobProcessor implements CyodaProcessor {
 
             job.setFetchedRecordCount(records.size());
             job.setStatus("PROCESSING_RECORDS");
+            persistJobSafe(job);
 
             // Initialize counters if null
             job.setPersistedRecordCount(job.getPersistedRecordCount() == null ? 0 : job.getPersistedRecordCount());
@@ -227,6 +234,8 @@ public class IngestJobProcessor implements CyodaProcessor {
             job.setErrorDetails(e.toString());
         } finally {
             job.setEndTime(Instant.now().toString());
+            // Persist final job state
+            persistJobSafe(job);
             logger.info("Job {} finished with status {}", job.getTechnicalId(), job.getStatus());
         }
 
@@ -263,5 +272,34 @@ public class IngestJobProcessor implements CyodaProcessor {
             }
         }
         return null;
+    }
+
+    private void persistJobSafe(Job job) {
+        try {
+            if (job.getTechnicalId() != null && !job.getTechnicalId().isEmpty()) {
+                // try to update existing Job record
+                try {
+                    entityService.updateItem(
+                        Job.ENTITY_NAME,
+                        String.valueOf(Job.ENTITY_VERSION),
+                        java.util.UUID.fromString(job.getTechnicalId()),
+                        job
+                    ).join();
+                } catch (Exception e) {
+                    // fallback to add if update fails
+                    try {
+                        entityService.addItem(
+                            Job.ENTITY_NAME,
+                            String.valueOf(Job.ENTITY_VERSION),
+                            job
+                        ).join();
+                    } catch (Exception ex) {
+                        logger.warn("Unable to persist job {}: {}", job.getTechnicalId(), ex.getMessage());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("Persist job failed for {}: {}", job.getTechnicalId(), e.getMessage());
+        }
     }
 }
