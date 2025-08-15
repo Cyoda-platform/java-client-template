@@ -22,6 +22,10 @@ public class IngestionJob implements CyodaEntity {
     private Integer importedCount;
     private List<String> errors = new ArrayList<>();
 
+    // Additional tracking fields expected by processors
+    private String createdAt;
+    private String updatedAt;
+
     public IngestionJob() {}
 
     @Override
