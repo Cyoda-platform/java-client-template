@@ -13,12 +13,7 @@
           "manual": false,
           "criterion": {
             "type": "function",
-            "function": {
-              "name": "NeedsVerificationCriterion",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
+            "function": { "name": "NeedsVerificationCriterion", "config": { "calculationNodesTags": "cyoda_application" } }
           }
         },
         {
@@ -27,12 +22,7 @@
           "manual": false,
           "criterion": {
             "type": "function",
-            "function": {
-              "name": "NoVerificationRequiredCriterion",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
+            "function": { "name": "NoVerificationRequiredCriterion", "config": { "calculationNodesTags": "cyoda_application" } }
           }
         }
       ]
@@ -43,35 +33,11 @@
           "name": "pending_to_active",
           "next": "ACTIVE",
           "manual": false,
-          "criterion": {
-            "type": "function",
-            "function": {
-              "name": "SubscriberVerificationPassed",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
-          }
+          "criterion": { "type": "function", "function": { "name": "SubscriberVerificationPassed", "config": { "calculationNodesTags": "cyoda_application" } } }
         }
       ]
     },
-    "ACTIVE": {
-      "transitions": [
-        {
-          "name": "active_to_inactive",
-          "next": "INACTIVE",
-          "manual": true
-        }
-      ]
-    },
-    "INACTIVE": {
-      "transitions": [
-        {
-          "name": "inactive_to_active",
-          "next": "ACTIVE",
-          "manual": true
-        }
-      ]
-    }
+    "ACTIVE": { "transitions": [ { "name": "active_to_inactive", "next": "INACTIVE", "manual": true } ] },
+    "INACTIVE": { "transitions": [ { "name": "inactive_to_active", "next": "ACTIVE", "manual": true } ] }
   }
 }
