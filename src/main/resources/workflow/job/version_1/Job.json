@@ -1,0 +1,136 @@
+{
+  "version": "1.0",
+  "name": "Job Workflow",
+  "desc": "Workflow for Job entity",
+  "initialState": "PENDING",
+  "active": true,
+  "states": {
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "to_scheduled",
+          "next": "SCHEDULED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ScheduleProcessor",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        },
+        {
+          "name": "start_immediately",
+          "next": "IN_PROGRESS",
+          "manual": false,
+          "processors": [
+            {
+              "name": "StartJobProcessor",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEDULED": {
+      "transitions": [
+        {
+          "name": "scheduled_to_in_progress",
+          "next": "IN_PROGRESS",
+          "manual": false,
+          "processors": [
+            {
+              "name": "TriggerScheduleProcessor",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        }
+      ]
+    },
+    "IN_PROGRESS": {
+      "transitions": [
+        {
+          "name": "check_completion",
+          "next": "COMPLETED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "CheckJobCompleteCriterion",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          }
+        },
+        {
+          "name": "mark_failed",
+          "next": "FAILED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FailJobProcessor",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        }
+      ]
+    },
+    "FAILED": {
+      "transitions": [
+        {
+          "name": "decide_retry",
+          "next": "RETRY_SCHEDULED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "RetryPolicyCriterion",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          }
+        },
+        {
+          "name": "finalize_failure",
+          "next": "FAILED_FINAL",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FinalizeFailureProcessor",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        }
+      ]
+    },
+    "RETRY_SCHEDULED": {
+      "transitions": [
+        {
+          "name": "schedule_retry",
+          "next": "FAILED_FINAL",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ScheduleRetryProcessor",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": [
+        {
+          "name": "notify",
+          "next": "NOTIFIED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotifyProcessor",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        }
+      ]
+    },
+    "NOTIFIED": { "transitions": [] },
+    "FAILED_FINAL": { "transitions": [] }
+  }
+}
