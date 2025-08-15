@@ -121,10 +121,12 @@ public interface ProcessorSerializer {
         /**
          * Maps the current entity using the provided function with request context.
          * Provides access to both request metadata and entity data.
+         * The mapper may return an updated ProcessorEntityExecutionContext to allow
+         * processors to modify attributes or replace the entity instance.
          * @param mapper Function to transform the entity with context
          * @return EntityProcessingChain for chaining
          */
-        EntityProcessingChain<T> map(Function<ProcessorEntityExecutionContext<T>, T> mapper);
+        EntityProcessingChain<T> map(Function<ProcessorEntityExecutionContext<T>, ProcessorEntityExecutionContext<T>> mapper);
 
         /**
          * Validates the current entity using the provided predicate.
@@ -225,7 +227,8 @@ public interface ProcessorSerializer {
             if (error == null) {
                 try {
                     T entity = serializer.extractEntity(request, clazz);
-                    return new EntityProcessingChainImpl<>(serializer, request, entity);
+                    // attributes are not available here; null used
+                    return new EntityProcessingChainImpl<>(serializer, request, entity, null);
                 } catch (Exception e) {
                     return new EntityProcessingChainImpl<>(serializer, request, e);
                 }
@@ -269,12 +272,14 @@ public interface ProcessorSerializer {
         private T processedEntity;
         private Throwable error;
         private BiFunction<Throwable, T, ErrorInfo> errorHandler;
+        private Map<String, Object> attributes;
 
-        EntityProcessingChainImpl(ProcessorSerializer serializer, EntityProcessorCalculationRequest request, T entity) {
+        EntityProcessingChainImpl(ProcessorSerializer serializer, EntityProcessorCalculationRequest request, T entity, Map<String, Object> attributes) {
             this.serializer = serializer;
             this.request = request;
             this.processedEntity = entity;
             this.error = null;
+            this.attributes = attributes;
         }
 
         EntityProcessingChainImpl(ProcessorSerializer serializer, EntityProcessorCalculationRequest request, Throwable error) {
@@ -282,15 +287,19 @@ public interface ProcessorSerializer {
             this.request = request;
             this.processedEntity = null;
             this.error = error;
+            this.attributes = null;
         }
 
         @Override
-        public EntityProcessingChain<T> map(Function<ProcessorEntityExecutionContext<T>, T> mapper) {
+        public EntityProcessingChain<T> map(Function<ProcessorEntityExecutionContext<T>, ProcessorEntityExecutionContext<T>> mapper) {
             if (error == null && processedEntity != null) {
                 try {
-                    // build a minimal context. Attributes extraction is intentionally left null when unavailable.
-                    ProcessorEntityExecutionContext<T> context = new ProcessorEntityExecutionContext<>(request, processedEntity, null);
-                    processedEntity = mapper.apply(context);
+                    ProcessorEntityExecutionContext<T> context = new ProcessorEntityExecutionContext<>(request, processedEntity, attributes);
+                    ProcessorEntityExecutionContext<T> out = mapper.apply(context);
+                    if (out != null) {
+                        this.processedEntity = out.entity();
+                        this.attributes = out.attributes();
+                    }
                 } catch (Exception e) {
                     error = e;
                 }
