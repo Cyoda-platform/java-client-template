@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "name": "Pet Workflow",
-  "desc": "Simplified workflow for Pet entity processing: validation -> duplicate check -> persist. Enrichment and notifications handled inside persistence processor to limit processors.",
+  "desc": "Adjusted workflow for Pet entity processing: validation -> duplicate check -> persist. Enrichment and notifications are included inside processors to limit processors per workflow.",
   "initialState": "NEW",
   "active": true,
   "states": {
