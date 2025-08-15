@@ -1,5 +1,6 @@
 package com.java_template.application.criterion;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.laureate.version_1.Laureate;
@@ -59,10 +60,10 @@ public class DeduplicateCriterion implements CyodaCriterion {
             ).join();
 
             if (items != null) {
-                Iterator<ObjectNode> it = items.elements();
+                Iterator<JsonNode> it = items.elements();
                 while (it.hasNext()) {
-                    ObjectNode node = it.next();
-                    if (node.has("id") && node.get("id").asInt() == (l.getId() == null ? -1 : l.getId())) {
+                    JsonNode node = it.next();
+                    if (node != null && node.has("id") && node.get("id").asInt() == (l.getId() == null ? -1 : l.getId())) {
                         // duplicate found
                         return EvaluationOutcome.fail("Duplicate laureate found by source id", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
                     }
