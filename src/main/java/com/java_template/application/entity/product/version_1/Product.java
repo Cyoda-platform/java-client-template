@@ -19,6 +19,8 @@ public class Product implements CyodaEntity {
     private BigDecimal price; // unit price
     private String currency; // ISO currency code for price
     private Integer stockQuantity; // available quantity for sale
+    private Integer reservedQuantity; // quantity currently reserved (optional)
+    private String technicalId; // optional internal technical id (UUID)
     private String category; // product category or taxonomy
     private String imageUrl; // URL to product image
     private String importedFrom; // optional source of import
@@ -26,6 +28,7 @@ public class Product implements CyodaEntity {
     private String createdByUserId; // id of user who created/imported the product
     private String createdAt; // ISO8601 timestamp
     private String updatedAt; // ISO8601 timestamp
+    private String status; // ACTIVE, ERROR, DRAFT, etc.
 
     public Product() {}
 
