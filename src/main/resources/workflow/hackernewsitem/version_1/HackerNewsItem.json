@@ -1,0 +1,132 @@
+{
+  "version": "1.0",
+  "name": "HackerNewsItem Workflow",
+  "desc": "Workflow for HackerNewsItem entity: validate, enrich, assign state and persist",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "validate_item",
+          "next": "VALIDATION",
+          "manual": false,
+          "processors": [
+            {
+              "name": "HackerNewsItemValidationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATION": {
+      "transitions": [
+        {
+          "name": "enrich_item",
+          "next": "ENRICHMENT",
+          "manual": false,
+          "processors": [
+            {
+              "name": "HackerNewsItemEnrichmentProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ENRICHMENT": {
+      "transitions": [
+        {
+          "name": "assign_state",
+          "next": "CHECK_STATE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "HackerNewsItemStateAssignerProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "CHECK_STATE": {
+      "transitions": [
+        {
+          "name": "to_valid",
+          "next": "VALID",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "HackerNewsItemValidCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "to_invalid",
+          "next": "INVALID",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "HackerNewsItemInvalidCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "VALID": {
+      "transitions": [
+        {
+          "name": "persist_valid",
+          "next": "SUCCEEDED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PersistStateProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "INVALID": {
+      "transitions": [
+        {
+          "name": "persist_invalid",
+          "next": "FAILED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PersistStateProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SUCCEEDED": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    }
+  }
+}
