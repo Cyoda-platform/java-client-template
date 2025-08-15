@@ -48,8 +48,6 @@ public class FailJobProcessor implements CyodaProcessor {
         Job job = context.entity();
         try {
             job.setStatus("FAILED");
-            // persist failure metadata if available
-            job.setErrorMessage("Job marked as failed by FailJobProcessor");
         } catch (Exception e) {
             logger.error("Error while marking job failed {}: {}", job.getTechnicalId(), e.getMessage());
         }
