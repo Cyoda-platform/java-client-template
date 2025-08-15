@@ -1,236 +1,241 @@
-### 1. Entity Definitions
-```
-HackerNewsItem:
-- originalJson: String (the original Firebase-format Hacker News JSON exactly as received)
-- id: Long (the Hacker News item id extracted from originalJson, if present)
-- type: String (the Hacker News item type extracted from originalJson, if present)
-- importTimestamp: Instant (enriched timestamp when the item was imported; kept separate from the original JSON)
-- state: String (VALID or INVALID; assigned after validation that fields id and type are present)
-- validationErrors: String (optional short message describing why state = INVALID)
-- createdAt: Instant (when this entity record was created in the datastore)
+# Functional Requirements — Hacker News Import Service
 
-ImportJob:
-- jobName: String (human-friendly name for the job)
-- source: String (optional identifier of where the payload originated)
-- payload: String (the raw Firebase-format Hacker News JSON provided for this job)
-- status: String (PENDING, IN_PROGRESS, COMPLETED, FAILED)
-- itemsCreatedCount: Integer (number of HackerNewsItem entities created/updated as part of this job)
-- createdAt: Instant (when the job was persisted)
-- completedAt: Instant (when the job finished processing, if applicable)
-
-ImportTask:
-- jobTechnicalId: String (reference to the ImportJob technicalId that created this task)
-- hnItemId: Long (the Hacker News id if it could be parsed)
-- status: String (QUEUED, PROCESSING, SUCCEEDED, FAILED)
-- attempts: Integer (number of processing attempts performed)
-- errorMessage: String (short description if processing failed)
-- createdAt: Instant
-- lastUpdatedAt: Instant
-```
-
-Notes:
-- Max 3 entities used (HackerNewsItem, ImportJob, ImportTask) as no explicit entities were provided by the user.
-- The requirement that "When saving an item, it must validate that the fields id and type are present" is preserved exactly: validation ensures presence of id and type.
-- The requirement that "Each item is enriched with an import timestamp, kept separate from the original JSON, and assigned a state: VALID if the required fields are present, or INVALID otherwise" is preserved exactly.
+This document specifies the functional requirements, entities, workflows, API surface, business rules, and implementation notes for the Hacker News import service. It also reconciles and clarifies previous ambiguities (technicalId presence, payload storage format, separation of validation vs processing lifecycle, and retry semantics).
 
 ---
 
-### 2. Entity Workflows
+## 1. Summary of key guarantees
 
-HackerNewsItem workflow:
-1. Initial State: CREATED (entity record created by an ImportJob/processor with originalJson set and importTimestamp populated)
-2. Validation (automatic): Validate that id and type are present in originalJson
-3. Enrichment (automatic): Set importTimestamp (kept separate from originalJson)
-4. Finalization (automatic):
-   - If id and type present -> state = VALID -> SUCCEEDED
-   - Otherwise -> state = INVALID, store validationErrors -> FAILED
+- Every incoming Firebase-format Hacker News JSON payload is stored exactly as received (originalJson) and is assigned a separate import timestamp during enrichment.
+- Validation is strictly the presence of the two fields `id` and `type` inside the original JSON.
+- Each stored HackerNews item is assigned a validity state: `VALID` if both `id` and `type` are present, otherwise `INVALID`. Validation errors are recorded.
+- Import processing is asynchronous: creating an ImportJob persists the job (returns its technical id) and triggers background processing using ImportTask(s).
+- The service provides retrieval of ImportJob status (by technical id) and HackerNews item by HackerNews `id` (the id contained in the original JSON).
 
-mermaid state diagram for HackerNewsItem
+---
+
+## 2. Entity definitions (canonical)
+
+Note: All timestamps are ISO-8601 instants (UTC) unless otherwise stated.
+
+- HackerNewsItem
+  - technicalId: String (datastore technical id / primary key — optional depending on persistence model; useful for internal references)
+  - originalJson: String (the original Firebase-format Hacker News JSON exactly as received; stored verbatim as a string)
+  - id: Long|null (the Hacker News item id extracted from originalJson, if present; this field is indexed and used for lookup via GET /hn-items/{id})
+  - type: String|null (the Hacker News item type extracted from originalJson, if present)
+  - importTimestamp: Instant|null (timestamp assigned when the item is enriched; separate from createdAt)
+  - state: String (VALID or INVALID) — indicates domain validity, not processing status
+  - validationErrors: String|null (optional short message describing why state = INVALID)
+  - createdAt: Instant (when this entity record was created in the datastore)
+
+- ImportJob
+  - technicalId: String (datastore technical id / primary key; returned by POST /import-jobs)
+  - jobName: String (human-friendly name for the job)
+  - source: String|null (optional identifier of where the payload originated)
+  - payload: String (the raw Firebase-format Hacker News JSON provided for this job, stored verbatim as a string)
+  - status: String (PENDING, IN_PROGRESS, COMPLETED, FAILED)
+  - itemsCreatedCount: Integer (number of HackerNewsItem entities created/updated as part of this job)
+  - createdAt: Instant (when the job was persisted)
+  - completedAt: Instant|null (when the job finished processing, if applicable)
+
+- ImportTask
+  - technicalId: String (datastore technical id / primary key for the task)
+  - jobTechnicalId: String (reference to the ImportJob.technicalId that created this task)
+  - hnItemTechnicalId: String|null (reference to the HackerNewsItem.technicalId created for this task; optional if only hnItem.id is known)
+  - hnItemId: Long|null (the Hacker News id parsed from the payload if available)
+  - status: String (QUEUED, PROCESSING, SUCCEEDED, FAILED)
+  - attempts: Integer (number of processing attempts performed; default 0)
+  - errorMessage: String|null (short description if processing failed)
+  - createdAt: Instant
+  - lastUpdatedAt: Instant
+
+Notes on entity fields
+- technicalId fields are required for API responses that return a single identifier (POST /import-jobs returns ImportJob.technicalId). If your persistence layer uses a different primary key, map accordingly but expose `technicalId` in the API.
+- The service accepts payloads as JSON objects in API requests but persists them as verbatim JSON strings in `payload` / `originalJson` to guarantee round-trip fidelity.
+
+---
+
+## 3. Clarified responsibilities and what state fields mean
+
+- HackerNewsItem.state (VALID / INVALID)
+  - This field represents domain-level validation of the content of the original JSON (presence of `id` and `type`).
+  - It is not a processing lifecycle state. Processing lifecycle (Queued/Processing/Done/Failed) is tracked at the ImportTask and ImportJob levels.
+
+- Processing lifecycle
+  - ImportJob.status and ImportTask.status capture asynchronous processing progression, retries, and failures.
+
+---
+
+## 4. Workflows
+
+### 4.1 HackerNewsItem creation & finalization (per item)
+
+High-level steps (as implemented by processors/criteria):
+1. Creation: ImportJobProcessor (or a task producer) persists a HackerNewsItem with `originalJson` set and `createdAt` populated. `importTimestamp`, `id`, `type`, `state` and `validationErrors` may be null at this point.
+2. Processing (asynchronous): ImportTaskProcessor picks up the associated ImportTask and performs the following in sequence:
+   - Validation: HackerNewsItemValidationCriterion checks presence of `id` and `type` inside the original JSON.
+   - Enrichment: HackerNewsItemEnrichmentProcessor sets `importTimestamp = now()` and extracts `id` and `type` (when present) into the entity fields.
+   - State assignment: HackerNewsItemStateAssignerProcessor sets `state = VALID` if both `id` and `type` were extracted, otherwise `state = INVALID` and sets `validationErrors` with a concise reason.
+   - Persist: Persist the updated HackerNewsItem record.
+3. Result: The ImportTask status is updated to SUCCEEDED if the item `state == VALID`; otherwise the task either fails (and may be retried according to retry policy) or is marked FAILED.
+
+Mermaid (conceptual) — HackerNewsItem content lifecycle (domain validity):
+
 ```mermaid
 stateDiagram-v2
     [*] --> CREATED
     CREATED --> VALIDATION : HackerNewsItemValidationCriterion
     VALIDATION --> ENRICHMENT : HackerNewsItemEnrichmentProcessor
-    ENRICHMENT --> CHECK_STATE : HackerNewsItemStateAssignerProcessor
-    CHECK_STATE --> VALID : if id and type present
-    CHECK_STATE --> INVALID : if id or type missing
-    VALID --> SUCCEEDED : PersistStateProcessor
-    INVALID --> FAILED : PersistStateProcessor
-    SUCCEEDED --> [*]
-    FAILED --> [*]
+    ENRICHMENT --> STATE_ASSIGNMENT : HackerNewsItemStateAssignerProcessor
+    STATE_ASSIGNMENT --> VALID : if id and type present
+    STATE_ASSIGNMENT --> INVALID : if id or type missing
+    VALID --> PERSISTED : Persisted
+    INVALID --> PERSISTED : Persisted (with validationErrors)
+    PERSISTED --> [*]
 ```
 
-Processor and Criterion classes needed for HackerNewsItem:
+Processor responsibilities (pseudocode sketches):
 - HackerNewsItemValidationCriterion
-  - Responsibility: Check presence of id and type inside originalJson.
-  - Pseudocode:
-    - parse originalJson as JSON
-    - if json.has("id") and json.has("type") then pass else fail
-- HackerNewsItemEnrichmentProcessor
-  - Responsibility: Populate importTimestamp (Instant.now()) and optionally extract id/type into fields.
+  - Responsibility: Check presence of `id` and `type` inside `originalJson` (without mutating the entity).
   - Pseudocode:
     - parsed = parse(originalJson)
-    - entity.importTimestamp = now()
-    - if parsed.has("id") set entity.id = parsed.getLong("id")
-    - if parsed.has("type") set entity.type = parsed.getString("type")
+    - return parsed.has("id") and parsed.has("type")
+
+- HackerNewsItemEnrichmentProcessor
+  - Responsibility: Populate `importTimestamp` and extract `id`/`type` into fields on the entity.
+  - Pseudocode:
+    - parsed = parse(originalJson)
+    - entity.importTimestamp = Instant.now()
+    - if parsed.has("id") -> entity.id = parsed.getLong("id")
+    - if parsed.has("type") -> entity.type = parsed.getString("type")
+
 - HackerNewsItemStateAssignerProcessor
-  - Responsibility: Set state = VALID or INVALID and set validationErrors when invalid.
+  - Responsibility: Set `state = "VALID"` or `"INVALID"`; if invalid set `validationErrors`.
   - Pseudocode:
     - if entity.id != null and entity.type != null then entity.state = "VALID" else entity.state = "INVALID"; if invalid set validationErrors = "missing id and/or type"
+
 - PersistStateProcessor
-  - Responsibility: Persist / update the HackerNewsItem record in datastore
+  - Responsibility: Persist / update the HackerNewsItem record in datastore.
 
-ImportJob workflow:
-1. Initial State: PENDING (job persisted with payload)
-2. Start Processing (automatic): JobProcessor picks PENDING jobs and transitions to IN_PROGRESS
-3. Item Creation (automatic): For the job payload, create an ImportTask and persist a HackerNewsItem record (CREATED) with originalJson set
-4. Monitoring/Retry (automatic): ImportTask processors attempt to process HackerNewsItem; on failures update ImportTask
-5. Completion (automatic): Update itemsCreatedCount and set job status to COMPLETED or FAILED
-6. Notification (optional/manual): humans can query job status or retry failed tasks
+### 4.2 ImportJob workflow
 
-mermaid state diagram for ImportJob
+1. Creation: POST /import-jobs persists an ImportJob with `status = PENDING`, `payload = <stringified JSON>`, `createdAt` set and returns `technicalId` to the caller.
+2. Processing: Background ImportJobProcessor picks up PENDING jobs and sets `status = IN_PROGRESS`.
+3. Item creation: For each input payload (this service currently models one payload per job), the ImportJobProcessor creates:
+   - a HackerNewsItem (with `originalJson = job.payload`) and
+   - an ImportTask that references the job and the created item.
+   - The ImportTask initial status is `QUEUED`.
+4. ImportTask processing and monitoring occurs as described below. ImportJobProcessor observes task outcomes.
+5. Completion: When all tasks related to the job are SUCCEEDED (or there are unrecoverable failures), ImportJobProcessor sets `itemsCreatedCount`, `completedAt`, and sets job `status` to `COMPLETED` or `FAILED` accordingly.
+
+Mermaid (conceptual) — ImportJob lifecycle:
+
 ```mermaid
 stateDiagram-v2
     [*] --> PENDING
     PENDING --> IN_PROGRESS : ImportJobProcessor
-    IN_PROGRESS --> PROCESS_ITEMS : ImportJobProcessor
+    IN_PROGRESS --> PROCESS_ITEMS : create ImportTask(s)
     PROCESS_ITEMS --> COMPLETE_CHECK : ImportJobCompletionCriterion
     COMPLETE_CHECK --> COMPLETED : if all tasks succeeded
-    COMPLETE_CHECK --> FAILED : if any unrecoverable failure
+    COMPLETE_CHECK --> FAILED : if unrecoverable failures detected
     COMPLETED --> [*]
     FAILED --> [*]
 ```
 
-Processor and Criterion classes needed for ImportJob:
+Processor/Criterion responsibilities:
 - ImportJobProcessor
-  - Responsibility: Trigger creation of ImportTask(s) and persist HackerNewsItem(s) with originalJson from job.payload. Update status to IN_PROGRESS while working.
-  - Pseudocode:
-    - mark job.status = IN_PROGRESS; persist
-    - create ImportTask with jobTechnicalId referencing job, hnItemId if payload contains id, status = QUEUED
-    - persist HackerNewsItem with originalJson = job.payload, importTimestamp = now() (or let item processors set)
-    - enqueue ImportTask for processing
+  - Responsibility: Trigger creation of ImportTask(s), persist HackerNewsItem(s) (with `originalJson`) and update job `status` as it executes.
+  - Pseudocode (illustrative):
+    - job.status = IN_PROGRESS; persist
+    - hnItem = persist HackerNewsItem(originalJson = job.payload, createdAt = now())
+    - task = persist ImportTask(jobTechnicalId = job.technicalId, hnItemTechnicalId = hnItem.technicalId, hnItemId = parsedIdIfPresent, status = QUEUED)
+    - enqueue task for processing
+
 - ImportJobCompletionCriterion
-  - Responsibility: Determine whether all tasks for the job succeeded or if job failed.
+  - Responsibility: Determine whether all tasks for the job succeeded or if the job should be marked FAILED.
 
-ImportTask workflow:
-1. Initial State: QUEUED (task created by ImportJobProcessor)
-2. Processing (automatic): ImportTaskProcessor picks QUEUED tasks, sets status = PROCESSING, invokes logic to validate and finalize the HackerNewsItem
-3. Success/Failure:
-   - On success -> status = SUCCEEDED
-   - On failure -> increment attempts; if attempts < maxRetries -> re-queue (QUEUED); else -> status = FAILED
-4. Finalization (automatic): Update ImportJob counters and status summary
+### 4.3 ImportTask workflow (per item)
 
-mermaid state diagram for ImportTask
+1. Initial State: `QUEUED` (created by ImportJobProcessor).
+2. Processing: ImportTaskProcessor picks `QUEUED` tasks, sets `status = PROCESSING` and increments `attempts` as needed.
+3. Execution steps (strongly ordered): validation -> enrichment -> state assignment -> persist HackerNewsItem.
+4. Outcome handling:
+   - If HackerNewsItem.state == VALID -> set ImportTask.status = SUCCEEDED and persist.
+   - If HackerNewsItem.state == INVALID -> set ImportTask.status = FAILED (or FAILED after retry policy exhausted).
+   - On transient processing error (e.g., datastore timeout): increment `attempts`; if `attempts < maxRetries` then requeue (status = QUEUED); else mark FINALLY as FAILED.
+5. Update: ImportJob's counters and final status are updated by the job processor once tasks reach terminal states.
+
+Mermaid (conceptual) — ImportTask lifecycle:
+
 ```mermaid
 stateDiagram-v2
     [*] --> QUEUED
     QUEUED --> PROCESSING : ImportTaskProcessor
-    PROCESSING --> SUCCEEDED : if processing succeeded
-    PROCESSING --> FAILED : if processing failed and attempts >= maxRetries
-    PROCESSING --> QUEUED : if processing failed and attempts < maxRetries
+    PROCESSING --> SUCCEEDED : if item processed & state == VALID
+    PROCESSING --> QUEUED : if transient failure and attempts < maxRetries
+    PROCESSING --> FAILED : if non-recoverable failure or attempts >= maxRetries
     SUCCEEDED --> [*]
     FAILED --> [*]
 ```
 
-Processor and Criterion classes needed for ImportTask:
+Processor responsibilities:
 - ImportTaskProcessor
-  - Responsibility: Orchestrate processing of a single item: call validation criterion, enrichment processor, assign state, persist HackerNewsItem; handle retries.
-  - Pseudocode:
-    - set task.status = PROCESSING; persist
-    - retrieve HackerNewsItem by job reference or originalJson
-    - call HackerNewsItemValidationCriterion on HackerNewsItem
-    - call HackerNewsItemEnrichmentProcessor to set importTimestamp and extract id/type
-    - call HackerNewsItemStateAssignerProcessor to mark VALID/INVALID and set validationErrors
+  - Responsibility: Orchestrate processing of a single item: call validation criterion, enrichment processor, state assigner, persist HackerNewsItem; update task status and handle retries.
+  - Pseudocode (illustrative):
+    - set task.status = PROCESSING; task.attempts += 1; persist
+    - retrieve HackerNewsItem by hnItemTechnicalId (or by job reference)
+    - run HackerNewsItemValidationCriterion on HackerNewsItem
+    - run HackerNewsItemEnrichmentProcessor
+    - run HackerNewsItemStateAssignerProcessor
     - persist HackerNewsItem
     - if HackerNewsItem.state == VALID then task.status = SUCCEEDED else task.status = FAILED
     - persist task
-- RetryCriterion (optional)
-  - Responsibility: decide whether to retry based on attempts count and error type
+
+- Retry policy (recommended default)
+  - maxRetries: configurable integer (default 3)
+  - Retry decision: retry on transient errors (e.g., IO / datastore unavailable). Do NOT retry purely because the item is INVALID (invalid content is a terminal, business-level failure).
 
 ---
 
-### 3. API Endpoints (Rules applied)
-- POST endpoints: create orchestration entity ImportJob (triggers EDA workflows). POST returns only technicalId (datastore technical id).
-- GET endpoints: retrieval endpoints for ImportJob (by technicalId) and HackerNewsItem (by hn id).
-- GET by condition: GET HackerNewsItem by its id (explicit user requirement).
-- GET all: optional — not included unless requested.
+## 5. API Endpoints (behavioral rules)
 
-API endpoints summary:
+All request/response bodies are JSON. The API accepts the incoming Hacker News payload as a JSON object but persists it as a string in `payload` / `originalJson`.
+
 - POST /import-jobs
-  - Purpose: Create an ImportJob with a single Hacker News JSON payload. This triggers automated processing: ImportJobProcessor will create ImportTask and persist HackerNewsItem (CREATED) which will then be validated and enriched.
-  - Request JSON:
-    - { jobName: string, source: string (optional), payload: <Firebase-format HN JSON as object> }
-  - Response JSON:
-    - { technicalId: string }  // only the technicalId, nothing else
-
-- GET /import-jobs/{technicalId}
-  - Purpose: Retrieve job status and metrics.
-  - Response JSON:
-    - { technicalId: string, jobName: string, source: string, status: string, itemsCreatedCount: integer, createdAt: string (ISO instant), completedAt: string|null }
-
-- GET /hn-items/{id}
-  - Purpose: Retrieve a stored Hacker News item by its Hacker News id (the id field inside originalJson). Returns the original JSON together with its state and importTimestamp.
-  - Response JSON:
-    - {
-        originalJson: <original Firebase-format HN JSON as object>,
-        id: long|null,
-        type: string|null,
-        importTimestamp: string (ISO instant),
-        state: string (VALID|INVALID),
-        validationErrors: string|null,
-        createdAt: string (ISO instant)
-      }
-
-Request/Response format visualizations (Mermaid):
-
-POST /import-jobs request -> response
-```mermaid
-sequenceDiagram
-    participant Client
-    participant API as "POST /import-jobs"
-    participant Datastore
-    Client -> API : "POST { jobName, source, payload }"
-    API -> Datastore : persist ImportJob (status PENDING)
-    Datastore --> API : technicalId
-    API -> Client : "{ technicalId }"
-```
-
-GET /import-jobs/{technicalId} request -> response
-```mermaid
-sequenceDiagram
-    participant Client
-    participant API as "GET /import-jobs/{technicalId}"
-    participant Datastore
-    Client -> API : "GET"
-    API -> Datastore : fetch ImportJob by technicalId
-    Datastore --> API : ImportJob JSON
-    API -> Client : ImportJob JSON
-```
-
-GET /hn-items/{id} request -> response
-```mermaid
-sequenceDiagram
-    participant Client
-    participant API as "GET /hn-items/{id}"
-    participant Datastore
-    Client -> API : "GET"
-    API -> Datastore : query HackerNewsItem by id
-    Datastore --> API : HackerNewsItem JSON
-    API -> Client : HackerNewsItem JSON
-```
-
-Notes on payload shapes:
-- POST /import-jobs request example (JSON)
-  - {
+  - Purpose: Create an ImportJob for a single Hacker News JSON payload and trigger asynchronous processing.
+  - Request JSON (example):
+    {
       "jobName": "import-single-item",
       "source": "manual-api",
       "payload": { ... <Firebase-format HN JSON object> ... }
     }
-- POST /import-jobs response example
-  - { "technicalId": "job_0001" }
-- GET /hn-items/{id} response example
-  - {
-      "originalJson": { ... original firebase JSON ... },
+  - Behavior:
+    - Validate request payload shape (e.g., jobName non-empty, payload present). Do not validate business `id`/`type` here — that happens during item validation.
+    - Persist ImportJob with `payload` saved as a string (stringified JSON), `status = PENDING`, and `createdAt` set.
+    - Return HTTP 201 Created with body: { "technicalId": "<ImportJob.technicalId>" }
+    - Processing of the job runs asynchronously after the response returns.
+
+- GET /import-jobs/{technicalId}
+  - Purpose: Retrieve job status and metrics.
+  - Response JSON (example):
+    {
+      "technicalId": "job_0001",
+      "jobName": "import-single-item",
+      "source": "manual-api",
+      "status": "COMPLETED",
+      "itemsCreatedCount": 1,
+      "createdAt": "2025-08-15T12:34:56Z",
+      "completedAt": "2025-08-15T12:35:00Z"
+    }
+
+- GET /hn-items/{id}
+  - Purpose: Retrieve a stored Hacker News item by its Hacker News `id` (the numeric `id` field inside the original JSON).
+  - Notes:
+    - The path parameter `{id}` refers to the Hacker News item id (Long), not the datastore `technicalId`.
+    - The system must provide an index to query HackerNewsItem by `id`.
+  - Response JSON (example):
+    {
+      "originalJson": { ... original firebase JSON object ... },
       "id": 12345,
       "type": "story",
       "importTimestamp": "2025-08-15T12:34:56Z",
@@ -239,21 +244,48 @@ Notes on payload shapes:
       "createdAt": "2025-08-15T12:34:56Z"
     }
 
----
-
-### 4. Important Business Rules & Behavior (preserved exactly)
-- When saving an item, it must validate that the fields id and type are present.
-- Each item is enriched with an import timestamp, kept separate from the original JSON, and assigned a state: VALID if the required fields are present, or INVALID otherwise.
-- The service must also allow retrieval of an item by its id, returning the original JSON together with its state and import timestamp.
-- The original Firebase-format Hacker News JSON must be stored exactly as received (originalJson field).
-- POST endpoints return only entity technicalId.
+API rules summary
+- POST endpoints return only the entity technical id (ImportJob.technicalId) in responses.
+- GET /hn-items/{id} must return the original JSON parsed as an object in the response body even though it is stored as a string.
+- No bulk GET endpoints are required by default unless requested.
 
 ---
 
-### 5. Implementation notes (functional concerns only)
-- Persistence of HackerNewsItem should keep originalJson exactly as received; importTimestamp must be a separate field.
-- Validation is strictly the presence of id and type fields in the original JSON.
-- Upsert/versioning behavior not specified here — default processing will create or update the HackerNewsItem record associated with the job (behaviour can be clarified if needed).
-- Errors encountered during processing should be captured in ImportTask.errorMessage and HackerNewsItem.validationErrors when relevant.
+## 6. Important Business Rules & Behavior (restated & clarified)
 
-**Please review the generated entities and workflows. If you need any changes, please let me know. Feel free to click Approve if this requirement meets your expectations or if you are ready to proceed.**
+- Validation rule (authoritative): When saving an item, it must validate that the fields `id` and `type` are present in the original JSON. If missing, the item is recorded with `state = INVALID` and `validationErrors` describing the deficiency.
+- Enrichment rule: Each item is enriched with an `importTimestamp`, kept separate from the `originalJson` field.
+- Storage fidelity: The original Firebase-format Hacker News JSON must be stored exactly as received (stringified verbatim) in `originalJson` (HackerNewsItem) and `payload` (ImportJob).
+- Retrieval: The service must allow retrieval of an item by its HackerNews `id`, returning the original JSON together with its state and import timestamp.
+- Processing state vs. domain state: `state` on HackerNewsItem is the domain validity (VALID/INVALID). Processing state and lifecycle are tracked via ImportTask.status and ImportJob.status.
+- POST endpoints return only an entity technical id (e.g., ImportJob.technicalId).
+
+---
+
+## 7. Implementation notes and recommendations
+
+- Persist the raw JSON payloads (`payload` and `originalJson`) as verbatim strings so the exact incoming JSON is preserved. When returning via API parse that string back to JSON object.
+- Indexing: ensure there is an index on HackerNewsItem.id to serve GET /hn-items/{id} efficiently. id is the Hacker News id inside the payload, not the datastore technical id.
+- Concurrency: multiple ImportJobs could create or update the same HackerNewsItem (same Hacker News id). Define upsert semantics for your persistence layer (e.g., overwrite or merge). If deduplication behavior is required, add an explicit rule.
+- Retries: implement a configurable maxRetries (recommended default = 3) for transient processing errors. Do NOT retry items that are `INVALID` due to missing `id` or `type` — they are business-level invalid.
+- Observability: persist meaningful errorMessage values on ImportTask when a failure occurs and set validationErrors on HackerNewsItem for validation failures.
+- Idempotency: POST /import-jobs should be idempotent by client-supplied idempotency keys if desired; otherwise repeated posts create new jobs.
+
+---
+
+## 8. Changes & clarifications applied compared to the previous draft
+
+- Explicitly added `technicalId` fields for ImportJob, ImportTask and (optionally) HackerNewsItem to align with the requirement that POST endpoints return a technical id.
+- Clarified that API accepts JSON objects but stores payloads/originalJson as verbatim strings.
+- Clarified separation between HackerNewsItem.domain state (VALID/INVALID) and processing lifecycle (ImportTask / ImportJob statuses). The earlier workflow mixed these concepts; this document separates them explicitly.
+- Added explicit retry policy recommendation and default.
+- Explained that invalid content (missing id/type) is a terminal business failure and should not be retried.
+
+---
+
+If you want, I can also:
+- add example JSON request/response payloads for edge cases;
+- produce sequence diagrams showing asynchronous job / task handling including retries;
+- propose a persistence schema (DDL or entity classes) aligned to these requirements.
+
+Please confirm if these updated requirements reflect the desired logic. If you want any additional changes (for example: different field names, upsert vs create-only behavior, or stronger validation rules), tell me what to change and I will update the document accordingly.
