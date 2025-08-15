@@ -1,0 +1,81 @@
+{
+  "version": "1.0",
+  "name": "ShoppingCart Workflow",
+  "desc": "Workflow for cart updates and checkout readiness, ensuring carts with items can proceed to checkout",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "update_cart",
+          "next": "ready_for_checkout",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CartUpdateProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ready_for_checkout": {
+      "transitions": [
+        {
+          "name": "has_items",
+          "next": "checkout_processing",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "CartHasItemsCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "empty_cart",
+          "next": "empty",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "CartEmptyCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "checkout_processing": {
+      "transitions": [
+        {
+          "name": "checkout",
+          "next": "checked_out",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CartCheckoutProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "checked_out": {
+      "transitions": []
+    },
+    "empty": {
+      "transitions": []
+    }
+  }
+}
