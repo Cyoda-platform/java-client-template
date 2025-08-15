@@ -25,9 +25,8 @@ public class TimeoutCriterion implements CyodaCriterion {
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final CriterionSerializer serializer;
     private final String className = this.getClass().getSimpleName();
-
-    // default timeout in seconds for demo purposes
-    private final long timeoutSeconds = 300;
+    // default timeout 300 seconds
+    private final long timeoutSeconds = 300L;
 
     public TimeoutCriterion(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultCriteriaSerializer();
@@ -36,6 +35,8 @@ public class TimeoutCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
+        logger.info("Evaluating TimeoutCriterion for request: {}", request.getId());
+
         return serializer.withRequest(request)
             .evaluateEntity(IngestJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -49,20 +50,26 @@ public class TimeoutCriterion implements CyodaCriterion {
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<IngestJob> context) {
         IngestJob job = context.entity();
-        if (job == null || job.getCreatedAt() == null) {
-            return EvaluationOutcome.fail("IngestJob missing or not timestamped", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (job == null) {
+            return EvaluationOutcome.fail("IngestJob is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
+
+        if (job.getCreatedAt() == null) {
+            return EvaluationOutcome.fail("IngestJob createdAt missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+
         try {
             OffsetDateTime created = OffsetDateTime.parse(job.getCreatedAt());
             OffsetDateTime now = OffsetDateTime.now();
             Duration elapsed = Duration.between(created, now);
             if (elapsed.getSeconds() > timeoutSeconds) {
-                return EvaluationOutcome.success(); // indicate timeout condition met -> transition to FAILED
+                logger.info("IngestJob {} exceeded timeout: {} seconds", job.getTechnicalId(), elapsed.getSeconds());
+                return EvaluationOutcome.fail("Timeout exceeded", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
             }
-            return EvaluationOutcome.fail("Timeout not reached", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.success();
         } catch (Exception e) {
-            logger.error("Error evaluating timeout for IngestJob {}: {}", job.getTechnicalId(), e.getMessage(), e);
-            return EvaluationOutcome.fail("Timeout evaluation error", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+            logger.error("Error parsing createdAt for IngestJob {}: {}", job.getTechnicalId(), e.getMessage(), e);
+            return EvaluationOutcome.fail("Invalid createdAt format", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
     }
 }
