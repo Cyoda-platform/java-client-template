@@ -1,0 +1,58 @@
+{
+  "version": "1.0",
+  "name": "Product Workflow",
+  "desc": "Workflow for product import and activation based on imported attributes and stock",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "import_product",
+          "next": "imported",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ProductImportProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "imported": {
+      "transitions": [
+        {
+          "name": "activate_if_in_stock",
+          "next": "active",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.stockQuantity",
+            "operation": "GREATER_THAN",
+            "value": 0
+          }
+        },
+        {
+          "name": "deactivate_if_out_of_stock",
+          "next": "inactive",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.stockQuantity",
+            "operation": "EQUALS",
+            "value": 0
+          }
+        }
+      ]
+    },
+    "active": {
+      "transitions": []
+    },
+    "inactive": {
+      "transitions": []
+    }
+  }
+}
