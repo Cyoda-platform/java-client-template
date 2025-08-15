@@ -59,8 +59,6 @@ public class ValidateProductProcessor implements CyodaProcessor {
             product.setAvailableQuantity(0);
         }
 
-        product.setUpdatedAt(Instant.now().toString());
-
         logger.info("Product {} validated", product.getId());
 
         return product;
