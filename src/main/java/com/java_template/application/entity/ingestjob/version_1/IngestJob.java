@@ -13,9 +13,11 @@ public class IngestJob implements CyodaEntity {
     public static final Integer ENTITY_VERSION = 1;
     // Add your entity fields here
 
+    private String technicalId; // system-generated unique id for this stored record
     private String source; // origin of job e.g. manual, api
     private String payload; // optional bulk JSON payload
     private String createdAt; // ISO8601
+    private String updatedAt; // ISO8601 last update time
     private String status; // PENDING RUNNING COMPLETED FAILED
     private List<String> createdItemTechnicalIds; // technicalIds of created HNItem entities
 
