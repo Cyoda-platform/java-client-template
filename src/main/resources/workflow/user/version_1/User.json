@@ -1,0 +1,46 @@
+{
+  "version": "1.0",
+  "name": "User Workflow",
+  "desc": "Workflow for User verification and activation",
+  "initialState": "unverified",
+  "active": true,
+  "states": {
+    "unverified": {
+      "transitions": [
+        {
+          "name": "verify_user",
+          "next": "verified",
+          "manual": false,
+          "processors": [
+            {
+              "name": "VerificationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "verified": {
+      "transitions": [
+        {
+          "name": "activate_user",
+          "next": "active",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ActivateUserProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "active": {
+      "transitions": []
+    }
+  }
+}
