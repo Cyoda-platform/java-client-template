@@ -1,14 +1,14 @@
 {
   "version": "1.0",
   "name": "Job Workflow",
-  "desc": "Workflow for Job entity",
+  "desc": "Workflow for Job orchestration: scheduling, ingestion, downstream processing, notifications and completion",
   "initialState": "SCHEDULED",
   "active": true,
   "states": {
     "SCHEDULED": {
       "transitions": [
         {
-          "name": "SchedulerTrigger",
+          "name": "schedule_to_ingesting",
           "next": "INGESTING",
           "manual": false,
           "processors": [
@@ -25,7 +25,7 @@
     "INGESTING": {
       "transitions": [
         {
-          "name": "ingestion_success",
+          "name": "ingesting_to_succeeded",
           "next": "SUCCEEDED",
           "manual": false,
           "criterion": {
@@ -39,7 +39,7 @@
           }
         },
         {
-          "name": "ingestion_failure",
+          "name": "ingesting_to_failed",
           "next": "FAILED",
           "manual": false,
           "criterion": {
@@ -57,7 +57,7 @@
     "SUCCEEDED": {
       "transitions": [
         {
-          "name": "trigger_downstream",
+          "name": "succeeded_to_downstream",
           "next": "DOWNSTREAM_PROCESSING",
           "manual": false,
           "processors": [
@@ -71,10 +71,10 @@
         }
       ]
     },
-    "DOWNSTREAM_PROCESSING": {
+    "FAILED": {
       "transitions": [
         {
-          "name": "notify_subscribers",
+          "name": "failed_to_notify",
           "next": "NOTIFIED_SUBSCRIBERS",
           "manual": false,
           "processors": [
@@ -85,13 +85,18 @@
               }
             }
           ]
+        },
+        {
+          "name": "manual_retry",
+          "next": "SCHEDULED",
+          "manual": true
         }
       ]
     },
-    "FAILED": {
+    "DOWNSTREAM_PROCESSING": {
       "transitions": [
         {
-          "name": "notify_on_failure",
+          "name": "downstream_to_notified",
           "next": "NOTIFIED_SUBSCRIBERS",
           "manual": false,
           "processors": [
@@ -108,7 +113,7 @@
     "NOTIFIED_SUBSCRIBERS": {
       "transitions": [
         {
-          "name": "finalize",
+          "name": "notified_to_completed",
           "next": "COMPLETED",
           "manual": false,
           "processors": [
