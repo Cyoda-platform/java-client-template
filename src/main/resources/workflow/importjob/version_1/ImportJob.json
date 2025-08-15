@@ -1,0 +1,139 @@
+{
+  "version": "1.0",
+  "name": "ImportJob Workflow",
+  "desc": "Workflow for ImportJob orchestrating import tasks",
+  "initialState": "pending",
+  "active": true,
+  "states": {
+    "pending": {
+      "transitions": [
+        {
+          "name": "start_job",
+          "next": "in_progress",
+          "manual": false,
+          "processors": [
+            {
+              "name": "StartImportProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "in_progress": {
+      "transitions": [
+        {
+          "name": "create_tasks",
+          "next": "tasks_created",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CreateImportTaskProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "tasks_created": {
+      "transitions": [
+        {
+          "name": "monitor_tasks",
+          "next": "check_tasks",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "MonitorTasksCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "check_tasks": {
+      "transitions": [
+        {
+          "name": "to_completed",
+          "next": "completed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AllTasksSucceededCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "to_failed",
+          "next": "failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AnyTaskFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "completed": {
+      "transitions": [
+        {
+          "name": "notify",
+          "next": "notified",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotifyJobCompletionProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "notified": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": [
+        {
+          "name": "await_manual_retry",
+          "next": "await_manual_retry",
+          "manual": true
+        }
+      ]
+    },
+    "await_manual_retry": {
+      "transitions": [
+        {
+          "name": "retry",
+          "next": "in_progress",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RetryImportProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
