@@ -1,0 +1,92 @@
+{
+  "version": "1.0",
+  "name": "ImportJob Workflow",
+  "desc": "Orchestrates import file validation, processing, aggregation and notification",
+  "initialState": "Pending",
+  "active": true,
+  "states": {
+    "Pending": {
+      "transitions": [
+        {
+          "name": "to_validation",
+          "next": "Validation",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ImportJobValidationProcessor",
+              "executionMode": "SYNC",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        }
+      ]
+    },
+    "Validation": {
+      "transitions": [
+        {
+          "name": "to_processing",
+          "next": "Processing",
+          "manual": false
+        },
+        {
+          "name": "validation_failed",
+          "next": "Failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ImportValidationFailedCriterion",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          }
+        }
+      ]
+    },
+    "Processing": {
+      "transitions": [
+        {
+          "name": "to_aggregation",
+          "next": "Aggregation",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ImportProcessingProcessor",
+              "executionMode": "SYNC",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        }
+      ]
+    },
+    "Aggregation": {
+      "transitions": [
+        {
+          "name": "to_completed_if_success",
+          "next": "Completed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ImportAggregationSuccessCriterion",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          }
+        },
+        {
+          "name": "to_failed_if_errors",
+          "next": "Failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ImportAggregationFailureCriterion",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          }
+        }
+      ]
+    },
+    "Completed": { "transitions": [] },
+    "Failed": { "transitions": [] }
+  }
+}
