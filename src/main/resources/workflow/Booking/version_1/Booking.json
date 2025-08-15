@@ -1,0 +1,16 @@
+{
+  "name": "Booking",
+  "version": 1,
+  "states": ["PENDING","RESERVED","PAYMENT","TICKET_ISSUING","CONFIRMED","CANCELLED","REFUNDED"],
+  "transitions": [
+    {"from":"PENDING","to":"AVAILABILITY_CHECK","action":"AvailabilityCriterion"},
+    {"from":"AVAILABILITY_CHECK","to":"RESERVED","action":"ReserveSeatsProcessor"},
+    {"from":"AVAILABILITY_CHECK","to":"CANCELLED","action":"AvailabilityFailedHandler"},
+    {"from":"RESERVED","to":"PAYMENT","action":"PaymentProcessor"},
+    {"from":"PAYMENT","to":"TICKET_ISSUING","action":"PaymentSuccessHandler"},
+    {"from":"PAYMENT","to":"CANCELLED","action":"PaymentFailureHandler"},
+    {"from":"TICKET_ISSUING","to":"CONFIRMED","action":"IssueTicketsProcessor"},
+    {"from":"CANCELLED","to":"REFUND_PROCESS","action":"RefundProcessor"},
+    {"from":"REFUND_PROCESS","to":"REFUNDED","action":"RefundCompletedHandler"}
+  ]
+}
