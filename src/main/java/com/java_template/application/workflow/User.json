@@ -1,0 +1,112 @@
+{
+  "version": "1.0",
+  "name": "User Workflow",
+  "desc": "Validate, deduplicate, enrich and activate imported or created users",
+  "initialState": "Created",
+  "active": true,
+  "states": {
+    "Created": {
+      "transitions": [
+        {
+          "name": "to_validation",
+          "next": "Validation",
+          "manual": false
+        }
+      ]
+    },
+    "Validation": {
+      "transitions": [
+        {
+          "name": "to_deduplication",
+          "next": "Deduplication",
+          "manual": false,
+          "processors": [
+            {
+              "name": "UserValidationProcessor",
+              "executionMode": "SYNC",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        },
+        {
+          "name": "validation_failed",
+          "next": "Failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": { "name": "UserValidationFailedCriterion", "config": { "calculationNodesTags": "cyoda_application" } }
+          }
+        }
+      ]
+    },
+    "Deduplication": {
+      "transitions": [
+        {
+          "name": "duplicate_merge",
+          "next": "Enrichment",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": { "name": "UserIsDuplicateCriterion", "config": { "calculationNodesTags": "cyoda_application" } }
+          }
+        },
+        {
+          "name": "not_duplicate",
+          "next": "Enrichment",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": { "name": "UserNotDuplicateCriterion", "config": { "calculationNodesTags": "cyoda_application" } }
+          }
+        },
+        {
+          "name": "deduplication_error",
+          "next": "Failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": { "name": "UserDeduplicationErrorCriterion", "config": { "calculationNodesTags": "cyoda_application" } }
+          }
+        }
+      ]
+    },
+    "Enrichment": {
+      "transitions": [
+        {
+          "name": "to_activation",
+          "next": "Activation",
+          "manual": false,
+          "processors": [
+            { "name": "UserEnrichmentProcessor", "executionMode": "SYNC", "config": { "calculationNodesTags": "cyoda_application" } }
+          ]
+        }
+      ]
+    },
+    "Activation": {
+      "transitions": [
+        {
+          "name": "to_postprocessing",
+          "next": "Post-processing",
+          "manual": false,
+          "processors": [
+            { "name": "UserActivationProcessor", "executionMode": "SYNC", "config": { "calculationNodesTags": "cyoda_application" } }
+          ]
+        }
+      ]
+    },
+    "Post-processing": {
+      "transitions": [
+        {
+          "name": "to_completed",
+          "next": "Completed",
+          "manual": false,
+          "processors": [
+            { "name": "UserPostProcessingNotifier", "executionMode": "SYNC", "config": { "calculationNodesTags": "cyoda_application" } }
+          ]
+        }
+      ]
+    },
+    "Completed": { "transitions": [] },
+    "Failed": { "transitions": [] }
+  }
+}
