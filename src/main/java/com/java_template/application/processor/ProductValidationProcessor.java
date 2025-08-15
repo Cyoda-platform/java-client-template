@@ -18,6 +18,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.UUID;
 
 import static com.java_template.common.config.Config.*;
 
@@ -77,44 +78,71 @@ public class ProductValidationProcessor implements CyodaProcessor {
         }
 
         try {
-            // Load existing persisted product if technicalId provided in context attributes
+            // Load existing persisted product technicalId if provided in context attributes
             String technicalId = context.attributes() != null ? (String) context.attributes().get("technicalId") : null;
             boolean isUpdate = technicalId != null && !technicalId.isBlank();
 
             if (!errors.isEmpty()) {
                 product.setStatus("ERROR");
-                // attach errors array into product persistence object using ObjectNode when persisting
-                ObjectNode node = com.java_template.common.util.Json.mapper().createObjectNode();
-                node.putArray("errors");
+                // Build ObjectNode payload with errors and status to persist without creating duplicate records
+                ObjectNode node = com.java_template.common.util.Json.mapper().convertValue(product, ObjectNode.class);
+                // ensure errors array present
+                if (!node.has("errors")) node.putArray("errors");
                 for (String e : errors) node.withArray("errors").add(e);
-                // persist the product back with errors and status
-                CompletableFuture<java.util.UUID> fut = entityService.addItem(
-                    Product.ENTITY_NAME,
-                    String.valueOf(Product.ENTITY_VERSION),
-                    product
-                );
-                fut.whenComplete((id, ex) -> {
-                    if (ex != null) logger.error("Failed to persist product with errors", ex);
-                });
+                node.put("status", "ERROR");
+
+                if (isUpdate) {
+                    try {
+                        entityService.updateItem(
+                            Product.ENTITY_NAME,
+                            String.valueOf(Product.ENTITY_VERSION),
+                            UUID.fromString(technicalId),
+                            node
+                        ).whenComplete((id, ex) -> {
+                            if (ex != null) logger.error("Failed to persist product with errors (update)", ex);
+                        });
+                    } catch (Exception ex) {
+                        logger.error("Failed to schedule update for product errors", ex);
+                    }
+                } else {
+                    CompletableFuture<java.util.UUID> fut = entityService.addItem(
+                        Product.ENTITY_NAME,
+                        String.valueOf(Product.ENTITY_VERSION),
+                        node
+                    );
+                    fut.whenComplete((id, ex) -> {
+                        if (ex != null) logger.error("Failed to persist product with errors (add)", ex);
+                    });
+                }
             } else {
                 product.setStatus("ACTIVE");
                 String now = Instant.now().toString();
                 if (product.getCreatedAt() == null || product.getCreatedAt().isBlank()) product.setCreatedAt(now);
                 product.setUpdatedAt(now);
                 // clear errors if any - not modeled on entity directly so just persist
-                CompletableFuture<java.util.UUID> fut = isUpdate ? entityService.updateItem(
-                    Product.ENTITY_NAME,
-                    String.valueOf(Product.ENTITY_VERSION),
-                    java.util.UUID.fromString(technicalId),
-                    product
-                ) : entityService.addItem(
-                    Product.ENTITY_NAME,
-                    String.valueOf(Product.ENTITY_VERSION),
-                    product
-                );
-                fut.whenComplete((id, ex) -> {
-                    if (ex != null) logger.error("Failed to persist product after validation", ex);
-                });
+                if (isUpdate) {
+                    try {
+                        entityService.updateItem(
+                            Product.ENTITY_NAME,
+                            String.valueOf(Product.ENTITY_VERSION),
+                            UUID.fromString(technicalId),
+                            product
+                        ).whenComplete((id, ex) -> {
+                            if (ex != null) logger.error("Failed to persist product after validation (update)", ex);
+                        });
+                    } catch (Exception ex) {
+                        logger.error("Failed to schedule product update", ex);
+                    }
+                } else {
+                    CompletableFuture<java.util.UUID> fut = entityService.addItem(
+                        Product.ENTITY_NAME,
+                        String.valueOf(Product.ENTITY_VERSION),
+                        product
+                    );
+                    fut.whenComplete((id, ex) -> {
+                        if (ex != null) logger.error("Failed to persist product after validation (add)", ex);
+                    });
+                }
             }
         } catch (Exception ex) {
             logger.error("Error processing product validation", ex);
