@@ -1,0 +1,172 @@
+{
+  "version": "1.0",
+  "name": "Owner Workflow",
+  "desc": "Workflow for Owner entity processing",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "validate_owner",
+          "next": "VALIDATION",
+          "manual": false,
+          "processors": [
+            {
+              "name": "OwnerValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATION": {
+      "transitions": [
+        {
+          "name": "validation_failed",
+          "next": "VALIDATION_FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "OwnerValidationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_passed",
+          "next": "DUPLICATE_CHECK",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.validationPassed",
+            "operation": "EQUALS",
+            "value": true
+          }
+        }
+      ]
+    },
+    "DUPLICATE_CHECK": {
+      "transitions": [
+        {
+          "name": "duplicate_found",
+          "next": "DUPLICATE_FOUND",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DuplicateOwnerCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "no_duplicate",
+          "next": "PERSISTING",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.duplicateFound",
+            "operation": "EQUALS",
+            "value": false
+          }
+        }
+      ]
+    },
+    "DUPLICATE_FOUND": {
+      "transitions": [
+        {
+          "name": "manual_merge",
+          "next": "MERGE_DECISION",
+          "manual": true
+        }
+      ]
+    },
+    "MERGE_DECISION": {
+      "transitions": [
+        {
+          "name": "merge_and_persist",
+          "next": "PERSISTING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "OwnerMergeProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PERSISTING": {
+      "transitions": [
+        {
+          "name": "persist_success",
+          "next": "ACTIVE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "OwnerPersistenceProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "persist_failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.persisted",
+            "operation": "EQUALS",
+            "value": false
+          }
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "deactivate_owner",
+          "next": "DEACTIVATED",
+          "manual": true
+        },
+        {
+          "name": "notify_owner",
+          "next": "NOTIFIED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotifyOwnerProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "DEACTIVATED": {
+      "transitions": []
+    },
+    "NOTIFIED": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    },
+    "VALIDATION_FAILED": {
+      "transitions": []
+    }
+  }
+}
