@@ -1,0 +1,53 @@
+{
+  "workflowName": "ImportJob",
+  "version": 1,
+  "initialState": "created",
+  "states": [
+    {
+      "name": "created",
+      "transitions": [
+        { "to": "validating", "trigger": "StartImportValidationProcessor", "type": "automatic" }
+      ]
+    },
+    {
+      "name": "validating",
+      "transitions": [
+        { "to": "processing", "trigger": "ValidationPassedCriterion", "type": "automatic" },
+        { "to": "failed", "trigger": "ValidationFailedCriterion", "type": "automatic" }
+      ]
+    },
+    {
+      "name": "processing",
+      "transitions": [
+        { "to": "processing", "trigger": "ProcessRowProcessor", "type": "automatic" },
+        { "to": "completed", "trigger": "AllRowsProcessedCriterion", "type": "automatic" }
+      ]
+    },
+    {
+      "name": "completed",
+      "transitions": [
+        { "to": "notifying_admin", "trigger": "ImportSummaryNotifier", "type": "automatic" }
+      ]
+    },
+    {
+      "name": "failed",
+      "transitions": [
+        { "to": "notifying_admin", "trigger": "ImportSummaryNotifier", "type": "automatic" }
+      ]
+    },
+    {
+      "name": "notifying_admin",
+      "transitions": []
+    }
+  ],
+  "processors": [
+    "StartImportValidationProcessor",
+    "ProcessRowProcessor",
+    "ImportSummaryNotifier"
+  ],
+  "criteria": [
+    "ValidationPassedCriterion",
+    "ValidationFailedCriterion",
+    "AllRowsProcessedCriterion"
+  ]
+}
