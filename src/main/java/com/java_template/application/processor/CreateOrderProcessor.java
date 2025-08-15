@@ -59,6 +59,8 @@ public class CreateOrderProcessor implements CyodaProcessor {
         ShoppingCart cart = context.entity();
         try {
             Order order = new Order();
+            // Business-friendly order id
+            order.setId("ORD-" + Instant.now().toEpochMilli());
             order.setCustomerId(cart.getCustomerId());
             order.setStatus("PENDING");
             order.setCreatedAt(Instant.now().toString());
@@ -66,13 +68,15 @@ public class CreateOrderProcessor implements CyodaProcessor {
 
             List<Order.OrderItem> items = new ArrayList<>();
             BigDecimal subtotal = BigDecimal.ZERO;
-            for (ShoppingCart.CartItem it : cart.getItems()) {
-                Order.OrderItem oi = new Order.OrderItem();
-                oi.setProductId(it.getProductId());
-                oi.setQuantity(it.getQuantity());
-                oi.setUnitPrice(it.getPriceAtAdd());
-                items.add(oi);
-                subtotal = subtotal.add(it.getPriceAtAdd().multiply(new BigDecimal(it.getQuantity())));
+            if (cart.getItems() != null) {
+                for (ShoppingCart.CartItem it : cart.getItems()) {
+                    Order.OrderItem oi = new Order.OrderItem();
+                    oi.setProductId(it.getProductId());
+                    oi.setQuantity(it.getQuantity());
+                    oi.setUnitPrice(it.getPriceAtAdd());
+                    items.add(oi);
+                    subtotal = subtotal.add(it.getPriceAtAdd().multiply(new BigDecimal(it.getQuantity())));
+                }
             }
             order.setItems(items);
             order.setSubtotal(subtotal);
@@ -95,7 +99,7 @@ public class CreateOrderProcessor implements CyodaProcessor {
                     logger.error("Failed to persist order", ex);
                 } else {
                     logger.info("Order created with technicalId {}", id);
-                    // update cart status to CHECKED_OUT? The payment flow will adjust further; for now set to CHECKOUT_IN_PROGRESS
+                    // update cart status to CHECKOUT_IN_PROGRESS; payment flow will adjust further
                     try {
                         if (context.attributes() != null && context.attributes().get("technicalId") != null) {
                             String tid = (String) context.attributes().get("technicalId");
