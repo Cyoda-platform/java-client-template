@@ -1,0 +1,121 @@
+{
+  "version": "1.0",
+  "name": "Product Workflow",
+  "desc": "Workflow for Product entity: validate on create/update, activate, and notify on low stock",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": [
+        {
+          "name": "to_validating",
+          "next": "validating",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ProductValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "validating": {
+      "transitions": [
+        {
+          "name": "valid_to_active",
+          "next": "active",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ProductValidationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "invalid_to_error",
+          "next": "error",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ProductInvalidCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "to_updating",
+          "next": "updating",
+          "manual": true
+        },
+        {
+          "name": "low_stock_check",
+          "next": "notify_admin",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "StockLevelCheckCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "updating": {
+      "transitions": [
+        {
+          "name": "updating_to_validating",
+          "next": "validating",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ProductValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "notify_admin": {
+      "transitions": [
+        {
+          "name": "notify_and_finish",
+          "next": "notified",
+          "manual": false,
+          "processors": [
+            {
+              "name": "LowStockNotifierProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "notified": {
+      "transitions": []
+    },
+    "error": {
+      "transitions": []
+    }
+  }
+}
