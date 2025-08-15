@@ -1,9 +1,13 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.job.version_1.Job;
 import com.java_template.application.entity.laureate.version_1.Laureate;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.service.EntityService;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -14,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 @Component
 public class PersistLaureateProcessor implements CyodaProcessor {
@@ -21,9 +26,13 @@ public class PersistLaureateProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(PersistLaureateProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final ObjectMapper objectMapper;
+    private final EntityService entityService;
 
-    public PersistLaureateProcessor(SerializerFactory serializerFactory) {
+    public PersistLaureateProcessor(SerializerFactory serializerFactory, EntityService entityService, ObjectMapper objectMapper) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -49,44 +58,90 @@ public class PersistLaureateProcessor implements CyodaProcessor {
 
     private Job processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Job> context) {
         Job job = context.entity();
-        Object toPersistObj = job.getResultSummary() != null ? job.getResultSummary().get("toPersist") : null;
-        if (!(toPersistObj instanceof List)) {
-            logger.info("Job {} nothing to persist", job.getTechnicalId());
-            job.setStatus("COMPLETED");
-            return job;
-        }
-
-        List<?> toPersist = (List<?>) toPersistObj;
-
-        // Simulated in-memory persistence store mapped by naturalKey
-        Map<String, Laureate> persistedStore = new HashMap<>();
         int created = 0;
         int updated = 0;
-        for (Object o : toPersist) {
-            if (!(o instanceof Laureate)) continue;
-            Laureate p = (Laureate) o;
-            String naturalKey = (p.getFullName() + "|" + p.getYear() + "|" + p.getCategory()).toLowerCase();
-            Laureate existing = persistedStore.get(naturalKey);
-            if (existing == null) {
-                // insert
-                persistedStore.put(naturalKey, p);
-                created++;
-                logger.info("Inserted laureate naturalKey={}", naturalKey);
-            } else {
-                // optimistic lock simulation: compare versions
-                if (p.getVersion() > existing.getVersion()) {
-                    persistedStore.put(naturalKey, p);
-                    updated++;
-                    logger.info("Updated laureate naturalKey={} to version={}", naturalKey, p.getVersion());
-                } else {
-                    logger.info("Skipped persist for laureate naturalKey={} due to same or older version", naturalKey);
+
+        try {
+            if (job.getResultSummary() == null) {
+                logger.info("Job {} nothing to persist", job.getTechnicalId());
+                job.setStatus("COMPLETED");
+                return job;
+            }
+            JsonNode rs = objectMapper.readTree(job.getResultSummary());
+            JsonNode toPersist = rs.get("toPersist");
+            if (toPersist != null && toPersist.isArray()) {
+                // Use entityService.getItems to simulate checking existing laureates
+                CompletableFuture<java.util.ArrayList<com.fasterxml.jackson.databind.JsonNode>> fut = entityService.getItems(Laureate.ENTITY_NAME, String.valueOf(Laureate.ENTITY_VERSION));
+                java.util.ArrayList<JsonNode> existingList = fut.get();
+                Map<String, JsonNode> existingByNatural = new HashMap<>();
+                if (existingList != null) {
+                    for (JsonNode n : existingList) {
+                        String key = computeNaturalKeyFromJson(n);
+                        if (key != null) existingByNatural.put(key, n);
+                    }
+                }
+
+                for (JsonNode p : toPersist) {
+                    Laureate l = objectMapper.treeToValue(p, Laureate.class);
+                    String key = computeNaturalKey(l);
+                    JsonNode existing = existingByNatural.get(key);
+                    if (existing == null) {
+                        // create via entityService.addItem
+                        CompletableFuture<java.util.UUID> idf = entityService.addItem(Laureate.ENTITY_NAME, String.valueOf(Laureate.ENTITY_VERSION), objectMapper.convertValue(l, ObjectNode.class));
+                        idf.get();
+                        created++;
+                        logger.info("Persisted new laureate naturalKey={}", key);
+                    } else {
+                        int existingVersion = existing.has("version") ? existing.get("version").asInt(0) : 0;
+                        if (l.getVersion() != null && l.getVersion() > existingVersion) {
+                            // update other entity via entityService.updateItem if necessary
+                            // NOTE: PersistLaureate should not update Job entity but may update Laureate entity using entityService
+                            // find technicalId in existing and perform update
+                            String techId = existing.has("laureateId") ? existing.get("laureateId").asText() : null;
+                            if (techId != null) {
+                                CompletableFuture<java.util.UUID> upd = entityService.updateItem(Laureate.ENTITY_NAME, String.valueOf(Laureate.ENTITY_VERSION), java.util.UUID.fromString(techId), objectMapper.convertValue(l, ObjectNode.class));
+                                upd.get();
+                                updated++;
+                                logger.info("Updated laureate naturalKey={} to version={}", key, l.getVersion());
+                            }
+                        } else {
+                            logger.info("Skipped persist for {} due to version check", key);
+                        }
+                    }
                 }
             }
+        } catch (Exception e) {
+            logger.warn("Persist step failed for job {}: {}", job.getTechnicalId(), e.getMessage());
         }
 
-        job.setResultSummary(Map.of("created", created, "updated", updated));
+        ObjectNode out = objectMapper.createObjectNode();
+        out.put("created", created);
+        out.put("updated", updated);
+        try {
+            job.setResultSummary(objectMapper.writeValueAsString(out));
+        } catch (Exception e) {
+            job.setResultSummary("{}");
+        }
         job.setStatus("COMPLETED");
         logger.info("Job {} persist complete created={}, updated={}", job.getTechnicalId(), created, updated);
         return job;
+    }
+
+    private String computeNaturalKey(Laureate l) {
+        if (l == null) return null;
+        return (l.getFullName() + "|" + l.getYear() + "|" + l.getCategory()).toLowerCase();
+    }
+
+    private String computeNaturalKeyFromJson(JsonNode n) {
+        if (n == null) return null;
+        try {
+            String full = n.has("fullName") ? n.get("fullName").asText() : null;
+            int year = n.has("year") ? n.get("year").asInt() : 0;
+            String cat = n.has("category") ? n.get("category").asText() : null;
+            if (full == null || cat == null) return null;
+            return (full + "|" + year + "|" + cat).toLowerCase();
+        } catch (Exception e) {
+            return null;
+        }
     }
 }
