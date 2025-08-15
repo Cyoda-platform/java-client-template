@@ -1,0 +1,98 @@
+{
+  "version": "1.0",
+  "name": "User Workflow",
+  "desc": "Workflow for user lifecycle: validation, activation and administrative actions",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "start_validation",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "UserValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "activate_if_valid",
+          "next": "ACTIVE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "UniqueEmailCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "mark_inactive",
+          "next": "INACTIVE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "InvalidUserCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "suspend_user",
+          "next": "SUSPENDED",
+          "manual": true
+        },
+        {
+          "name": "archive_user",
+          "next": "ARCHIVED",
+          "manual": true
+        }
+      ]
+    },
+    "INACTIVE": {
+      "transitions": [
+        {
+          "name": "reactivate_user",
+          "next": "ACTIVE",
+          "manual": true
+        },
+        {
+          "name": "archive_user_from_inactive",
+          "next": "ARCHIVED",
+          "manual": true
+        }
+      ]
+    },
+    "SUSPENDED": {
+      "transitions": [
+        {
+          "name": "reactivate_from_suspended",
+          "next": "ACTIVE",
+          "manual": true
+        }
+      ]
+    },
+    "ARCHIVED": {
+      "transitions": []
+    }
+  }
+}
