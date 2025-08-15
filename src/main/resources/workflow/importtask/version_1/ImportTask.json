@@ -1,0 +1,78 @@
+{
+  "version": "1.0",
+  "name": "ImportTask Workflow",
+  "desc": "Workflow for ImportTask: queue, process, retry and finalize",
+  "initialState": "QUEUED",
+  "active": true,
+  "states": {
+    "QUEUED": {
+      "transitions": [
+        {
+          "name": "start_processing",
+          "next": "PROCESSING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ImportTaskProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PROCESSING": {
+      "transitions": [
+        {
+          "name": "succeed",
+          "next": "SUCCEEDED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ImportTaskSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "retry",
+          "next": "QUEUED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ImportTaskRetryCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "fail",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ImportTaskFailCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "SUCCEEDED": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    }
+  }
+}
