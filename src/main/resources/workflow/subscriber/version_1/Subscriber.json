@@ -1,0 +1,126 @@
+{
+  "version": "1.0",
+  "name": "Subscriber Workflow",
+  "desc": "Workflow for Subscriber lifecycle (validation, activation, backfill)",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "validate_subscriber",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SubscriberValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "validation_success",
+          "next": "ACTIVE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidationSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_failure",
+          "next": "INVALID",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidationFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "request_backfill",
+          "next": "BACKFILLING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "BackfillRequestedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "update_requested",
+          "next": "UPDATED",
+          "manual": true
+        },
+        {
+          "name": "deactivate_requested",
+          "next": "DEACTIVATED",
+          "manual": true
+        }
+      ]
+    },
+    "BACKFILLING": {
+      "transitions": [
+        {
+          "name": "start_backfill",
+          "next": "ACTIVE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "BackfillProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "UPDATED": {
+      "transitions": [
+        {
+          "name": "apply_update",
+          "next": "ACTIVE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "UpdateApplyProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "DEACTIVATED": {
+      "transitions": []
+    },
+    "INVALID": {
+      "transitions": []
+    }
+  }
+}
