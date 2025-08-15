@@ -1,0 +1,15 @@
+{
+  "workflowName": "Product",
+  "version": 1,
+  "initialState": "pending_validation",
+  "states": [
+    { "name": "pending_validation", "transitions": [ { "to": "validating", "trigger": "StartProductValidationProcessor", "type": "automatic" } ] },
+    { "name": "validating", "transitions": [ { "to": "active", "trigger": "CreateOrUpdateProductProcessor", "type": "automatic" }, { "to": "rejected", "trigger": "ValidationFailedCriterion", "type": "automatic" } ] },
+    { "name": "active", "transitions": [ { "to": "low_stock_alert", "trigger": "InventoryCheckProcessor", "type": "automatic" }, { "to": "discontinued", "trigger": "AdminDiscontinueAction", "type": "manual" } ] },
+    { "name": "low_stock_alert", "transitions": [ { "to": "active", "trigger": "AdminReplenishAction", "type": "manual" } ] },
+    { "name": "rejected", "transitions": [] },
+    { "name": "discontinued", "transitions": [] }
+  ],
+  "processors": [ "StartProductValidationProcessor", "CreateOrUpdateProductProcessor", "InventoryCheckProcessor" ],
+  "criteria": [ "ValidationFailedCriterion" ]
+}
