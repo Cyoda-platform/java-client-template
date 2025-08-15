@@ -1,0 +1,137 @@
+{
+  "version": "1.0",
+  "name": "Laureate Workflow",
+  "desc": "Workflow for validation and enrichment of Laureate records",
+  "initialState": "PERSISTED",
+  "active": true,
+  "states": {
+    "PERSISTED": {
+      "transitions": [
+        {
+          "name": "start_validation",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "validation_failed",
+          "next": "VALIDATION_FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidationFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_passed",
+          "next": "ENRICHING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidationPassedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "VALIDATION_FAILED": {
+      "transitions": [
+        {
+          "name": "await_manual_review",
+          "next": "AWAIT_MANUAL_REVIEW",
+          "manual": true
+        }
+      ]
+    },
+    "ENRICHING": {
+      "transitions": [
+        {
+          "name": "run_enrichment",
+          "next": "ENRICHMENT_CHECK",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EnrichmentProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ENRICHMENT_CHECK": {
+      "transitions": [
+        {
+          "name": "enrichment_succeeded",
+          "next": "COMPLETED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "EnrichmentSucceededCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "enrichment_failed",
+          "next": "ENRICHMENT_FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "EnrichmentFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ENRICHMENT_FAILED": {
+      "transitions": [
+        {
+          "name": "await_manual_review",
+          "next": "AWAIT_MANUAL_REVIEW",
+          "manual": true
+        }
+      ]
+    },
+    "AWAIT_MANUAL_REVIEW": {
+      "transitions": [
+        {
+          "name": "manual_fix_applied",
+          "next": "COMPLETED",
+          "manual": true
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": []
+    }
+  }
+}
