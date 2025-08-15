@@ -1,51 +1,65 @@
 # Functional Requirements (Final)
 
-- Build an app that sends happy mails with one entity 'mail'.
-  - It has 2 fields: 'isHappy' and 'mailList'
-  - It has 2 processors: 'sendHapppyMail' and 'sendGloomyMail'
-  - along with 2 criteria to define if the mail is happy or gloomy
+## Purpose
 
-- Programming language / tool specified by the user (as provided):
-  - use java
-  - java
+This document defines the functional requirements and up-to-date logic for the Mail workflow application. The system persists Mail entities and, using event-driven workflow logic, evaluates and routes mails to appropriate processors that perform sending. This document is authoritative for implementation.
 
 ---
 
-### 1. Entity Definitions
+## Summary
 
-Mail:
-- isHappy: Boolean (indicates whether this mail should be treated as happy or not; used by criteria to route processing)
-- mailList: List<String> (list of recipient email addresses)
-
-Programming language / tool specified by the user (as provided):
-- use java
-- java
+- Single domain entity: Mail
+  - Fields: `isHappy` (Boolean), `mailList` (List<String>)
+- Two criteria classes to decide routing: `IsHappyCriterion`, `IsGloomyCriterion`
+- Two processor classes to send mail: `sendHapppyMail` (note: exact name preserved) and `sendGloomyMail`
+- Language / platform: Java
 
 ---
 
-### 2. Entity workflows
+## 1. Entity Definitions
 
-Mail workflow:
-1. Initial State: Mail entity is created / persisted in datastore (CREATED)
-   - Persistence of the entity is an EVENT that triggers the Mail workflow automatically.
-2. Evaluation: Run criteria to determine whether the mail is happy or gloomy (EVALUATION)
-   - isHappyCriterion evaluates mail.isHappy and/or other mail content to decide.
-   - isGloomyCriterion evaluates the opposite condition.
-   - These are automatic system-triggered transitions.
-3. Selected Branch:
-   - HAPPY branch: If isHappyCriterion passes → schedule sending via sendHapppyMail processor (SENDING_HAPPY)
-   - GLOOMY branch: If isGloomyCriterion passes → schedule sending via sendGloomyMail processor (SENDING_GLOOMY)
-4. Sending: Processor executes sending logic; on success move to SENT, on failure move to FAILED.
-5. Completion: SENT or FAILED ends the workflow for this entity.
+Mail (persistent representation)
+- technicalId: String (datastore generated, returned by POST)
+- isHappy: Boolean
+  - Interpretation: `true` → happy mail processing; `false` or `null` → gloomy mail processing (explicit rule below)
+- mailList: List<String> (recipient email addresses)
+- status: Enum [CREATED, EVALUATION, SENDING_HAPPY, SENDING_GLOOMY, SENT, FAILED]
+- createdAt: ISO8601 timestamp
+- updatedAt: ISO8601 timestamp
+- error: String|null (error details when status == FAILED)
+- retryCount: Integer (for send retries)
 
-Entity state diagrams
+Validation rules on persistence (POST):
+- `mailList` must be present and contain at least one non-empty string. If invalid, service should return 400 and not persist.
+- Email address format validation is recommended; invalid addresses should either be rejected at creation or recorded and filtered before sending. Implementation choice must be documented.
+
+Null handling for `isHappy`:
+- `isHappy == true` → IsHappyCriterion evaluates true.
+- `isHappy == false` or `isHappy == null` → IsGloomyCriterion evaluates true. This makes gloomy the default when the flag is not explicitly true.
+
+---
+
+## 2. Workflow / State Machine
+
+High-level flow:
+1. CREATED — The Mail is persisted in the datastore.
+   - Persistence is an event that triggers the workflow automatically.
+2. EVALUATION — System evaluates criteria to choose a branch.
+   - `IsHappyCriterion` and `IsGloomyCriterion` are evaluated (mutually exclusive by the rules above).
+3. Branching:
+   - HAPPY → `SENDING_HAPPY` state: schedule or call `sendHapppyMail.process(mail)`
+   - GLOOMY → `SENDING_GLOOMY` state: schedule or call `sendGloomyMail.process(mail)`
+4. SENDING → on processor success set `SENT`; on final failure set `FAILED` (with error details).
+5. SENT / FAILED → terminal states for the workflow.
+
+State diagram (Mermaid syntax):
 
 ```mermaid
 stateDiagram-v2
     [*] --> CREATED
     CREATED --> EVALUATION : "OnPersist start workflow"
-    EVALUATION --> HAPPY : "isHappyCriterion true"
-    EVALUATION --> GLOOMY : "isGloomyCriterion true"
+    EVALUATION --> HAPPY : "IsHappyCriterion true"
+    EVALUATION --> GLOOMY : "IsGloomyCriterion true"
     HAPPY --> SENDING_HAPPY : "sendHapppyMail processor automatic"
     GLOOMY --> SENDING_GLOOMY : "sendGloomyMail processor automatic"
     SENDING_HAPPY --> SENT : "on success"
@@ -56,175 +70,137 @@ stateDiagram-v2
     FAILED --> [*]
 ```
 
-Criterion and processor classes needed (names and purpose):
-- Criteria
-  - IsHappyCriterion (Java class): evaluates Mail entity and returns true when mail should be treated as happy (e.g., mail.isHappy == true)
-  - IsGloomyCriterion (Java class): evaluates Mail entity and returns true when mail should be treated as gloomy (e.g., mail.isHappy == false)
-- Processors
-  - sendHapppyMail (Java class) — processor that sends happy mail (NOTE: preserve exact provided name sendHapppyMail)
-  - sendGloomyMail (Java class) — processor that sends gloomy mail
-
-Behavioral notes (business logic):
-- Entity persistence of Mail triggers the process method / workflow automatically (Event-Driven Architecture). The system must call criteria and processors as part of workflow transitions.
-- The process method does the heavy lifting once entity is persisted: evaluate criteria, invoke appropriate processor, handle success/failure, and persist resulting status.
+Notes on evaluation:
+- Criteria evaluation should be atomic and idempotent for a given Mail state.
+- Exactly one branch must be selected per the null-handling rule above.
 
 ---
 
-### 3. Pseudo code for processor classes
+## 3. Criteria Classes (Java)
 
-Note: Use Java. Preserve class and processor names exactly as specified.
+Behavior and signatures (preserve class names exactly):
 
-Pseudo-code: Criteria classes
+- IsHappyCriterion
+  - Purpose: return `true` when mail should be processed as happy.
+  - Logic:
+    - return Boolean.TRUE.equals(mail.getIsHappy());
 
-```java
-public class IsHappyCriterion {
-    // returns true if mail should be processed as happy
-    public boolean evaluate(Mail mail) {
-        // business rule: use isHappy field
-        return Boolean.TRUE.equals(mail.getIsHappy());
-    }
-}
-```
+- IsGloomyCriterion
+  - Purpose: return `true` when mail should be processed as gloomy.
+  - Logic:
+    - return !Boolean.TRUE.equals(mail.getIsHappy()); // includes null
 
-```java
-public class IsGloomyCriterion {
-    // returns true if mail should be processed as gloomy
-    public boolean evaluate(Mail mail) {
-        // business rule: not happy -> gloomy
-        return !Boolean.TRUE.equals(mail.getIsHappy());
-    }
-}
-```
+Both criteria should be pure (no side effects) and deterministic. They should be safe to call multiple times.
 
-Pseudo-code: Processor classes
+---
+
+## 4. Processor Classes (Java)
+
+Preserve exact processor class names as specified by the original requirements.
+
+- sendHapppyMail
+  - Purpose: send mails for the HAPPY branch.
+  - Behavior:
+    - Validate/normalize `mailList` (deduplicate addresses).
+    - Send messages (synchronously or enqueue to a delivery subsystem).
+    - On full success: set Mail.status = SENT, set updatedAt, persist.
+    - On partial/final failure: increment retryCount, set error details; if retries exhausted set status = FAILED and persist.
+    - Must record errors and make behavior idempotent where possible.
+
+- sendGloomyMail
+  - Purpose: send mails for the GLOOMY branch.
+  - Behavior: same responsibilities as sendHapppyMail but for gloomy content.
+
+Processor implementation notes:
+- Processors should support configurable retry policy (max attempts, backoff). On each failed attempt persist intermediate status so GET reflects current state.
+- Sending should be transactional with status updates where possible. If sending is asynchronous (deferred to message queue), the queue acknowledgment should drive final status transitions.
+- Processors must tolerate being called more than once for the same technicalId (idempotency).
+
+Pseudo-signature (example):
 
 ```java
 public class sendHapppyMail {
-    // triggered automatically when IsHappyCriterion passes
     public void process(Mail mail) {
-        try {
-            // Example sending logic (synchronous or enqueue async)
-            for (String to : mail.getMailList()) {
-                // call to Java mail library or external email service
-                // e.g., EmailClient.sendHappyEmail(to, mailContent);
-            }
-            // update mail status to SENT in datastore
-            // persistSentStatus(mail);
-        } catch (Exception e) {
-            // update mail status to FAILED and record error
-            // persistFailedStatus(mail, e);
-        }
+        // validate mailList
+        // attempt send, record success or failure
+        // update persisted Mail status and timestamps
     }
 }
 ```
-
-```java
-public class sendGloomyMail {
-    // triggered automatically when IsGloomyCriterion passes
-    public void process(Mail mail) {
-        try {
-            for (String to : mail.getMailList()) {
-                // call to Java mail library or external email service
-                // e.g., EmailClient.sendGloomyEmail(to, mailContent);
-            }
-            // update mail status to SENT in datastore
-            // persistSentStatus(mail);
-        } catch (Exception e) {
-            // update mail status to FAILED and record error
-            // persistFailedStatus(mail, e);
-        }
-    }
-}
-```
-
-Processor invocation notes:
-- The system that persists Mail must start the Mail workflow and call IsHappyCriterion and IsGloomyCriterion (in evaluation step).
-- Depending on criterion result, the system must call sendHapppyMail.process(mail) or sendGloomyMail.process(mail).
-- Processors should handle retries, error recording, and update persisted status to SENT or FAILED.
 
 ---
 
-### 4. API Endpoints Design Rules
+## 5. System Behavior and Non-functional Rules
 
-- POST endpoints: Entity creation (triggers events) + business logic.
-  - POST endpoint that adds an entity should return only entity technicalId - this field is not included in the entity itself, it's a datastore imitated specific field. Nothing else.
-- GET endpoints: ONLY for retrieving stored application results.
-- GET by technicalId: ONLY for retrieving stored application results by technicalId - should be present for all entities that are created via POST endpoints.
-- GET by condition: ONLY for retrieving stored application results by non-technicalId fields - should be present only if explicitly asked by the user.
-- GET all: optional.
-- If you have an orchestration entity (like Job, Task, Workflow), it should have a POST endpoint to create it, and a GET by technicalId to retrieve it. You will most likely not need any other POST endpoints for business entities as saving business entity is done via the process method.
-- Business logic rule: External data sources, calculations, processing → POST endpoints
+- Event-driven: persisting (CREATE) a Mail must trigger workflow start automatically. The system is responsible for invoking evaluation + processor transitions.
+- Idempotency: the workflow must tolerate retries and duplicate events. Criteria must be side-effect free.
+- Observability: record timestamps, retry counts, error messages, and optionally logs/traces per mail to aid debugging.
+- Concurrency: ensure two concurrent processing attempts on the same Mail coordinate (e.g., optimistic locking) to avoid duplicated sends.
+- Security: validate incoming payloads, sanitize fields, and protect endpoints.
 
-API endpoints for Mail entity (per rules and EDA behavior):
+---
 
-1) Create Mail (POST) — triggers the event/workflow
-- Endpoint: POST /mails
-- Behavior: Persist Mail entity, start Mail workflow automatically, return only technicalId string.
+## 6. API Endpoints
+
+All endpoints follow rules from the original specification (POST triggers workflow and returns only technicalId; GET endpoints are for retrieval only).
+
+1) Create Mail (POST /mails)
 - Request JSON:
-  - Fields: isHappy (Boolean), mailList (array of strings)
-- Response JSON:
-  - { "technicalId": "string" }  // only this field
+  - { "isHappy": Boolean, "mailList": ["a@example.com"] }
+- Behavior:
+  - Validate payload (mailList must be non-empty).
+  - Persist Mail (datastore generates `technicalId`, record createdAt/updatedAt/status=CREATED).
+  - Immediately trigger the workflow (EVALUATION, then processor scheduling).
+  - Response: HTTP 201 with body: { "technicalId": "string" }
+    - The response must contain only the `technicalId` field (no other data).
 
-Mermaid visualization for POST request/response
-
-```mermaid
-graph TD
-  POST_Request["POST /mails request\n{\n  isHappy: Boolean\n  mailList: [String]\n}"]
-  Mail_Service["Mail Service\npersist mail and start workflow"]
-  POST_Response["Response\n{\n  technicalId: String\n}"]
-  POST_Request --> Mail_Service
-  Mail_Service --> POST_Response
-```
-
-2) Retrieve Mail by technicalId (GET)
-- Endpoint: GET /mails/{technicalId}
-- Behavior: Return stored Mail record including persisted status (CREATED / SENDING_HAPPY / SENDING_GLOOMY / SENT / FAILED) and any metadata (timestamps, error info). This is a retrieval-only endpoint.
-- Response JSON (example structure):
+2) Retrieve Mail by technicalId (GET /mails/{technicalId})
+- Response JSON (example):
   - {
       "technicalId": "string",
-      "isHappy": true|false,
+      "isHappy": true|false|null,
       "mailList": ["a@example.com"],
       "status": "CREATED|EVALUATION|SENDING_HAPPY|SENDING_GLOOMY|SENT|FAILED",
-      "createdAt": "ISO8601 timestamp",
-      "updatedAt": "ISO8601 timestamp",
-      "error": "string or null"
+      "createdAt": "ISO8601",
+      "updatedAt": "ISO8601",
+      "error": "string|null",
+      "retryCount": 0
     }
+- Behavior: read-only; returns current persisted snapshot.
 
-Mermaid visualization for GET by technicalId request/response
+3) List mails (optional) GET /mails
+- Optional pagination. Read-only listing of stored Mail records.
 
-```mermaid
-graph TD
-  GET_Request["GET /mails/{technicalId}"]
-  Mail_Service_Get["Mail Service\nretrieve mail by technicalId"]
-  GET_Response["Response\n{\n  technicalId: String\n  isHappy: Boolean\n  mailList: [String]\n  status: String\n  createdAt: String\n  updatedAt: String\n  error: String|null\n}"]
-  GET_Request --> Mail_Service_Get
-  Mail_Service_Get --> GET_Response
-```
-
-3) GET all mails (optional)
-- Endpoint: GET /mails
-- Behavior: Optional listing of stored mails (pagination recommended). Not required by rules but allowed.
-
-Request/response format notes:
-- POST /mails request exactly contains the Mail fields (isHappy, mailList). The returned response for POST must contain only technicalId according to rules.
-- GET endpoints return stored application results (full persisted structure including technicalId and status).
-
-Implementation notes for endpoints:
-- POST /mails:
-  - Persist the Mail entity (Mail object does not include technicalId field; datastore generates technicalId).
-  - After persistence, event-driven workflow must be triggered automatically by the system (process method).
-  - Return the generated technicalId only.
-- GET /mails/{technicalId}:
-  - Query datastore for the persistent record and return full stored representation including status and metadata.
+API rules reminders:
+- POST returns only `technicalId`.
+- GET endpoints return persisted application results only.
 
 ---
 
-All items above are strictly based on the provided user requirement:
-- Build an app that sends happy mails with one entity 'mail'.
-  - It has 2 fields: 'isHappy' and 'mailList'
-  - It has 2 processors: 'sendHapppyMail' and 'sendGloomyMail'
-  - along with 2 criteria to define if the mail is happy or gloomy
+## 7. Error Handling and Retries
 
-Programming language / tool specified by the user (as provided):
-- use java
-- java
+- Retry policy should be configurable; track `retryCount` in the persistent record.
+- On transient send failures, processors should retry up to maxAttempts, with backoff. During retries the Mail status should indicate SENDING_*.
+- On final failure, set status = FAILED and set `error` message and `updatedAt`.
+
+---
+
+## 8. Implementation Notes and Constraints
+
+- Preserve the exact provided processor class name `sendHapppyMail` (with three p characters) to match existing references.
+- Criteria class names: `IsHappyCriterion`, `IsGloomyCriterion`.
+- Implement optimistic locking or another concurrency control to prevent double-sends.
+- If email delivery is delegated to an external service, ensure delivery acknowledgements map to status transitions.
+
+---
+
+## 9. Acceptance Criteria
+
+- Creating a Mail via POST persists the Mail and returns only a `technicalId`.
+- The system automatically evaluates criteria and invokes the correct processor based on `isHappy` (null treated as not happy).
+- Processors set final status to SENT or FAILED and persist error details on failure.
+- GET by `technicalId` returns the persisted record including status and timestamps.
+
+---
+
+If you want, I can also produce example Java POJOs, service interfaces, and sample controller endpoints consistent with these requirements.
