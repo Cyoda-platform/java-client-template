@@ -139,7 +139,7 @@ public class FetchFromPetStoreProcessor implements CyodaProcessor {
                             existing.setStock_level(node.has("stock_level") ? node.get("stock_level").asInt() : snapshot.getStock_level());
                             // reconstruct sales_history if present
                             List<SalesSnapshot> existingHistory = new ArrayList<>();
-                            if (node.has("sales_history") && node.get("sales_history`).isArray()) { /* defensive */ }
+                            if (node.has("sales_history") && node.get("sales_history").isArray()) { /* defensive */ }
                             // parse sales_history if present
                             if (node.has("sales_history") && node.get("sales_history").isArray()) {
                                 for (JsonNode hs : node.get("sales_history")) {
