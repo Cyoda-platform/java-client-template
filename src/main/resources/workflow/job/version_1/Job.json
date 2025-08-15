@@ -1,15 +1,24 @@
 {
   "version": "1.0",
   "name": "Job Workflow",
-  "desc": "Workflow for Job orchestration entity",
+  "desc": "Workflow for Job orchestration entity handling validation, fetching, normalization, comparison and persistence",
   "initialState": "PENDING",
   "active": true,
   "states": {
     "PENDING": {
       "transitions": [
         {
-          "name": "to_validating",
+          "name": "validate_job",
           "next": "VALIDATING",
+          "manual": false
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "validation_passed",
+          "next": "FETCHING",
           "manual": false,
           "processors": [
             {
@@ -19,24 +28,11 @@
               }
             }
           ]
-        }
-      ]
-    },
-    "VALIDATING": {
-      "transitions": [
+        },
         {
-          "name": "valid_schedule",
-          "next": "FETCHING",
-          "manual": false,
-          "criterion": {
-            "type": "function",
-            "function": {
-              "name": "FetchScheduleCheckCriterion",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
-          }
+          "name": "validation_failed",
+          "next": "FAILED",
+          "manual": false
         }
       ]
     },
@@ -46,15 +42,19 @@
           "name": "fetch_complete",
           "next": "NORMALIZING",
           "manual": false,
-          "criterion": {
-            "type": "function",
-            "function": {
-              "name": "FetchCompleteCriterion",
+          "processors": [
+            {
+              "name": "JobFetchProcessor",
               "config": {
                 "calculationNodesTags": "cyoda_application"
               }
             }
-          }
+          ]
+        },
+        {
+          "name": "fetch_failed",
+          "next": "FAILED",
+          "manual": false
         }
       ]
     },
@@ -64,51 +64,31 @@
           "name": "normalize_complete",
           "next": "COMPARING",
           "manual": false,
-          "criterion": {
-            "type": "function",
-            "function": {
-              "name": "NormalizeCompleteCriterion",
+          "processors": [
+            {
+              "name": "NormalizeProcessor",
               "config": {
                 "calculationNodesTags": "cyoda_application"
               }
             }
-          }
+          ]
         }
       ]
     },
     "COMPARING": {
       "transitions": [
         {
-          "name": "new_or_update",
+          "name": "records_ok",
           "next": "PERSISTING",
           "manual": false,
-          "criterion": {
-            "type": "function",
-            "function": {
-              "name": "NewOrUpdateCriterion",
+          "processors": [
+            {
+              "name": "DedupAndVersionProcessor",
               "config": {
                 "calculationNodesTags": "cyoda_application"
               }
             }
-          }
-        }
-      ]
-    },
-    "PERSISTING": {
-      "transitions": [
-        {
-          "name": "all_processed",
-          "next": "COMPLETED",
-          "manual": false,
-          "criterion": {
-            "type": "function",
-            "function": {
-              "name": "AllRecordsProcessedCriterion",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
-          }
+          ]
         },
         {
           "name": "processing_error",
@@ -126,51 +106,63 @@
         }
       ]
     },
+    "PERSISTING": {
+      "transitions": [
+        {
+          "name": "persist_complete",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PersistLaureateProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "persist_failed",
+          "next": "FAILED",
+          "manual": false
+        }
+      ]
+    },
     "COMPLETED": {
       "transitions": []
     },
     "FAILED": {
       "transitions": [
         {
-          "name": "retry_allowed",
+          "name": "apply_retry_policy",
           "next": "RETRY_WAIT",
           "manual": false,
-          "criterion": {
-            "type": "function",
-            "function": {
-              "name": "RetryAllowedCriterion",
+          "processors": [
+            {
+              "name": "JobRetryProcessor",
               "config": {
                 "calculationNodesTags": "cyoda_application"
               }
             }
-          }
+          ]
         },
         {
-          "name": "escalate_immediately",
+          "name": "escalate_manual",
           "next": "ESCALATED",
-          "manual": false,
-          "criterion": {
-            "type": "function",
-            "function": {
-              "name": "EscalationCriterion",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
-          }
+          "manual": true
         }
       ]
     },
     "RETRY_WAIT": {
       "transitions": [
         {
-          "name": "retry_window_expired",
+          "name": "retry_limit_reached",
           "next": "ESCALATED",
           "manual": false,
           "criterion": {
             "type": "function",
             "function": {
-              "name": "RetryWindowExpiredCriterion",
+              "name": "RetryExhaustedCriterion",
               "config": {
                 "calculationNodesTags": "cyoda_application"
               }
