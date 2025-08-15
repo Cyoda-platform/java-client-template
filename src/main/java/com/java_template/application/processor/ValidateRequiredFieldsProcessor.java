@@ -6,6 +6,7 @@ import com.java_template.application.entity.hnitem.version_1.HNItem;
 import com.java_template.application.entity.validationrecord.version_1.ValidationRecord;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.service.EntityService;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -20,6 +21,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 @Component
 public class ValidateRequiredFieldsProcessor implements CyodaProcessor {
@@ -28,9 +30,11 @@ public class ValidateRequiredFieldsProcessor implements CyodaProcessor {
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
     private final ObjectMapper mapper = new ObjectMapper();
+    private final EntityService entityService;
 
-    public ValidateRequiredFieldsProcessor(SerializerFactory serializerFactory) {
+    public ValidateRequiredFieldsProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
     }
 
     @Override
@@ -60,8 +64,6 @@ public class ValidateRequiredFieldsProcessor implements CyodaProcessor {
             // mark as validating
             entity.setStatus("VALIDATING");
             entity.setErrorMessage(null);
-            entity.setImportTimestamp(entity.getImportTimestamp()); // noop to avoid unused warning
-            entity.setErrorMessage(null);
             String now = OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
 
             String raw = entity.getRawJson();
@@ -90,16 +92,34 @@ public class ValidateRequiredFieldsProcessor implements CyodaProcessor {
 
             // Create a validation record summarizing the result
             ValidationRecord record = new ValidationRecord();
-            record.setTechnicalId(UUID.randomUUID().toString());
             record.setHnItemId(entity.getId());
             record.setCheckedAt(now);
+
             if (!missing.isEmpty()) {
                 String message = "Missing required fields: " + String.join(", ", missing);
                 record.setIsValid(Boolean.FALSE);
                 record.setMissingFields(missing);
                 record.setMessage(message);
 
-                // Persist validation record to in-memory repo for demo/testing
+                // Persist validation record via entityService
+                try {
+                    CompletableFuture<java.util.UUID> idFuture = entityService.addItem(
+                        ValidationRecord.ENTITY_NAME,
+                        String.valueOf(ValidationRecord.ENTITY_VERSION),
+                        record
+                    );
+                    java.util.UUID createdId = idFuture.join();
+                    if (createdId != null) {
+                        record.setTechnicalId(createdId.toString());
+                    } else {
+                        record.setTechnicalId(UUID.randomUUID().toString());
+                    }
+                } catch (Exception ex) {
+                    logger.warn("Failed to persist ValidationRecord via EntityService: {}", ex.getMessage());
+                    record.setTechnicalId(UUID.randomUUID().toString());
+                }
+
+                // also keep in-memory repo for demo/testing
                 ValidationRecordRepository.getInstance().save(record);
 
                 entity.setStatus("INVALID");
@@ -109,6 +129,23 @@ public class ValidateRequiredFieldsProcessor implements CyodaProcessor {
                 record.setIsValid(Boolean.TRUE);
                 record.setMissingFields(new ArrayList<>());
                 record.setMessage("Validation passed");
+
+                try {
+                    CompletableFuture<java.util.UUID> idFuture = entityService.addItem(
+                        ValidationRecord.ENTITY_NAME,
+                        String.valueOf(ValidationRecord.ENTITY_VERSION),
+                        record
+                    );
+                    java.util.UUID createdId = idFuture.join();
+                    if (createdId != null) {
+                        record.setTechnicalId(createdId.toString());
+                    } else {
+                        record.setTechnicalId(UUID.randomUUID().toString());
+                    }
+                } catch (Exception ex) {
+                    logger.warn("Failed to persist ValidationRecord via EntityService: {}", ex.getMessage());
+                    record.setTechnicalId(UUID.randomUUID().toString());
+                }
 
                 ValidationRecordRepository.getInstance().save(record);
 
