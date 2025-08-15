@@ -12,11 +12,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.time.Instant;
-
 @Component
 public class ShipmentProcessor implements CyodaProcessor {
-
     private static final Logger logger = LoggerFactory.getLogger(ShipmentProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
@@ -32,7 +29,7 @@ public class ShipmentProcessor implements CyodaProcessor {
 
         return serializer.withRequest(request)
             .toEntity(Order.class)
-            .validate(this::isValidEntity, "Invalid order for shipment")
+            .validate(o -> o != null && o.getId() != null, "Invalid order for shipment")
             .map(this::processEntityLogic)
             .complete();
     }
@@ -42,20 +39,11 @@ public class ShipmentProcessor implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private boolean isValidEntity(Order order) {
-        return order != null && order.getId() != null && ("PACKED".equals(order.getStatus()) || "FULFILLMENT_PENDING".equals(order.getStatus()));
-    }
-
     private Order processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Order> context) {
         Order order = context.entity();
-
-        // Simulate shipment creation
-        order.setStatus("SHIPPED");
-        order.setUpdatedAt(Instant.now().toString());
+        // assign a simple tracking number
         order.setTrackingNumber("TRK-" + order.getId());
-
         logger.info("Order {} shipped with tracking {}", order.getId(), order.getTrackingNumber());
-
         return order;
     }
 }
