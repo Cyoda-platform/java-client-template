@@ -19,4 +19,9 @@ public class SearchConditionRequest {
         req.setConditions(List.of(conditions));
         return req;
     }
+
+    // Convenience overload: default operator (AND) when only conditions are provided
+    public static SearchConditionRequest group(Condition... conditions) {
+        return group("AND", conditions);
+    }
 }
