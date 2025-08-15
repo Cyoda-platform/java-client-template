@@ -95,7 +95,7 @@ public class AddItemProcessor implements CyodaProcessor {
         cart.setTotalAmount(total);
 
         cart.setUpdatedAt(Instant.now().toString());
-        cart.setLastActivityAt(Instant.now().toString());
+        // Note: Cart model does not include lastActivityAt field; we avoid setting non-existing fields
 
         logger.info("Cart {} updated: {} items, total={}", cart.getId(), cart.getItems().size(), cart.getTotalAmount());
 
