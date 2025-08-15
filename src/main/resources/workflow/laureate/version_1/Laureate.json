@@ -1,0 +1,138 @@
+{
+  "version": "1.0",
+  "name": "Laureate Workflow",
+  "desc": "Workflow for Laureate entity",
+  "initialState": "IMPORTED",
+  "active": true,
+  "states": {
+    "IMPORTED": {
+      "transitions": [
+        {
+          "name": "validate",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "LaureateValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "validation_failed",
+          "next": "INVALID",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "LaureateValidationFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_passed",
+          "next": "ENRICHING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "LaureateValidationPassedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "INVALID": {
+      "transitions": [
+        {
+          "name": "send_to_review",
+          "next": "REVIEW",
+          "manual": true
+        }
+      ]
+    },
+    "REVIEW": {
+      "transitions": [
+        {
+          "name": "fix_and_reprocess",
+          "next": "ENRICHING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "LaureateManualReviewHandler",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ENRICHING": {
+      "transitions": [
+        {
+          "name": "enrich_and_dedup",
+          "next": "DEDUP_CHECK",
+          "manual": false,
+          "processors": [
+            {
+              "name": "LaureateEnrichmentProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "DEDUP_CHECK": {
+      "transitions": [
+        {
+          "name": "dedup_merge",
+          "next": "STORED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "LaureateDedupMergeProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "STORED": {
+      "transitions": [
+        {
+          "name": "emit_event",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "LaureateNotificationEmitter",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": []
+    }
+  }
+}
