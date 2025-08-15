@@ -1,0 +1,84 @@
+{
+  "version": "1.0",
+  "name": "Laureate Workflow",
+  "desc": "Workflow for Laureate processing: RECEIVED -> VALIDATING -> ENRICHING -> DEDUPLICATING -> PERSISTED",
+  "initialState": "RECEIVED",
+  "active": true,
+  "states": {
+    "RECEIVED": {
+      "transitions": [
+        {
+          "name": "to_validating",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "LaureateReceivedProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "validation_to_enriching",
+          "next": "ENRICHING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "LaureateValidationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ENRICHING": {
+      "transitions": [
+        {
+          "name": "enrich_to_dedup",
+          "next": "DEDUPLICATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "LaureateEnrichmentProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "DEDUPLICATING": {
+      "transitions": [
+        {
+          "name": "dedup_to_persist",
+          "next": "PERSISTED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "LaureateDeduplicationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PERSISTED": {
+      "transitions": []
+    }
+  }
+}
