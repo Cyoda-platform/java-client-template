@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.Method;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
 
 public class DedupAndVersionProcessorTest {
 
@@ -31,10 +32,5 @@ public class DedupAndVersionProcessorTest {
         assertEquals("PERSISTING", out.getStatus());
         assertNotNull(out.getResultSummary());
         assertTrue(out.getResultSummary().contains("toPersistCount"));
-    }
-
-    // helper to create a mock SerializerFactory without pulling full Spring context
-    private SerializerFactory mock(SerializerFactory sf) {
-        return sf;
     }
 }
