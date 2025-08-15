@@ -1,0 +1,38 @@
+{
+  "version": "1.0",
+  "name": "Ticket Workflow",
+  "desc": "Workflow for Ticket entity managing ticket lifecycle from issuance to usage or cancellation",
+  "initialState": "issued",
+  "active": true,
+  "states": {
+    "issued": {
+      "transitions": [
+        {
+          "name": "validate_ticket",
+          "next": "used",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "TicketValidationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "cancel_ticket",
+          "next": "cancelled",
+          "manual": false
+        }
+      ]
+    },
+    "used": {
+      "transitions": []
+    },
+    "cancelled": {
+      "transitions": []
+    }
+  }
+}
