@@ -1,163 +1,151 @@
-### 1. Entity Definitions
-```
-Job:
-- name: String (human name of the ingestion job)
-- sourceUrl: String (OpenDataSoft feed endpoint)
-- schedule: String (cron-like schedule or manual flag)
-- transformRules: String (rules or filter expression for normalization)
-- status: String (current job status)
-- lastRunAt: String (timestamp of last run)
-- resultSummary: String (created/updated/skipped counts)
-- retryCount: Integer (retry attempts counter)
-- createdBy: String (operator who created the job)
-- createdAt: String (timestamp)
+# Functional Requirements — Laureate Ingestion & Notification Prototype
 
-Laureate:
-- laureateId: String (canonical id assigned by system)
-- fullName: String (person or organization name)
-- year: Integer (award year)
-- category: String (award category)
-- citation: String (award citation text)
-- affiliations: String (affiliations or institutions)
-- nationality: String (country string)
-- sourceRecord: String (raw payload reference)
-- lifecycleStatus: String (New/Updated/Unchanged)
-- matchTags: String (computed keywords/categories)
-- createdAt: String (timestamp)
-- updatedAt: String (timestamp)
-- version: Integer (change version number)
+Last updated: 2025-08-15
 
-Subscriber:
-- name: String (subscriber name)
-- contactMethod: String (email/webhook/sms)
-- contactAddress: String (destination address or endpoint)
-- active: Boolean (is subscription active)
-- filters: String (categories/keywords/year range expression)
-- deliveryPreference: String (immediate/digest/daily)
-- backfillFromDate: String (optional date to backfill historical matches)
-- lastNotifiedAt: String (timestamp)
-- notificationHistory: String (reference to recent notifications)
-- createdAt: String (timestamp)
-```
+Summary
+- This document defines the canonical, up-to-date functional requirements for the ingestion, normalization, deduplication/versioning, persistence and subscriber notification flows of the Laureate prototype.
+- It replaces and clarifies previous logic: stricter enums for statuses, explicit idempotency and retry behavior, structured filters, backpressure and batching rules, and REST response conventions.
 
-### 2. Entity workflows
+Revision notes (high-level changes)
+- Introduced explicit enums and constraints for status and lifecycle fields.
+- Clarified schedule handling (cron expression + manual flag) and added idempotency tokens for job runs.
+- Made transformRules a structured mapping (JSON) rather than opaque String where possible; added validation step.
+- Defined retry/backoff policy and dead-letter/escalation handling for jobs and notifications.
+- Subscriber filters changed from unstructured String to a structured Filter DSL (JSON) supporting boolean operators, year ranges and categories.
+- POST endpoints now follow REST conventions: 201 Created + Location header; responses still include technicalId JSON (compatibility maintained).
+- Expanded processor pseudocode to be idempotent, transactional and to include batch/paging support.
 
-Job workflow:
-1. Initial State: Job created with PENDING status (POST triggers event → Cyoda starts workflow)
-2. Validation: Validate schedule, sourceUrl and transformRules (automatic)
-3. Fetching: Execute data fetch from sourceUrl (automatic)
-4. Normalization: Apply transformRules to raw records (automatic)
-5. Comparison: For each normalized record evaluate dedupe and versioning (automatic)
-6. Persist Laureate: Create or update Laureate entities (automatic → emits Laureate added/updated events)
-7. Result: Update Job status to COMPLETED or FAILED and fill resultSummary (automatic)
-8. Retry/Escalate: On failures apply retry policy or escalate for manual intervention (manual escalate)
+---
 
+## 1. Entity Definitions
+Types and expectations for persisted entities. All timestamp fields are ISO-8601 strings.
+
+Job
+- id (technicalId): String (UUID assigned by system)
+- name: String
+- sourceUrl: String (OpenDataSoft or other feed endpoint)
+- schedule: String|null (cron expression) — nullable for manual-only jobs
+- manual: Boolean (true for jobs that must be manually triggered)
+- transformRules: JSON/Object (structured mapping or rule set used for normalization)
+- status: Enum {PENDING, VALIDATING, FETCHING, NORMALIZING, COMPARING, PERSISTING, COMPLETED, FAILED, RETRY_WAIT, ESCALATED}
+- lastRunAt: String|null (timestamp of last run)
+- runId: String|null (idempotency token for the last run)
+- resultSummary: Object {created: Integer, updated: Integer, unchanged: Integer, failed: Integer}
+- retryCount: Integer (current consecutive retry attempts)
+- maxRetries: Integer (configured max attempts)
+- createdBy: String
+- createdAt: String
+- updatedAt: String
+- meta: Object (optional extra metadata)
+
+Laureate
+- id (laureateId): String (UUID)
+- naturalKey: String (an application-determined natural uniqueness key — composite of name+year+category or hashed canonical form)
+- fullName: String (canonical normalized name)
+- rawFullName: String (from source)
+- year: Integer
+- category: String
+- citation: String
+- affiliations: Array<String> (normalized list)
+- nationality: String
+- sourceRecordId: String (reference to raw payload or source record ID)
+- lifecycleStatus: Enum {NEW, UPDATED, UNCHANGED}
+- matchTags: Array<String> (computed keywords/categories)
+- version: Integer (optimistic locking / change version)
+- createdAt: String
+- updatedAt: String
+- provenance: Object (source metadata, transformRulesVersion, jobRunId)
+
+Subscriber
+- id (technicalId): String (UUID)
+- name: String
+- contactMethod: Enum {EMAIL, WEBHOOK, SMS}
+- contactAddress: String (email address, webhook endpoint, phone number)
+- active: Boolean
+- filters: Object (structured Filter DSL - e.g. {"and":[{"category":"Physics"},{"year":{"gte":2000,"lte":2024}}]})
+- deliveryPreference: Enum {IMMEDIATE, DIGEST_DAILY, DIGEST_WEEKLY}
+- backfillFromDate: String|null (ISO date to start backfill)
+- lastNotifiedAt: String|null
+- notificationHistorySummary: Object (counts/last X deliveries)
+- createdAt: String
+- updatedAt: String
+- meta: Object (e.g. webhook secret, rateLimit preferences)
+
+Notes
+- All enums should be enforced by API validation and stored consistently.
+- transformRules should be schema-validated; if the source rule format cannot be expressed as structured JSON, store as rawRules and include parseVersion.
+
+---
+
+## 2. Event types (publish/subscribe model)
+- JobCreated (jobId, runId)
+- JobValidationFailed (jobId, reasons)
+- JobFetchFailed (jobId, runId, reason)
+- JobCompleted (jobId, runId, resultSummary)
+- LaureateNormalized (payload, jobId, runId)
+- LaureatePersisted (laureateId, lifecycleStatus, version, provenance)
+- NotificationEnqueued (notificationId)
+- NotificationDelivered (notificationId)
+- NotificationFailed (notificationId, reason)
+- SubscriberCreated / SubscriberUpdated / SubscriberDeactivated
+
+These events are used to drive the asynchronous processors described below.
+
+---
+
+## 3. Workflows and processors
+General principles
+- Processors must be idempotent. Use dedupe keys, database uniqueness constraints and event runId provenance to avoid duplicate processing.
+- Prefer small transactions: persist minimal required state then emit events.
+- Use batching when fetching/normalizing records; respect source rate limits and paging.
+- Use exponential backoff and a dead-letter/escalation path for failed jobs/notifications.
+
+### Job workflow (updated)
+1. Job created (POST /jobs) -> status PENDING. System assigns job.id.
+2. Validation: parse/validate schedule, transformRules, and optionally do a head request to sourceUrl. If invalid -> JobValidationFailed and status FAILED.
+3. Fetching (for scheduled or manual run): create runId (UUID) and set status FETCHING. Fetch records in pages, applying rate-limit and timeouts.
+4. Normalization: for each fetched record, transform using transformRules (structured). Emit LaureateNormalized events in batches.
+5. Comparison (Dedup & Version): for each normalized record run DedupAndVersionProcessor which computes naturalKey and compares with existing record, sets lifecycleStatus (NEW/UPDATED/UNCHANGED) and version increments for changes. Emit PersistLaureate events only for NEW or UPDATED.
+6. Persist Laureate: Persist (upsert) laureates. Use optimistic locking via version number and store provenance including job runId. Emit LaureatePersisted event.
+7. Result: aggregate counts to resultSummary; set status COMPLETED. If transient errors occur, mark FAILED and schedule retry per policy.
+8. Retry/Escalate: On failures apply exponential backoff up to maxRetries. After exceeding maxRetries move job.status to ESCALATED and emit an alert for manual intervention.
+
+Mermaid (state diagram — unchanged in structure but with clarified status names):
 ```mermaid
 stateDiagram-v2
     [*] --> PENDING
-    PENDING --> VALIDATING : ValidateJobCriterion / JobValidationProcessor
-    VALIDATING --> FETCHING : FetchScheduleCheckCriterion / JobFetchProcessor
-    FETCHING --> NORMALIZING : FetchCompleteCriterion / NormalizeProcessor
-    NORMALIZING --> COMPARING : NormalizeCompleteCriterion / DedupAndVersionProcessor
-    COMPARING --> PERSISTING : NewOrUpdateCriterion / PersistLaureateProcessor
-    PERSISTING --> COMPLETED : AllRecordsProcessedCriterion / JobCompletionProcessor
-    PERSISTING --> FAILED : ProcessingErrorCriterion / JobFailProcessor
-    FAILED --> RETRY_WAIT : RetryAllowedCriterion / JobRetryProcessor
-    RETRY_WAIT --> FETCHING : RetryTimerElapsed / JobFetchProcessor
-    FAILED --> ESCALATED : EscalationCriterion / ManualEscalateProcessor
+    PENDING --> VALIDATING : JobCreated / JobValidationProcessor
+    VALIDATING --> FETCHING : Valid
+    VALIDATING --> FAILED : Invalid
+    FETCHING --> NORMALIZING : FetchComplete
+    NORMALIZING --> COMPARING : NormalizeComplete
+    COMPARING --> PERSISTING : NewOrUpdateRecords
+    PERSISTING --> COMPLETED : AllPersisted
+    PERSISTING --> FAILED : Error
+    FAILED --> RETRY_WAIT : RetryAllowed
+    RETRY_WAIT --> FETCHING : RetryTimerElapsed
+    FAILED --> ESCALATED : MaxRetriesExceeded
     COMPLETED --> [*]
     ESCALATED --> [*]
 ```
 
-Required criteria and processors for Job:
-- ValidateJobCriterion, JobValidationProcessor
-- FetchScheduleCheckCriterion, JobFetchProcessor
-- NormalizeCompleteCriterion, NormalizeProcessor
-- NewOrUpdateCriterion, DedupAndVersionProcessor
-- PersistLaureateProcessor (creates Laureate entities)
-- JobCompletionProcessor, JobFailProcessor, JobRetryProcessor, ManualEscalateProcessor
+Required processors (updated names & responsibilities)
+- JobValidationProcessor: validates schedule, sourceUrl reachable (optional), transformRules parseable.
+- JobFetchProcessor: implements paged fetch with retries, rate-limit handling and produces raw records in batches.
+- NormalizeProcessor: deterministic normalization; supports rule versions; emits LaureateNormalized.
+- DedupAndVersionProcessor: computes naturalKey, compares with existing, decides NEW/UPDATED/UNCHANGED and sets version.
+- PersistLaureateProcessor: upsert laureate and emit LaureatePersisted. Idempotent using naturalKey + job.runId provenance.
+- JobCompletionProcessor / JobFailProcessor / JobRetryProcessor / ManualEscalateProcessor: finalize job status, schedule retries and escalate.
 
-Laureate workflow:
-1. Initial State: Laureate persisted (New or Updated) by Job process (event triggers workflow)
-2. Enrichment: Compute matchTags, normalize names and affiliations (automatic)
-3. Matching: Evaluate Subscriber filters to find matches (automatic)
-4. Notification Scheduling: For each matched Subscriber enqueue notification according to deliveryPreference (automatic)
-5. Delivered/Queued: Notifications either queued for digest or attempted delivery (automatic)
-6. Audit/Archive: Store history and mark lifecycleStatus (automatic)
-7. Manual Review: If flagged (e.g., high-impact change) require manual approval before notifications (manual)
-
-```mermaid
-stateDiagram-v2
-    [*] --> PERSISTED
-    PERSISTED --> ENRICHING : EnrichmentProcessor
-    ENRICHING --> MATCHING : EnrichmentCompleteCriterion / MatchingProcessor
-    MATCHING --> SCHEDULING : SubscriberMatchCriterion / ScheduleNotificationProcessor
-    SCHEDULING --> DELIVERING : DeliveryWindowCriterion / NotificationDispatchProcessor
-    DELIVERING --> DELIVERED : DeliverySuccessCriterion / NotificationSuccessProcessor
-    DELIVERING --> FAILED : DeliveryFailureCriterion / NotificationFailureProcessor
-    FAILED --> RETRYING : RetryAllowedCriterion / NotificationRetryProcessor
-    DELIVERED --> AUDIT : AuditProcessor
-    AUDIT --> [*]
-    RETRYING --> DELIVERING : RetryTimerElapsed / NotificationDispatchProcessor
-    MATCHING --> MANUAL_REVIEW : ManualFlagCriterion / ManualReviewProcessor
-    MANUAL_REVIEW --> SCHEDULING : ManualApproveAction
-    MANUAL_REVIEW --> AUDIT : ManualRejectAction
-```
-
-Required criteria and processors for Laureate:
-- EnrichmentProcessor
-- MatchingProcessor
-- SubscriberMatchCriterion
-- ScheduleNotificationProcessor
-- NotificationDispatchProcessor
-- NotificationSuccessProcessor, NotificationFailureProcessor, NotificationRetryProcessor
-- ManualReviewProcessor, AuditProcessor
-
-Subscriber workflow:
-1. Initial State: Subscriber created via POST (event triggers workflow)
-2. Validation: Validate contactAddress and filters (automatic)
-3. Activation: Mark active and optionally run backfill (automatic/manual depending on backfill size)
-4. Backfill Matching: If backfill requested, run matching against recent Laureate history and enqueue notifications (automatic)
-5. Update/Deactivate: Manual transitions to update preferences or deactivate (manual)
-6. Audit: Log subscription changes and notificationHistory (automatic)
-
-```mermaid
-stateDiagram-v2
-    [*] --> CREATED
-    CREATED --> VALIDATING : SubscriberValidationProcessor
-    VALIDATING --> ACTIVE : ValidationSuccessCriterion / ActivateSubscriberProcessor
-    VALIDATING --> INVALID : ValidationFailureCriterion / SubscriberRejectProcessor
-    ACTIVE --> BACKFILLING : BackfillRequestedCriterion / BackfillProcessor
-    BACKFILLING --> ACTIVE : BackfillCompleteCriterion / BackfillCompleteProcessor
-    ACTIVE --> UPDATED : UpdateRequestedAction
-    UPDATED --> ACTIVE : UpdateApplyProcessor
-    ACTIVE --> DEACTIVATED : DeactivateRequestedAction
-    DEACTIVATED --> [*]
-    INVALID --> [*]
-```
-
-Required criteria and processors for Subscriber:
-- SubscriberValidationProcessor
-- ActivateSubscriberProcessor
-- BackfillProcessor
-- BackfillCompleteProcessor
-- SubscriberRejectProcessor
-- UpdateApplyProcessor
-
-### 3. Pseudo code for processor classes
-
+Key pseudocode updates (high level)
 JobFetchProcessor
 ```
 class JobFetchProcessor {
-  process(job) {
-    validate job.sourceUrl
-    response = httpGet(job.sourceUrl)
-    if response.success then
-      for record in response.records:
-        normalized = NormalizeProcessor.normalize(record, job.transformRules)
-        sendEvent PersistLaureateEvent with normalized
-    else
-      throw ProcessingError
+  process(job, runId) {
+    for each page from fetchPages(job.sourceUrl):
+      for raw in page.records:
+        normalized = NormalizeProcessor.normalize(raw, job.transformRules)
+        publishBatchEvent('LaureateNormalized', normalized, jobId=job.id, runId=runId)
   }
 }
 ```
@@ -165,18 +153,20 @@ class JobFetchProcessor {
 DedupAndVersionProcessor
 ```
 class DedupAndVersionProcessor {
-  process(normalizedRecord) {
-    existing = findLaureateByNaturalKey(normalizedRecord.key)
+  process(normalized, jobId, runId) {
+    naturalKey = computeNaturalKey(normalized)
+    existing = findByNaturalKey(naturalKey)
     if not existing:
-      normalizedRecord.lifecycleStatus = New
-      sendEvent PersistLaureate(normalizedRecord)
-    else if recordDifferent(existing, normalizedRecord):
-      normalizedRecord.version = existing.version + 1
-      normalizedRecord.lifecycleStatus = Updated
-      sendEvent PersistLaureate(normalizedRecord)
+      normalized.lifecycleStatus = NEW
+      normalized.version = 1
+      publish PersistLaureate(normalized, jobId, runId)
+    else if hasSignificantChange(existing, normalized):
+      normalized.version = existing.version + 1
+      normalized.lifecycleStatus = UPDATED
+      publish PersistLaureate(normalized, jobId, runId)
     else:
-      normalizedRecord.lifecycleStatus = Unchanged
-      // optionally skip persistence or update timestamps
+      normalized.lifecycleStatus = UNCHANGED
+      // optionally update lastSeenAt, do not persist a new version
   }
 }
 ```
@@ -185,152 +175,168 @@ PersistLaureateProcessor
 ```
 class PersistLaureateProcessor {
   process(payload) {
-    persist Laureate entity
-    sendEvent LaureatePersisted with laureateId and lifecycleStatus
+    // Upsert semantics with optimistic locking
+    begin transaction
+      existing = findByNaturalKey(payload.naturalKey)
+      if not existing:
+        insert new laureate with version=payload.version
+      else if payload.version > existing.version:
+        update fields, set version=payload.version
+      // store provenance: jobId, runId, transformRulesVersion
+      commit
+    publish LaureatePersisted(laureateId, lifecycleStatus, version, provenance)
   }
 }
 ```
 
-MatchingProcessor
+Idempotency notes
+- Include job.runId and sourceRecordId in provenance. If the same run attempts to persist the same naturalKey+version again, PersistLaureateProcessor must be a no-op.
+- For external fetch retries, dedupe by sourceRecordId and runId to avoid reprocessing identical records.
+
+### Laureate workflow (updated)
+1. On LaureatePersisted event -> Enrichment (compute matchTags, normalize affiliations, lookup controlled vocabularies).
+2. Matching: run MatchingProcessor against active subscribers. Use structured filters and boolean logic; support fuzzy match thresholds configurable per subscriber.
+3. For each match, create NotificationItem and enqueue respecting subscriber.deliveryPreference and deduplication rules (avoid duplicate notifications for same laureate+subscriber+change-window).
+4. NotificationDispatch: deliver immediate notifications or add to digest queue. Implement per-subscriber rate limits, retries and backoff; failed deliveries go to retry queue then to dead-letter if exhausted.
+5. Audit/Archive: persist notification outcomes and lifecycleStatus changes.
+6. ManualReview: if a laureate change matches manual-review rules (high-profile category or large data change), pause automatic notification and create a manual review task.
+
+Processors required
+- EnrichmentProcessor
+- MatchingProcessor (uses SubscriberMatchCriterion)
+- ScheduleNotificationProcessor
+- NotificationDispatchProcessor
+- NotificationSuccessProcessor / NotificationFailureProcessor / NotificationRetryProcessor
+- ManualReviewProcessor
+- AuditProcessor
+
+Matching pseudocode update
 ```
 class MatchingProcessor {
   process(laureate) {
-    subscribers = queryActiveSubscribers()
+    subscribers = queryActiveSubscribers(pageable)
     for s in subscribers:
-      if SubscriberMatchCriterion.matches(s.filters, laureate.matchTags):
-        enqueue NotificationItem(subscriberId=s.id, laureateId=laureate.id, deliveryPreference=s.deliveryPreference)
+      if matchesStructuredFilter(s.filters, laureate):
+        if not alreadyNotifiedRecently(s.id, laureate.id, window=s.meta.dedupWindow)
+          enqueue NotificationItem(subscriberId=s.id, laureateId=laureate.id, deliveryPreference=s.deliveryPreference, changeType=laureate.lifecycleStatus)
   }
 }
 ```
 
-NotificationDispatchProcessor
+NotificationDispatchProcessor update
 ```
 class NotificationDispatchProcessor {
   process(notificationItem) {
-    if notificationItem.deliveryPreference == immediate:
+    if notificationItem.deliveryPreference == IMMEDIATE:
       deliver(notificationItem)
-      record delivery result
-    else
-      add to digest queue
+    else:
+      appendToDigest(notificationItem, subscriberId)
   }
   deliver(item) {
-    attempt delivery to subscriber.contactAddress
-    if success mark delivered else mark failed and schedule retry
+    attempt delivery with configured retries and exponential backoff
+    on success: mark delivered and publish NotificationDelivered
+    on final failure: publish NotificationFailed and route to dead-letter / manual review alert
   }
 }
 ```
 
-BackfillProcessor
+### Subscriber workflow (updated)
+1. POST /subscribers -> validate payload. If valid create subscriber (ACTIVE depending on validation) and return technicalId. If backfillFromDate present and allowed, enqueue Backfill job.
+2. Validation: ensure contactMethod and contactAddress formats; for WEBHOOK optionally verify callback (challenge-response) and optionally require a secret.
+3. Activation: smaller backfills may run automatically; large backfills (configurable threshold by record count or time window) require manual approval before running.
+4. BackfillProcessor: query laureates since backfillFromDate in a paged manner and enqueue notifications applying same matching rules.
+5. Update/Deactivate: Subscribers can update filters or deliveryPreference; updates may trigger re-validation and optional backfill if required.
+
+Backfill pseudocode (updated)
 ```
 class BackfillProcessor {
   process(subscriber) {
-    records = queryLaureatesSince(subscriber.backfillFromDate)
-    for r in records:
-      if SubscriberMatchCriterion.matches(subscriber.filters, r.matchTags):
-        enqueue NotificationItem for r
+    for r in queryLaureatesSince(subscriber.backfillFromDate, pageable):
+      if matches(s.filters, r):
+        enqueue NotificationItem(subscriberId=s.id, laureateId=r.id)
   }
 }
 ```
 
-Keep processors idempotent: check existing notification history before enqueueing duplicate notifications.
+Notes
+- Backfill processing must be asynchronous and cancellable. If the result set exceeds configured thresholds, require manual approval and rate-limit processing.
+- Keep processors idempotent: check notification history before enqueueing duplicate notifications.
 
-### 4. API Endpoints Design Rules
+---
 
-Rules applied:
-- POST endpoints create orchestration or user-triggered entities and return only technicalId.
-- GET by technicalId available for entities created via POST.
-- Laureate entities are created by Job workflow (no POST for Laureate).
-- GET endpoints return stored application results.
+## 4. API Endpoints and Rules (updated)
+General rules
+- POST endpoints create orchestrations; they return 201 Created with Location header set to the resource URL and a JSON body containing { "technicalId": "<id>" }.
+- POST must accept an Idempotency-Key header. If the same Idempotency-Key is used, return the previously created technicalId instead of creating a duplicate.
+- GET by technicalId returns the persisted entity. GET endpoints are read-only and must not trigger processing.
+- Where a POST triggers asynchronous background work (Job or Subscriber backfill), that processing runs independently of the POST response; the returned technicalId is sufficient to monitor progress.
 
 Endpoints
-
 1) Create Job
 - POST /jobs
-Request JSON:
+Request JSON (validate):
 ```
 {
   "name": "String",
   "sourceUrl": "String",
-  "schedule": "String",
-  "transformRules": "String",
-  "createdBy": "String"
+  "schedule": "String|null",
+  "manual": Boolean,
+  "transformRules": Object,
+  "createdBy": "String",
+  "maxRetries": Integer(optional)
 }
 ```
-Response JSON (exactly):
+Response: 201 Created
+Headers: Location: /jobs/{technicalId}
+Body (exact):
 ```
-{
-  "technicalId": "String"
-}
+{ "technicalId": "String" }
 ```
-
-Mermaid for POST /jobs
-```mermaid
-sequenceDiagram
-    participant Client
-    participant API
-    Client->>API: POST /jobs with request JSON
-    API-->>Client: 200 { technicalId: id123 }
-```
-
-GET Job by technicalId
-- GET /jobs/{technicalId}
-Response JSON: full Job entity persisted (include fields listed in definitions)
+GET /jobs/{technicalId} returns full Job entity.
 
 2) Create Subscriber
 - POST /subscribers
-Request JSON:
+Request JSON (validate):
 ```
 {
   "name": "String",
-  "contactMethod": "String",
+  "contactMethod": "EMAIL|WEBHOOK|SMS",
   "contactAddress": "String",
-  "filters": "String",
-  "deliveryPreference": "String",
-  "backfillFromDate": "String"
+  "filters": Object (Filter DSL),
+  "deliveryPreference": "IMMEDIATE|DIGEST_DAILY|DIGEST_WEEKLY",
+  "backfillFromDate": "String|null",
+  "meta": Object(optional)
 }
 ```
-Response JSON:
-```
-{
-  "technicalId": "String"
-}
-```
-
-Mermaid for POST /subscribers
-```mermaid
-sequenceDiagram
-    participant Client
-    participant API
-    Client->>API: POST /subscribers with request JSON
-    API-->>Client: 200 { technicalId: id456 }
-```
-
-GET Subscriber by technicalId
-- GET /subscribers/{technicalId}
-Response JSON: full Subscriber entity persisted
+Response: 201 Created, Location header and body { "technicalId": "String" }
+GET /subscribers/{technicalId} returns full Subscriber entity.
 
 3) Retrieve Laureate (read-only)
 - GET /laureates/{technicalId}
-Response JSON: full Laureate entity persisted
+Response: 200 with full Laureate entity.
 
-Mermaid for GET retrieval example
-```mermaid
-sequenceDiagram
-    participant Client
-    participant API
-    Client->>API: GET /laureates/id789
-    API-->>Client: 200 { laureate fields... }
-```
+Rules and notes
+- POST responses must include only technicalId in the body to avoid leaking internal details.
+- Use Idempotency-Key for duplicate protection on POST operations.
+- Backfill is asynchronous and may be subject to manual approval if large.
+- GET APIs should support conditional requests (ETag/If-None-Match) for efficiency.
 
-Notes and business rules
-- POST endpoints trigger Cyoda event processing immediately; Job POST starts Job workflow; Subscriber POST starts Subscriber workflow (validation + optional backfill).
-- POST responses must include only technicalId and nothing else.
-- All GET endpoints are read-only and must not trigger processing.
-- Backfill is optional and can be large; recommend making it asynchronous (handled by Subscriber workflow).
+---
 
-If you want, I can:
-- Add or trim fields to entities
-- Expand criteria pseudo-code into more detailed logic
-- Produce an example end-to-end event trace (Job POST → Laureate created → Subscriber notified) in mermaid sequence format
+## 5. Business rules and edge cases
+- Source paging: when sourceUrl provides page tokens, JobFetchProcessor must follow them until exhausted or a configured page limit per run.
+- Data schema drift: NormalizeProcessor must support transformRules with versioning. If normalization fails for a record, mark the record failed and continue; aggregate failed counts for job resultSummary.
+- Duplicate notifications: avoid notifying the same subscriber about the same laureate and change more than once within a configurable deduplication window (default 7 days).
+- High-impact changes: if a laureate change affects controlled fields (e.g., name corrected, category changed), and the subscriber match would cause a new notification, mark for ManualReview if the change meets configured high-impact criteria.
+- Webhook delivery: sign notifications with subscriber.meta.webhookSecret if present; implement retries with exponential backoff and jitter.
+- Security: only allow POST /jobs and POST /subscribers to authenticated users; preserve createdBy.
+- Observability: emit metrics for records fetched, normalized, persisted, notifications enqueued, delivered, failed; log job.runId and traceId for request tracing.
 
-Which would you like to refine next?
+---
+
+If you want I can:
+- Provide example payloads for the structured transformRules and filters DSL,
+- Expand pseudocode into language-specific implementations or unit-testable algorithms,
+- Produce an example end-to-end mermaid sequence (Job POST → Laureate created → Subscriber notified).
+
+Which of these (if any) would you like next?
