@@ -1,0 +1,81 @@
+{
+  "version": "1.0",
+  "name": "ImportJob Workflow",
+  "desc": "Workflow for ImportJob orchestration entity",
+  "initialState": "PENDING",
+  "active": true,
+  "states": {
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "start_processing",
+          "next": "IN_PROGRESS",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ImportJobProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "IN_PROGRESS": {
+      "transitions": [
+        {
+          "name": "process_items",
+          "next": "PROCESS_ITEMS",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ImportJobProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PROCESS_ITEMS": {
+      "transitions": [
+        {
+          "name": "complete_check",
+          "next": "COMPLETED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ImportJobCompletionCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "fail_job",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ImportJobFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    }
+  }
+}
