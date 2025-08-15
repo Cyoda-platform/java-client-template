@@ -1,9 +1,16 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.subscriber.version_1.Subscriber;
 import com.java_template.application.entity.laureate.version_1.Laureate;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.service.EntityService;
+import com.java_template.common.util.Condition;
+import com.java_template.common.util.SearchConditionRequest;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -16,7 +23,8 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 @Component
 public class BackfillProcessor implements CyodaProcessor {
@@ -24,9 +32,13 @@ public class BackfillProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(BackfillProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final ObjectMapper objectMapper;
+    private final EntityService entityService;
 
-    public BackfillProcessor(SerializerFactory serializerFactory) {
+    public BackfillProcessor(SerializerFactory serializerFactory, EntityService entityService, ObjectMapper objectMapper) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -53,7 +65,7 @@ public class BackfillProcessor implements CyodaProcessor {
     private Subscriber processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Subscriber> context) {
         Subscriber subscriber = context.entity();
 
-        // In a real system we would page through laureates since backfillFromDate and enqueue notifications
+        // Parse backfillFromDate
         LocalDate from = null;
         try {
             if (subscriber.getBackfillFromDate() != null) {
@@ -63,28 +75,49 @@ public class BackfillProcessor implements CyodaProcessor {
             logger.warn("Invalid backfillFromDate for subscriber {}: {}", subscriber.getTechnicalId(), subscriber.getBackfillFromDate());
         }
 
-        List<Laureate> matches = new ArrayList<>();
-        // Simulate: create two laureates that match subscriber filters for prototype
-        Laureate l1 = new Laureate();
-        l1.setLaureateId("bf-" + subscriber.getTechnicalId() + "-1");
-        l1.setFullName("Backfill Laureate 1");
-        l1.setYear(2019);
-        l1.setCategory("Physics");
+        // Query laureates since backfillFromDate using entityService; this is paged (simplified for prototype)
+        int matches = 0;
+        try {
+            SearchConditionRequest condition = SearchConditionRequest.group("AND",
+                Condition.of("$.createdAt", "GREATER_THAN", from == null ? "1970-01-01" : from.toString())
+            );
+            CompletableFuture<ArrayNode> future = entityService.getItemsByCondition(Laureate.ENTITY_NAME, String.valueOf(Laureate.ENTITY_VERSION), condition, true);
+            ArrayNode items = future.get();
+            if (items != null) {
+                for (JsonNode n : items) {
+                    // evaluate structured filters - subscriber.filters is a JSON string
+                    boolean matched = true;
+                    if (subscriber.getFilters() != null && !subscriber.getFilters().isBlank()) {
+                        try {
+                            JsonNode filters = objectMapper.readTree(subscriber.getFilters());
+                            // very simple evaluation: if filters contains category equality
+                            if (filters.has("category")) {
+                                String cat = filters.get("category").asText();
+                                if (!n.has("category") || !cat.equals(n.get("category").asText())) matched = false;
+                            }
+                        } catch (Exception e) {
+                            logger.warn("Unable to parse filters for subscriber {}: {}", subscriber.getTechnicalId(), e.getMessage());
+                        }
+                    }
+                    if (matched) matches++;
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("Backfill query failed for subscriber {}: {}", subscriber.getTechnicalId(), e.getMessage());
+        }
 
-        Laureate l2 = new Laureate();
-        l2.setLaureateId("bf-" + subscriber.getTechnicalId() + "-2");
-        l2.setFullName("Backfill Laureate 2");
-        l2.setYear(2018);
-        l2.setCategory("Chemistry");
+        // store a simple JSON summary into notificationHistory (string field on Subscriber)
+        ObjectNode summary = objectMapper.createObjectNode();
+        summary.put("backfillMatches", matches);
+        if (from != null) summary.put("from", from.toString());
+        summary.put("generatedAt", java.time.Instant.now().toString());
+        try {
+            subscriber.setNotificationHistory(objectMapper.writeValueAsString(summary));
+        } catch (Exception e) {
+            subscriber.setNotificationHistory("{\"backfillMatches\":0}");
+        }
 
-        matches.add(l1);
-        matches.add(l2);
-
-        // For prototype attach a simple summary to subscriber.meta
-        Map<String, Object> meta = Map.of("backfillMatches", matches.size());
-        subscriber.setMeta(meta);
-        logger.info("Subscriber {} backfill found {} matches (from={})", subscriber.getTechnicalId(), matches.size(), from);
-
+        logger.info("Subscriber {} backfill found {} matches (from={})", subscriber.getTechnicalId(), matches, from);
         return subscriber;
     }
 }
