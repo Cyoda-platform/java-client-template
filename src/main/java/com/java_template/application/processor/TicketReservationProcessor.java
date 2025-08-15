@@ -56,7 +56,7 @@ public class TicketReservationProcessor implements CyodaProcessor {
 
     private Booking processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Booking> context) {
         Booking booking = context.entity();
-        logger.info("Reserving tickets for booking: {}", booking.getTechnicalId());
+        logger.info("Reserving tickets for booking: {}", booking.getBookingDate());
 
         try {
             // Validate event existence
@@ -67,7 +67,7 @@ public class TicketReservationProcessor implements CyodaProcessor {
             );
             ObjectNode eventNode = eventFuture.join();
             if (eventNode == null || eventNode.isEmpty()) {
-                logger.error("Event not found for booking: {}", booking.getTechnicalId());
+                logger.error("Event not found for booking: {}", booking.getBookingDate());
                 // Mark booking status as FAILED
                 booking.setStatus("FAILED");
                 return booking;
@@ -76,17 +76,17 @@ public class TicketReservationProcessor implements CyodaProcessor {
             // Check availability of tickets
             int availableTickets = 100; // Placeholder: You can implement actual ticket availability logic here
             if (booking.getTickets() > availableTickets) {
-                logger.error("Not enough tickets available for booking: {}", booking.getTechnicalId());
+                logger.error("Not enough tickets available for booking: {}", booking.getBookingDate());
                 booking.setStatus("FAILED");
                 return booking;
             }
 
             // Reserve tickets logic: Update booking status
             booking.setStatus("RESERVED");
-            logger.info("Tickets reserved for booking: {}", booking.getTechnicalId());
+            logger.info("Tickets reserved for booking: {}", booking.getBookingDate());
 
         } catch (Exception e) {
-            logger.error("Error during ticket reservation for booking {}: {}", booking.getTechnicalId(), e.getMessage(), e);
+            logger.error("Error during ticket reservation for booking {}: {}", booking.getBookingDate(), e.getMessage(), e);
             booking.setStatus("FAILED");
         }
 
