@@ -1,0 +1,147 @@
+{
+  "version": "1.0",
+  "name": "AdoptionRequest Workflow",
+  "desc": "Workflow for AdoptionRequest entity based on functional requirements",
+  "initialState": "PENDING",
+  "active": true,
+  "states": {
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "start_screening",
+          "next": "SCREENING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ScreeningProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SCREENING": {
+      "transitions": [
+        {
+          "name": "screening_ok",
+          "next": "READY_TO_REVIEW",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ScreeningOkCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "screening_failed",
+          "next": "NEEDS_REVIEW",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ScreeningFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "NEEDS_REVIEW": {
+      "transitions": [
+        {
+          "name": "manual_review_complete",
+          "next": "COMPLETED",
+          "manual": true
+        }
+      ]
+    },
+    "READY_TO_REVIEW": {
+      "transitions": [
+        {
+          "name": "approve_request",
+          "next": "APPROVED",
+          "manual": true,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.decision",
+            "operation": "EQUALS",
+            "value": "approve"
+          }
+        },
+        {
+          "name": "reject_request",
+          "next": "REJECTED",
+          "manual": true,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.decision",
+            "operation": "EQUALS",
+            "value": "reject"
+          }
+        }
+      ]
+    },
+    "APPROVED": {
+      "transitions": [
+        {
+          "name": "finalize_adoption",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FinalizeAdoptionProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "REJECTED": {
+      "transitions": [
+        {
+          "name": "finalize_rejection",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FinalizeRejectionProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": [
+        {
+          "name": "notify_parties",
+          "next": "NOTIFIED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotifyPartiesProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "NOTIFIED": {
+      "transitions": []
+    }
+  }
+}
