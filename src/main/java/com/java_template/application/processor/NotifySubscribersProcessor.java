@@ -134,7 +134,7 @@ public class NotifySubscribersProcessor implements CyodaProcessor {
                         for (JsonNode lNode : laureates) {
                             boolean matches = true;
                             if (filters != null) {
-                                if (filters.has("category") && filters.get("category”).isArray()) {
+                                if (filters.has("category") && filters.get("category").isArray()) {
                                     boolean any = false;
                                     for (JsonNode cat : filters.get("category")) {
                                         if (lNode.has("category") && cat.asText().equalsIgnoreCase(lNode.get("category").asText(""))) { any = true; break; }
@@ -217,12 +217,9 @@ public class NotifySubscribersProcessor implements CyodaProcessor {
                         failureReason = "Unknown contactType";
                     }
 
-                    // Update subscriber last notified status only on success
+                    // Update subscriber last notified timestamp only on success
                     if (delivered) {
                         subscriber.setLastNotifiedAt(Instant.now().toString());
-                        subscriber.setLastNotificationStatus("DELIVERED");
-                    } else {
-                        subscriber.setLastNotificationStatus("FAILED");
                     }
 
                     // Persist subscriber changes
