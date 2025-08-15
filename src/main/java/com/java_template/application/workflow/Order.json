@@ -1,0 +1,33 @@
+{
+  "version": "1.0",
+  "name": "Order Workflow",
+  "desc": "Validate order, check and reserve stock, process payment and manage fulfillment",
+  "initialState": "Pending",
+  "active": true,
+  "states": {
+    "Pending": { "transitions": [ { "name": "to_validation", "next": "Validation", "manual": false } ] },
+    "Validation": {
+      "transitions": [
+        { "name": "to_stock_check", "next": "Stock Check", "manual": false, "processors": [ { "name": "OrderValidationProcessor", "executionMode": "SYNC", "config": { "calculationNodesTags": "cyoda_application" } } ] },
+        { "name": "validation_failed", "next": "Failed", "manual": false, "criterion": { "type": "function", "function": { "name": "OrderValidationFailedCriterion", "config": { "calculationNodesTags": "cyoda_application" } } } }
+      ]
+    },
+    "Stock Check": {
+      "transitions": [
+        { "name": "stock_sufficient", "next": "Payment Processing", "manual": false, "criterion": { "type": "function", "function": { "name": "OrderStockSufficientCriterion", "config": { "calculationNodesTags": "cyoda_application" } } } },
+        { "name": "stock_insufficient", "next": "Failed", "manual": false, "criterion": { "type": "function", "function": { "name": "OrderStockInsufficientCriterion", "config": { "calculationNodesTags": "cyoda_application" } } } }
+      ]
+    },
+    "Payment Processing": {
+      "transitions": [
+        { "name": "payment_success", "next": "Paid", "manual": false, "criterion": { "type": "function", "function": { "name": "OrderPaymentSuccessCriterion", "config": { "calculationNodesTags": "cyoda_application" } } } },
+        { "name": "payment_failed", "next": "Failed", "manual": false, "criterion": { "type": "function", "function": { "name": "OrderPaymentFailedCriterion", "config": { "calculationNodesTags": "cyoda_application" } } } }
+      ]
+    },
+    "Paid": { "transitions": [ { "name": "to_confirmed", "next": "Confirmed", "manual": false, "processors": [ { "name": "OrderConfirmationProcessor", "executionMode": "SYNC", "config": { "calculationNodesTags": "cyoda_application" } } ] } ] },
+    "Confirmed": { "transitions": [ { "name": "to_shipped", "next": "Shipped", "manual": false, "processors": [ { "name": "OrderFulfillmentProcessor", "executionMode": "SYNC", "config": { "calculationNodesTags": "cyoda_application" } } ] } ] },
+    "Shipped": { "transitions": [] },
+    "Failed": { "transitions": [] },
+    "Cancelled": { "transitions": [] }
+  }
+}
