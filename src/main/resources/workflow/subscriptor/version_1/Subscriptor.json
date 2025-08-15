@@ -1,0 +1,44 @@
+{
+  "version": "1.0",
+  "name": "Subscriptor Workflow",
+  "desc": "Simple workflow for Subscriptor entity: create, validate and persist",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "validate_subscriptor",
+          "next": "VALIDATION",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SubscriptorValidationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATION": {
+      "transitions": [
+        {
+          "name": "persist_subscriptor",
+          "next": "SUCCEEDED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PersistSubscriptorProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SUCCEEDED": { "transitions": [] }
+  }
+}
