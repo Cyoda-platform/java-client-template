@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.subscriber.version_1.Subscriber;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
-import com.java_template.common.service.EntityService;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -28,13 +27,11 @@ public class DeliveryProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(DeliveryProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
-    private final EntityService entityService;
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient = HttpClient.newHttpClient();
 
-    public DeliveryProcessor(SerializerFactory serializerFactory, EntityService entityService, ObjectMapper objectMapper) {
+    public DeliveryProcessor(SerializerFactory serializerFactory, ObjectMapper objectMapper) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
-        this.entityService = entityService;
         this.objectMapper = objectMapper;
     }
 
@@ -94,20 +91,9 @@ public class DeliveryProcessor implements CyodaProcessor {
 
             if (delivered) {
                 subscriber.setLastNotifiedAt(Instant.now().toString());
-            }
-
-            // Persist subscriber changes via entityService if technicalId is available
-            try {
-                if (subscriber.getTechnicalId() != null && !subscriber.getTechnicalId().isEmpty()) {
-                    entityService.updateItem(
-                        Subscriber.ENTITY_NAME,
-                        String.valueOf(Subscriber.ENTITY_VERSION),
-                        java.util.UUID.fromString(subscriber.getTechnicalId()),
-                        subscriber
-                    ).join();
-                }
-            } catch (Exception pe) {
-                logger.warn("Unable to persist subscriber {} notification status: {}", subscriber.getTechnicalId(), pe.getMessage());
+                subscriber.setLastNotificationStatus("DELIVERED");
+            } else {
+                subscriber.setLastNotificationStatus("FAILED");
             }
 
             if (!delivered) {
@@ -118,6 +104,7 @@ public class DeliveryProcessor implements CyodaProcessor {
             logger.error("Delivery failed for subscriber {}: {}", subscriber != null ? subscriber.getTechnicalId() : "unknown", e.getMessage(), e);
         }
 
+        // Return the modified subscriber; persistence of the subscriber context will be handled by the framework serializer
         return subscriber;
     }
 
