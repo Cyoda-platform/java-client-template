@@ -1,7 +1,6 @@
 package com.java_template.application.entity.shoppingcart.version_1;
 
 import lombok.Data;
-
 import java.math.BigDecimal;
 
 @Data
@@ -11,8 +10,8 @@ public class CartItem {
     private BigDecimal price;
 
     public CartItem() {
-        this.price = BigDecimal.ZERO;
         this.quantity = 0;
+        this.price = BigDecimal.ZERO;
     }
 
     public boolean isValid() {
