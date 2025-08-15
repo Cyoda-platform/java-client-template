@@ -16,6 +16,14 @@ public class Mail implements CyodaEntity {
     private Boolean isHappy;
     private List<String> mailList;
 
+    // Added fields per functional requirements
+    // Use String for timestamps (ISO8601) to match persistence expectations
+    private String status; // CREATED, EVALUATION, SENDING_HAPPY, SENDING_GLOOMY, SENT, FAILED
+    private String createdAt;
+    private String updatedAt;
+    private String error;
+    private Integer retryCount;
+
     public Mail() {}
 
     @Override
@@ -28,9 +36,7 @@ public class Mail implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        if (isHappy == null) {
-            return false;
-        }
+        // Per functional requirements: isHappy may be null (treated as gloomy). Only validate mailList.
         if (mailList == null || mailList.isEmpty()) {
             return false;
         }
