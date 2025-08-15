@@ -1,0 +1,116 @@
+{
+  "version": "1.0",
+  "name": "HNItem Workflow",
+  "desc": "Workflow for processing individual Hacker News items",
+  "initialState": "RECEIVED",
+  "active": true,
+  "states": {
+    "RECEIVED": {
+      "transitions": [
+        {
+          "name": "to_validation",
+          "next": "VALIDATION",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateRequiredFieldsProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATION": {
+      "transitions": [
+        {
+          "name": "to_invalid",
+          "next": "INVALID",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "MissingFieldsCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "to_enrichment",
+          "next": "ENRICHMENT",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidationPassedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "INVALID": {
+      "transitions": [
+        {
+          "name": "await_manual_fix",
+          "next": "AWAIT_MANUAL_FIX",
+          "manual": true
+        }
+      ]
+    },
+    "AWAIT_MANUAL_FIX": {
+      "transitions": [
+        {
+          "name": "manual_reject",
+          "next": "REJECTED",
+          "manual": true
+        }
+      ]
+    },
+    "ENRICHMENT": {
+      "transitions": [
+        {
+          "name": "enrich_and_persist",
+          "next": "PERSISTED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EnrichImportTimestampProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PERSISTED": {
+      "transitions": [
+        {
+          "name": "persist_item",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PersistItemProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": []
+    },
+    "REJECTED": {
+      "transitions": []
+    }
+  }
+}
