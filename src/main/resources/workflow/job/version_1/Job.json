@@ -1,0 +1,186 @@
+{
+  "version": "1.0",
+  "name": "Job Workflow",
+  "desc": "Workflow for Job orchestration entity",
+  "initialState": "PENDING",
+  "active": true,
+  "states": {
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "to_validating",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "JobValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "valid_schedule",
+          "next": "FETCHING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "FetchScheduleCheckCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "FETCHING": {
+      "transitions": [
+        {
+          "name": "fetch_complete",
+          "next": "NORMALIZING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "FetchCompleteCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "NORMALIZING": {
+      "transitions": [
+        {
+          "name": "normalize_complete",
+          "next": "COMPARING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "NormalizeCompleteCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "COMPARING": {
+      "transitions": [
+        {
+          "name": "new_or_update",
+          "next": "PERSISTING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "NewOrUpdateCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "PERSISTING": {
+      "transitions": [
+        {
+          "name": "all_processed",
+          "next": "COMPLETED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AllRecordsProcessedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "processing_error",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ProcessingErrorCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": [
+        {
+          "name": "retry_allowed",
+          "next": "RETRY_WAIT",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "RetryAllowedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "escalate_immediately",
+          "next": "ESCALATED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "EscalationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "RETRY_WAIT": {
+      "transitions": [
+        {
+          "name": "retry_window_expired",
+          "next": "ESCALATED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "RetryWindowExpiredCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ESCALATED": {
+      "transitions": []
+    }
+  }
+}
