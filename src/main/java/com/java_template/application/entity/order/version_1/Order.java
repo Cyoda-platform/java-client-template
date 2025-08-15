@@ -7,6 +7,7 @@ import lombok.Data;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.math.BigDecimal;
 
 @Data
 public class Order implements CyodaEntity {
@@ -18,11 +19,12 @@ public class Order implements CyodaEntity {
     private String orderNumber;
     private String customerId; // serialized UUID
     private List<OrderItem> items = new ArrayList<>();
-    private Double totalAmount;
+    private BigDecimal total; // renamed from totalAmount to total
     private String currency;
     private String status; // e.g., PENDING, PAID
     private String paymentId; // serialized UUID
     private String shipmentId; // serialized UUID
+    private String paymentStatus; // e.g., AUTHORIZED, CAPTURED, FAILED
     private String createdAt;
 
     public Order() {}
@@ -40,7 +42,7 @@ public class Order implements CyodaEntity {
         if (id == null || id.isBlank()) return false;
         if (customerId == null || customerId.isBlank()) return false;
         if (items == null) return false;
-        if (totalAmount == null || totalAmount < 0) return false;
+        if (total == null || total.doubleValue() < 0) return false;
         if (currency == null || currency.isBlank()) return false;
         if (status == null || status.isBlank()) return false;
         return true;
@@ -50,12 +52,12 @@ public class Order implements CyodaEntity {
     public static class OrderItem {
         private String productId; // serialized UUID
         private Integer quantity;
-        private Double unitPrice;
+        private BigDecimal unitPrice;
 
         public boolean isValid() {
             if (productId == null || productId.isBlank()) return false;
             if (quantity == null || quantity <= 0) return false;
-            if (unitPrice == null || unitPrice < 0) return false;
+            if (unitPrice == null || unitPrice.doubleValue() < 0) return false;
             return true;
         }
     }
