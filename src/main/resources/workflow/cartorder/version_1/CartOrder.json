@@ -1,0 +1,116 @@
+{
+  "version": "1.0",
+  "name": "CartOrder Workflow",
+  "desc": "Workflow for cart lifecycle, checkout, payment, reservation, fulfillment and completion.",
+  "initialState": "cart",
+  "active": true,
+  "states": {
+    "cart": {
+      "transitions": [
+        {
+          "name": "checkout",
+          "next": "pending_payment",
+          "manual": true,
+          "processors": [
+            {
+              "name": "CheckoutProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "pending_payment": {
+      "transitions": [
+        {
+          "name": "payment_confirmed",
+          "next": "confirmed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PaymentConfirmedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "payment_failed",
+          "next": "cancelled",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PaymentFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "confirmed": {
+      "transitions": [
+        {
+          "name": "reserve_stock_and_fulfill",
+          "next": "fulfillment",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ReserveStockProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "fulfillment": {
+      "transitions": [
+        {
+          "name": "mark_shipped",
+          "next": "shipped",
+          "manual": true,
+          "processors": [
+            {
+              "name": "MarkShippedProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "shipped": {
+      "transitions": [
+        {
+          "name": "delivery_confirmed",
+          "next": "completed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DeliveryConfirmedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "cancelled": {
+      "transitions": []
+    },
+    "completed": {
+      "transitions": []
+    }
+  }
+}
