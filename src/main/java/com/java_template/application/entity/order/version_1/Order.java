@@ -17,9 +17,11 @@ public class Order implements CyodaEntity {
 
     private String id;
     private String orderNumber;
-    private String customerId; // serialized UUID
+    private String userId; // serialized UUID
+    private String customerId; // serialized UUID (legacy)
     private List<OrderItem> items = new ArrayList<>();
-    private BigDecimal total; // renamed from totalAmount to total
+    private BigDecimal subtotal;
+    private BigDecimal total;
     private String currency;
     private String status; // e.g., PENDING, PAID
     private String paymentId; // serialized UUID
@@ -40,9 +42,9 @@ public class Order implements CyodaEntity {
     @Override
     public boolean isValid() {
         if (id == null || id.isBlank()) return false;
-        if (customerId == null || customerId.isBlank()) return false;
+        if ((userId == null || userId.isBlank()) && (customerId == null || customerId.isBlank())) return false;
         if (items == null) return false;
-        if (total == null || total.doubleValue() < 0) return false;
+        if (total == null) return false;
         if (currency == null || currency.isBlank()) return false;
         if (status == null || status.isBlank()) return false;
         return true;
@@ -57,7 +59,7 @@ public class Order implements CyodaEntity {
         public boolean isValid() {
             if (productId == null || productId.isBlank()) return false;
             if (quantity == null || quantity <= 0) return false;
-            if (unitPrice == null || unitPrice.doubleValue() < 0) return false;
+            if (unitPrice == null) return false;
             return true;
         }
     }
