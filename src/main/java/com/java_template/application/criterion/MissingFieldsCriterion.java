@@ -1,7 +1,5 @@
 package com.java_template.application.criterion;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.hnitem.version_1.HNItem;
 import com.java_template.application.entity.validationrecord.version_1.ValidationRecord;
 import com.java_template.common.serializer.CriterionSerializer;
@@ -12,6 +10,7 @@ import com.java_template.common.serializer.StandardEvalReasonCategories;
 import com.java_template.common.workflow.CyodaCriterion;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.OperationSpecification;
+import com.java_template.application.processor.ValidationRecordRepository;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
 import org.slf4j.Logger;
@@ -30,7 +29,6 @@ public class MissingFieldsCriterion implements CyodaCriterion {
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final CriterionSerializer serializer;
     private final String className = this.getClass().getSimpleName();
-    private final ObjectMapper mapper = new ObjectMapper();
 
     public MissingFieldsCriterion(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultCriteriaSerializer();
@@ -39,6 +37,8 @@ public class MissingFieldsCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
+        logger.info("Evaluating MissingFieldsCriterion for request: {}", request.getId());
+
         return serializer.withRequest(request)
             .evaluateEntity(HNItem.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -53,40 +53,33 @@ public class MissingFieldsCriterion implements CyodaCriterion {
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<HNItem> context) {
         HNItem entity = context.entity();
         try {
-            if (entity == null || entity.getRawJson() == null) {
-                return EvaluationOutcome.fail("HNItem rawJson missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            if (entity == null) {
+                return EvaluationOutcome.fail("Entity is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
             }
 
-            JsonNode parsed = mapper.readTree(entity.getRawJson());
+            // Determine missing fields using only existing entity properties and rawJson
             List<String> missing = new ArrayList<>();
-            if (!parsed.hasNonNull("id")) missing.add("id");
-            if (!parsed.hasNonNull("type")) missing.add("type");
+            if (entity.getId() == null) missing.add("id");
+            if (entity.getType() == null || entity.getType().isBlank()) missing.add("type");
 
             if (!missing.isEmpty()) {
-                String message = "Missing required fields: " + String.join(", ", missing);
-                // create validation record
+                String now = OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
                 ValidationRecord record = new ValidationRecord();
                 record.setTechnicalId(UUID.randomUUID().toString());
-                if (parsed.hasNonNull("id")) {
-                    record.setHnId(parsed.get("id").asLong());
-                }
-                record.setHnItemTechnicalId(entity.getTechnicalId());
-                record.setIsValid(false);
-                record.setMissingFields(missing);
-                String now = OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+                record.setHnItemId(entity.getId());
                 record.setCheckedAt(now);
-                record.setMessage(message);
-                record.setCreatedAt(now);
+                record.setIsValid(Boolean.FALSE);
+                record.setMissingFields(missing);
+                record.setMessage("Missing required fields: " + String.join(", ", missing));
                 ValidationRecordRepository.getInstance().save(record);
 
-                // attach failure reason
-                return EvaluationOutcome.fail(message, StandardEvalReasonCategories.VALIDATION_FAILURE);
+                return EvaluationOutcome.fail(record.getMessage(), StandardEvalReasonCategories.VALIDATION_FAILURE);
             }
 
             return EvaluationOutcome.success();
         } catch (Exception e) {
-            logger.error("Error in MissingFieldsCriterion for HNItem {}: {}", entity == null ? "<null>" : entity.getTechnicalId(), e.getMessage(), e);
-            return EvaluationOutcome.fail("Validation error: " + e.getMessage(), StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+            logger.error("Error evaluating MissingFieldsCriterion for HNItem {}: {}", entity == null ? "<null>" : entity.getTechnicalId(), e.getMessage(), e);
+            return EvaluationOutcome.fail("Evaluation error: " + e.getMessage(), StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
         }
     }
 }
