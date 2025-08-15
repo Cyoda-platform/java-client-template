@@ -49,8 +49,13 @@ public class CheckJobCompleteCriterion implements CyodaCriterion {
         if ("COMPLETED".equalsIgnoreCase(job.getStatus())) {
             return EvaluationOutcome.success();
         }
-        if (job.getFinishedAt() != null && job.getFinishedAt() > 0) {
-            return EvaluationOutcome.success();
+        try {
+            if (job.getFinishedAt() != null && Long.parseLong(job.getFinishedAt()) > 0) {
+                return EvaluationOutcome.success();
+            }
+        } catch (NumberFormatException ex) {
+            // ignore and treat as not finished
+            logger.debug("finishedAt is not a valid timestamp: {}", job.getFinishedAt());
         }
         return EvaluationOutcome.fail("Job not complete yet", StandardEvalReasonCategories.VALIDATION_FAILURE);
     }
