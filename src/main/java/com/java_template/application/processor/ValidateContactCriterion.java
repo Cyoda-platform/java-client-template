@@ -61,10 +61,11 @@ public class ValidateContactCriterion implements CyodaProcessor {
             String email = contact.getEmail();
             if (email == null || email.isEmpty() || !email.contains("@")) missing = true;
 
+            // Contact entity does not have a status field. Use title to record validation outcome.
             if (missing) {
-                contact.setStatus("DELETED");
+                contact.setTitle("DELETED");
             } else {
-                contact.setStatus("VALIDATED");
+                contact.setTitle("VALIDATED");
             }
 
             // persist
