@@ -1,0 +1,78 @@
+{
+  "version": "1.0",
+  "name": "HackerNewsItem Workflow",
+  "desc": "Workflow for saving and retrieving Hacker News items, including validation and enrichment on save",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "decide_save",
+          "next": "save_processing",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsSaveOperationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "decide_retrieve",
+          "next": "retrieve_processing",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsRetrieveOperationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "save_processing": {
+      "transitions": [
+        {
+          "name": "save_item",
+          "next": "completed",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SaveHnItemProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "retrieve_processing": {
+      "transitions": [
+        {
+          "name": "retrieve_item",
+          "next": "completed",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RetrieveHnItemProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    }
+  }
+}
