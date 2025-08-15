@@ -1,0 +1,126 @@
+{
+  "version": "1.0",
+  "name": "Order Workflow",
+  "desc": "Workflow to orchestrate order checkout: validate, reserve inventory, process payment, create order and trigger shipment",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "validate_order",
+          "next": "validated",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateOrderProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "validated": {
+      "transitions": [
+        {
+          "name": "reserve_inventory",
+          "next": "inventory_checked",
+          "manual": false,
+          "processors": [
+            {
+              "name": "InventoryReservationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "inventory_checked": {
+      "transitions": [
+        {
+          "name": "inventory_ok",
+          "next": "payment_processing",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.inventoryOk",
+            "operation": "EQUALS",
+            "value": true
+          }
+        },
+        {
+          "name": "inventory_insufficient",
+          "next": "failed",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.inventoryOk",
+            "operation": "EQUALS",
+            "value": false
+          }
+        }
+      ]
+    },
+    "payment_processing": {
+      "transitions": [
+        {
+          "name": "process_payment",
+          "next": "payment_processed",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PaymentProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "payment_processed": {
+      "transitions": [
+        {
+          "name": "create_order_record",
+          "next": "order_created",
+          "manual": false,
+          "processors": [
+            {
+              "name": "OrderCreationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "order_created": {
+      "transitions": [
+        {
+          "name": "trigger_shipment",
+          "next": "shipment_created",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ShipmentTriggerProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "shipment_created": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  }
+}
