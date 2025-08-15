@@ -5,6 +5,7 @@ import com.java_template.common.workflow.CyodaEntity;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 
+import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -23,8 +24,11 @@ public interface ProcessorSerializer {
     /**
      * Context record containing the original request and extracted entity for processor evaluation.
      * Provides access to both request metadata (entityId, transactionId) and entity data.
+     *
+     * Note: an attributes map is included to support legacy processor code that inspects
+     * contextual attributes (e.g. technicalId). The attributes map may be null if not available.
      */
-    record ProcessorEntityExecutionContext<T extends CyodaEntity>(EntityProcessorCalculationRequest request, T entity) {}
+    record ProcessorEntityExecutionContext<T extends CyodaEntity>(EntityProcessorCalculationRequest request, T entity, Map<String, Object> attributes) {}
 
     /**
      * Extracts a typed entity from the request payload.
@@ -284,7 +288,8 @@ public interface ProcessorSerializer {
         public EntityProcessingChain<T> map(Function<ProcessorEntityExecutionContext<T>, T> mapper) {
             if (error == null && processedEntity != null) {
                 try {
-                    ProcessorEntityExecutionContext<T> context = new ProcessorEntityExecutionContext<>(request, processedEntity);
+                    // build a minimal context. Attributes extraction is intentionally left null when unavailable.
+                    ProcessorEntityExecutionContext<T> context = new ProcessorEntityExecutionContext<>(request, processedEntity, null);
                     processedEntity = mapper.apply(context);
                 } catch (Exception e) {
                     error = e;
