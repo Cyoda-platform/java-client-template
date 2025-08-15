@@ -145,7 +145,23 @@ public class ImportTaskProcessor implements CyodaProcessor {
             if (node.has("type") && !node.get("type").isNull()) {
                 item.setType(node.get("type").asText());
             }
+            // Extract domain as source if URL present
+            if (node.has("url") && !node.get("url").isNull()) {
+                String url = node.get("url").asText();
+                try {
+                    java.net.URI uri = new java.net.URI(url);
+                    String host = uri.getHost();
+                    if (host != null) {
+                        item.setSource(host.startsWith("www.") ? host.substring(4) : host);
+                        if (item.getTags() == null) item.setTags(new java.util.ArrayList<>());
+                        if (!item.getTags().contains("has-url")) item.getTags().add("has-url");
+                    }
+                } catch (Exception e) {
+                    logger.debug("Failed to parse URL for enrichment in task {}: {}", task.getJobTechnicalId(), e.getMessage());
+                }
+            }
             item.setImportTimestamp(Instant.now());
+            item.setUpdatedAt(Instant.now());
         } catch (Exception e) {
             logger.warn("Enrichment failed for task {}: {}", task.getJobTechnicalId(), e.getMessage());
             task.setStatus("FAILED");
