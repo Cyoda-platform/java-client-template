@@ -1,0 +1,112 @@
+{
+  "version": "1.0",
+  "name": "Order Workflow",
+  "desc": "Workflow for order processing including payment and finalization",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "mark_payment_pending",
+          "next": "PAYMENT_PENDING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CreateOrderProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PAYMENT_PENDING": {
+      "transitions": [
+        {
+          "name": "process_payment",
+          "next": "PROCESSING_PAYMENT",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PaymentProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PROCESSING_PAYMENT": {
+      "transitions": [
+        {
+          "name": "payment_success",
+          "next": "COMPLETED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PaymentSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "payment_failed",
+          "next": "CANCELLED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PaymentFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": [
+        {
+          "name": "notify_customer",
+          "next": "DONE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotifyCustomerProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "CANCELLED": {
+      "transitions": [
+        {
+          "name": "notify_cancel",
+          "next": "DONE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotifyCustomerProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "DONE": {
+      "transitions": []
+    }
+  }
+}
