@@ -1,6 +1,8 @@
 package com.java_template.application.processor;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.job.version_1.Job;
 import com.java_template.application.entity.laureate.version_1.Laureate;
@@ -65,12 +67,13 @@ public class NotifySubscribersProcessor implements CyodaProcessor {
         try {
             logger.info("Starting notification phase for job id={}", job.getId());
             // Query subscribers (fetch all, then apply filters in-memory for prototype simplicity)
-            List<ObjectNode> subs = new ArrayList<>();
+            ArrayNode subs = objectMapper.createArrayNode();
             try {
-                subs = entityService.getItems(
+                ArrayNode fetched = entityService.getItems(
                     Subscriber.ENTITY_NAME,
                     String.valueOf(Subscriber.ENTITY_VERSION)
                 ).join();
+                if (fetched != null) subs = fetched;
             } catch (CompletionException ce) {
                 logger.error("Failed to fetch subscribers for notification: {}", ce.getMessage(), ce);
             }
@@ -78,7 +81,9 @@ public class NotifySubscribersProcessor implements CyodaProcessor {
             int success = 0;
             int failure = 0;
 
-            for (ObjectNode node : subs) {
+            for (JsonNode jsonNode : subs) {
+                if (!(jsonNode instanceof ObjectNode)) continue;
+                ObjectNode node = (ObjectNode) jsonNode;
                 try {
                     Subscriber s = objectMapper.treeToValue(node, Subscriber.class);
                     if (s.getActive() == null || !s.getActive()) continue;
