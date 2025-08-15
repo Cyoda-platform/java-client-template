@@ -3,6 +3,7 @@ package com.java_template.application.processor;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.java_template.application.entity.importtask.version_1.ImportTask;
 import com.java_template.application.entity.hackernewsitem.version_1.HackerNewsItem;
 import com.java_template.common.serializer.ProcessorSerializer;
@@ -111,7 +112,7 @@ public class ImportTaskProcessor implements CyodaProcessor {
                     }
                 }
             } catch (Exception e) {
-                logger.warn("Failed to heuristic load HackerNewsItem for task {}: {}", task.getTechnicalId(), e.getMessage());
+                logger.warn("Failed to heuristic load HackerNewsItem for task {}: {}", task.getJobTechnicalId(), e.getMessage());
             }
         }
 
@@ -146,7 +147,7 @@ public class ImportTaskProcessor implements CyodaProcessor {
             }
             item.setImportTimestamp(Instant.now());
         } catch (Exception e) {
-            logger.warn("Enrichment failed for task {}: {}", task.getTechnicalId(), e.getMessage());
+            logger.warn("Enrichment failed for task {}: {}", task.getJobTechnicalId(), e.getMessage());
             task.setStatus("FAILED");
             task.setErrorMessage("Enrichment failed: " + e.getMessage());
             task.setLastUpdatedAt(Instant.now());
