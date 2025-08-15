@@ -33,7 +33,7 @@ public class BookingCapacityUnavailableCriterion implements CyodaCriterion {
     private final EntityService entityService;
 
     public BookingCapacityUnavailableCriterion(SerializerFactory serializerFactory, EntityService entityService) {
-        this.serializer = seria lizerFactory.getDefaultCriteriaSerializer();
+        this.serializer = serializerFactory.getDefaultCriteriaSerializer();
         this.entityService = entityService;
     }
 
