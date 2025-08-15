@@ -35,4 +35,4 @@ public class Event implements CyodaEntity {
         if (category == null || category.isBlank()) return false;
         return true;
     }
-}}
+}
