@@ -1,0 +1,113 @@
+{
+  "version": "1.0",
+  "name": "HNItem Workflow",
+  "desc": "Workflow for HNItem based on functional requirements",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": [
+        {
+          "name": "to_validation",
+          "next": "validation",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PersistItemProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "validation": {
+      "transitions": [
+        {
+          "name": "to_valid",
+          "next": "valid_state",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidateFieldsCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "to_invalid",
+          "next": "invalid_state",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidateFieldsCriterionInverse",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "valid_state": {
+      "transitions": [
+        {
+          "name": "to_ready",
+          "next": "ready",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EnrichTimestampProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "invalid_state": {
+      "transitions": [
+        {
+          "name": "to_needs_review",
+          "next": "needs_review",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PersistMetadataProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "needs_review": {
+      "transitions": [
+        {
+          "name": "manual_review_to_valid",
+          "next": "valid_state",
+          "manual": true
+        }
+      ]
+    },
+    "ready": {
+      "transitions": [
+        {
+          "name": "complete",
+          "next": "final",
+          "manual": false
+        }
+      ]
+    },
+    "final": {
+      "transitions": []
+    }
+  }
+}
