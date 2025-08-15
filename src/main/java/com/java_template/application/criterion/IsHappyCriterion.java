@@ -15,7 +15,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
 import java.util.regex.Pattern;
 
 @Component
@@ -25,7 +24,7 @@ public class IsHappyCriterion implements CyodaCriterion {
     private final CriterionSerializer serializer;
     private final String className = this.getClass().getSimpleName();
 
-    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
+    private static final Pattern SIMPLE_EMAIL = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
 
     public IsHappyCriterion(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultCriteriaSerializer();
@@ -46,29 +45,38 @@ public class IsHappyCriterion implements CyodaCriterion {
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Mail> context) {
-        Mail mail = context.entity();
-
-        if (mail == null) {
-            return EvaluationOutcome.fail("Mail entity is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        Mail entity = context.entity();
+        if (entity == null) {
+            return EvaluationOutcome.fail("Entity is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
 
-        List<String> list = mail.getMailList();
-        if (list == null || list.isEmpty()) {
-            return EvaluationOutcome.fail("mailList is required and must contain at least one email", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (entity.getMailList() == null || entity.getMailList().isEmpty()) {
+            return EvaluationOutcome.fail("mailList is required and must contain at least one recipient", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
 
-        // All recipients must be valid emails to be considered happy
-        for (String recipient : list) {
-            if (recipient == null || recipient.isEmpty() || !EMAIL_PATTERN.matcher(recipient).matches()) {
-                return EvaluationOutcome.fail("mailList contains invalid email: " + recipient, StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+        boolean anyValid = false;
+        for (String addr : entity.getMailList()) {
+            if (addr == null || addr.isBlank()) {
+                return EvaluationOutcome.fail("mailList contains blank or null address", StandardEvalReasonCategories.VALIDATION_FAILURE);
             }
-            // business rule: if any explicit fail marker, not happy
-            if (recipient.equalsIgnoreCase("gloom@example.com")) {
-                return EvaluationOutcome.fail("Recipient indicates gloomy template", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+            if (!SIMPLE_EMAIL.matcher(addr).matches()) {
+                return EvaluationOutcome.fail("mailList contains invalid email: " + addr, StandardEvalReasonCategories.VALIDATION_FAILURE);
+            }
+            // Business rule example: if recipient includes "happy" domain treat as happy
+            if (addr.toLowerCase().contains("happy@example.com") || addr.toLowerCase().contains("joy") ) {
+                anyValid = true;
+            }
+            // Another example: if recipient is 'gloom@example.com' it's explicitly gloomy -> not happy
+            if (addr.equalsIgnoreCase("gloom@example.com")) {
+                return EvaluationOutcome.fail("Recipient indicates gloomy classification", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
             }
         }
 
-        // If all checks pass, mail is happy
+        if (anyValid) {
+            return EvaluationOutcome.success();
+        }
+
+        // Default to success of criterion if no explicit gloomy indicator found; higher level will choose gloom if needed
         return EvaluationOutcome.success();
     }
 }
