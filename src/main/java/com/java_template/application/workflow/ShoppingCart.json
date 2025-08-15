@@ -1,0 +1,53 @@
+{
+  "version": "1.0",
+  "name": "ShoppingCart Workflow",
+  "desc": "Manage cart item changes, recalculate totals, validate availability and handle checkout/abandonment",
+  "initialState": "Open",
+  "active": true,
+  "states": {
+    "Open": {
+      "transitions": [
+        { "name": "modified", "next": "Modified", "manual": false },
+        { "name": "to_abandoned_if_idle", "next": "Abandoned", "manual": false, "criterion": { "type": "function", "function": { "name": "CartIdleAbandonmentCriterion", "config": { "calculationNodesTags": "cyoda_application" } } } }
+      ]
+    },
+    "Modified": {
+      "transitions": [
+        { "name": "to_recalculation", "next": "Recalculation", "manual": false }
+      ]
+    },
+    "Recalculation": {
+      "transitions": [
+        {
+          "name": "to_availability_validation",
+          "next": "Availability Validation",
+          "manual": false,
+          "processors": [ { "name": "CartRecalculationProcessor", "executionMode": "SYNC", "config": { "calculationNodesTags": "cyoda_application" } } ]
+        }
+      ]
+    },
+    "Availability Validation": {
+      "transitions": [
+        {
+          "name": "to_ready_to_checkout",
+          "next": "ReadyToCheckout",
+          "manual": false,
+          "criterion": { "type": "function", "function": { "name": "CartItemsReadyForCheckoutCriterion", "config": { "calculationNodesTags": "cyoda_application" } } }
+        },
+        {
+          "name": "to_open_if_changes_needed",
+          "next": "Open",
+          "manual": false,
+          "criterion": { "type": "function", "function": { "name": "CartItemsRequireAdjustmentCriterion", "config": { "calculationNodesTags": "cyoda_application" } } }
+        }
+      ]
+    },
+    "ReadyToCheckout": {
+      "transitions": [
+        { "name": "checkout_initiated", "next": "CheckedOut", "manual": false, "processors": [ { "name": "CartCheckoutProcessor", "executionMode": "SYNC", "config": { "calculationNodesTags": "cyoda_application" } } ] }
+      ]
+    },
+    "CheckedOut": { "transitions": [] },
+    "Abandoned": { "transitions": [] }
+  }
+}
