@@ -53,8 +53,8 @@ class HackerNewsItemEnrichmentProcessorTest {
         }
 
         @Override
-        public ResponseBuilder.ProcessorResponseBuilder responseBuilder(EntityProcessorCalculationRequest request) {
-            return ResponseBuilder.forProcessor(request);
+        public com.java_template.common.serializer.ResponseBuilder.ProcessorResponseBuilder responseBuilder(EntityProcessorCalculationRequest request) {
+            return com.java_template.common.serializer.ResponseBuilder.forProcessor(request);
         }
 
         @Override
@@ -145,10 +145,7 @@ class HackerNewsItemEnrichmentProcessorTest {
             .thenReturn(CompletableFuture.completedFuture(empty));
         when(entityService.addItem(anyString(), anyString(), any())).thenReturn(CompletableFuture.completedFuture(UUID.randomUUID()));
 
-        HackerNewsItemEnrichmentProcessor processor = new HackerNewsItemEnrichmentProcessor(testSerializer instanceof SerializerFactory ? null : serializerFactory, entityService, mapper);
-        // We used SerializerFactory mock only to satisfy constructor in typical usage; processor uses serializer from factory in real code,
-        // but our test serializer is injected via mocking the factory. However because we passed serializerFactory instance, ensure processor uses it.
-        // For simplicity, we will directly call process and rely on our TestProcessorSerializer.withRequest ignoring the actual factory wiring.
+        HackerNewsItemEnrichmentProcessor processor = new HackerNewsItemEnrichmentProcessor(serializerFactory, entityService, mapper);
 
         CyodaEventContextStub context = new CyodaEventContextStub();
 
