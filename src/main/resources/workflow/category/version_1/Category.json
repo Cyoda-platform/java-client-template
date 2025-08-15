@@ -1,0 +1,46 @@
+{
+  "version": "1.0",
+  "name": "Category Workflow",
+  "desc": "Workflow for Category entity",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "activate_category",
+          "next": "ACTIVE",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ActivateCategoryProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "archive_category",
+          "next": "ARCHIVED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ArchiveCategoryProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ARCHIVED": {
+      "transitions": []
+    }
+  }
+}
