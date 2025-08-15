@@ -75,7 +75,7 @@ public class ParseAndPersistGamesProcessor implements CyodaProcessor {
             ArrayNode gamesArray;
             if (root.isArray()) {
                 gamesArray = (ArrayNode) root;
-            } else if (root.has("games") && root.get("games`).isArray()) {
+            } else if (root.has("games") && root.get("games").isArray()) {
                 gamesArray = (ArrayNode) root.get("games");
             } else {
                 logger.error("Unexpected payload structure for fetch job {}", job.getRequestDate());
