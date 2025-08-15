@@ -1,0 +1,116 @@
+{
+  "version": "1.0",
+  "name": "User Workflow",
+  "desc": "Workflow for User entity",
+  "initialState": "NEW",
+  "active": true,
+  "states": {
+    "NEW": {
+      "transitions": [
+        {
+          "name": "to_validating",
+          "next": "VALIDATING",
+          "manual": false
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "validate_user",
+          "next": "DUPLICATE_CHECK",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateUserProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "DUPLICATE_CHECK": {
+      "transitions": [
+        {
+          "name": "if_not_duplicate",
+          "next": "AWAITING_ACTIVATION",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DuplicateUserCheckCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "if_duplicate",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DuplicateUserExistsCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "AWAITING_ACTIVATION": {
+      "transitions": [
+        {
+          "name": "activate_manual",
+          "next": "ACTIVATING",
+          "manual": true
+        }
+      ]
+    },
+    "ACTIVATING": {
+      "transitions": [
+        {
+          "name": "activate_and_notify",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ActivateUserProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "FAILED": {
+      "transitions": []
+    },
+    "COMPLETED": {
+      "transitions": [
+        {
+          "name": "notify_user",
+          "next": "END",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotifyUserProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "END": {
+      "transitions": []
+    }
+  }
+}
