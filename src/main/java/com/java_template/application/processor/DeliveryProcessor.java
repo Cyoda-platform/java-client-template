@@ -94,20 +94,6 @@ public class DeliveryProcessor implements CyodaProcessor {
 
             if (delivered) {
                 subscriber.setLastNotifiedAt(Instant.now().toString());
-                // Keep lastNotificationStatus field consistent with other processors
-                try {
-                    subscriber.getClass().getDeclaredMethod("setLastNotificationStatus", String.class).invoke(subscriber, "DELIVERED");
-                } catch (NoSuchMethodException nsme) {
-                    // fallback if method not present
-                } catch (Exception ex) {
-                    logger.debug("Unable to set lastNotificationStatus via reflection: {}", ex.getMessage());
-                }
-            } else {
-                try {
-                    subscriber.getClass().getDeclaredMethod("setLastNotificationStatus", String.class).invoke(subscriber, "FAILED");
-                } catch (Exception ex) {
-                    // ignore
-                }
             }
 
             // Persist subscriber changes via entityService if technicalId is available
