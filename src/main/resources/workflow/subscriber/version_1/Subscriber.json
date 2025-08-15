@@ -1,0 +1,100 @@
+{
+  "version": "1.0",
+  "name": "Subscriber Workflow",
+  "desc": "Workflow for Subscriber entity",
+  "initialState": "REGISTERED",
+  "active": true,
+  "states": {
+    "REGISTERED": {
+      "transitions": [
+        {
+          "name": "verify",
+          "next": "VERIFIED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "VerificationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VERIFIED": {
+      "transitions": [
+        {
+          "name": "activate",
+          "next": "ACTIVE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ActivateProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "notify",
+          "next": "NOTIFIED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotifySubscriberProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "executionMode": "ASYNC_NEW_TX"
+              }
+            }
+          ]
+        },
+        {
+          "name": "suspend",
+          "next": "SUSPENDED",
+          "manual": true
+        },
+        {
+          "name": "delete",
+          "next": "DELETED",
+          "manual": true
+        }
+      ]
+    },
+    "NOTIFIED": {
+      "transitions": [
+        {
+          "name": "notification_complete",
+          "next": "ACTIVE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotificationCompleteProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SUSPENDED": {
+      "transitions": [
+        {
+          "name": "resume",
+          "next": "ACTIVE",
+          "manual": true
+        }
+      ]
+    },
+    "DELETED": {
+      "transitions": []
+    }
+  }
+}
