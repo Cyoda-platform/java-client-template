@@ -1,0 +1,138 @@
+{
+  "version": "1.0",
+  "name": "Laureate Workflow",
+  "desc": "Workflow for Laureate business entity",
+  "initialState": "RECEIVED",
+  "active": true,
+  "states": {
+    "RECEIVED": {
+      "transitions": [
+        {
+          "name": "validate",
+          "next": "VALIDATED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATED": {
+      "transitions": [
+        {
+          "name": "enrich",
+          "next": "ENRICHED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EnrichmentProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ENRICHED": {
+      "transitions": [
+        {
+          "name": "dedup_check",
+          "next": "DEDUP_CHECK",
+          "manual": false,
+          "processors": [
+            {
+              "name": "DeduplicationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "DEDUP_CHECK": {
+      "transitions": [
+        {
+          "name": "is_duplicate",
+          "next": "DEDUPLICATE_HANDLING",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.detectedDuplicates",
+            "operation": "EQUALS",
+            "value": true
+          }
+        },
+        {
+          "name": "not_duplicate",
+          "next": "PERSISTED",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.detectedDuplicates",
+            "operation": "EQUALS",
+            "value": false
+          }
+        }
+      ]
+    },
+    "DEDUPLICATE_HANDLING": {
+      "transitions": [
+        {
+          "name": "merge_or_flag",
+          "next": "PERSISTED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "MergeOrFlagProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PERSISTED": {
+      "transitions": [
+        {
+          "name": "publish_decision",
+          "next": "PUBLISHED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PublishDecisionCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_failed",
+          "next": "REJECTED",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.validationErrors.length",
+            "operation": "GREATER_THAN",
+            "value": 0
+          }
+        }
+      ]
+    },
+    "PUBLISHED": {
+      "transitions": []
+    },
+    "REJECTED": {
+      "transitions": []
+    }
+  }
+}
