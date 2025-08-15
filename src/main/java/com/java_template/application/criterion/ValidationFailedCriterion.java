@@ -41,15 +41,16 @@ public class ValidationFailedCriterion implements CyodaCriterion {
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Laureate> context) {
-        Laureate l = context.entity();
-        if (l == null) {
+        Laureate laureate = context.entity();
+        if (laureate == null) {
             return EvaluationOutcome.fail("Laureate is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-
-        if (l.getDataValidated() == null || !l.getDataValidated()) {
-            return EvaluationOutcome.success();
+        if (laureate.getDataValidated() == null) {
+            return EvaluationOutcome.fail("dataValidated is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-
-        return EvaluationOutcome.fail("Laureate validation passed", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        if (laureate.getDataValidated()) {
+            return EvaluationOutcome.fail("Laureate passed validation", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        return EvaluationOutcome.success();
     }
 }
