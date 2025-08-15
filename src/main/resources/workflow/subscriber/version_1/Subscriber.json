@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "name": "Subscriber Workflow",
-  "desc": "Workflow for Subscriber lifecycle (validation, activation, backfill)",
+  "desc": "Workflow for Subscriber entity including validation, activation, backfill and update/deactivation",
   "initialState": "CREATED",
   "active": true,
   "states": {
@@ -10,15 +10,7 @@
         {
           "name": "validate_subscriber",
           "next": "VALIDATING",
-          "manual": false,
-          "processors": [
-            {
-              "name": "SubscriberValidationProcessor",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
-          ]
+          "manual": false
         }
       ]
     },
@@ -28,36 +20,26 @@
           "name": "validation_success",
           "next": "ACTIVE",
           "manual": false,
-          "criterion": {
-            "type": "function",
-            "function": {
-              "name": "ValidationSuccessCriterion",
+          "processors": [
+            {
+              "name": "SubscriberValidationProcessor",
               "config": {
                 "calculationNodesTags": "cyoda_application"
               }
             }
-          }
+          ]
         },
         {
           "name": "validation_failure",
           "next": "INVALID",
-          "manual": false,
-          "criterion": {
-            "type": "function",
-            "function": {
-              "name": "ValidationFailureCriterion",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
-          }
+          "manual": false
         }
       ]
     },
     "ACTIVE": {
       "transitions": [
         {
-          "name": "request_backfill",
+          "name": "backfill_requested",
           "next": "BACKFILLING",
           "manual": false,
           "criterion": {
@@ -73,19 +55,19 @@
         {
           "name": "update_requested",
           "next": "UPDATED",
-          "manual": true
+          "manual": false
         },
         {
           "name": "deactivate_requested",
           "next": "DEACTIVATED",
-          "manual": true
+          "manual": false
         }
       ]
     },
     "BACKFILLING": {
       "transitions": [
         {
-          "name": "start_backfill",
+          "name": "backfill_complete",
           "next": "ACTIVE",
           "manual": false,
           "processors": [
