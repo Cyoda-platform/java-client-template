@@ -1,0 +1,152 @@
+{
+  "version": "1.0",
+  "name": "Job Workflow",
+  "desc": "Workflow for orchestration Job entity",
+  "initialState": "SCHEDULED",
+  "active": true,
+  "states": {
+    "SCHEDULED": {
+      "transitions": [
+        {
+          "name": "start_ingestion",
+          "next": "INGESTING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "IngestProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "cancel_job",
+          "next": "CANCELLED",
+          "manual": true
+        }
+      ]
+    },
+    "INGESTING": {
+      "transitions": [
+        {
+          "name": "ingest_success_to_persisting",
+          "next": "PERSISTING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AllRecordsPersistedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "ingest_error_to_failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PersistErrorCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "PERSISTING": {
+      "transitions": [
+        {
+          "name": "persist_then_succeed",
+          "next": "SUCCEEDED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PersistLaureateProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "persist_failed_to_failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PersistErrorCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "SUCCEEDED": {
+      "transitions": [
+        {
+          "name": "notify_subscribers",
+          "next": "NOTIFYING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotifySubscribersProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "FAILED": {
+      "transitions": [
+        {
+          "name": "notify_on_failure",
+          "next": "NOTIFYING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotifySubscribersProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "NOTIFYING": {
+      "transitions": [
+        {
+          "name": "notification_complete",
+          "next": "NOTIFIED_SUBSCRIBERS",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "NotificationCompleteCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "NOTIFIED_SUBSCRIBERS": {
+      "transitions": []
+    },
+    "CANCELLED": {
+      "transitions": []
+    }
+  }
+}
