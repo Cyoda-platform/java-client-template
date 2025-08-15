@@ -12,7 +12,7 @@ public class Booking implements CyodaEntity {
 
     private String eventId;
     private String userId;
-    private String bookingD ate ;
+    private String bookingDate;
     private Integer numberOfTickets;
     private String bookingStatus;
 
