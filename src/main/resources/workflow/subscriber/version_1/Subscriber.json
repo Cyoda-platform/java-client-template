@@ -1,0 +1,52 @@
+{
+  "version": "1.0",
+  "name": "Subscriber Workflow",
+  "desc": "Workflow describing subscriber lifecycle and notification reception",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "activate",
+          "next": "ACTIVE",
+          "manual": true
+        },
+        {
+          "name": "deactivate",
+          "next": "INACTIVE",
+          "manual": true
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "receive_notification",
+          "next": "NOTIFIED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "DeliveryProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "NOTIFIED": {
+      "transitions": [
+        {
+          "name": "return_to_active",
+          "next": "ACTIVE",
+          "manual": false
+        }
+      ]
+    },
+    "INACTIVE": {
+      "transitions": []
+    }
+  }
+}
