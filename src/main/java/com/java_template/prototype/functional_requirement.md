@@ -1,244 +1,313 @@
-# Entity Definitions
-```
-User:
+# Functional Requirements
+
+This document defines up-to-date functional requirements for the Java 21 prototype application. It describes entities, fields, workflows, processors/criteria behavior, API contracts, event-driven processing semantics, and cross-cutting constraints (idempotency, concurrency, observability). The content supersedes and clarifies earlier drafts.
+
+---
+
+## Table of contents
+
+- Summary
+- Entity Definitions
+  - Common notes
+  - User
+  - Product
+  - Cart
+  - Order
+  - Reservation (operational entity)
+- Workflows (state machines + updated logic)
+  - User
+  - Product
+  - Cart
+  - Order
+- Processors and Criteria (behavioral pseudocode, idempotency, concurrency)
+- API Design and Rules
+  - POST behaviour, idempotency and headers
+  - GET behaviour and responses
+  - Endpoints summary
+- Event-driven processing
+- Required Java classes (overview)
+- Assumptions and constraints
+- Open questions / recommended improvements
+
+---
+
+## Summary
+
+This document captures current business logic and operational expectations. Key updates and clarifications include:
+
+- Explicit treatment of inventory reservations as a first-class concept (Reservation records) instead of directly decrementing Product.availableQuantity on a temporary basis.
+- Clear idempotency guidance for POST operations (recommended idempotency-key header) and idempotent processors.
+- Payment interaction clarified to support both authorize-only and authorize-and-capture flows; explicit paymentStatus and order.status transitions described.
+- Cart abandonment TTL, reservation hold TTL, and background jobs clarified.
+- Concurrency and consistency guidance (optimistic locking, atomic transitions, retries).
+
+---
+
+## Entity Definitions
+
+General guidelines:
+- All entity ids are UUID strings (RFC4122). Fields named `id` represent the entity's business/technical identifier when returned by GETs.
+- Timestamps are ISO8601 strings in UTC.
+- Sensitive fields (passwordHash, payment tokens) must not be returned by GET endpoints.
+- Role and status values are stored as Strings per constraint; code may map to internal enums for safety but persist as String.
+
+User
 - id: String (UUID, primary business identifier)
-- role: String (Admin or Customer)
-- email: String (unique contact and login)
+- role: String ("Admin" or "Customer")
+- email: String (unique across active and pending users, used as login)
 - name: String (display name)
-- passwordHash: String (hashed password)
+- passwordHash: String (hashed password — NEVER returned via API)
 - createdAt: String (ISO8601 timestamp)
 - active: Boolean (account enabled/disabled)
+- emailVerified: Boolean (true when verification is completed)
+- externalId: String (optional, for external identity providers)
 
-Product:
+Product
 - id: String (UUID, primary business identifier)
-- sku: String (stock keeping unit)
-- name: String (product title)
-- description: String (detailed description)
-- price: Number (BigDecimal, unit price)
-- currency: String (ISO currency code)
-- availableQuantity: Integer (stock available)
+- sku: String (stock keeping unit, unique)
+- name: String
+- description: String
+- price: Number (BigDecimal-equivalent; unit price)
+- currency: String (ISO 4217 code)
+- availableQuantity: Integer (current on-hand quantity — authoritative available quantity excluding reservations)
 - active: Boolean (catalog active flag)
 - createdAt: String (ISO8601 timestamp)
+- allowBackorder: Boolean (optional; if true, orders may be created that exceed availableQuantity)
 
-Cart:
+Cart
 - id: String (UUID, primary business identifier)
 - customerId: String (UUID referencing User)
-- items: Array of Objects (CartItem)
+- items: Array of CartItem
   - productId: String (UUID referencing Product)
   - quantity: Integer (requested quantity)
   - unitPrice: Number (snapshot of price at add time)
-- totalAmount: Number (computed total of items)
-- currency: String (ISO currency code)
-- status: String (OPEN, CHECKOUT_IN_PROGRESS, CHECKED_OUT, ABANDONED)
+- totalAmount: Number (computed total of items in the cart)
+- currency: String (ISO currency code; all items must use same currency)
+- status: String (one of: OPEN, CHECKOUT_IN_PROGRESS, CHECKED_OUT, ABANDONED)
 - createdAt: String (ISO8601 timestamp)
 - updatedAt: String (ISO8601 timestamp)
+- lastActivityAt: String (ISO8601 timestamp, used for abandonment TTL)
 
-Order:
+Order
 - id: String (UUID, primary business identifier)
 - customerId: String (UUID referencing User)
-- items: Array of Objects (OrderItem)
-  - productId: String (UUID referencing Product)
+- items: Array of OrderItem
+  - productId: String
   - quantity: Integer
   - unitPrice: Number
 - totalAmount: Number
-- currency: String (ISO currency code)
-- status: String (PENDING_PAYMENT, PAID, PACKED, SHIPPED, DELIVERED, CANCELLED, REFUNDED)
-- paymentStatus: String (NOT_ATTEMPTED, AUTHORIZED, CAPTURED, FAILED)
-- shippingAddress: String (free text shipping address)
-- billingAddress: String (free text billing address)
-- createdAt: String (ISO8601 timestamp)
-- updatedAt: String (ISO8601 timestamp)
-```
+- currency: String
+- status: String (one of: PENDING_PAYMENT, AUTHORIZED, PAID, FULFILLMENT_PENDING, PACKED, SHIPPED, DELIVERED, CANCELLED, REFUNDED)
+- paymentStatus: String (one of: NOT_ATTEMPTED, AUTHORIZED, CAPTURED, FAILED, REFUNDED)
+- paymentGatewayChargeId: String (optional external charge id)
+- shippingAddress: String
+- billingAddress: String
+- createdAt: String
+- updatedAt: String
 
-# Entity Workflows
+Reservation (operational entity; not exposed via public API)
+- id: String (UUID)
+- productId: String
+- cartId: String (nullable; reservation may be linked to cart or order)
+- orderId: String (nullable; when converted to order)
+- quantity: Integer
+- reservedAt: String
+- expiresAt: String (reservation TTL)
+- status: String (ACTIVE, RELEASED, CONSUMED)
 
-## User workflow
-1. Initial State: User persisted as NEW (event triggers workflow)
-2. Validation: Validate fields (email format, required fields)
-3. Duplicate Check: Check if email or external id already exists
-4. Activation: If Admin-created and approved => set active true; if Customer registration => require email verification step (manual or automated)
-5. Completion: Mark workflow COMPLETED and send welcome/notification or return error (FAILED)
-6. Notification: Send account creation/verification email
+Notes on Reservation: reservations are the mechanism to lock inventory without directly reducing Product.availableQuantity in memory. Implementation may maintain availableQuantity as on-hand minus sum(active reservations).
 
-```mermaid
-stateDiagram-v2
-    [*] --> NEW
-    NEW --> VALIDATING : ValidateUserCriterion, ValidateUserProcessor, *automatic*
-    VALIDATING --> DUPLICATE_CHECK : DuplicateUserCheckProcessor, *automatic*
-    DUPLICATE_CHECK --> AWAITING_ACTIVATION : if not duplicate
-    DUPLICATE_CHECK --> FAILED : if duplicate
-    AWAITING_ACTIVATION --> ACTIVATING : ActivateUserProcessor, *manual*
-    ACTIVATING --> COMPLETED : NotifyUserProcessor, *automatic*
-    FAILED --> [*]
-    COMPLETED --> [*]
-```
+---
 
-Criterion and Processor classes (User):
-- ValidateUserCriterion (checks required fields)
-- ValidateUserProcessor (pseudocode)
-  - pseudo:
-    - if missing required fields then set entity.error and mark validation failed
-    - else mark valid
-- DuplicateUserCheckProcessor (pseudocode)
-  - pseudo:
-    - query Users by email
-    - if exists mark entity.duplicate true and fail
-- ActivateUserProcessor (pseudocode)
-  - pseudo:
-    - if role == Admin then set active true
-    - if Customer then send verification email and set active false until verified
-- NotifyUserProcessor (pseudocode)
-  - pseudo:
-    - call EmailService.sendWelcome(entity.email)
+## Workflows (state machines and updated logic)
 
-## Product workflow
-1. Initial State: Product persisted as NEW (import or manual add triggers workflow)
-2. Validation: Validate SKU, price, currency, required fields
-3. Upsert: Insert new product or update existing product (merge on sku or id)
-4. Publish: Mark active flag based on admin input or import rules
-5. Completion: Notify catalog update listeners (search index, cache invalidation)
+Guiding principles for workflows:
+- Processors and criteria must be idempotent where possible.
+- State transitions must be atomic. Use optimistic locking (version field) or transactions to avoid races.
+- External side-effecting integrations (payment, email, carriers) must be called once and tracked using idempotency keys and the entity's status/metadata.
 
-```mermaid
-stateDiagram-v2
-    [*] --> NEW
-    NEW --> VALIDATING : ValidateProductCriterion, ValidateProductProcessor, *automatic*
-    VALIDATING --> UPSERT_PRODUCT : UpsertProductProcessor, *automatic*
-    UPSERT_PRODUCT --> PUBLISHING : PublishProductProcessor, *automatic*
-    PUBLISHING --> COMPLETED : NotifyCatalogProcessor, *automatic*
-    VALIDATING --> FAILED : if invalid
-    FAILED --> [*]
-    COMPLETED --> [*]
-```
+### User workflow (updated)
 
-Criterion and Processor classes (Product):
-- ValidateProductCriterion
-- ValidateProductProcessor (pseudocode)
-  - pseudo:
-    - check sku non-empty, price > 0, currency present
-    - collect validation errors if any
-- UpsertProductProcessor (pseudocode)
-  - pseudo:
-    - if product.sku exists then update record else insert new
-    - apply business rules for availableQuantity if provided
-- PublishProductProcessor (pseudocode)
-  - pseudo:
-    - set active flag based on payload or default
-- NotifyCatalogProcessor (pseudocode)
-  - pseudo:
-    - call SearchIndexService.index(product)
-    - call CacheService.invalidate(product.id)
+High-level steps:
+1. Persist User as NEW (trigger UserCreatedEvent).
+2. Validate fields (email format, password policy, required fields).
+3. Duplicate check (email and externalId uniqueness across active/pending/deleted scope as defined).
+4. Activation flows:
+   - Admin-created users may be activated immediately (active=true) when approved.
+   - Customer-created users require email verification (emailVerified = false) until a verification link/token is validated.
+5. On successful completion, set active/emailVerified appropriately and send notification(s).
 
-## Cart workflow
-1. Initial State: Cart created with status OPEN (persist triggers workflow)
-2. Item Management: Items added/updated/removed (each update triggers recalculation)
-3. Validation: On checkout initiation, validate item availability (automatic)
-4. Checkout Initiated: Transition to CHECKOUT_IN_PROGRESS (manual user action)
-5. Checkout Processing: Reserve inventory and attempt payment (automatic)
-6. Completion:
-   - On payment success: set status CHECKED_OUT and create Order entity (automatic)
-   - On payment failure: set status OPEN or FAILED and release reservations
-7. Abandonment: Cart may transition to ABANDONED after TTL expiration (automatic)
+State transitions remain as previously defined. Important updates:
+- Duplicate check should also consider users in PENDING verification depending on business rule: optionally prevent duplicate registries by email.
+- The validation processor must enforce password complexity policy (minimum length, entropy) and reject unsafe passwords.
 
-```mermaid
-stateDiagram-v2
-    [*] --> OPEN
-    OPEN --> UPDATED : AddItemProcessor, *automatic*
-    UPDATED --> VALIDATING_ON_CHECKOUT : StartCheckoutProcessor, *manual*
-    VALIDATING_ON_CHECKOUT --> RESERVE_INVENTORY : InventoryAvailabilityCriterion, ReserveInventoryProcessor, *automatic*
-    RESERVE_INVENTORY --> PROCESS_PAYMENT : PaymentProcessor, *automatic*
-    PROCESS_PAYMENT --> CHECKED_OUT : if payment.success
-    PROCESS_PAYMENT --> PAYMENT_FAILED : if payment.failed
-    PAYMENT_FAILED --> OPEN : ReleaseReservationProcessor, *automatic*
-    CHECKED_OUT --> [*]
-    OPEN --> ABANDONED : AbandonCartProcessor, *automatic*
-    ABANDONED --> [*]
-```
+Pseudocode (ValidateUserProcessor):
+- if missing required fields -> set entity.validationErrors and mark FAILED
+- if invalid email -> add error
+- if password fails policy -> add error
+- if entity.validationErrors.empty -> pass
 
-Criterion and Processor classes (Cart):
-- InventoryAvailabilityCriterion (checks availability for all items)
-- AddItemProcessor (pseudocode)
-  - pseudo:
-    - validate productId exists
-    - snapshot unitPrice from Product
-    - add or update item quantity
-    - recalc totalAmount
-- StartCheckoutProcessor (pseudocode)
-  - pseudo:
-    - validate cart not empty
-    - set status CHECKOUT_IN_PROGRESS and updatedAt
-- ReserveInventoryProcessor (pseudocode)
-  - pseudo:
-    - for each item check Product.availableQuantity >= quantity
-    - decrement Product.availableQuantity temporarily (or mark reserved)
-    - persist reservations
-    - if any insufficient, raise error
-- PaymentProcessor (pseudocode)
-  - pseudo:
-    - call PaymentGateway.authorizeAndCapture(paymentDetails, amount)
-    - if success return success, else return failure
-- ReleaseReservationProcessor (pseudocode)
-  - pseudo:
-    - revert reserved quantities back to Product.availableQuantity
-- AbandonCartProcessor (pseudocode)
-  - pseudo:
-    - mark status ABANDONED after inactivity TTL
+DuplicateUserCheckProcessor:
+- query user index by email (case-insensitive)
+- if found and not soft-deleted -> mark duplicate and FAIL
+- otherwise pass
 
-## Order workflow
-1. Initial State: Order created as PENDING_PAYMENT (created by Cart workflow when checkout succeeds or by explicit POST)
-2. Payment Authorization: Attempt to authorize/capture payment (automatic)
-3. Payment Result:
-   - AUTHORIZED/CAPTURED -> move to PAID
-   - FAILED -> PENDING_PAYMENT or CANCELLED
-4. Fulfillment: On PAID, send to fulfillment: PACKED -> SHIPPED -> DELIVERED (mix of automatic and manual)
-5. Cancellation/Refunds: Admin/manual operations can transition to CANCELLED or REFUNDED; a refund workflow triggers payment reversal
+ActivateUserProcessor:
+- if role == "Admin" and createdByAdmin flag set, set active=true, emailVerified=true
+- if role == "Customer" then set active=false and send verification email (create VerificationToken with expiry)
 
-```mermaid
-stateDiagram-v2
-    [*] --> PENDING_PAYMENT
-    PENDING_PAYMENT --> PAYMENT_PROCESSING : PaymentProcessor, *automatic*
-    PAYMENT_PROCESSING --> PAID : if payment.success
-    PAYMENT_PROCESSING --> PAYMENT_FAILED : if payment.failed
-    PAYMENT_FAILED --> CANCELLED : if expired or manual cancel
-    PAID --> FULFILLMENT_PENDING : FulfillmentProcessor, *automatic*
-    FULFILLMENT_PENDING --> PACKED : PackingProcessor, *manual*
-    PACKED --> SHIPPED : ShipmentProcessor, *manual or automatic*
-    SHIPPED --> DELIVERED : DeliveryConfirmationProcessor, *automatic*
-    DELIVERED --> [*]
-    CANCELLED --> REFUNDED : RefundProcessor, *manual or automatic*
-    REFUNDED --> [*]
-```
+NotifyUserProcessor:
+- call EmailService.send(template, recipient, metadata)
+- record notification delivery attempt and status (for audit)
 
-Criterion and Processor classes (Order):
-- PaymentProcessor (pseudocode)
-  - pseudo:
-    - call PaymentGateway.charge(order.totalAmount, paymentMethod)
-    - update paymentStatus and order.status based on response
-- FulfillmentProcessor (pseudocode)
-  - pseudo:
-    - call WarehouseService.createFulfillment(order)
-    - update order.status to FULFILLMENT_PENDING
-- PackingProcessor (pseudocode)
-  - pseudo:
-    - manual/warehouse confirms packed items -> set order.status PACKED
-- ShipmentProcessor (pseudocode)
-  - pseudo:
-    - call CarrierService.createShipment(order)
-    - set tracking number and status SHIPPED
-- RefundProcessor (pseudocode)
-  - pseudo:
-    - call PaymentGateway.refund(chargeId)
-    - update paymentStatus REFUNDED and order.status REFUNDED
+### Product workflow (updated)
 
-# API Endpoints Design (rules applied)
-- POST endpoints create entities (trigger events). Each POST returns only {"technicalId": "string"} and nothing else.
-- GET endpoints for retrieving stored results only.
-- GET by technicalId present for all entities created via POST.
-- No GET by non-technical fields included (not explicitly requested).
-- GET all endpoints optional (provided here as OPTIONAL).
+Key clarifications:
+- Validation ensures SKU uniqueness, non-negative integer quantity, price > 0, currency present.
+- Upsert merges by SKU (preferred) or id if present; updates maintain history/audit where possible.
+- Publishing toggles active flag; imports may set active=false by default.
+- After publish, notify downstream systems (search index, caches) asynchronously.
 
-# Endpoints and JSON request/response formats
+UpsertProductProcessor pseudocode:
+- if payload.sku exists -> find existing by sku
+- if found -> update fields, bump updatedAt, maintain availableQuantity using delta rules (unless import explicitly overrides)
+- if not found -> insert new product
 
-## 1) Users
+PublishProductProcessor:
+- set product.active based on payload or default rules
+- schedule indexing and cache invalidation
+
+NotifyCatalogProcessor:
+- call SearchIndexService.index(product) (idempotent)
+- call CacheService.invalidate(product.id)
+
+### Cart workflow (revised with reservations and idempotency)
+
+Overview and key updates:
+- Cart creation persists cart with status OPEN.
+- Adding/updating/removing items snapshots unitPrice at item-add time.
+- On checkout initiation, the system attempts to reserve inventory (creating Reservation records) rather than decrementing Product.availableQuantity directly.
+- Reservation TTL is configurable (default: 15 minutes). If reservation expires before payment completion, it is released and items are again available.
+- The system supports both full and partial reservation semantics; however the default behavior is to fail checkout if any item cannot be reserved unless allowBackorder is set for that product.
+- A successful charge transitions the cart -> CHECKED_OUT and results in Order creation with reservations consumed and inventory permanently decremented (or marked consumed).
+
+State definitions: OPEN, CHECKOUT_IN_PROGRESS, CHECKED_OUT, ABANDONED
+
+Checkout flow (StartCheckoutProcessor, ReserveInventoryProcessor, PaymentProcessor):
+- StartCheckoutProcessor:
+  - Validate cart not empty
+  - Validate currency consistency and customerId presence
+  - Update cart.status = CHECKOUT_IN_PROGRESS, updatedAt = now
+  - generate and persist an idempotencyKey for checkout attempt if not provided
+
+- ReserveInventoryProcessor (idempotent):
+  - For each cart item: check (Product.availableQuantity - sumActiveReservationsForProduct) >= quantity OR allowBackorder true
+  - If sufficient -> create Reservation record with expiresAt = now + reservationTTL and status ACTIVE
+  - Persist reservations atomically or in idempotent manner (use reservation idempotency by cartId+productId+checkoutAttemptId)
+  - If any insufficient -> release any newly created reservations and return a failure (detailed insufficient items payload)
+
+- PaymentProcessor (supports immediate or delayed capture):
+  - Use an idempotency key for payment calls derived from cartId/checkoutAttemptId
+  - If payment mode configured as "authorize_and_capture": call PaymentGateway.authorizeAndCapture(amount)
+  - If payment mode configured as "authorize": call PaymentGateway.authorize(amount) and set paymentStatus = AUTHORIZED
+  - On success: mark reservations as CONSUMED and persist order creation (move reserved quantities to order consumption), set Cart.status = CHECKED_OUT
+  - On failure: release reservations (mark RELEASED) and set cart.status back to OPEN (or a FAILURE state) and return failure info
+
+Abandonment:
+- Background job checks carts with lastActivityAt older than abandonmentTTL (configurable, default 7 days) and status OPEN or CHECKOUT_IN_PROGRESS with expired reservations -> mark ABANDONED and release reservations.
+
+### Order workflow (clarified)
+
+Key clarifications:
+- Orders may be created by cart checkout (preferred) or by direct POST.
+- On creation, Order.status = PENDING_PAYMENT and paymentStatus = NOT_ATTEMPTED.
+- Payment flow supports authorize-only followed by capture (capture may be triggered on fulfillment or immediately depending on configuration).
+- Allowed transitions: PENDING_PAYMENT -> AUTHORIZED -> PAID (after capture) -> FULFILLMENT_PENDING -> PACKED -> SHIPPED -> DELIVERED. Cancellation and refunds may occur from most states prior to delivery depending on business rules.
+
+PaymentProcessor (Order-scoped) pseudocode:
+- If order.paymentStatus == NOT_ATTEMPTED or FAILED and payment details present:
+  - call PaymentGateway.authorize(order.totalAmount, paymentMethod) (idempotent with idempotency-key)
+  - if authorize succeeds -> set paymentStatus = AUTHORIZED, order.status = AUTHORIZED
+  - if immediate capture required or business rule -> call PaymentGateway.capture(chargeId) -> on success paymentStatus = CAPTURED and order.status = PAID
+  - record paymentGatewayChargeId and responses
+- If payment fails -> set paymentStatus = FAILED and order.status either remains PENDING_PAYMENT or transitions to CANCELLED based on policy and retries
+
+Fulfillment
+- On payment captured, call WarehouseService.createFulfillment(order) and transition to FULFILLMENT_PENDING. Fulfillment and packing steps may be manual or automatic.
+- ShipmentProcessor will call CarrierService.createShipment(order), set tracking number, update order.status = SHIPPED, and notify the customer.
+
+Refunds and Cancels
+- RefundProcessor should call PaymentGateway.refund(chargeId) and on success set paymentStatus = REFUNDED and order.status = REFUNDED.
+- Refunds and cancellations must be idempotent and record external refund ids.
+
+---
+
+## Processors and Criteria (detailed behavior and pseudocode)
+
+General rules for processors:
+- Be idempotent for safe retries. Use entity-level metadata (lastProcessedAttemptId, lastOutcome, version) to detect duplicates.
+- Persist audit of external calls (request/response, attemptId, timestamps).
+- Avoid in-memory-only reservation; store Reservation entities in DB to support concurrency and recovery.
+- Use optimistic locking (version) or database transactions when modifying entities and related resources (e.g., creating reservations and updating cart status).
+
+Selected pseudocode (concise):
+
+AddItemProcessor:
+- validate productId exists and product.active
+- fetch product.price and snapshot as unitPrice
+- find existing CartItem; if present, newQuantity = existing.quantity + delta
+- set item.quantity = newQuantity
+- recalc cart.totalAmount = sum(item.quantity * unitPrice)
+- update cart.updatedAt and lastActivityAt
+- persist
+- idempotency: use client-supplied idempotency for add-item calls or dedupe by item add event id
+
+ReserveInventoryProcessor (idempotent):
+- input: cartId, checkoutAttemptId
+- for each cart item:
+  - compute available = product.availableQuantity - sumActiveReservations(product)
+  - if available >= item.quantity or product.allowBackorder -> create Reservation with idempotency key (cartId+productId+checkoutAttemptId)
+  - else -> fail and return insufficient items
+- persist reservations; ensure all-or-nothing semantics when possible
+
+PaymentProcessor (cart checkout):
+- input: checkoutAttemptId and paymentMethod
+- create paymentAttempt record with idempotencyKey
+- call PaymentGateway with idempotency header/key
+- on success -> mark PaymentAttempt.success and return success
+- on failure -> mark PaymentAttempt.failed and return failure
+
+ReleaseReservationProcessor:
+- mark Reservation.status = RELEASED and persist
+- notify inventory aggregates if necessary
+
+AbandonCartProcessor:
+- find carts with lastActivityAt < now - abandonmentTTL and status IN (OPEN, CHECKOUT_IN_PROGRESS)
+- call ReleaseReservationProcessor for related reservations
+- mark cart.status = ABANDONED and persist
+
+Notify processors (email, indexing):
+- These must be eventually consistent and idempotent. Use message/event delivery semantics and retries with exponential backoff.
+
+---
+
+## API Design and Rules
+
+High-level rules (updated):
+- POST endpoints create entities (trigger events). Each successful POST returns only {"technicalId": "string"} in the response body and MUST set a Location response header pointing to GET /api/{{entity}}/{technicalId}.
+- POST endpoints should accept an optional Idempotency-Key header. If supplied, the server must use it to ensure exactly-once semantics for side effects (entity creation and subsequent processors), returning the same technicalId for retries with same key.
+- POST endpoints MUST NOT return full entity details or secrets (e.g., passwordHash).
+- GET endpoints return stored entity representation for the requested technicalId only.
+- No GET by non-technical fields included in the public API unless explicitly required later.
+- All responses must use UTC ISO8601 timestamps.
+
+Security and validation notes for POST bodies:
+- Passwords must follow the configured password policy; server must store only salted password hashes.
+- Payment credentials: clients must send tokens or references (never raw card PANs unless PCI-compliant gateway is used). PaymentMethod in requests should contain a token representing a previously stored method or a one-time token.
+
+Endpoints summary (with small clarifications):
+
+1) Users
 - POST /api/users
   - Request JSON:
     {
@@ -247,10 +316,10 @@ Criterion and Processor classes (Order):
       "name": "Full Name",
       "password": "plaintextOrClientHash"
     }
-  - Response JSON:
-    {
-      "technicalId": "string"
-    }
+  - Optional headers: Idempotency-Key: string
+  - Response JSON (201): { "technicalId": "string" }
+  - Response headers: Location: /api/users/{technicalId}
+
 - GET /api/users/{technicalId}
   - Response JSON:
     {
@@ -259,83 +328,37 @@ Criterion and Processor classes (Order):
       "email": "string",
       "name": "string",
       "createdAt": "string",
-      "active": true
-    }
-
-```mermaid
-sequenceDiagram
-    participant Client
-    participant API
-    participant Datastore
-    Client->>API: POST /api/users with Request JSON
-    API->>Datastore: Persist User entity
-    Datastore-->>API: persisted technicalId
-    API-->>Client: Response {technicalId}
-```
-
-## 2) Products
-- POST /api/products
-  - Request JSON:
-    {
-      "sku": "SKU123",
-      "name": "Product Name",
-      "description": "Details",
-      "price": 19.99,
-      "currency": "USD",
-      "availableQuantity": 100,
-      "active": true
-    }
-  - Response JSON:
-    {
-      "technicalId": "string"
-    }
-- GET /api/products/{technicalId}
-  - Response JSON:
-    {
-      "id": "string",
-      "sku": "string",
-      "name": "string",
-      "description": "string",
-      "price": 0.0,
-      "currency": "string",
-      "availableQuantity": 0,
       "active": true,
-      "createdAt": "string"
+      "emailVerified": true
     }
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant API
-    participant Datastore
-    Client->>API: POST /api/products with Request JSON
-    API->>Datastore: Persist Product entity
-    Datastore-->>API: persisted technicalId
-    API-->>Client: Response {technicalId}
-```
+2) Products
+- POST /api/products
+  - Request JSON as before (sku, name, description, price, currency, availableQuantity, active)
+  - Optional header: Idempotency-Key
+  - Response JSON: {"technicalId": "string"}
+  - Location header present
 
-## 3) Carts
+- GET /api/products/{technicalId}
+  - Response JSON includes availableQuantity and allowBackorder flag
+
+3) Carts
 - POST /api/carts
   - Request JSON:
     {
       "customerId": "string",
-      "items": [
-        { "productId": "string", "quantity": 2 }
-      ],
+      "items": [{ "productId": "string", "quantity": 2 }],
       "currency": "USD"
     }
-  - Response JSON:
-    {
-      "technicalId": "string"
-    }
+  - Optional header: Idempotency-Key
+  - Response JSON: {"technicalId": "string"}
+
 - GET /api/carts/{technicalId}
-  - Response JSON:
+  - Response JSON (sensitive fields excluded):
     {
       "id": "string",
       "customerId": "string",
-      "items": [
-        { "productId": "string", "quantity": 2, "unitPrice": 19.99 }
-      ],
+      "items": [{ "productId": "string", "quantity": 2, "unitPrice": 19.99 }],
       "totalAmount": 39.98,
       "currency": "USD",
       "status": "OPEN",
@@ -343,85 +366,87 @@ sequenceDiagram
       "updatedAt": "string"
     }
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant API
-    participant Datastore
-    Client->>API: POST /api/carts with Request JSON
-    API->>Datastore: Persist Cart entity (triggers Cart workflow)
-    Datastore-->>API: persisted technicalId
-    API-->>Client: Response {technicalId}
-```
+- Additional cart actions (not exposed as separate public endpoints in this document) include: add-item, update-quantity, remove-item, start-checkout, abandon (background job).
 
-## 4) Orders
+4) Orders
 - POST /api/orders
   - Request JSON:
     {
       "customerId": "string",
-      "cartId": "string", // optional; server may create order from cart
+      "cartId": "string", // optional; server may create an order from cart
       "paymentMethod": { "type": "card", "token": "..." },
       "shippingAddress": "string",
       "billingAddress": "string"
     }
-  - Response JSON:
-    {
-      "technicalId": "string"
-    }
+  - Optional header: Idempotency-Key
+  - Response JSON: {"technicalId": "string"}
+  - On cart-based checkout the system consumes reservations when the order is created & payment captured
+
 - GET /api/orders/{technicalId}
-  - Response JSON:
-    {
-      "id": "string",
-      "customerId": "string",
-      "items": [
-        { "productId": "string", "quantity": 2, "unitPrice": 19.99 }
-      ],
-      "totalAmount": 39.98,
-      "currency": "USD",
-      "status": "PAID",
-      "paymentStatus": "CAPTURED",
-      "shippingAddress": "string",
-      "billingAddress": "string",
-      "createdAt": "string",
-      "updatedAt": "string"
-    }
+  - Response JSON includes paymentStatus, status, shipping/billing addresses, createdAt, updatedAt
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant API
-    participant Datastore
-    Client->>API: POST /api/orders with Request JSON
-    API->>Datastore: Persist Order entity (triggers Order workflow)
-    Datastore-->>API: persisted technicalId
-    API-->>Client: Response {technicalId}
-```
+Notes on responses:
+- All POST endpoints must return 409 Conflict when idempotency or uniqueness constraints are violated in a way that cannot be reconciled (e.g., trying to create duplicate SKU without idempotency key).
+- Validation errors return 400 with a machine-readable errors array.
 
-# Event-Driven Processing Notes (how persistence triggers processing)
-- Each POST that persists a User/Product/Cart/Order emits an EntityCreated event (e.g., UserCreatedEvent, ProductCreatedEvent, CartCreatedEvent, OrderCreatedEvent).
-- Cyoda (or the EDA orchestration component) subscribes to these events and invokes the entity's process method which runs the workflow described above.
-- Processors and criteria are implemented as Java 21 classes (e.g., ValidateProductProcessor implements Processor<Product>) and invoked by the workflow engine.
-- Processors should be idempotent where possible. For example ReserveInventoryProcessor must be safe to retry.
+---
 
-# Required Java classes (overview):
+## Event-Driven Processing Notes
+
+- Each POST that persists a User/Product/Cart/Order emits an EntityCreated event (UserCreatedEvent, ProductCreatedEvent, CartCreatedEvent, OrderCreatedEvent).
+- The orchestration component (Cyoda or equivalent) subscribes and invokes the entity-specific process method which advances the workflow described in this document.
+- Events must contain metadata (entityId, attemptId, timestamp, idempotencyKey) so downstream processors can ensure idempotency and correlate retries.
+- Processors calling external integrations MUST store the external request id and response, and re-use the stored information when replaying events.
+
+---
+
+## Required Java classes (overview)
+
 - Criteria interfaces and implementations:
   - ValidateUserCriterion, InventoryAvailabilityCriterion, ValidateProductCriterion
-- Processor interfaces and implementations:
+- Processor interfaces and implementations (examples):
   - ValidateUserProcessor, DuplicateUserCheckProcessor, ActivateUserProcessor, NotifyUserProcessor
   - ValidateProductProcessor, UpsertProductProcessor, PublishProductProcessor, NotifyCatalogProcessor
-  - AddItemProcessor, StartCheckoutProcessor, ReserveInventoryProcessor, PaymentProcessor, ReleaseReservationProcessor, AbandonCartProcessor
-  - PaymentProcessor, FulfillmentProcessor, PackingProcessor, ShipmentProcessor, RefundProcessor
+  - AddItemProcessor, StartCheckoutProcessor, ReserveInventoryProcessor, PaymentProcessor (cart checkout), ReleaseReservationProcessor, AbandonCartProcessor
+  - OrderPaymentProcessor, FulfillmentProcessor, PackingProcessor, ShipmentProcessor, RefundProcessor
 - Event classes:
   - UserCreatedEvent, ProductCreatedEvent, CartCreatedEvent, OrderCreatedEvent
+- Operational classes:
+  - Reservation entity repo, PaymentAttempt entity repo, Notification/Audit stores
 - Workflow orchestrator bindings:
   - Register entity class with Cyoda so that persistence triggers process(entity)
 
-# Assumptions and Constraints
-- Programming Language: Java 21
-- The POST endpoints return only technicalId in response (technicalId is an infrastructure-generated identifier, not part of the entity payload).
-- No additional entities beyond User, Product, Cart, Order are added.
-- Payment gateway, email, search index, and warehouse services are external integrations invoked by processors.
-- All timestamps are ISO8601 strings.
-- Role values, statuses, and payment states are stored as Strings (do not use enums).
+Implementation guidance:
+- Use repositories that support optimistic locking or ACID transactions for multi-entity updates (cart + reservations + order)
+- External integrations wrappers should encapsulate idempotency keys and retry semantics
 
-**Please review the generated entities and workflows. If you need any changes, please let me know. Feel free to click Approve if this requirement meets your expectations or if you are ready to proceed.**
+---
+
+## Assumptions and Constraints
+
+- Programming Language: Java 21
+- POST endpoints return only technicalId in response body and include Location header.
+- No additional top-level entities beyond User, Product, Cart, Order, and operational Reservations are introduced unless requested.
+- Payment gateway, email, search index, and warehouse services are external integrations invoked by processors.
+- All timestamps are ISO8601 strings in UTC.
+- Role values, statuses, and payment states are stored as Strings (do not use enums in persistent storage) but code may map to internal enums for safety.
+- Sensitive data are not returned by GET endpoints.
+
+---
+
+## Open questions / recommended improvements
+
+- Should the API expose a dedicated endpoint to create and manage Reservations for advanced integrations? (Currently reservations are internal.)
+- Should we allow partial-checkout semantics (allow some items to be reserved/checked out and others left in cart) or always require an all-or-nothing reservation? Current recommendation: default to all-or-nothing but allow per-product allowBackorder.
+- Confirm default reservation TTL (15 minutes suggested) and cart abandonment TTL (7 days suggested).
+- Consider persisting enums as strings but providing a central Java enum type with converters to reduce errors.
+- For PCI considerations, prefer tokenization of card data via the payment gateway and never log raw PANs.
+
+---
+
+If you want I can:
+- Add sequence/state diagrams in mermaid syntax for updated workflows (user, cart, order)
+- Produce example API request/response traces including headers for idempotency
+- Generate skeleton Java classes for the processors/criteria described above
+
+Please confirm if you want any of these outputs added or further changes to the requirements.
