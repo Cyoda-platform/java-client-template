@@ -1,0 +1,157 @@
+{
+  "version": "1.0",
+  "name": "Project Workflow",
+  "desc": "Workflow for Project entity",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": [
+        {
+          "name": "start_planning",
+          "next": "planning",
+          "manual": false,
+          "processors": [
+            {
+              "name": "StartPlanningProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "planning": {
+      "transitions": [
+        {
+          "name": "activate_project",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ActivateProjectProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "enter_in_progress",
+          "next": "in_progress",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ProjectEnterInProgressProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "in_progress": {
+      "transitions": [
+        {
+          "name": "check_completion",
+          "next": "check_completion",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ProjectCompletionCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "detect_failure",
+          "next": "failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ProjectFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "check_completion": {
+      "transitions": [
+        {
+          "name": "complete_project",
+          "next": "completed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ProjectCompletionCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "continue_project",
+          "next": "in_progress",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.metadata.allTasksCompleted",
+            "operation": "EQUALS",
+            "value": false
+          }
+        }
+      ]
+    },
+    "completed": {
+      "transitions": [
+        {
+          "name": "archive_project",
+          "next": "archived",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ProjectArchiveProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "failed": {
+      "transitions": [
+        {
+          "name": "archive_failed",
+          "next": "archived",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ProjectArchiveProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "archived": {
+      "transitions": []
+    }
+  }
+}
