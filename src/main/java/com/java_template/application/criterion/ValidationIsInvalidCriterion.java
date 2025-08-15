@@ -29,6 +29,8 @@ public class ValidationIsInvalidCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
+        logger.info("Evaluating ValidationIsInvalidCriterion for request: {}", request.getId());
+
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(HackerNewsItem.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -43,17 +45,24 @@ public class ValidationIsInvalidCriterion implements CyodaCriterion {
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<HackerNewsItem> context) {
         HackerNewsItem entity = context.entity();
         if (entity == null) {
-            return EvaluationOutcome.success();
+            return EvaluationOutcome.success(); // invalid path expects failure in other criterion
         }
-        Integer id = entity.getId();
+        String idStr = entity.getId();
         String type = entity.getType();
-        // This criterion represents invalid: if either id missing/invalid or type missing/empty, mark as invalid
-        if (id == null || id < 0) {
+        if (idStr == null || idStr.isBlank()) {
             return EvaluationOutcome.success();
         }
-        if (type == null || type.trim().isEmpty()) {
+        try {
+            long id = Long.parseLong(idStr);
+            if (id < 0) {
+                return EvaluationOutcome.success();
+            }
+        } catch (NumberFormatException e) {
             return EvaluationOutcome.success();
         }
-        return EvaluationOutcome.fail("Entity is valid", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        if (type == null || type.isBlank()) {
+            return EvaluationOutcome.success();
+        }
+        return EvaluationOutcome.fail("Entity appears valid", StandardEvalReasonCategories.VALIDATION_FAILURE);
     }
 }
