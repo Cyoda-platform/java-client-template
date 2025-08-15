@@ -1,0 +1,90 @@
+{
+  "version": "1.0",
+  "name": "IngestJob Workflow",
+  "desc": "Orchestration workflow for bulk ingestion jobs",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "to_split",
+          "next": "SPLIT",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SplitPayloadProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SPLIT": {
+      "transitions": [
+        {
+          "name": "to_items_enqueued",
+          "next": "ITEMS_ENQUEUED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EnqueueItemsProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ITEMS_ENQUEUED": {
+      "transitions": [
+        {
+          "name": "to_monitor",
+          "next": "MONITOR",
+          "manual": false
+        }
+      ]
+    },
+    "MONITOR": {
+      "transitions": [
+        {
+          "name": "to_completed_if_all_stored",
+          "next": "COMPLETED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AllItemsStoredCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "to_failed_on_timeout",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "TimeoutCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    }
+  }
+}
