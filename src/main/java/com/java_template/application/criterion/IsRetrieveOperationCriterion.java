@@ -29,6 +29,8 @@ public class IsRetrieveOperationCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
+        logger.info("Evaluating IsRetrieveOperationCriterion for request: {}", request.getId());
+
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(HackerNewsItem.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -43,12 +45,19 @@ public class IsRetrieveOperationCriterion implements CyodaCriterion {
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<HackerNewsItem> context) {
         HackerNewsItem entity = context.entity();
         if (entity == null) {
-            return EvaluationOutcome.fail("Entity missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            return EvaluationOutcome.fail("Entity is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        // For retrieve, we expect at least the id to be present
-        Integer id = entity.getId();
-        if (id == null || id < 0) {
-            return EvaluationOutcome.fail("id is required and must be >= 0", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        String idStr = entity.getId();
+        if (idStr == null || idStr.isBlank()) {
+            return EvaluationOutcome.fail("Missing id", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        try {
+            long id = Long.parseLong(idStr);
+            if (id < 0) {
+                return EvaluationOutcome.fail("id must be >= 0", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            }
+        } catch (NumberFormatException e) {
+            return EvaluationOutcome.fail("id must be an integer", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         return EvaluationOutcome.success();
     }
