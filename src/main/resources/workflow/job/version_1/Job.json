@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "name": "Job Workflow",
-  "desc": "Workflow for Job orchestration: scheduling, ingestion, downstream processing, notifications and completion",
+  "desc": "Workflow for Job entity as specified in functional requirements",
   "initialState": "SCHEDULED",
   "active": true,
   "states": {
@@ -74,7 +74,7 @@
     "FAILED": {
       "transitions": [
         {
-          "name": "failed_to_notify",
+          "name": "failed_to_notified",
           "next": "NOTIFIED_SUBSCRIBERS",
           "manual": false,
           "processors": [
@@ -85,11 +85,6 @@
               }
             }
           ]
-        },
-        {
-          "name": "manual_retry",
-          "next": "SCHEDULED",
-          "manual": true
         }
       ]
     },
@@ -115,15 +110,7 @@
         {
           "name": "notified_to_completed",
           "next": "COMPLETED",
-          "manual": false,
-          "processors": [
-            {
-              "name": "JobLoggingProcessor",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
-          ]
+          "manual": false
         }
       ]
     },
