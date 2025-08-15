@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "name": "Pet Workflow",
-  "desc": "Workflow for Pet entity processing",
+  "desc": "Simplified workflow for Pet entity processing: validation -> duplicate check -> persist. Enrichment and notifications handled inside persistence processor to limit processors.",
   "initialState": "NEW",
   "active": true,
   "states": {
@@ -40,7 +40,7 @@
         },
         {
           "name": "validation_passed",
-          "next": "ENRICHMENT",
+          "next": "DUPLICATE_CHECK",
           "manual": false,
           "criterion": {
             "type": "simple",
@@ -48,23 +48,6 @@
             "operation": "EQUALS",
             "value": true
           }
-        }
-      ]
-    },
-    "ENRICHMENT": {
-      "transitions": [
-        {
-          "name": "enrich_pet",
-          "next": "DUPLICATE_CHECK",
-          "manual": false,
-          "processors": [
-            {
-              "name": "PetEnrichmentProcessor",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
-          ]
         }
       ]
     },
@@ -111,15 +94,7 @@
         {
           "name": "merge_and_persist",
           "next": "PERSISTING",
-          "manual": false,
-          "processors": [
-            {
-              "name": "MergeProcessor",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
-          ]
+          "manual": false
         }
       ]
     },
@@ -177,28 +152,14 @@
     "ADOPTED": {
       "transitions": [
         {
-          "name": "notify_adoption",
+          "name": "complete",
           "next": "NOTIFIED",
-          "manual": false,
-          "processors": [
-            {
-              "name": "NotifyAdoptionProcessor",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
-          ]
+          "manual": false
         }
       ]
     },
-    "NOTIFIED": {
-      "transitions": []
-    },
-    "FAILED": {
-      "transitions": []
-    },
-    "VALIDATION_FAILED": {
-      "transitions": []
-    }
+    "NOTIFIED": { "transitions": [] },
+    "FAILED": { "transitions": [] },
+    "VALIDATION_FAILED": { "transitions": [] }
   }
 }
