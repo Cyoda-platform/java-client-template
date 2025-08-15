@@ -1,8 +1,16 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.job.version_1.Job;
+import com.java_template.application.entity.laureate.version_1.Laureate;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.service.EntityService;
+import com.java_template.common.util.Condition;
+import com.java_template.common.util.SearchConditionRequest;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -12,7 +20,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.time.Instant;
+import java.time.Duration;
+import java.util.Iterator;
+import java.util.concurrent.CompletableFuture;
 
 @Component
 public class IngestJobProcessor implements CyodaProcessor {
@@ -20,9 +35,14 @@ public class IngestJobProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(IngestJobProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final EntityService entityService;
+    private final ObjectMapper objectMapper;
+    private final HttpClient httpClient = HttpClient.newHttpClient();
 
-    public IngestJobProcessor(SerializerFactory serializerFactory) {
+    public IngestJobProcessor(SerializerFactory serializerFactory, EntityService entityService, ObjectMapper objectMapper) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -48,41 +68,163 @@ public class IngestJobProcessor implements CyodaProcessor {
 
     private Job processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Job> context) {
         Job job = context.entity();
-        // Basic ingestion orchestration implementation. This processor focuses on state transitions and counters.
         try {
             logger.info("Starting ingest for job: {}", job.getTechnicalId());
             job.setStartTime(Instant.now().toString());
             job.setStatus("INGESTING");
+            // Persist start state
+            persistJobSafe(job);
 
             // Validate sourceUrl
             if (job.getSourceUrl() == null || job.getSourceUrl().isEmpty()) {
                 job.setStatus("FAILED");
                 job.setErrorDetails("Missing sourceUrl");
                 job.setEndTime(Instant.now().toString());
+                persistJobSafe(job);
                 logger.error("Job {} failed because sourceUrl is missing", job.getTechnicalId());
                 return job;
             }
 
-            // Simulate fetch and processing steps conservatively: we do not call external HTTP here
             job.setStatus("FETCHING");
-            // In a real implementation: perform HTTP fetch with retries, parse records and populate fetchedRecordCount
-            job.setFetchedRecordCount(job.getFetchedRecordCount() == null ? 0 : job.getFetchedRecordCount());
+            persistJobSafe(job);
 
+            // Fetch with retries
+            JsonNode fetched = fetchWithRetries(job.getSourceUrl(), 3, Duration.ofSeconds(2));
+            if (fetched == null) {
+                job.setStatus("FAILED");
+                job.setErrorDetails("Failed to fetch records from source");
+                job.setEndTime(Instant.now().toString());
+                persistJobSafe(job);
+                return job;
+            }
+
+            // Extract records. Support both OpenDataSoft structure (records[].fields) and plain array
+            ArrayNode records = objectMapper.createArrayNode();
+            if (fetched.has("records") && fetched.get("records").isArray()) {
+                for (JsonNode rec : fetched.get("records")) {
+                    if (rec.has("fields")) {
+                        records.add(rec.get("fields"));
+                    } else {
+                        records.add(rec);
+                    }
+                }
+            } else if (fetched.isArray()) {
+                for (JsonNode rec : fetched) records.add(rec);
+            } else if (fetched.has("data") && fetched.get("data").isArray()) {
+                for (JsonNode rec : fetched.get("data")) records.add(rec);
+            } else {
+                // If response shape unexpected, attempt to find a nested array
+                Iterator<JsonNode> it = fetched.elements();
+                while (it.hasNext()) {
+                    JsonNode n = it.next();
+                    if (n.isArray()) {
+                        for (JsonNode rec : n) records.add(rec);
+                        break;
+                    }
+                }
+            }
+
+            job.setFetchedRecordCount(records.size());
             job.setStatus("PROCESSING_RECORDS");
-            // In a real implementation: iterate fetched records and persist laureates honoring dedupeStrategy
-            // For prototype, we assume zero records processed if none provided and mark success
-            Integer fetched = job.getFetchedRecordCount() == null ? 0 : job.getFetchedRecordCount();
+            persistJobSafe(job);
+
+            // Initialize counters if null
             job.setPersistedRecordCount(job.getPersistedRecordCount() == null ? 0 : job.getPersistedRecordCount());
             job.setSucceededCount(job.getSucceededCount() == null ? 0 : job.getSucceededCount());
             job.setFailedCount(job.getFailedCount() == null ? 0 : job.getFailedCount());
 
-            // Decide final job status using counters
+            String dedupeStrategy = job.getDedupeStrategy() == null ? "UPSERT" : job.getDedupeStrategy();
+
+            for (JsonNode rec : records) {
+                try {
+                    Laureate laureate = objectMapper.convertValue(rec, Laureate.class);
+                    if (laureate == null || laureate.getId() == null) {
+                        job.setFailedCount(job.getFailedCount() + 1);
+                        logger.warn("Skipping record because laureate id is missing for job {}", job.getTechnicalId());
+                        continue;
+                    }
+
+                    // Set provenance fields
+                    laureate.setSourceJobTechnicalId(job.getTechnicalId());
+                    laureate.setPersistedAt(Instant.now().toString());
+
+                    // Check existing by business id
+                    ArrayNode found = entityService.getItemsByCondition(
+                        Laureate.ENTITY_NAME,
+                        String.valueOf(Laureate.ENTITY_VERSION),
+                        SearchConditionRequest.group(
+                            "AND",
+                            Condition.of("$.id", "EQUALS", String.valueOf(laureate.getId()))
+                        ),
+                        true
+                    ).join();
+
+                    boolean exists = found != null && found.size() > 0;
+
+                    if (!exists) {
+                        // Create
+                        CompletableFuture<java.util.UUID> addF = entityService.addItem(
+                            Laureate.ENTITY_NAME,
+                            String.valueOf(Laureate.ENTITY_VERSION),
+                            laureate
+                        );
+                        addF.join();
+                        job.setPersistedRecordCount(job.getPersistedRecordCount() + 1);
+                        job.setSucceededCount(job.getSucceededCount() + 1);
+                    } else {
+                        // Handle dedupe strategies
+                        if ("SKIP_DUPLICATE".equalsIgnoreCase(dedupeStrategy)) {
+                            logger.info("Skipping duplicate laureate {} due to SKIP_DUPLICATE", laureate.getId());
+                            // skip - do not increment persistedRecordCount
+                        } else if ("FAIL_ON_DUPLICATE".equalsIgnoreCase(dedupeStrategy)) {
+                            logger.warn("Failing on duplicate laureate {} due to FAIL_ON_DUPLICATE", laureate.getId());
+                            job.setFailedCount(job.getFailedCount() + 1);
+                        } else {
+                            // UPSERT - update existing
+                            JsonNode first = found.get(0);
+                            String existingTechId = null;
+                            if (first.has("technicalId")) existingTechId = first.get("technicalId").asText();
+                            else if (first.has("technical_id")) existingTechId = first.get("technical_id").asText();
+
+                            if (existingTechId != null && !existingTechId.isEmpty()) {
+                                try {
+                                    entityService.updateItem(
+                                        Laureate.ENTITY_NAME,
+                                        String.valueOf(Laureate.ENTITY_VERSION),
+                                        java.util.UUID.fromString(existingTechId),
+                                        laureate
+                                    ).join();
+                                    job.setPersistedRecordCount(job.getPersistedRecordCount() + 1);
+                                    job.setSucceededCount(job.getSucceededCount() + 1);
+                                } catch (Exception ue) {
+                                    logger.error("Failed to upsert laureate {}: {}", laureate.getId(), ue.getMessage(), ue);
+                                    job.setFailedCount(job.getFailedCount() + 1);
+                                }
+                            } else {
+                                // No technicalId found - fall back to creating a new item
+                                entityService.addItem(
+                                    Laureate.ENTITY_NAME,
+                                    String.valueOf(Laureate.ENTITY_VERSION),
+                                    laureate
+                                ).join();
+                                job.setPersistedRecordCount(job.getPersistedRecordCount() + 1);
+                                job.setSucceededCount(job.getSucceededCount() + 1);
+                            }
+                        }
+                    }
+
+                } catch (Exception recEx) {
+                    job.setFailedCount(job.getFailedCount() + 1);
+                    logger.error("Error processing record for job {}: {}", job.getTechnicalId(), recEx.getMessage(), recEx);
+                }
+            }
+
+            // Decide final job status
             if (job.getErrorDetails() != null && !job.getErrorDetails().isEmpty()) {
                 job.setStatus("FAILED");
             } else if (job.getFailedCount() != null && job.getFailedCount() > 0) {
                 job.setStatus("PARTIAL_FAILURE");
             } else {
-                // If fetch produced at least 0 records and no fatal errors
                 job.setStatus("SUCCEEDED");
             }
 
@@ -92,9 +234,72 @@ public class IngestJobProcessor implements CyodaProcessor {
             job.setErrorDetails(e.toString());
         } finally {
             job.setEndTime(Instant.now().toString());
+            // Persist final job state
+            persistJobSafe(job);
             logger.info("Job {} finished with status {}", job.getTechnicalId(), job.getStatus());
         }
 
         return job;
+    }
+
+    private JsonNode fetchWithRetries(String url, int maxAttempts, Duration initialBackoff) {
+        int attempt = 0;
+        Duration backoff = initialBackoff;
+        while (attempt < maxAttempts) {
+            attempt++;
+            try {
+                HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .timeout(Duration.ofSeconds(30))
+                    .GET()
+                    .build();
+                HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+                int code = response.statusCode();
+                if (code >= 200 && code < 300) {
+                    return objectMapper.readTree(response.body());
+                } else if (code >= 500 && attempt < maxAttempts) {
+                    logger.warn("Transient error fetching {}: status {}. Retrying in {} ms", url, code, backoff.toMillis());
+                    Thread.sleep(backoff.toMillis());
+                    backoff = backoff.multipliedBy(2);
+                } else {
+                    logger.error("Non-recoverable HTTP error fetching {}: status {}", url, code);
+                    return null;
+                }
+            } catch (Exception e) {
+                logger.warn("Exception fetching {} (attempt {}): {}", url, attempt, e.getMessage());
+                try { Thread.sleep(backoff.toMillis()); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+                backoff = backoff.multipliedBy(2);
+            }
+        }
+        return null;
+    }
+
+    private void persistJobSafe(Job job) {
+        try {
+            if (job.getTechnicalId() != null && !job.getTechnicalId().isEmpty()) {
+                // try to update existing Job record
+                try {
+                    entityService.updateItem(
+                        Job.ENTITY_NAME,
+                        String.valueOf(Job.ENTITY_VERSION),
+                        java.util.UUID.fromString(job.getTechnicalId()),
+                        job
+                    ).join();
+                } catch (Exception e) {
+                    // fallback to add if update fails
+                    try {
+                        entityService.addItem(
+                            Job.ENTITY_NAME,
+                            String.valueOf(Job.ENTITY_VERSION),
+                            job
+                        ).join();
+                    } catch (Exception ex) {
+                        logger.warn("Unable to persist job {}: {}", job.getTechnicalId(), ex.getMessage());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("Persist job failed for {}: {}", job.getTechnicalId(), e.getMessage());
+        }
     }
 }
