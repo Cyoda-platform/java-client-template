@@ -11,12 +11,16 @@ public class HNItem implements CyodaEntity {
     public static final Integer ENTITY_VERSION = 1;
     // Add your entity fields here
 
+    private String technicalId; // system-generated unique id for this stored record
     private Long id; // Hacker News item id from incoming JSON
     private String type; // item type from incoming JSON
     private String rawJson; // original JSON payload as received
     private String importTimestamp; // ISO8601 timestamp added by system
-    private String status; // PENDING VALID INVALID STORED
+    private String status; // RECEIVED, VALIDATING, INVALID, VALIDATED, ENRICHED, STORED
     private String errorMessage; // validation or processing error if any
+    private String createdAt; // ISO8601 when the technical record was created
+    private String updatedAt; // ISO8601 last update time
+    private Integer version; // incremented on updates
 
     public HNItem() {}
 
