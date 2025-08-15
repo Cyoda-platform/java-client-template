@@ -1,0 +1,90 @@
+{
+  "version": "1.0",
+  "name": "User Workflow",
+  "desc": "Workflow for User entity: validate on create, initialize profile for customers, activate or error",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": [
+        {
+          "name": "to_validating",
+          "next": "validating",
+          "manual": false,
+          "processors": [
+            {
+              "name": "UserActivationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "validating": {
+      "transitions": [
+        {
+          "name": "valid_to_active",
+          "next": "active",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidateUserCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "invalid_to_error",
+          "next": "error",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidateUserInvalidCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "customer_profile_init",
+          "next": "profile_initialized",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsCustomerRoleCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "deactivate",
+          "next": "deactivated",
+          "manual": true
+        }
+      ]
+    },
+    "profile_initialized": {
+      "transitions": []
+    },
+    "deactivated": {
+      "transitions": []
+    },
+    "error": {
+      "transitions": []
+    }
+  }
+}
