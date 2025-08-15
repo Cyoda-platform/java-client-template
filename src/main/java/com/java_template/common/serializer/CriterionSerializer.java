@@ -23,8 +23,27 @@ public interface CriterionSerializer {
     /**
      * Context record containing the original request and extracted entity for criterion evaluation.
      * Provides access to both request metadata (entityId, transactionId) and entity data.
+     *
+     * NOTE: Convenience lookup methods are provided as compile-time stubs to allow repository
+     * code that references them to compile. These stubs throw UnsupportedOperationException
+     * and are expected to be provided by runtime implementations in the real environment.
      */
-    record CriterionEntityEvaluationContext<T extends CyodaEntity>(EntityCriteriaCalculationRequest request, T entity) {}
+    record CriterionEntityEvaluationContext<T extends CyodaEntity>(EntityCriteriaCalculationRequest request, T entity) {
+        public <R extends CyodaEntity> R lookup(Class<R> clazz, String id) {
+            throw new UnsupportedOperationException("lookup not implemented in compile-time stub");
+        }
+
+        public <R extends CyodaEntity> R lookupByField(Class<R> clazz, String field, String value) {
+            throw new UnsupportedOperationException("lookupByField not implemented in compile-time stub");
+        }
+
+        public <R extends CyodaEntity> R[] lookupByFields(Class<R> clazz, String[] fields, Object[] values) {
+            throw new UnsupportedOperationException("lookupByFields not implemented in compile-time stub");
+        }
+
+        public EntityCriteriaCalculationRequest request() { return request; }
+        public T entity() { return entity; }
+    }
 
     /**
      * Extracts a typed entity from the request payload.
