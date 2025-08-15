@@ -103,7 +103,8 @@ public class StartImportProcessor implements CyodaProcessor {
             task.setJobTechnicalId(job.getTechnicalId());
             task.setAttemptNumber(0);
             task.setStatus("PENDING");
-            task.setResult(null);
+            // Store the original payload in the result field so processors can access it
+            task.setResult(itemJson);
             task.setAttemptedAt(null);
 
             ObjectNode node = objectMapper.valueToTree(task);
