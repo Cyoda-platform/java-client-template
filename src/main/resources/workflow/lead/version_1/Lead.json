@@ -1,0 +1,46 @@
+{
+  "version": "1.0",
+  "name": "Lead Workflow",
+  "desc": "Workflow for Lead entity",
+  "initialState": "NEW",
+  "active": true,
+  "states": {
+    "NEW": {
+      "transitions": [
+        {
+          "name": "qualify_lead",
+          "next": "QUALIFIED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "QualifyLeadProcessor",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        },
+        {
+          "name": "discard_lead",
+          "next": "DISCARDED",
+          "manual": true
+        }
+      ]
+    },
+    "QUALIFIED": {
+      "transitions": [
+        {
+          "name": "create_opportunity",
+          "next": "OPPORTUNITY_CREATED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CreateOpportunityProcessor",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        }
+      ]
+    },
+    "OPPORTUNITY_CREATED": { "transitions": [] },
+    "DISCARDED": { "transitions": [] }
+  }
+}
