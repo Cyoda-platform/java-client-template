@@ -3,6 +3,7 @@ package com.java_template.application.entity.importjob.version_1;
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.common.ModelSpec;
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.Data;
 
 @Data
@@ -19,6 +20,10 @@ public class ImportJob implements CyodaEntity {
     private String completedAt; // ISO timestamp
     private Integer recordCount;
     private Integer failedCount;
+
+    // Fields used by processors
+    private JsonNode payload;
+    private String errorMessage;
 
     public ImportJob() {}
 
