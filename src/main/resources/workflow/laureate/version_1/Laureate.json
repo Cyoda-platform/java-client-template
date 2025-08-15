@@ -14,9 +14,7 @@
           "processors": [
             {
               "name": "LaureateValidationProcessor",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
+              "config": { "calculationNodesTags": "cyoda_application" }
             }
           ]
         }
@@ -30,12 +28,7 @@
           "manual": false,
           "criterion": {
             "type": "function",
-            "function": {
-              "name": "LaureateValidationPassedCriterion",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
+            "function": { "name": "LaureateValidationPassedCriterion", "config": { "calculationNodesTags": "cyoda_application" } }
           }
         },
         {
@@ -44,23 +37,14 @@
           "manual": false,
           "criterion": {
             "type": "function",
-            "function": {
-              "name": "LaureateValidationFailedCriterion",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
+            "function": { "name": "LaureateValidationFailedCriterion", "config": { "calculationNodesTags": "cyoda_application" } }
           }
         }
       ]
     },
     "INVALID": {
       "transitions": [
-        {
-          "name": "invalid_to_review",
-          "next": "REVIEW",
-          "manual": true
-        }
+        { "name": "invalid_to_review", "next": "REVIEW", "manual": true }
       ]
     },
     "REVIEW": {
@@ -70,12 +54,7 @@
           "next": "ENRICHING",
           "manual": false,
           "processors": [
-            {
-              "name": "LaureateManualReviewHandler",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
+            { "name": "LaureateManualReviewHandler", "config": { "calculationNodesTags": "cyoda_application" } }
           ]
         }
       ]
@@ -87,12 +66,7 @@
           "next": "DEDUP_CHECK",
           "manual": false,
           "processors": [
-            {
-              "name": "LaureateEnrichmentProcessor",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
+            { "name": "LaureateEnrichmentProcessor", "config": { "calculationNodesTags": "cyoda_application" } }
           ]
         }
       ]
@@ -104,12 +78,7 @@
           "next": "STORED",
           "manual": false,
           "processors": [
-            {
-              "name": "LaureateDedupMergeProcessor",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
+            { "name": "LaureateDedupMergeProcessor", "config": { "calculationNodesTags": "cyoda_application" } }
           ]
         }
       ]
@@ -121,18 +90,11 @@
           "next": "EMITTED",
           "manual": false,
           "processors": [
-            {
-              "name": "LaureateNotificationEmitter",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
+            { "name": "LaureateNotificationEmitter", "config": { "calculationNodesTags": "cyoda_application" } }
           ]
         }
       ]
     },
-    "EMITTED": {
-      "transitions": []
-    }
+    "EMITTED": { "transitions": [] }
   }
 }
