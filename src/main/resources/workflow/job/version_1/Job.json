@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "name": "Job Workflow",
-  "desc": "Workflow for Job entity as specified in functional requirements",
+  "desc": "Workflow that manages Job lifecycle: scheduling, ingestion, downstream processing and notifications.",
   "initialState": "SCHEDULED",
   "active": true,
   "states": {
@@ -25,7 +25,25 @@
     "INGESTING": {
       "transitions": [
         {
-          "name": "ingesting_to_succeeded",
+          "name": "start_ingestion",
+          "next": "INGESTION_PROCESS",
+          "manual": false,
+          "processors": [
+            {
+              "name": "JobIngestionProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 300000
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "INGESTION_PROCESS": {
+      "transitions": [
+        {
+          "name": "ingestion_succeeded",
           "next": "SUCCEEDED",
           "manual": false,
           "criterion": {
@@ -39,7 +57,7 @@
           }
         },
         {
-          "name": "ingesting_to_failed",
+          "name": "ingestion_failed",
           "next": "FAILED",
           "manual": false,
           "criterion": {
@@ -57,7 +75,7 @@
     "SUCCEEDED": {
       "transitions": [
         {
-          "name": "succeeded_to_downstream",
+          "name": "trigger_downstream",
           "next": "DOWNSTREAM_PROCESSING",
           "manual": false,
           "processors": [
@@ -74,14 +92,15 @@
     "FAILED": {
       "transitions": [
         {
-          "name": "failed_to_notified",
+          "name": "notify_after_failure",
           "next": "NOTIFIED_SUBSCRIBERS",
           "manual": false,
           "processors": [
             {
               "name": "NotifySubscribersProcessor",
               "config": {
-                "calculationNodesTags": "cyoda_application"
+                "calculationNodesTags": "cyoda_application",
+                "retryPolicy": "FIXED"
               }
             }
           ]
@@ -91,14 +110,15 @@
     "DOWNSTREAM_PROCESSING": {
       "transitions": [
         {
-          "name": "downstream_to_notified",
+          "name": "after_downstream_notify",
           "next": "NOTIFIED_SUBSCRIBERS",
           "manual": false,
           "processors": [
             {
               "name": "NotifySubscribersProcessor",
               "config": {
-                "calculationNodesTags": "cyoda_application"
+                "calculationNodesTags": "cyoda_application",
+                "retryPolicy": "FIXED"
               }
             }
           ]
@@ -108,9 +128,17 @@
     "NOTIFIED_SUBSCRIBERS": {
       "transitions": [
         {
-          "name": "notified_to_completed",
+          "name": "finalize_job",
           "next": "COMPLETED",
-          "manual": false
+          "manual": false,
+          "processors": [
+            {
+              "name": "JobLoggingProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
         }
       ]
     },
