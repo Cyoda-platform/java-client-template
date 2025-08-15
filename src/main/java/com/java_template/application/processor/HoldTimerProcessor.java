@@ -1,0 +1,69 @@
+package com.java_template.application.processor;
+
+import com.java_template.application.entity.pet.version_1.Pet;
+import com.java_template.application.entity.adoptionrequest.version_1.AdoptionRequest;
+import com.java_template.common.serializer.ProcessorSerializer;
+import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.workflow.CyodaEventContext;
+import com.java_template.common.workflow.CyodaProcessor;
+import com.java_template.common.workflow.OperationSpecification;
+import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
+import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+
+import java.time.Instant;
+
+@Component
+public class HoldTimerProcessor implements CyodaProcessor {
+
+    private static final Logger logger = LoggerFactory.getLogger(HoldTimerProcessor.class);
+    private final String className = this.getClass().getSimpleName();
+    private final ProcessorSerializer serializer;
+
+    public HoldTimerProcessor(SerializerFactory serializerFactory) {
+        this.serializer = serializerFactory.getDefaultProcessorSerializer();
+    }
+
+    @Override
+    public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
+        EntityProcessorCalculationRequest request = context.getEvent();
+        logger.info("Processing HoldTimer for request: {}", request.getId());
+
+        return serializer.withRequest(request)
+            .toEntity(Pet.class)
+            .validate(this::isValidEntity, "Invalid pet entity")
+            .map(this::processEntityLogic)
+            .complete();
+    }
+
+    @Override
+    public boolean supports(OperationSpecification modelSpec) {
+        return className.equalsIgnoreCase(modelSpec.operationName());
+    }
+
+    private boolean isValidEntity(Pet entity) {
+        return entity != null && entity.getReservation() != null;
+    }
+
+    private Pet processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Pet> context) {
+        Pet pet = context.entity();
+        try {
+            Pet.Reservation res = pet.getReservation();
+            if (res == null) return pet;
+            Instant now = Instant.now();
+            Instant reservedUntil = Instant.parse(res.getReservedUntil());
+            if ("RESERVED".equalsIgnoreCase(pet.getStatus()) && now.isAfter(reservedUntil)) {
+                String arId = res.getRequestTechnicalId();
+                pet.setStatus("AVAILABLE");
+                pet.setReservation(null);
+                logger.info("Reservation for pet {} expired, released. Associated adoption request {} should be cancelled if needed", pet.getTechnicalId(), arId);
+                // In a real system we'd enqueue a transition to cancel the adoption request; here we just log
+            }
+        } catch (Exception e) {
+            logger.error("Error during HoldTimerProcessor for pet {}: {}", pet == null ? "<null>" : pet.getTechnicalId(), e.getMessage(), e);
+        }
+        return pet;
+    }
+}
