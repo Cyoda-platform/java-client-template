@@ -1,0 +1,106 @@
+{
+  "version": "1.0",
+  "name": "Pet Workflow",
+  "desc": "Workflow for Pet entity",
+  "initialState": "DRAFT",
+  "active": true,
+  "states": {
+    "DRAFT": {
+      "transitions": [
+        {
+          "name": "submit_for_review",
+          "next": "PENDING_REVIEW",
+          "manual": true,
+          "processors": [
+            {
+              "name": "SubmitForReviewProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PENDING_REVIEW": {
+      "transitions": [
+        {
+          "name": "approve_listing",
+          "next": "AVAILABLE",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ApproveListingProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "reject_listing",
+          "next": "DRAFT",
+          "manual": true,
+          "processors": [
+            {
+              "name": "RejectListingProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "AVAILABLE": {
+      "transitions": [
+        {
+          "name": "adoption_completed",
+          "next": "ADOPTED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AdoptionCompletedProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "archive_old_listing",
+          "next": "ARCHIVED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ArchiveOldListingProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ADOPTED": {
+      "transitions": [
+        {
+          "name": "archive_adopted",
+          "next": "ARCHIVED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ArchiveAdoptedProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ARCHIVED": {
+      "transitions": []
+    }
+  }
+}
