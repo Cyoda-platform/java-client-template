@@ -1,0 +1,74 @@
+{
+  "version": "1.0",
+  "name": "Event Workflow",
+  "desc": "Workflow for Event entity managing event lifecycle from creation to cancellation",
+  "initialState": "pending_approval",
+  "active": true,
+  "states": {
+    "pending_approval": {
+      "transitions": [
+        {
+          "name": "validate_event_details",
+          "next": "approved",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "EventValidationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "reject_event_details",
+          "next": "rejected",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "EventRejectionCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "approved": {
+      "transitions": [
+        {
+          "name": "notify_subscribers",
+          "next": "active",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EventNotificationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "cancel_event",
+          "next": "cancelled",
+          "manual": false
+        }
+      ]
+    },
+    "rejected": {
+      "transitions": []
+    },
+    "cancelled": {
+      "transitions": []
+    }
+  }
+}
