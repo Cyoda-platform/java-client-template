@@ -146,8 +146,8 @@ public class StockReservationProcessor implements CyodaProcessor {
                         pnode.put("reservedQuantity", newReserved);
                         String prodTid = pnode.has("technicalId") ? pnode.get("technicalId").asText() : null;
                         if (prodTid != null) {
-                            entityService.updateItem(Product.ENTITY_NAME, String.valueOf(Product.ENTITY_VERSION), UUID.fromString(prodTid), com.java_template.common.util.Json.mapper().convertValue(pnode, Product.class)).whenComplete((id, ex) -> {
-                                if (ex != null) logger.error("Failed to rollback reservation for {}", rr.productId, ex);
+                            entityService.updateItem(Product.ENTITY_NAME, String.valueOf(Product.ENTITY_VERSION), UUID.fromString(prodTid), com.java_template.common.util.Json.mapper().convertValue(pnode, Product.class)).whenComplete((id, ex2) -> {
+                                if (ex2 != null) logger.error("Failed to rollback reservation for {}", rr.productId, ex2);
                             });
                         }
                     } catch (Exception e) {
@@ -188,8 +188,8 @@ public class StockReservationProcessor implements CyodaProcessor {
                         pnode.put("reservedQuantity", newReserved);
                         String prodTid = pnode.has("technicalId") ? pnode.get("technicalId").asText() : null;
                         if (prodTid != null) {
-                            entityService.updateItem(Product.ENTITY_NAME, String.valueOf(Product.ENTITY_VERSION), UUID.fromString(prodTid), com.java_template.common.util.Json.mapper().convertValue(pnode, Product.class)).whenComplete((id, ex) -> {
-                                if (ex != null) logger.error("Failed to rollback reservation for {}", rr.productId, ex);
+                            entityService.updateItem(Product.ENTITY_NAME, String.valueOf(Product.ENTITY_VERSION), UUID.fromString(prodTid), com.java_template.common.util.Json.mapper().convertValue(pnode, Product.class)).whenComplete((id, ex2) -> {
+                                if (ex2 != null) logger.error("Failed to rollback reservation for {}", rr.productId, ex2);
                             });
                         }
                     } catch (Exception e) {
