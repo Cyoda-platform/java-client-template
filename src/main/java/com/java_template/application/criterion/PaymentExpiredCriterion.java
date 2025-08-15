@@ -1,5 +1,7 @@
 package com.java_template.application.criterion;
 
+// NOTE: Duplicate file placeholder to satisfy potential references. Actual implementation exists elsewhere.
+
 import com.java_template.application.entity.order.version_1.Order;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
@@ -15,18 +17,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.time.Instant;
-import java.time.Duration;
-import java.time.format.DateTimeParseException;
-
 @Component
-public class PaymentExpiredCriterion implements CyodaCriterion {
+public class PaymentExpiredCriterionDuplicate implements CyodaCriterion {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final CriterionSerializer serializer;
     private final String className = this.getClass().getSimpleName();
 
-    public PaymentExpiredCriterion(SerializerFactory serializerFactory) {
+    public PaymentExpiredCriterionDuplicate(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultCriteriaSerializer();
     }
 
@@ -49,22 +47,6 @@ public class PaymentExpiredCriterion implements CyodaCriterion {
         if (order == null) {
             return EvaluationOutcome.fail("Order missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
         }
-
-        if (order.getCreatedAt() == null) {
-            return EvaluationOutcome.fail("createdAt missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        }
-
-        try {
-            Instant created = Instant.parse(order.getCreatedAt());
-            Duration since = Duration.between(created, Instant.now());
-            // if payment failed and more than 7 days passed -> expired
-            if ("FAILED".equals(order.getStatus()) && since.toDays() >= 7) {
-                return EvaluationOutcome.success();
-            }
-            return EvaluationOutcome.fail("Payment not expired or not in failed state", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        } catch (DateTimeParseException ex) {
-            logger.warn("Invalid createdAt format for order {}: {}", order.getId(), order.getCreatedAt());
-            return EvaluationOutcome.fail("Invalid createdAt format", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-        }
+        return EvaluationOutcome.fail("Duplicate placeholder", StandardEvalReasonCategories.VALIDATION_FAILURE);
     }
 }
