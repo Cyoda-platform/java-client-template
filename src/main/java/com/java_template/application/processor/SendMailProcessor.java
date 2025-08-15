@@ -13,10 +13,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Component
 public class SendMailProcessor implements CyodaProcessor {
@@ -24,6 +22,9 @@ public class SendMailProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(SendMailProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+
+    // Business defaults
+    private static final int DEFAULT_MAX_ATTEMPTS = 3;
 
     public SendMailProcessor(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
@@ -63,7 +64,7 @@ public class SendMailProcessor implements CyodaProcessor {
             return entity;
         }
 
-        // Mark sending state and persist logically
+        // Set sending state and updatedAt
         try {
             entity.setState(sendingState);
         } catch (Exception e) {
@@ -75,52 +76,93 @@ public class SendMailProcessor implements CyodaProcessor {
             logger.debug("Unable to set updatedAt on entity: {}", e.getMessage());
         }
 
-        // Prepare delivery status structure
+        // Ensure deliveryStatus structure
         if (entity.getDeliveryStatus() == null) {
             Map<String, Object> ds = new HashMap<>();
             ds.put("attempts", 0);
             ds.put("status", "PENDING");
             ds.put("lastAttempt", null);
             ds.put("lastError", null);
-            ds.put("perRecipient", null);
+            ds.put("perRecipient", new HashMap<String, String>());
             entity.setDeliveryStatus(ds);
         }
 
+        // Normalize perRecipient map
+        Map<String, String> perRecipient = null;
         try {
-            List<String> mailList = entity.getMailList();
-            List<String> perRecipientResults = new ArrayList<>();
-            boolean overallSuccess = true;
+            Object pr = entity.getDeliveryStatus().get("perRecipient");
+            if (pr instanceof Map) {
+                //noinspection unchecked
+                perRecipient = (Map<String, String>) pr;
+            }
+        } catch (Exception ignored) {
+        }
+        if (perRecipient == null) {
+            perRecipient = new HashMap<>();
+            entity.getDeliveryStatus().put("perRecipient", perRecipient);
+        }
 
-            for (String recipient : mailList) {
-                // Idempotency: if deliveryStatus contains a marker for recipient success, skip
-                Object attemptsObj = entity.getDeliveryStatus().get("attempts");
-                int attempts = 0;
+        int prevAttempts = 0;
+        try {
+            Object prev = entity.getDeliveryStatus().get("attempts");
+            prevAttempts = prev instanceof Integer ? (Integer) prev : ((Number) prev).intValue();
+        } catch (Exception ignored) {
+        }
+
+        int currentAttempt = prevAttempts + 1;
+
+        List<String> mailList = entity.getMailList();
+        List<String> failedRecipients = new ArrayList<>();
+        List<String> succeededRecipients = new ArrayList<>();
+
+        // Simulate send per-recipient with idempotency: skip already SENT recipients
+        for (String recipient : mailList) {
+            try {
+                String existing = perRecipient.get(recipient);
+                if ("SENT".equalsIgnoreCase(existing)) {
+                    logger.debug("Skipping already-sent recipient {} for mail {}", recipient, entity.getTechnicalId());
+                    succeededRecipients.add(recipient);
+                    continue;
+                }
+
+                // Perform simple validation before sending
+                boolean valid = recipient != null && recipient.contains("@") && recipient.indexOf(' ') == -1;
+                if (!valid) {
+                    failedRecipients.add(recipient);
+                    perRecipient.put(recipient, "FAILED_INVALID_ADDRESS");
+                    logger.warn("Invalid recipient address {} for mail {}", recipient, entity.getTechnicalId());
+                    continue;
+                }
+
+                // Simulate sending: treat fail@example.com as a transient failure
+                boolean sendSuccess = !"fail@example.com".equalsIgnoreCase(recipient);
+
+                if (sendSuccess) {
+                    perRecipient.put(recipient, "SENT");
+                    succeededRecipients.add(recipient);
+                    logger.debug("Sent mail {} to {}", entity.getTechnicalId(), recipient);
+                } else {
+                    perRecipient.put(recipient, "FAILED");
+                    failedRecipients.add(recipient);
+                    logger.debug("Simulated failure sending mail {} to {}", entity.getTechnicalId(), recipient);
+                }
+
+            } catch (Exception e) {
+                logger.error("Error sending to recipient {} for mail {}: {}", recipient, entity.getTechnicalId(), e.getMessage());
+                failedRecipients.add(recipient);
                 try {
-                    attempts = attemptsObj instanceof Integer ? (Integer) attemptsObj : ((Number) attemptsObj).intValue();
+                    perRecipient.put(recipient, "FAILED_EXCEPTION");
                 } catch (Exception ignored) {
                 }
-
-                // Simple send simulation: succeed if recipient contains "@" and not equal to "fail@example.com"
-                boolean success = recipient != null && recipient.contains("@") && !recipient.equalsIgnoreCase("fail@example.com");
-                if (success) {
-                    perRecipientResults.add(recipient + ":SENT");
-                } else {
-                    perRecipientResults.add(recipient + ":FAILED");
-                    overallSuccess = false;
-                }
             }
+        }
 
-            // Update deliveryStatus
-            int prevAttempts = 0;
-            try {
-                Object prev = entity.getDeliveryStatus().get("attempts");
-                prevAttempts = prev instanceof Integer ? (Integer) prev : ((Number) prev).intValue();
-            } catch (Exception ignored) {
-            }
-            int newAttempts = prevAttempts + 1;
-            entity.getDeliveryStatus().put("attempts", newAttempts);
+        // Update deliveryStatus fields
+        try {
+            entity.getDeliveryStatus().put("attempts", currentAttempt);
             entity.getDeliveryStatus().put("lastAttempt", Instant.now().toString());
-            if (overallSuccess) {
+
+            if (failedRecipients.isEmpty()) {
                 entity.getDeliveryStatus().put("status", "SENT");
                 entity.getDeliveryStatus().put("lastError", null);
                 try {
@@ -128,35 +170,34 @@ public class SendMailProcessor implements CyodaProcessor {
                 } catch (Exception e) {
                     logger.debug("Unable to set state to SENT on entity: {}", e.getMessage());
                 }
-                logger.info("Mail {} sent successfully to {} recipients", entity.getTechnicalId(), mailList.size());
+                logger.info("Mail {} sent successfully to {} recipients", entity.getTechnicalId(), succeededRecipients.size());
             } else {
                 entity.getDeliveryStatus().put("status", "FAILED");
-                entity.getDeliveryStatus().put("lastError", "DELIVERY_FAIL");
+                String lastError = failedRecipients.stream().collect(Collectors.joining(","));
+                entity.getDeliveryStatus().put("lastError", lastError);
+
+                // Determine if we've exhausted attempts (per policy)
+                int maxAttempts = DEFAULT_MAX_ATTEMPTS;
+                if (currentAttempt >= maxAttempts) {
+                    // Do not set PERMANENTLY_FAILED here; workflow will transition based on attempts. Keep FAILED state.
+                    logger.info("Mail {} reached max attempts ({}). Marking as FAILED with permanent flag in deliveryStatus.", entity.getTechnicalId(), currentAttempt);
+                    entity.getDeliveryStatus().put("permanent", true);
+                }
+
                 try {
                     entity.setState("FAILED");
                 } catch (Exception e) {
                     logger.debug("Unable to set state to FAILED on entity: {}", e.getMessage());
                 }
-                logger.info("Mail {} failed to send to some recipients", entity.getTechnicalId());
+
+                logger.info("Mail {} failed to send to {} recipients on attempt {}", entity.getTechnicalId(), failedRecipients.size(), currentAttempt);
             }
 
-            entity.getDeliveryStatus().put("perRecipient", perRecipientResults);
+            // Persist perRecipient map
+            entity.getDeliveryStatus().put("perRecipient", perRecipient);
 
         } catch (Exception e) {
-            logger.error("Unexpected error during send for mail {}", entity.getTechnicalId(), e);
-            try {
-                entity.getDeliveryStatus().put("status", "FAILED");
-                entity.getDeliveryStatus().put("lastError", e.getMessage());
-                entity.getDeliveryStatus().put("lastAttempt", Instant.now().toString());
-                int prevAttempts = entity.getDeliveryStatus().get("attempts") instanceof Integer ? (Integer) entity.getDeliveryStatus().get("attempts") : ((Number) entity.getDeliveryStatus().get("attempts")).intValue();
-                entity.getDeliveryStatus().put("attempts", prevAttempts + 1);
-                try {
-                    entity.setState("FAILED");
-                } catch (Exception ex) {
-                    logger.debug("Unable to set state to FAILED on entity: {}", ex.getMessage());
-                }
-            } catch (Exception ignored) {
-            }
+            logger.error("Unexpected error while updating deliveryStatus for mail {}: {}", entity.getTechnicalId(), e.getMessage());
         }
 
         try {
@@ -164,6 +205,10 @@ public class SendMailProcessor implements CyodaProcessor {
         } catch (Exception e) {
             logger.debug("Unable to set updatedAt on entity: {}", e.getMessage());
         }
+
+        // Metrics/logging
+        logger.info("SendMailProcessor completed for mail {}: attempts={}, status={}", entity.getTechnicalId(), entity.getDeliveryStatus().get("attempts"), entity.getDeliveryStatus().get("status"));
+
         return entity;
     }
 }
