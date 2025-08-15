@@ -70,7 +70,7 @@ public class IsHappyCriterion implements CyodaCriterion {
                 return EvaluationOutcome.fail("Recipient indicates gloomy classification", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
             }
 
-            // Business rule: addresses containing "happy" domain or keyword or known happy domain
+            // Business rule: addresses containing "happy" or "joy" keywords or known happy domain
             String lower = addr.toLowerCase();
             if (lower.contains("happy") || lower.contains("joy") || lower.endsWith("@happy.example.com")) {
                 anyHappyIndicator = true;
@@ -81,7 +81,39 @@ public class IsHappyCriterion implements CyodaCriterion {
             return EvaluationOutcome.success();
         }
 
-        // No explicit happy indicator -> not happy (let IsGloomyCriterion determine gloominess or default)
+        // No explicit happy indicator -> not happy (higher level will decide gloom/default)
         return EvaluationOutcome.fail("No happy indicator found", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+    }
+
+    // Programmatic evaluation used by processors
+    public boolean evaluate(Mail entity) {
+        if (entity == null) return false;
+        if (entity.getMailList() == null || entity.getMailList().isEmpty()) return false;
+
+        boolean anyHappyIndicator = false;
+        for (String addr : entity.getMailList()) {
+            if (addr == null || addr.isBlank()) {
+                logger.debug("IsHappyCriterion.evaluate: null/blank address found for mail {}", entity.getTechnicalId());
+                return false;
+            }
+            if (!SIMPLE_EMAIL.matcher(addr).matches()) {
+                logger.debug("IsHappyCriterion.evaluate: invalid address {} for mail {}", addr, entity.getTechnicalId());
+                return false;
+            }
+            if (addr.equalsIgnoreCase("gloom@example.com")) {
+                logger.debug("IsHappyCriterion.evaluate: explicit gloomy address {} found for mail {}", addr, entity.getTechnicalId());
+                return false;
+            }
+            String lower = addr.toLowerCase();
+            if (lower.contains("happy") || lower.contains("joy") || lower.endsWith("@happy.example.com")) {
+                anyHappyIndicator = true;
+            }
+        }
+        if (anyHappyIndicator) {
+            logger.debug("IsHappyCriterion.evaluate: happy indicator found for mail {}", entity.getTechnicalId());
+            return true;
+        }
+        logger.debug("IsHappyCriterion.evaluate: no happy indicator for mail {}", entity.getTechnicalId());
+        return false;
     }
 }
