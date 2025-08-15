@@ -1,0 +1,58 @@
+{
+  "version": "1.0",
+  "name": "User Workflow",
+  "desc": "Workflow for importing and activating users with assigned roles (Admin or Customer)",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "import_user",
+          "next": "imported",
+          "manual": false,
+          "processors": [
+            {
+              "name": "UserImportProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "imported": {
+      "transitions": [
+        {
+          "name": "activate_if_active_flag",
+          "next": "activated",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.isActive",
+            "operation": "EQUALS",
+            "value": true
+          }
+        },
+        {
+          "name": "deactivate_if_not_active",
+          "next": "deactivated",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.isActive",
+            "operation": "EQUALS",
+            "value": false
+          }
+        }
+      ]
+    },
+    "activated": {
+      "transitions": []
+    },
+    "deactivated": {
+      "transitions": []
+    }
+  }
+}
