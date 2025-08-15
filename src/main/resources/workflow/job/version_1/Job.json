@@ -1,0 +1,96 @@
+{
+  "version": "1.0",
+  "name": "Job Workflow",
+  "desc": "Orchestration workflow for Job entity",
+  "initialState": "PENDING",
+  "active": true,
+  "states": {
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "validate_job",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "JobValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "start_job",
+          "next": "RUNNING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "StartJobProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "RUNNING": {
+      "transitions": [
+        {
+          "name": "job_success",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "JobSuccessProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "job_failure",
+          "next": "FAILED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "JobFailureProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": [
+        {
+          "name": "notify_completion",
+          "next": "NOTIFY",
+          "manual": false,
+          "processors": [
+            {
+              "name": "JobNotificationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "NOTIFY": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    }
+  }
+}
