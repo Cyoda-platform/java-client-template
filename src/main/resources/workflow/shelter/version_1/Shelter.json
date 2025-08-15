@@ -1,0 +1,63 @@
+{
+  "version": "1.0",
+  "name": "Shelter Workflow",
+  "desc": "Workflow for Shelter entity",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "verify_shelter",
+          "next": "VERIFIED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "VerifyShelterProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VERIFIED": {
+      "transitions": [
+        {
+          "name": "deactivate_shelter",
+          "next": "INACTIVE",
+          "manual": true,
+          "processors": [
+            {
+              "name": "DeactivateShelterProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "INACTIVE": {
+      "transitions": [
+        {
+          "name": "archive_shelter",
+          "next": "ARCHIVED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ArchiveShelterProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ARCHIVED": {
+      "transitions": []
+    }
+  }
+}
