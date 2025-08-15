@@ -18,6 +18,7 @@ public class ValidationRecord implements CyodaEntity {
     private Boolean isValid; // validation result
     private List<String> missingFields;
     private String checkedAt; // ISO8601
+    private String createdAt; // ISO8601 when record was created
     private String message; // explanation
 
     public ValidationRecord() {}
