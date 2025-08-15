@@ -1,0 +1,126 @@
+{
+  "version": "1.0",
+  "name": "Product Workflow",
+  "desc": "Workflow for product validation, activation, stock monitoring and deactivation.",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": [
+        {
+          "name": "created_to_validating",
+          "next": "validating",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateProductProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "validating": {
+      "transitions": [
+        {
+          "name": "valid_to_active",
+          "next": "active",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ProductValidCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "missing_fields_to_needs_review",
+          "next": "needs_review",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "MissingFieldsCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "active_to_low_stock",
+          "next": "low_stock",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "StockThresholdCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "active_to_inactive",
+          "next": "inactive",
+          "manual": true,
+          "processors": [
+            {
+              "name": "AdminDeactivateProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "needs_review": {
+      "transitions": [
+        {
+          "name": "review_to_active",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "AdminApproveProductProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "low_stock": {
+      "transitions": [
+        {
+          "name": "replenish_to_active",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "StockReplenishedProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "inactive": {
+      "transitions": []
+    }
+  }
+}
