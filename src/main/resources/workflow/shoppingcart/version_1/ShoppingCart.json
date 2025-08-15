@@ -1,0 +1,109 @@
+{
+  "version": "1.0",
+  "name": "ShoppingCart Workflow",
+  "desc": "Workflow for shopping cart lifecycle including item updates, expiry, and checkout initiation",
+  "initialState": "OPEN",
+  "active": true,
+  "states": {
+    "OPEN": {
+      "transitions": [
+        {
+          "name": "add_or_update_item",
+          "next": "UPDATING",
+          "manual": true,
+          "processors": [
+            {
+              "name": "AddOrUpdateItemProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "initiate_checkout",
+          "next": "CHECKOUT_INITIATED",
+          "manual": true
+        },
+        {
+          "name": "expire_cart",
+          "next": "ABANDONED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "CartExpirationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "UPDATING": {
+      "transitions": [
+        {
+          "name": "update_complete",
+          "next": "OPEN",
+          "manual": false
+        }
+      ]
+    },
+    "CHECKOUT_INITIATED": {
+      "transitions": [
+        {
+          "name": "start_checkout",
+          "next": "CHECKOUT_IN_PROGRESS",
+          "manual": false,
+          "processors": [
+            {
+              "name": "StartCheckoutProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "CHECKOUT_IN_PROGRESS": {
+      "transitions": [
+        {
+          "name": "checkout_success",
+          "next": "CHECKED_OUT",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "CheckoutSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "checkout_failure",
+          "next": "ABANDONED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "CheckoutFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "CHECKED_OUT": {
+      "transitions": []
+    },
+    "ABANDONED": {
+      "transitions": []
+    }
+  }
+}
