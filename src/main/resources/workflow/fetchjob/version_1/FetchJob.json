@@ -1,0 +1,170 @@
+{
+  "version": "1.0",
+  "name": "FetchJob Workflow",
+  "desc": "Workflow for orchestration FetchJob entity that validates, fetches external scores, parses, persists games, generates summary and triggers notifications.",
+  "initialState": "PENDING",
+  "active": true,
+  "states": {
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "validate_fetchjob",
+          "next": "VALIDATED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "StartFetchProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATED": {
+      "transitions": [
+        {
+          "name": "start_running",
+          "next": "RUNNING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "StartFetchProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "RUNNING": {
+      "transitions": [
+        {
+          "name": "fetch_scores",
+          "next": "FETCHING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FetchScoresProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 60000
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "FETCHING": {
+      "transitions": [
+        {
+          "name": "on_fetch_success",
+          "next": "PARSING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "FetchSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "on_fetch_failure",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "FetchFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "PARSING": {
+      "transitions": [
+        {
+          "name": "parse_and_persist_games",
+          "next": "PERSISTING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ParseAndPersistGamesProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 120000
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PERSISTING": {
+      "transitions": [
+        {
+          "name": "generate_summary",
+          "next": "SUMMARY_CREATED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "GenerateDailySummaryProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SUMMARY_CREATED": {
+      "transitions": [
+        {
+          "name": "create_notification",
+          "next": "NOTIFICATION_CREATED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CreateNotificationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "NOTIFICATION_CREATED": {
+      "transitions": [
+        {
+          "name": "finalize",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FinalizeFetchJobProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "FAILED": {
+      "transitions": []
+    },
+    "COMPLETED": {
+      "transitions": []
+    }
+  }
+}
