@@ -32,6 +32,11 @@ public class Laureate implements CyodaEntity {
     private Boolean dataEnriched; // true if Enrichment Processor succeeded
     private String sourceJobTechnicalId; // technicalId of Job that created/updated this laureate
 
+    // New fields referenced by processors
+    private String persistedAt; // ISO-8601 datetime when laureate was persisted
+    private String validationErrors; // validation error details
+    private String enrichmentErrors; // enrichment error details
+
     public Laureate() {}
 
     @Override
