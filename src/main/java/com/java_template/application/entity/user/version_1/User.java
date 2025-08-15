@@ -19,6 +19,7 @@ public class User implements CyodaEntity {
     private String phone; // optional phone number
     private String createdAt; // ISO8601 timestamp
     private String updatedAt; // ISO8601 timestamp
+    private String status; // ACTIVE, ERROR, PENDING
 
     public User() {}
 
