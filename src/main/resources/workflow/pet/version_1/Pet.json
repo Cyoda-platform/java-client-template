@@ -1,0 +1,122 @@
+{
+  "version": "1.0",
+  "name": "Pet Workflow",
+  "desc": "Workflow for Pet lifecycle: request, review, adopt, reject, return and finalize",
+  "initialState": "available",
+  "active": true,
+  "states": {
+    "available": {
+      "transitions": [
+        {
+          "name": "request_adoption",
+          "next": "requested",
+          "manual": true,
+          "processors": [
+            {
+              "name": "RequestAdoptionProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "requested": {
+      "transitions": [
+        {
+          "name": "start_review",
+          "next": "under_review",
+          "manual": false,
+          "processors": [
+            {
+              "name": "StartReviewProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "under_review": {
+      "transitions": [
+        {
+          "name": "approve_adoption",
+          "next": "adopted",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "EligibilityCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          },
+          "processors": [
+            {
+              "name": "ApproveAdoptionProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "reject_adoption",
+          "next": "rejected",
+          "manual": true,
+          "processors": [
+            {
+              "name": "RejectAdoptionProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "adopted": {
+      "transitions": [
+        {
+          "name": "return_pet",
+          "next": "returned",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ReturnPetProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "returned": {
+      "transitions": [
+        {
+          "name": "finalize_return",
+          "next": "finalized",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FinalizeReturnProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "rejected": {
+      "transitions": []
+    },
+    "finalized": {
+      "transitions": []
+    }
+  }
+}
