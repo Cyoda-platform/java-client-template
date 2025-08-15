@@ -60,4 +60,18 @@ public class IsGloomyCriterion implements CyodaCriterion {
         // Default: not gloomy
         return EvaluationOutcome.fail("No gloomy indicator found", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
     }
+
+    // Programmatic evaluation used by processors
+    public boolean evaluate(Mail entity) {
+        if (entity == null) return false;
+        if (entity.getMailList() == null || entity.getMailList().isEmpty()) return false;
+        for (String addr : entity.getMailList()) {
+            if (addr != null && addr.equalsIgnoreCase("gloom@example.com")) {
+                logger.debug("IsGloomyCriterion.evaluate: found gloomy address {} for mail {}", addr, entity.getTechnicalId());
+                return true;
+            }
+        }
+        logger.debug("IsGloomyCriterion.evaluate: no gloomy indicator for mail {}", entity.getTechnicalId());
+        return false;
+    }
 }
