@@ -69,7 +69,6 @@ public class JobController {
             job.setName(request.getName());
             job.setSourceUrl(request.getSourceUrl());
             job.setSchedule(request.getSchedule());
-            job.setManual(request.getManual() == null ? false : request.getManual());
             // transformRules may be structured; store as JSON string
             if (request.getTransformRules() != null) {
                 try {
@@ -80,7 +79,7 @@ public class JobController {
             }
             job.setCreatedBy(request.getCreatedBy());
             if (request.getMaxRetries() != null) {
-                // entity has retryCount and no maxRetries field; we may store maxRetries in resultSummary or meta in future workflows
+                // map maxRetries to retryCount field as a hint - actual retry behavior implemented in workflows
                 job.setRetryCount(request.getMaxRetries());
             }
 
@@ -162,8 +161,6 @@ public class JobController {
         private String sourceUrl;
         @Schema(description = "Cron schedule (nullable for manual-only jobs)")
         private String schedule;
-        @Schema(description = "Manual trigger only")
-        private Boolean manual;
         @Schema(description = "Transform rules as structured JSON/Object")
         private Object transformRules;
         @Schema(description = "Operator who created the job", required = true)
