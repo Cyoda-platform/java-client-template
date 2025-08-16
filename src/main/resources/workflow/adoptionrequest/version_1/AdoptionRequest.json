@@ -1,0 +1,94 @@
+{
+  "version": "1.0",
+  "name": "AdoptionRequest Workflow",
+  "desc": "Workflow for AdoptionRequest",
+  "initialState": "SUBMITTED",
+  "active": true,
+  "states": {
+    "SUBMITTED": {
+      "transitions": [
+        {
+          "name": "assign_reviewer",
+          "next": "IN_REVIEW",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AdoptionAssignReviewerCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "IN_REVIEW": {
+      "transitions": [
+        {
+          "name": "approve_request",
+          "next": "APPROVED",
+          "manual": true
+        },
+        {
+          "name": "reject_request",
+          "next": "REJECTED",
+          "manual": true
+        }
+      ]
+    },
+    "APPROVED": {
+      "transitions": [
+        {
+          "name": "update_pet",
+          "next": "PET_UPDATED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AdoptPetProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PET_UPDATED": {
+      "transitions": [
+        {
+          "name": "notify_requester",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AdoptionNotifyProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "REJECTED": {
+      "transitions": [
+        {
+          "name": "notify_requester_rejected",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AdoptionNotifyProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": []
+    }
+  }
+}
