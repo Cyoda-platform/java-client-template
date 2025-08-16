@@ -45,7 +45,7 @@ public class PetValidationProcessor implements CyodaProcessor {
 
     private boolean isValidEntity(Pet pet) {
         // basic non-null checks - ensure request contains a pet with an identifier
-        return pet != null && pet.getTechnicalId() != null && !pet.getTechnicalId().isEmpty();
+        return pet != null && pet.getPetId() != null && !pet.getPetId().isEmpty();
     }
 
     private Pet processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Pet> context) {
@@ -53,7 +53,7 @@ public class PetValidationProcessor implements CyodaProcessor {
         try {
             String status = pet.getStatus();
             if (status != null && !("CREATED".equals(status) || "VALIDATING".equals(status))) {
-                logger.info("Pet {} is in status {} - skipping validation (idempotent guard)", pet.getTechnicalId(), status);
+                logger.info("Pet {} is in status {} - skipping validation (idempotent guard)", pet.getPetId(), status);
                 return pet;
             }
 
@@ -81,16 +81,16 @@ public class PetValidationProcessor implements CyodaProcessor {
                 } catch (Throwable t) {
                     // ignore if setter doesn't exist
                 }
-                logger.warn("Pet {} failed validation: {}", pet.getTechnicalId(), errors);
+                logger.warn("Pet {} failed validation: {}", pet.getPetId(), errors);
                 return pet;
             }
 
             // Passed validation
             pet.setStatus("VALIDATED");
-            logger.info("Pet {} validated successfully", pet.getTechnicalId());
+            logger.info("Pet {} validated successfully", pet.getPetId());
             return pet;
         } catch (Exception e) {
-            logger.error("Unhandled error while validating pet {}", pet == null ? "<null>" : pet.getTechnicalId(), e);
+            logger.error("Unhandled error while validating pet {}", pet == null ? "<null>" : pet.getPetId(), e);
             if (pet != null) {
                 pet.setStatus("FAILED");
                 try {
