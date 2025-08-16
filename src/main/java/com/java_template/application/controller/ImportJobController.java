@@ -3,7 +3,6 @@ package com.java_template.application.controller;
 import static com.java_template.common.config.Config.*;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.java_template.common.service.EntityService;
 import com.java_template.application.entity.importjob.version_1.ImportJob;
 import io.swagger.v3.oas.annotations.Operation;
@@ -13,7 +12,6 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.parameters.RequestBody as OasRequestBody;
 import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
