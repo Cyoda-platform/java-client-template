@@ -1,0 +1,7 @@
+private void processWorkflow(String technicalId, Workflow workflow) {
+    if (workflow.getName() == null || workflow.getName().isBlank()) {
+        log.error("Workflow validation failed: name is blank");
+        return;
+    }
+    log.info("Processed Workflow {} successfully", technicalId);
+}
