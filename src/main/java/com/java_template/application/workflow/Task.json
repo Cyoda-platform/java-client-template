@@ -1,0 +1,74 @@
+{
+    "active": true,
+    "desc": "Workflow for processing Task entities from creation to completion or failure",
+    "initialState": "none",
+    "name": "Task Workflow",
+    "states": {
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        },
+        "none": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "create_task",
+                    "next": "validating"
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "assign_and_notify",
+                    "next": "completed",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "TaskProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "validating": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsWorkflowValidForTask"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "valid_workflow",
+                    "next": "processing"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsWorkflowValidForTask"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "invalid_workflow",
+                    "next": "failed"
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
