@@ -43,7 +43,7 @@ public class ImportFetchProcessor implements CyodaProcessor {
     }
 
     private boolean isValidEntity(ImportJob job) {
-        return job != null && job.getTechnicalId() != null && !job.getTechnicalId().isEmpty();
+        return job != null && job.getJobId() != null && !job.getJobId().isEmpty();
     }
 
     private ImportJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<ImportJob> context) {
@@ -51,28 +51,28 @@ public class ImportFetchProcessor implements CyodaProcessor {
         try {
             String status = job.getStatus();
             if (status != null && !"PENDING".equals(status)) {
-                logger.info("ImportJob {} is in status {} - skipping fetch", job.getTechnicalId(), status);
+                logger.info("ImportJob {} is in status {} - skipping fetch", job.getJobId(), status);
                 return job;
             }
 
             job.setStatus("IN_PROGRESS");
             try {
-                job.setStartedAt(Instant.now());
+                job.setStartedAt(Instant.now().toString());
             } catch (Throwable ignore) {
             }
 
             // In a real implementation we'd perform HTTP calls to job.getSourceUrl() and handle results.
             // For the prototype we mark it as PROCESSING so downstream processors can act.
             job.setStatus("PROCESSING");
-            logger.info("ImportJob {} moved to PROCESSING (fetch simulated)", job.getTechnicalId());
+            logger.info("ImportJob {} moved to PROCESSING (fetch simulated)", job.getJobId());
             return job;
         } catch (Exception e) {
-            logger.error("Unhandled error while fetching import job {}", job == null ? "<null>" : job.getTechnicalId(), e);
+            logger.error("Unhandled error while fetching import job {}", job == null ? "<null>" : job.getJobId(), e);
             if (job != null) {
                 job.setStatus("FAILED");
                 try {
                     job.setErrorMessage(e.getMessage());
-                    job.setCompletedAt(Instant.now());
+                    job.setCompletedAt(Instant.now().toString());
                 } catch (Throwable ignore) {
                 }
             }
