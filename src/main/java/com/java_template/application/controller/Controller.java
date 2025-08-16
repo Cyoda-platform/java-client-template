@@ -53,7 +53,7 @@ public class Controller {
 
             log.info("Workflow created with technicalId: {} (UUID: {})", technicalId, technicalUUID);
 
-            processWorkflow(technicalId, workflow);
+            // processWorkflow method removed
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId);
@@ -114,7 +114,7 @@ public class Controller {
 
             log.info("Task created with technicalId: {} (UUID: {})", technicalId, technicalUUID);
 
-            processTask(technicalId, task);
+            // processTask method removed
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId);
@@ -173,7 +173,7 @@ public class Controller {
 
             log.info("Notification created with technicalId: {} (UUID: {})", technicalId, technicalUUID);
 
-            processNotification(technicalId, notification);
+            // processNotification method removed
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId);
@@ -204,37 +204,4 @@ public class Controller {
         }
     }
 
-    // ----------- Process Methods ------------
-
-    private void processWorkflow(String technicalId, Workflow workflow) {
-        if (workflow.getName() == null || workflow.getName().isBlank()) {
-            log.error("Workflow validation failed: name is blank");
-            return;
-        }
-        log.info("Processed Workflow {} successfully", technicalId);
-    }
-
-    private void processTask(String technicalId, Task task) {
-        if (task.getStatus() == null || task.getStatus().isBlank()) {
-            task.setStatus("PENDING");
-        }
-        log.info("Processed Task {} successfully", technicalId);
-
-        // Trigger notification creation event (simulate by creating notification)
-        Notification notification = new Notification();
-        notification.setTaskTechnicalId(technicalId);
-        notification.setMessage("Task '" + task.getTitle() + "' is now " + task.getStatus());
-        notification.setSentAt(java.time.Instant.now().toString());
-
-        // TODO: Add notification via entityService instead of local cache
-        // We cannot currently add it properly because no technicalId mapping for notification here
-        log.info("TODO: create notification for task {}", technicalId);
-    }
-
-    private void processNotification(String technicalId, Notification notification) {
-        log.info("Notification {} sent for Task {}: {}", technicalId, notification.getTaskTechnicalId(), notification.getMessage());
-        if (notification.getSentAt() == null || notification.getSentAt().isBlank()) {
-            notification.setSentAt(java.time.Instant.now().toString());
-        }
-    }
 }
