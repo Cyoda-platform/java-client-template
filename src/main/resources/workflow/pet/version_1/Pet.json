@@ -1,0 +1,111 @@
+{
+  "version": "1.0",
+  "name": "Pet Workflow",
+  "desc": "Workflow for Pet entity",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "validate_pet",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PetValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "validation_passed",
+          "next": "ENRICHING",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.status",
+            "operation": "EQUALS",
+            "value": "VALIDATED"
+          }
+        },
+        {
+          "name": "validation_failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.status",
+            "operation": "NOT_EQUALS",
+            "value": "VALIDATED"
+          }
+        }
+      ]
+    },
+    "ENRICHING": {
+      "transitions": [
+        {
+          "name": "enrich_pet",
+          "next": "AVAILABLE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PetEnrichProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "AVAILABLE": {
+      "transitions": [
+        {
+          "name": "adoption_requested",
+          "next": "PENDING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AdoptionAssignReviewerCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "adoption_approved",
+          "next": "ADOPTED",
+          "manual": true
+        }
+      ]
+    },
+    "ADOPTED": {
+      "transitions": [
+        {
+          "name": "archive_pet",
+          "next": "ARCHIVED",
+          "manual": true
+        }
+      ]
+    },
+    "FAILED": {
+      "transitions": []
+    },
+    "ARCHIVED": {
+      "transitions": []
+    }
+  }
+}
