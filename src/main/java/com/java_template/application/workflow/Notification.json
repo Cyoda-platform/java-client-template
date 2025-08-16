@@ -1,88 +1,88 @@
 {
-    "active": true,
-    "desc": "Workflow for processing Notification entity lifecycle",
-    "initialState": "none",
-    "name": "Notification Workflow",
-    "states": {
-        "completed": {
-            "transitions": []
-        },
-        "created": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "DoesTaskExist"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "transition_to_validated_if_task_exists",
-                    "next": "validated"
-                },
-                {
-                    "manual": false,
-                    "name": "transition_to_error_if_task_missing",
-                    "next": "error"
-                }
-            ]
-        },
-        "error": {
-            "transitions": []
-        },
-        "none": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "transition_to_created",
-                    "next": "created"
-                }
-            ]
-        },
-        "processing": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "transition_to_completed_with_send",
-                    "next": "completed",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "NotificationProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "validated": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IsMessageValid"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "transition_to_processing_if_message_valid",
-                    "next": "processing"
-                },
-                {
-                    "manual": false,
-                    "name": "transition_to_error_if_message_invalid",
-                    "next": "error"
-                }
-            ]
+  "active": true,
+  "desc": "Workflow for processing Notification entity lifecycle",
+  "initialState": "none",
+  "name": "Notification Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "transition_to_created",
+          "next": "created"
         }
+      ]
     },
-    "version": "1.0"
+    "created": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "DoesTaskExist"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "transition_to_validated_if_task_exists",
+          "next": "validated"
+        },
+        {
+          "manual": false,
+          "name": "transition_to_error_if_task_missing",
+          "next": "error"
+        }
+      ]
+    },
+    "validated": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IsMessageValid"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "transition_to_processing_if_message_valid",
+          "next": "processing"
+        },
+        {
+          "manual": false,
+          "name": "transition_to_error_if_message_invalid",
+          "next": "error"
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "transition_to_completed_with_send",
+          "next": "completed",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "NotificationProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "error": {
+      "transitions": []
+    }
+  },
+  "version": "1.0"
 }
