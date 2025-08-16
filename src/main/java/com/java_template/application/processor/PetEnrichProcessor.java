@@ -45,7 +45,7 @@ public class PetEnrichProcessor implements CyodaProcessor {
     }
 
     private boolean isValidEntity(Pet pet) {
-        return pet != null && pet.getTechnicalId() != null && !pet.getTechnicalId().isEmpty();
+        return pet != null && pet.getPetId() != null && !pet.getPetId().isEmpty();
     }
 
     private Pet processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Pet> context) {
@@ -53,7 +53,7 @@ public class PetEnrichProcessor implements CyodaProcessor {
         try {
             String status = pet.getStatus();
             if (status == null || !"VALIDATED".equals(status)) {
-                logger.info("Pet {} is not in VALIDATED state - skipping enrichment", pet.getTechnicalId());
+                logger.info("Pet {} is not in VALIDATED state - skipping enrichment", pet.getPetId());
                 return pet;
             }
 
@@ -84,10 +84,10 @@ public class PetEnrichProcessor implements CyodaProcessor {
 
             // Mark available if enrichment successful
             pet.setStatus("AVAILABLE");
-            logger.info("Pet {} enrichment completed and marked AVAILABLE", pet.getTechnicalId());
+            logger.info("Pet {} enrichment completed and marked AVAILABLE", pet.getPetId());
             return pet;
         } catch (Exception e) {
-            logger.error("Unhandled error while enriching pet {}", pet == null ? "<null>" : pet.getTechnicalId(), e);
+            logger.error("Unhandled error while enriching pet {}", pet == null ? "<null>" : pet.getPetId(), e);
             if (pet != null) {
                 pet.setStatus("FAILED");
                 try {
