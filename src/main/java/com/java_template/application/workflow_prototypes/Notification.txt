@@ -1,6 +1,0 @@
-private void processNotification(String technicalId, Notification notification) {
-    log.info("Notification {} sent for Task {}: {}", technicalId, notification.getTaskTechnicalId(), notification.getMessage());
-    if (notification.getSentAt() == null || notification.getSentAt().isBlank()) {
-        notification.setSentAt(java.time.Instant.now().toString());
-    }
-}
