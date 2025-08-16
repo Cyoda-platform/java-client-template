@@ -14,6 +14,7 @@ public class Pet implements CyodaEntity {
     // Add your entity fields here
 
     private String petId; // external Petstore id
+    private String technicalId; // internal technical id used by workflow
     private String name;
     private String species; // cat/dog/etc
     private String breed;
