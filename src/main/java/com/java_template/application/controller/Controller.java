@@ -1,5 +1,7 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Workflow;
@@ -14,12 +16,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.validation.Valid;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.UUID;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/controller")
@@ -28,6 +32,7 @@ import static com.java_template.common.config.Config.*;
 public class Controller {
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
     // Local counters to simulate unique technicalIds as prefix (still needed to generate human-readable technicalId keys)
     private final AtomicLong workflowIdCounter = new AtomicLong(1);
@@ -37,23 +42,19 @@ public class Controller {
     // ----------- Workflow Endpoints ------------
 
     @PostMapping("/workflows")
-    public ResponseEntity<Map<String, String>> createWorkflow(@RequestBody Workflow workflow) {
+    public ResponseEntity<Map<String, String>> createWorkflow(@Valid @RequestBody Workflow workflow) throws JsonProcessingException, ExecutionException, InterruptedException {
         try {
             if (!workflow.isValid()) {
                 log.error("Invalid Workflow entity received");
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
             }
 
-            // Add workflow via entityService
             CompletableFuture<UUID> idFuture = entityService.addItem(Workflow.ENTITY_NAME, ENTITY_VERSION, workflow);
             UUID technicalUUID = idFuture.get();
 
-            // Generate technicalId string key for internal reference consistent with previous approach
             String technicalId = "wf-" + workflowIdCounter.getAndIncrement();
 
             log.info("Workflow created with technicalId: {} (UUID: {})", technicalId, technicalUUID);
-
-            // processWorkflow method removed
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId);
@@ -62,23 +63,33 @@ public class Controller {
         } catch (IllegalArgumentException e) {
             log.error("Invalid argument in createWorkflow", e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        } catch (ExecutionException | InterruptedException e) {
+            log.error("Error in createWorkflow", e);
+            throw e;
         } catch (Exception e) {
             log.error("Error in createWorkflow", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
-    @GetMapping("/workflows/{technicalId}")
-    public ResponseEntity<Workflow> getWorkflow(@PathVariable String technicalId) {
+    @GetMapping("/workflows/{id}")
+    public ResponseEntity<Workflow> getWorkflow(@PathVariable("id") String id) throws JsonProcessingException, ExecutionException, InterruptedException {
         try {
-            // Here, original technicalId string like "wf-1" does not map to UUID, so we must skip retrieval or return 404
-            // Because we cannot map technicalId string to UUID, leave as is and return 404
-            log.error("Direct technicalId based retrieval not supported with EntityService for technicalId: {}", technicalId);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            UUID technicalUUID = UUID.fromString(id);
+            CompletableFuture<ObjectNode> workflowFuture = entityService.getItem(Workflow.ENTITY_NAME, ENTITY_VERSION, technicalUUID);
+            ObjectNode workflowNode = workflowFuture.get();
+            if (workflowNode == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            }
+            Workflow workflow = objectMapper.treeToValue(workflowNode, Workflow.class);
+            return ResponseEntity.ok(workflow);
 
         } catch (IllegalArgumentException e) {
             log.error("Invalid argument in getWorkflow", e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        } catch (ExecutionException | InterruptedException e) {
+            log.error("Error in getWorkflow", e);
+            throw e;
         } catch (Exception e) {
             log.error("Error in getWorkflow", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
@@ -88,16 +99,17 @@ public class Controller {
     // ----------- Task Endpoints ------------
 
     @PostMapping("/tasks")
-    public ResponseEntity<Map<String, String>> createTask(@RequestBody Task task) {
+    public ResponseEntity<Map<String, String>> createTask(@Valid @RequestBody Task task) throws JsonProcessingException, ExecutionException, InterruptedException {
         try {
             if (!task.isValid()) {
                 log.error("Invalid Task entity received");
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
             }
 
-            // Check referenced workflow exists by condition search in EntityService (inMemory=true)
+            // convert workflowTechnicalId string to UUID for condition search
+            UUID workflowUUID = UUID.fromString(task.getWorkflowTechnicalId());
             SearchConditionRequest workflowCondition = SearchConditionRequest.group("AND",
-                    Condition.of("$.technicalId", "EQUALS", task.getWorkflowTechnicalId()));
+                    Condition.of("$.technicalId", "EQUALS", workflowUUID.toString()));
 
             CompletableFuture<ArrayNode> workflowSearchFuture = entityService.getItemsByCondition(Workflow.ENTITY_NAME, ENTITY_VERSION, workflowCondition, true);
             ArrayNode workflows = workflowSearchFuture.get();
@@ -106,15 +118,12 @@ public class Controller {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
             }
 
-            // Add task via entityService
             CompletableFuture<UUID> idFuture = entityService.addItem(Task.ENTITY_NAME, ENTITY_VERSION, task);
             UUID technicalUUID = idFuture.get();
 
             String technicalId = "task-" + taskIdCounter.getAndIncrement();
 
             log.info("Task created with technicalId: {} (UUID: {})", technicalId, technicalUUID);
-
-            // processTask method removed
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId);
@@ -123,22 +132,33 @@ public class Controller {
         } catch (IllegalArgumentException e) {
             log.error("Invalid argument in createTask", e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        } catch (ExecutionException | InterruptedException e) {
+            log.error("Error in createTask", e);
+            throw e;
         } catch (Exception e) {
             log.error("Error in createTask", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
-    @GetMapping("/tasks/{technicalId}")
-    public ResponseEntity<Task> getTask(@PathVariable String technicalId) {
+    @GetMapping("/tasks/{id}")
+    public ResponseEntity<Task> getTask(@PathVariable("id") String id) throws JsonProcessingException, ExecutionException, InterruptedException {
         try {
-            // Similarly, direct retrieval by string technicalId not supported with EntityService
-            log.error("Direct technicalId based retrieval not supported with EntityService for technicalId: {}", technicalId);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            UUID technicalUUID = UUID.fromString(id);
+            CompletableFuture<ObjectNode> taskFuture = entityService.getItem(Task.ENTITY_NAME, ENTITY_VERSION, technicalUUID);
+            ObjectNode taskNode = taskFuture.get();
+            if (taskNode == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            }
+            Task task = objectMapper.treeToValue(taskNode, Task.class);
+            return ResponseEntity.ok(task);
 
         } catch (IllegalArgumentException e) {
             log.error("Invalid argument in getTask", e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        } catch (ExecutionException | InterruptedException e) {
+            log.error("Error in getTask", e);
+            throw e;
         } catch (Exception e) {
             log.error("Error in getTask", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
@@ -148,16 +168,16 @@ public class Controller {
     // ----------- Notification Endpoints ------------
 
     @PostMapping("/notifications")
-    public ResponseEntity<Map<String, String>> createNotification(@RequestBody Notification notification) {
+    public ResponseEntity<Map<String, String>> createNotification(@Valid @RequestBody Notification notification) throws JsonProcessingException, ExecutionException, InterruptedException {
         try {
             if (!notification.isValid()) {
                 log.error("Invalid Notification entity received");
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
             }
 
-            // Check referenced task exists by condition search in EntityService (inMemory=true)
+            UUID taskUUID = UUID.fromString(notification.getTaskTechnicalId());
             SearchConditionRequest taskCondition = SearchConditionRequest.group("AND",
-                    Condition.of("$.technicalId", "EQUALS", notification.getTaskTechnicalId()));
+                    Condition.of("$.technicalId", "EQUALS", taskUUID.toString()));
 
             CompletableFuture<ArrayNode> taskSearchFuture = entityService.getItemsByCondition(Task.ENTITY_NAME, ENTITY_VERSION, taskCondition, true);
             ArrayNode tasks = taskSearchFuture.get();
@@ -173,8 +193,6 @@ public class Controller {
 
             log.info("Notification created with technicalId: {} (UUID: {})", technicalId, technicalUUID);
 
-            // processNotification method removed
-
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -182,22 +200,33 @@ public class Controller {
         } catch (IllegalArgumentException e) {
             log.error("Invalid argument in createNotification", e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        } catch (ExecutionException | InterruptedException e) {
+            log.error("Error in createNotification", e);
+            throw e;
         } catch (Exception e) {
             log.error("Error in createNotification", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
-    @GetMapping("/notifications/{technicalId}")
-    public ResponseEntity<Notification> getNotification(@PathVariable String technicalId) {
+    @GetMapping("/notifications/{id}")
+    public ResponseEntity<Notification> getNotification(@PathVariable("id") String id) throws JsonProcessingException, ExecutionException, InterruptedException {
         try {
-            // Direct retrieval by string technicalId not supported with EntityService
-            log.error("Direct technicalId based retrieval not supported with EntityService for technicalId: {}", technicalId);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            UUID technicalUUID = UUID.fromString(id);
+            CompletableFuture<ObjectNode> notificationFuture = entityService.getItem(Notification.ENTITY_NAME, ENTITY_VERSION, technicalUUID);
+            ObjectNode notificationNode = notificationFuture.get();
+            if (notificationNode == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            }
+            Notification notification = objectMapper.treeToValue(notificationNode, Notification.class);
+            return ResponseEntity.ok(notification);
 
         } catch (IllegalArgumentException e) {
             log.error("Invalid argument in getNotification", e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        } catch (ExecutionException | InterruptedException e) {
+            log.error("Error in getNotification", e);
+            throw e;
         } catch (Exception e) {
             log.error("Error in getNotification", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
