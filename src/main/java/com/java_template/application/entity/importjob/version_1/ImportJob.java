@@ -1,40 +1,109 @@
 package com.java_template.application.entity.importjob.version_1;
 
-import com.java_template.common.workflow.CyodaEntity;
-import com.java_template.common.workflow.OperationSpecification;
-import org.cyoda.cloud.api.event.common.ModelSpec;
-import lombok.Data;
+import com.fasterxml.jackson.databind.JsonNode;
 
-@Data
-public class ImportJob implements CyodaEntity {
-    public static final String ENTITY_NAME = "ImportJob";
-    public static final Integer ENTITY_VERSION = 1;
-    // Add your entity fields here
+public class ImportJob {
+    private String technicalId;
+    private String jobName;
+    private String requestedBy;
+    private JsonNode payload;
+    private String createdAt;
+    private String startedAt;
+    private String completedAt;
+    private String status;
+    private Integer processedCount = 0;
+    private Integer failureCount = 0;
+    private String detailsUrl;
 
-    private String jobName; // human name or description for this import
-    private String requestedBy; // who asked to run the job
-    private String payload; // single item or array of HN JSON payloads to import (stored as JSON string)
-    private String createdAt; // ISO8601 UTC
-    private String status; // PENDING/RUNNING/COMPLETED/FAILED
-    private Integer processedCount; // how many items processed
-    private Integer failureCount; // how many items failed
-
-    public ImportJob() {}
-
-    @Override
-    public OperationSpecification getModelKey() {
-        ModelSpec modelSpec = new ModelSpec();
-        modelSpec.setName(ENTITY_NAME);
-        modelSpec.setVersion(ENTITY_VERSION);
-        return new OperationSpecification.Entity(modelSpec, ENTITY_NAME);
+    public String getTechnicalId() {
+        return technicalId;
     }
 
-    @Override
+    public void setTechnicalId(String technicalId) {
+        this.technicalId = technicalId;
+    }
+
+    public String getJobName() {
+        return jobName;
+    }
+
+    public void setJobName(String jobName) {
+        this.jobName = jobName;
+    }
+
+    public String getRequestedBy() {
+        return requestedBy;
+    }
+
+    public void setRequestedBy(String requestedBy) {
+        this.requestedBy = requestedBy;
+    }
+
+    public JsonNode getPayload() {
+        return payload;
+    }
+
+    public void setPayload(JsonNode payload) {
+        this.payload = payload;
+    }
+
+    public String getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(String createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public String getStartedAt() {
+        return startedAt;
+    }
+
+    public void setStartedAt(String startedAt) {
+        this.startedAt = startedAt;
+    }
+
+    public String getCompletedAt() {
+        return completedAt;
+    }
+
+    public void setCompletedAt(String completedAt) {
+        this.completedAt = completedAt;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public Integer getProcessedCount() {
+        return processedCount;
+    }
+
+    public void setProcessedCount(Integer processedCount) {
+        this.processedCount = processedCount;
+    }
+
+    public Integer getFailureCount() {
+        return failureCount;
+    }
+
+    public void setFailureCount(Integer failureCount) {
+        this.failureCount = failureCount;
+    }
+
+    public String getDetailsUrl() {
+        return detailsUrl;
+    }
+
+    public void setDetailsUrl(String detailsUrl) {
+        this.detailsUrl = detailsUrl;
+    }
+
     public boolean isValid() {
-        // jobName, requestedBy and payload are required for creating an import job
-        if (jobName == null || jobName.isBlank()) return false;
-        if (requestedBy == null || requestedBy.isBlank()) return false;
-        if (payload == null || payload.isBlank()) return false;
-        return true;
+        return technicalId != null && payload != null;
     }
 }
