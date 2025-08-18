@@ -1,0 +1,112 @@
+{
+  "version": "1.0",
+  "name": "ImportJob Workflow",
+  "desc": "Workflow for ImportJob orchestration",
+  "initialState": "PENDING",
+  "active": true,
+  "states": {
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "start_import",
+          "next": "RUNNING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "StartImportProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "RUNNING": {
+      "transitions": [
+        {
+          "name": "begin_processing_pets",
+          "next": "PROCESSING_PETS",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FetchAndTransformProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PROCESSING_PETS": {
+      "transitions": [
+        {
+          "name": "to_completed",
+          "next": "COMPLETED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AllItemsImportedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "to_failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ImportErrorCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": [
+        {
+          "name": "notify_requester",
+          "next": "NOTIFY",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotifyRequesterProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "FAILED": {
+      "transitions": [
+        {
+          "name": "notify_requester_failed",
+          "next": "NOTIFY",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotifyRequesterProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "NOTIFY": {
+      "transitions": []
+    }
+  }
+}
