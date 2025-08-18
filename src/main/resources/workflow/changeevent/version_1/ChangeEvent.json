@@ -1,0 +1,114 @@
+{
+  "version": "1.0",
+  "name": "ChangeEvent Workflow",
+  "desc": "Workflow for ChangeEvent entity orchestrating notifications",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "match_subscribers",
+          "next": "MATCHING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotificationMatcherProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "MATCHING": {
+      "transitions": [
+        {
+          "name": "deliver_notifications",
+          "next": "DELIVERING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotificationDeliverProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "DELIVERING": {
+      "transitions": [
+        {
+          "name": "delivery_succeeded",
+          "next": "COMPLETED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AllDeliveriesSucceededCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "delivery_partial_failed",
+          "next": "RETRYING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "SomeDeliveriesFailedButRetryableCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "delivery_failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AllDeliveriesFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "RETRYING": {
+      "transitions": [
+        {
+          "name": "schedule_retry",
+          "next": "DELIVERING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "DeliveryRetryProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 30000
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    }
+  }
+}
