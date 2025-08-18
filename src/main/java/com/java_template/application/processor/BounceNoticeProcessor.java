@@ -11,6 +11,7 @@ import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.JsonNode;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
@@ -50,18 +51,18 @@ public class BounceNoticeProcessor implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private Object processEntityLogic(ProcessorSerializer.ProcessorExecutionContext context) {
+    private JsonNode processEntityLogic(ProcessorSerializer.ProcessorExecutionContext context) {
         try {
             // Expect the context request to contain bounce event details in payload
-            Object payload = context.request().getPayload();
-            if (payload == null) return null;
+            Object payloadObj = context.request().getPayload();
+            if (payloadObj == null) return context.payload();
             // Try to extract email field
             String email = null;
-            if (payload instanceof java.util.Map) {
-                Object e = ((java.util.Map) payload).get("email");
+            if (payloadObj instanceof java.util.Map) {
+                Object e = ((java.util.Map) payloadObj).get("email");
                 if (e != null) email = e.toString();
             }
-            if (email == null || email.isBlank()) return null;
+            if (email == null || email.isBlank()) return context.payload();
             String normalized = email.trim().toLowerCase();
 
             SearchConditionRequest condition = SearchConditionRequest.group("AND",
@@ -69,7 +70,7 @@ public class BounceNoticeProcessor implements CyodaProcessor {
             );
             CompletableFuture<ArrayNode> future = entityService.getItemsByCondition(Subscriber.ENTITY_NAME, String.valueOf(Subscriber.ENTITY_VERSION), condition, true);
             ArrayNode items = future.get();
-            if (items == null || items.size() == 0) return null;
+            if (items == null || items.size() == 0) return context.payload();
             ObjectNode node = (ObjectNode) items.get(0);
             // Update bounce_count and status if threshold reached
             int bounceCount = node.has("bounce_count") ? node.get("bounce_count").asInt() : 0;
@@ -89,6 +90,6 @@ public class BounceNoticeProcessor implements CyodaProcessor {
         } catch (Exception ex) {
             logger.error("Error processing bounce notice: {}", ex.getMessage(), ex);
         }
-        return null;
+        return context.payload();
     }
 }
