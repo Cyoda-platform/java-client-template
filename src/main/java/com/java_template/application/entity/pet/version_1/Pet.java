@@ -24,6 +24,10 @@ public class Pet implements CyodaEntity {
     private String healthNotes; // vaccines, conditions
     private String sourceId; // original Petstore id
 
+    // Additional fields expected by processors
+    private Boolean isArchived;
+    private Integer version;
+
     public Pet() {}
 
     @Override
@@ -42,5 +46,20 @@ public class Pet implements CyodaEntity {
         if (species == null || species.isBlank()) return false;
         if (status == null || status.isBlank()) return false;
         return true;
+    }
+
+    // Compatibility convenience methods used by processors/criteria
+    public String getTechnicalId() {
+        return this.id;
+    }
+
+    public void setTechnicalId(String technicalId) {
+        this.id = technicalId;
+    }
+
+    // photos setter accepting raw object lists for flexible processors
+    @SuppressWarnings("unchecked")
+    public void setPhotos(List<?> photos) {
+        this.photos = (List<String>) photos;
     }
 }
