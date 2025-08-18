@@ -9,8 +9,8 @@ import lombok.Data;
 public class Subscriber implements CyodaEntity {
     public static final String ENTITY_NAME = "Subscriber";
     public static final Integer ENTITY_VERSION = 1;
-    // Add your entity fields here
 
+    // Add your entity fields here
     private String id; // domain id for subscriber record
     private String email; // subscriber email address
     private String name; // optional display name
@@ -32,10 +32,10 @@ public class Subscriber implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        if (this.id == null || this.id.isBlank()) return false;
-        if (this.email == null || this.email.isBlank()) return false;
-        if (!this.email.contains("@")) return false;
-        if (this.status == null || this.status.isBlank()) return false;
+        // id and email are required; consent_given must be provided (not null)
+        if (id == null || id.isBlank()) return false;
+        if (email == null || email.isBlank()) return false;
+        if (consent_given == null) return false;
         return true;
     }
 }
