@@ -19,6 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -81,7 +82,7 @@ public class SendGloomyMailProcessor implements CyodaProcessor {
                 dr.setRecipientEmail(r.getEmail());
                 dr.setStatus("PENDING");
                 dr.setAttempts(0);
-                dr.setCreatedAt(java.time.OffsetDateTime.now().toString());
+                dr.setCreatedAt(OffsetDateTime.now().toString());
                 dr.setUpdatedAt(dr.getCreatedAt());
                 return dr;
             }).collect(Collectors.toList());
@@ -102,6 +103,7 @@ public class SendGloomyMailProcessor implements CyodaProcessor {
 
             // update mail status
             mail.setStatus("QUEUED");
+            mail.setUpdatedAt(OffsetDateTime.now().toString());
             logger.info("Gloomy mail queued with {} recipients", records.size());
         } catch (Exception ex) {
             logger.error("Error in send gloomy mail processor", ex);
@@ -139,6 +141,8 @@ public class SendGloomyMailProcessor implements CyodaProcessor {
                                     r.setId(rNode.has("id") ? rNode.get("id").asText() : null);
                                     r.setTechnicalId(rNode.has("technicalId") ? rNode.get("technicalId").asText() : null);
                                     r.setEmail(rNode.has("email") ? rNode.get("email").asText() : null);
+                                    r.setPreferences(null);
+                                    r.setStatus(rNode.has("status") ? rNode.get("status").asText() : null);
                                     result.add(r);
                                 }
                             } catch (Exception ex) {
@@ -171,6 +175,8 @@ public class SendGloomyMailProcessor implements CyodaProcessor {
                             r.setId(rNode.has("id") ? rNode.get("id").asText() : null);
                             r.setTechnicalId(rNode.has("technicalId") ? rNode.get("technicalId").asText() : null);
                             r.setEmail(rNode.has("email") ? rNode.get("email").asText() : null);
+                            r.setPreferences(null);
+                            r.setStatus(rNode.has("status") ? rNode.get("status").asText() : null);
                             result.add(r);
                         }
                     } catch (Exception ex) {
@@ -193,12 +199,24 @@ public class SendGloomyMailProcessor implements CyodaProcessor {
             String email = r.getEmail().toLowerCase();
             if (seen.contains(email)) continue;
             seen.add(email);
-            // basic opt-out and status checks
-            if (r.getPreferences() != null && Boolean.TRUE.equals(r.getPreferences().getOptOut())) continue;
+            // basic opt-out and status checks - preferences is a Map<String,Object>
+            if (r.getPreferences() != null) {
+                try {
+                    Object opt = r.getPreferences().get("optOut");
+                    if (opt instanceof Boolean && Boolean.TRUE.equals(opt)) continue;
+                } catch (Exception ignore) { }
+            }
             String status = r.getStatus();
             if (status != null && ("OPTED_OUT".equalsIgnoreCase(status) || "INVALID".equalsIgnoreCase(status) || "SUSPENDED".equalsIgnoreCase(status))) continue;
-            // daily limit check
-            Integer daily = r.getPreferences() != null ? r.getPreferences().getDailyLimit() : null;
+            // daily limit check - naive (no delivery history lookup) just enforce positive limit
+            Integer daily = null;
+            if (r.getPreferences() != null) {
+                try {
+                    Object d = r.getPreferences().get("dailyLimit");
+                    if (d instanceof Integer) daily = (Integer) d;
+                    else if (d instanceof Number) daily = ((Number) d).intValue();
+                } catch (Exception ignore) { }
+            }
             if (daily != null && daily <= 0) continue;
             out.add(r);
         }
