@@ -15,6 +15,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
+
 @Component
 public class OptOutCriterion implements CyodaCriterion {
 
@@ -43,8 +45,16 @@ public class OptOutCriterion implements CyodaCriterion {
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Recipient> context) {
         Recipient r = context.entity();
         if (r == null) return EvaluationOutcome.fail("Recipient missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        if (r.getPreferences() != null && Boolean.TRUE.equals(r.getPreferences().getOptOut())) {
-            return EvaluationOutcome.fail("Recipient opted out", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        Map<String, Object> prefs = r.getPreferences();
+        if (prefs != null) {
+            try {
+                Object opt = prefs.get("optOut");
+                if (opt instanceof Boolean && Boolean.TRUE.equals(opt)) {
+                    return EvaluationOutcome.fail("Recipient opted out", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+                }
+            } catch (Exception ex) {
+                logger.warn("Error reading recipient preferences for optOut: {}", ex.getMessage());
+            }
         }
         return EvaluationOutcome.success();
     }
