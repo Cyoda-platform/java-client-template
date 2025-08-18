@@ -12,4 +12,9 @@ public enum SerializerEnum {
         this.type = type;
     }
 
+    // Explicit getter to ensure availability even if Lombok isn't processed
+    public String getType() {
+        return this.type;
+    }
+
 }
