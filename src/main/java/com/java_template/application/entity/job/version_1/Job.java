@@ -5,8 +5,6 @@ import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import lombok.Data;
 
-import java.util.Objects;
-
 @Data
 public class Job implements CyodaEntity {
     public static final String ENTITY_NAME = "Job";
@@ -22,6 +20,9 @@ public class Job implements CyodaEntity {
     private String status; // scheduled, running, completed, failed
     private String payload; // serialized payload (JSON)
     private String createdAt; // ISO timestamp
+
+    // Additional fields expected by processors
+    private Integer version;
 
     public Job() {}
 
@@ -41,4 +42,8 @@ public class Job implements CyodaEntity {
         if (schedule == null || schedule.isBlank()) return false;
         return true;
     }
+
+    // Compatibility convenience methods
+    public String getTechnicalId() { return this.id; }
+    public void setTechnicalId(String technicalId) { this.id = technicalId; }
 }
