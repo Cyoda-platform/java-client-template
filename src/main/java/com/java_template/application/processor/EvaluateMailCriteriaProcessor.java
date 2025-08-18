@@ -12,7 +12,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
+import java.time.OffsetDateTime;
+import java.util.regex.Pattern;
 
 @Component
 public class EvaluateMailCriteriaProcessor implements CyodaProcessor {
@@ -20,6 +21,8 @@ public class EvaluateMailCriteriaProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(EvaluateMailCriteriaProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private static final Pattern EMAIL_REGEX = Pattern.compile("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
+    private static final int DEFAULT_MAX_RETRIES = 3;
 
     public EvaluateMailCriteriaProcessor(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
@@ -44,16 +47,36 @@ public class EvaluateMailCriteriaProcessor implements CyodaProcessor {
 
     private boolean isValidEntity(Mail mail) {
         if (mail == null) return false;
-        List<String> list = mail.getMailList();
-        return list != null && !list.isEmpty();
+        if (mail.getMailList() == null || mail.getMailList().isEmpty()) return false;
+        // ensure addresses are non-blank (entity.isValid covers null/blank) but keep defensive check
+        for (String addr : mail.getMailList()) {
+            if (addr == null || addr.isBlank()) return false;
+        }
+        // attemptCount must be non-negative if present
+        if (mail.getAttemptCount() != null && mail.getAttemptCount() < 0) return false;
+        return true;
     }
 
     private Mail processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Mail> context) {
         Mail mail = context.entity();
-        // Business logic:
-        // If isHappy explicitly provided by the client, honor it. Otherwise, deterministically evaluate
+        // Ensure attemptCount default
+        if (mail.getAttemptCount() == null) {
+            mail.setAttemptCount(0);
+        }
+
+        // Validate email formats before evaluation. If any recipient has permanently invalid format, mark FAILED.
+        for (String recipient : mail.getMailList()) {
+            if (recipient == null || !EMAIL_REGEX.matcher(recipient).matches()) {
+                logger.error("Invalid email detected during evaluation for mail {}: {}", mail.getTechnicalId(), recipient);
+                mail.setStatus("FAILED");
+                mail.setLastAttemptAt(OffsetDateTime.now());
+                return mail;
+            }
+        }
+
+        // Business logic: If isHappy explicitly provided by the client, honor it. Otherwise, deterministically evaluate
         // based on recipient addresses: if any recipient contains the substring "happy" (case-insensitive),
-        // mark as happy. This is deterministic and simple for this prototype.
+        // mark as happy.
 
         Boolean provided = mail.getIsHappy();
         if (provided == null) {
