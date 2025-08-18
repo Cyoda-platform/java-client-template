@@ -13,16 +13,21 @@ public class Pet implements CyodaEntity {
     public static final Integer ENTITY_VERSION = 1;
     // Add your entity fields here
 
-    private String id; // business id
+    private String technicalId; // system-assigned id (UUID)
+    private String id; // business id (optional)
     private String name; // pet name
     private String species; // cat/dog/etc
     private String breed; // breed info
     private Integer age; // years
     private String gender; // M/F/other
-    private String status; // available/adopted/pending
+    private String lifecycleState; // CREATED/VALIDATING/AVAILABLE/PENDING/ADOPTED/ARCHIVED
+    private String status; // available/adopted/pending (backward compatible)
     private String description; // short description
     private List<String> images; // URLs
     private String healthSummary; // brief health notes
+    private String createdAt; // ISO-8601
+    private String updatedAt; // ISO-8601
+    private String errorMessage; // optional error summary
 
     public Pet() {}
 
@@ -36,7 +41,7 @@ public class Pet implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        if (id == null || id.isBlank()) return false;
+        // business-level validity: name and species required; status and age must be present and sane; images list non-null
         if (name == null || name.isBlank()) return false;
         if (species == null || species.isBlank()) return false;
         if (status == null || status.isBlank()) return false;
