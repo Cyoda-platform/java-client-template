@@ -20,6 +20,10 @@ public class ImportJob implements CyodaEntity {
     private Integer importedCount;
     private String errorMessage;
 
+    // Additional fields expected by processors
+    private Boolean notificationSent;
+    private String updatedAt;
+
     public ImportJob() {}
 
     @Override
@@ -38,5 +42,14 @@ public class ImportJob implements CyodaEntity {
         if (status == null || status.isBlank()) return false;
         if (importedCount == null || importedCount < 0) return false;
         return true;
+    }
+
+    // Compatibility helpers used by processors
+    public String getTechnicalId() {
+        return this.jobId;
+    }
+
+    public void setTechnicalId(String technicalId) {
+        this.jobId = technicalId;
     }
 }
