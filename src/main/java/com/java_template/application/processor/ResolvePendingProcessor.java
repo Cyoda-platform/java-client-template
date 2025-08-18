@@ -19,7 +19,7 @@ public class ResolvePendingProcessor implements CyodaProcessor {
 
     private static final Logger logger = LoggerFactory.getLogger(ResolvePendingProcessor.class);
     private final String className = this.getClass().getSimpleName();
-    private final ProcessorSerializer.serializer;
+    private final ProcessorSerializer serializer;
 
     public ResolvePendingProcessor(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
@@ -48,6 +48,7 @@ public class ResolvePendingProcessor implements CyodaProcessor {
 
     private Pet processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Pet> context) {
         Pet pet = context.entity();
+        if (pet == null) return null;
         try {
             // Simple resolution logic: if required fields now present, mark AVAILABLE
             boolean hasName = pet.getName() != null && !pet.getName().trim().isEmpty();
