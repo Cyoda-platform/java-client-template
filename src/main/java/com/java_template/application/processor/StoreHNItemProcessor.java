@@ -193,10 +193,10 @@ public class StoreHNItemProcessor implements CyodaProcessor {
                                     java.util.UUID.fromString(technicalId),
                                     mapper.convertValue(toUpdate, Object.class)
                                 );
-                                UUID updated = updatedId.get();
+                                UUID updatedUuid = updatedId.get();
                                 detail.put("outcome", "UPDATED");
                                 detail.put("businessId", businessId);
-                                detail.put("technicalId", updated.toString());
+                                detail.put("technicalId", updatedUuid.toString());
                                 processingDetails.add(detail);
                                 updated++;
                             } else {
