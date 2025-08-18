@@ -1,0 +1,129 @@
+{
+  "version": "1.0",
+  "name": "ImportJob Workflow",
+  "desc": "Workflow for orchestrating import jobs that dispatch HackerNewsItem creations",
+  "initialState": "PENDING",
+  "active": true,
+  "states": {
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "start_job",
+          "next": "RUNNING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "StartJobProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "RUNNING": {
+      "transitions": [
+        {
+          "name": "parse_payload",
+          "next": "DISPATCHING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ParsePayloadProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "DISPATCHING": {
+      "transitions": [
+        {
+          "name": "dispatch_items",
+          "next": "AGGREGATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "DispatchItemsProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "AGGREGATING": {
+      "transitions": [
+        {
+          "name": "all_processed",
+          "next": "COMPLETED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AllItemsProcessedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "some_failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AnyFailuresCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": [
+        {
+          "name": "notify",
+          "next": "NOTIFYING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "MarkJobCompleteProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "FAILED": {
+      "transitions": [
+        {
+          "name": "mark_failed",
+          "next": "NOTIFYING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "MarkJobFailedProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "NOTIFYING": {
+      "transitions": []
+    }
+  }
+}
