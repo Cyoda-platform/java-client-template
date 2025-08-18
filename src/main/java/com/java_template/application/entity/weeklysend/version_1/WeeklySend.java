@@ -21,6 +21,7 @@ public class WeeklySend implements CyodaEntity {
     private Integer unsubscribes_count;
     private Integer bounces_count;
     private String status; // draft / scheduled / sending / sent / failed
+    private String error_details; // store processing error details if any
 
     public WeeklySend() {}
 
