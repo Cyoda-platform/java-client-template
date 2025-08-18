@@ -1,0 +1,53 @@
+{
+  "version": "1.0",
+  "name": "User Workflow",
+  "desc": "Workflow for User registration, verification and lifecycle",
+  "initialState": "REGISTERED",
+  "active": true,
+  "states": {
+    "REGISTERED": {
+      "transitions": [
+        {
+          "name": "verify_contact",
+          "next": "VERIFIED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "VerificationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VERIFIED": {
+      "transitions": [
+        {
+          "name": "activate_user",
+          "next": "ACTIVE",
+          "manual": false
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "suspend_by_staff",
+          "next": "SUSPENDED",
+          "manual": true
+        }
+      ]
+    },
+    "SUSPENDED": {
+      "transitions": [
+        {
+          "name": "reinstate_by_staff",
+          "next": "ACTIVE",
+          "manual": true
+        }
+      ]
+    }
+  }
+}
