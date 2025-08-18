@@ -1,0 +1,175 @@
+{
+  "version": "1.0",
+  "name": "Laureate Workflow",
+  "desc": "Workflow for Laureate entity",
+  "initialState": "RECEIVED",
+  "active": true,
+  "states": {
+    "RECEIVED": {
+      "transitions": [
+        {
+          "name": "to_validating",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "LaureateValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "validation_pass",
+          "next": "ENRICHING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "LaureateValidationPassCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_fail",
+          "next": "INVALID",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "LaureateValidationFailCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ENRICHING": {
+      "transitions": [
+        {
+          "name": "enrich_to_change_detection",
+          "next": "CHANGE_DETECTION",
+          "manual": false,
+          "processors": [
+            {
+              "name": "LaureateEnrichmentProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "CHANGE_DETECTION": {
+      "transitions": [
+        {
+          "name": "detect_new",
+          "next": "NEW",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ChangeDetectionIsNewCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "detect_updated",
+          "next": "UPDATED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ChangeDetectionIsUpdatedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "NEW": {
+      "transitions": [
+        {
+          "name": "emit_change_event_new",
+          "next": "NOTIFICATION_EMITTED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EmitChangeEventProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "UPDATED": {
+      "transitions": [
+        {
+          "name": "emit_change_event_updated",
+          "next": "NOTIFICATION_EMITTED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EmitChangeEventProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "NOTIFICATION_EMITTED": {
+      "transitions": [
+        {
+          "name": "mark_active",
+          "next": "ACTIVE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "MarkActiveProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "archive",
+          "next": "ARCHIVED",
+          "manual": true
+        }
+      ]
+    },
+    "INVALID": {
+      "transitions": []
+    },
+    "ARCHIVED": {
+      "transitions": []
+    }
+  }
+}
