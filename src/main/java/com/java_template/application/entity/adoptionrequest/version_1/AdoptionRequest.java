@@ -19,6 +19,12 @@ public class AdoptionRequest implements CyodaEntity {
     private String reviewNotes; // staff notes
     private String scheduledPickup; // ISO timestamp or null
 
+    // Optional embedded snapshot used by criteria/processors
+    private com.java_template.application.entity.pet.version_1.Pet pet;
+
+    // Additional fields expected by processors
+    private Integer version;
+
     public AdoptionRequest() {}
 
     @Override
@@ -38,4 +44,11 @@ public class AdoptionRequest implements CyodaEntity {
         if (submittedAt == null || submittedAt.isBlank()) return false;
         return true;
     }
+
+    // Compatibility convenience methods
+    public String getTechnicalId() { return this.id; }
+    public void setTechnicalId(String technicalId) { this.id = technicalId; }
+
+    public com.java_template.application.entity.pet.version_1.Pet getPet() { return this.pet; }
+    public void setPet(com.java_template.application.entity.pet.version_1.Pet pet) { this.pet = pet; }
 }
