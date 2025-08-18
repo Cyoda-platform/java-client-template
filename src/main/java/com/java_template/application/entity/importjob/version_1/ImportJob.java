@@ -16,6 +16,9 @@ public class ImportJob implements CyodaEntity {
     private String createdAt; // ISO timestamp job created
     private String status; // PENDING / VALIDATING / PROCESSING / COMPLETED / FAILED
     private Integer itemsCreatedCount; // how many HNItem persisted
+    private Integer itemsUpdatedCount; // how many HNItem were merged/updated
+    private Integer itemsIgnoredCount; // how many incoming items were ignored due to exact duplicate
+    private Object processingDetails; // optional detailed per-item processing outcome for audit
     private String errorMessage; // failure reason if any
 
     public ImportJob() {}
