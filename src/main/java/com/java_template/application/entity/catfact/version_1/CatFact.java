@@ -9,8 +9,8 @@ import lombok.Data;
 public class CatFact implements CyodaEntity {
     public static final String ENTITY_NAME = "CatFact";
     public static final Integer ENTITY_VERSION = 1;
-    // Add your entity fields here
 
+    // Add your entity fields here
     private String id; // domain id for the fact
     private String text; // the cat fact content
     private String source; // source name or api endpoint
@@ -30,10 +30,9 @@ public class CatFact implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        if (this.id == null || this.id.isBlank()) return false;
-        if (this.text == null || this.text.isBlank()) return false;
-        if (this.text.length() < 10) return false;
-        if (this.source == null || this.source.isBlank()) return false;
+        // id and text are required
+        if (id == null || id.isBlank()) return false;
+        if (text == null || text.isBlank()) return false;
         return true;
     }
 }
