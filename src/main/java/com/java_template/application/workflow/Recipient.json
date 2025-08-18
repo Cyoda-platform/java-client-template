@@ -1,0 +1,72 @@
+{
+  "version": "1.0",
+  "name": "Recipient Workflow",
+  "desc": "Workflow for Recipient validation and opt-out enforcement",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "validate_email",
+          "next": "VERIFIED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateEmailProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "to_invalid",
+          "next": "INVALID",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "EmailFormatCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "VERIFIED": {
+      "transitions": [
+        {
+          "name": "check_opt_out",
+          "next": "OPTED_OUT",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "OptOutCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "activate_recipient",
+          "next": "ACTIVE",
+          "manual": false
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": []
+    },
+    "OPTED_OUT": {
+      "transitions": []
+    },
+    "INVALID": {
+      "transitions": []
+    }
+  }
+}
