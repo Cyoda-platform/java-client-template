@@ -20,6 +20,10 @@ public class User implements CyodaEntity {
     private String role; // customer/admin/staff
     private List<String> favorites; // pet ids
 
+    // Additional fields expected by processors
+    private String lifecycleState;
+    private String updatedAt;
+
     public User() {}
 
     @Override
@@ -39,4 +43,15 @@ public class User implements CyodaEntity {
         if (favorites == null) return false;
         return true;
     }
+
+    // Compatibility helpers used by processors
+    public String getTechnicalId() {
+        return this.id;
+    }
+
+    public void setTechnicalId(String technicalId) {
+        this.id = technicalId;
+    }
+
+    // lifecycleState and updatedAt have Lombok-generated getters/setters because of @Data
 }
