@@ -1,8 +1,11 @@
 package com.java_template.application.entity.hackernewsitem.version_1;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.java_template.common.workflow.CyodaEntity;
+import com.java_template.common.workflow.OperationSpecification;
+import org.cyoda.cloud.api.event.common.ModelSpec;
 
-public class HackerNewsItem {
+public class HackerNewsItem implements CyodaEntity {
     private String technicalId;
     private Long id;
     private String type;
@@ -85,6 +88,12 @@ public class HackerNewsItem {
         this.sourceJobTechnicalId = sourceJobTechnicalId;
     }
 
+    @Override
+    public OperationSpecification getModelKey() {
+        return new OperationSpecification.Entity(new ModelSpec(), "hackernews-item.v1");
+    }
+
+    @Override
     public boolean isValid() {
         return technicalId != null && originalJson != null;
     }
