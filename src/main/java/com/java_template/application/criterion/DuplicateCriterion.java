@@ -13,6 +13,7 @@ import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
 import org.slf4j.Logger;
@@ -69,8 +70,32 @@ public class DuplicateCriterion implements CyodaCriterion {
             );
             ArrayNode items = future.get();
             if (items != null && items.size() > 0) {
-                // If there is any existing fact with same hash, consider duplicate
-                return EvaluationOutcome.fail("Duplicate cat fact detected", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+                // Need to ensure we don't count the entity itself as a duplicate. Use id or technicalId to exclude self.
+                String currentId = null;
+                try {
+                    // Try to use domain id first
+                    if (catFact.getId() != null && !catFact.getId().isBlank()) currentId = catFact.getId();
+                    // Also consider technicalId from request context if available
+                    String ctxEntityId = context.request() != null ? context.request().getEntityId() : null;
+                    // Iterate results and see if any item is a different entity with same hash
+                    for (int i = 0; i < items.size(); i++) {
+                        ObjectNode node = (ObjectNode) items.get(i);
+                        String foundId = null;
+                        if (node.has("id") && !node.get("id").isNull()) foundId = node.get("id").asText();
+                        String foundTechnical = null;
+                        if (node.has("technicalId") && !node.get("technicalId").isNull()) foundTechnical = node.get("technicalId").asText();
+
+                        // If found entity matches current (by id or technicalId) then ignore
+                        if ((currentId != null && currentId.equals(foundId)) || (ctxEntityId != null && ctxEntityId.equals(foundTechnical))) {
+                            continue;
+                        }
+                        // If any remaining item exists, this is a duplicate
+                        return EvaluationOutcome.fail("Duplicate cat fact detected", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+                    }
+                } catch (Exception ex) {
+                    logger.warn("Error while filtering duplicate results: {}", ex.getMessage());
+                    return EvaluationOutcome.fail("Error checking duplicates", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+                }
             }
         } catch (Exception ex) {
             logger.error("Error checking duplicate cat facts: {}", ex.getMessage(), ex);
