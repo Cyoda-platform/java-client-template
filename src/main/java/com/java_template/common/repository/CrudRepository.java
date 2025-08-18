@@ -1,9 +1,5 @@
 package com.java_template.common.repository;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
 import java.util.Collection;
@@ -12,7 +8,9 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
+import org.cyoda.cloud.api.event.common.DataPayload;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
+import org.cyoda.cloud.api.event.entity.EntityDeleteAllResponse;
 import org.cyoda.cloud.api.event.entity.EntityDeleteResponse;
 import org.cyoda.cloud.api.event.entity.EntityTransactionResponse;
 import org.cyoda.cloud.api.event.entity.EntityTransitionResponse;
@@ -21,12 +19,12 @@ public interface CrudRepository {
 
     CompletableFuture<EntityDeleteResponse> deleteById(@NotNull UUID id);
 
-    CompletableFuture<Integer> deleteAll(
+    CompletableFuture<List<EntityDeleteAllResponse>> deleteAll(
             @NotNull String modelName,
             int modelVersion
     );
 
-    CompletableFuture<ArrayNode> findAll(
+    CompletableFuture<List<DataPayload>> findAll(
             @NotNull String modelName,
             int modelVersion,
             int pageSize,
@@ -34,9 +32,9 @@ public interface CrudRepository {
             @Nullable Date pointInTime
     );
 
-    CompletableFuture<ObjectNode> findById(@NotNull UUID id);
+    CompletableFuture<DataPayload> findById(@NotNull UUID id);
 
-    CompletableFuture<ArrayNode> findAllByCriteria(
+    CompletableFuture<List<DataPayload>> findAllByCriteria(
             @NotNull String modelName,
             int modelVersion,
             @NotNull GroupCondition criteria,
@@ -45,26 +43,26 @@ public interface CrudRepository {
             boolean inMemory
     );
 
-    CompletableFuture<EntityTransactionResponse> save(
+    <ENTITY_TYPE> CompletableFuture<EntityTransactionResponse> save(
             @NotNull String modelName,
             int modelVersion,
-            @NotNull JsonNode entity
+            @NotNull ENTITY_TYPE entity
     );
 
-    CompletableFuture<EntityTransactionResponse> saveAll(
+    <ENTITY_TYPE> CompletableFuture<EntityTransactionResponse> saveAll(
             @NotNull String modelName,
             int modelVersion,
-            @NotNull JsonNode entity
+            @NotNull Collection<ENTITY_TYPE> entity
     );
 
-    CompletableFuture<EntityTransactionResponse> update(
+    <ENTITY_TYPE> CompletableFuture<EntityTransactionResponse> update(
             @NotNull UUID id,
-            @NotNull JsonNode entity,
+            @NotNull ENTITY_TYPE entity,
             @NotNull String transition
     );
 
-    CompletableFuture<List<EntityTransactionResponse>> updateAll(
-            @NotNull Collection<Object> entities,
+    <ENTITY_TYPE> CompletableFuture<List<EntityTransactionResponse>> updateAll(
+            @NotNull Collection<ENTITY_TYPE> entities,
             @NotNull String transition
     );
 

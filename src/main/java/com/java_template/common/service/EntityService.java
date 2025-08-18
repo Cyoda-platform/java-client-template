@@ -1,5 +1,6 @@
 package com.java_template.common.service;
 
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -11,11 +12,12 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
+import org.cyoda.cloud.api.event.common.DataPayload;
 
 public interface EntityService {
 
     // Retrieve a single item based on its ID.
-    CompletableFuture<ObjectNode> getItem(@NotNull UUID entityId);
+    CompletableFuture<DataPayload> getItem(@NotNull UUID entityId);
 
     // Retrieve an item based on a condition.
     CompletableFuture<Optional<ObjectNode>> getFirstItemByCondition(
@@ -42,39 +44,39 @@ public interface EntityService {
     );
 
     // Add a new item to the repository and return the entity's unique ID.
-    CompletableFuture<UUID> addItem(
+    <ENTITY_TYPE> CompletableFuture<UUID> addItem(
             @NotNull String modelName,
             @NotNull Integer modelVersion,
-            @NotNull Object entity
+            @NotNull ENTITY_TYPE entity
     );
 
     // Add a new item to the repository and return the entity ID along with the
     // transaction ID.
-    CompletableFuture<ObjectNode> addItemAndReturnTransactionInfo(
+    <ENTITY_TYPE> CompletableFuture<ObjectNode> addItemAndReturnTransactionInfo(
             @NotNull String modelName,
             @NotNull Integer modelVersion,
-            @NotNull Object entity
+            @NotNull ENTITY_TYPE entity
     );
 
     // Add a list of items to the repository and return the entities' IDs.
-    CompletableFuture<List<UUID>> addItems(
+    <ENTITY_TYPE> CompletableFuture<List<UUID>> addItems(
             @NotNull String modelName,
             @NotNull Integer modelVersion,
-            @NotNull Object entities
+            @NotNull Collection<ENTITY_TYPE> entities
     );
 
     // Add a list of items to the repository and return the entities' IDs along with
     // the transaction ID.
-    CompletableFuture<ObjectNode> addItemsAndReturnTransactionInfo(
+    <ENTITY_TYPE> CompletableFuture<ObjectNode> addItemsAndReturnTransactionInfo(
             @NotNull String modelName,
             @NotNull Integer modelVersion,
-            @NotNull Object entities
+            @NotNull Collection<ENTITY_TYPE> entities
     );
 
     // Update an existing item in the repository.
-    CompletableFuture<UUID> updateItem(@NotNull UUID entityId, @NotNull Object entity);
+    <ENTITY_TYPE> CompletableFuture<UUID> updateItem(@NotNull UUID entityId, @NotNull ENTITY_TYPE entity);
 
-    CompletableFuture<List<UUID>> updateItems(@NotNull Object entities);
+    <ENTITY_TYPE> CompletableFuture<List<UUID>> updateItems(@NotNull Collection<ENTITY_TYPE> entities);
 
     CompletableFuture<List<String>> applyTransition(@NotNull UUID entityId, @NotNull String transitionName);
 

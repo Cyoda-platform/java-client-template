@@ -192,7 +192,7 @@ class GrpcConnectionMonitor implements EventTracker, ConnectionStateTracker {
         }
 
         final var timeSinceLastKeepAlive = System.currentTimeMillis() - lastKeepAliveTimestampMs;
-        logger.info("{}ms since last keep alive", timeSinceLastKeepAlive);
+        logger.debug("{}ms since last keep alive", timeSinceLastKeepAlive);
 
         if (timeSinceLastKeepAlive > KEEP_ALIVE_WARNING_THRESHOLD) {
             logger.warn(
