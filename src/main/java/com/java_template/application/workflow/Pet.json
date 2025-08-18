@@ -1,0 +1,127 @@
+{
+  "version": "1.0",
+  "name": "Pet Workflow",
+  "desc": "Workflow for Pet entity ingestion, enrichment, availability and adoption",
+  "initialState": "INGESTED",
+  "active": true,
+  "states": {
+    "INGESTED": {
+      "transitions": [
+        {
+          "name": "enrich_pet",
+          "next": "ENRICHING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EnrichPetProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ENRICHING": {
+      "transitions": [
+        {
+          "name": "to_available_if_complete",
+          "next": "AVAILABLE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PetDataCompleteCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "to_pending_if_incomplete",
+          "next": "PENDING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PetDataIncompleteCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "AVAILABLE": {
+      "transitions": [
+        {
+          "name": "reserve_on_approval",
+          "next": "RESERVED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "CheckAdoptionCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "archive_by_staff",
+          "next": "ARCHIVED",
+          "manual": true
+        }
+      ]
+    },
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "become_available",
+          "next": "AVAILABLE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "UpdatePetDataProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "RESERVED": {
+      "transitions": [
+        {
+          "name": "finalize_adoption",
+          "next": "ADOPTED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FinalizeAdoptionProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ADOPTED": {
+      "transitions": [
+        {
+          "name": "archive_after_adoption",
+          "next": "ARCHIVED",
+          "manual": true
+        }
+      ]
+    },
+    "ARCHIVED": {
+      "transitions": []
+    }
+  }
+}
