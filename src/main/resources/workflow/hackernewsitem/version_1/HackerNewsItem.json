@@ -1,14 +1,14 @@
 {
   "version": "1.0",
   "name": "HackerNewsItem Workflow",
-  "desc": "Workflow for processing a HackerNewsItem (validate, duplicate check, enrich, persist, emit event)",
+  "desc": "Workflow for processing HackerNewsItem entity",
   "initialState": "CREATED",
   "active": true,
   "states": {
     "CREATED": {
       "transitions": [
         {
-          "name": "to_validating",
+          "name": "start_processing",
           "next": "VALIDATING",
           "manual": false,
           "processors": [
@@ -25,8 +25,8 @@
     "VALIDATING": {
       "transitions": [
         {
-          "name": "validation_success",
-          "next": "DUPLICATE_CHECK",
+          "name": "validation_failed",
+          "next": "FAILED",
           "manual": false,
           "criterion": {
             "type": "function",
@@ -39,31 +39,22 @@
           }
         },
         {
-          "name": "validation_failure",
-          "next": "FAILED",
-          "manual": false,
-          "criterion": {
-            "type": "function",
-            "function": {
-              "name": "ValidationFailureCriterion",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
-          }
+          "name": "validation_passed",
+          "next": "DUPLICATE_CHECK",
+          "manual": false
         }
       ]
     },
     "DUPLICATE_CHECK": {
       "transitions": [
         {
-          "name": "duplicate_reject",
+          "name": "duplicate_rejected",
           "next": "FAILED",
           "manual": false,
           "criterion": {
             "type": "function",
             "function": {
-              "name": "IsDuplicateAndPolicyRejectCriterion",
+              "name": "IsDuplicateRejectCriterion",
               "config": {
                 "calculationNodesTags": "cyoda_application"
               }
@@ -71,36 +62,21 @@
           }
         },
         {
-          "name": "not_duplicate_or_overwrite",
+          "name": "duplicate_handled",
           "next": "ENRICHING",
-          "manual": false,
-          "criterion": {
-            "type": "function",
-            "function": {
-              "name": "IsNotDuplicateOrOverwriteCriterion",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            }
-          }
+          "manual": false
         }
       ]
     },
     "ENRICHING": {
       "transitions": [
         {
-          "name": "enrich_and_persist",
+          "name": "enrich",
           "next": "PERSISTING",
           "manual": false,
           "processors": [
             {
               "name": "EnrichItemProcessor",
-              "config": {
-                "calculationNodesTags": "cyoda_application"
-              }
-            },
-            {
-              "name": "PersistItemProcessor",
               "config": {
                 "calculationNodesTags": "cyoda_application"
               }
@@ -115,15 +91,14 @@
           "name": "persist_success",
           "next": "READY",
           "manual": false,
-          "criterion": {
-            "type": "function",
-            "function": {
-              "name": "PersistSuccessCriterion",
+          "processors": [
+            {
+              "name": "PersistItemProcessor",
               "config": {
                 "calculationNodesTags": "cyoda_application"
               }
             }
-          }
+          ]
         },
         {
           "name": "persist_failure",
