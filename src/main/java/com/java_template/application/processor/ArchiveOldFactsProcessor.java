@@ -9,6 +9,7 @@ import com.java_template.common.workflow.OperationSpecification;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
@@ -52,7 +53,7 @@ public class ArchiveOldFactsProcessor implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private Object processEntityLogic(ProcessorSerializer.ProcessorExecutionContext context) {
+    private JsonNode processEntityLogic(ProcessorSerializer.ProcessorExecutionContext context) {
         try {
             // Find all ready facts and archive those older than threshold
             SearchConditionRequest condition = SearchConditionRequest.group("AND",
@@ -60,7 +61,7 @@ public class ArchiveOldFactsProcessor implements CyodaProcessor {
             );
             CompletableFuture<ArrayNode> future = entityService.getItemsByCondition(CatFact.ENTITY_NAME, String.valueOf(CatFact.ENTITY_VERSION), condition, true);
             ArrayNode items = future.get();
-            if (items == null) return null;
+            if (items == null) return context.payload();
             for (int i = 0; i < items.size(); i++) {
                 ObjectNode node = (ObjectNode) items.get(i);
                 if (!node.has("retrieved_date")) continue;
@@ -82,6 +83,6 @@ public class ArchiveOldFactsProcessor implements CyodaProcessor {
         } catch (Exception ex) {
             logger.error("Error archiving old facts: {}", ex.getMessage(), ex);
         }
-        return null;
+        return context.payload();
     }
 }
