@@ -12,12 +12,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.time.OffsetDateTime;
+
 @Component
 public class ClassifyMailProcessor implements CyodaProcessor {
 
     private static final Logger logger = LoggerFactory.getLogger(ClassifyMailProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+
+    // Business configuration (kept local following functional spec)
+    private final double approvalThreshold = 0.75;
+    private final boolean gloomAutoSend = false;
 
     public ClassifyMailProcessor(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
@@ -68,10 +74,38 @@ public class ClassifyMailProcessor implements CyodaProcessor {
 
             mail.setIsHappy(isHappy);
             mail.setClassificationConfidence(confidence);
-            // Transition to CLASSIFIED state
-            try { mail.setStatus("CLASSIFIED"); } catch (Exception e) { /* ignore if setter not present */ }
+            mail.setUpdatedAt(OffsetDateTime.now().toString());
 
-            logger.info("Mail classified: isHappy={}, confidence={}", isHappy, confidence);
+            // Transition to CLASSIFIED state
+            mail.setStatus("CLASSIFIED");
+
+            // Apply auto-approval rules from functional requirements
+            if (isHappy == null) {
+                // unknown -> route to review
+                mail.setStatus("REVIEW");
+                logger.info("Mail classification unknown, routing to REVIEW");
+            } else {
+                if (confidence < approvalThreshold) {
+                    mail.setStatus("REVIEW");
+                    logger.info("Mail classification confidence {} < threshold {}, routing to REVIEW", confidence, approvalThreshold);
+                } else {
+                    if (Boolean.TRUE.equals(isHappy)) {
+                        mail.setStatus("APPROVED");
+                        logger.info("Mail auto-approved (happy) with confidence {}", confidence);
+                    } else {
+                        // gloomy
+                        if (gloomAutoSend) {
+                            mail.setStatus("APPROVED");
+                            logger.info("Mail auto-approved (gloomy) per gloomAutoSend policy");
+                        } else {
+                            mail.setStatus("REVIEW");
+                            logger.info("Gloomy mail requires review (gloomAutoSend=false)");
+                        }
+                    }
+                }
+            }
+
+            logger.info("Mail classified: isHappy={}, confidence={}, status={}", isHappy, confidence, mail.getStatus());
         } catch (Exception ex) {
             logger.error("Error classifying mail", ex);
         }
