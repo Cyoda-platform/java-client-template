@@ -9,6 +9,7 @@ import com.java_template.common.workflow.OperationSpecification;
 import com.java_template.common.service.EntityService;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.JsonNode;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
