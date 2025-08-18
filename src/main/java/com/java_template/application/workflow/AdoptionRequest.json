@@ -1,0 +1,143 @@
+{
+  "version": "1.0",
+  "name": "AdoptionRequest Workflow",
+  "desc": "Workflow for AdoptionRequest lifecycle from submission to closure",
+  "initialState": "SUBMITTED",
+  "active": true,
+  "states": {
+    "SUBMITTED": {
+      "transitions": [
+        {
+          "name": "validate_request",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateRequestProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "to_under_review_if_valid",
+          "next": "UNDER_REVIEW",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "RequestValidCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "to_rejected_if_invalid",
+          "next": "REJECTED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "RequestInvalidCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "UNDER_REVIEW": {
+      "transitions": [
+        {
+          "name": "approve_by_staff",
+          "next": "APPROVED",
+          "manual": true
+        },
+        {
+          "name": "reject_by_staff",
+          "next": "REJECTED",
+          "manual": true
+        }
+      ]
+    },
+    "APPROVED": {
+      "transitions": [
+        {
+          "name": "schedule_pickup",
+          "next": "SCHEDULED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SchedulePickupProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEDULED": {
+      "transitions": [
+        {
+          "name": "confirm_pickup",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ConfirmPickupProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": [
+        {
+          "name": "finalize",
+          "next": "CLOSED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FinalizeRequestProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "REJECTED": {
+      "transitions": [
+        {
+          "name": "close_rejected",
+          "next": "CLOSED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CloseRequestProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "CLOSED": {
+      "transitions": []
+    }
+  }
+}
