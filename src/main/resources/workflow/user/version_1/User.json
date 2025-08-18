@@ -1,0 +1,77 @@
+{
+  "version": "1.0",
+  "name": "User Workflow",
+  "desc": "Workflow for User entity",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "complete_profile",
+          "next": "PROFILE_COMPLETE",
+          "manual": true,
+          "processors": [
+            {
+              "name": "CompleteProfileProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PROFILE_COMPLETE": {
+      "transitions": [
+        {
+          "name": "activate_user",
+          "next": "ACTIVE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ActivateUserProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "suspend_user",
+          "next": "SUSPENDED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "SuspendUserProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SUSPENDED": {
+      "transitions": [
+        {
+          "name": "reinstate_user",
+          "next": "ACTIVE",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ReinstateUserProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
