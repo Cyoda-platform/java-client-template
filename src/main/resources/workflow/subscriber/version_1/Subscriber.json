@@ -1,0 +1,101 @@
+{
+  "version": "1.0",
+  "name": "Subscriber Workflow",
+  "desc": "Workflow for Subscriber entity",
+  "initialState": "PENDING",
+  "active": true,
+  "states": {
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "verify",
+          "next": "VERIFIED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "VerificationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "verification_fail",
+          "next": "VERIFICATION_FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "VerificationFailCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "VERIFIED": {
+      "transitions": [
+        {
+          "name": "activate",
+          "next": "ACTIVE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ActivateSubscriberProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "pause_on_failures",
+          "next": "PAUSED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DeliveryFailuresExceededCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "manual_unsubscribe",
+          "next": "UNSUBSCRIBED",
+          "manual": true
+        }
+      ]
+    },
+    "PAUSED": {
+      "transitions": [
+        {
+          "name": "reactivate",
+          "next": "ACTIVE",
+          "manual": true
+        }
+      ]
+    },
+    "VERIFICATION_FAILED": {
+      "transitions": [
+        {
+          "name": "retry_verification",
+          "next": "PENDING",
+          "manual": true
+        }
+      ]
+    },
+    "UNSUBSCRIBED": {
+      "transitions": []
+    }
+  }
+}
