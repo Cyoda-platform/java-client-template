@@ -7,6 +7,7 @@ import com.java_template.application.entity.HackerNewsItem;
 import com.java_template.common.service.EntityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.cyoda.cloud.api.event.common.DataPayload;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -32,7 +33,7 @@ public class Controller {
             // Use entityService to add item - validation and enrichment handled by workflow
             CompletableFuture<UUID> idFuture = entityService.addItem(
                     HackerNewsItem.ENTITY_NAME,
-                    ENTITY_VERSION,
+                    Integer.parseInt(ENTITY_VERSION),
                     hackerNewsItemJson
             );
 
@@ -64,13 +65,11 @@ public class Controller {
                         .body(Map.of("error", "Invalid technicalId format"));
             }
 
-            CompletableFuture<ObjectNode> itemWithMetaFuture = entityService.getItemWithMetaFields(
-                    HackerNewsItem.ENTITY_NAME,
-                    ENTITY_VERSION,
+            CompletableFuture<DataPayload> itemWithMetaFuture = entityService.getItem(
                     uuid
             );
 
-            ObjectNode itemWithMeta = itemWithMetaFuture.join();
+            DataPayload itemWithMeta = itemWithMetaFuture.join();
             if (itemWithMeta == null) {
                 log.error("HackerNewsItem not found for technicalId: {}", technicalId);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -78,7 +77,7 @@ public class Controller {
             }
 
             // Extract item data from the data section
-            JsonNode itemData = itemWithMeta.path("data");
+            JsonNode itemData = itemWithMeta.getData();
             if (itemData.isMissingNode() || !itemData.isObject()) {
                 log.error("Invalid item data structure for technicalId: {}", technicalId);
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -86,7 +85,7 @@ public class Controller {
             }
 
             // Extract metadata from the meta section
-            JsonNode metaNode = itemWithMeta.path("meta");
+            JsonNode metaNode = itemWithMeta.getMeta();
             String state = metaNode.path("state").asText(null);
             String creationDate = metaNode.path("creationDate").asText(null);
 
