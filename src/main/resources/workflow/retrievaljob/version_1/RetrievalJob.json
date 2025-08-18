@@ -1,0 +1,64 @@
+{
+  "version": "1.0",
+  "name": "RetrievalJob Workflow",
+  "desc": "Workflow for RetrievalJob orchestration entity",
+  "initialState": "PENDING",
+  "active": true,
+  "states": {
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "start_lookup",
+          "next": "LOOKUP",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ProcessRetrievalJobProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "LOOKUP": {
+      "transitions": [
+        {
+          "name": "found",
+          "next": "FOUND",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "RetrieveHNItemFoundCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "not_found",
+          "next": "NOT_FOUND",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "RetrieveHNItemNotFoundCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "FOUND": {
+      "transitions": []
+    },
+    "NOT_FOUND": {
+      "transitions": []
+    }
+  }
+}
