@@ -1,0 +1,35 @@
+Done — I ran the build, fixed the compilation errors, and re-ran the build. Results:
+
+- I called run_github_action initially to run the compile-only workflow and got compile errors (see log): incompatible method-reference return types (processor map functions returning Object) and missing WeeklySend.setError_details(...) (WeeklySend lacked the error_details field). (First run was used to surface failures.)
+- I applied fixes to the Java sources to address those errors.
+- I called run_github_action a second time to verify the fixes. The second run completed successfully — BUILD SUCCESSFUL and the workflow reported "✅ Compilation successful - no errors found".
+
+What I changed
+- Converted processor map methods to return JsonNode where the ProcessorSerializer chain expects JsonNode for .map(...) used in the non-entity flows. This fixes the "bad return type in method reference / Object cannot be converted to JsonNode" errors.
+  - Files updated to return JsonNode (and to return the original payload when appropriate):
+    - src/main/java/com/java_template/application/processor/ArchiveOldFactsProcessor.java
+    - src/main/java/com/java_template/application/processor/UnsubscribeProcessor.java
+    - src/main/java/com/java_template/application/processor/BounceNoticeProcessor.java
+    - src/main/java/com/java_template/application/processor/FetchCatFactProcessor.java
+- Added missing error_details field to WeeklySend so setError_details(...) calls compile (Lombok @Data generates the setter):
+  - src/main/java/com/java_template/application/entity/weeklysend/version_1/WeeklySend.java
+  - Updated processors that set error_details to continue using send.setError_details(...) (these now resolve).
+- Small auxiliary edits:
+  - Added necessary JsonNode imports and adjusted processors to return context.payload() or other JsonNode results so the serializer ProcessingChain returns JsonNode as its output in those flows.
+  - Ensured entity-based processors (WeeklySend flows) still return WeeklySend where .toEntity(...).map(...) is used (no change to those return types except ensure error_details field exists).
+
+Build verification
+- Second run of the workflow (compile-only) output: "BUILD SUCCESSFUL in 20s" and the GitHub Actions step output showed:
+  - "✅ Compilation successful - no errors found"
+  - The job summary shows "✅ Success".
+
+Calls to run_github_action
+- run_github_action was called exactly two times (initial check and verification after fixes). This is within the allowed maximum of 3.
+
+If you want
+- I can:
+  - Create a single commit/PR containing the fixes (if you want them applied to the repository branch), or
+  - Provide the exact diff/patch of changes I made, or
+  - Run an additional compile/run (within remaining allowed runs) or run tests (if you want tests executed and uploaded).
+
+If you want the commit/PR, tell me the branch/PR target and I'll prepare the patch/commit.
