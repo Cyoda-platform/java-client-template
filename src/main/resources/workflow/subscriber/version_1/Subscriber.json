@@ -1,0 +1,111 @@
+{
+  "version": "1.0",
+  "name": "Subscriber Workflow",
+  "desc": "Workflow for Subscriber entity handling signup, validation, confirmation, activation and deactivation",
+  "initialState": "PENDING_CONFIRMATION",
+  "active": true,
+  "states": {
+    "PENDING_CONFIRMATION": {
+      "transitions": [
+        {
+          "name": "validate_subscriber",
+          "next": "VALIDATED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateSubscriberProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATED": {
+      "transitions": [
+        {
+          "name": "send_confirmation",
+          "next": "AWAITING_CONFIRMATION",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendConfirmationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "single_click_activate",
+          "next": "ACTIVE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "SingleClickSignupCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "AWAITING_CONFIRMATION": {
+      "transitions": [
+        {
+          "name": "confirm_subscriber",
+          "next": "ACTIVE",
+          "manual": true,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ConfirmationReceivedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "unsubscribe",
+          "next": "UNSUBSCRIBED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "UnsubscribeProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "bounce_notice",
+          "next": "BOUNCED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "BounceNoticeProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "UNSUBSCRIBED": {
+      "transitions": []
+    },
+    "BOUNCED": {
+      "transitions": []
+    }
+  }
+}
