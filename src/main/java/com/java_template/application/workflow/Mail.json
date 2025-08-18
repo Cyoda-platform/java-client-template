@@ -1,0 +1,198 @@
+{
+  "version": "1.0",
+  "name": "Mail Workflow",
+  "desc": "Workflow for Mail entity handling classification, review, sending and delivery results",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "classify_mail",
+          "next": "CLASSIFIED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ClassifyMailProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "CLASSIFIED": {
+      "transitions": [
+        {
+          "name": "to_happy_path",
+          "next": "SCHEDULED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "HappyKeywordCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "to_gloomy_path",
+          "next": "GLOOMY_REVIEW",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "GloomyKeywordCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "to_unknown_review",
+          "next": "REVIEW",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "UnknownCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "SCHEDULED": {
+      "transitions": [
+        {
+          "name": "send_happy",
+          "next": "SENDING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendHappyMailProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "GLOOMY_REVIEW": {
+      "transitions": [
+        {
+          "name": "auto_send_gloomy",
+          "next": "SENDING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendGloomyMailProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "route_to_manual_review",
+          "next": "REVIEW",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "RouteToReviewCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "REVIEW": {
+      "transitions": [
+        {
+          "name": "approve_manual",
+          "next": "SCHEDULED",
+          "manual": true
+        }
+      ]
+    },
+    "SENDING": {
+      "transitions": [
+        {
+          "name": "record_success",
+          "next": "SENT",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DeliverySuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "record_failure",
+          "next": "RETRY",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DeliveryFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "RETRY": {
+      "transitions": [
+        {
+          "name": "retry_send",
+          "next": "SENDING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RetryFailedDeliveryProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "mark_failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "MaxAttemptsExceededCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "SENT": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    }
+  }
+}
