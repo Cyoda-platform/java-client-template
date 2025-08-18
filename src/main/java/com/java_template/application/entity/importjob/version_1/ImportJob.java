@@ -106,7 +106,7 @@ public class ImportJob implements CyodaEntity {
         this.detailsUrl = detailsUrl;
     }
 
-    public boolean isValid() {
+    public boolean isValidPayload() {
         return technicalId != null && payload != null;
     }
 
@@ -117,6 +117,6 @@ public class ImportJob implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        return technicalId != null && payload != null;
+        return isValidPayload();
     }
 }
