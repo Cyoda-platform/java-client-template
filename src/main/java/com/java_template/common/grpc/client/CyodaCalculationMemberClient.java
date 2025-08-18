@@ -101,7 +101,7 @@ class CyodaCalculationMemberClient implements EventHandler {
         }
 
         if (event.getSuccess()) {
-            log.info("[OUT] Sending event {}, success: {}", cloudEvent.getType(), event.getSuccess());
+            log.debug("[OUT] Sending event {}, success: {}", cloudEvent.getType(), event.getSuccess());
         } else {
             log.warn("[OUT] Sending event {}, success: {}", cloudEvent.getType(), event.getSuccess());
         }
