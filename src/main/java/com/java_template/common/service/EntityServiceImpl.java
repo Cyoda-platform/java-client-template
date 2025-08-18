@@ -1,12 +1,10 @@
 package com.java_template.common.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.MissingNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.google.common.collect.Streams;
+import com.java_template.common.EntityWithMetaData;
 import com.java_template.common.repository.CrudRepository;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
@@ -15,6 +13,7 @@ import java.util.Date;
 
 import java.util.Objects;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
+import org.cyoda.cloud.api.event.entity.EntityDeleteAllResponse;
 import org.cyoda.cloud.api.event.entity.EntityDeleteResponse;
 import org.cyoda.cloud.api.event.entity.EntityTransactionInfo;
 import org.cyoda.cloud.api.event.entity.EntityTransactionResponse;
@@ -45,34 +44,10 @@ public class EntityServiceImpl implements EntityService {
     }
 
     @Override
-    public CompletableFuture<ObjectNode> getItem(@NotNull final UUID technicalId) {
-        return repository.findById(technicalId).thenApply(resultNode -> {
-            final ObjectNode dataNode = resultNode.path("data").deepCopy();
-            final var idNode = resultNode.at("/meta/id");
-            if (!idNode.isMissingNode()) {
-                dataNode.put("technicalId", idNode.asText());
-            }
-            return dataNode;
-        });
-    }
-
-    private ArrayNode enhanceWithTechId(@NotNull final ArrayNode arrayNode) {
-        return Streams.stream(arrayNode)
-                .filter(Objects::nonNull)
-                .map(this::enhanceWithTechId)
-                .collect(objectMapper::createArrayNode, ArrayNode::add, ArrayNode::addAll);
-    }
-
-    private ObjectNode enhanceWithTechId(@NotNull final JsonNode originalNode) {
-        final var copyNode = originalNode.path("data").deepCopy();
-        if (copyNode instanceof MissingNode) {
-            return (ObjectNode) originalNode;
-        }
-        final var idNode = originalNode.at("/meta/id");
-        if (!idNode.isMissingNode()) {
-            ((ObjectNode) copyNode).put("technicalId", idNode.asText());
-        }
-        return (ObjectNode) copyNode;
+    public CompletableFuture<ObjectNode> getItem(@NotNull final UUID entityId) {
+        return repository.findById(entityId)
+                .thenApply(EntityWithMetaData::entity)
+                .thenApply(objectMapper::valueToTree);
     }
 
     @Override
@@ -89,7 +64,7 @@ public class EntityServiceImpl implements EntityService {
                 pageSize != null ? pageSize : DEFAULT_PAGE_SIZE,
                 pageNumber != null ? pageNumber : FIRST_PAGE,
                 pointTime
-        ).thenApply(this::enhanceWithTechId);
+        ).thenApply(objectMapper::valueToTree);
     }
 
     @Override
@@ -109,16 +84,7 @@ public class EntityServiceImpl implements EntityService {
             if (items == null || items.isEmpty()) {
                 return Optional.empty();
             }
-
-            final var firstItem = items.get(0);
-            final var dataNode = firstItem.path("data");
-
-            if (!dataNode.isObject()) {
-                return Optional.empty();
-            }
-
-            final ObjectNode data = enhanceWithTechId(dataNode);
-            return Optional.of(data);
+            return Optional.of(objectMapper.valueToTree(items.getFirst()));
         });
     }
 
@@ -136,11 +102,11 @@ public class EntityServiceImpl implements EntityService {
                 DEFAULT_PAGE_SIZE,
                 FIRST_PAGE,
                 inMemory
-        ).thenApply(items -> Streams.stream(items)
+        ).thenApply(items -> items.stream()
                 .filter(Objects::nonNull)
-                .map(item -> inMemory ? item.deepCopy() : enhanceWithTechId(item))
-                .collect(objectMapper::createArrayNode, ArrayNode::add, ArrayNode::addAll)
-        );
+                .map(EntityWithMetaData::entity)
+                .toList()
+        ).thenApply(objectMapper::valueToTree);
     }
 
     @Override
@@ -230,6 +196,9 @@ public class EntityServiceImpl implements EntityService {
             @NotNull final String modelName,
             @NotNull final Integer modelVersion
     ) {
-        return repository.deleteAll(modelName, modelVersion);
+        return repository.deleteAll(modelName, modelVersion).thenApply(results -> results.stream()
+                .map(EntityDeleteAllResponse::getNumDeleted)
+                .reduce(0, Integer::sum)
+        );
     }
 }
