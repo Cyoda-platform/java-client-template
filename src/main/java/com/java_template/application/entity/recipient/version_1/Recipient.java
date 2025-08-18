@@ -14,13 +14,13 @@ public class Recipient implements CyodaEntity {
     // Add your entity fields here
 
     private String id; // business id
-    private String technicalId; // platform technical id (added)
+    private String technicalId; // platform technical id
     private String email; // email address
     private String name; // display name
     private Map<String, Object> preferences; // optOut boolean, allowedCategories array
     private String status; // new verified opted_out invalid
     private String createdAt; // timestamp
-    private String updatedAt; // timestamp (added)
+    private String updatedAt; // timestamp
 
     public Recipient() {}
 
