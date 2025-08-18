@@ -1,12 +1,7 @@
 package com.java_template.common.util;
 
-import lombok.Getter;
-import lombok.Setter;
-
 import java.util.List;
 
-@Getter
-@Setter
 public class SearchConditionRequest {
     private String type;
     private String operator;
@@ -14,9 +9,17 @@ public class SearchConditionRequest {
 
     public static SearchConditionRequest group(String operator, Condition... conditions) {
         SearchConditionRequest req = new SearchConditionRequest();
-        req.setType("group");
-        req.setOperator(operator);
-        req.setConditions(List.of(conditions));
+        req.type = "group";
+        req.operator = operator;
+        req.conditions = List.of(conditions);
         return req;
     }
+
+    // getters/setters
+    public String getType() { return type; }
+    public void setType(String type) { this.type = type; }
+    public String getOperator() { return operator; }
+    public void setOperator(String operator) { this.operator = operator; }
+    public List<Condition> getConditions() { return conditions; }
+    public void setConditions(List<Condition> conditions) { this.conditions = conditions; }
 }
