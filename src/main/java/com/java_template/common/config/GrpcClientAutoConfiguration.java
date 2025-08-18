@@ -14,18 +14,27 @@ import io.cloudevents.core.provider.EventFormatProvider;
 import io.cloudevents.protobuf.ProtobufFormat;
 import io.grpc.ConnectivityState;
 import io.grpc.ManagedChannel;
+import jakarta.annotation.PreDestroy;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.cyoda.cloud.api.grpc.CloudEventsServiceGrpc;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
 
 import static com.java_template.common.config.Config.GRPC_ADDRESS;
 import static com.java_template.common.config.Config.GRPC_SERVER_PORT;
 
 @Configuration
 public class GrpcClientAutoConfiguration {
+
+    private final ManagedChannel managedChannel;
+
+    public GrpcClientAutoConfiguration(@Lazy final ManagedChannel managedChannel) {
+        this.managedChannel = managedChannel;
+    }
 
     @Bean
     public ManagedChannel managedChannel(
@@ -98,6 +107,13 @@ public class GrpcClientAutoConfiguration {
     @ConditionalOnProperty(name = "reconnection.strategy", havingValue = "default", matchIfMissing = true)
     public ReconnectionStrategy reconnectionStrategy() {
         return new DefaultReconnectionStrategy();
+    }
+
+    @PreDestroy
+    private void shutdown() throws InterruptedException {
+        if (managedChannel != null && !managedChannel.isShutdown() && !managedChannel.isTerminated()) {
+            managedChannel.shutdown().awaitTermination(1, TimeUnit.SECONDS);
+        }
     }
 
 }

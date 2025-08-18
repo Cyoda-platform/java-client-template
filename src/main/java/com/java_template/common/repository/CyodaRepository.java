@@ -1,12 +1,9 @@
 package com.java_template.common.repository;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Streams;
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.java_template.common.EntityMetaData;
-import com.java_template.common.EntityWithMetaData;
 import com.java_template.common.grpc.client.event_handling.CloudEventBuilder;
 import com.java_template.common.grpc.client.event_handling.CloudEventParser;
 import io.cloudevents.v1.proto.CloudEvent;
@@ -18,7 +15,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.cyoda.cloud.api.event.common.BaseEvent;
-import org.cyoda.cloud.api.event.common.DataFormat;
 import org.cyoda.cloud.api.event.common.DataPayload;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
@@ -82,20 +78,20 @@ public class CyodaRepository implements CrudRepository {
     }
 
     @Override
-    public <ENTITY_TYPE> CompletableFuture<EntityWithMetaData<ENTITY_TYPE>> findById(final UUID id) {
+    public CompletableFuture<DataPayload> findById(final UUID id) {
         return getById(id);
     }
 
-    private <ENTITY_TYPE> CompletableFuture<EntityWithMetaData<ENTITY_TYPE>> getById(final UUID entityId) {
+    private CompletableFuture<DataPayload> getById(final UUID entityId) {
         return sendAndGet(
                 cloudEventsServiceBlockingStub::entityManage,
                 new EntityGetRequest().withId(UUID.randomUUID().toString()).withEntityId(entityId),
                 EntityResponse.class
-        ).thenApply(EntityResponse::getPayload).thenApply(this::toEntity);
+        ).thenApply(EntityResponse::getPayload);
     }
 
     @Override
-    public <ENTITY_TYPE> CompletableFuture<List<EntityWithMetaData<ENTITY_TYPE>>> findAllByCriteria(
+    public CompletableFuture<List<DataPayload>> findAllByCriteria(
             @NotNull final String modelName,
             final int modelVersion,
             @NotNull final GroupCondition condition,
@@ -108,7 +104,7 @@ public class CyodaRepository implements CrudRepository {
                 : findAllByCondition(modelName, modelVersion, pageSize, pageNumber, condition);
     }
 
-    private <ENTITY_TYPE> CompletableFuture<List<EntityWithMetaData<ENTITY_TYPE>>> findAllByCondition(
+    private CompletableFuture<List<DataPayload>> findAllByCondition(
             @NotNull final String modelName,
             final int modelVersion,
             final int pageSize,
@@ -135,11 +131,11 @@ public class CyodaRepository implements CrudRepository {
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
-                }).thenCompose(snapshotId -> this.<ENTITY_TYPE>getSearchResult(snapshotId, pageSize, pageNumber))
+                }).thenCompose(snapshotId -> getSearchResult(snapshotId, pageSize, pageNumber))
                 .exceptionally(this::handleNotFoundOrThrow);
     }
 
-    private <ENTITY_TYPE> CompletableFuture<List<EntityWithMetaData<ENTITY_TYPE>>> findAllByConditionInMemory(
+    private CompletableFuture<List<DataPayload>> findAllByConditionInMemory(
             @NotNull final String modelName,
             final int modelVersion,
             final int pageSize,
@@ -152,14 +148,12 @@ public class CyodaRepository implements CrudRepository {
                         .withLimit(pageSize)
                         .withCondition(condition),
                 EntityResponse.class
-        ).thenApply(entities -> entities.map(EntityResponse::getPayload)
-                .map(this::<ENTITY_TYPE>toEntity)
-                .toList()
-        ).exceptionally(this::handleNotFoundOrThrow);
+        ).thenApply(entities -> entities.map(EntityResponse::getPayload).toList())
+                .exceptionally(this::handleNotFoundOrThrow);
     }
 
     @Override
-    public <ENTITY_TYPE> CompletableFuture<List<EntityWithMetaData<ENTITY_TYPE>>> findAll(
+    public CompletableFuture<List<DataPayload>> findAll(
             @NotNull final String modelName,
             final int modelVersion,
             final int pageSize,
@@ -169,7 +163,7 @@ public class CyodaRepository implements CrudRepository {
         return getAllEntities(modelName, modelVersion, pageSize, pageNumber, pointInTime);
     }
 
-    private <ENTITY_TYPE> CompletableFuture<List<EntityWithMetaData<ENTITY_TYPE>>> getAllEntities(
+    private CompletableFuture<List<DataPayload>> getAllEntities(
             @NotNull final String modelName,
             final int modelVersion,
             final int pageSize,
@@ -184,23 +178,23 @@ public class CyodaRepository implements CrudRepository {
                         .withPageNumber(pageNumber)
                         .withPointInTime(pointInTime),
                 EntityResponse.class
-        ).thenApply(entities -> entities.map(EntityResponse::getPayload).map(this::<ENTITY_TYPE>toEntity).toList());
+        ).thenApply(entities -> entities.map(EntityResponse::getPayload).toList());
     }
 
     @Override
-    public CompletableFuture<EntityTransactionResponse> save(
+    public <ENTITY_TYPE> CompletableFuture<EntityTransactionResponse> save(
             @NotNull final String modelName,
             final int modelVersion,
-            @NotNull final JsonNode entity
+            @NotNull final ENTITY_TYPE entity
     ) {
         return saveNewEntities(modelName, modelVersion, entity);
     }
 
     @Override
-    public CompletableFuture<EntityTransactionResponse> saveAll(
+    public <ENTITY_TYPE> CompletableFuture<EntityTransactionResponse> saveAll(
             @NotNull final String modelName,
             final int modelVersion,
-            @NotNull final JsonNode entities
+            @NotNull final Collection<ENTITY_TYPE> entities
     ) {
         return saveNewEntities(modelName, modelVersion, entities);
     }
@@ -220,9 +214,9 @@ public class CyodaRepository implements CrudRepository {
     }
 
     @Override
-    public CompletableFuture<EntityTransactionResponse> update(
+    public <ENTITY_TYPE> CompletableFuture<EntityTransactionResponse> update(
             @NotNull final UUID id,
-            @NotNull final JsonNode entity,
+            @NotNull final ENTITY_TYPE entity,
             @NotNull final String transition
     ) {
         return sendAndGet(
@@ -231,7 +225,7 @@ public class CyodaRepository implements CrudRepository {
                         .withDataFormat(GRPC_COMMUNICATION_DATA_FORMAT)
                         .withPayload(
                                 new EntityUpdatePayload().withEntityId(id)
-                                        .withData(entity)
+                                        .withData(objectMapper.valueToTree(entity))
                                         .withTransition(transition)
                         ),
                 EntityTransactionResponse.class
@@ -239,13 +233,13 @@ public class CyodaRepository implements CrudRepository {
     }
 
     @Override
-    public CompletableFuture<List<EntityTransactionResponse>> updateAll(
-            @NotNull final Collection<Object> entities,
+    public <ENTITY_TYPE> CompletableFuture<List<EntityTransactionResponse>> updateAll(
+            @NotNull final Collection<ENTITY_TYPE> entities,
             @NotNull final String transition
     ) {
         final var entitiesByIds = entities.stream()
                 .map(objectMapper::valueToTree)
-                .map(entity -> ((JsonNode) entity))
+                .map(entity -> (JsonNode) entity)
                 .collect(Collectors.toMap(
                                 entity -> UUID.fromString(entity.get("id").asText()),
                                 entity -> entity
@@ -255,7 +249,7 @@ public class CyodaRepository implements CrudRepository {
         return sendAndGetCollection(
                 cloudEventsServiceBlockingStub::entityManageCollection,
                 new EntityUpdateCollectionRequest().withId(generateEventId())
-                        .withDataFormat(DataFormat.JSON)
+                        .withDataFormat(GRPC_COMMUNICATION_DATA_FORMAT)
                         .withPayloads(entitiesByIds.entrySet()
                                 .stream()
                                 .map(entity -> new EntityUpdatePayload().withTransition(transition)
@@ -335,16 +329,16 @@ public class CyodaRepository implements CrudRepository {
         }
     }
 
-    private CompletableFuture<EntityTransactionResponse> saveNewEntities(
+    private <PAYLOAD_TYPE> CompletableFuture<EntityTransactionResponse> saveNewEntities(
             @NotNull final String modelName,
             final int modelVersion,
-            @NotNull final JsonNode entity
+            @NotNull final PAYLOAD_TYPE entities
     ) {
         return sendAndGet(
                 cloudEventsServiceBlockingStub::entityManage,
                 new EntityCreateRequest().withId(generateEventId())
                         .withDataFormat(GRPC_COMMUNICATION_DATA_FORMAT)
-                        .withPayload(new EntityCreatePayload().withData(entity)
+                        .withPayload(new EntityCreatePayload().withData(objectMapper.valueToTree(entities))
                                 .withModel(new ModelSpec().withName(modelName).withVersion(modelVersion))
                         ),
                 EntityTransactionResponse.class
@@ -444,7 +438,7 @@ public class CyodaRepository implements CrudRepository {
                 .thenApply(SearchSnapshotStatus::getStatus);
     }
 
-    private <ENTITY_TYPE> CompletableFuture<List<EntityWithMetaData<ENTITY_TYPE>>> getSearchResult(
+    private CompletableFuture<List<DataPayload>> getSearchResult(
             @NotNull final UUID snapshotId,
             final int pageSize,
             final int pageNumber
@@ -458,7 +452,6 @@ public class CyodaRepository implements CrudRepository {
                 EntityResponse.class
         ).thenApply(entities -> entities
                 .map(EntityResponse::getPayload)
-                .map(this::<ENTITY_TYPE>toEntity)
                 .toList()
         );
     }
@@ -474,16 +467,5 @@ public class CyodaRepository implements CrudRepository {
 
     private boolean isNotFound(final Throwable exception) {
         return exception instanceof StatusRuntimeException ex && ex.getStatus().getCode().equals(Status.Code.NOT_FOUND);
-    }
-
-    private <ENTITY_TYPE> EntityWithMetaData<ENTITY_TYPE> toEntity(final DataPayload dataPayload) {
-        try {
-            return new EntityWithMetaData<>(
-                    objectMapper.readValue(dataPayload.getMeta().traverse(), EntityMetaData.class),
-                    objectMapper.readValue(dataPayload.getData().traverse(), new TypeReference<>() {})
-            );
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
     }
 }
