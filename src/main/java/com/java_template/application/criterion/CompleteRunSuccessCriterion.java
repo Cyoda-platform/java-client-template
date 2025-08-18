@@ -1,5 +1,6 @@
 package com.java_template.application.criterion;
 
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.job.version_1.Job;
 import com.java_template.application.entity.job.version_1.RunRecord;
 import com.java_template.common.serializer.CriterionSerializer;
@@ -10,6 +11,7 @@ import com.java_template.common.serializer.StandardEvalReasonCategories;
 import com.java_template.common.workflow.CyodaCriterion;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.OperationSpecification;
+import com.java_template.common.service.EntityService;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
 import org.slf4j.Logger;
@@ -17,6 +19,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 @Component
 public class CompleteRunSuccessCriterion implements CyodaCriterion {
@@ -24,9 +27,11 @@ public class CompleteRunSuccessCriterion implements CyodaCriterion {
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final CriterionSerializer serializer;
     private final String className = this.getClass().getSimpleName();
+    private final EntityService entityService;
 
-    public CompleteRunSuccessCriterion(SerializerFactory serializerFactory) {
+    public CompleteRunSuccessCriterion(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultCriteriaSerializer();
+        this.entityService = entityService;
     }
 
     @Override
