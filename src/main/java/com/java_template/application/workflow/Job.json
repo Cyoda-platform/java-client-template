@@ -1,0 +1,96 @@
+{
+  "version": "1.0",
+  "name": "Job Workflow",
+  "desc": "Workflow for Job orchestration entity for scheduled tasks (e.g., Petstore sync)",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "schedule_job",
+          "next": "SCHEDULED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ScheduleJobProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEDULED": {
+      "transitions": [
+        {
+          "name": "start_job",
+          "next": "RUNNING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ExecuteJobProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "RUNNING": {
+      "transitions": [
+        {
+          "name": "complete_on_success",
+          "next": "COMPLETED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "JobSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "fail_on_error",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "JobFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": [
+        {
+          "name": "finalize",
+          "next": "CLOSED",
+          "manual": false
+        }
+      ]
+    },
+    "FAILED": {
+      "transitions": [
+        {
+          "name": "close_failed",
+          "next": "CLOSED",
+          "manual": false
+        }
+      ]
+    },
+    "CLOSED": {
+      "transitions": []
+    }
+  }
+}
