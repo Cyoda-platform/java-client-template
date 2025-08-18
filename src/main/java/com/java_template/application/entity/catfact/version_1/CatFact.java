@@ -5,6 +5,8 @@ import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import lombok.Data;
 
+import java.util.Map;
+
 @Data
 public class CatFact implements CyodaEntity {
     public static final String ENTITY_NAME = "CatFact";
@@ -17,6 +19,9 @@ public class CatFact implements CyodaEntity {
     private String retrieved_date; // ISO timestamp
     private String fact_date; // date provided by source if any
     private Boolean archived; // historical archive flag
+    private String status; // ingested / validating / ready / rejected / archived
+    private String text_hash; // normalized content hash for duplicate detection
+    private Map<String, String> metadata; // optional free-form metadata
 
     public CatFact() {}
 
