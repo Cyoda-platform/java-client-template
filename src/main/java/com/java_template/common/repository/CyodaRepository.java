@@ -10,6 +10,8 @@ import com.java_template.common.EntityWithMetaData;
 import com.java_template.common.grpc.client.event_handling.CloudEventBuilder;
 import com.java_template.common.grpc.client.event_handling.CloudEventParser;
 import io.cloudevents.v1.proto.CloudEvent;
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
 import java.util.function.Function;
@@ -113,7 +115,7 @@ public class CyodaRepository implements CrudRepository {
             final int pageNumber,
             @NotNull final GroupCondition condition
     ) {
-        return createSnapshotSearch(modelName, modelVersion, condition).thenCompose(snapshotInfo -> {
+        return createSnapshotSearch(modelName, modelVersion, condition).thenComposeAsync(snapshotInfo -> {
                     if (snapshotInfo.getSnapshotId() == null) {
                         logger.error("Snapshot ID not found in response");
                         return CompletableFuture.completedFuture(null);
@@ -134,14 +136,7 @@ public class CyodaRepository implements CrudRepository {
                         throw new RuntimeException(e);
                     }
                 }).thenCompose(snapshotId -> this.<ENTITY_TYPE>getSearchResult(snapshotId, pageSize, pageNumber))
-                .exceptionally(ex -> {
-                    final var cause = ex instanceof CompletionException ? ex.getCause() : ex;
-                    if (isNotFound(ex)) {
-                        logger.warn("Model not found, returning empty array");
-                        return Collections.emptyList();
-                    }
-                    throw new CompletionException("Unhandled error", cause);
-                });
+                .exceptionally(this::handleNotFoundOrThrow);
     }
 
     private <ENTITY_TYPE> CompletableFuture<List<EntityWithMetaData<ENTITY_TYPE>>> findAllByConditionInMemory(
@@ -160,14 +155,7 @@ public class CyodaRepository implements CrudRepository {
         ).thenApply(entities -> entities.map(EntityResponse::getPayload)
                 .map(this::<ENTITY_TYPE>toEntity)
                 .toList()
-        ).exceptionally(ex -> {
-            final var cause = ex instanceof CompletionException ? ex.getCause() : ex;
-            if (isNotFound(ex)) {
-                logger.warn("Model not found for in-memory search, returning empty array");
-                return Collections.emptyList();
-            }
-            throw new CompletionException("Unhandled error in in-memory search", cause);
-        });
+        ).exceptionally(this::handleNotFoundOrThrow);
     }
 
     @Override
@@ -383,10 +371,6 @@ public class CyodaRepository implements CrudRepository {
         ).thenApply(Stream::toList);
     }
 
-    private boolean isNotFound(final Throwable exception) {
-        return false;
-    }
-
     private String generateEventId() {
         return UUID.randomUUID().toString();
     }
@@ -425,9 +409,11 @@ public class CyodaRepository implements CrudRepository {
             if (SearchSnapshotStatus.Status.SUCCESSFUL.equals(snapshotStatus)) {
                 logger.debug("Snapshot is ready!");
                 return CompletableFuture.completedFuture(snapshotStatus);
-            } else if (!SearchSnapshotStatus.Status.RUNNING.equals(snapshotStatus)) {
+            }
+            if (!SearchSnapshotStatus.Status.RUNNING.equals(snapshotStatus)) {
                 return CompletableFuture.failedFuture(
-                        new RuntimeException("Snapshot search failed: " + snapshotStatus));
+                        new RuntimeException("Snapshot search failed: " + snapshotStatus)
+                );
             }
 
             final var elapsedTime = System.currentTimeMillis() - startTime;
@@ -475,6 +461,19 @@ public class CyodaRepository implements CrudRepository {
                 .map(this::<ENTITY_TYPE>toEntity)
                 .toList()
         );
+    }
+
+    private <ENTITY_TYPE> List<ENTITY_TYPE> handleNotFoundOrThrow(final Throwable exception) {
+        if (isNotFound(exception)) {
+            logger.warn("Not found happens", exception);
+            return Collections.emptyList();
+        }
+        final var cause = exception instanceof CompletionException ? exception.getCause() : exception;
+        throw new CompletionException("Unhandled error", cause);
+    }
+
+    private boolean isNotFound(final Throwable exception) {
+        return exception instanceof StatusRuntimeException ex && ex.getStatus().getCode().equals(Status.Code.NOT_FOUND);
     }
 
     private <ENTITY_TYPE> EntityWithMetaData<ENTITY_TYPE> toEntity(final DataPayload dataPayload) {
