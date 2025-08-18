@@ -18,13 +18,31 @@ public interface ProcessorSerializer {
      * Context record containing the original request and extracted payload for processor evaluation.
      * Provides access to both request metadata (entityId, transactionId) and payload data.
      */
-    record ProcessorExecutionContext(EntityProcessorCalculationRequest request, JsonNode payload) {}
+    record ProcessorExecutionContext(EntityProcessorCalculationRequest request, JsonNode payload) {
+        /** Convenience accessor for request id */
+        public String requestId() {
+            try {
+                return request.getId();
+            } catch (Exception e) {
+                return null;
+            }
+        }
+    }
 
     /**
      * Context record containing the original request and extracted entity for processor evaluation.
      * Provides access to both request metadata (entityId, transactionId) and entity data.
      */
-    record ProcessorEntityExecutionContext<T extends CyodaEntity>(EntityProcessorCalculationRequest request, T entity) {}
+    record ProcessorEntityExecutionContext<T extends CyodaEntity>(EntityProcessorCalculationRequest request, T entity) {
+        /** Convenience accessor for request id */
+        public String requestId() {
+            try {
+                return request.getId();
+            } catch (Exception e) {
+                return null;
+            }
+        }
+    }
 
     /**
      * Extracts a typed entity from the request payload.
