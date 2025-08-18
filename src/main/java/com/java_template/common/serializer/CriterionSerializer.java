@@ -18,13 +18,31 @@ public interface CriterionSerializer {
      * Context record containing the original request and extracted payload for criterion evaluation.
      * Provides access to both request metadata (entityId, transactionId) and payload data.
      */
-    record CriterionEvaluationContext(EntityCriteriaCalculationRequest request, JsonNode payload) {}
+    record CriterionEvaluationContext(EntityCriteriaCalculationRequest request, JsonNode payload) {
+        /** Convenience accessor for request id */
+        public String requestId() {
+            try {
+                return request.getId();
+            } catch (Exception e) {
+                return null;
+            }
+        }
+    }
 
     /**
      * Context record containing the original request and extracted entity for criterion evaluation.
      * Provides access to both request metadata (entityId, transactionId) and entity data.
      */
-    record CriterionEntityEvaluationContext<T extends CyodaEntity>(EntityCriteriaCalculationRequest request, T entity) {}
+    record CriterionEntityEvaluationContext<T extends CyodaEntity>(EntityCriteriaCalculationRequest request, T entity) {
+        /** Convenience accessor for request id */
+        public String requestId() {
+            try {
+                return request.getId();
+            } catch (Exception e) {
+                return null;
+            }
+        }
+    }
 
     /**
      * Extracts a typed entity from the request payload.
