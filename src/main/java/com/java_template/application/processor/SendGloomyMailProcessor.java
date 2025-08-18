@@ -20,6 +20,11 @@ public class SendGloomyMailProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(SendGloomyMailProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private static final int MAX_RETRIES = 3;
+    private static final String STATUS_SENDING = "SENDING_GLOOMY";
+    private static final String STATUS_READY = "READY_TO_SEND";
+    private static final String STATUS_SENT = "SENT";
+    private static final String STATUS_FAILED = "FAILED";
 
     public SendGloomyMailProcessor(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
@@ -49,19 +54,30 @@ public class SendGloomyMailProcessor implements CyodaProcessor {
 
     private Mail processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Mail> context) {
         Mail mail = context.entity();
-        mail.setStatus("SENDING_GLOOMY");
+
+        if (mail.getAttemptCount() == null) mail.setAttemptCount(0);
+
+        // Do not process terminal states
+        String currentStatus = mail.getStatus();
+        if (STATUS_SENT.equals(currentStatus) || STATUS_FAILED.equals(currentStatus)) {
+            logger.warn("Mail {} is in terminal state {}. Skipping processing.", mail.getTechnicalId(), currentStatus);
+            return mail;
+        }
+
+        mail.setStatus(STATUS_SENDING);
         mail.setLastAttemptAt(OffsetDateTime.now());
 
         try {
             for (String recipient : mail.getMailList()) {
                 if (!isValidEmail(recipient)) {
                     logger.error("Permanent failure: invalid email {} for mail {}", recipient, mail.getTechnicalId());
-                    mail.setStatus("FAILED");
+                    mail.setStatus(STATUS_FAILED);
                     return mail;
                 }
-                logger.info("Sending gloomy mail to {} for mail {}", recipient, mail.getTechnicalId());
+                logger.info("[GLOOMY] Sending to {} for mail {}", recipient, mail.getTechnicalId());
             }
-            mail.setStatus("SENT");
+
+            mail.setStatus(STATUS_SENT);
             return mail;
         } catch (RuntimeException ex) {
             logger.error("Transient error sending gloomy mail {}: {}", mail.getTechnicalId(), ex.getMessage());
@@ -70,10 +86,10 @@ public class SendGloomyMailProcessor implements CyodaProcessor {
             attempts = attempts + 1;
             mail.setAttemptCount(attempts);
             mail.setLastAttemptAt(OffsetDateTime.now());
-            if (attempts < 3) {
-                mail.setStatus("READY_TO_SEND");
+            if (attempts < MAX_RETRIES) {
+                mail.setStatus(STATUS_READY);
             } else {
-                mail.setStatus("FAILED");
+                mail.setStatus(STATUS_FAILED);
             }
             return mail;
         }
