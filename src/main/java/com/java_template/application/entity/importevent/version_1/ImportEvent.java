@@ -1,9 +1,13 @@
 package com.java_template.application.entity.importevent.version_1;
 
+import com.java_template.common.workflow.CyodaEntity;
+import com.java_template.common.workflow.OperationSpecification;
+import org.cyoda.cloud.api.event.common.ModelSpec;
+
 import java.util.ArrayList;
 import java.util.List;
 
-public class ImportEvent {
+public class ImportEvent implements CyodaEntity {
     private String eventId;
     private String itemTechnicalId;
     private Long itemId;
@@ -75,5 +79,17 @@ public class ImportEvent {
 
     public void setMetadata(Object metadata) {
         this.metadata = metadata;
+    }
+
+    @Override
+    public OperationSpecification getModelKey() {
+        // Provide a simple model key so this entity satisfies CyodaEntity bounds
+        return new OperationSpecification.Entity(new ModelSpec(), "import-event.v1");
+    }
+
+    @Override
+    public boolean isValid() {
+        // Basic validation logic
+        return eventId != null;
     }
 }
