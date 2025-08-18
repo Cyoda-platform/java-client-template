@@ -1,0 +1,29 @@
+{
+  "version": "1.0",
+  "name": "ImportEvent Workflow",
+  "desc": "Workflow for recording and indexing import events (audit)",
+  "initialState": "RECORDED",
+  "active": true,
+  "states": {
+    "RECORDED": {
+      "transitions": [
+        {
+          "name": "index_event",
+          "next": "INDEXED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "IndexImportEventProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "INDEXED": {
+      "transitions": []
+    }
+  }
+}
