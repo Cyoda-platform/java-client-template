@@ -21,6 +21,10 @@ public class User implements CyodaEntity {
     private List<String> favorites; // list of Pet ids
     private String createdAt; // ISO timestamp
 
+    // Additional fields expected by processors
+    private String status; // e.g., REGISTERED, VERIFIED, ACTIVE
+    private Integer version;
+
     public User() {}
 
     @Override
@@ -37,5 +41,38 @@ public class User implements CyodaEntity {
         if (fullName == null || fullName.isBlank()) return false;
         if (contactEmail == null || contactEmail.isBlank()) return false;
         return true;
+    }
+
+    // Compatibility convenience methods used by processors/criteria
+    public String getTechnicalId() {
+        return this.id;
+    }
+
+    public void setTechnicalId(String technicalId) {
+        this.id = technicalId;
+    }
+
+    // Provide a ContactInfo view used by processors (they expect getContactInfo().getEmail())
+    public ContactInfo getContactInfo() {
+        return new ContactInfo(this.contactEmail, this.contactPhone);
+    }
+
+    // Inner helper to expose expected methods
+    public static class ContactInfo {
+        private final String email;
+        private final String phone;
+
+        public ContactInfo(String email, String phone) {
+            this.email = email;
+            this.phone = phone;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public String getPhone() {
+            return phone;
+        }
     }
 }
