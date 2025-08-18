@@ -51,8 +51,8 @@ public class PetController {
             @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> createPet(@RequestBody(description = "Pet create payload", required = true,
-            content = @Content(schema = @Schema(implementation = CreatePetRequest.class))) CreatePetRequest request) {
+    public ResponseEntity<?> createPet(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Pet create payload", required = true,
+            content = @Content(schema = @Schema(implementation = CreatePetRequest.class))) @org.springframework.web.bind.annotation.RequestBody CreatePetRequest request) {
         try {
             Pet pet = new Pet();
             pet.setId(request.getBusinessId());
