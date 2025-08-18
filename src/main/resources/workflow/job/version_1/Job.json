@@ -1,0 +1,148 @@
+{
+  "version": "1.0",
+  "name": "Job Workflow",
+  "desc": "Workflow for Job entity",
+  "initialState": "PENDING",
+  "active": true,
+  "states": {
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "to_validating",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "JobValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "validation_pass",
+          "next": "SCHEDULED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "JobValidationPassCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_fail",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "JobValidationFailCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "SCHEDULED": {
+      "transitions": [
+        {
+          "name": "schedule_to_run",
+          "next": "RUNNING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SchedulerTriggerProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "RUNNING": {
+      "transitions": [
+        {
+          "name": "start_processing",
+          "next": "PROCESSING_SOURCE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FetchAndTransformProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PROCESSING_SOURCE": {
+      "transitions": [
+        {
+          "name": "persist_laureates",
+          "next": "COMPLETING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PersistLaureateEventsProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "COMPLETING": {
+      "transitions": [
+        {
+          "name": "complete_success",
+          "next": "SUCCEEDED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "CompleteRunSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "complete_fail",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "CompleteRunFailCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "SUCCEEDED": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    }
+  }
+}
