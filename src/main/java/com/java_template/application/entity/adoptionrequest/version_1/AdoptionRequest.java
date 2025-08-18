@@ -51,4 +51,11 @@ public class AdoptionRequest implements CyodaEntity {
 
     public com.java_template.application.entity.pet.version_1.Pet getPet() { return this.pet; }
     public void setPet(com.java_template.application.entity.pet.version_1.Pet pet) { this.pet = pet; }
+
+    // Convenience accessors used by criteria and processors
+    public String getPetTechnicalId() { return this.petId; }
+    public String getUserTechnicalId() { return this.userId; }
+
+    public void setPetTechnicalId(String petTechnicalId) { this.petId = petTechnicalId; }
+    public void setUserTechnicalId(String userTechnicalId) { this.userId = userTechnicalId; }
 }
