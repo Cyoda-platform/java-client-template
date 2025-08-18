@@ -1,0 +1,124 @@
+{
+  "version": "1.0",
+  "name": "HackerNewsItem Workflow",
+  "desc": "Workflow for processing HackerNewsItem entity",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "to_validating",
+          "next": "VALIDATING",
+          "manual": false
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "validation_failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_passed",
+          "next": "DUPLICATE_CHECK",
+          "manual": false
+        }
+      ]
+    },
+    "DUPLICATE_CHECK": {
+      "transitions": [
+        {
+          "name": "duplicate_rejected",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsDuplicateRejectCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "duplicate_handled",
+          "next": "ENRICHING",
+          "manual": false
+        }
+      ]
+    },
+    "ENRICHING": {
+      "transitions": [
+        {
+          "name": "enrich_and_persist",
+          "next": "PERSISTING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EnrichItemProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PERSISTING": {
+      "transitions": [
+        {
+          "name": "persist_success",
+          "next": "READY",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PersistItemProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            },
+            {
+              "name": "CreateImportEventProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "persist_failure",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PersistFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "READY": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    }
+  }
+}
