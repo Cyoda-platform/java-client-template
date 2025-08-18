@@ -21,6 +21,7 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
+import com.fasterxml.jackson.databind.JsonNode;
 
 @Component
 public class FetchCatFactProcessor implements CyodaProcessor {
@@ -53,7 +54,7 @@ public class FetchCatFactProcessor implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private Object processEntityLogic(ProcessorSerializer.ProcessorExecutionContext context) {
+    private JsonNode processEntityLogic(ProcessorSerializer.ProcessorExecutionContext context) {
         try {
             HttpRequest httpRequest = HttpRequest.newBuilder()
                 .uri(URI.create(EXTERNAL_API))
@@ -65,7 +66,7 @@ public class FetchCatFactProcessor implements CyodaProcessor {
                 String text = (String) body.getOrDefault("fact", "");
                 if (text == null || text.isBlank()) {
                     logger.warn("Fetched cat fact empty");
-                    return null;
+                    return context.payload();
                 }
                 CatFact catFact = new CatFact();
                 catFact.setId(UUID.randomUUID().toString());
@@ -87,6 +88,6 @@ public class FetchCatFactProcessor implements CyodaProcessor {
         } catch (Exception ex) {
             logger.error("Error fetching cat fact: {}", ex.getMessage(), ex);
         }
-        return null;
+        return context.payload();
     }
 }
