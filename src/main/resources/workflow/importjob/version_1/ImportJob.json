@@ -1,0 +1,104 @@
+{
+  "version": "1.0",
+  "name": "ImportJob Workflow",
+  "desc": "Workflow for ImportJob orchestration entity",
+  "initialState": "PENDING",
+  "active": true,
+  "states": {
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "process_import_job",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ProcessImportJobProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "validate_pass",
+          "next": "PROCESSING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidateImportPayloadCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validate_fail",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidateImportPayloadCriterionFail",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "PROCESSING": {
+      "transitions": [
+        {
+          "name": "store_success",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "StoreHNItemProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "StoreHNItemSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "store_failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "StoreHNItemFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    }
+  }
+}
