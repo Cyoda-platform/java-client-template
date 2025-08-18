@@ -1,0 +1,80 @@
+{
+  "version": "1.0",
+  "name": "CatFact Workflow",
+  "desc": "Workflow for CatFact ingestion, validation, acceptance or rejection and archival",
+  "initialState": "INGESTED",
+  "active": true,
+  "states": {
+    "INGESTED": {
+      "transitions": [
+        {
+          "name": "validate_quality",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FetchCatFactProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "reject_duplicate",
+          "next": "REJECTED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DuplicateCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "accept_fact",
+          "next": "READY",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AcceptCatFactProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "READY": {
+      "transitions": [
+        {
+          "name": "archive_old",
+          "next": "ARCHIVED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ArchiveOldFactsProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "REJECTED": {
+      "transitions": []
+    },
+    "ARCHIVED": {
+      "transitions": []
+    }
+  }
+}
