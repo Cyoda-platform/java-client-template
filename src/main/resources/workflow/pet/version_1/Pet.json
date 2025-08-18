@@ -1,0 +1,112 @@
+{
+  "version": "1.0",
+  "name": "Pet Workflow",
+  "desc": "Workflow for Pet entity",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "validate_pet",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidatePetProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "validation_success",
+          "next": "AVAILABLE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidationSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_warning",
+          "next": "PENDING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidationWarningCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "AVAILABLE": {
+      "transitions": [
+        {
+          "name": "adopt_pet",
+          "next": "ADOPTED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "AdoptPetProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ADOPTED": {
+      "transitions": [
+        {
+          "name": "archive_pet",
+          "next": "ARCHIVED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ArchivePetProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "resolve_pending",
+          "next": "AVAILABLE",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ResolvePendingProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ARCHIVED": {
+      "transitions": []
+    }
+  }
+}
