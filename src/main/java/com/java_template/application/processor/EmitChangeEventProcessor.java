@@ -1,5 +1,6 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.laureate.version_1.Laureate;
 import com.java_template.application.entity.changeevent.version_1.ChangeEvent;
 import com.java_template.common.serializer.ProcessorSerializer;
@@ -7,6 +8,7 @@ import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
+import com.java_template.common.service.EntityService;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
@@ -22,9 +24,13 @@ public class EmitChangeEventProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(EmitChangeEventProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final ObjectMapper objectMapper;
+    private final EntityService entityService;
 
-    public EmitChangeEventProcessor(SerializerFactory serializerFactory) {
+    public EmitChangeEventProcessor(SerializerFactory serializerFactory, EntityService entityService, ObjectMapper objectMapper) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -45,24 +51,45 @@ public class EmitChangeEventProcessor implements CyodaProcessor {
     }
 
     private boolean isValidEntity(Laureate laureate) {
-        return laureate != null && laureate.getBusinessId() != null && !laureate.getBusinessId().isBlank();
+        return laureate != null && (laureate.getId() != null && !laureate.getId().isBlank());
     }
 
     private ChangeEvent processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Laureate> context) {
         Laureate laureate = context.entity();
         ChangeEvent evt = new ChangeEvent();
         try {
-            evt.setEventId("evt-" + UUID.randomUUID().toString());
-            evt.setLaureateTechnicalId(laureate.getTechnicalId());
-            evt.setLaureateBusinessId(laureate.getBusinessId());
-            evt.setChangeType(laureate.getChangeType());
-            evt.setPayload(java.util.Map.of("laureate", laureate));
+            String eventId = "evt-" + UUID.randomUUID().toString();
+            evt.setId(eventId);
+            evt.setLaureateId(laureate.getId());
+            evt.setEventType(laureate.getChangeType());
+            // Serialize payload safely
+            try {
+                evt.setPayload(objectMapper.writeValueAsString(laureate));
+            } catch (Exception se) {
+                logger.warn("Failed to serialize laureate payload for event {}: {}", eventId, se.getMessage());
+                // fallback to minimal payload
+                evt.setPayload("{\"laureateId\":\"" + laureate.getId() + "\"}");
+            }
             evt.setCreatedAt(Instant.now().toString());
-            evt.setStatus(ChangeEvent.Status.CREATED);
-            logger.info("Emitted ChangeEvent {} for laureate {}", evt.getEventId(), laureate.getBusinessId());
-            // In real implementation persist event and enqueue for delivery
+
+            logger.info("Constructed ChangeEvent {} for laureate {} changeType={}", evt.getId(), laureate.getId(), laureate.getChangeType());
+
+            // Persist the ChangeEvent asynchronously so workflow can continue. Log failures.
+            try {
+                entityService.addItem(ChangeEvent.ENTITY_NAME, String.valueOf(ChangeEvent.ENTITY_VERSION), evt)
+                    .whenComplete((uuid, ex) -> {
+                        if (ex != null) {
+                            logger.warn("Failed to persist ChangeEvent {}: {}", evt.getId(), ex.getMessage());
+                        } else {
+                            logger.info("Persisted ChangeEvent {} as technical id {}", evt.getId(), uuid);
+                        }
+                    });
+            } catch (Exception e) {
+                logger.warn("Error submitting ChangeEvent {} for persistence: {}", evt.getId(), e.getMessage());
+            }
+
         } catch (Exception e) {
-            logger.error("Error emitting change event for laureate {}: {}", laureate.getBusinessId(), e.getMessage());
+            logger.error("Error emitting change event for laureate {}: {}", laureate.getId(), e.getMessage());
         }
         return evt;
     }
