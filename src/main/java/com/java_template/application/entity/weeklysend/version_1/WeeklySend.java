@@ -9,8 +9,8 @@ import lombok.Data;
 public class WeeklySend implements CyodaEntity {
     public static final String ENTITY_NAME = "WeeklySend";
     public static final Integer ENTITY_VERSION = 1;
-    // Add your entity fields here
 
+    // Add your entity fields here
     private String id; // domain id for this send/campaign
     private String catfact_id; // links to CatFact.id
     private String scheduled_date; // planned send date ISO
@@ -34,10 +34,10 @@ public class WeeklySend implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        if (this.id == null || this.id.isBlank()) return false;
-        if (this.catfact_id == null || this.catfact_id.isBlank()) return false;
-        if (this.scheduled_date == null || this.scheduled_date.isBlank()) return false;
-        if (this.status == null || this.status.isBlank()) return false;
+        // id and catfact_id and status are required
+        if (id == null || id.isBlank()) return false;
+        if (catfact_id == null || catfact_id.isBlank()) return false;
+        if (status == null || status.isBlank()) return false;
         return true;
     }
 }
