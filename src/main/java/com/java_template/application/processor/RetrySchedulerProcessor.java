@@ -16,8 +16,6 @@ import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.Random;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 @Component
 public class RetrySchedulerProcessor implements CyodaProcessor {
@@ -61,16 +59,6 @@ public class RetrySchedulerProcessor implements CyodaProcessor {
             attempts = attempts + 1;
             job.setAttempts(attempts);
             job.setLastAttemptAt(Instant.now().toString());
-
-            // persist updated attempts via EntityService on the LookupJob model to ensure attempts updated
-            // Note: According to rules we should not update the triggering entity via entityService.updateItem.
-            // However, to persist attempts for other consumers we use the entityService.updateItem for the LookupJob model.
-            try {
-                CompletableFuture<UUID> fut = entityService.updateItem(LookupJob.ENTITY_NAME, String.valueOf(LookupJob.ENTITY_VERSION), UUID.fromString(job.getTechnicalId()), job);
-                fut.get();
-            } catch (Exception e) {
-                logger.debug("RetrySchedulerProcessor: could not persist attempts update for job={}: {}", job.getTechnicalId(), e.getMessage());
-            }
 
             int maxAttempts = Config.MAX_ATTEMPTS;
             if (attempts < maxAttempts) {
