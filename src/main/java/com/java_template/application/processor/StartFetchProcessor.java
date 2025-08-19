@@ -47,9 +47,22 @@ public class StartFetchProcessor implements CyodaProcessor {
     private ReportJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<ReportJob> context) {
         ReportJob job = context.entity();
         // Transition job to IN_PROGRESS per functional requirements
-        job.setStatus("IN_PROGRESS");
-        job.setCreatedAt(job.getCreatedAt() == null ? job.getCreatedAt() : job.getCreatedAt());
-        logger.info("ReportJob {} moved to IN_PROGRESS", job.getTechnicalId());
+        try {
+            // Only move to IN_PROGRESS if not already failed or completed
+            if (job.getStatus() == null || job.getStatus().equalsIgnoreCase("PENDING") || job.getStatus().equalsIgnoreCase("VALIDATING")) {
+                job.setStatus("IN_PROGRESS");
+                if (job.getCreatedAt() == null || job.getCreatedAt().isEmpty()) {
+                    // ensure createdAt remains set by caller; do not override if present
+                    job.setCreatedAt(job.getCreatedAt() == null ? java.time.OffsetDateTime.now().format(java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME) : job.getCreatedAt());
+                }
+                logger.info("ReportJob {} moved to IN_PROGRESS", job.getTechnicalId());
+            } else {
+                logger.info("ReportJob {} not transitioned to IN_PROGRESS (current status={})", job.getTechnicalId(), job.getStatus());
+            }
+        } catch (Exception e) {
+            logger.error("Error transitioning ReportJob {} to IN_PROGRESS: {}", job == null ? "<null>" : job.getTechnicalId(), e.getMessage());
+            // do not change status here; allow OnAggregationErrorProcessor to mark failures
+        }
         // In a real implementation we would enqueue FetchBookingsProcessor with job filters
         return job;
     }
