@@ -6,6 +6,8 @@ import com.java_template.application.entity.analysisreport.version_1.AnalysisRep
 import com.java_template.application.entity.dataingestjob.version_1.DataIngestJob;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.util.Condition;
+import com.java_template.common.util.SearchConditionRequest;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -16,6 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -65,6 +68,7 @@ public class AnalyzeProcessor implements CyodaProcessor {
         DataIngestJob job = context.entity();
         try {
             logger.info("AnalyzeProcessor starting for jobTechnicalId={}", job.getTechnicalId());
+            // mark analyzing (idempotent)
             job.setStatus("ANALYZING");
 
             String sourceUrl = job.getSource_url();
@@ -74,6 +78,34 @@ public class AnalyzeProcessor implements CyodaProcessor {
                 return job;
             }
 
+            // Idempotency: check if a report already exists for this job (CREATED/READY)
+            try {
+                SearchConditionRequest condition = SearchConditionRequest.group("AND",
+                    Condition.of("$.job_technicalId", "EQUALS", job.getTechnicalId())
+                );
+                CompletableFuture<com.fasterxml.jackson.databind.node.ArrayNode> existingFuture = entityService.getItemsByCondition(
+                    AnalysisReport.ENTITY_NAME,
+                    String.valueOf(AnalysisReport.ENTITY_VERSION),
+                    condition,
+                    true
+                );
+                com.fasterxml.jackson.databind.node.ArrayNode existing = existingFuture.get();
+                if (existing != null && existing.size() > 0) {
+                    // If there's an existing report in CREATED or READY, reuse it (idempotent)
+                    for (com.fasterxml.jackson.databind.JsonNode r : existing) {
+                        String status = r.path("status").asText(null);
+                        if (status != null && ("CREATED".equalsIgnoreCase(status) || "READY".equalsIgnoreCase(status))) {
+                            logger.info("AnalyzeProcessor: existing report found for job {} with status {} - reusing", job.getTechnicalId(), status);
+                            job.setStatus("DELIVERING");
+                            return job;
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                logger.warn("AnalyzeProcessor: failed to check existing reports for job {}: {}", job.getTechnicalId(), e.getMessage());
+                // continue; we will attempt analysis
+            }
+
             // Fetch CSV from sourceUrl
             HttpClient client = HttpClient.newBuilder().build();
             HttpRequest req = HttpRequest.newBuilder()
@@ -81,7 +113,16 @@ public class AnalyzeProcessor implements CyodaProcessor {
                 .GET()
                 .build();
 
-            HttpResponse<String> resp = client.send(req, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> resp;
+            try {
+                resp = client.send(req, HttpResponse.BodyHandlers.ofString());
+            } catch (IOException | InterruptedException ioe) {
+                logger.warn("AnalyzeProcessor: transient network error while downloading CSV for job {}: {}", job.getTechnicalId(), ioe.getMessage());
+                // Treat as transient: leave in ANALYZING to allow retries
+                job.setStatus("ANALYZING");
+                return job;
+            }
+
             if (resp.statusCode() < 200 || resp.statusCode() >= 300) {
                 logger.warn("AnalyzeProcessor: failed to download CSV for job {} status={}", job.getTechnicalId(), resp.statusCode());
                 job.setStatus("FAILED");
@@ -108,7 +149,6 @@ public class AnalyzeProcessor implements CyodaProcessor {
             Map<String, Integer> headerIndex = new HashMap<>();
             for (int i = 0; i < headers.length; i++) {
                 String h = headers[i].trim();
-                // strip surrounding quotes if present
                 if (h.startsWith("\"") && h.endsWith("\"")) h = h.substring(1, h.length() - 1);
                 headerIndex.put(h.toLowerCase(), i);
             }
