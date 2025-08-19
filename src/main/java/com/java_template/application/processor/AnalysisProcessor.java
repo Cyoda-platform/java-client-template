@@ -73,10 +73,15 @@ public class AnalysisProcessor implements CyodaProcessor {
                 ObjectNode node = (ObjectNode) it.next();
                 Product p = mapNodeToProduct(node);
                 computeMetrics(p);
-                // persist updated metrics by updating product entity
+                // persist updated metrics by updating product entity via entityService using technicalId from stored node
                 try {
-                    CompletableFuture<UUID> updated = entityService.updateItem(Product.ENTITY_NAME, String.valueOf(Product.ENTITY_VERSION), UUID.fromString(p.getTechnicalId()), p);
-                    updated.get();
+                    if (node.has("technicalId")) {
+                        String tech = node.get("technicalId").asText();
+                        CompletableFuture<UUID> updated = entityService.updateItem(Product.ENTITY_NAME, String.valueOf(Product.ENTITY_VERSION), UUID.fromString(tech), p);
+                        updated.get();
+                    } else {
+                        logger.warn("Stored product missing technicalId for productId={}", p.getProductId());
+                    }
                 } catch (Exception e) {
                     logger.warn("Failed to update product metrics productId={} : {}", p.getProductId(), e.getMessage());
                 }
@@ -92,30 +97,43 @@ public class AnalysisProcessor implements CyodaProcessor {
     private Product mapNodeToProduct(ObjectNode node) {
         Product p = new Product();
         if (node.has("productId")) p.setProductId(node.get("productId").asText());
-        if (node.has("technicalId")) p.setTechnicalId(node.get("technicalId").asText());
+        if (node.has("name")) p.setName(node.get("name").asText());
+        if (node.has("category")) p.setCategory(node.get("category").asText());
+        if (node.has("sku")) p.setSku(node.get("sku").asText());
         if (node.has("price")) p.setPrice(node.get("price").asDouble());
         if (node.has("stockLevel")) p.setStockLevel(node.get("stockLevel").asInt());
-        if (node.has("salesHistory") && node.get("salesHistory").isArray()) {
-            // Not implementing detailed parsing for prototype
-        }
+        // salesHistory and other complex fields left as-is
         return p;
     }
 
     private void computeMetrics(Product p) {
-        // Simple KPIs: salesVolume and revenue are mocked for prototype
+        // Compute KPIs based on available fields
         double salesVolume = 0.0;
         double revenue = 0.0;
-        if (p.getPrice() > 0 && p.getStockLevel() >= 0) {
-            // naive estimation: salesVolume = stockLevel * 0.1
-            salesVolume = p.getStockLevel() * 0.1;
-            revenue = salesVolume * p.getPrice();
+        if (p.getSalesHistory() != null && !p.getSalesHistory().isEmpty()) {
+            for (Object entryObj : p.getSalesHistory()) {
+                if (entryObj instanceof java.util.Map) {
+                    java.util.Map<?, ?> entry = (java.util.Map<?, ?>) entryObj;
+                    Number units = entry.get("unitsSold") instanceof Number ? (Number) entry.get("unitsSold") : null;
+                    Number rev = entry.get("revenue") instanceof Number ? (Number) entry.get("revenue") : null;
+                    if (units != null) salesVolume += units.doubleValue();
+                    if (rev != null) revenue += rev.doubleValue();
+                }
+            }
+        } else {
+            if (p.getStockLevel() != null) salesVolume = p.getStockLevel() * 0.1;
+            if (p.getPrice() != null) revenue = salesVolume * p.getPrice();
         }
+
         if (p.getMetrics() == null) p.setMetrics(new java.util.HashMap<>());
         p.getMetrics().put("salesVolume", salesVolume);
         p.getMetrics().put("revenue", revenue);
 
-        // turnoverRate = unitsSold / averageStockLevel (if averageStockLevel == 0 -> null)
-        Double avgStock = p.getMetrics().containsKey("averageStockLevel") ? ((Number) p.getMetrics().get("averageStockLevel")).doubleValue() : null;
+        Double avgStock = null;
+        if (p.getMetrics().containsKey("averageStockLevel")) {
+            Object o = p.getMetrics().get("averageStockLevel");
+            if (o instanceof Number) avgStock = ((Number) o).doubleValue();
+        }
         if (avgStock == null || avgStock == 0.0) {
             p.getMetrics().put("turnoverRate", null);
         } else {
