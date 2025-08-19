@@ -1,7 +1,6 @@
 package com.java_template.application.processor;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.java_template.application.entity.flightSearch.version_1.FlightSearch;
+import com.java_template.application.entity.flightsearch.version_1.FlightSearch;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
@@ -16,7 +15,6 @@ import org.springframework.stereotype.Component;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.time.OffsetDateTime;
 import java.util.Scanner;
 
 @Component
@@ -54,18 +52,15 @@ public class QueryApiProcessor implements CyodaProcessor {
     private FlightSearch processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<FlightSearch> context) {
         FlightSearch entity = context.entity();
         try {
-            logger.debug("Setting status -> QUERYING for search {}", entity.getTechnicalId());
+            String sid = entity.getSearchId() != null ? entity.getSearchId() : "<unknown>";
+            logger.debug("Setting status -> QUERYING for search {}", sid);
             entity.setStatus("QUERYING");
-            entity.setUpdatedAt(OffsetDateTime.now().toString());
 
-            // For prototype: perform a simple HTTP GET to a configured provider URL present in rawResponse (if any)
-            // In absence of real config, we simulate a GET to an example endpoint that returns JSON.
+            // For prototype: if a provider URL is configured, attempt a GET to observe availability.
+            // We do not persist the raw provider response because the FlightSearch entity does not contain a rawResponse field in the current model.
             String providerUrl = System.getenv("FLIGHT_PROVIDER_URL");
             if (providerUrl == null || providerUrl.isEmpty()) {
-                // Simulate a provider response for prototype purposes
-                String simulated = "{\"flights\": []}";
-                entity.setRawResponse(simulated);
-                entity.setUpdatedAt(OffsetDateTime.now().toString());
+                // No external provider configured; proceed and allow mapping to generate simulated options
                 return entity;
             }
 
@@ -85,12 +80,11 @@ public class QueryApiProcessor implements CyodaProcessor {
 
             int code = conn.getResponseCode();
             if (code >= 200 && code < 300) {
+                // We intentionally do not store the raw response on the FlightSearch entity (field not present). Mapping will simulate options.
                 try (Scanner s = new Scanner(conn.getInputStream(), StandardCharsets.UTF_8.name())) {
                     StringBuilder sb = new StringBuilder();
                     while (s.hasNextLine()) sb.append(s.nextLine());
-                    String resp = sb.toString();
-                    entity.setRawResponse(resp);
-                    entity.setUpdatedAt(OffsetDateTime.now().toString());
+                    logger.debug("Provider response length: {}", sb.length());
                     return entity;
                 }
             } else {
@@ -99,16 +93,14 @@ public class QueryApiProcessor implements CyodaProcessor {
                     while (s.hasNextLine()) sb.append(s.nextLine());
                     String resp = sb.toString();
                     entity.setStatus("ERROR");
-                    entity.setErrorMessage("Provider returned http " + code + ": " + resp);
-                    entity.setUpdatedAt(OffsetDateTime.now().toString());
+                    entity.setErrorMessage("Provider returned http " + code + ": " + (resp.length() > 200 ? resp.substring(0,200) : resp));
                     return entity;
                 }
             }
         } catch (Exception ex) {
-            logger.error("Error querying provider for search {}", entity.getTechnicalId(), ex);
+            logger.error("Error querying provider for search {}", entity.getSearchId(), ex);
             entity.setStatus("ERROR");
             entity.setErrorMessage("Error querying provider: " + ex.getMessage());
-            entity.setUpdatedAt(OffsetDateTime.now().toString());
             return entity;
         }
     }
