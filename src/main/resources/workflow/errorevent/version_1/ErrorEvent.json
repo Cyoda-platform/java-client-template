@@ -1,0 +1,29 @@
+{
+  "version": "1.0",
+  "name": "ErrorEvent Workflow",
+  "desc": "Workflow for ErrorEvent entity: stored and manual resolution",
+  "initialState": "STORED",
+  "active": true,
+  "states": {
+    "STORED": {
+      "transitions": [
+        {
+          "name": "manual_investigate_to_resolved",
+          "next": "RESOLVED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ManualInvestigateProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "RESOLVED": {
+      "transitions": []
+    }
+  }
+}
