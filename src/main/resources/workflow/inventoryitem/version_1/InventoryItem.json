@@ -1,0 +1,90 @@
+{
+  "version": "1.0",
+  "name": "InventoryItem Workflow",
+  "desc": "Workflow for InventoryItem enrichment and validation",
+  "initialState": "PERSISTED",
+  "active": true,
+  "states": {
+    "PERSISTED": {
+      "transitions": [
+        {
+          "name": "enrich_item",
+          "next": "ENRICHMENT",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EnrichItemProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ENRICHMENT": {
+      "transitions": [
+        {
+          "name": "to_validation",
+          "next": "VALIDATION",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NormalizeFieldsProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATION": {
+      "transitions": [
+        {
+          "name": "valid",
+          "next": "READY",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "CheckItemValidityCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "invalid",
+          "next": "INVALID",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "CheckItemValidityCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "READY": {
+      "transitions": [
+        {
+          "name": "deprecate",
+          "next": "DEPRECATED",
+          "manual": false
+        }
+      ]
+    },
+    "INVALID": {
+      "transitions": []
+    },
+    "DEPRECATED": {
+      "transitions": []
+    }
+  }
+}
