@@ -1,6 +1,6 @@
 package com.java_template.application.processor;
 
-import com.java_template.application.entity.flightOption.version_1.FlightOption;
+import com.java_template.application.entity.flightoption.version_1.FlightOption;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
@@ -11,8 +11,6 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-
-import java.time.OffsetDateTime;
 
 @Component
 public class EnrichFareProcessor implements CyodaProcessor {
@@ -49,22 +47,21 @@ public class EnrichFareProcessor implements CyodaProcessor {
     private FlightOption processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<FlightOption> context) {
         FlightOption entity = context.entity();
         try {
+            String idForLog = entity.getOptionId() != null ? entity.getOptionId() : "<unknown>";
             if (entity.getFareRules() == null || entity.getFareRules().isEmpty()) {
-                logger.debug("Setting status -> ENRICHING for option {}", entity.getTechnicalId());
+                logger.debug("Setting status -> ENRICHING for option {}", idForLog);
                 entity.setStatus("ENRICHING");
-                entity.setUpdatedAt(OffsetDateTime.now().toString());
 
                 // For prototype: simulate fare rules enrichment
                 String summary = "Fare rules summary: refundable=false, change_fee=200";
                 entity.setFareRules(summary);
-                entity.setUpdatedAt(OffsetDateTime.now().toString());
             }
             return entity;
         } catch (Exception ex) {
-            logger.error("Error enriching fare for option {}", entity.getTechnicalId(), ex);
-            entity.setStatus("ERROR");
-            entity.setErrorMessage("Fare enrichment failed: " + ex.getMessage());
-            entity.setUpdatedAt(OffsetDateTime.now().toString());
+            logger.error("Error enriching fare for option {}", entity != null ? entity.getOptionId() : "<null>", ex);
+            if (entity != null) {
+                entity.setStatus("ERROR");
+            }
             return entity;
         }
     }
