@@ -1,11 +1,14 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.job.version_1.Job;
 import com.java_template.application.entity.subscriber.version_1.Subscriber;
-import com.java_template.application.entity.delivery.version_1.Delivery;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.service.EntityService;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -21,6 +24,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Component
 public class BuildDeliveryBatchProcessor implements CyodaProcessor {
@@ -28,9 +32,13 @@ public class BuildDeliveryBatchProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(BuildDeliveryBatchProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final EntityService entityService;
+    private final ObjectMapper mapper;
 
-    public BuildDeliveryBatchProcessor(SerializerFactory serializerFactory) {
+    public BuildDeliveryBatchProcessor(SerializerFactory serializerFactory, EntityService entityService, ObjectMapper mapper) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
+        this.mapper = mapper;
     }
 
     @Override
@@ -58,27 +66,97 @@ public class BuildDeliveryBatchProcessor implements CyodaProcessor {
     private Job processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Job> context) {
         Job job = context.entity();
         try {
-            // For prototype, simulate discovering active subscribers and creating Delivery placeholders
-            List<Subscriber> subscribers = List.of();
-            // In a real implementation we would query Subscriber entities via EntityService for active subscribers.
-            // Here we simulate creating deliveries for a hypothetical set of subscribers.
-            List<Delivery> created = new ArrayList<>();
-            for (int i = 1; i <= 2; i++) {
-                Delivery d = new Delivery();
-                d.setJobId(job.getId());
-                d.setSubscriberId("subscriber-" + i);
-                d.setFactId(null);
-                d.setScheduledAt(ZonedDateTime.now(ZoneId.of("UTC")).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
-                d.setAttempts(0);
-                d.setStatus("PENDING");
-                d.setRetriesPolicy(job.getRetriesPolicy() != null ? job.getRetriesPolicy() : Map.of("maxRetries", 2));
-                created.add(d);
-                logger.info("Created Delivery placeholder for subscriber {}", d.getSubscriberId());
+            // Fetch subscribers from EntityService
+            ArrayNode subscribersNode = entityService.getItems(Subscriber.ENTITY_NAME, String.valueOf(Subscriber.ENTITY_VERSION)).join();
+            if (subscribersNode == null) {
+                logger.warn("No subscribers retrieved for Job {}", job.getId());
+                return job;
             }
-            ObjectNode summary = job.getResultSummary();
+
+            List<JsonNode> activeSubscribers = new ArrayList<>();
+            for (JsonNode sn : subscribersNode) {
+                String status = sn.path("subscriptionStatus").asText(null);
+                if ("active".equalsIgnoreCase(status)) {
+                    activeSubscribers.add(sn);
+                }
+            }
+
+            int queued = 0;
+            Map<String, Object> jobParams = job.getParameters();
+            String globalSendDay = null;
+            if (jobParams != null && jobParams.get("globalSendDay") instanceof String) {
+                globalSendDay = (String) jobParams.get("globalSendDay");
+            }
+
+            for (JsonNode subNode : activeSubscribers) {
+                String subscriberId = subNode.path("id").asText(null);
+                String tz = subNode.path("timezone").asText("UTC");
+                ZoneId zone = ZoneId.of(tz);
+                ZonedDateTime scheduledAt;
+
+                if (job.getScheduledAt() != null && !job.getScheduledAt().isEmpty()) {
+                    scheduledAt = ZonedDateTime.parse(job.getScheduledAt());
+                } else if (globalSendDay != null && !globalSendDay.isBlank()) {
+                    // Attempt to parse globalSendDay as DayOfWeek name
+                    try {
+                        java.time.DayOfWeek dow = java.time.DayOfWeek.valueOf(globalSendDay.toUpperCase());
+                        scheduledAt = ZonedDateTime.now(zone).with(java.time.temporal.TemporalAdjusters.nextOrSame(dow));
+                    } catch (Exception e) {
+                        scheduledAt = ZonedDateTime.now(zone);
+                    }
+                } else {
+                    // default to now in subscriber tz
+                    scheduledAt = ZonedDateTime.now(zone);
+                }
+
+                ObjectNode delivery = mapper.createObjectNode();
+                delivery.put("id", UUID.randomUUID().toString());
+                delivery.put("job_id", job.getId());
+                delivery.put("subscriber_id", subscriberId != null ? subscriberId : "");
+                // select a fact: query CatFact entities and pick first active
+                ArrayNode facts = entityService.getItems("CatFact", "1").join();
+                String factId = null;
+                if (facts != null) {
+                    for (JsonNode fn : facts) {
+                        if ("active".equalsIgnoreCase(fn.path("status").asText(""))) {
+                            factId = fn.path("id").asText(null);
+                            break;
+                        }
+                    }
+                }
+                if (factId != null) {
+                    delivery.put("fact_id", factId);
+                } else {
+                    delivery.putNull("fact_id");
+                }
+                delivery.put("scheduled_at", scheduledAt.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
+                delivery.put("attempts", 0);
+                delivery.put("status", "PENDING");
+
+                ObjectNode rp = mapper.createObjectNode();
+                Map<String, Integer> retries = job.getRetriesPolicy();
+                int maxRetries = (retries != null && retries.get("maxRetries") != null) ? retries.get("maxRetries") : 2;
+                rp.put("maxRetries", maxRetries);
+                delivery.set("retries_policy", rp);
+
+                // Persist the delivery as a system record via EntityService
+                try {
+                    entityService.addItem("Delivery", "1", delivery).join();
+                    queued++;
+                    logger.info("Created Delivery {} for subscriber {}", delivery.path("id").asText(), subscriberId);
+                } catch (Exception ex) {
+                    logger.error("Failed to persist Delivery for subscriber {}: {}", subscriberId, ex.getMessage(), ex);
+                }
+            }
+
+            // update job resultSummary queued
+            var summary = job.getResultSummary();
             if (summary != null) {
-                summary.put("queued", created.size() + summary.path("queued").asInt(0));
+                summary.put("queued", summary.getOrDefault("queued", 0) + queued);
             }
+
+            logger.info("BuildDeliveryBatchProcessor queued {} deliveries for Job {}", queued, job.getId());
+
         } catch (Exception ex) {
             logger.error("Error building delivery batch for Job {}: {}", job.getId(), ex.getMessage(), ex);
         }
