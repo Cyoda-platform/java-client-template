@@ -15,7 +15,6 @@ public class WeeklyReport implements CyodaEntity {
     public static final Integer ENTITY_VERSION = 1;
     // Add your entity fields here
 
-    private String technicalId;
     private OffsetDateTime weekStartDate;
     private OffsetDateTime weekEndDate;
     private Integer totalBooks;
@@ -25,7 +24,7 @@ public class WeeklyReport implements CyodaEntity {
     private List<Map<String, Object>> popularTitles; // id, title, descriptionSnippet, excerptSnippet
     private Map<String, Object> publicationSummary; // newest, oldest, countsByYear
     private OffsetDateTime generationTimestamp;
-    private String reportStatus;
+    private String reportStatus; // generated/sent/failed
     private Map<String, Object> deliveryInfo; // recipients, emailStatus
 
     public WeeklyReport() {}
