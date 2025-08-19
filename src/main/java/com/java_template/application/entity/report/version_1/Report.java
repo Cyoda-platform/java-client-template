@@ -14,6 +14,7 @@ public class Report implements CyodaEntity {
     public static final Integer ENTITY_VERSION = 1;
     // Add your entity fields here
 
+    private String technicalId;
     private String reportId; // report business id
     private String periodStart; // report period start (date string)
     private String periodEnd; // report period end (date string)
