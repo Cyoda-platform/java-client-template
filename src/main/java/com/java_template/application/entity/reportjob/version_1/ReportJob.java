@@ -36,19 +36,23 @@ public class ReportJob implements CyodaEntity {
 
     @Override
     public boolean isValid() {
+        // Required string fields must be non-null and not blank
         if (jobName == null || jobName.isBlank()) return false;
         if (initiatedBy == null || initiatedBy.isBlank()) return false;
         if (status == null || status.isBlank()) return false;
         if (createdAt == null || createdAt.isBlank()) return false;
 
+        // Optional date fields if provided must not be blank
         if (filterDateFrom != null && filterDateFrom.isBlank()) return false;
         if (filterDateTo != null && filterDateTo.isBlank()) return false;
 
+        // If both prices provided, ensure bounds are sane
         if (minPrice != null && maxPrice != null) {
             if (minPrice.isNaN() || maxPrice.isNaN()) return false;
             if (minPrice > maxPrice) return false;
         }
 
+        // Optional strings if provided should not be blank
         if (grouping != null && grouping.isBlank()) return false;
         if (presentationType != null && presentationType.isBlank()) return false;
 
