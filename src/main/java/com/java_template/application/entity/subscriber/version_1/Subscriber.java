@@ -11,12 +11,12 @@ public class Subscriber implements CyodaEntity {
     public static final Integer ENTITY_VERSION = 1;
     // Add your entity fields here
 
-    private String email; // recipient address
-    private String name; // optional recipient name
-    private String subscriptionStatus; // active, unsubscribed
-    private String preferredFormat; // html, pdf, both
-    private String createdAt; // datetime
-    private String technicalId; // datastore id returned by POST
+    private String email;               // recipient address
+    private String name;                // optional recipient name
+    private String subscription_status; // active, unsubscribed
+    private String preferred_format;    // html, pdf, both
+    private String created_at;          // when subscriber was created
+    private String technicalId;         // datastore id returned by POST
 
     public Subscriber() {}
 
@@ -30,13 +30,9 @@ public class Subscriber implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        // email and preferredFormat required
-        if (this.email == null || this.email.isBlank()) {
-            return false;
-        }
-        if (this.preferredFormat == null || this.preferredFormat.isBlank()) {
-            return false;
-        }
+        // email and preferred_format are required
+        if (email == null || email.isBlank()) return false;
+        if (preferred_format == null || preferred_format.isBlank()) return false;
         return true;
     }
 }
