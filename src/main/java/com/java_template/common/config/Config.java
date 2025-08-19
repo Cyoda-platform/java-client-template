@@ -61,4 +61,12 @@ public class Config {
         return value;
     }
 
+    // Operational defaults for LookupJob orchestration
+    public static final int MAX_ATTEMPTS = Integer.parseInt(getEnv("MAX_ATTEMPTS", "3"));
+    // Maximum backoff in milliseconds
+    public static final long MAX_BACKOFF_MS = Long.parseLong(getEnv("MAX_BACKOFF_MS", "30000"));
+    // Default HTTP timeout for external calls
+    public static final int DEFAULT_TIMEOUT_MS = Integer.parseInt(getEnv("DEFAULT_TIMEOUT_MS", "2000"));
+    // Retryable HTTP status codes
+    public static final List<Integer> RETRYABLE_STATUS_CODES = List.of(502, 503, 504);
 }
