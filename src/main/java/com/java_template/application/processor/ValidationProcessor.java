@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 
@@ -49,19 +50,21 @@ public class ValidationProcessor implements CyodaProcessor {
 
     private ExtractionJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<ExtractionJob> context) {
         ExtractionJob entity = context.entity();
-        // Basic validation rules derived from functional requirements
+        // Enhanced validation rules derived from functional requirements
         try {
+            // schedule
             if (entity.getSchedule() == null || entity.getSchedule().trim().isEmpty()) {
                 logger.warn("Validation failed: schedule is missing for jobId={}", entity.getJobId());
-                if (hasSetter(entity, "setStatus")) entity.setStatus("FAILED");
-                if (hasSetter(entity, "setFailureReason")) entity.setFailureReason("INVALID_SCHEDULE");
+                entity.setStatus("FAILED");
+                entity.setFailureReason("INVALID_SCHEDULE");
                 return entity;
             }
 
+            // source URL presence
             if (entity.getSourceUrl() == null || entity.getSourceUrl().trim().isEmpty()) {
                 logger.warn("Validation failed: sourceUrl is missing for jobId={}", entity.getJobId());
-                if (hasSetter(entity, "setStatus")) entity.setStatus("FAILED");
-                if (hasSetter(entity, "setFailureReason")) entity.setFailureReason("MISSING_SOURCE_URL");
+                entity.setStatus("FAILED");
+                entity.setFailureReason("MISSING_SOURCE_URL");
                 return entity;
             }
 
@@ -70,36 +73,57 @@ public class ValidationProcessor implements CyodaProcessor {
                 new URL(entity.getSourceUrl());
             } catch (MalformedURLException e) {
                 logger.warn("Validation failed: sourceUrl not a valid URL for jobId={}", entity.getJobId());
-                if (hasSetter(entity, "setStatus")) entity.setStatus("FAILED");
-                if (hasSetter(entity, "setFailureReason")) entity.setFailureReason("INVALID_SOURCE_URL");
+                entity.setStatus("FAILED");
+                entity.setFailureReason("INVALID_SOURCE_URL");
                 return entity;
             }
 
-            // recipients should be present
+            // perform a lightweight HEAD check to the source to ensure reachability
+            try {
+                URL url = new URL(entity.getSourceUrl());
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("HEAD");
+                conn.setConnectTimeout(3000);
+                conn.setReadTimeout(3000);
+                int status = conn.getResponseCode();
+                if (status >= 200 && status < 400) {
+                    // reachable
+                    logger.info("Source reachable for jobId={} status={}", entity.getJobId(), status);
+                } else if (status >= 400 && status < 500) {
+                    // client error likely misconfigured
+                    logger.warn("Source returned client error for jobId={} status={}", entity.getJobId(), status);
+                    entity.setStatus("FAILED");
+                    entity.setFailureReason("SOURCE_CLIENT_ERROR");
+                    return entity;
+                } else {
+                    // server error - mark as warning but allow scheduling
+                    logger.warn("Source returned server error for jobId={} status={}", entity.getJobId(), status);
+                    // non-fatal: set warning but continue
+                }
+            } catch (Exception e) {
+                logger.warn("Error reaching source {} for jobId={}: {}", entity.getSourceUrl(), entity.getJobId(), e.getMessage());
+                // treat as transient/unreachable -> fatal validation
+                entity.setStatus("FAILED");
+                entity.setFailureReason("SOURCE_UNREACHABLE");
+                return entity;
+            }
+
+            // recipients check - non-fatal warning
             if (entity.getRecipients() == null || entity.getRecipients().isEmpty()) {
                 logger.warn("Validation warning: recipients empty for jobId={}", entity.getJobId());
-                // Non-fatal: allow scheduled but warn
-                if (hasSetter(entity, "setStatus")) entity.setStatus("SCHEDULED");
+                // Non-fatal: schedule but set a warning state field
+                entity.setStatus("SCHEDULED");
                 return entity;
             }
 
-            // All good
+            // schedule looks good and source reachable
             logger.info("Validation passed for jobId={}", entity.getJobId());
-            if (hasSetter(entity, "setStatus")) entity.setStatus("VALIDATING");
+            entity.setStatus("SCHEDULED");
+
         } catch (Exception e) {
             logger.error("Unexpected error during validation for jobId={}", entity != null ? entity.getJobId() : "<unknown>", e);
-            if (entity != null && hasSetter(entity, "setFailureReason")) entity.setFailureReason(e.getMessage());
+            if (entity != null) entity.setFailureReason(e.getMessage());
         }
         return entity;
-    }
-
-    // Helper to avoid compile-time errors if setter doesn't exist at runtime - naive check
-    private boolean hasSetter(ExtractionJob entity, String setterName) {
-        try {
-            entity.getClass().getMethod(setterName, String.class);
-            return true;
-        } catch (NoSuchMethodException e) {
-            return false;
-        }
     }
 }
