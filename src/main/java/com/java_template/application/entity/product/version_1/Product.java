@@ -7,23 +7,21 @@ import lombok.Data;
 
 import java.util.List;
 import java.util.Map;
-import java.util.ArrayList;
-import java.util.HashMap;
 
 @Data
 public class Product implements CyodaEntity {
     public static final String ENTITY_NAME = "Product";
     public static final Integer ENTITY_VERSION = 1;
-
     // Add your entity fields here
+
     private String productId; // id from Pet Store API
     private String name; // product title
     private String category; // product category
     private String sku; // stock keeping unit
     private Double price; // unit price
     private Integer stockLevel; // current inventory
-    private List<Map<String, Object>> salesHistory = new ArrayList<>(); // time series entries: {date, unitsSold, revenue}
-    private Map<String, Object> metrics = new HashMap<>(); // computed KPIs: salesVolume, revenue, turnoverRate, lastPeriodComparison
+    private List<Map<String, Object>> salesHistory; // time series entries: {date, unitsSold, revenue}
+    private Map<String, Object> metrics; // computed KPIs: salesVolume, revenue, turnoverRate, lastPeriodComparison
     private String lastUpdated; // timestamp of last update (ISO string)
 
     public Product() {}
@@ -44,6 +42,7 @@ public class Product implements CyodaEntity {
         if (sku == null || sku.isBlank()) return false;
         if (price == null || price < 0) return false;
         if (stockLevel == null || stockLevel < 0) return false;
+        if (lastUpdated == null || lastUpdated.isBlank()) return false;
         return true;
     }
 }
