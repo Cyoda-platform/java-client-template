@@ -1,0 +1,82 @@
+{
+  "version": "1.0",
+  "name": "Report Workflow",
+  "desc": "Workflow for report generation, completeness check, and delivery.",
+  "initialState": "DRAFT",
+  "active": true,
+  "states": {
+    "DRAFT": {
+      "transitions": [
+        {
+          "name": "check_completeness",
+          "next": "READY",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ReportCompletenessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "READY": {
+      "transitions": [
+        {
+          "name": "send_report",
+          "next": "SENDING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendReportProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SENDING": {
+      "transitions": [
+        {
+          "name": "delivery_success",
+          "next": "SENT",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DeliverySuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "delivery_failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DeliveryFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "SENT": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    }
+  }
+}
