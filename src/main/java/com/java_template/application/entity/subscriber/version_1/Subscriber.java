@@ -11,16 +11,16 @@ import java.util.Map;
 public class Subscriber implements CyodaEntity {
     public static final String ENTITY_NAME = "Subscriber";
     public static final Integer ENTITY_VERSION = 1;
-
     // Add your entity fields here
-    private String id; // business id (serialized UUID)
+
+    private String id; // business id
     private String email; // subscriber email
     private String name; // display name
     private String timezone; // subscriber timezone for logging
-    private String subscription_status; // active/paused/unsubscribed/archived
-    private String signup_date; // ISO timestamp
+    private String subscriptionStatus; // active/paused/unsubscribed/archived
+    private String signupDate; // ISO timestamp
     private Map<String, Object> preferences; // tags, other user prefs
-    private String last_delivery_id; // reference to last delivery record (serialized UUID)
+    private String lastDeliveryId; // reference to last delivery record
 
     public Subscriber() {}
 
@@ -34,11 +34,7 @@ public class Subscriber implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        // email and id must be present and not blank
-        if (id == null || id.isBlank()) return false;
-        if (email == null || email.isBlank()) return false;
-        // timezone should not be blank if present
-        if (timezone != null && timezone.isBlank()) return false;
-        return true;
+        return id != null && !id.isBlank()
+            && email != null && !email.isBlank();
     }
 }
