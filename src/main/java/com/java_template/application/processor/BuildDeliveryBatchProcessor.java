@@ -82,10 +82,10 @@ public class BuildDeliveryBatchProcessor implements CyodaProcessor {
             }
 
             int queued = 0;
-            Map<String, Object> jobParams = job.getParameters();
+            ObjectNode jobParams = job.getParameters();
             String globalSendDay = null;
-            if (jobParams != null && jobParams.get("globalSendDay") instanceof String) {
-                globalSendDay = (String) jobParams.get("globalSendDay");
+            if (jobParams != null && jobParams.has("globalSendDay")) {
+                globalSendDay = jobParams.path("globalSendDay").asText(null);
             }
 
             for (JsonNode subNode : activeSubscribers) {
@@ -150,9 +150,9 @@ public class BuildDeliveryBatchProcessor implements CyodaProcessor {
             }
 
             // update job resultSummary queued
-            var summary = job.getResultSummary();
+            ObjectNode summary = job.getResultSummary();
             if (summary != null) {
-                summary.put("queued", summary.getOrDefault("queued", 0) + queued);
+                summary.put("queued", summary.path("queued").asInt(0) + queued);
             }
 
             logger.info("BuildDeliveryBatchProcessor queued {} deliveries for Job {}", queued, job.getId());
