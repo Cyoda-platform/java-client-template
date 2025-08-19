@@ -2,6 +2,7 @@ package com.java_template.application.processor;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.extractionjob.version_1.ExtractionJob;
 import com.java_template.application.entity.report.version_1.Report;
 import com.java_template.application.entity.product.version_1.Product;
@@ -11,7 +12,6 @@ import com.java_template.common.service.EntityService;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
@@ -86,8 +86,9 @@ public class ReportGeneratorProcessor implements CyodaProcessor {
                 Product p = new Product();
                 if (node.has("productId")) p.setProductId(node.get("productId").asText());
                 if (node.has("technicalId")) p.setTechnicalId(node.get("technicalId").asText());
+                double sv = 0.0;
                 if (node.has("metrics") && node.get("metrics").has("salesVolume")) {
-                    double sv = node.get("metrics").get("salesVolume").asDouble(0.0);
+                    sv = node.get("metrics").get("salesVolume").asDouble(0.0);
                     ObjectNode rec = mapper.createObjectNode();
                     rec.put("productId", p.getProductId());
                     rec.put("salesVolume", sv);
@@ -109,7 +110,16 @@ public class ReportGeneratorProcessor implements CyodaProcessor {
             a.setFilename(report.getReportId() + "_summary.json");
             a.setUrl("internal://reports/" + a.getFilename());
             attachments.add(a);
-            report.setAttachments(attachments);
+            // convert to list of maps to match entity field type
+            ArrayList<java.util.Map<String,Object>> attMaps = new ArrayList<>();
+            for (Report.Attachment at : attachments) {
+                java.util.Map<String,Object> m = new java.util.HashMap<>();
+                m.put("type", at.getType());
+                m.put("url", at.getUrl());
+                m.put("filename", at.getFilename());
+                attMaps.add(m);
+            }
+            report.setAttachments(attMaps);
 
             // Persist report
             CompletableFuture<UUID> idFuture = entityService.addItem(Report.ENTITY_NAME, String.valueOf(Report.ENTITY_VERSION), report);
