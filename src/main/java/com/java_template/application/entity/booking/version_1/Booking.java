@@ -11,6 +11,7 @@ public class Booking implements CyodaEntity {
     public static final Integer ENTITY_VERSION = 1;
     // Add your entity fields here
 
+    private String technicalId; // internal id assigned by system
     private String bookingId; // source booking id from Restful Booker
     private String customerName; // guest name
     private String checkInDate; // ISO date
@@ -19,6 +20,7 @@ public class Booking implements CyodaEntity {
     private Boolean depositPaid; // deposit indicator
     private String status; // CONFIRMED CANCELLED
     private String source; // e.g., RestfulBooker
+    private String currency; // currency code, optional
     private String persistedAt; // ISO datetime
 
     public Booking() {}
