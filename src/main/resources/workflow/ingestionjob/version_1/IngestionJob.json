@@ -1,0 +1,134 @@
+{
+  "version": "1.0",
+  "name": "IngestionJob Workflow",
+  "desc": "Workflow for orchestrating ingestion jobs: validate, fetch, analyze, generate report, send report.",
+  "initialState": "PENDING",
+  "active": true,
+  "states": {
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "validate_job",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "StartFetchProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "validation_success",
+          "next": "FETCHING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidateJobCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "FETCHING": {
+      "transitions": [
+        {
+          "name": "fetch_complete",
+          "next": "ANALYZING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "FetchCompleteCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ANALYZING": {
+      "transitions": [
+        {
+          "name": "analyze_comments",
+          "next": "REPORTING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AnalyzeCommentsProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "REPORTING": {
+      "transitions": [
+        {
+          "name": "generate_report",
+          "next": "SENDING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "GenerateReportProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SENDING": {
+      "transitions": [
+        {
+          "name": "send_success",
+          "next": "COMPLETED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DeliverySuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "send_failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DeliveryFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    }
+  }
+}
