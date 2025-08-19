@@ -2,11 +2,11 @@ package com.java_template.application.entity.extractionjob.version_1;
 
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
+import com.java_template.common.util.Parameters;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import lombok.Data;
 
 import java.util.List;
-import java.util.Map;
 
 @Data
 public class ExtractionJob implements CyodaEntity {
@@ -14,15 +14,18 @@ public class ExtractionJob implements CyodaEntity {
     public static final Integer ENTITY_VERSION = 1;
     // Add your entity fields here
 
+    private String technicalId; // optional stored technical id
     private String jobId; // business id for the job
     private String schedule; // human/cron-like representation
     private String sourceUrl; // Pet Store API endpoint base
-    private Map<String, Object> parameters; // filters, formats to request
+    private Parameters parameters; // filters, formats to request
     private List<String> recipients; // email addresses to send report to
     private String reportTemplateId; // reference to chosen report layout
     private String lastRunAt; // timestamp of last attempt (ISO string)
     private String status; // PENDING, SCHEDULED, RUNNING, FAILED, COMPLETED, CANCELLED
     private String createdAt; // timestamp when created (ISO string)
+    private String failureReason; // human-readable failure code
+    private Boolean immediateStart; // optional
 
     public ExtractionJob() {}
 
