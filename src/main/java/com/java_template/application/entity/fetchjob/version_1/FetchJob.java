@@ -13,20 +13,19 @@ import java.util.Map;
 public class FetchJob implements CyodaEntity {
     public static final String ENTITY_NAME = "FetchJob";
     public static final Integer ENTITY_VERSION = 1;
-    // Add your entity fields here
 
-    private String technicalId; // serialized id used by API responses
-    private String name;
-    private String runDay;
-    private String runTime;
-    private String timezone;
-    private String recurrence;
-    private List<String> recipients;
+    // Add your entity fields here
+    private String name; // human name for the job
+    private String runDay; // e.g., Wednesday
+    private String runTime; // HH:mm
+    private String timezone; // timezone to interpret runTime
+    private String recurrence; // weekly
+    private List<String> recipients; // email list for reports
     private OffsetDateTime lastRunAt;
     private OffsetDateTime nextRunAt;
-    private String status;
-    private String triggeredBy;
-    private Map<String, Object> parameters;
+    private String status; // scheduled/paused/running/failed
+    private String triggeredBy; // manual/schedule
+    private Map<String, Object> parameters; // e.g., topNPopular
 
     public FetchJob() {}
 
