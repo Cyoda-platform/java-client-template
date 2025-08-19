@@ -19,8 +19,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -72,9 +74,16 @@ public class ReportGeneratorProcessor implements CyodaProcessor {
             Report report = new Report();
             report.setReportId("report_" + java.util.UUID.randomUUID().toString());
             report.setCreatedFromJobId(job.getJobId());
-            report.setGeneratedAt(OffsetDateTime.now().toString());
+            OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+            report.setGeneratedAt(now.toString());
             report.setStatus("COMPILING");
             report.setRecipients(job.getRecipients());
+
+            // Set reporting period: previous 7 days ending yesterday
+            String periodEnd = now.minusDays(1).toLocalDate().toString();
+            String periodStart = now.minusDays(7).toLocalDate().toString();
+            report.setPeriodStart(periodStart);
+            report.setPeriodEnd(periodEnd);
 
             // Build simple summary metrics: top sellers and low movers
             ArrayList<ObjectNode> topSellers = new ArrayList<>();
@@ -103,22 +112,14 @@ public class ReportGeneratorProcessor implements CyodaProcessor {
             summary.putPOJO("restockCandidates", new ArrayList<>());
             report.setSummaryMetrics(mapper.convertValue(summary, java.util.Map.class));
 
-            // Attachments: minimal prototype - JSON summary
-            ArrayList<Report.Attachment> attachments = new ArrayList<>();
-            Report.Attachment a = new Report.Attachment();
-            a.setType("JSON");
-            a.setFilename(report.getReportId() + "_summary.json");
-            a.setUrl("internal://reports/" + a.getFilename());
-            attachments.add(a);
-            // convert to list of maps to match entity field type
-            ArrayList<java.util.Map<String,Object>> attMaps = new ArrayList<>();
-            for (Report.Attachment at : attachments) {
-                java.util.Map<String,Object> m = new java.util.HashMap<>();
-                m.put("type", at.getType());
-                m.put("url", at.getUrl());
-                m.put("filename", at.getFilename());
-                attMaps.add(m);
-            }
+            // Attachments: minimal prototype - JSON summary (map entries)
+            ArrayList<Map<String,Object>> attMaps = new ArrayList<>();
+            Map<String,Object> m = new java.util.HashMap<>();
+            m.put("type", "JSON");
+            m.put("filename", report.getReportId() + "_summary.json");
+            m.put("url", "internal://reports/" + report.getReportId() + "_summary.json");
+            m.put("size", 0);
+            attMaps.add(m);
             report.setAttachments(attMaps);
 
             // Persist report
