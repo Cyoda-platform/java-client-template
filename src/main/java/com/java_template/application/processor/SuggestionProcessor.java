@@ -2,7 +2,7 @@ package com.java_template.application.processor;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.java_template.application.entity.flightSearch.version_1.FlightSearch;
+import com.java_template.application.entity.flightsearch.version_1.FlightSearch;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
@@ -13,8 +13,6 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-
-import java.time.OffsetDateTime;
 
 @Component
 public class SuggestionProcessor implements CyodaProcessor {
@@ -52,17 +50,15 @@ public class SuggestionProcessor implements CyodaProcessor {
     private FlightSearch processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<FlightSearch> context) {
         FlightSearch entity = context.entity();
         try {
-            logger.debug("Generating suggestions for search {}", entity.getTechnicalId());
-            ObjectNode suggestions = objectMapper.createObjectNode();
-            suggestions.put("message", "No direct results. Try nearby airports or flexible dates +/- 3 days.");
-            suggestions.put("generatedAt", OffsetDateTime.now().toString());
-            entity.setSuggestions(suggestions);
-            entity.setUpdatedAt(OffsetDateTime.now().toString());
+            logger.debug("Generating suggestions for search {}", entity.getSearchId());
+            // The FlightSearch entity model does not include a suggestions object. We'll provide a user-friendly hint in the errorMessage field instead.
+            String suggestion = "No direct results. Try nearby airports or flexible dates +/- 3 days.";
+            entity.setErrorMessage(suggestion);
             return entity;
         } catch (Exception ex) {
-            logger.error("Error generating suggestions for {}", entity.getTechnicalId(), ex);
+            logger.error("Error generating suggestions for {}", entity.getSearchId(), ex);
+            entity.setStatus("ERROR");
             entity.setErrorMessage("Suggestion generation failed: " + ex.getMessage());
-            entity.setUpdatedAt(OffsetDateTime.now().toString());
             return entity;
         }
     }
