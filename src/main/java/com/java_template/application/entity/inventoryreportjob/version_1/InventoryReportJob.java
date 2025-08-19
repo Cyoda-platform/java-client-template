@@ -25,6 +25,9 @@ public class InventoryReportJob implements CyodaEntity {
     private Map<String, Object> schedule;
     private OffsetDateTime createdAt;
     private String status; // PENDING/IN_PROGRESS/COMPLETED/FAILED
+    private String reportRef; // added so processors can reference intermediate report
+    private Map<String, Object> metadata; // optional metadata to support legacy formats
+    private OffsetDateTime retentionUntil; // optional retention
 
     public InventoryReportJob() {}
 
