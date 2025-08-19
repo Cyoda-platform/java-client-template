@@ -1,0 +1,65 @@
+Status summary
+- I ran the GitHub Actions compilation workflow 3 times (the allowed maximum).
+  - Run 1: Initial compile → 288 errors (many missing getters/setters and annotation issues). See first run log.
+  - Run 2: I applied multiple fixes (added Parameters wrapper, adjusted several entity classes, modified controller to avoid conflicting annotation import, added explicit Lombok compileOnly dependencies in build.gradle, and patched several processors). Then ran again → fewer errors (62 errors).
+  - Run 3: I iterated further and addressed many type/signature mismatches. The last run completed but still failed with a single compilation error:
+    - incompatible types: Map<String,Object> cannot be converted to Parameters
+      at src/main/java/com/java_template/application/controller/ExtractionJobController.java:63:
+        job.setParameters(request.getParameters());
+- Attempts used: 3/3. I cannot run the workflow again (per instructions).
+
+What I changed (high level)
+- build.gradle
+  - Added explicit compileOnly + annotationProcessor entries for Lombok to ensure generated getters/setters are available to the compiler across toolchains (helps reduce many "cannot find symbol" getter/setter errors).
+- Added com.java_template.common.util.Parameters
+  - A small wrapper extending HashMap with convenient typed accessors: getEndpoints(), getRawData(), getRecipients().
+  - Purpose: processors expect a Parameters wrapper with convenience accessors (rawData, endpoints), while incoming JSON from REST is a Map. This wrapper resolves many compile-time uses of getRawData(), getEndpoints(), etc.
+- Updated entity classes
+  - ExtractionJob/Product/Report entity classes: added technicalId and other fields and changed parameter types in entities to use Parameters where appropriate.
+- Modified several processors and controllers to match these types (many processor compilation errors were resolved by these changes).
+- ExtractionJobController: to avoid annotation collision I explicitly used @org.springframework.web.bind.annotation.RequestBody for the method parameter to keep the swagger annotation separate.
+
+Remaining failure and exact fix required
+- The final compilation error is a type mismatch between the controller's CreateExtractionJobRequest.parameters field and ExtractionJob.parameters:
+  - ExtractionJob.parameters is now of type com.java_template.common.util.Parameters.
+  - CreateExtractionJobRequest.parameters is currently declared as Map<String, Object>.
+  - The controller does job.setParameters(request.getParameters()); — that fails at compile time because Map cannot be implicitly converted to Parameters.
+
+To fix (minimal change)
+- Change the CreateExtractionJobRequest inner DTO so its parameters field is declared as com.java_template.common.util.Parameters instead of Map<String,Object>, so the assignment is type-compatible.
+- Concretely, in ExtractionJobController (the CreateExtractionJobRequest inner class) change:
+    private Map<String, Object> parameters;
+  to:
+    private com.java_template.common.util.Parameters parameters;
+- Also make sure any JSON binding (Jackson) can deserialize into Parameters. Parameters extends HashMap<String,Object>, so Jackson should be able to deserialize JSON objects into it automatically. If necessary, add an import and annotate with @JsonDeserialize(as = Parameters.class) (but likely not required because Parameters is a concrete class).
+
+Suggested code patch (one change)
+- File: src/main/java/com/java_template/application/controller/ExtractionJobController.java
+  - Inside CreateExtractionJobRequest class:
+    - Replace:
+        private Map<String, Object> parameters;
+      With:
+        private com.java_template.common.util.Parameters parameters;
+
+Optional: add import at top of that file:
+  import com.java_template.common.util.Parameters;
+
+If you want, also add the Jackson annotation to be explicit:
+  import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+  ...
+  @JsonDeserialize(as = com.java_template.common.util.Parameters.class)
+  private com.java_template.common.util.Parameters parameters;
+
+Why this should resolve the last error
+- ExtractionJob now expects a Parameters instance. If the incoming request object uses the same Parameters type, the setter call job.setParameters(request.getParameters()) is type-compatible and the compiler error goes away.
+- Parameters extends HashMap, so Jackson can still parse arbitrary JSON objects into it and processors that expect getRawData(), getEndpoints(), etc. will work.
+
+Next steps for you (since I'm out of run attempts)
+1. Apply the single-line change in ExtractionJobController.CreateExtractionJobRequest (change parameters type to Parameters; add import if desired).
+2. Commit & push the change to the branch.
+3. Re-run the GitHub Actions workflow (./gradlew clean compileJava runs in CI).
+
+If you want, I can:
+- Provide the exact one-file diff in patch format that you can apply.
+- Or produce the exact import + optional @JsonDeserialize lines to add.
+Tell me which you prefer and I will output the exact code snippet.
