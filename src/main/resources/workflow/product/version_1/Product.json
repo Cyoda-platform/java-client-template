@@ -1,0 +1,109 @@
+{
+  "version": "1.0",
+  "name": "Product Workflow",
+  "desc": "Workflow for Product lifecycle: metrics calculation, flagging, review and archival",
+  "initialState": "NEW",
+  "active": true,
+  "states": {
+    "NEW": {
+      "transitions": [
+        {
+          "name": "calculate_metrics",
+          "next": "METRICS_CALCULATED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "MetricsCalculatorProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "METRICS_CALCULATED": {
+      "transitions": [
+        {
+          "name": "flag_if_needed",
+          "next": "FLAGGED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "FlaggingCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "no_flags",
+          "next": "ACTIVE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "NoFlagCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "FLAGGED": {
+      "transitions": [
+        {
+          "name": "manual_review",
+          "next": "REVIEW",
+          "manual": true
+        }
+      ]
+    },
+    "REVIEW": {
+      "transitions": [
+        {
+          "name": "approve",
+          "next": "ACTIVE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ApproveReviewProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "archive",
+          "next": "ARCHIVED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RejectArchiveProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "manual_archive",
+          "next": "ARCHIVED",
+          "manual": true
+        }
+      ]
+    },
+    "ARCHIVED": {
+      "transitions": []
+    }
+  }
+}
