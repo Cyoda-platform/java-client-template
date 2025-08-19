@@ -1,0 +1,201 @@
+{
+  "version": "1.0",
+  "name": "LookupJob Workflow",
+  "desc": "Workflow for LookupJob entity orchestrating validation, fetching, retry and persistence",
+  "initialState": "PENDING",
+  "active": true,
+  "states": {
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "start_validation",
+          "next": "VALIDATING",
+          "manual": false
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "to_in_progress",
+          "next": "IN_PROGRESS",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidateInputCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "to_invalid_input",
+          "next": "INVALID_INPUT",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.userId",
+            "operation": "LESS_OR_EQUAL",
+            "value": 0
+          }
+        }
+      ]
+    },
+    "IN_PROGRESS": {
+      "transitions": [
+        {
+          "name": "invoke_fetch",
+          "next": "FETCHED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FetchUserProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "EXPONENTIAL"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "FETCHED": {
+      "transitions": [
+        {
+          "name": "fetch_to_success",
+          "next": "SUCCESS",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.fetchResponse.status",
+            "operation": "EQUALS",
+            "value": 200
+          }
+        },
+        {
+          "name": "fetch_to_not_found",
+          "next": "NOT_FOUND",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.fetchResponse.status",
+            "operation": "EQUALS",
+            "value": 404
+          }
+        },
+        {
+          "name": "fetch_to_error",
+          "next": "ERROR",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.fetchResponse.status",
+            "operation": "GREATER_OR_EQUAL",
+            "value": 500
+          }
+        }
+      ]
+    },
+    "SUCCESS": {
+      "transitions": [
+        {
+          "name": "persist_user_and_complete",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PersistUserProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "NOT_FOUND": {
+      "transitions": [
+        {
+          "name": "persist_not_found_and_complete",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PersistErrorProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "INVALID_INPUT": {
+      "transitions": [
+        {
+          "name": "persist_invalid_input_and_complete",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PersistErrorProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ERROR": {
+      "transitions": [
+        {
+          "name": "retry_if_allowed",
+          "next": "IN_PROGRESS",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "MaxRetryCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          },
+          "processors": [
+            {
+              "name": "RetrySchedulerProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 1000
+              }
+            }
+          ]
+        },
+        {
+          "name": "persist_error_and_complete",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PersistErrorProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": []
+    }
+  }
+}
