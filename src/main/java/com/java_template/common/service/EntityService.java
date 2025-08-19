@@ -2,6 +2,7 @@ package com.java_template.common.service;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.List;
 import java.util.Optional;
@@ -51,8 +52,7 @@ public interface EntityService {
 
     //     Delete all items by entityModel and entityVersion.
     CompletableFuture<ArrayNode> deleteItems(String entityModel, String entityVersion);
+
+    // Provide access to configured ObjectMapper for conversions
+    ObjectMapper objectMapper();
 }
-
-
-
-
