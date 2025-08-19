@@ -14,14 +14,14 @@ public class Book implements CyodaEntity {
     // Add your entity fields here
 
     private Integer id; // API source id
-    private String title;
-    private String description;
-    private Integer pageCount;
-    private String excerpt;
-    private OffsetDateTime publishDate;
-    private OffsetDateTime retrievedAt;
-    private String sourceStatus;
-    private Double popularityScore;
+    private String title; // book title
+    private String description; // full description
+    private Integer pageCount; // number of pages
+    private String excerpt; // short excerpt
+    private OffsetDateTime publishDate; // publication date
+    private OffsetDateTime retrievedAt; // when fetched
+    private String sourceStatus; // ok/missing/invalid
+    private Double popularityScore; // computed score for ranking
 
     public Book() {}
 
