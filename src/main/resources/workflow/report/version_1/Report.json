@@ -1,0 +1,56 @@
+{
+  "version": "1.0",
+  "name": "Report Workflow",
+  "desc": "Workflow for generated Report",
+  "initialState": "GENERATING",
+  "active": true,
+  "states": {
+    "GENERATING": {
+      "transitions": [
+        {
+          "name": "to_validating",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PersistReportProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "to_ready",
+          "next": "READY",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ReportValidationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "READY": {
+      "transitions": [
+        {
+          "name": "to_published",
+          "next": "PUBLISHED",
+          "manual": true
+        }
+      ]
+    },
+    "PUBLISHED": {
+      "transitions": []
+    }
+  }
+}
