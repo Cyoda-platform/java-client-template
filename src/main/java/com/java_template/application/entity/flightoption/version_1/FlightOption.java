@@ -25,6 +25,7 @@ public class FlightOption implements CyodaEntity {
     private String fareRules; // summary
     private Integer seatAvailability;
     private String status; // e.g., CREATED|READY|UNAVAILABLE|ARCHIVED
+    private String errorMessage; // optional, populated on ERROR
 
     public FlightOption() {}
 
