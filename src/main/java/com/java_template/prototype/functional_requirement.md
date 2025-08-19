@@ -1,146 +1,161 @@
-### Final Functional Requirements (as confirmed)
+# Final Functional Requirements (updated)
+
+Last updated: 2025-08-19
+
+Summary: This document defines the entities, workflows, processors, criteria, pseudocode and API rules for the Cat Facts delivery platform. It also resolves previous inconsistencies around retry semantics and delivery records by explicitly defining the Delivery record and retry semantics.
 
 ---
 
-### 1. Entity Definitions
-```
-Subscriber:
-- id: String (business id)
-- email: String (subscriber email)
-- name: String (display name)
-- timezone: String (subscriber timezone for logging)
-- subscription_status: String (active/paused/unsubscribed/archived)
-- signup_date: String (ISO timestamp)
-- preferences: Object (tags, other user prefs)
-- last_delivery_id: String (reference to last delivery record)
+## 1. Entities
 
-CatFact:
-- id: String (business id)
-- fact_text: String (the cat fact content)
-- source: String (api/source identifier)
-- source_created_at: String (original timestamp from source)
-- fetched_at: String (when ingested)
-- language: String
-- tags: Array of String
-- curated_by: String (user id if manually edited)
+The system uses the following persistent entities (business/operational records). Delivery and OutboundEvent are explicit system records used by the delivery workflow.
+
+### Subscriber
+- id: String (business id / technicalId)
+- email: String
+- name: String
+- timezone: String (IANA timezone string; used for schedule calculations)
+- subscription_status: String (one of: active, paused, unsubscribed, archived)
+- signup_date: String (ISO 8601 timestamp)
+- preferences: Object (e.g., { tags: [String], ... })
+- last_delivery_id: String (reference to last Delivery record id)
+- metadata: Object (optional free-form data)
+
+Notes: Subscribers created via POST /subscribers use single-click (single opt-in) and become active immediately unless validation fails or email is blacklisted.
+
+---
+
+### CatFact
+- id: String (business id / technicalId)
+- fact_text: String (content)
+- source: String (identifier of the source or ingestion adapter)
+- source_created_at: String (timestamp as provided by source, if available)
+- fetched_at: String (ISO timestamp when ingested into the platform)
+- language: String (ISO language code)
+- tags: Array[String]
+- curated_by: String (user id if manually curated)
 - curated_at: String (ISO timestamp)
-- status: String (active/archived)
+- status: String (one of: active, archived, pending_curation)
 
-Job:
-- id: String (business id)
-- jobType: String (INGEST_FACTS or DELIVER_WEEKLY or OTHER)
-- parameters: Object (job-specific params e.g., sources, batchSize, globalSendDay)
-- scheduledAt: String (ISO timestamp)
-- status: String (PENDING/RUNNING/COMPLETED/FAILED)
+Notes: CatFacts are created by ingestion jobs only. They go through validation, dedupe and curation before becoming active.
+
+---
+
+### Job
+- id: String (business id / technicalId)
+- jobType: String (e.g., INGEST_FACTS, DELIVER_WEEKLY, OTHER)
+- parameters: Object (job-specific parameters; e.g., sources, batchSize, globalSendDay)
+- scheduledAt: String (ISO timestamp when job is intended to run; optional for immediate jobs)
+- status: String (PENDING, RUNNING, COMPLETED, FAILED)
 - createdAt: String (ISO timestamp)
-- resultSummary: Object (counts: processed, failed, sent)
-- retriesPolicy: Object (maxRetries: Integer)  // job-level override; default 2 for sends
-```
+- resultSummary: Object (counts and other metrics: processed, failed, queued, sent)
+- retriesPolicy: Object (optional override; e.g., { maxRetries: Integer })
+
+Notes: When omitted, retriesPolicy defaults are applied. For delivery jobs the platform default is used unless overridden.
+
+---
+
+### Delivery (system record — explicit)
+- id: String (technical id)
+- job_id: String (originating job id, if created by a job; null for one-off scheduled deliveries)
+- subscriber_id: String
+- fact_id: String
+- scheduled_at: String (ISO timestamp)
+- attempts: Integer (number of send attempts already performed; starts at 0)
+- status: String (PENDING, SCHEDULED, SENT, FAILED, CANCELLED)
+- sent_at: String (ISO timestamp when successfully sent)
+- last_error: Object (optional; { code, message })
+- retries_policy: Object (copied from job.retriesPolicy at creation time or platform default; e.g., { maxRetries: Integer })
+
+Notes: Delivery is the system's unit of work for sending a CatFact to a subscriber. It records attempts and the retries policy used for that delivery. Copying the policy at creation time avoids coupling to later job changes.
+
+---
+
+### OutboundEvent (system record)
+- id: String
+- delivery_id: String
+- event_type: String (SendSucceeded, SendFailed, Bounce, etc.)
+- timestamp: String
+- details: Object
+
+Notes: OutboundEvent records are used to compute KPIs (e.g., total sends) and for audit/reporting.
+
+---
+
+## 2. Global Rules & Clarifications
+
+- Single-click subscription: POST /subscribers is single opt-in. A validated subscriber becomes active immediately.
+- Global send day: For weekly deliveries a single global send day may be specified on the delivery Job via parameters.globalSendDay. If absent, the platform default send day is used.
+- Retry semantics (clarified): retriesPolicy.maxRetries is defined as "the maximum number of retry attempts allowed after the initial attempt." Default: 2. That means default behavior allows up to 3 total attempts (1 initial + 2 retries).
+- Delivery retains the retries policy at creation time (delivery.retries_policy) so retry logic uses the snapshot of policy that applied when the delivery was enqueued.
+- Reporting KPI: primary send KPI is total successful sends (SENT), computed from OutboundEvent or Delivery records.
+- POST endpoints: POST /subscribers and POST /jobs persist entities and return only a technicalId in the response body. They also immediately emit events that start workflows.
+
+---
+
+## 3. Entity Workflows (state machines)
+
+### Subscriber workflow
+1. Created → validated → active (single opt-in)
+2. Send welcome email
+3. Schedule weekly deliveries (either by platform default schedule or in response to a DELIVER_WEEKLY job)
+4. Pause / unsubscribe (user action)
+5. Bounce / problem handling → archive when thresholds crossed
+6. Archive for GDPR removal or repeated failures
+
+State diagram (conceptual): CREATED → VALIDATED → WELCOME_SENT → ACTIVE → SCHEDULED → UNSUBSCRIBED/ARCHIVED
+
+Processors (main): ValidateSubscriberProcessor, SendWelcomeEmailProcessor, ScheduleDeliveryProcessor, ArchiveSubscriberProcessor
+Criteria (main): BounceThresholdCriterion, ActiveEligibilityCriterion
 
 Notes:
-- Three entities: Subscriber, CatFact, Job (no additional entities).
-- Single global send day is provided via Job.parameters.globalSendDay for delivery jobs; platform default used if omitted.
-- Retry policy default = 2 for send attempts; can be overridden per job via Job.retriesPolicy.
+- ScheduleDeliveryProcessor when called from subscriber creation uses platform default send day. When deliveries are created as part of a DELIVER_WEEKLY job, BuildDeliveryBatchProcessor is responsible for per-subscriber Delivery creation and scheduling.
 
 ---
 
-### 2. Entity workflows
+### CatFact workflow
+1. Ingested (created by an INGEST_FACTS job)
+2. Validation (text length, language, content heuristics)
+3. Deduplication (against normalized text or source id)
+4. Auto-approve or send to manual curation
+5. Active if approved; archived if duplicate or rejected
 
-Subscriber workflow (single-click subscription; active immediately; global send day scheduling)
-1. Initial State: Created and validated → subscription_status = active (single opt-in)
-2. Welcome: Send welcome email (automatic)
-3. Scheduled: Subscriber is eligible and scheduled for weekly send on the global send day (automatic)
-4. Pause/Unsubscribe: Manual user action (manual)
-5. Bounce/Problem Handling: If bounces exceed threshold or hard-bounce, mark archived (automatic)
-6. Archive: GDPR removal or repeated failures (manual/automatic)
+Processors: ValidateFactProcessor, AutoApproveProcessor, CurateFactProcessor, ArchiveStaleFactsProcessor
+Criteria: DedupeCriterion, LanguageSupportedCriterion
 
-```mermaid
-stateDiagram-v2
-    [*] --> CREATED
-    CREATED --> VALIDATED : ValidateSubscriberProcessor
-    VALIDATED --> WELCOME_SENT : SendWelcomeEmailProcessor
-    WELCOME_SENT --> ACTIVE : MarkActiveProcessor
-    ACTIVE --> SCHEDULED : ScheduleDeliveryProcessor
-    SCHEDULED --> UNSUBSCRIBED : UnsubscribeProcessor
-    ACTIVE --> ARCHIVED : ArchiveSubscriberProcessor
-    UNSUBSCRIBED --> ARCHIVED : ArchiveSubscriberProcessor
-    ARCHIVED --> [*]
-```
-
-Processors & Criteria (Subscriber)
-- Processors (4): ValidateSubscriberProcessor, SendWelcomeEmailProcessor, ScheduleDeliveryProcessor, ArchiveSubscriberProcessor
-- Criteria (1-2): BounceThresholdCriterion, ActiveEligibilityCriterion
+Notes: Persisting a CatFact via the ingestion job triggers its validation/dedupe/curation pipeline.
 
 ---
 
-CatFact workflow (ingested by ingestion job; validation, dedupe, curation)
-1. Initial State: Ingested (created during INGEST_FACTS job)
-2. Validation: Validate text length and language (automatic)
-3. Deduplication: Check duplicates (automatic)
-4. Curation: Auto-approve if passes heuristics; otherwise send to manual curation (automatic/manual)
-5. Active/Archived: Active if approved; archived if duplicate or rejected
+### Job workflow
+1. Job created (status=PENDING)
+2. Prepare (validate parameters, set retriesPolicy default if missing)
+3. Execute: job-specific processors run (INGEST_FACTS → FetchFactsProcessor; DELIVER_WEEKLY → BuildDeliveryBatchProcessor)
+4. Monitor / retry (job-level orchestration and per-delivery retry semantics as defined)
+5. Complete or fail and emit reporting
 
-```mermaid
-stateDiagram-v2
-    [*] --> INGESTED
-    INGESTED --> VALIDATED : ValidateFactProcessor
-    VALIDATED --> DEDUPED : DedupeCriterion
-    DEDUPED --> AUTO_APPROVED : AutoApproveProcessor
-    DEDUPED --> CURATION_PENDING : CurateFactProcessor
-    CURATION_PENDING --> ACTIVE : ApproveFactProcessor
-    CURATION_PENDING --> ARCHIVED : RejectFactProcessor
-    AUTO_APPROVED --> ACTIVE : MarkActiveProcessor
-    ACTIVE --> ARCHIVED : ArchiveStaleFactsProcessor
-    ARCHIVED --> [*]
-```
+Processors: PrepareJobProcessor, StartJobProcessor, FetchFactsProcessor, BuildDeliveryBatchProcessor, ReportingProcessor
+Criteria: CheckCompleteCriterion, RetryAllowedCriterion
 
-Processors & Criteria (CatFact)
-- Processors (4): ValidateFactProcessor, AutoApproveProcessor, CurateFactProcessor, ArchiveStaleFactsProcessor
-- Criteria (2): DedupeCriterion, LanguageSupportedCriterion
+Notes:
+- PrepareJobProcessor must populate job.retriesPolicy when absent (default { maxRetries: 2 }).
+- BuildDeliveryBatchProcessor creates Delivery records and copies job.retriesPolicy into each delivery.retries_policy.
 
 ---
 
-Job workflow (orchestration for ingestion & delivery; default retry policy for sends = 2)
-1. Initial State: Job created with status PENDING (POST /jobs triggers event)
-2. Preparation: Validate parameters, set retriesPolicy (automatic)
-3. Execution:
-   - INGEST_FACTS: FetchFactsProcessor creates CatFact entities (persist triggers CatFact workflow)
-   - DELIVER_WEEKLY: BuildDeliveryBatchProcessor creates per-subscriber delivery records and enqueues SendEmailProcessor tasks
-4. Monitoring / Retries: Retry send tasks up to retriesPolicy.maxRetries (default 2) (automatic)
-5. Completion: Update status to COMPLETED or FAILED and fill resultSummary
-6. Notification: Emit reporting/send metrics (system collects sends KPI)
+## 4. Pseudocode for processors and criteria (updated & consistent)
 
-```mermaid
-stateDiagram-v2
-    [*] --> PENDING
-    PENDING --> PREPARING : PrepareJobProcessor
-    PREPARING --> RUNNING : StartJobProcessor
-    RUNNING --> MONITORING : MonitorJobProcessor
-    MONITORING --> CHECK_RESULTS : CheckCompleteCriterion
-    CHECK_RESULTS --> FAILED : if not job.success
-    CHECK_RESULTS --> COMPLETED : if job.success
-    COMPLETED --> REPORTING : ReportingProcessor
-    FAILED --> REPORTING : ReportingProcessor
-    REPORTING --> [*]
-```
-
-Processors & Criteria (Job)
-- Processors (5): PrepareJobProcessor, StartJobProcessor, FetchFactsProcessor, BuildDeliveryBatchProcessor, ReportingProcessor
-- Criteria (2): CheckCompleteCriterion, RetryAllowedCriterion
-
----
-
-### 3. Pseudo code for processor and criterion classes
+All pseudocode uses the clarified retry semantics: retriesPolicy.maxRetries = allowed additional retries after initial attempt. A delivery's maxAttempts = 1 + retries_policy.maxRetries.
 
 ValidateSubscriberProcessor
 ```
 process(subscriber):
   if isValidEmail(subscriber.email) and not isBlacklisted(subscriber.email):
-    subscriber.subscription_status = active    // single-click
+    subscriber.subscription_status = "active"    // single-click
     subscriber.signup_date = now()
     persist(subscriber)
   else:
-    subscriber.subscription_status = archived
+    subscriber.subscription_status = "archived"
     persist(subscriber)
     emit ErrorEvent(subscriber.id, reason)
 ```
@@ -149,17 +164,33 @@ SendWelcomeEmailProcessor
 ```
 process(subscriber):
   emailId = sendEmail(to=subscriber.email, template=WELCOME)
-  recordOutbound(emailId, entity=Subscriber, entityId=subscriber.id)
-  // No confirmation required; subscriber already active
+  recordOutbound(emailId, entity="Subscriber", entityId=subscriber.id)
+  // Subscriber remains active; no confirmation required
 ```
 
 ScheduleDeliveryProcessor
 ```
-process(subscriber, job):
-  // Global single send day:
-  sendDay = job.parameters.globalSendDay or platformDefaultSendDay
+process(subscriber):
+  // Called on subscriber creation or when user changes preferences
+  sendDay = platformDefaultSendDay
   nextSendDate = calculateNextDate(sendDay, subscriber.timezone)
-  createDeliveryRecord(subscriberId=subscriber.id, scheduledAt=nextSendDate, status=PENDING)
+  createDeliveryRecord(
+    subscriber_id=subscriber.id,
+    fact_id=null,
+    scheduled_at=nextSendDate,
+    status="SCHEDULED",
+    attempts=0,
+    retries_policy=platformDefaultRetriesPolicy
+  )
+```
+
+PrepareJobProcessor
+```
+process(job):
+  validate(job.parameters)
+  if job.retriesPolicy is null:
+    job.retriesPolicy = { maxRetries: 2 } // platform default
+  persist(job)
 ```
 
 FetchFactsProcessor
@@ -178,29 +209,44 @@ BuildDeliveryBatchProcessor
 process(job):
   subscribers = findActiveSubscribers()
   for s in subscribers:
-    fact = selectFactForSubscriber(s)
-    delivery = createDeliveryRecord(subscriberId=s.id, factId=fact.id, scheduledAt=job.scheduledAt, attempts=0)
+    fact = selectFactForSubscriber(s) // business logic for personalization
+    delivery = createDeliveryRecord(
+      job_id=job.id,
+      subscriber_id=s.id,
+      fact_id=fact.id,
+      scheduled_at=job.scheduledAt or computeFromGlobalSendDay(job.parameters.globalSendDay or platformDefaultSendDay, s.timezone),
+      attempts=0,
+      status="PENDING",
+      retries_policy=job.retriesPolicy or { maxRetries: 2 }
+    )
     enqueueSendTask(delivery.id)
   updateJobResultSummary(job, queued = count(subscribers))
 ```
 
-SendEmailProcessor
+SendEmailProcessor (delivery-level retry logic)
 ```
 process(delivery):
+  // delivery.attempts counts attempts already performed
   delivery.attempts += 1
-  result = sendEmail(to=delivery.subscriber.email, body=delivery.fact.fact_text)
+  persist(delivery.attempts)
+
+  result = sendEmail(to=getSubscriberEmail(delivery.subscriber_id), body=getFactText(delivery.fact_id))
+
   if result.success:
-    delivery.status = SENT
+    delivery.status = "SENT"
     delivery.sent_at = now()
     persist(delivery)
-    emit SendSucceededEvent(delivery.id)
+    emit OutboundEvent(type="SendSucceeded", delivery_id=delivery.id)
   else:
-    if delivery.attempts <= delivery.job.retriesPolicy.maxRetries (default 2):
+    maxAttempts = 1 + (delivery.retries_policy.maxRetries or 2)
+    if delivery.attempts < maxAttempts:
+      // schedule another attempt with backoff
       scheduleRetry(delivery.id, backoff=computeBackoff(delivery.attempts))
     else:
-      delivery.status = FAILED
+      delivery.status = "FAILED"
+      delivery.last_error = { code: result.errorCode, message: result.errorMessage }
       persist(delivery)
-      emit SendFailedEvent(delivery.id, reason=result.error)
+      emit OutboundEvent(type="SendFailed", delivery_id=delivery.id, details=delivery.last_error)
 ```
 
 DedupeCriterion
@@ -212,53 +258,75 @@ evaluate(catFact):
 RetryAllowedCriterion
 ```
 evaluate(delivery):
-  return delivery.attempts < delivery.job.retriesPolicy.maxRetries
+  maxAttempts = 1 + (delivery.retries_policy.maxRetries or 2)
+  return delivery.attempts < maxAttempts
 ```
 
 ReportingProcessor
 ```
 process(job):
-  // Collects sends KPI only
-  sends = countOutboundEvents(job.id, type=SendSucceededEvent)
+  // Collects sends KPI
+  sends = countOutboundEvents(job.id, type="SendSucceeded")
   job.resultSummary.sent = sends
   persist(job)
   emit JobReportAvailable(job.id)
 ```
 
-Notes:
-- Send retries are constrained to 2 by default (user-specified). The job may override via retriesPolicy.
-- Delivery records and outbound events are used to compute sends KPI.
+Notes on retry/backoff:
+- computeBackoff(attemptNumber) implements exponential backoff (e.g., base 60s * 2^(attemptNumber-1)) or another configured strategy.
+- Delivery.retries_policy is authoritative for the delivery's retry behavior.
 
 ---
 
-### 4. API Endpoints Design Rules (finalized)
+## 5. Processors & Criteria (summary)
 
-Rules enforced:
-- POST endpoints create orchestration entities (and subscribers) and must return only technicalId.
-- POST /subscribers uses single opt-in (subscriber becomes active immediately).
-- Global send day is provided in Job.parameters.globalSendDay for delivery jobs; otherwise platform default is used.
-- Retry policy default = 2 for send tasks; can be overridden per job through Job.retriesPolicy.
-- GET endpoints only return stored results. GET by technicalId present for POST-created entities.
-- Reporting focuses on sends KPI (available via job.resultSummary and dedicated report endpoint).
+Processors (key):
+- ValidateSubscriberProcessor
+- SendWelcomeEmailProcessor
+- ScheduleDeliveryProcessor
+- ArchiveSubscriberProcessor
+- ValidateFactProcessor
+- AutoApproveProcessor
+- CurateFactProcessor
+- ArchiveStaleFactsProcessor
+- PrepareJobProcessor
+- StartJobProcessor
+- FetchFactsProcessor
+- BuildDeliveryBatchProcessor
+- SendEmailProcessor
+- ReportingProcessor
 
-API endpoints
+Criteria (key):
+- BounceThresholdCriterion
+- ActiveEligibilityCriterion
+- DedupeCriterion
+- LanguageSupportedCriterion
+- CheckCompleteCriterion
+- RetryAllowedCriterion
 
-1) Create subscriber (single-click subscription)
+---
+
+## 6. API Endpoints (rules & examples)
+
+General rules:
+- POST endpoints create orchestration entities and return only { technicalId: "..." } in the response body.
+- POST /subscribers uses single opt-in and the subscriber becomes active immediately when validation passes.
+- Delivery jobs may specify parameters.globalSendDay; if absent, platform default is used.
+- Job-level retriesPolicy overrides platform defaults; default maxRetries = 2 (i.e., up to 3 attempts total).
+- GET endpoints return stored entities by technicalId.
+- Reporting endpoints expose send KPIs computed from OutboundEvent/Delivery records.
+
+API specification (representative):
+
+1) Create subscriber
 - POST /subscribers
-  - Request JSON:
-    {
-      "email": "string",
-      "name": "string",
-      "timezone": "string",
-      "preferences": { "tags": ["string"] }
-    }
-  - Response JSON:
-    { "technicalId": "string" }
+  - Request JSON: { "email": "string", "name": "string", "timezone": "string", "preferences": { "tags": ["string"] } }
+  - Response JSON: { "technicalId": "string" }
 
 - GET /subscribers/{technicalId}
-  - Response JSON: Full Subscriber entity (as defined in Entity Definitions)
+  - Response JSON: Full Subscriber entity
 
-2) Create job (orchestration)
+2) Create job
 - POST /jobs
   - Request JSON:
     {
@@ -267,72 +335,53 @@ API endpoints
       "parameters": {
          "sources": ["https://api.example.com/facts"],
          "batchSize": 100,
-         "globalSendDay": "Monday"   // optional; system default if absent
+         "globalSendDay": "Monday"  // optional
       },
-      "retriesPolicy": { "maxRetries": 2 } // optional; default 2 for deliveries
+      "retriesPolicy": { "maxRetries": 2 } // optional; default is 2
     }
-  - Response JSON:
-    { "technicalId": "string" }
+  - Response JSON: { "technicalId": "string" }
 
 - GET /jobs/{technicalId}
   - Response JSON: Full Job entity including resultSummary (sends count)
 
-3) Read a CatFact (read-only; CatFacts are created by ingestion jobs)
+3) Read a CatFact
 - GET /catfacts/{technicalId}
   - Response JSON: Full CatFact entity
 
-4) Reporting (sends KPI)
+4) Read Delivery status (recommended)
+- GET /deliveries/{technicalId}
+  - Response JSON: Full Delivery record (status, attempts, last_error, sent_at)
+
+5) Reporting (sends KPI)
 - GET /reports/sends?from=2025-01-01&to=2025-01-07
-  - Response JSON:
-    {
-      "from": "ISO",
-      "to": "ISO",
-      "totalSends": 1234
-    }
-  - (Optional) GET /jobs/{technicalId}/report returns job.resultSummary with sent count
+  - Response JSON: { "from": "ISO", "to": "ISO", "totalSends": 1234 }
+- GET /jobs/{technicalId}/report
+  - Response JSON: job.resultSummary (including sent count)
 
-API request/response flows (Mermaid sequence diagrams)
-
-```mermaid
-sequenceDiagram
-    participant Client
-    participant API
-    Client->>API: POST /subscribers {email,name,timezone,preferences}
-    API-->>Client: {technicalId}
-```
-
-```mermaid
-sequenceDiagram
-    participant Client
-    participant API
-    Client->>API: POST /jobs {jobType,scheduledAt,parameters,retriesPolicy}
-    API-->>Client: {technicalId}
-```
-
-```mermaid
-sequenceDiagram
-    participant Client
-    participant API
-    Client->>API: GET /jobs/{technicalId}
-    API-->>Client: { job entity with resultSummary (sends count) }
-```
-
-Important EDA behaviours:
-- POST /subscribers and POST /jobs persist entities and immediately emit events that start workflows (Subscriber workflow and Job workflow respectively).
-- CatFact creations are performed by ingestion job processors; persisting a CatFact emits its own CatFact workflow events for validation/dedup/curation.
-- SendEmailProcessor failures trigger retry logic (maxRetries default 2) implemented by RetryAllowedCriterion and enqueued retries.
+Sequence behaviours (high level):
+- POST /subscribers and POST /jobs persist the entity and emit an event that starts workflows.
+- Ingestion job persistence of CatFact triggers its internal validation/dedupe/curation workflow.
+- BuildDeliveryBatchProcessor creates Delivery records and enqueues send tasks; SendEmailProcessor handles retries using the delivery.retries_policy snapshot.
 
 ---
 
-Example Ready-to-Copy User Response
-```
+## 7. Important implementation notes and consistency fixes
+
+- Delivery record is now a first-class system record to make retry logic, status and auditing explicit.
+- retriesPolicy semantics explicitly defined so pseudocode and criteria are consistent: maxRetries = number of retries after initial attempt; maxAttempts = 1 + maxRetries.
+- SendEmailProcessor and RetryAllowedCriterion use the same comparison (attempts < maxAttempts) to decide whether a retry is allowed.
+- Delivery copies retries_policy from the creating job to avoid coupling to later job edits.
+- OutboundEvent records are used as the source of truth for send KPIs (optionally supplemented by Delivery.status == SENT).
+
+---
+
+## 8. Confirmation example
+
 I confirm:
-- Single-click subscription (subscriber becomes active immediately).
-- Single global send day (set in Job.parameters.globalSendDay or use platform default).
-- Reporting KPI: sends only.
-- Retry policy: 2 retries for send attempts (default; can override per job).
+- Single-click subscription (subscriber becomes active immediately upon valid creation).
+- Global send day may be set on the DELIVER_WEEKLY job (or platform default is used).
+- Reporting KPI focuses on sends (derived from OutboundEvent/Delivery records).
+- Retry policy default: maxRetries = 2 (i.e., up to 3 attempts total). This is overridable per job and is captured on each Delivery at creation time.
 
-Please proceed with the updated workflows, processors, and API spec.
-```
 
-If you are satisfied with this finalized functional requirements specification, I will finish the discussion now. finish_discussion
+If you want further changes (for example changing the default maxRetries, adding more API endpoints, or changing single opt-in to double opt-in), say so and I will update this specification accordingly.
