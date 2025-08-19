@@ -25,6 +25,7 @@ public class InventoryReport implements CyodaEntity {
     private Map<String, Object> presentationPayload;
     private String errorMessage;
     private OffsetDateTime retentionUntil;
+    private String suggestion; // added so processors can set suggestions
 
     public InventoryReport() {}
 
