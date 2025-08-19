@@ -1,0 +1,141 @@
+{
+  "version": "1.0",
+  "name": "CatFact Workflow",
+  "desc": "Workflow for CatFact ingestion, validation, dedupe and curation",
+  "initialState": "ingested",
+  "active": true,
+  "states": {
+    "ingested": {
+      "transitions": [
+        {
+          "name": "validate_fact",
+          "next": "validated",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateFactProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "validated": {
+      "transitions": [
+        {
+          "name": "dedupe_check",
+          "next": "deduped",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DedupeCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "deduped": {
+      "transitions": [
+        {
+          "name": "auto_approve",
+          "next": "auto_approved",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AutoApproveProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "send_to_curation",
+          "next": "curation_pending",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CurateFactProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "auto_approved": {
+      "transitions": [
+        {
+          "name": "mark_active",
+          "next": "active",
+          "manual": false,
+          "processors": [
+            {
+              "name": "MarkActiveProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "curation_pending": {
+      "transitions": [
+        {
+          "name": "approve",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ApproveFactProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "reject",
+          "next": "archived",
+          "manual": true,
+          "processors": [
+            {
+              "name": "RejectFactProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "archive_stale",
+          "next": "archived",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ArchiveStaleFactsProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "archived": {
+      "transitions": []
+    }
+  }
+}
