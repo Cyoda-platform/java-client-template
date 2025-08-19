@@ -31,9 +31,9 @@ public class MarkActiveProcessor implements CyodaProcessor {
 
         // This processor may be used for both Subscriber and CatFact depending on workflow transition
         return serializer.withRequest(request)
-            .toEntity(Object.class) // use Object to accept either type, then branch
-            .validate(obj -> obj != null, "Invalid entity state")
-            .map(this::processEntityLogic)
+            .toEntity(Subscriber.class) // try Subscriber first
+            .validate(sub -> sub != null, "Invalid entity state")
+            .map(this::processSubscriber)
             .complete();
     }
 
@@ -42,27 +42,14 @@ public class MarkActiveProcessor implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private Object processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Object> context) {
-        Object entity = context.entity();
+    private Subscriber processSubscriber(ProcessorSerializer.ProcessorEntityExecutionContext<Subscriber> context) {
+        Subscriber sub = context.entity();
         try {
-            if (entity instanceof Subscriber) {
-                Subscriber sub = (Subscriber) entity;
-                sub.setSubscriptionStatus("active");
-                logger.info("Subscriber {} marked active", sub.getId());
-                return sub;
-            }
-
-            if (entity instanceof CatFact) {
-                CatFact fact = (CatFact) entity;
-                fact.setStatus("active");
-                logger.info("CatFact {} marked active", fact.getId());
-                return fact;
-            }
-
-            logger.warn("MarkActiveProcessor received unsupported entity type: {}", entity.getClass());
+            sub.setSubscriptionStatus("active");
+            logger.info("Subscriber {} marked active", sub.getId());
         } catch (Exception ex) {
-            logger.error("Error in MarkActiveProcessor: {}", ex.getMessage(), ex);
+            logger.error("Error in MarkActiveProcessor (Subscriber): {}", ex.getMessage(), ex);
         }
-        return entity;
+        return sub;
     }
 }
