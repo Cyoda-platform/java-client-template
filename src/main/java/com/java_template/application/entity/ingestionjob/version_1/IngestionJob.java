@@ -13,7 +13,6 @@ public class IngestionJob implements CyodaEntity {
     public static final Integer ENTITY_VERSION = 1;
     // Add your entity fields here
 
-    private String technicalId;
     private Integer postId; // id of the post to ingest comments for
     private String requestedByEmail; // email that requested the report / primary recipient
     private List<String> recipients; // additional email recipients
@@ -35,9 +34,10 @@ public class IngestionJob implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        // postId and requestedByEmail are required for creating a job
-        if (postId == null || postId <= 0) return false;
-        if (requestedByEmail == null || requestedByEmail.isBlank()) return false;
+        // postId and requestedByEmail and recipients are required to start a job
+        if (this.postId == null) return false;
+        if (this.requestedByEmail == null || this.requestedByEmail.isBlank()) return false;
+        if (this.recipients == null || this.recipients.isEmpty()) return false;
         return true;
     }
 }
