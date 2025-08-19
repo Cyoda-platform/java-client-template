@@ -1,4 +1,4 @@
-package com.java_template.application.entity.airport.version_1;
+package com.java_template.application.entity.airport.version_1; // replace {entityName} with actual entity name in lowercase
 
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
@@ -29,11 +29,12 @@ public class Airport implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        if (airportCode == null || airportCode.isBlank()) return false;
-        if (name == null || name.isBlank()) return false;
-        if (city == null || city.isBlank()) return false;
-        if (country == null || country.isBlank()) return false;
-        if (timezone == null || timezone.isBlank()) return false;
+        if (isBlank(airportCode)) return false;
+        if (isBlank(name)) return false;
         return true;
+    }
+
+    private boolean isBlank(String s) {
+        return s == null || s.isBlank();
     }
 }
