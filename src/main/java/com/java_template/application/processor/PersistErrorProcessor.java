@@ -74,6 +74,8 @@ public class PersistErrorProcessor implements CyodaProcessor {
                 err.setMessage("User not found");
             } else if (code == 400) {
                 err.setMessage("Invalid input");
+            } else if (code == 503) {
+                err.setMessage("Service unavailable");
             } else {
                 err.setMessage("Lookup failed");
             }
