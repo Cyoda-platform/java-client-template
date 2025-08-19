@@ -18,7 +18,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.OffsetDateTime;
-import java.time.format.DateTimeParseException;
 import java.util.Iterator;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -96,7 +95,7 @@ public class AnalysisProcessor implements CyodaProcessor {
         if (node.has("technicalId")) p.setTechnicalId(node.get("technicalId").asText());
         if (node.has("price")) p.setPrice(node.get("price").asDouble());
         if (node.has("stockLevel")) p.setStockLevel(node.get("stockLevel").asInt());
-        if (node.has("salesHistory") && node.get("salesHistory`).isArray()) {
+        if (node.has("salesHistory") && node.get("salesHistory").isArray()) {
             // Not implementing detailed parsing for prototype
         }
         return p;
