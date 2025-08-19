@@ -1,7 +1,5 @@
 package com.java_template.application.criterion;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.flightoption.version_1.FlightOption;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
@@ -51,6 +49,7 @@ public class EnrichmentNeededCriterion implements CyodaCriterion {
         }
         // If fareRules missing or empty, enrichment is needed -> return success so that EnrichFareProcessor will run
         if (entity.getFareRules() == null || entity.getFareRules().isEmpty()) {
+            logger.debug("Enrichment needed for option {}", entity.getOptionId());
             return EvaluationOutcome.success();
         }
         // If fareRules present, no enrichment needed
