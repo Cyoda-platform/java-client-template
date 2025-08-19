@@ -22,6 +22,7 @@ public class InventoryItem implements CyodaEntity {
     private String location;
     private OffsetDateTime lastUpdated;
     private String sourceId;
+    private String status; // NEW field required by processors
 
     public InventoryItem() {}
 
