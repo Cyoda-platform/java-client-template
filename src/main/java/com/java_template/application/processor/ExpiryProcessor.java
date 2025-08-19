@@ -1,6 +1,6 @@
 package com.java_template.application.processor;
 
-import com.java_template.application.entity.flightOption.version_1.FlightOption;
+import com.java_template.application.entity.flightoption.version_1.FlightOption;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
@@ -11,8 +11,6 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-
-import java.time.OffsetDateTime;
 
 @Component
 public class ExpiryProcessor implements CyodaProcessor {
@@ -49,16 +47,16 @@ public class ExpiryProcessor implements CyodaProcessor {
     private FlightOption processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<FlightOption> context) {
         FlightOption entity = context.entity();
         try {
-            // For prototype: mark as ARCHIVED if older than some TTL. Since we don't have createdAt parsing, archive immediately for demo
-            logger.debug("Archiving option {}", entity.getTechnicalId());
+            String idForLog = entity.getOptionId() != null ? entity.getOptionId() : "<unknown>";
+            // For prototype: immediately archive eligible options
+            logger.debug("Archiving option {}", idForLog);
             entity.setStatus("ARCHIVED");
-            entity.setUpdatedAt(OffsetDateTime.now().toString());
             return entity;
         } catch (Exception ex) {
-            logger.error("Error archiving option {}", entity.getTechnicalId(), ex);
-            entity.setStatus("ERROR");
-            entity.setErrorMessage("Expiry processing failed: " + ex.getMessage());
-            entity.setUpdatedAt(OffsetDateTime.now().toString());
+            logger.error("Error archiving option {}", entity != null ? entity.getOptionId() : "<null>", ex);
+            if (entity != null) {
+                entity.setStatus("ERROR");
+            }
             return entity;
         }
     }
