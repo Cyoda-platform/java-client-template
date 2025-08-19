@@ -11,6 +11,7 @@ public class ReportJob implements CyodaEntity {
     public static final Integer ENTITY_VERSION = 1;
     // Add your entity fields here
 
+    private String technicalId; // internal id assigned by system
     private String jobName; // human name for job
     private String initiatedBy; // user or system
     private String filterDateFrom; // ISO date, optional
@@ -23,6 +24,10 @@ public class ReportJob implements CyodaEntity {
     private String status; // PENDING IN_PROGRESS COMPLETED FAILED
     private String createdAt; // ISO datetime
     private String completedAt; // ISO datetime, optional
+
+    // Optional fields used by processors
+    private String reportId; // id of generated report
+    private String errorDetails; // any error details
 
     public ReportJob() {}
 
