@@ -17,14 +17,14 @@ public class InventoryReport implements CyodaEntity {
     // Add your entity fields here
     private String technicalId;
     private String reportName;
-    private String jobRef; // reference to originating InventoryReportJob id (serialized UUID)
+    private String jobRef; // reference to InventoryReportJob technicalId
     private OffsetDateTime generatedAt;
     private String status; // SUCCESS/FAILED/EMPTY
-    private Map<String, Object> metricsSummary; // key metric name -> value
-    private List<Map<String, Object>> groupedSummaries; // group key -> metrics
-    private Map<String, Object> presentationPayload; // table rows and/or chart series
+    private Map<String, Object> metricsSummary;
+    private List<Map<String, Object>> groupedSummaries;
+    private Map<String, Object> presentationPayload;
     private String errorMessage;
-    private OffsetDateTime retentionUntil; // optional
+    private OffsetDateTime retentionUntil;
 
     public InventoryReport() {}
 
