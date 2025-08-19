@@ -15,7 +15,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
-import java.util.concurrent.CompletableFuture;
 
 @Component
 public class RetryProcessor implements CyodaProcessor {
