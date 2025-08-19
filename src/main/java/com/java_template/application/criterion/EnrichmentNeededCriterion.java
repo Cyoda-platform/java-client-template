@@ -1,6 +1,8 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.flightOption.version_1.FlightOption;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.java_template.application.entity.flightoption.version_1.FlightOption;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -47,14 +49,11 @@ public class EnrichmentNeededCriterion implements CyodaCriterion {
         if (entity == null) {
             return EvaluationOutcome.fail("FlightOption entity is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        // If fareRules missing or seatAvailability is null, enrichment needed
+        // If fareRules missing or empty, enrichment is needed -> return success so that EnrichFareProcessor will run
         if (entity.getFareRules() == null || entity.getFareRules().isEmpty()) {
-            return EvaluationOutcome.success(); // indicates enrichment should run (success means criterion matched)
+            return EvaluationOutcome.success();
         }
-        // If seatAvailability is null, still run availability processor (not enrichment) - return fail here to indicate not enrichment
-        if (entity.getSeatAvailability() == null) {
-            return EvaluationOutcome.fail("Seat availability unknown; enrichment not needed", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-        }
+        // If fareRules present, no enrichment needed
         return EvaluationOutcome.fail("No enrichment needed", StandardEvalReasonCategories.VALIDATION_FAILURE);
     }
 }
