@@ -1,6 +1,15 @@
-### 1. Entity Definitions
-```
-InventoryItem:
+# Functional Requirements — Inventory Reporting Prototype
+
+This document describes the entities, workflows, processors, criteria, and API design rules for the Inventory Reporting prototype. It updates and harmonizes prior logic so entity definitions, workflow states, processors, and API behavior are consistent.
+
+---
+
+## 1. Entity Definitions
+
+All timestamps are ISO-8601 strings. Field types assume appropriate language/DB types (String, Integer, Decimal, DateTime, Array, Object, Boolean).
+
+### InventoryItem
+- id / technicalId: String (opaque internal id)
 - sku: String (unique product code from upstream API)
 - name: String (product display name)
 - category: String (categorization for grouping)
@@ -8,47 +17,63 @@ InventoryItem:
 - unitPrice: Decimal (price per unit, may be null)
 - location: String (warehouse/location)
 - lastUpdated: DateTime (timestamp from source)
-- sourceId: String (origin identifier from SwaggerHub API)
+- sourceId: String (origin identifier from upstream API)
+- status: String (one of: PERSISTED, ENRICHING, VALIDATING, READY, INVALID, DEPRECATED)
+- metadata: Object (optional, free-form hints from source)
 
-InventoryReportJob:
+Notes:
+- sku is unique per sourceId. If multiple sources exist, (sourceId, sku) is unique.
+- unitPrice may be null; price-based metrics must handle nulls explicitly.
+
+### InventoryReportJob
+- technicalId: String (opaque id returned on POST)
 - jobName: String (user-friendly name)
 - requestedBy: String (user id or system)
-- metricsRequested: Array(String) (e.g., totalCount, avgPrice, totalValue)
-- filters: Object (category, location, minDate/maxDate, supplier)
-- groupBy: Array(String) (category, location)
+- metricsRequested: Array(String) (e.g., totalCount, avgPrice, totalValue; see metrics section)
+- filters: Object (category, location, minDate/maxDate, supplier, other filter predicates)
+- groupBy: Array(String) (fields to group by: category, location, supplier, etc.)
 - presentationType: String (table, chart)
-- schedule: Object (optional; cron or interval description)
+- schedule: Object | null (optional; cron or interval description)
 - createdAt: DateTime
-- status: String (PENDING/IN_PROGRESS/COMPLETED/FAILED)
+- status: String (one of: PENDING, VALIDATING, EXECUTING, COMPLETED, FAILED, VALIDATION_FAILED, NOTIFYING)
+- reportRef: String | null (technicalId of resulting InventoryReport when available)
+- retentionUntil: DateTime | null (optional job-level retention override)
 
-InventoryReport:
+Notes:
+- POSTing a job always returns a technicalId and starts the workflow asynchronously.
+
+### InventoryReport
+- technicalId: String (opaque id)
 - reportName: String
-- jobRef: String (reference to originating InventoryReportJob id)
+- jobRef: String (technicalId of originating InventoryReportJob)
 - generatedAt: DateTime
-- status: String (SUCCESS/FAILED/EMPTY)
+- status: String (one of: SUCCESS, FAILED, EMPTY, EXPIRED, ARCHIVED, DELETED)
 - metricsSummary: Object (key metric name -> value)
-- groupedSummaries: Array(Object) (group key -> metrics)
-- presentationPayload: Object (table rows and/or chart series)
-- errorMessage: String (if any)
-- retentionUntil: DateTime (optional)
-```
+- groupedSummaries: Array(Object) (per-group metrics; groupKey -> metrics)
+- presentationPayload: Object (table rows and/or chart series, exact schema depends on presentationType)
+- errorMessage: String | null (when status == FAILED)
+- suggestion: String | null (optional, for EMPTY or incomplete data responses)
+- retentionUntil: DateTime | null
 
-### 2. Entity workflows
+---
 
-InventoryItem workflow:
-1. Initial State: Item persisted (event created when Cyoda saves InventoryItem).
-2. Enrichment: Automatic - enrich missing price/location if external hints available.
-3. Validation: Automatic - mark item invalid if key fields missing.
-4. Ready: Automatic - item available for report calculations.
-5. Deprecated: Manual - user marks item obsolete (archival).
+## 2. Workflows (harmonized)
+
+Each workflow uses a set of processors (stateless or stateful), emits events, and evaluates criteria. The diagrams use consistent state names matching entity.status values.
+
+### InventoryItem workflow
+
+States: PERSISTED -> ENRICHING -> VALIDATING -> READY or INVALID -> DEPRECATED
+
+Mermaid state diagram:
 
 ```mermaid
 stateDiagram-v2
     [*] --> PERSISTED
-    PERSISTED --> ENRICHMENT : EnrichItemProcessor
-    ENRICHMENT --> VALIDATION : CheckItemValidityCriterion
-    VALIDATION --> READY : if valid
-    VALIDATION --> INVALID : if not valid
+    PERSISTED --> ENRICHING : EnrichItemProcessor
+    ENRICHING --> VALIDATING : EnrichmentCompleteEvent
+    VALIDATING --> READY : CheckItemValidityCriterion true
+    VALIDATING --> INVALID : CheckItemValidityCriterion false
     READY --> DEPRECATED : UserDeprecateAction
     INVALID --> [*]
     DEPRECATED --> [*]
@@ -58,13 +83,17 @@ Processors and criteria (InventoryItem)
 - Processors: EnrichItemProcessor, NormalizeFieldsProcessor, IndexItemProcessor
 - Criteria: CheckItemValidityCriterion, PricePresentCriterion
 
-InventoryReportJob workflow:
-1. Initial State: Job created with PENDING status (POST creates job -> event).
-2. Validation: Automatic - validate requested metrics and filters.
-3. Execution: Automatic - fetch relevant InventoryItems and compute metrics.
-4. Formatting: Automatic - format metrics into presentationPayload.
-5. Completion: Automatic - status COMPLETED or FAILED; InventoryReport persisted.
-6. Notification/Archive: Manual or scheduled - notify users or archive reports.
+Behavior notes:
+- EnrichItemProcessor attempts to fill missing unitPrice or location from configured hints or external price lookup. If enrichment takes time, set status ENRICHING.
+- CheckItemValidityCriterion returns true if required fields (sku, name, quantity, sourceId) are present and values in acceptable range. If price is required by later metrics but missing, that is handled at job time (see DataSufficientCriterion).
+- Deprecated items are archived and excluded from normal reporting unless explicitly included.
+
+
+### InventoryReportJob workflow
+
+States: PENDING -> VALIDATING -> EXECUTING -> (COMPLETED | FAILED | VALIDATION_FAILED) -> NOTIFYING -> [terminal]
+
+Mermaid state diagram:
 
 ```mermaid
 stateDiagram-v2
@@ -74,8 +103,8 @@ stateDiagram-v2
     VALIDATING --> EXECUTING : ValidateJobCriterion true
     EXECUTING --> AGGREGATING : FetchInventoryProcessor
     AGGREGATING --> FORMATTING : AggregateMetricsProcessor
-    FORMATTING --> COMPLETED : FormatReportProcessor
-    FORMATTING --> FAILED : FormatReportErrorCriterion
+    FORMATTING --> COMPLETED : FormatReportProcessor success
+    FORMATTING --> FAILED : FormatReportErrorCriterion or formatting error
     COMPLETED --> NOTIFYING : NotifyUsersProcessor
     NOTIFYING --> [*]
     FAILED --> [*]
@@ -86,11 +115,18 @@ Processors and criteria (InventoryReportJob)
 - Processors: ValidateJobProcessor, FetchInventoryProcessor, AggregateMetricsProcessor, FormatReportProcessor, NotifyUsersProcessor
 - Criteria: ValidateJobCriterion, DataSufficientCriterion, FormatReportErrorCriterion
 
-InventoryReport workflow:
-1. Initial State: Report persisted with status SUCCESS/FAILED/EMPTY.
-2. Available: Manual/Automatic - report ready for view/download.
-3. Retention: Automatic - mark expired when retentionUntil passes.
-4. Archived/Deleted: Manual - user triggers archive or delete.
+Behavior notes:
+- ValidateJobProcessor marks the job status to VALIDATING while checks run. On success it transitions the job to EXECUTING or to VALIDATION_FAILED on error.
+- FetchInventoryProcessor executes searches against persisted InventoryItem data (respecting filters) and returns a list of candidate items. It emits NoDataEvent if zero items are returned.
+- DataSufficientCriterion is evaluated before metric aggregation for metric types that require specific fields (e.g., avgPrice requires at least one non-null unitPrice). If criterion fails, the pipeline should produce an InventoryReport with status EMPTY and a suggestion for the user.
+- Errors at any stage should cause the job to transition to FAILED and persist an InventoryReport with status FAILED and an informative errorMessage.
+
+
+### InventoryReport workflow
+
+States: PERSISTED -> AVAILABLE -> EXPIRED -> ARCHIVED | DELETED
+
+Mermaid state diagram:
 
 ```mermaid
 stateDiagram-v2
@@ -107,38 +143,63 @@ Processors and criteria (InventoryReport)
 - Processors: PersistReportProcessor, GeneratePresentationProcessor, ArchiveReportProcessor
 - Criteria: RetentionExpiryCriterion, ReportCompleteCriterion
 
-### 3. Pseudo code for processor classes (concise)
+Behavior notes:
+- PersistReportProcessor saves the report object and sets status (SUCCESS/FAILED/EMPTY) and retentionUntil.
+- When retentionUntil passes, RetentionExpiryCriterion marks the report EXPIRED and ArchiveReportProcessor moves it to ARCHIVED.
+- Users can manually delete or archive reports via API/UI. Deleted reports change status to DELETED; archived reports are retained but removed from normal lists.
+
+---
+
+## 3. Pseudo code for processors (updated and consistent)
 
 ValidateJobProcessor
+
 ```
 class ValidateJobProcessor {
   process(job) {
+    job.status = "VALIDATING"
+    emit InventoryReportJobUpdated(job)
+
     if missing(job.metricsRequested) or invalidFilters(job.filters) {
-      job.status = VALIDATION_FAILED
+      job.status = "VALIDATION_FAILED"
       emit InventoryReportJobUpdated(job)
       return
     }
-    job.status = IN_PROGRESS
+
+    // Additional checks: metrics supported, groupBy allowed, schedule valid
+    job.status = "EXECUTING"
     emit StartExecutionEvent(job)
   }
 }
 ```
 
 FetchInventoryProcessor
+
 ```
 class FetchInventoryProcessor {
   process(job) {
-    items = callSourceSearch(job.filters) // Cyoda will trigger fetch from configured source
-    if items.empty then emit NoDataEvent(job)
+    items = callSourceSearch(job.filters) // fetch persisted InventoryItem data matching filters
+    if items.empty() {
+      emit NoDataEvent(job)
+      // downstream: create InventoryReport with status EMPTY and suggestion
+      return
+    }
     emit ItemsFetchedEvent(job, items)
   }
 }
 ```
 
 AggregateMetricsProcessor
+
 ```
 class AggregateMetricsProcessor {
   process(job, items) {
+    if DataSufficientCriterion(job.metricsRequested, items) == false {
+      emit InsufficientDataEvent(job, items)
+      // downstream: create EMPTY InventoryReport with suggestion
+      return
+    }
+
     metrics = computeRequestedMetrics(job.metricsRequested, items)
     grouped = groupBy(items, job.groupBy)
     emit MetricsAggregatedEvent(job, metrics, grouped)
@@ -147,43 +208,67 @@ class AggregateMetricsProcessor {
 ```
 
 FormatReportProcessor
+
 ```
 class FormatReportProcessor {
   process(job, metrics, grouped) {
-    payload = buildPresentation(metrics, grouped, job.presentationType)
-    report = InventoryReport{ jobRef: job.id, generatedAt: now(), status: SUCCESS, ... }
-    persist(report)
-    emit ReportPersistedEvent(report)
+    try {
+      payload = buildPresentation(metrics, grouped, job.presentationType)
+      report = InventoryReport{ jobRef: job.technicalId,
+                                reportName: job.jobName,
+                                generatedAt: now(),
+                                status: "SUCCESS",
+                                metricsSummary: metrics,
+                                groupedSummaries: grouped,
+                                presentationPayload: payload,
+                                retentionUntil: job.retentionUntil }
+      persist(report)
+      job.reportRef = report.technicalId
+      job.status = "COMPLETED"
+      emit ReportPersistedEvent(report)
+    } catch (err) {
+      // attempt to persist a FAILED InventoryReport with errorMessage
+      report = InventoryReport{ jobRef: job.technicalId, generatedAt: now(), status: "FAILED", errorMessage: err.message }
+      persist(report)
+      job.status = "FAILED"
+      emit ReportPersistedEvent(report)
+    }
   }
 }
 ```
 
 NotifyUsersProcessor
+
 ```
 class NotifyUsersProcessor {
-  process(report) {
+  process(job, report) {
     if job.requestedBy then queueNotification(report, job.requestedBy)
+    job.status = "NOTIFYING"
+    emit InventoryReportJobUpdated(job)
   }
 }
 ```
 
-Criteria examples (pseudo)
-- ValidateJobCriterion: returns true if required fields present and metrics supported.
-- DataSufficientCriterion: returns false if zero items or all prices null when price-based metrics requested.
-- RetentionExpiryCriterion: returns true if now > report.retentionUntil
+Criteria (concise)
+- ValidateJobCriterion: true if required fields are present, metrics are supported, and filters parse correctly.
+- DataSufficientCriterion: false if zero items OR if metric requires non-null values (e.g., avgPrice) and all corresponding fields are null.
+- RetentionExpiryCriterion: true if now > report.retentionUntil.
 
-### 4. API Endpoints Design Rules
+---
 
-Rules applied
-- POST endpoints for orchestration entities only (InventoryReportJob). POST returns only technicalId.
-- GET by technicalId for orchestration entity and for reports (to retrieve results).
-- No POST for InventoryItem or InventoryReport (these are created by workflows/processors).
-- GET all optional; provide GET /reports/{technicalId} and GET /report-jobs/{technicalId}.
+## 4. API Endpoints Design Rules (updated)
 
-Endpoints and JSON structures
+Design principles:
+- POST endpoints create orchestration jobs only (InventoryReportJob). Domain entities (InventoryItem, InventoryReport) are created by workflows/processors.
+- POST is asynchronous: client receives a technicalId and must poll or subscribe for job/report completion.
+- GET can be used to retrieve job state and report contents by technicalId.
+- Idempotency: POST /report-jobs should accept an idempotency key to prevent duplicate job creation.
+- Errors: Job-level errors are surfaced by persisting an InventoryReport with status FAILED and a user-friendly errorMessage; job status becomes FAILED or VALIDATION_FAILED.
+
+Endpoints
 
 POST /report-jobs
-- Request JSON:
+- Request JSON (example):
 {
   "jobName":"Monthly Inventory Summary",
   "requestedBy":"user123",
@@ -191,13 +276,15 @@ POST /report-jobs
   "filters":{"category":"Electronics","minDate":"2025-01-01"},
   "groupBy":["category"],
   "presentationType":"table",
-  "schedule":null
+  "schedule":null,
+  "retentionUntil": null
 }
-- Response JSON (only):
+- Response JSON:
 { "technicalId":"<opaque-id>" }
+- Behavior: creates InventoryReportJob with status PENDING (or VALIDATING immediately if validation executed eagerly), starts the workflow asynchronously.
 
 GET /report-jobs/{technicalId}
-- Response JSON:
+- Response JSON (example):
 {
   "technicalId":"<opaque-id>",
   "jobName":"Monthly Inventory Summary",
@@ -205,9 +292,10 @@ GET /report-jobs/{technicalId}
   "createdAt":"2025-08-19T12:00:00Z",
   "reportRef":"<report-technical-id>"
 }
+- Notes: status may be PENDING, VALIDATING, EXECUTING, COMPLETED, FAILED, VALIDATION_FAILED, NOTIFYING.
 
 GET /reports/{technicalId}
-- Response JSON:
+- Response JSON (example):
 {
   "technicalId":"<opaque-id>",
   "reportName":"Monthly Inventory Summary",
@@ -216,33 +304,28 @@ GET /reports/{technicalId}
   "metricsSummary":{ "totalCount":1000, "avgPrice":12.5, "totalValue":12500 },
   "presentationPayload":{ "table":[ /* rows */ ], "charts":[ /* series */ ] }
 }
+- Notes: status may be SUCCESS, FAILED, EMPTY, EXPIRED, ARCHIVED, DELETED. For EMPTY reports include suggestion text explaining data gaps.
 
-Mermaid visualization of request/response (POST flow)
-```mermaid
-flowchart LR
-    Client --> POST_ReportJobs
-    POST_ReportJobs --> Cyoda
-    Cyoda --> JobCreatedEvent
-    JobCreatedEvent --> InventoryReportJobWorkflow
-    Cyoda --> Response_TechnicalId
-```
+Optional endpoints (recommended additions)
+- GET /report-jobs?requestedBy={user} & status={status} (list and filter jobs)
+- GET /reports?jobRef={technicalId} (list reports for a job)
 
-Mermaid visualization of retrieving report
-```mermaid
-flowchart LR
-    Client --> GET_ReportByJobId
-    GET_ReportByJobId --> Cyoda
-    Cyoda --> LookupReport
-    LookupReport --> Return_ReportPayload
-```
+---
 
-Notes / business rules
-- Every InventoryReportJob POST triggers Cyoda workflow automatically.
-- Errors should be surfaced as InventoryReport with status FAILED and user-facing errorMessage.
-- Reports with insufficient data produce InventoryReport status EMPTY and include suggestion text.
-- Retention policy configurable per job; archive after retentionUntil.
+## 5. Business Rules & Operational Notes
 
-If you want, I can:
-- Add more detailed metric definitions (median, min/max, counts by category).
-- Add optional GET by condition endpoints (e.g., find jobs by requestedBy or status).
-- Expand processors with retry/backoff and partial-failure handling in workflows.
+- Every InventoryReportJob POST triggers the workflow automatically (unless an idempotency key indicates a duplicate).
+- When metrics cannot be computed due to missing data, the system must persist an InventoryReport with status EMPTY and a suggestion message describing remediation (e.g., "No price data for requested items — enable price enrichment or remove price-based metrics").
+- Errors are surfaced as InventoryReport with status FAILED and the errorMessage should be user-friendly; logs should contain full error details.
+- Retention policy: retentionUntil can be set per-job or per-report. When retentionUntil is reached, report transitions EXPIRED, then ARCHIVED.
+- Notifications: a NotifyUsersProcessor sends a notification to requestedBy when the report is available. Notification failures should not mark report status FAILED; they should be retried separately and job status recorded as NOTIFYING.
+- Retry and resiliency: processors interacting with external systems should implement retries with exponential backoff, idempotent operations, and dead-letter handling for persistent failures.
+- Security: endpoints must authenticate callers and authorize requestedBy actions. Sensitive data in reports should be redacted where required.
+
+---
+
+If you'd like, I can now:
+- Add a detailed metric specification (median, percentiles, min/max, counts by category).
+- Add sequence diagrams for error flows and retry/backoff.
+- Add example JSON schema definitions for each entity.
+
