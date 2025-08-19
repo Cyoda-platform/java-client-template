@@ -1,0 +1,89 @@
+{
+  "version": "1.0",
+  "name": "Subscriber Workflow",
+  "desc": "Workflow for Subscriber entity",
+  "initialState": "ACTIVE",
+  "active": true,
+  "states": {
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "start_verification",
+          "next": "VERIFYING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EmailVerificationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "manual_unsubscribe",
+          "next": "UNSUBSCRIBED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ManualUnsubscribeProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "delivery_failure",
+          "next": "BOUNCED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "DeliveryFailureProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VERIFYING": {
+      "transitions": [
+        {
+          "name": "verify_success",
+          "next": "ACTIVE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "EmailVerifiedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "verify_failed",
+          "next": "UNSUBSCRIBED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "VerificationFailedProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "UNSUBSCRIBED": {
+      "transitions": []
+    },
+    "BOUNCED": {
+      "transitions": []
+    }
+  }
+}
