@@ -15,6 +15,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
+
 @Component
 public class BounceThresholdCriterion implements CyodaCriterion {
 
@@ -45,11 +47,11 @@ public class BounceThresholdCriterion implements CyodaCriterion {
         if (subscriber == null) {
             return EvaluationOutcome.fail("Subscriber missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
-        // For prototype, rely on metadata field 'bounce_count' if present
-        Object meta = subscriber.getMetadata();
+        // Use existing Subscriber properties only. Subscriber has preferences; use preferences.bounce_count if present.
         int bounces = 0;
-        if (meta instanceof java.util.Map) {
-            Object bc = ((java.util.Map<?, ?>) meta).get("bounce_count");
+        Object prefs = subscriber.getPreferences();
+        if (prefs instanceof Map) {
+            Object bc = ((Map<?, ?>) prefs).get("bounce_count");
             if (bc instanceof Number) {
                 bounces = ((Number) bc).intValue();
             }
