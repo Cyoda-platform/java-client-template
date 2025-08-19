@@ -13,9 +13,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-
 import static com.java_template.common.config.Config.*;
 
 @Component
@@ -55,21 +52,9 @@ public class ArchiveReportProcessor implements CyodaProcessor {
     private InventoryReport processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<InventoryReport> context) {
         InventoryReport report = context.entity();
         try {
-            // set archived status and optionally update persistence
+            // set archived status. Do not explicitly call entityService.updateItem to modify this entity as
+            // the workflow engine will persist state changes automatically. We only set the in-memory state.
             report.setStatus("ARCHIVED");
-            if (report.getTechnicalId() != null) {
-                try {
-                    CompletableFuture<UUID> fut = entityService.updateItem(
-                        InventoryReport.ENTITY_NAME,
-                        String.valueOf(InventoryReport.ENTITY_VERSION),
-                        UUID.fromString(report.getTechnicalId()),
-                        report
-                    );
-                    fut.get();
-                } catch (Exception e) {
-                    logger.warn("Failed to update archived report {}: {}", report.getTechnicalId(), e.getMessage());
-                }
-            }
         } catch (Exception e) {
             logger.error("Error archiving report {}: {}", report.getTechnicalId(), e.getMessage(), e);
         }
