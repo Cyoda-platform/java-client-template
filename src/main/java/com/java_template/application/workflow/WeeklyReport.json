@@ -1,0 +1,54 @@
+{
+  "version": "1.0",
+  "name": "WeeklyReport Workflow",
+  "desc": "Workflow for WeeklyReport generation, review, delivery and archival",
+  "initialState": "GENERATED",
+  "active": true,
+  "states": {
+    "GENERATED": {
+      "transitions": [
+        {
+          "name": "manualReview",
+          "next": "UNDER_REVIEW",
+          "manual": true
+        },
+        {
+          "name": "sendReport",
+          "next": "SENT",
+          "manual": false,
+          "processors": [
+            { "name": "SendReportProcessor", "config": { "calculationNodesTags": "cyoda_application" } }
+          ]
+        },
+        {
+          "name": "sendFailed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": { "name": "IsReportCompleteCriterion", "config": { "calculationNodesTags": "cyoda_application" } }
+          }
+        }
+      ]
+    },
+    "UNDER_REVIEW": {
+      "transitions": [
+        { "name": "approveReview", "next": "GENERATED", "manual": true }
+      ]
+    },
+    "SENT": {
+      "transitions": [
+        {
+          "name": "archive",
+          "next": "ARCHIVED",
+          "manual": false,
+          "processors": [
+            { "name": "ArchiveReportProcessor", "config": { "calculationNodesTags": "cyoda_application" } }
+          ]
+        }
+      ]
+    },
+    "FAILED": { "transitions": [] },
+    "ARCHIVED": { "transitions": [] }
+  }
+}
