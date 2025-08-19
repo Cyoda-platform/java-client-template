@@ -1,0 +1,64 @@
+{
+  "version": "1.0",
+  "name": "CsvFile Workflow",
+  "desc": "Workflow for CsvFile entity",
+  "initialState": "PENDING",
+  "active": true,
+  "states": {
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "start_validation",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CSVValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "validation_succeeds",
+          "next": "STORED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsSchemaValidCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_fails",
+          "next": "INVALID",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidationFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "STORED": {
+      "transitions": []
+    },
+    "INVALID": {
+      "transitions": []
+    }
+  }
+}
