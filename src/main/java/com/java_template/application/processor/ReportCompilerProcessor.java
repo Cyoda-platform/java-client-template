@@ -1,6 +1,7 @@
 package com.java_template.application.processor;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.java_template.application.entity.report.version_1.Report;
 import com.java_template.application.entity.extractionjob.version_1.ExtractionJob;
 import com.java_template.common.serializer.ProcessorSerializer;
@@ -59,10 +60,10 @@ public class ReportCompilerProcessor implements CyodaProcessor {
         try {
             // For prototype assume report created in previous step; update its status to READY
             // Find a report by createdFromJobId - naive approach for prototype
-            CompletableFuture<java.util.ArrayList<com.fasterxml.jackson.databind.node.ObjectNode>> reportsFuture = entityService.getItemsByCondition(Report.ENTITY_NAME, String.valueOf(Report.ENTITY_VERSION), null, true);
-            java.util.ArrayList<com.fasterxml.jackson.databind.node.ObjectNode> reports = reportsFuture.get();
+            CompletableFuture<ArrayNode> reportsFuture = entityService.getItemsByCondition(Report.ENTITY_NAME, String.valueOf(Report.ENTITY_VERSION), null, true);
+            ArrayNode reports = reportsFuture.get();
             if (reports != null) {
-                for (com.fasterxml.jackson.databind.node.ObjectNode rnode : reports) {
+                for (com.fasterxml.jackson.databind.JsonNode rnode : reports) {
                     if (rnode.has("createdFromJobId") && rnode.get("createdFromJobId").asText().equals(job.getJobId())) {
                         try {
                             Report r = new Report();
