@@ -1,0 +1,101 @@
+Summary of what I did
+- Ran the GitHub Actions compile workflow (build.yml) and analyzed the compiler output.
+- Applied Java fixes to address the compilation errors reported by the CI.
+- Re-ran the CI up to the allowed maximum (3 runs). The final run still fails with one remaining compilation error. You now have a record of the runs and the changes I made.
+
+Run history (calls to run_github_action)
+1) First run: CI failed with several compile errors (8 errors). Key problems included:
+   - Generic bounds: processors using toEntity(Object.class) violated <T extends CyodaEntity> bounds.
+   - Mismatched types: Job.resultSummary and parameters were Map in some places but producers/consumers expected Jackson ObjectNode.
+   - Some processors assumed Map types where JSON nodes were used.
+
+2) Second run: I made fixes (changed Job fields and updated multiple processors/criteria). CI still reported more compile errors (3 at that moment) stemming from type mismatches and APIs.
+
+3) Third run: I made further fixes (converted parameter/resultSummary usage to Jackson ObjectNode where appropriate, converted some flows to use JSON payloads, and aligned types). CI now reports a single remaining compile error:
+   - incompatible types: ObjectNode cannot be converted to Map<String,Integer>
+   - File reported: src/main/java/com/java_template/application/processor/CheckCompleteCriterion.java (line ~52)
+
+I have used all allowed runs (3) and cannot run the workflow again.
+
+Files I changed (high level)
+- Modified entity job model to use Jackson ObjectNode for parameters and resultSummary:
+  - src/main/java/com/java_template/application/entity/job/version_1/Job.java
+    - parameters -> ObjectNode (was Map)
+    - resultSummary -> ObjectNode (was Map)
+
+- Updated processors to work with the Job ObjectNode and JSON flows:
+  - src/main/java/com/java_template/application/processor/BuildDeliveryBatchProcessor.java
+    - uses ObjectNode job parameters and updates resultSummary as ObjectNode
+  - src/main/java/com/java_template/application/processor/SendEmailProcessor.java
+    - changed to work with payload JsonNode / ObjectNode (switched to serializer.map(...) JSON flow)
+  - src/main/java/com/java_template/application/processor/MarkActiveProcessor.java
+    - simplified to operate on Subscriber typed entity (avoids toEntity(Object.class) generic bound issue)
+
+- Updated criterion and reporting files to expect ObjectNode for resultSummary:
+  - src/main/java/com/java_template/application/criterion/CheckCompleteCriterion.java
+  - src/main/java/com/java_template/application/criterion/CheckFailedCriterion.java
+  - src/main/java/com/java_template/application/processor/ReportingProcessor.java
+
+- Created/updated the GitHub Actions workflow file:
+  - .github/workflows/build.yml (ensures compileJava check with JDK 21)
+
+Remaining compile error
+- Error (from last CI run):
+  /src/main/java/com/java_template/application/processor/CheckCompleteCriterion.java:52: error: incompatible types: ObjectNode cannot be converted to Map<String,Integer>
+      Map<String, Integer> summary = job.getResultSummary();
+
+Diagnosis
+- There is a duplicate/misplaced CheckCompleteCriterion.java under the processor package:
+  - The compiler error path shows src/main/java/com/java_template/application/processor/CheckCompleteCriterion.java (processor folder).
+  - Meanwhile the correct criterion implementation lives under src/main/java/com/java_template/application/criterion/CheckCompleteCriterion.java and has been updated to use ObjectNode.
+- The processor package contains a stale copy that still expects Map<String,Integer> for Job.getResultSummary() (old Job type). That file conflicts with the entity type changes (Job now uses ObjectNode for resultSummary).
+
+What needs to be done to finish compilation
+Option A — Remove or fix the duplicate file under processor:
+- Remove the incorrectly placed/stale file:
+  - Delete: src/main/java/com/java_template/application/processor/CheckCompleteCriterion.java
+  OR
+- Update that file to match the corrected criterion implementation, e.g. change:
+    Map<String, Integer> summary = job.getResultSummary();
+  to:
+    ObjectNode summary = job.getResultSummary();
+  and adapt downstream code to use summary.path(...).asInt(...), etc.
+
+Option B — Revert Job fields to Map types (not recommended):
+- If you prefer Job.resultSummary and parameters to be Map types, revert the Job entity and update all processors to use Map (less ideal since code already uses Jackson in places).
+
+Recommended fix (preferred)
+- Remove the extraneous CheckCompleteCriterion in processor package (it is incorrectly located). Keep the updated criterion in the "criterion" package (src/main/java/com/java_template/application/criterion/CheckCompleteCriterion.java).
+- Ensure all other classes use ObjectNode for job.getResultSummary() and job.getParameters() (I updated the majority of files already).
+
+Concrete code snippet to fix (if you'd rather modify the file than remove it)
+- Replace the offending line in the processor copy:
+   Map<String, Integer> summary = job.getResultSummary();
+  with:
+   com.fasterxml.jackson.databind.node.ObjectNode summary = job.getResultSummary();
+
+- And replace uses of summary.getOrDefault(...) or Map-style access with ObjectNode usage:
+   int failed = summary.path("failed").asInt(0);
+   summary.put("queued", summary.path("queued").asInt(0) + queued);
+
+Why I stopped
+- I have used the maximum allowed run_github_action calls (3).
+- The last CI run still fails due to the duplicate/file mismatch explained above.
+- I cannot trigger another CI run per the constraints.
+
+Next steps for you (minimal)
+1. Delete or update the file at:
+   - src/main/java/com/java_template/application/processor/CheckCompleteCriterion.java
+   (either delete it if it's not needed, or change summary variable from Map to ObjectNode and adapt code).
+2. Commit the change and run the workflow again (./gradlew compileJava in the CI). That should produce a clean build.
+
+If you want, I can:
+- Provide an exact patch text to remove the duplicate file or to edit it (tell me which you prefer), or
+- Apply that patch here (I can add the updated file contents) — but note: I cannot run CI again unless you instruct me and we still have run attempts available.
+
+If you want the exact quick fix I recommend deleting the duplicate processor file (it looks misplaced). After that, re-run CI and it should pass (I fixed the other mismatches and updated processors/Job types already).
+
+Logs and artifacts
+- Full logs from the three CI runs are available in the workflow run summaries (I captured and analyzed the build logs during each attempt). The last run shows one error only (the duplicate CheckCompleteCriterion in processor package).
+
+If you'd like me to apply the deletion/edit for the duplicate file in the repo now, confirm which action to take (delete file vs edit to ObjectNode). I will stage the change here (but cannot run CI again without another run invocation).
