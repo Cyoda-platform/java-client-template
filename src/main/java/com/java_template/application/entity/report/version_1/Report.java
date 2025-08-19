@@ -14,7 +14,6 @@ public class Report implements CyodaEntity {
     public static final Integer ENTITY_VERSION = 1;
     // Add your entity fields here
 
-    private String technicalId;
     private String reportId; // business id
     private Integer postId;
     private String generatedAt;
@@ -36,9 +35,10 @@ public class Report implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        if (reportId == null || reportId.isBlank()) return false;
-        if (postId == null || postId <= 0) return false;
-        if (generatedAt == null || generatedAt.isBlank()) return false;
+        // reportId and postId and generatedAt should be present
+        if (this.reportId == null || this.reportId.isBlank()) return false;
+        if (this.postId == null) return false;
+        if (this.generatedAt == null || this.generatedAt.isBlank()) return false;
         return true;
     }
 }
