@@ -16,7 +16,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
-import java.util.Map;
 
 @Component
 public class SendEmailProcessor implements CyodaProcessor {
@@ -41,7 +40,7 @@ public class SendEmailProcessor implements CyodaProcessor {
         logger.info("Processing SendEmail for request: {}", request.getId());
 
         return serializer.withRequest(request)
-            .toEntity(Object.class) // accept generic delivery representation
+            .toEntity(Object.class) // accept generic delivery representation; will convert later
             .validate(this::isValidEntity, "Invalid entity state")
             .map(this::processEntityLogic)
             .complete();
