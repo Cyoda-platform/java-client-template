@@ -1,0 +1,46 @@
+{
+  "version": "1.0",
+  "name": "Booking Workflow",
+  "desc": "Workflow for Booking entity lifecycle",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "to_enriching",
+          "next": "ENRICHING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EnrichBookingProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ENRICHING": {
+      "transitions": [
+        {
+          "name": "to_persisted",
+          "next": "PERSISTED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PersistBookingProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PERSISTED": {
+      "transitions": []
+    }
+  }
+}
