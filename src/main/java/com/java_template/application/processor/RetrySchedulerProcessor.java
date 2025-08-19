@@ -1,5 +1,7 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.lookupjob.version_1.LookupJob;
 import com.java_template.common.config.Config;
 import com.java_template.common.serializer.ProcessorSerializer;
@@ -8,6 +10,8 @@ import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import com.java_template.common.service.EntityService;
+import com.java_template.common.util.SearchConditionRequest;
+import com.java_template.common.util.Condition;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
@@ -25,6 +29,7 @@ public class RetrySchedulerProcessor implements CyodaProcessor {
     private final ProcessorSerializer serializer;
     private final EntityService entityService;
     private final Random random = new Random();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public RetrySchedulerProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
@@ -68,7 +73,16 @@ public class RetrySchedulerProcessor implements CyodaProcessor {
                 long delayMs = Math.min(baseDelaySecs * 1000L + jitter, Config.MAX_BACKOFF_MS);
                 // schedule is conceptual: in this environment we cannot schedule real timed events, so we log intent
                 logger.info("RetrySchedulerProcessor: scheduling retry for job={} after {}ms (attempts={})", job.getTechnicalId(), delayMs, attempts);
-                // In a real implementation we'd publish a delayed event to re-run the workflow. Here we rely on orchestration platform.
+                // Also add metadata to job to help with observability and idempotency
+                String meta = job.getMetadata() != null ? job.getMetadata() : "{}";
+                try {
+                    JsonNode metaNode = objectMapper.readTree(meta);
+                    ((com.fasterxml.jackson.databind.node.ObjectNode) metaNode).put("lastScheduledDelayMs", delayMs);
+                    ((com.fasterxml.jackson.databind.node.ObjectNode) metaNode).put("lastScheduledAt", Instant.now().toString());
+                    job.setMetadata(objectMapper.writeValueAsString(metaNode));
+                } catch (Exception e) {
+                    // ignore metadata errors
+                }
             } else {
                 logger.info("RetrySchedulerProcessor: max attempts reached for job={} attempts={}", job.getTechnicalId(), attempts);
                 // On reaching max attempts the workflow transitions to PersistErrorProcessor as per workflow
