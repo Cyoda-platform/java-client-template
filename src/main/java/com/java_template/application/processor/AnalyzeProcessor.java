@@ -16,8 +16,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -97,8 +95,8 @@ public class AnalyzeProcessor implements CyodaProcessor {
                 return job;
             }
 
-            // Parse CSV - simple parser for numeric columns 'price' and 'neighbourhood' grouping
-            List<String> lines = Arrays.stream(csv.split("\n")).collect(Collectors.toList());
+            // Parse CSV - simple parser for numeric column 'price' and 'neighbourhood' grouping
+            List<String> lines = Arrays.stream(csv.split("\r?\n")).collect(Collectors.toList());
             if (lines.size() <= 1) {
                 logger.warn("AnalyzeProcessor: CSV has no data rows for job {}", job.getTechnicalId());
                 job.setStatus("FAILED");
@@ -106,15 +104,16 @@ public class AnalyzeProcessor implements CyodaProcessor {
             }
 
             String header = lines.get(0);
-            String[] headers = header.split(",");
-            int priceIdx = -1;
-            int neighbourhoodIdx = -1;
+            String[] headers = header.split(",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)");
             Map<String, Integer> headerIndex = new HashMap<>();
             for (int i = 0; i < headers.length; i++) {
-                headerIndex.put(headers[i].trim().toLowerCase(), i);
+                String h = headers[i].trim();
+                // strip surrounding quotes if present
+                if (h.startsWith("\"") && h.endsWith("\"")) h = h.substring(1, h.length() - 1);
+                headerIndex.put(h.toLowerCase(), i);
             }
-            priceIdx = headerIndex.getOrDefault("price", -1);
-            neighbourhoodIdx = headerIndex.getOrDefault("neighbourhood", -1);
+            int priceIdx = headerIndex.getOrDefault("price", -1);
+            int neighbourhoodIdx = headerIndex.getOrDefault("neighbourhood", -1);
 
             List<Double> prices = new ArrayList<>();
             Map<String, List<Double>> byNeighbour = new HashMap<>();
@@ -123,7 +122,7 @@ public class AnalyzeProcessor implements CyodaProcessor {
             for (int i = 1; i < lines.size(); i++) {
                 String row = lines.get(i);
                 if (row == null || row.isBlank()) continue;
-                String[] cols = row.split(",(?=(?:[^"]*"[^"]*")*[^"]*$)", -1); // handle commas in quotes
+                String[] cols = row.split(",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)", -1); // handle commas in quotes
                 // price
                 Double price = null;
                 if (priceIdx >= 0 && priceIdx < cols.length) {
@@ -141,9 +140,13 @@ public class AnalyzeProcessor implements CyodaProcessor {
                 String nb = null;
                 if (neighbourhoodIdx >= 0 && neighbourhoodIdx < cols.length) {
                     nb = cols[neighbourhoodIdx].trim();
-                    if (nb.isBlank()) nb = "<UNKNOWN>";
+                    if (nb.isBlank()) {
+                        nb = "<UNKNOWN>";
+                        missingCounts.merge("neighbourhood", 1, Integer::sum);
+                    }
                 } else {
                     nb = "<UNKNOWN>";
+                    missingCounts.merge("neighbourhood", 1, Integer::sum);
                 }
 
                 if (price != null) {
@@ -161,7 +164,13 @@ public class AnalyzeProcessor implements CyodaProcessor {
 
             double mean = prices.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
             List<Double> sorted = prices.stream().sorted().collect(Collectors.toList());
-            double median = sorted.get(sorted.size() / 2);
+            double median;
+            int n = sorted.size();
+            if (n % 2 == 1) {
+                median = sorted.get(n / 2);
+            } else {
+                median = (sorted.get(n / 2 - 1) + sorted.get(n / 2)) / 2.0;
+            }
 
             ObjectNode metrics = objectMapper.createObjectNode();
             metrics.put("total_records", totalRecords);
@@ -174,7 +183,11 @@ public class AnalyzeProcessor implements CyodaProcessor {
                 List<Double> list = e.getValue();
                 double m = list.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
                 List<Double> s = list.stream().sorted().collect(Collectors.toList());
-                double med = s.get(s.size() / 2);
+                double med;
+                int sz = s.size();
+                if (sz == 0) med = 0.0;
+                else if (sz % 2 == 1) med = s.get(sz / 2);
+                else med = (s.get(sz / 2 - 1) + s.get(sz / 2)) / 2.0;
                 ObjectNode nnode = objectMapper.createObjectNode();
                 nnode.put("count", list.size());
                 nnode.put("mean", m);
