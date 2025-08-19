@@ -63,13 +63,13 @@ public class FetchInventoryProcessor implements CyodaProcessor {
         try {
             // Build a simple search condition from filters: only support category and location and sourceId
             SearchConditionRequest condition = null;
-            if (job.getFilters() != null && job.getFilters().has("category")) {
+            if (job.getFilters() != null && job.getFilters().get("category") != null) {
                 condition = SearchConditionRequest.group("AND",
-                    Condition.of("$.category", "EQUALS", job.getFilters().get("category").asText())
+                    Condition.of("$.category", "EQUALS", job.getFilters().get("category").toString())
                 );
-            } else if (job.getFilters() != null && job.getFilters().has("location")) {
+            } else if (job.getFilters() != null && job.getFilters().get("location") != null) {
                 condition = SearchConditionRequest.group("AND",
-                    Condition.of("$.location", "EQUALS", job.getFilters().get("location").asText())
+                    Condition.of("$.location", "EQUALS", job.getFilters().get("location").toString())
                 );
             }
 
