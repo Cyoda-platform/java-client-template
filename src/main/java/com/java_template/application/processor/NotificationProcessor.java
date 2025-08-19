@@ -1,11 +1,14 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.extractionjob.version_1.ExtractionJob;
 import com.java_template.application.entity.report.version_1.Report;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.service.EntityService;
+import com.java_template.common.util.Condition;
+import com.java_template.common.util.SearchConditionRequest;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -15,6 +18,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.time.OffsetDateTime;
+import java.util.Comparator;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -55,25 +63,83 @@ public class NotificationProcessor implements CyodaProcessor {
     private ExtractionJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<ExtractionJob> context) {
         ExtractionJob job = context.entity();
         try {
-            // For prototype, fetch the last report generated from this job
-            CompletableFuture<ObjectNode> reportFuture = entityService.getItem(Report.ENTITY_NAME, String.valueOf(Report.ENTITY_VERSION), UUID.fromString(job.getTechnicalId()));
-            ObjectNode reportNode = reportFuture.get();
-            if (reportNode == null) {
+            // Find latest report created from this job
+            SearchConditionRequest condition = SearchConditionRequest.group("AND",
+                Condition.of("$.createdFromJobId", "EQUALS", job.getJobId())
+            );
+            CompletableFuture<ArrayNode> reportsFuture = entityService.getItemsByCondition(Report.ENTITY_NAME, String.valueOf(Report.ENTITY_VERSION), condition, true);
+            ArrayNode reports = reportsFuture.get();
+            if (reports == null || reports.size() == 0) {
                 logger.warn("No report found for jobId={} technicalId={}", job.getJobId(), job.getTechnicalId());
                 return job;
             }
 
-            // Simulate email sending - in production integrate with email provider
-            logger.info("Sending report {} to recipients={} for jobId={}", reportNode.get("reportId").asText(), String.join(",", job.getRecipients()), job.getJobId());
+            // pick the most recently generated report by generatedAt
+            ObjectNode chosen = null;
+            for (int i = 0; i < reports.size(); i++) {
+                ObjectNode node = (ObjectNode) reports.get(i);
+                if (chosen == null) chosen = node;
+                else {
+                    String g1 = chosen.has("generatedAt") ? chosen.get("generatedAt").asText() : null;
+                    String g2 = node.has("generatedAt") ? node.get("generatedAt").asText() : null;
+                    if (g2 != null && (g1 == null || g2.compareTo(g1) > 0)) chosen = node;
+                }
+            }
 
-            // On success set report status to SENT
-            try {
-                Report r = new Report();
-                if (reportNode.has("reportId")) r.setReportId(reportNode.get("reportId").asText());
-                if (reportNode.has("technicalId")) r.setTechnicalId(reportNode.get("technicalId").asText());
+            if (chosen == null) {
+                logger.warn("No suitable report to send for jobId={}", job.getJobId());
+                return job;
+            }
+
+            String reportId = chosen.has("reportId") ? chosen.get("reportId").asText() : "<unknown>";
+            logger.info("Sending report {} to recipients={} for jobId={}", reportId, String.join(",", job.getRecipients()), job.getJobId());
+
+            // Simulate email send by attempting to reach any attachment URL if it's an http(s) url to detect transient failures
+            boolean simulatedSendSuccess = true;
+            if (chosen.has("attachments") && chosen.get("attachments”).isArray()) {
+                for (int i = 0; i < chosen.get("attachments").size(); i++) {
+                    try {
+                        ObjectNode att = (ObjectNode) chosen.get("attachments").get(i);
+                        if (att.has("url") && att.get("url").asText().startsWith("http")) {
+                            String url = att.get("url").asText();
+                            try {
+                                URL u = new URL(url);
+                                HttpURLConnection conn = (HttpURLConnection) u.openConnection();
+                                conn.setRequestMethod("HEAD");
+                                conn.setConnectTimeout(3000);
+                                conn.setReadTimeout(3000);
+                                int status = conn.getResponseCode();
+                                if (status >= 500) {
+                                    simulatedSendSuccess = false;
+                                    break;
+                                }
+                            } catch (Exception e) {
+                                simulatedSendSuccess = false;
+                                break;
+                            }
+                        }
+                    } catch (Exception ignored) {
+                    }
+                }
+            }
+
+            // Update report status based on simulated result
+            Report r = new Report();
+            if (chosen.has("technicalId")) r.setTechnicalId(chosen.get("technicalId").asText());
+            if (chosen.has("reportId")) r.setReportId(chosen.get("reportId").asText());
+            if (simulatedSendSuccess) {
                 r.setStatus("SENT");
-                CompletableFuture<UUID> updated = entityService.updateItem(Report.ENTITY_NAME, String.valueOf(Report.ENTITY_VERSION), UUID.fromString(r.getTechnicalId()), r);
-                updated.get();
+            } else {
+                r.setStatus("FAILED");
+            }
+            // Persist report status update
+            try {
+                if (r.getTechnicalId() != null) {
+                    entityService.updateItem(Report.ENTITY_NAME, String.valueOf(Report.ENTITY_VERSION), UUID.fromString(r.getTechnicalId()), r).get();
+                    logger.info("Updated report {} status={} for jobId={}", r.getReportId(), r.getStatus(), job.getJobId());
+                } else {
+                    logger.warn("Report technicalId missing, cannot update status for reportId={} jobId={}", r.getReportId(), job.getJobId());
+                }
             } catch (Exception e) {
                 logger.warn("Failed to update report status after sending : {}", e.getMessage());
             }
