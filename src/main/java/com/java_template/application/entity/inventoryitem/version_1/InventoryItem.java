@@ -5,7 +5,6 @@ import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import lombok.Data;
 
-import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
 @Data
@@ -15,14 +14,14 @@ public class InventoryItem implements CyodaEntity {
 
     // Add your entity fields here
     private String technicalId;
-    private String sku; // unique product code from upstream API
-    private String name; // product display name
-    private String category; // categorization for grouping
-    private Integer quantity; // available units
-    private BigDecimal unitPrice; // price per unit, may be null
-    private String location; // warehouse/location
-    private OffsetDateTime lastUpdated; // timestamp from source
-    private String sourceId; // origin identifier from SwaggerHub API
+    private String sku;
+    private String name;
+    private String category;
+    private Integer quantity;
+    private java.math.BigDecimal unitPrice;
+    private String location;
+    private OffsetDateTime lastUpdated;
+    private String sourceId;
 
     public InventoryItem() {}
 
@@ -36,10 +35,12 @@ public class InventoryItem implements CyodaEntity {
 
     @Override
     public boolean isValid() {
+        // Check required business fields
         if (sku == null || sku.isBlank()) return false;
         if (name == null || name.isBlank()) return false;
         if (category == null || category.isBlank()) return false;
         if (quantity == null || quantity < 0) return false;
+        if (lastUpdated == null) return false;
         if (sourceId == null || sourceId.isBlank()) return false;
         return true;
     }
