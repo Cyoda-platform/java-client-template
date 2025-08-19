@@ -1,152 +1,246 @@
-# Functional Requirements — Event-Driven Architecture (Final)
+# Functional Requirements — Event-Driven Architecture (Updated)
 
-I will model this as an Event-Driven design using 3 entities (default). If you want more entities (up to 10) tell me and I will expand. Below are entities, workflows, processors/criteria and API rules (no implementation details, only Cyoda behavior).
+This document defines the functional requirements for the LookupJob workflow implemented as an event-driven orchestration. It specifies entities, workflows, processors/criteria, API rules and business/configuration rules. The goal is to capture up-to-date logic, remove ambiguity, and make terminal states and retry behaviour explicit.
 
-### 1. Entity Definitions
-```
-LookupJob:
+---
+
+## 1. High-level overview
+
+- The system exposes a single orchestration entrypoint to lookup users from an external ReqRes API.
+- Clients create a LookupJob which drives the orchestration. The orchestration persists intermediate entities (User, ErrorEvent) as results of processing.
+- The client receives only a technicalId for the LookupJob on creation and polls GET /lookupJobs/{technicalId} to obtain job progress and final result.
+- The system is event-driven: processors publish and consume events to move job state; persistence of User and ErrorEvent is produced by processors.
+
+---
+
+## 2. Entities
+
+All timestamps are ISO8601 (UTC). All "technicalId" values are internal opaque IDs (e.g., prefixed strings like `lkj_...`, `usr_...`, `err_...`).
+
+LookupJob (orchestration entity) — fields and intent:
+- technicalId: String (opaque internal id, returned to client)
 - userId: Integer (requested ReqRes user id)
-- status: String (PENDING | VALIDATING | IN_PROGRESS | SUCCESS | NOT_FOUND | INVALID_INPUT | ERROR | COMPLETED) (workflow state)
-- attempts: Integer (retry count)
-- createdAt: String (ISO8601 timestamp)
-- startedAt: String (ISO8601)
-- completedAt: String (ISO8601)
-- resultRef: String (technicalId of persisted User or ErrorEvent)
+- lifecycleState: String (PENDING | VALIDATING | IN_PROGRESS | COMPLETED) — represents the workflow lifecycle
+- outcome: String (null until terminal) (SUCCESS | NOT_FOUND | INVALID_INPUT | ERROR) — describes terminal result when lifecycleState == COMPLETED
+- attempts: Integer (retry count, starts at 0)
+- createdAt: String (ISO8601)
+- startedAt: String (ISO8601) (when first transition to IN_PROGRESS occurs)
+- lastAttemptAt: String (ISO8601) (optional — last time an attempt was made)
+- completedAt: String (ISO8601) (when lifecycleState becomes COMPLETED)
+- resultRef: String (technicalId of persisted User or ErrorEvent) — set when outcome becomes terminal
+- metadata: Object (optional free-form for debugging/tracking — e.g., idempotency key, backoff attempts info)
 
-User:
+User (persisted when external call returns user data):
+- technicalId: String (internal id, e.g. `usr_...`)
 - id: Integer (id returned by ReqRes)
-- email: String (user email)
-- first_name: String (user first name)
-- last_name: String (user last name)
-- avatar: String (avatar URL)
-- retrievedAt: String (ISO8601 timestamp)
+- email: String
+- first_name: String
+- last_name: String
+- avatar: String
+- retrievedAt: String (ISO8601)
 
-ErrorEvent:
-- code: Integer (HTTP or app error code)
-- message: String (user friendly message)
-- details: String (optional debug/info)
+ErrorEvent (persisted on errors or validation failures):
+- technicalId: String (internal id, e.g. `err_...`)
+- code: Integer (HTTP or application error code)
+- message: String (user-facing message)
+- details: String (optional: internal debug details / stack trace / external response)
 - occurredAt: String (ISO8601)
-- relatedJobId: String (LookupJob technicalId)
-```
+- relatedJobId: String (LookupJob.technicalId)
 
-### 2. Entity workflows
+Notes:
+- We separate lifecycleState and outcome to clearly distinguish workflow progress from final result reason.
+- All persisted entities (User, ErrorEvent) must include an auditable created/occurred timestamp.
 
-LookupJob workflow:
-1. Initial State: Job created with PENDING
-2. Validation (automatic): Validate input format and range
-3. If invalid -> mark INVALID_INPUT, persist ErrorEvent (automatic) -> COMPLETED
-4. If valid -> IN_PROGRESS (automatic), call external ReqRes via FetchUserProcessor
-5. Fetch result:
-   - If user returned -> persist User (PersistUserProcessor), set status SUCCESS -> COMPLETED
-   - If 404 -> persist ErrorEvent with code 404, set status NOT_FOUND -> COMPLETED
-   - If transient error -> increment attempts, if attempts < max -> schedule retry (automatic) -> IN_PROGRESS; else persist ErrorEvent and set ERROR -> COMPLETED
-6. Completion: job ends in COMPLETED state with resultRef pointing to created entity
+---
 
-Entity state diagrams
+## 3. Workflows
 
-```mermaid
-stateDiagram-v2
-    [*] --> "PENDING"
-    "PENDING" --> "VALIDATING" : ValidateInputCriterion, automatic
-    "VALIDATING" --> "INVALID_INPUT" : if input invalid
-    "VALIDATING" --> "IN_PROGRESS" : if input valid
-    "IN_PROGRESS" --> "SUCCESS" : FetchUserProcessor returns 200
-    "IN_PROGRESS" --> "NOT_FOUND" : FetchUserProcessor returns 404
-    "IN_PROGRESS" --> "ERROR" : FetchUserProcessor returns 5xx or timeout
-    "ERROR" --> "IN_PROGRESS" : RetrySchedulerProcessor, automatic
-    "SUCCESS" --> "COMPLETED" : PersistUserProcessor, automatic
-    "NOT_FOUND" --> "COMPLETED" : PersistErrorProcessor, automatic
-    "INVALID_INPUT" --> "COMPLETED" : PersistErrorProcessor, automatic
-    "COMPLETED" --> [*]
-```
+### LookupJob workflow (orchestration)
 
-User workflow (created by LookupJob process):
-1. Initial State: created (automatic) -> STORED
-2. Optional manual review (manual) -> VERIFIED or REJECTED (not required for basic flow)
+1. Creation
+   - Client POST /lookupJobs with payload { userId }
+   - System creates LookupJob with lifecycleState = PENDING, attempts = 0, createdAt = now.
+   - (Optional) If client supplied an idempotency key this is stored in job.metadata.idempotencyKey.
+   - Creation triggers the asynchronous orchestration: Validate input automatically.
 
-```mermaid
-stateDiagram-v2
-    [*] --> "STORED"
-    "STORED" --> "VERIFIED" : ManualReviewProcessor, manual
-    "STORED" --> "REJECTED" : ManualReviewProcessor, manual
-    "VERIFIED" --> [*]
-    "REJECTED" --> [*]
-```
+2. Validation (automatic)
+   - lifecycleState -> VALIDATING
+   - ValidateInputCriterion runs (checks presence, numeric type and positive range of userId)
+   - If invalid:
+     - Persist ErrorEvent (code = 400 or app-specific), set outcome = INVALID_INPUT
+     - Set lifecycleState = COMPLETED, completedAt = now, resultRef -> ErrorEvent.technicalId
+     - Processing ends.
+   - If valid:
+     - lifecycleState -> IN_PROGRESS, startedAt = now (if not already set)
+     - Proceed to FetchUserProcessor.
 
-ErrorEvent workflow:
-1. Created by job on error conditions -> STORED
-2. Manual investigation allowed -> RESOLVED (manual)
+3. Fetch attempt(s)
+   - FetchUserProcessor invokes external GET /users/{userId} (ReqRes) and interprets response.
+   - On HTTP 200 with user payload:
+     - PersistUserProcessor persists the User, returns user technicalId
+     - Update LookupJob: resultRef = user technicalId, outcome = SUCCESS, lifecycleState = COMPLETED, completedAt = now
+   - On HTTP 404:
+     - PersistErrorProcessor persists ErrorEvent with code = 404 & friendly message
+     - Update LookupJob: resultRef = error technicalId, outcome = NOT_FOUND, lifecycleState = COMPLETED, completedAt = now
+   - On transient errors (timeouts, network issues, 5xx):
+     - Increment attempts. Update lastAttemptAt.
+     - If attempts < MAX_ATTEMPTS -> schedule retry via RetrySchedulerProcessor applying backoff -> keep lifecycleState = IN_PROGRESS (job remains active)
+     - If attempts >= MAX_ATTEMPTS -> PersistErrorProcessor persists ErrorEvent (code = 503 or app-specific), update LookupJob: resultRef = error technicalId, outcome = ERROR, lifecycleState = COMPLETED, completedAt = now
+
+4. Completion
+   - Terminal: lifecycleState == COMPLETED and outcome one of SUCCESS | NOT_FOUND | INVALID_INPUT | ERROR.
+   - Client can GET the job and receive dereferenced result in the response (result payload included when available).
+
+Diagram (lifecycleState + outcome semantics):
 
 ```mermaid
 stateDiagram-v2
-    [*] --> "STORED"
-    "STORED" --> "RESOLVED" : ManualInvestigateProcessor, manual
-    "RESOLVED" --> [*]
+    [*] --> PENDING
+    PENDING --> VALIDATING : automatic
+    VALIDATING --> COMPLETED : input invalid / PersistErrorProcessor (outcome=INVALID_INPUT)
+    VALIDATING --> IN_PROGRESS : input valid
+    IN_PROGRESS --> COMPLETED : Fetch -> 200 / PersistUser (outcome=SUCCESS)
+    IN_PROGRESS --> COMPLETED : Fetch -> 404 / PersistError (outcome=NOT_FOUND)
+    IN_PROGRESS --> IN_PROGRESS : Fetch -> transient error & attempts < MAX (Retry scheduled)
+    IN_PROGRESS --> COMPLETED : Fetch -> transient error & attempts >= MAX (PersistError, outcome=ERROR)
+    COMPLETED --> [*]
 ```
 
-Processors and Criteria needed (per LookupJob):
-- Criteria:
-  - ValidateInputCriterion (checks numeric and positive)
-  - MaxRetryCriterion (checks attempts < maxAttempts)
-- Processors:
-  - FetchUserProcessor (calls ReqRes and interprets response)
-  - PersistUserProcessor (persists User entity and returns technicalId)
-  - PersistErrorProcessor (persists ErrorEvent and returns technicalId)
-  - RetrySchedulerProcessor (schedules retry attempts and increments attempts)
+Notes on retry semantics:
+- attempts increments after each failed attempt (transient error).
+- Scheduling retries is asynchronous: RetrySchedulerProcessor schedules a future re-run of the Fetch attempt and publishes the event to resume processing.
+- While retrying, lifecycleState remains IN_PROGRESS so GET shows active status.
 
-### 3. Pseudo code for processor classes
+### User workflow
+- Automatically created and stored by PersistUserProcessor.
+- Optionally subject to manual review (VERIFIED / REJECTED) if the product requires manual review — not required for basic flow.
+
+State diagram (unchanged):
+
+```mermaid
+stateDiagram-v2
+    [*] --> STORED
+    STORED --> VERIFIED : ManualReviewProcessor (manual)
+    STORED --> REJECTED : ManualReviewProcessor (manual)
+    VERIFIED --> [*]
+    REJECTED --> [*]
+```
+
+### ErrorEvent workflow
+- Created by processors when errors occur (validation or runtime errors).
+- Can be investigated and resolved manually (RESOLVED).
+
+```mermaid
+stateDiagram-v2
+    [*] --> STORED
+    STORED --> RESOLVED : ManualInvestigateProcessor (manual)
+    RESOLVED --> [*]
+```
+
+---
+
+## 4. Processors and Criteria
+
+Criteria
+- ValidateInputCriterion
+  - Verifies userId is present, integer, and positive.
+  - Returns pass/fail; on fail the job transitions to COMPLETED with outcome = INVALID_INPUT.
+- MaxRetryCriterion (implicit in retry logic)
+  - Evaluates attempts < MAX_ATTEMPTS to determine whether to schedule another retry.
+
+Processors
+- FetchUserProcessor
+  - Calls external GET /users/{userId} and returns a structured response (status, body, details).
+  - Interprets network/timeout/5xx as transient error.
+- PersistUserProcessor
+  - Persists User entity and returns technicalId. Sets retrievedAt to now.
+- PersistErrorProcessor
+  - Persists ErrorEvent and returns technicalId.
+  - Should accept code, message, details, relatedJobId.
+- RetrySchedulerProcessor
+  - Increments attempts, computes next backoff delay, schedules re-run event for the LookupJob.
+  - If attempts >= MAX_ATTEMPTS it forwards to PersistErrorProcessor instead of scheduling.
+
+Configuration constants (system-level)
+- MAX_ATTEMPTS: Integer (default 3)
+- BACKOFF_STRATEGY: exponential (base=2) with jitter — example delays: 1s, 2s, 4s (+/- jitter). Configurable base and maxDelay.
+- RETRYABLE_STATUS_CODES: [502, 503, 504] and network/timeouts treated as retryable.
+
+---
+
+## 5. Processor pseudocode
 
 FetchUserProcessor
 ```
 input: LookupJob job
-output: response object
+output: { status: Integer, body?: JSON, details?: String }
 process:
-  call external GET /users/{job.userId}
-  if 200 -> return {status:200, body: userJson}
-  if 404 -> return {status:404}
-  else -> return {status:500, details: error}
+  perform HTTP GET /users/{job.userId} with timeout
+  if response.status == 200:
+    return {status:200, body: response.json}
+  else if response.status == 404:
+    return {status:404}
+  else:
+    return {status:500, details: response or network error}
 ```
 
 PersistUserProcessor
 ```
-input: userJson, job
+input: userJson, LookupJob job
 process:
-  create User entity from userJson with retrievedAt = now
+  create User entity with retrievedAt = now
   save User -> returns technicalId userTechId
   update job.resultRef = userTechId
-  update job.status = SUCCESS
+  update job.outcome = SUCCESS
+  update job.lifecycleState = COMPLETED
   update job.completedAt = now
+  persist job
 ```
 
 PersistErrorProcessor
 ```
-input: code, message, details, job
+input: code, message, details, LookupJob job
 process:
-  create ErrorEvent with relatedJobId = job.technicalId
+  create ErrorEvent with relatedJobId = job.technicalId and occurredAt = now
   save ErrorEvent -> returns technicalId errorTechId
   update job.resultRef = errorTechId
-  set job.status = NOT_FOUND or ERROR or INVALID_INPUT
-  set job.completedAt = now
+  set job.outcome = (code == 404 ? NOT_FOUND : (input invalid -> INVALID_INPUT else ERROR))
+  update job.lifecycleState = COMPLETED
+  update job.completedAt = now
+  persist job
 ```
 
 RetrySchedulerProcessor
 ```
-input: job
+input: LookupJob job
 process:
-  if attempts < MAX_ATTEMPTS:
-    schedule re-run of job.process after backoff
-    increment job.attempts
+  job.attempts = job.attempts + 1
+  job.lastAttemptAt = now
+  persist job (attempts and lastAttemptAt)
+  if job.attempts < MAX_ATTEMPTS:
+    compute delay using BACKOFF_STRATEGY (exponential + jitter)
+    schedule async event to re-run FetchUserProcessor for job after delay
   else:
-    call PersistErrorProcessor with timeout/error info
+    call PersistErrorProcessor(code=503, message="Max retries exceeded", details=last error details, job)
 ```
 
-Criteria pseudo
-- ValidateInputCriterion: return false if userId null or not positive integer
-- MaxRetryCriterion: return true if job.attempts < MAX
+ValidateInputCriterion
+```
+input: LookupJob job
+output: boolean
+process:
+  return (job.userId != null && job.userId is integer && job.userId > 0)
+```
 
-### 4. API Endpoints Design Rules
+---
 
-Rules applied: Only LookupJob has POST (orchestration). POST returns only technicalId. GET by technicalId for LookupJob returns job state and, when completed, includes dereferenced result (User or ErrorEvent). No other POST endpoints.
+## 6. API Endpoints (design rules)
+
+Principles
+- Only LookupJob creation is a write endpoint. Persisted results (User, ErrorEvent) are created by processors.
+- POST returns only the technicalId so clients must poll GET for results.
+- GET will return job metadata and, when lifecycleState == COMPLETED, includes dereferenced result (User or ErrorEvent payload) in the response.
+- API should support idempotency for POST: clients MAY supply an Idempotency-Key header; server records it in job.metadata.idempotencyKey and returns existing job if duplicate.
 
 1) Create LookupJob
 - POST /lookupJobs
@@ -154,53 +248,84 @@ Request JSON:
 {
   "userId": 2
 }
-Response JSON (only technicalId):
+Headers (optional):
+- Idempotency-Key: <string>
+
+Successful response (201 Created):
 {
   "technicalId": "lkj_3a1f..."
 }
 
-Mermaid visualization of request/response:
-```mermaid
-flowchart LR
-  A["Client POST /lookupJobs {userId}"] --> B["API receives POST"]
-  B --> C["Response {technicalId}"]
-```
+Behavioral notes:
+- The POST is asynchronous. Creation triggers validation and processing in the background.
+- If client submits the same idempotency key, server returns same technicalId rather than creating a duplicate job.
 
 2) Get LookupJob by technicalId
 - GET /lookupJobs/{technicalId}
-Response JSON (example success)
+
+Response JSON (example when completed successfully):
 {
   "technicalId": "lkj_3a1f...",
   "userId": 2,
-  "status": "COMPLETED",
+  "lifecycleState": "COMPLETED",
+  "outcome": "SUCCESS",
   "createdAt": "2025-08-19T12:00:00Z",
   "startedAt": "2025-08-19T12:00:01Z",
+  "lastAttemptAt": "2025-08-19T12:00:01Z",
   "completedAt": "2025-08-19T12:00:02Z",
+  "attempts": 1,
   "resultRef": "usr_ab12...",
   "result": {
     "type": "User",
     "payload": {
+      "technicalId": "usr_ab12...",
       "id": 2,
       "email": "janet.weaver@reqres.in",
       "first_name": "Janet",
       "last_name": "Weaver",
-      "avatar": "https://..."
+      "avatar": "https://...",
+      "retrievedAt": "2025-08-19T12:00:01Z"
     }
   }
 }
 
-Mermaid visualization of GET response:
-```mermaid
-flowchart LR
-  G["Client GET /lookupJobs/{technicalId}"] --> H["API returns LookupJob JSON with result when available"]
-```
+- If lifecycleState != COMPLETED the `result` field MAY be absent or partial; `outcome` will be null until terminal.
 
-Notes and business rules:
-- Creating LookupJob triggers Cyoda job workflow automatically (entity persistence -> process method).
-- All entity persistence events (User, ErrorEvent) are produced by processors during the LookupJob workflow.
-- POST returns only technicalId as required; clients poll GET by technicalId to retrieve results.
-- Retries and backoff are handled automatically by RetrySchedulerProcessor and MaxRetryCriterion.
+---
 
-If you'd like:
-- I can expand to include optional GET endpoints for retrieving stored Users by their domain id or list all jobs.
-- Or expand entities up to 10 (for auditing, metrics, notifications). Which would you prefer?
+## 7. Business rules and notes
+
+- The orchestration ensures a single logical flow: validation → external fetch attempts (with retries) → persist result (User or ErrorEvent) → completed.
+- Terminal outcome values (SUCCESS/NOT_FOUND/INVALID_INPUT/ERROR) persist the reason for completion.
+- All job transitions that mutate the LookupJob must be persisted atomically (or idempotently) to avoid duplicate retries or inconsistent attempt counts.
+- Retry scheduler must be resilient to duplicated scheduling events (idempotent scheduling and attempt counting).
+- External calls and error-handling: network/timeouts/5xx treated as retryable per configuration; specific client errors (4xx other than 429) are non-retryable.
+- For observability, each Fetch attempt should record metrics (attempt number, duration, response code) and log correlation ids.
+
+---
+
+## 8. Configuration and operational defaults
+
+- MAX_ATTEMPTS = 3 (configurable)
+- BACKOFF = exponential (2^attempts seconds) with jitter, capped at MAX_BACKOFF (configurable)
+- RETRYABLE_STATUS_CODES = [502, 503, 504] + timeouts and network errors
+- DEFAULT_TIMEOUT_MS for HTTP calls = 2_000 ms (configurable)
+
+---
+
+## 9. Extensions and optional endpoints
+
+- Optional GET endpoints to retrieve Users by domain id or list jobs can be added (read-only) but are not required for the core orchestration.
+- Optional event streams / webhooks for job completion can be added to notify clients instead of polling.
+
+---
+
+## 10. Open items
+
+- Decide if the system should return partial progress information in GET (e.g., current attempt count and lastAttemptAt). Current spec allows it.
+- Decide on idempotency semantics and retention of idempotency keys (TTL).
+- Backoff parameters (base, jitter, cap) should be set by ops.
+
+---
+
+If you want the functional requirements adjusted (more entities, different outcomes, or to externalize retry policy completely to a scheduler service) say which area you want changed and I will update.
