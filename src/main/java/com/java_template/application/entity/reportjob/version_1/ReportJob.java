@@ -46,6 +46,9 @@ public class ReportJob implements CyodaEntity {
             if (minPrice > maxPrice) return false;
         }
 
+        if (grouping != null && grouping.isBlank()) return false;
+        if (presentationType != null && presentationType.isBlank()) return false;
+
         return true;
     }
 }
