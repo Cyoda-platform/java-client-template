@@ -1,6 +1,6 @@
 package com.java_template.application.processor;
 
-import com.java_template.application.entity.flightOption.version_1.FlightOption;
+import com.java_template.application.entity.flightoption.version_1.FlightOption;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
@@ -11,8 +11,6 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-
-import java.time.OffsetDateTime;
 
 @Component
 public class AvailabilityProcessor implements CyodaProcessor {
@@ -49,22 +47,21 @@ public class AvailabilityProcessor implements CyodaProcessor {
     private FlightOption processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<FlightOption> context) {
         FlightOption entity = context.entity();
         try {
-            logger.debug("Setting status -> AVAILABILITY_CHECK for option {}", entity.getTechnicalId());
+            String idForLog = entity.getOptionId() != null ? entity.getOptionId() : "<unknown>";
+            logger.debug("Setting status -> AVAILABILITY_CHECK for option {}", idForLog);
             entity.setStatus("AVAILABILITY_CHECK");
-            entity.setUpdatedAt(OffsetDateTime.now().toString());
 
-            // For prototype: simulate seat check. If seatAvailability present and >0, READY. Otherwise simulate 2 seats.
+            // For prototype: simulate seat check. If seatAvailability present and >=0, keep it. Otherwise simulate 2 seats.
             Integer seats = entity.getSeatAvailability();
             if (seats == null) seats = 2;
             entity.setSeatAvailability(seats);
             if (seats > 0) entity.setStatus("READY"); else entity.setStatus("UNAVAILABLE");
-            entity.setUpdatedAt(OffsetDateTime.now().toString());
             return entity;
         } catch (Exception ex) {
-            logger.error("Error checking availability for option {}", entity.getTechnicalId(), ex);
-            entity.setStatus("ERROR");
-            entity.setErrorMessage("Availability check failed: " + ex.getMessage());
-            entity.setUpdatedAt(OffsetDateTime.now().toString());
+            logger.error("Error checking availability for option {}", entity != null ? entity.getOptionId() : "<null>", ex);
+            if (entity != null) {
+                entity.setStatus("ERROR");
+            }
             return entity;
         }
     }
