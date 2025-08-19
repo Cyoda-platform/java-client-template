@@ -1,0 +1,79 @@
+{
+  "version": "1.0",
+  "name": "Comment Workflow",
+  "desc": "Workflow for comment lifecycle: analyze, flag/no-flag, archive.",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "analyze_comment",
+          "next": "ANALYZED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AnalyzeSingleCommentProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ANALYZED": {
+      "transitions": [
+        {
+          "name": "flagged_transition",
+          "next": "FLAGGED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "FlagCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "normal_transition",
+          "next": "NORMAL",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "NoFlagCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "FLAGGED": {
+      "transitions": [
+        {
+          "name": "manual_archive_from_flagged",
+          "next": "ARCHIVED",
+          "manual": true
+        }
+      ]
+    },
+    "NORMAL": {
+      "transitions": [
+        {
+          "name": "manual_archive_from_normal",
+          "next": "ARCHIVED",
+          "manual": true
+        }
+      ]
+    },
+    "ARCHIVED": {
+      "transitions": []
+    }
+  }
+}
