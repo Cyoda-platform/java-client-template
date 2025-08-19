@@ -1,5 +1,6 @@
 package com.java_template.application.entity.job.version_1;
 
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.common.ModelSpec;
@@ -15,11 +16,11 @@ public class Job implements CyodaEntity {
 
     private String id; // business id
     private String jobType; // INGEST_FACTS or DELIVER_WEEKLY or OTHER
-    private Map<String, Object> parameters; // job-specific params e.g., sources, batchSize, globalSendDay
+    private ObjectNode parameters; // job-specific params e.g., sources, batchSize, globalSendDay
     private String scheduledAt; // ISO timestamp
     private String status; // PENDING/RUNNING/COMPLETED/FAILED
     private String createdAt; // ISO timestamp
-    private Map<String, Integer> resultSummary; // counts: processed, failed, sent
+    private ObjectNode resultSummary; // counts: processed, failed, sent
     private Map<String, Integer> retriesPolicy; // maxRetries: Integer
 
     public Job() {}
