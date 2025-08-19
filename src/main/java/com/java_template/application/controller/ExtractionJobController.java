@@ -15,7 +15,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
+// Note: avoid importing io.swagger.v3.oas.annotations.parameters.RequestBody to prevent collision
 import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,7 +54,7 @@ public class ExtractionJobController {
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> createExtractionJob(@RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
                                                  @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Extraction job payload")
-                                                 @RequestBody CreateExtractionJobRequest request) {
+                                                 @org.springframework.web.bind.annotation.RequestBody CreateExtractionJobRequest request) {
         try {
             ExtractionJob job = new ExtractionJob();
             job.setJobId(request.getJobId());
@@ -136,7 +136,7 @@ public class ExtractionJobController {
     })
     @PostMapping(value = "/{technicalId}/start", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> startJob(@Parameter(name = "technicalId", description = "Technical ID of the entity") @PathVariable("technicalId") String technicalId,
-                                      @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Start options") @RequestBody(required = false) StartJobRequest request) {
+                                      @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Start options") @org.springframework.web.bind.annotation.RequestBody(required = false) StartJobRequest request) {
         try {
             // Proxy: ensure job exists
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
@@ -203,7 +203,7 @@ public class ExtractionJobController {
     })
     @PostMapping(value = "/{technicalId}/rerun", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> rerunJob(@Parameter(name = "technicalId", description = "Technical ID of the entity") @PathVariable("technicalId") String technicalId,
-                                      @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Rerun options") @RequestBody(required = false) RerunJobRequest request) {
+                                      @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Rerun options") @org.springframework.web.bind.annotation.RequestBody(required = false) RerunJobRequest request) {
         try {
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
                     ExtractionJob.ENTITY_NAME,
