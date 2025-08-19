@@ -1,0 +1,146 @@
+{
+  "version": "1.0",
+  "name": "Job Workflow",
+  "desc": "Orchestration workflow for Job entities: prepare, run, monitor, complete",
+  "initialState": "pending",
+  "active": true,
+  "states": {
+    "pending": {
+      "transitions": [
+        {
+          "name": "prepare_job",
+          "next": "preparing",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PrepareJobProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "preparing": {
+      "transitions": [
+        {
+          "name": "start_job",
+          "next": "running",
+          "manual": false,
+          "processors": [
+            {
+              "name": "StartJobProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "running": {
+      "transitions": [
+        {
+          "name": "monitor",
+          "next": "monitoring",
+          "manual": false,
+          "processors": [
+            {
+              "name": "MonitorJobProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "monitoring": {
+      "transitions": [
+        {
+          "name": "check_results",
+          "next": "check_results",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CheckCompleteCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "check_results": {
+      "transitions": [
+        {
+          "name": "to_completed",
+          "next": "completed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "CheckCompleteCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "to_failed",
+          "next": "failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "CheckFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "completed": {
+      "transitions": [
+        {
+          "name": "report",
+          "next": "reporting",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ReportingProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "failed": {
+      "transitions": [
+        {
+          "name": "report_failed",
+          "next": "reporting",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ReportingProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "reporting": {
+      "transitions": []
+    }
+  }
+}
