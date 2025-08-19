@@ -2,7 +2,6 @@ package com.java_template.application.processor;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.lookupjob.version_1.LookupJob;
 import com.java_template.application.entity.user.version_1.User;
 import com.java_template.common.serializer.ProcessorSerializer;
