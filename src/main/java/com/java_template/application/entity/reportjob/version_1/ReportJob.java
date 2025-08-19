@@ -5,8 +5,6 @@ import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import lombok.Data;
 
-import java.util.Objects;
-
 @Data
 public class ReportJob implements CyodaEntity {
     public static final String ENTITY_NAME = "ReportJob";
@@ -38,13 +36,11 @@ public class ReportJob implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        // Required string fields must be non-null and not blank
         if (jobName == null || jobName.isBlank()) return false;
         if (initiatedBy == null || initiatedBy.isBlank()) return false;
         if (status == null || status.isBlank()) return false;
         if (createdAt == null || createdAt.isBlank()) return false;
 
-        // If both prices provided, ensure bounds are sane
         if (minPrice != null && maxPrice != null) {
             if (minPrice.isNaN() || maxPrice.isNaN()) return false;
             if (minPrice > maxPrice) return false;
