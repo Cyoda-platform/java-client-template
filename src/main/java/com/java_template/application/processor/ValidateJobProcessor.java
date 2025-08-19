@@ -20,7 +20,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
-import java.util.concurrent.TimeUnit;
 
 @Component
 public class ValidateJobProcessor implements CyodaProcessor {
