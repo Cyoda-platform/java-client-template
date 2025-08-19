@@ -1,6 +1,7 @@
 package com.java_template.common.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -29,11 +30,13 @@ public class EntityServiceImpl implements EntityService {
 
     private final CrudRepository repository;
     private final Authentication auth;
+    private final ObjectMapper objectMapper;
 
     @Autowired
-    public EntityServiceImpl(CrudRepository repository, Authentication auth) {
+    public EntityServiceImpl(CrudRepository repository, Authentication auth, ObjectMapper objectMapper) {
         this.repository = repository;
         this.auth = auth;
+        this.objectMapper = objectMapper;
     }
 
     private <T> CompletableFuture<T> executeWithTokenRetry(TokenRepositoryCall<T> repositoryCall) {
@@ -258,5 +261,9 @@ public class EntityServiceImpl implements EntityService {
             return repository.deleteAll(meta);
         });
     }
-}
 
+    @Override
+    public ObjectMapper objectMapper() {
+        return this.objectMapper;
+    }
+}
