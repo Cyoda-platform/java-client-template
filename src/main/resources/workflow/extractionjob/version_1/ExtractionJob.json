@@ -1,0 +1,225 @@
+{
+  "version": "1.0",
+  "name": "ExtractionJob Workflow",
+  "desc": "Workflow for orchestrating data extraction, transformation, analysis and reporting for ExtractionJob",
+  "initialState": "PENDING",
+  "active": true,
+  "states": {
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "validate_parameters",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "source_reachable",
+          "next": "SCHEDULED_WAIT",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "SourceReachableCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidationFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "SCHEDULED_WAIT": {
+      "transitions": [
+        {
+          "name": "schedule_trigger",
+          "next": "RUNNING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ScheduleTriggerProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "manual_start",
+          "next": "RUNNING",
+          "manual": true
+        }
+      ]
+    },
+    "RUNNING": {
+      "transitions": [
+        {
+          "name": "fetch_data",
+          "next": "FETCHING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FetchDataProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "manual_cancel",
+          "next": "CANCELLED",
+          "manual": true
+        }
+      ]
+    },
+    "FETCHING": {
+      "transitions": [
+        {
+          "name": "data_complete",
+          "next": "TRANSFORMING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DataCompletenessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "fetch_failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "FetchFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "TRANSFORMING": {
+      "transitions": [
+        {
+          "name": "transform_data",
+          "next": "ANALYZING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "TransformProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ANALYZING": {
+      "transitions": [
+        {
+          "name": "analyze",
+          "next": "REPORTING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AnalysisProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "REPORTING": {
+      "transitions": [
+        {
+          "name": "generate_report",
+          "next": "NOTIFYING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ReportGeneratorProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "NOTIFYING": {
+      "transitions": [
+        {
+          "name": "notify_recipients",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotificationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "notify_failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "NotificationFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    },
+    "CANCELLED": {
+      "transitions": []
+    }
+  }
+}
