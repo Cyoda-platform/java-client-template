@@ -1,0 +1,26 @@
+Summary of actions and results
+
+1) Initial compilation check (run #1)
+- I ran the GitHub Actions workflow (build.yml, compile-only).
+- Result: build failed. Compiler reported 22 errors (cannot find symbol getTechnicalId() on ErrorEvent, User and LookupJob types across multiple processors/criteria). The failure log showed the compile task failed (exit code 1).
+
+2) Fixes applied
+- Root cause: processors expected a technicalId property / accessor on the entity classes.
+- I added a technicalId field to the three entity classes to provide the missing property (Lombok @Data generates accessors):
+  - src/main/java/com/java_template/application/entity/lookupjob/version_1/LookupJob.java
+  - src/main/java/com/java_template/application/entity/user/version_1/User.java
+  - src/main/java/com/java_template/application/entity/errorevent/version_1/ErrorEvent.java
+
+3) Verification (run #2)
+- I ran the GitHub Actions workflow again.
+- Result: build succeeded. Gradle reported "BUILD SUCCESSFUL" and the workflow notice "✅ Compilation successful - no errors found".
+
+Notes
+- Initial failure count: 22 compilation errors referencing getTechnicalId().
+- The added technicalId fields are String typed and will be accessible via generated getTechnicalId()/setTechnicalId() methods (Lombok @Data is present).
+- No further compiler errors were reported after the change.
+- I called run_github_action a total of 2 times (within the allowed maximum of 3).
+
+If you want:
+- I can open a PR with these changes (if not already committed directly).
+- Or revert / rename the field if you prefer a different property name or type (UUID vs String) and adjust the processors accordingly.
