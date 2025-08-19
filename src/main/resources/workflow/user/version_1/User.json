@@ -1,0 +1,45 @@
+{
+  "version": "1.0",
+  "name": "User Workflow",
+  "desc": "Workflow for User entity: store and optional manual review",
+  "initialState": "STORED",
+  "active": true,
+  "states": {
+    "STORED": {
+      "transitions": [
+        {
+          "name": "manual_review_to_verified",
+          "next": "VERIFIED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ManualReviewProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "manual_review_to_rejected",
+          "next": "REJECTED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ManualReviewProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VERIFIED": {
+      "transitions": []
+    },
+    "REJECTED": {
+      "transitions": []
+    }
+  }
+}
