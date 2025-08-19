@@ -54,10 +54,8 @@ public class StaleCheckCriterion implements CyodaCriterion {
         }
         String last = book.getLastIngestedAt();
         if (last == null || last.isBlank()) {
-            // Consider book stale if never ingested timestamp
-            return EvaluationOutcome.success(); // treat as success to allow reingest path? But spec says missing -> stale
-            // If we want to mark stale when absent, return fail. We'll treat missing as stale to trigger reingest.
-            // return EvaluationOutcome.fail("Missing lastIngestedAt -> stale", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+            // Missing lastIngestedAt should be considered stale to trigger reingestion
+            return EvaluationOutcome.fail("Missing lastIngestedAt -> considered stale", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
         try {
             Instant ingested = Instant.parse(last);
