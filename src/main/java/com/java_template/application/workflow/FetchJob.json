@@ -1,0 +1,128 @@
+{
+  "version": "1.0",
+  "name": "FetchJob Workflow",
+  "desc": "Workflow for orchestrating book fetch jobs, validation, analysis and report delivery",
+  "initialState": "PENDING",
+  "active": true,
+  "states": {
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "scheduleTrigger",
+          "next": "RUNNING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ScheduleTriggerProcessor",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        }
+      ]
+    },
+    "RUNNING": {
+      "transitions": [
+        {
+          "name": "persistBooks",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PersistBooksProcessor",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "validateBooksCriterion",
+          "next": "ANALYZING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidateBooksCriterion",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          }
+        }
+      ]
+    },
+    "ANALYZING": {
+      "transitions": [
+        {
+          "name": "analyzeMetrics",
+          "next": "REPORT_CREATED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AnalyzeMetricsProcessor",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        }
+      ]
+    },
+    "REPORT_CREATED": {
+      "transitions": [
+        {
+          "name": "sendReportSuccess",
+          "next": "SENT",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendReportProcessor",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        },
+        {
+          "name": "sendReportFailure",
+          "next": "DELIVERY_FAILED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendReportProcessor",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        }
+      ]
+    },
+    "SENT": {
+      "transitions": [
+        {
+          "name": "finalizeSuccess",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FinalizeJobProcessor",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        }
+      ]
+    },
+    "DELIVERY_FAILED": {
+      "transitions": [
+        {
+          "name": "finalizeFailure",
+          "next": "FAILED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FinalizeJobProcessor",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        }
+      ]
+    },
+    "COMPLETED": { "transitions": [] },
+    "FAILED": { "transitions": [] }
+  }
+}
