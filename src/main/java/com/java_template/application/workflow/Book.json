@@ -1,0 +1,124 @@
+{
+  "version": "1.0",
+  "name": "Book Workflow",
+  "desc": "Workflow for Book ingestion, enrichment, indexing and staleness handling",
+  "initialState": "INGESTED",
+  "active": true,
+  "states": {
+    "INGESTED": {
+      "transitions": [
+        {
+          "name": "ingest_to_enrich",
+          "next": "ENRICHED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EnrichMetadataProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ENRICHED": {
+      "transitions": [
+        {
+          "name": "enriched_to_index",
+          "next": "INDEXED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "IndexBookProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "INDEXED": {
+      "transitions": [
+        {
+          "name": "index_to_stale_check",
+          "next": "STALE_CHECK",
+          "manual": false
+        }
+      ]
+    },
+    "STALE_CHECK": {
+      "transitions": [
+        {
+          "name": "stale_if_old",
+          "next": "STALE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "StaleCheckCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "not_stale_complete",
+          "next": "COMPLETED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "StaleCheckCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "STALE": {
+      "transitions": [
+        {
+          "name": "stale_to_reingest",
+          "next": "REINGEST",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ReIngestProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "REINGEST": {
+      "transitions": [
+        {
+          "name": "reingest_success",
+          "next": "REINGEST_COMPLETED",
+          "manual": false
+        },
+        {
+          "name": "reingest_failure",
+          "next": "FAILED",
+          "manual": false
+        }
+      ]
+    },
+    "REINGEST_COMPLETED": {
+      "transitions": []
+    },
+    "COMPLETED": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    }
+  }
+}
