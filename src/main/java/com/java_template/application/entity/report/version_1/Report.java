@@ -7,23 +7,21 @@ import lombok.Data;
 
 import java.util.List;
 import java.util.Map;
-import java.util.ArrayList;
-import java.util.HashMap;
 
 @Data
 public class Report implements CyodaEntity {
     public static final String ENTITY_NAME = "Report";
     public static final Integer ENTITY_VERSION = 1;
-
     // Add your entity fields here
+
     private String reportId; // report business id
     private String periodStart; // report period start (date string)
     private String periodEnd; // report period end (date string)
     private String generatedAt; // timestamp when generated (ISO string)
-    private Map<String, Object> summaryMetrics = new HashMap<>(); // topSellers, lowMovers, restockCandidates, highlights
-    private List<Map<String, Object>> attachments = new ArrayList<>(); // entries: {type, url, filename, size}
+    private Map<String, Object> summaryMetrics; // topSellers, lowMovers, restockCandidates, highlights
+    private List<Map<String, Object>> attachments; // entries: {type, url, filename, size}
     private String status; // COMPILING, READY, SENT, FAILED
-    private List<String> recipients = new ArrayList<>();
+    private List<String> recipients;
     private String createdFromJobId; // references ExtractionJob.jobId
 
     public Report() {}
@@ -43,6 +41,7 @@ public class Report implements CyodaEntity {
         if (periodEnd == null || periodEnd.isBlank()) return false;
         if (generatedAt == null || generatedAt.isBlank()) return false;
         if (status == null || status.isBlank()) return false;
+        if (createdFromJobId == null || createdFromJobId.isBlank()) return false;
         return true;
     }
 }
