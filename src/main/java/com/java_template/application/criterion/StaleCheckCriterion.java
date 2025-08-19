@@ -26,11 +26,22 @@ public class StaleCheckCriterion implements CyodaCriterion {
     private final CriterionSerializer serializer;
     private final String className = this.getClass().getSimpleName();
 
-    // default threshold 24 hours
-    private final Duration threshold = Duration.ofHours(24);
+    // default threshold 24 hours, configurable via STALE_THRESHOLD_HOURS env var
+    private final Duration threshold;
 
     public StaleCheckCriterion(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultCriteriaSerializer();
+        String env = System.getenv("STALE_THRESHOLD_HOURS");
+        Duration t = Duration.ofHours(24);
+        if (env != null) {
+            try {
+                long h = Long.parseLong(env);
+                if (h > 0) t = Duration.ofHours(h);
+            } catch (NumberFormatException ex) {
+                logger.warn("Invalid STALE_THRESHOLD_HOURS='{}' falling back to default 24h", env);
+            }
+        }
+        this.threshold = t;
     }
 
     @Override
