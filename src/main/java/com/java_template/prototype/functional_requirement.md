@@ -1,148 +1,195 @@
-### 1. Entity Definitions
-```
-Book:
-- id: Integer (API source id)
-- title: String (book title)
-- description: String (full description)
-- pageCount: Integer (number of pages)
-- excerpt: String (short excerpt)
-- publishDate: DateTime (publication date)
-- retrievedAt: DateTime (when fetched)
-- sourceStatus: String (ok/missing/invalid)
-- popularityScore: Double (computed score for ranking)
+# Functional Requirements — Book Fetching & Weekly Report System
 
-FetchJob:
-- name: String (human name for the job)
-- runDay: String (e.g., Wednesday)
-- runTime: String (HH:mm with timezone context)
-- timezone: String (timezone to interpret runTime)
-- recurrence: String (weekly)
-- recipients: Array of String (email list for reports)
-- lastRunAt: DateTime
-- nextRunAt: DateTime
-- status: String (scheduled/paused/running/failed)
-- triggeredBy: String (manual/schedule)
-- parameters: Object (e.g., topNPopular)
+## Overview
+This document defines the entities, workflows, processors, criteria and API surface for the Book Fetch + WeeklyReport system. It corrects inconsistencies and clarifies ambiguous behaviors in the previous version (processor counts, criteria, report range, popularity rule and API details). Key decisions applied here:
+- Popularity (default): composite score — 70% normalized pageCount + 30% recency score.
+- Report range (default): delta since FetchJob.lastRunAt (only new/updated books) to avoid reprocessing the entire dataset. This can be configured per job.
+- Delivery format (default): email summary + CSV attachment. Recipients are taken from FetchJob.recipients.
 
-WeeklyReport:
+---
+
+## 1. Entity Definitions
+All timestamps are ISO-8601 (DateTime). Fields labeled "technicalId" are system-generated opaque identifiers used for orchestration and retrieval.
+
+### Book
+- id: Integer (API source id; primary key from upstream API)
+- title: String
+- description: String (full description; optional)
+- pageCount: Integer
+- excerpt: String (short excerpt; optional)
+- publishDate: DateTime
+- retrievedAt: DateTime (when fetched from source)
+- sourceStatus: String (enum: ok | missing | invalid) — indicates validation status and source completeness
+- popularityScore: Double (computed score for ranking; 0.0..1.0 normalized)
+- excluded: Boolean (optional; manual exclusion flag)
+- correctedBy: String (optional; user id if manually corrected)
+
+Notes:
+- Books are created only by FetchJob processors (no public POST endpoint).
+- `id` is the upstream source id and is the stable identifier for GET operations.
+
+### FetchJob (orchestration entity)
+- technicalId: String (system-generated id for this job definition or run)
+- name: String (human name)
+- runDay: String (e.g., Wednesday) — optional when the job is one-off/manual
+- runTime: String (HH:mm) — interpreted in the configured timezone
+- timezone: String (IANA timezone string, e.g., "UTC", "Europe/Paris")
+- recurrence: String (enum: one-off | daily | weekly | cron-expression)
+- recipients: Array<String> (emails for report delivery)
+- lastRunAt: DateTime (timestamp of last completed run)
+- nextRunAt: DateTime (computed next run time)
+- status: String (enum: scheduled | paused | running | failed | completed)
+- triggeredBy: String (enum: manual | schedule)
+- parameters: Object (job-specific params, e.g., { "topNPopular": 5, "reportRange": "delta" })
+- createdAt: DateTime
+- updatedAt: DateTime
+
+Notes:
+- A FetchJob represents a configured scheduled job or a manual run request. Each run will update lastRunAt/nextRunAt and may create a WeeklyReport.
+
+### WeeklyReport
+- technicalId: String (system-generated id)
+- fetchJobId: String (technicalId of the originating FetchJob)
 - weekStartDate: DateTime
 - weekEndDate: DateTime
 - totalBooks: Integer
 - totalPages: Integer
 - avgPages: Double
-- topTitles: Array of Object (id, title, pageCount)
-- popularTitles: Array of Object (id, title, descriptionSnippet, excerptSnippet)
-- publicationSummary: Object (newest, oldest, countsByYear)
+- topTitles: Array<Object> (each: { id: Integer, title: String, pageCount: Integer, popularityScore: Double })
+- popularTitles: Array<Object> (each: { id: Integer, title: String, descriptionSnippet: String, excerptSnippet: String })
+- publicationSummary: Object ({ "newest": {id, publishDate}, "oldest": {id, publishDate}, "countsByYear": { year: count } })
 - generationTimestamp: DateTime
-- reportStatus: String (generated/sent/failed)
-- deliveryInfo: Object (recipients, emailStatus)
-```
+- reportStatus: String (enum: generated | sent | failed | archived)
+- deliveryInfo: Object ({ recipients: Array<String>, emailStatus: String (delivered | failed | partial), messageId: String?, errors: Array<String> })
 
-### 2. Entity workflows
+Notes:
+- WeeklyReports are created by the analyzeMetricsProcessor (or assembleSummaryProcessor) and then delivered by sendReportProcessor.
 
-FetchJob workflow:
-1. Initial State: FetchJob created (scheduled or manual) -> PENDING
-2. Trigger: On scheduled time or manual trigger -> RUNNING (automatic)
-3. Fetching: Emit fetch events that persist Book entities -> RUNNING
-4. Post-Fetch Validation: Check fetched records -> VALIDATING
-5. Analysis: If validation ok, compute metrics and assemble WeeklyReport -> ANALYZING
-6. Report Generation: Create WeeklyReport entity -> REPORT_CREATED
-7. Delivery: Send email to recipients -> SENT or DELIVERY_FAILED
-8. Completion: Update job lastRunAt/nextRunAt -> COMPLETED or FAILED
-Manual transitions: manual trigger to RUNNING, pause/resume job
-Automatic transitions: scheduled run, automatic creation of Book and WeeklyReport entities
+---
 
-```mermaid
+## 2. Workflows
+Workflows are stateful, with explicit processors and criteria. All automatic transitions are triggered by processors and criteria; manual transitions are permitted for administrative actions (pause/resume, manual run, manual review, manual exclusion of books).
+
+### 2.1 FetchJob Workflow
+Primary states and transitions:
+- PENDING: job created, waiting for schedule or manual trigger
+- RUNNING: active processing for a triggered run
+- VALIDATING: post-fetch validation of persisted Books (per-run validation phase)
+- ANALYZING: metrics computation and report creation
+- REPORT_CREATED: WeeklyReport persisted
+- SENT: report successfully delivered
+- DELIVERY_FAILED: report delivery failed
+- COMPLETED: job run completed successfully (updates lastRunAt/nextRunAt)
+- FAILED: job run failed
+
+Mermaid state diagram (conceptual):
+
 stateDiagram-v2
     [*] --> PENDING
-    PENDING --> RUNNING : scheduleTriggerProcessor
-    RUNNING --> VALIDATING : persistBooksProcessor
-    VALIDATING --> ANALYZING : validateBooksCriterion
+    PENDING --> RUNNING : scheduleTriggerProcessor / manualTrigger
+    RUNNING --> PERSISTING : persistBooksProcessor
+    PERSISTING --> VALIDATING : persistBooksProcessor completes
+    VALIDATING --> ANALYZING : validateBooksCriterion passed
+    VALIDATING --> FAILED : validateBooksCriterion failed
     ANALYZING --> REPORT_CREATED : analyzeMetricsProcessor
-    REPORT_CREATED --> SENT : sendReportProcessor
-    REPORT_CREATED --> DELIVERY_FAILED : sendReportProcessor
+    REPORT_CREATED --> SENT : sendReportProcessor (success)
+    REPORT_CREATED --> DELIVERY_FAILED : sendReportProcessor (failure)
     SENT --> COMPLETED : finalizeJobProcessor
     DELIVERY_FAILED --> FAILED : finalizeJobProcessor
     COMPLETED --> [*]
     FAILED --> [*]
-```
 
-FetchJob workflow processors and criteria:
-- Processors (4)
-  - scheduleTriggerProcessor (kicks off at scheduled time or manual)
-  - persistBooksProcessor (fetches API and persists Book entities)
-  - analyzeMetricsProcessor (aggregates and creates WeeklyReport)
-  - sendReportProcessor (emails report and sets deliveryInfo)
-  - finalizeJobProcessor (updates lastRunAt/nextRunAt)
-- Criteria (2)
-  - validateBooksCriterion (checks data completeness / sourceStatus)
-  - deliverySuccessCriterion (checks mail delivery result)
+Processors (ordered, per run):
+- scheduleTriggerProcessor: triggers a run (by schedule or manual). Writes RUNNING state.
+- persistBooksProcessor: calls external API, maps results to Book entities, sets retrievedAt and preliminary sourceStatus, persists Book entities. After persisting each Book the Book workflow triggers (validation/scoring).
+- validateBooksProcessor: (per-run aggregator) applies validateBooksCriterion across the fetched set and updates job-level validation summary (e.g., number of invalid records). Drives transition to ANALYZING if validation summary passes configured thresholds.
+- analyzeMetricsProcessor: queries Book data (default: delta since lastRunAt unless job.parameters.reportRange overrides to snapshot), computes metrics (totals, averages, popularity rankings) and creates WeeklyReport entity.
+- assembleSummaryProcessor: optional processor to format summary text, CSV attachments and prepare delivery payloads.
+- sendReportProcessor: sends email and attachments to FetchJob.recipients, records deliveryInfo and reportStatus on WeeklyReport.
+- finalizeJobProcessor: sets FetchJob.lastRunAt, computes nextRunAt, updates status to COMPLETED/FAILED and persists.
 
-Book workflow:
-1. Initial State: Book persisted by FetchJob -> NEW
-2. Validation: run validation processors -> VALIDATED or INVALID
-3. Scoring: compute popularityScore -> SCORED
-4. Indexed for report: available for analysis -> AVAILABLE
-Manual transitions: mark book as excluded/manual correction
-Automatic transitions: validation and scoring triggered by persistence
+Criteria:
+- validateBooksCriterion: per-run validation rule (e.g., percentage of invalid records must be below configured threshold). Also checks for required fields presence for analytics.
+- deliverySuccessCriterion: evaluates whether sendReportProcessor succeeded for all recipients (used to set reportStatus and job final state).
 
-```mermaid
+Notes:
+- The previous version omitted validateBooksProcessor from the FetchJob processor list and incorrectly counted processors; this version corrects that.
+- The analyzeMetricsProcessor uses delta by default (query books where retrievedAt > fetchJob.lastRunAt OR retrievedAt <= now() when lastRunAt is null) unless explicitly configured otherwise.
+
+### 2.2 Book Workflow
+States:
+- NEW: Book record persisted by persistBooksProcessor
+- VALIDATED: required fields present and acceptable values
+- INVALID: validation failed (sourceStatus set to invalid)
+- SCORED: popularityScore computed
+- AVAILABLE: included in analysis / marked available for reporting
+
+Mermaid diagram (conceptual):
+
 stateDiagram-v2
     [*] --> NEW
-    NEW --> VALIDATED : validateBookProcessor
+    NEW --> VALIDATED : validateBookProcessor (passes)
+    NEW --> INVALID : validateBookProcessor (fails)
     VALIDATED --> SCORED : computePopularityProcessor
     SCORED --> AVAILABLE : markAvailableProcessor
-    NEW --> INVALID : validateBookProcessor
     INVALID --> [*]
     AVAILABLE --> [*]
-```
 
-Book processors and criteria:
-- Processors (3)
-  - validateBookProcessor (checks required fields and sets sourceStatus)
-  - computePopularityProcessor (computes popularityScore based on rules)
-  - markAvailableProcessor (flags book for inclusion in reports)
-- Criteria (1)
-  - isBookValidCriterion (true if required fields present for metrics)
+Processors:
+- validateBookProcessor: verifies presence of required fields (title, pageCount, publishDate) and sets sourceStatus (ok | invalid | missing). Persists Book updates.
+- computePopularityProcessor: computes popularityScore using configured formula (default: normalized pageCount * 0.7 + recencyScore(publishDate) * 0.3). Persists Book updates.
+- markAvailableProcessor: flags the Book as available for inclusion in reports (e.g., available=true). Persists Book updates.
 
-WeeklyReport workflow:
-1. Initial State: WeeklyReport created by analyzeMetricsProcessor -> GENERATED
-2. Review: Optional manual review by analyst -> UNDER_REVIEW (manual)
-3. Delivery: sendReportProcessor invoked -> SENT or FAILED
-4. Archive: after successful send -> ARCHIVED
+Criteria:
+- isBookValidCriterion: true when Book.sourceStatus == ok and required fields present. Used by both per-book decisions and by validateBooksCriterion aggregation at job level.
 
-```mermaid
+Notes:
+- Manual transitions: books can be manually excluded or corrected by administrative actions which update `excluded` or `correctedBy` fields and re-trigger validation/scoring.
+
+### 2.3 WeeklyReport Workflow
+States:
+- GENERATED: created by analyzeMetricsProcessor
+- UNDER_REVIEW: optional manual review by analyst
+- SENT: successfully delivered
+- FAILED: delivery failed
+- ARCHIVED: archived after successful delivery and retention actions
+
+Mermaid diagram (conceptual):
+
 stateDiagram-v2
     [*] --> GENERATED
     GENERATED --> UNDER_REVIEW : manualReview
     UNDER_REVIEW --> GENERATED : approveReview
-    GENERATED --> SENT : sendReportProcessor
+    GENERATED --> SENT : sendReportProcessor (success)
+    GENERATED --> FAILED : sendReportProcessor (failure)
     SENT --> ARCHIVED : archiveReportProcessor
     SENT --> [*]
-    GENERATED --> FAILED : sendReportProcessor
     FAILED --> [*]
-```
 
-WeeklyReport processors and criteria:
-- Processors (3)
-  - assembleSummaryProcessor (formats summaryText and attachments)
-  - sendReportProcessor (emails report and updates deliveryInfo)
-  - archiveReportProcessor (marks report archived and stores audit)
-- Criteria (1)
-  - isReportCompleteCriterion (checks presence of required report fields)
+Processors:
+- assembleSummaryProcessor: formats human-readable summary and builds CSV/attachment payloads.
+- sendReportProcessor: sends email and attachments, updates WeeklyReport.deliveryInfo and reportStatus.
+- archiveReportProcessor: marks report as archived and persists audit information.
 
-### 3. Pseudo code for processor classes
+Criteria:
+- isReportCompleteCriterion: true when required fields (totals, topTitles, generationTimestamp, deliveryInfo) are present. Used to gate sendReportProcessor.
+
+---
+
+## 3. Pseudocode (updated) — Processor Implementations
+These pseudocode snippets reflect latest logic (validation step included, delta report range, explicit assembleSummary step, and corrected processor names).
 
 persistBooksProcessor
 ```
-class persistBooksProcessor {
+class PersistBooksProcessor {
   process(fetchJob) {
-    response = callFakeRestApi() // fetch list of books
+    response = callExternalBookApi(fetchJob.parameters)
     for each item in response {
+      if item is null: continue
       book = mapToBookEntity(item)
       book.retrievedAt = now()
-      book.sourceStatus = determineStatus(item)
-      persist(book) // persistence triggers Book workflow automatically in Cyoda
+      book.sourceStatus = preliminaryStatus(item) // e.g., missing fields -> missing
+      persist(book) // persisting triggers Book workflow (validate -> score)
     }
   }
 }
@@ -150,14 +197,14 @@ class persistBooksProcessor {
 
 validateBookProcessor
 ```
-class validateBookProcessor {
+class ValidateBookProcessor {
   process(book) {
     if missing title or pageCount or publishDate {
-      book.sourceStatus = invalid
+      book.sourceStatus = "invalid"
       persist(book)
       return
     }
-    book.sourceStatus = ok
+    book.sourceStatus = "ok"
     persist(book)
   }
 }
@@ -165,9 +212,14 @@ class validateBookProcessor {
 
 computePopularityProcessor
 ```
-class computePopularityProcessor {
+class ComputePopularityProcessor {
   process(book, params) {
-    score = normalize(pageCount) * 0.7 + recencyScore(publishDate) * 0.3
+    // Normalize pageCount (e.g., min-max or log scale) to 0..1
+    normalizedPages = normalizePageCount(book.pageCount)
+    recency = recencyScore(book.publishDate) // 0..1, newer -> higher
+    weightPages = params.pageWeight ?? 0.7
+    weightRecency = params.recencyWeight ?? 0.3
+    score = clamp(normalizedPages * weightPages + recency * weightRecency, 0.0, 1.0)
     book.popularityScore = score
     persist(book)
   }
@@ -176,42 +228,96 @@ class computePopularityProcessor {
 
 analyzeMetricsProcessor
 ```
-class analyzeMetricsProcessor {
+class AnalyzeMetricsProcessor {
   process(fetchJob) {
-    books = queryBooksAvailableAt(fetchJob.lastRunAt, now) // or all time
+    // Default: delta range since last successful run
+    rangeStart = fetchJob.lastRunAt
+    rangeEnd = now()
+
+    if fetchJob.parameters.reportRange == "snapshot" {
+      // ignore lastRunAt and use full snapshot as of now
+      books = queryAllAvailableBooks()
+    } else {
+      // default delta behavior: only new/updated books since lastRunAt
+      books = queryBooksWhere(retrievedAt > rangeStart AND retrievedAt <= rangeEnd AND excluded != true)
+    }
+
     metrics = computeTotalsAndAverages(books)
-    topTitles = selectTopNBy(books, popularityScore, fetchJob.parameters.topNPopular)
-    report = WeeklyReport(metrics..., topTitles..., generationTimestamp=now())
+    topTitles = selectTopNBy(books, "popularityScore", fetchJob.parameters.topNPopular ?? 5)
+
+    report = new WeeklyReport(
+      fetchJobId = fetchJob.technicalId,
+      weekStartDate = rangeStart ?? deriveWeekStart(rangeEnd),
+      weekEndDate = rangeEnd,
+      totalBooks = metrics.totalBooks,
+      totalPages = metrics.totalPages,
+      avgPages = metrics.avgPages,
+      topTitles = topTitles,
+      popularTitles = buildPopularTitlesSnippet(books),
+      publicationSummary = computePublicationSummary(books),
+      generationTimestamp = now(),
+      reportStatus = "generated"
+    )
+
     persist(report) // triggers WeeklyReport workflow
+  }
+}
+```
+
+assembleSummaryProcessor
+```
+class AssembleSummaryProcessor {
+  process(report) {
+    report.summaryText = formatSummary(report)
+    report.attachment = buildCsvAttachment(report.topTitles, report.popularTitles)
+    persist(report)
   }
 }
 ```
 
 sendReportProcessor
 ```
-class sendReportProcessor {
-  process(report, recipients) {
+class SendReportProcessor {
+  process(report, fetchJob) {
+    recipients = fetchJob.recipients
     emailResult = sendEmail(recipients, report.summaryText, report.attachment)
-    report.deliveryInfo = emailResult
-    report.reportStatus = emailResult.success ? sent : failed
+    report.deliveryInfo = {
+      recipients: recipients,
+      emailStatus: emailResult.status, // delivered | failed | partial
+      messageId: emailResult.messageId,
+      errors: emailResult.errors
+    }
+    report.reportStatus = emailResult.success ? "sent" : "failed"
     persist(report)
   }
 }
 ```
 
-### 4. API Endpoints Design Rules
+finalizeJobProcessor
+```
+class FinalizeJobProcessor {
+  process(fetchJob, runResult) {
+    fetchJob.lastRunAt = now()
+    fetchJob.nextRunAt = computeNextRun(fetchJob)
+    fetchJob.status = runResult.success ? "completed" : "failed"
+    persist(fetchJob)
+  }
+}
+```
 
-Rules applied:
-- Orchestration entity FetchJob has POST (creates a scheduled/manual run) and GET by technicalId
-- WeeklyReport GET by technicalId allowed (reports created by system). No POST for Book (Books are created by FetchJob processing)
-- POST responses return only technicalId
-- GET returns stored entity representation (including technicalId)
+---
 
-Endpoints (examples)
+## 4. API Endpoints — Design Rules & Examples
+Rules:
+- FetchJob orchestration: POST to create a new job or trigger a run (returns technicalId). GET by technicalId returns full job representation.
+- WeeklyReport: GET by technicalId allowed. No POST for WeeklyReport or Book (system-managed).
+- Book: GET by source id allowed. Books contain the upstream `id` but no separate technicalId.
+- POST responses should return { "technicalId": "..." } for the created resource or run trigger.
+- GET responses return full stored entity JSON including technicalId where applicable.
 
 1) Create/Trigger Fetch Job (POST)
 - POST /jobs/fetchBooks
-- Request body JSON:
+- Request body JSON (example):
 {
   "name": "Weekly Book Fetch",
   "runDay": "Wednesday",
@@ -219,91 +325,38 @@ Endpoints (examples)
   "timezone": "UTC",
   "recurrence": "weekly",
   "recipients": ["analytics@company.com"],
-  "parameters": {"topNPopular": 5},
+  "parameters": { "topNPopular": 5, "reportRange": "delta" },
   "triggeredBy": "schedule"
 }
-- Response body JSON:
-{ "technicalId": "job-abc-123" }
+- Response: { "technicalId": "job-abc-123" }
 
-Visual flow:
-```mermaid
-flowchart LR
-    Client --> POST_jobs_fetchBooks
-    POST_jobs_fetchBooks --> Response_technicalId
-```
-
-2) Get FetchJob status/result by technicalId (GET)
+2) Get FetchJob by technicalId (GET)
 - GET /jobs/fetchBooks/{technicalId}
-- Response body JSON: (full FetchJob fields + technicalId)
-{
-  "technicalId": "job-abc-123",
-  "name": "...",
-  "runDay": "...",
-  "runTime": "...",
-  "timezone": "...",
-  "recurrence": "...",
-  "recipients": ["..."],
-  "lastRunAt": "...",
-  "nextRunAt": "...",
-  "status": "completed"
-}
-
-Visual flow:
-```mermaid
-flowchart LR
-    Client --> GET_jobs_by_technicalId
-    GET_jobs_by_technicalId --> Response_fetchJob
-```
+- Response: full FetchJob JSON (includes computed lastRunAt, nextRunAt, status).
 
 3) Get WeeklyReport by technicalId (GET)
 - GET /reports/weekly/{technicalId}
-- Response body JSON: (WeeklyReport fields + technicalId)
-{
-  "technicalId": "report-xyz-789",
-  "weekStartDate": "...",
-  "weekEndDate": "...",
-  "totalBooks": 120,
-  "totalPages": 45000,
-  "avgPages": 375,
-  "topTitles": [ { "id": 1, "title": "X", "pageCount": 500 } ],
-  "popularTitles": [ { "id": 1, "title": "X", "descriptionSnippet": "...", "excerptSnippet": "..." } ],
-  "generationTimestamp": "...",
-  "reportStatus": "sent",
-  "deliveryInfo": { "recipients": ["analytics@company.com"], "emailStatus": "delivered" }
-}
-
-Visual flow:
-```mermaid
-flowchart LR
-    Client --> GET_reports_by_technicalId
-    GET_reports_by_technicalId --> Response_report
-```
+- Response: full WeeklyReport JSON including deliveryInfo and reportStatus.
 
 4) Get Book by source id (GET)
 - GET /books/{id}
-- Response body JSON: Book entity fields (no technicalId because Book is created via processing)
-{
-  "id": 1,
-  "title": "...",
-  "description": "...",
-  "pageCount": 300,
-  "excerpt": "...",
-  "publishDate": "...",
-  "retrievedAt": "...",
-  "sourceStatus": "ok",
-  "popularityScore": 0.85
-}
+- Response: Book JSON with fields defined above.
 
-Visual flow:
-```mermaid
-flowchart LR
-    Client --> GET_books_by_id
-    GET_books_by_id --> Response_book
-```
+---
 
-Notes and decisions for you to confirm
-- Popularity rule: default composite score (pageCount weighted + recency). Confirm if you prefer top N by pageCount instead.
-- Report range: default uses full snapshot at run time. Confirm if you prefer delta (only new/updated since lastRunAt).
-- Delivery: default email summary + CSV attachment. Confirm recipient list and preferred format.
+## 5. Open Questions / Decisions (captured and set by default in this version)
+- Popularity rule: default composite score (70% pageCount, 30% recency). This is configurable per deployment via parameters pageWeight/recencyWeight.
+- Report range: default = delta (new/updated since lastRunAt). Snapshot mode is supported if job.parameters.reportRange == "snapshot".
+- Delivery: default email summary + CSV attachment. Other formats (PDF, JSON) can be added as an assembleSummaryProcessor option.
 
-If you confirm the popularity rule, report range (snapshot vs delta), and recipients/format, I will refine processor details and criteria names for direct modeling in Cyoda.
+If you want a different default for any of these (e.g., top N by pageCount only, or snapshot by default), confirm which option you prefer and I will update the processors/criteria names and examples accordingly.
+
+---
+
+Revision notes:
+- Fixed inconsistency in FetchJob processors count and added validateBooksProcessor to the flow.
+- Clarified delta vs snapshot report range and made delta the default for efficiency.
+- Standardized field names and added technicalId where appropriate.
+- Expanded processor pseudocode to include assembleSummaryProcessor and explicit finalizeJobProcessor.
+
+End of functional requirements.
