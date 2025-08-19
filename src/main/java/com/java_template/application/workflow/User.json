@@ -1,0 +1,91 @@
+{
+  "version": "1.0",
+  "name": "User Workflow",
+  "desc": "Workflow for user lifecycle: creation, active use, preference updates, opting into reports and inactivity",
+  "initialState": "NEW",
+  "active": true,
+  "states": {
+    "NEW": {
+      "transitions": [
+        {
+          "name": "new_to_active",
+          "next": "ACTIVE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "UserLoginProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "active_to_preferences_updated",
+          "next": "PREFERENCES_UPDATED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "UpdatePreferencesProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "active_to_opted_in",
+          "next": "OPTED_IN",
+          "manual": false,
+          "processors": [
+            {
+              "name": "OptInReportsProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "active_to_inactive",
+          "next": "INACTIVE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "InactivityCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "PREFERENCES_UPDATED": {
+      "transitions": [
+        {
+          "name": "preferences_to_active",
+          "next": "ACTIVE",
+          "manual": false
+        }
+      ]
+    },
+    "OPTED_IN": {
+      "transitions": [
+        {
+          "name": "opted_in_to_active",
+          "next": "ACTIVE",
+          "manual": false
+        }
+      ]
+    },
+    "INACTIVE": {
+      "transitions": []
+    }
+  }
+}
