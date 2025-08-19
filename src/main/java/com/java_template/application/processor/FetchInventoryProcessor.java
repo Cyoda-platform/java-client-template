@@ -76,14 +76,14 @@ public class FetchInventoryProcessor implements CyodaProcessor {
         try {
             // Build a simple search condition from filters: only support category and location and sourceId
             SearchConditionRequest condition = null;
-            Map<String, Object> filters = job.getFilters();
-            if (filters != null && filters.get("category") != null) {
+            JsonNode filters = job.getFilters();
+            if (filters != null && filters.has("category")) {
                 condition = SearchConditionRequest.group("AND",
-                    Condition.of("$.category", "EQUALS", filters.get("category").toString())
+                    Condition.of("$.category", "EQUALS", filters.get("category").asText())
                 );
-            } else if (filters != null && filters.get("location") != null) {
+            } else if (filters != null && filters.has("location")) {
                 condition = SearchConditionRequest.group("AND",
-                    Condition.of("$.location", "EQUALS", filters.get("location").toString())
+                    Condition.of("$.location", "EQUALS", filters.get("location").asText())
                 );
             }
 
@@ -138,21 +138,21 @@ public class FetchInventoryProcessor implements CyodaProcessor {
         return job;
     }
 
-    private List<InventoryItem> fetchFromExternalApi(Map<String, Object> filters) {
+    private List<InventoryItem> fetchFromExternalApi(JsonNode filters) {
         try {
             HttpClient client = HttpClient.newHttpClient();
             // Build query params
             StringBuilder sb = new StringBuilder(SWAGGERHUB_SEARCH_URL);
             boolean first = !SWAGGERHUB_SEARCH_URL.contains("?");
             if (filters != null) {
-                if (filters.get("category") != null) {
+                if (filters.has("category")) {
                     sb.append(first ? "?" : "&");
-                    sb.append("category=").append(urlEncode(filters.get("category").toString()));
+                    sb.append("category=").append(urlEncode(filters.get("category").asText()));
                     first = false;
                 }
-                if (filters.get("location") != null) {
+                if (filters.has("location")) {
                     sb.append(first ? "?" : "&");
-                    sb.append("location=").append(urlEncode(filters.get("location").toString()));
+                    sb.append("location=").append(urlEncode(filters.get("location").asText()));
                     first = false;
                 }
             }
