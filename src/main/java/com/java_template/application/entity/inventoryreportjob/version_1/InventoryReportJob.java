@@ -19,10 +19,10 @@ public class InventoryReportJob implements CyodaEntity {
     private String jobName;
     private String requestedBy;
     private List<String> metricsRequested;
-    private Map<String, String> filters; // e.g., category, location, minDate/maxDate, supplier
+    private Map<String, Object> filters;
     private List<String> groupBy;
-    private String presentationType; // table, chart
-    private String schedule; // optional; cron or interval description serialized as String
+    private String presentationType;
+    private Map<String, Object> schedule;
     private OffsetDateTime createdAt;
     private String status; // PENDING/IN_PROGRESS/COMPLETED/FAILED
 
@@ -38,9 +38,11 @@ public class InventoryReportJob implements CyodaEntity {
 
     @Override
     public boolean isValid() {
+        // Validate required orchestration fields
         if (jobName == null || jobName.isBlank()) return false;
         if (requestedBy == null || requestedBy.isBlank()) return false;
         if (metricsRequested == null || metricsRequested.isEmpty()) return false;
+        if (presentationType == null || presentationType.isBlank()) return false;
         return true;
     }
 }
