@@ -18,6 +18,9 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+
 @Component
 public class SendReportProcessor implements CyodaProcessor {
 
@@ -59,15 +62,15 @@ public class SendReportProcessor implements CyodaProcessor {
             // In our WeeklyReport we stored fetchJobId as name; try to get job by technical id
             List<String> recipients = null;
             try {
-                CompletableFuture<java.util.ArrayNode> fut = entityService.getItems(FetchJob.ENTITY_NAME, String.valueOf(FetchJob.ENTITY_VERSION));
-                java.util.ArrayNode arr = fut.get();
+                CompletableFuture<ArrayNode> fut = entityService.getItems(FetchJob.ENTITY_NAME, String.valueOf(FetchJob.ENTITY_VERSION));
+                ArrayNode arr = fut.get();
                 if (arr != null) {
-                    for (com.fasterxml.jackson.databind.JsonNode n : arr) {
+                    for (JsonNode n : arr) {
                         try {
                             if (n.hasNonNull("name") && n.get("name").asText().equals(report.getFetchJobId())) {
                                 if (n.hasNonNull("recipients")) {
                                     recipients = new ArrayList<>();
-                                    for (com.fasterxml.jackson.databind.JsonNode r : n.get("recipients")) recipients.add(r.asText());
+                                    for (JsonNode r : n.get("recipients")) recipients.add(r.asText());
                                 }
                                 break;
                             }
