@@ -13,7 +13,6 @@ public class Comment implements CyodaEntity {
     public static final Integer ENTITY_VERSION = 1;
     // Add your entity fields here
 
-    private String technicalId;
     private Integer commentId; // source comment id
     private Integer postId; // links to post
     private String authorName;
@@ -36,9 +35,10 @@ public class Comment implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        if (commentId == null || commentId <= 0) return false;
-        if (postId == null || postId <= 0) return false;
-        if (body == null || body.isBlank()) return false;
+        // commentId and postId and body should be present
+        if (this.commentId == null) return false;
+        if (this.postId == null) return false;
+        if (this.body == null || this.body.isBlank()) return false;
         return true;
     }
 }
