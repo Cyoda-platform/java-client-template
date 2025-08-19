@@ -1,0 +1,130 @@
+{
+  "version": "1.0",
+  "name": "DataIngestJob Workflow",
+  "desc": "Workflow for DataIngestJob orchestration",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": [
+        {
+          "name": "created_to_validating",
+          "next": "validating",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateJobProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "validating": {
+      "transitions": [
+        {
+          "name": "validation_failed",
+          "next": "failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidationFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_passed",
+          "next": "downloading",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidationPassedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "downloading": {
+      "transitions": [
+        {
+          "name": "downloading_to_analyzing",
+          "next": "analyzing",
+          "manual": false,
+          "processors": [
+            {
+              "name": "DownloadProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "analyzing": {
+      "transitions": [
+        {
+          "name": "analyzing_to_delivering",
+          "next": "delivering",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AnalyzeProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "delivering": {
+      "transitions": [
+        {
+          "name": "delivery_failed",
+          "next": "failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DeliveryFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "delivery_completed",
+          "next": "completed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DeliverySucceededCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "failed": {
+      "transitions": []
+    },
+    "completed": {
+      "transitions": []
+    }
+  }
+}
