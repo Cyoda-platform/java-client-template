@@ -1,4 +1,4 @@
-package com.java_template.application.entity.flightsearch.version_1;
+package com.java_template.application.entity.flightsearch.version_1; // replace {entityName} with actual entity name in lowercase
 
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
@@ -15,7 +15,7 @@ public class FlightSearch implements CyodaEntity {
     private String originAirportCode; // IATA code user entered
     private String destinationAirportCode; // IATA code user entered
     private String departureDate; // ISO date
-    private String returnDate; // ISO date, optional
+    private String returnDate; // ISO date (optional)
     private Integer passengerCount; // number of passengers
     private String cabinClass; // optional
     private String createdAt; // ISO timestamp
@@ -34,11 +34,15 @@ public class FlightSearch implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        // Validate required string fields using isBlank()
-        if (originAirportCode == null || originAirportCode.isBlank()) return false;
-        if (destinationAirportCode == null || destinationAirportCode.isBlank()) return false;
-        if (departureDate == null || departureDate.isBlank()) return false;
+        // Validation: origin/destination/departureDate must be present and passengerCount >= 1
+        if (isBlank(originAirportCode)) return false;
+        if (isBlank(destinationAirportCode)) return false;
+        if (isBlank(departureDate)) return false;
         if (passengerCount == null || passengerCount < 1) return false;
         return true;
+    }
+
+    private boolean isBlank(String s) {
+        return s == null || s.isBlank();
     }
 }
