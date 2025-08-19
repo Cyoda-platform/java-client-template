@@ -1,9 +1,11 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.java_template.application.entity.inventoryreportjob.version_1.InventoryReportJob;
 import com.java_template.application.entity.inventoryitem.version_1.InventoryItem;
+import com.java_template.application.entity.inventoryreportjob.version_1.InventoryReportJob;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.service.EntityService;
@@ -18,8 +20,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 import static com.java_template.common.config.Config.*;
@@ -31,6 +40,10 @@ public class FetchInventoryProcessor implements CyodaProcessor {
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
     private final EntityService entityService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    // External API endpoint from requirements
+    private static final String SWAGGERHUB_SEARCH_URL = "https://api.swaggerhub.com/apis/CGIANNAROS/Test/1.0.0/developers/searchInventory";
 
     public FetchInventoryProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
@@ -63,14 +76,35 @@ public class FetchInventoryProcessor implements CyodaProcessor {
         try {
             // Build a simple search condition from filters: only support category and location and sourceId
             SearchConditionRequest condition = null;
-            if (job.getFilters() != null && job.getFilters().get("category") != null) {
+            Map<String, Object> filters = job.getFilters();
+            if (filters != null && filters.get("category") != null) {
                 condition = SearchConditionRequest.group("AND",
-                    Condition.of("$.category", "EQUALS", job.getFilters().get("category").toString())
+                    Condition.of("$.category", "EQUALS", filters.get("category").toString())
                 );
-            } else if (job.getFilters() != null && job.getFilters().get("location") != null) {
+            } else if (filters != null && filters.get("location") != null) {
                 condition = SearchConditionRequest.group("AND",
-                    Condition.of("$.location", "EQUALS", job.getFilters().get("location").toString())
+                    Condition.of("$.location", "EQUALS", filters.get("location").toString())
                 );
+            }
+
+            // First attempt to call external SwaggerHub search to get freshest data and persist items
+            List<InventoryItem> externalItems = fetchFromExternalApi(filters);
+            if (externalItems != null && !externalItems.isEmpty()) {
+                logger.info("Fetched {} items from external API for job {}", externalItems.size(), job.getTechnicalId());
+                // Persist fetched items (allowed to add other entities)
+                for (InventoryItem item : externalItems) {
+                    try {
+                        CompletableFuture<java.util.UUID> fut = entityService.addItem(
+                            InventoryItem.ENTITY_NAME,
+                            String.valueOf(InventoryItem.ENTITY_VERSION),
+                            item
+                        );
+                        java.util.UUID id = fut.get();
+                        if (id != null) item.setTechnicalId(id.toString());
+                    } catch (Exception e) {
+                        logger.warn("Failed to persist external item (sku={}): {}", item.getSku(), e.getMessage());
+                    }
+                }
             }
 
             CompletableFuture<ArrayNode> itemsFuture;
@@ -90,49 +124,108 @@ public class FetchInventoryProcessor implements CyodaProcessor {
 
             ArrayNode items = itemsFuture.get();
             if (items == null || items.size() == 0) {
-                // No data - set status to COMPLETED but downstream should create EMPTY report
+                // No data - move to EXECUTING (downstream processors will create EMPTY report)
                 job.setStatus("EXECUTING");
-                // Attach fetched items as a temporary field by using job.metadata if available, not persisting
-                // Normally we would emit an event; here we just attach a small hint
                 return job;
             }
 
-            // Transform fetched items into internal InventoryItem list if needed (not modifying persisted entities)
-            List<InventoryItem> list = new ArrayList<>();
-            for (int i = 0; i < items.size(); i++) {
-                ObjectNode node = (ObjectNode) items.get(i);
-                try {
-                    InventoryItem item = new InventoryItem();
-                    if (node.has("technicalId")) item.setTechnicalId(node.get("technicalId").asText());
-                    if (node.has("sku")) item.setSku(node.get("sku").asText());
-                    if (node.has("name")) item.setName(node.get("name").asText());
-                    if (node.has("category")) item.setCategory(node.get("category").asText());
-                    if (node.has("quantity")) item.setQuantity(node.get("quantity").asInt());
-                    if (node.has("location")) item.setLocation(node.get("location").asText());
-                    if (node.has("sourceId")) item.setSourceId(node.get("sourceId").asText());
-                    if (node.has("unitPrice") && !node.get("unitPrice").isNull()) {
-                        try {
-                            item.setUnitPrice(new java.math.BigDecimal(node.get("unitPrice").asText()));
-                        } catch (Exception ex) {
-                            // ignore parse error
-                        }
-                    }
-                    list.add(item);
-                } catch (Exception e) {
-                    logger.warn("Skipping invalid fetched item: {}", e.getMessage());
-                }
-            }
-
-            // Save the fetched items to job metadata (not persisted by this processor explicitly)
-            // We can't change job persistent fields beyond allowed; but we'll assume job has a metadata field
-            // that can be used transiently. If not present it's fine - downstream processors will fetch again.
-
-            // For now, set job status to AGGREGATING (logical next step handled by workflow)
+            // We do not persist items into the job (job has no metadata field). Downstream processors will re-query the entity store.
             job.setStatus("AGGREGATING");
         } catch (Exception e) {
             logger.error("Error fetching inventory for job {}: {}", job.getTechnicalId(), e.getMessage(), e);
             job.setStatus("FAILED");
         }
         return job;
+    }
+
+    private List<InventoryItem> fetchFromExternalApi(Map<String, Object> filters) {
+        try {
+            HttpClient client = HttpClient.newHttpClient();
+            // Build query params
+            StringBuilder sb = new StringBuilder(SWAGGERHUB_SEARCH_URL);
+            boolean first = !SWAGGERHUB_SEARCH_URL.contains("?");
+            if (filters != null) {
+                if (filters.get("category") != null) {
+                    sb.append(first ? "?" : "&");
+                    sb.append("category=").append(urlEncode(filters.get("category").toString()));
+                    first = false;
+                }
+                if (filters.get("location") != null) {
+                    sb.append(first ? "?" : "&");
+                    sb.append("location=").append(urlEncode(filters.get("location").toString()));
+                    first = false;
+                }
+            }
+
+            String url = sb.toString();
+            HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .timeout(Duration.ofSeconds(10))
+                .GET()
+                .build();
+
+            // Retry with simple backoff
+            int attempts = 0;
+            while (attempts < 3) {
+                attempts++;
+                try {
+                    HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+                    if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                        String body = response.body();
+                        JsonNode root = objectMapper.readTree(body);
+                        // Expecting either array or object with items field
+                        ArrayNode nodes = null;
+                        if (root.isArray()) nodes = (ArrayNode) root;
+                        else if (root.has("items") && root.get("items").isArray()) nodes = (ArrayNode) root.get("items");
+
+                        if (nodes == null || nodes.size() == 0) return null;
+
+                        List<InventoryItem> result = new ArrayList<>();
+                        for (JsonNode n : nodes) {
+                            try {
+                                InventoryItem it = new InventoryItem();
+                                if (n.has("sku")) it.setSku(n.get("sku").asText());
+                                if (n.has("name")) it.setName(n.get("name").asText());
+                                if (n.has("category")) it.setCategory(n.get("category").asText());
+                                if (n.has("quantity") && n.get("quantity").isInt()) it.setQuantity(n.get("quantity").asInt());
+                                if (n.has("unitPrice") && !n.get("unitPrice").isNull()) {
+                                    try { it.setUnitPrice(new java.math.BigDecimal(n.get("unitPrice").asText())); } catch (Exception ex) { }
+                                }
+                                if (n.has("location")) it.setLocation(n.get("location").asText());
+                                if (n.has("sourceId")) it.setSourceId(n.get("sourceId").asText());
+                                if (n.has("lastUpdated")) {
+                                    try { it.setLastUpdated(OffsetDateTimeParser.parse(n.get("lastUpdated").asText())); } catch (Exception ex) { }
+                                }
+                                // set status to PERSISTED when saving externally sourced items
+                                it.setStatus("PERSISTED");
+                                result.add(it);
+                            } catch (Exception ex) {
+                                logger.warn("Skipping invalid external item: {}", ex.getMessage());
+                            }
+                        }
+                        return result;
+                    } else {
+                        logger.warn("External API returned status {}", response.statusCode());
+                    }
+                } catch (IOException | InterruptedException e) {
+                    logger.warn("Attempt {} failed calling external API: {}", attempts, e.getMessage());
+                    Thread.sleep(500L * attempts);
+                }
+            }
+        } catch (Exception e) {
+            logger.error("Failed to call external API: {}", e.getMessage(), e);
+        }
+        return null;
+    }
+
+    private String urlEncode(String s) {
+        try { return java.net.URLEncoder.encode(s, java.nio.charset.StandardCharsets.UTF_8); } catch (Exception e) { return s; }
+    }
+
+    // Minimal parser to convert ISO datetimes to OffsetDateTime without adding new imports in signature
+    private static class OffsetDateTimeParser {
+        static java.time.OffsetDateTime parse(String s) {
+            try { return java.time.OffsetDateTime.parse(s); } catch (Exception e) { return null; }
+        }
     }
 }
