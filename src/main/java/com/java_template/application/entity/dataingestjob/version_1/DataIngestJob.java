@@ -11,12 +11,12 @@ public class DataIngestJob implements CyodaEntity {
     public static final Integer ENTITY_VERSION = 1;
     // Add your entity fields here
 
-    private String sourceUrl; // URL to download London houses CSV
-    private String scheduledAt; // ISO8601 datetime or null
-    private String triggeredBy; // user or system
-    private String status; // current job status
-    private String createdAt; // when job was created
-    private String technicalId; // datastore id returned by POST
+    private String source_url;      // URL to download London houses CSV
+    private String scheduled_at;    // ISO8601 datetime or null for immediate
+    private String triggered_by;    // user or system
+    private String status;          // current job status
+    private String created_at;      // when job was created
+    private String technicalId;     // datastore id returned by POST
 
     public DataIngestJob() {}
 
@@ -30,13 +30,9 @@ public class DataIngestJob implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        // sourceUrl and triggeredBy are required for a valid job
-        if (this.sourceUrl == null || this.sourceUrl.isBlank()) {
-            return false;
-        }
-        if (this.triggeredBy == null || this.triggeredBy.isBlank()) {
-            return false;
-        }
+        // source_url and triggered_by are required for job creation
+        if (source_url == null || source_url.isBlank()) return false;
+        if (triggered_by == null || triggered_by.isBlank()) return false;
         return true;
     }
 }
