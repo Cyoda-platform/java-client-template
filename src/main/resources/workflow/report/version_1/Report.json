@@ -1,0 +1,112 @@
+{
+  "version": "1.0",
+  "name": "Report Workflow",
+  "desc": "Workflow for report compilation, readiness, sending and finalization",
+  "initialState": "COMPILING",
+  "active": true,
+  "states": {
+    "COMPILING": {
+      "transitions": [
+        {
+          "name": "compile_report",
+          "next": "READY",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ReportCompilerProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "READY": {
+      "transitions": [
+        {
+          "name": "send",
+          "next": "SENDING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotificationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SENDING": {
+      "transitions": [
+        {
+          "name": "sent_success",
+          "next": "SENT",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "EmailSentCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "sent_failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "EmailFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "SENT": {
+      "transitions": [
+        {
+          "name": "archive_after_retention",
+          "next": "ARCHIVED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RetentionProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "FAILED": {
+      "transitions": [
+        {
+          "name": "retry",
+          "next": "SENDING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RetryProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ARCHIVED": {
+      "transitions": []
+    }
+  }
+}
