@@ -1,0 +1,72 @@
+{
+  "version": "1.0",
+  "name": "InventoryReport Workflow",
+  "desc": "Workflow for InventoryReport lifecycle including retention and archive",
+  "initialState": "PERSISTED",
+  "active": true,
+  "states": {
+    "PERSISTED": {
+      "transitions": [
+        {
+          "name": "make_available",
+          "next": "AVAILABLE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PersistReportProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "AVAILABLE": {
+      "transitions": [
+        {
+          "name": "expire",
+          "next": "EXPIRED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "RetentionExpiryCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "delete",
+          "next": "DELETED",
+          "manual": false
+        }
+      ]
+    },
+    "EXPIRED": {
+      "transitions": [
+        {
+          "name": "archive",
+          "next": "ARCHIVED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ArchiveReportProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ARCHIVED": {
+      "transitions": []
+    },
+    "DELETED": {
+      "transitions": []
+    }
+  }
+}
