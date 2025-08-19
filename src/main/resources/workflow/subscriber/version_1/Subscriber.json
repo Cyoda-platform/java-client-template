@@ -1,0 +1,95 @@
+{
+  "version": "1.0",
+  "name": "Subscriber Workflow",
+  "desc": "Workflow for Subscriber verification and lifecycle",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": [
+        {
+          "name": "created_to_verifying",
+          "next": "verifying",
+          "manual": false,
+          "processors": [
+            {
+              "name": "VerifySubscriberProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "verifying": {
+      "transitions": [
+        {
+          "name": "verification_passed",
+          "next": "active",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "VerificationPassedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "verification_failed",
+          "next": "unverified",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "VerificationFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "active_to_unsubscribed",
+          "next": "unsubscribed",
+          "manual": true,
+          "processors": [
+            {
+              "name": "UnsubscribeProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "unverified": {
+      "transitions": [
+        {
+          "name": "unverified_to_active",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ManualApproveProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "unsubscribed": {
+      "transitions": []
+    }
+  }
+}
