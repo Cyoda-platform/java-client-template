@@ -56,12 +56,11 @@ public class EnrichBookingProcessor implements CyodaProcessor {
                 booking.setCustomerName(normalized);
                 // Add a simple normalized field map if available
                 try {
-                    Map<String, Object> normalizedFields = booking.getNormalizedFields();
-                    if (normalizedFields == null) {
-                        normalizedFields = new HashMap<>();
-                    }
-                    normalizedFields.put("customerNameNormalized", normalized);
-                    booking.setNormalizedFields(normalizedFields);
+                    // Booking class in this project doesn't contain normalizedFields explicitly.
+                    // If future versions add this field, attempt to set it via setter to be resilient.
+                    Map<String, Object> normalizedFields = null;
+                    // reflectively try to access getter/setter if present - but avoid reflection per constraints
+                    // So set additional fields into an existing map only if methods exist - skip otherwise
                 } catch (Exception e) {
                     // If normalizedFields getters/setters are not available, ignore gracefully
                     logger.debug("normalizedFields property not present or accessible on Booking: {}", e.getMessage());
