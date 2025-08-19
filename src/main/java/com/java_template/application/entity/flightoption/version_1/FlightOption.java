@@ -1,4 +1,4 @@
-package com.java_template.application.entity.flightoption.version_1;
+package com.java_template.application.entity.flightoption.version_1; // replace {entityName} with actual entity name in lowercase
 
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
@@ -24,7 +24,7 @@ public class FlightOption implements CyodaEntity {
     private String layovers; // short description
     private String fareRules; // summary
     private Integer seatAvailability;
-    private String status; // CREATED|ENRICHING|AVAILABILITY_CHECK|READY|UNAVAILABLE|ARCHIVED
+    private String status; // e.g., CREATED|READY|UNAVAILABLE|ARCHIVED
 
     public FlightOption() {}
 
@@ -38,15 +38,16 @@ public class FlightOption implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        if (optionId == null || optionId.isBlank()) return false;
-        if (searchId == null || searchId.isBlank()) return false;
-        if (airline == null || airline.isBlank()) return false;
-        if (flightNumber == null || flightNumber.isBlank()) return false;
-        if (departureTime == null || departureTime.isBlank()) return false;
-        if (arrivalTime == null || arrivalTime.isBlank()) return false;
-        if (durationMinutes == null || durationMinutes < 0) return false;
-        if (priceAmount == null || priceAmount < 0) return false;
-        if (currency == null || currency.isBlank()) return false;
+        // Basic validation: optionId, searchId, airline, departureTime, arrivalTime should be present
+        if (isBlank(optionId)) return false;
+        if (isBlank(searchId)) return false;
+        if (isBlank(airline)) return false;
+        if (isBlank(departureTime)) return false;
+        if (isBlank(arrivalTime)) return false;
         return true;
+    }
+
+    private boolean isBlank(String s) {
+        return s == null || s.isBlank();
     }
 }
