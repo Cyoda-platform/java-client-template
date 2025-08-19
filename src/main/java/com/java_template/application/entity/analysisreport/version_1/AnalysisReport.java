@@ -11,13 +11,13 @@ public class AnalysisReport implements CyodaEntity {
     public static final Integer ENTITY_VERSION = 1;
     // Add your entity fields here
 
-    private String jobTechnicalId; // link to originating DataIngestJob (serialized UUID)
-    private String generatedAt; // ISO8601 datetime when analysis finished
-    private String summaryMetrics; // JSON string of computed metrics, aggregates, distributions
-    private Integer recordCount; // rows analyzed
-    private String reportLink; // location of report artifact
-    private String status; // ready, failed, archived
-    private String technicalId; // datastore id returned by POST
+    private String job_technicalId; // link to originating DataIngestJob
+    private String generated_at;    // when analysis finished
+    private String summary_metrics; // JSON string of computed metrics
+    private Integer record_count;   // rows analyzed
+    private String report_link;     // location of report artifact
+    private String status;          // ready, failed, archived
+    private String technicalId;     // datastore id returned by POST
 
     public AnalysisReport() {}
 
@@ -31,25 +31,10 @@ public class AnalysisReport implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        // required fields: jobTechnicalId, generatedAt, summaryMetrics, recordCount, reportLink, status
-        if (this.jobTechnicalId == null || this.jobTechnicalId.isBlank()) {
-            return false;
-        }
-        if (this.generatedAt == null || this.generatedAt.isBlank()) {
-            return false;
-        }
-        if (this.summaryMetrics == null || this.summaryMetrics.isBlank()) {
-            return false;
-        }
-        if (this.recordCount == null) {
-            return false;
-        }
-        if (this.reportLink == null || this.reportLink.isBlank()) {
-            return false;
-        }
-        if (this.status == null || this.status.isBlank()) {
-            return false;
-        }
+        // job_technicalId and generated_at are required
+        if (job_technicalId == null || job_technicalId.isBlank()) return false;
+        if (generated_at == null || generated_at.isBlank()) return false;
+        if (summary_metrics == null || summary_metrics.isBlank()) return false;
         return true;
     }
 }
