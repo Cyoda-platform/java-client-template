@@ -11,6 +11,7 @@ public class User implements CyodaEntity {
     public static final Integer ENTITY_VERSION = 1;
     // Add your entity fields here
 
+    private String technicalId; // unique technical identifier (used by workflows)
     private Integer id; // id returned by ReqRes
     private String email; // user email
     private String first_name; // user first name
