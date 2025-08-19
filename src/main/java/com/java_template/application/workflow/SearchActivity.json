@@ -1,0 +1,104 @@
+{
+  "version": "1.0",
+  "name": "SearchActivity Workflow",
+  "desc": "Workflow for handling user search activities: validation, resolving results, recording and triggering recommendations",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "created_to_validated",
+          "next": "VALIDATED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidateSearchCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "VALIDATED": {
+      "transitions": [
+        {
+          "name": "validated_to_resolving",
+          "next": "RESOLVING_RESULTS",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ResolveResultsProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "RESOLVING_RESULTS": {
+      "transitions": [
+        {
+          "name": "resolving_to_recorded",
+          "next": "RECORDED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RecordSearchProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "RECORDED": {
+      "transitions": [
+        {
+          "name": "recorded_to_trigger_recommendation",
+          "next": "TRIGGER_RECOMMENDATION",
+          "manual": false,
+          "processors": [
+            {
+              "name": "TriggerRecommendationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "recorded_to_failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.error",
+            "operation": "EQUALS",
+            "value": true
+          }
+        }
+      ]
+    },
+    "TRIGGER_RECOMMENDATION": {
+      "transitions": [
+        {
+          "name": "trigger_to_completed",
+          "next": "COMPLETED",
+          "manual": false
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    }
+  }
+}
