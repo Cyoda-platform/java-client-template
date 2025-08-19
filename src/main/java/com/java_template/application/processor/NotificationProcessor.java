@@ -20,9 +20,6 @@ import org.springframework.stereotype.Component;
 
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.time.OffsetDateTime;
-import java.util.Comparator;
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -96,7 +93,7 @@ public class NotificationProcessor implements CyodaProcessor {
 
             // Simulate email send by attempting to reach any attachment URL if it's an http(s) url to detect transient failures
             boolean simulatedSendSuccess = true;
-            if (chosen.has("attachments") && chosen.get("attachments”).isArray()) {
+            if (chosen.has("attachments") && chosen.get("attachments").isArray()) {
                 for (int i = 0; i < chosen.get("attachments").size(); i++) {
                     try {
                         ObjectNode att = (ObjectNode) chosen.get("attachments").get(i);
