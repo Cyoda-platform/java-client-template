@@ -6,23 +6,22 @@ import org.cyoda.cloud.api.event.common.ModelSpec;
 import lombok.Data;
 
 import java.util.List;
-import java.util.Map;
 
 @Data
 public class CatFact implements CyodaEntity {
     public static final String ENTITY_NAME = "CatFact";
     public static final Integer ENTITY_VERSION = 1;
-
     // Add your entity fields here
-    private String id; // business id (serialized UUID)
-    private String fact_text; // the cat fact content
+
+    private String id; // business id
+    private String factText; // the cat fact content
     private String source; // api/source identifier
-    private String source_created_at; // original timestamp from source
-    private String fetched_at; // when ingested
-    private String language; // language code
-    private List<String> tags; // array of tags
-    private String curated_by; // user id if manually edited (serialized UUID)
-    private String curated_at; // ISO timestamp
+    private String sourceCreatedAt; // original timestamp from source
+    private String fetchedAt; // when ingested
+    private String language;
+    private List<String> tags;
+    private String curatedBy; // user id if manually edited
+    private String curatedAt; // ISO timestamp
     private String status; // active/archived
 
     public CatFact() {}
@@ -37,11 +36,8 @@ public class CatFact implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        // id and fact_text must be present and not blank
-        if (id == null || id.isBlank()) return false;
-        if (fact_text == null || fact_text.isBlank()) return false;
-        // language if present should not be blank
-        if (language != null && language.isBlank()) return false;
-        return true;
+        return id != null && !id.isBlank()
+            && factText != null && !factText.isBlank()
+            && language != null && !language.isBlank();
     }
 }
