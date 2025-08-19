@@ -1,0 +1,120 @@
+{
+  "version": "1.0",
+  "name": "Subscriber Workflow",
+  "desc": "Workflow for Subscriber: validate, welcome, activate, schedule, unsubscribe/archive",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": [
+        {
+          "name": "validate_subscriber",
+          "next": "validated",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateSubscriberProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "validated": {
+      "transitions": [
+        {
+          "name": "send_welcome",
+          "next": "welcome_sent",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendWelcomeEmailProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "welcome_sent": {
+      "transitions": [
+        {
+          "name": "mark_active",
+          "next": "active",
+          "manual": false,
+          "processors": [
+            {
+              "name": "MarkActiveProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "schedule_delivery",
+          "next": "scheduled",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ScheduleDeliveryProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "archive_on_bounce",
+          "next": "archived",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "BounceThresholdCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "scheduled": {
+      "transitions": [
+        {
+          "name": "unsubscribe",
+          "next": "unsubscribed",
+          "manual": true
+        }
+      ]
+    },
+    "unsubscribed": {
+      "transitions": [
+        {
+          "name": "archive_unsubscribed",
+          "next": "archived",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ArchiveSubscriberProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "archived": {
+      "transitions": []
+    }
+  }
+}
