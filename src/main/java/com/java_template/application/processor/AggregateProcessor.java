@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -74,12 +75,29 @@ public class AggregateProcessor implements CyodaProcessor {
             ArrayNode items = itemsFuture.get();
 
             List<Booking> matched = new ArrayList<>();
+            Set<String> currenciesFound = new HashSet<>();
+            Map<String, Double> currencyTotals = new HashMap<>();
+            Map<String, Integer> currencyCounts = new HashMap<>();
+
             for (int i = 0; i < items.size(); i++) {
                 try {
                     Booking b = (Booking) entityService.objectMapper().treeToValue(items.get(i), Booking.class);
                     if (!matchesFilters(b, job)) continue;
                     if (b.getStatus() != null && b.getStatus().equalsIgnoreCase("CANCELLED")) continue;
                     matched.add(b);
+                    // collect currency info
+                    try {
+                        String ccy = null;
+                        if (b.getCurrency() != null && !b.getCurrency().isEmpty()) {
+                            ccy = b.getCurrency();
+                        }
+                        if (ccy == null) ccy = "USD"; // default if none present
+                        currenciesFound.add(ccy);
+                        currencyTotals.put(ccy, currencyTotals.getOrDefault(ccy, 0.0) + (b.getTotalPrice() == null ? 0.0 : b.getTotalPrice()));
+                        currencyCounts.put(ccy, currencyCounts.getOrDefault(ccy, 0) + 1);
+                    } catch (Exception e) {
+                        logger.debug("Failed to collect currency info for booking {}: {}", b == null ? "<null>" : b.getBookingId(), e.getMessage());
+                    }
                 } catch (Exception e) {
                     logger.warn("Skipping booking due to conversion error: {}", e.getMessage());
                 }
@@ -129,7 +147,13 @@ public class AggregateProcessor implements CyodaProcessor {
             metrics.put("totalRevenue", totalRevenue);
             metrics.put("bookingCount", bookingCount);
             metrics.put("avgPrice", bookingCount == 0 ? 0.0 : totalRevenue / bookingCount);
-            metrics.put("currency", "USD");
+            if (currenciesFound.size() == 1) {
+                metrics.put("currency", currenciesFound.iterator().next());
+            } else if (currenciesFound.isEmpty()) {
+                metrics.put("currency", "USD");
+            } else {
+                metrics.put("currency", "MIXED");
+            }
             reportNode.set("metrics", metrics);
 
             // groupingBuckets
@@ -148,10 +172,28 @@ public class AggregateProcessor implements CyodaProcessor {
             }
             reportNode.set("groupingBuckets", buckets);
 
+            // metadata for mixed currencies
+            if (currenciesFound.size() > 1) {
+                ObjectNode metadata = entityService.objectMapper().createObjectNode();
+                metadata.put("warning", "Multiple currencies detected in aggregation result");
+                ArrayNode cArr = entityService.objectMapper().createArrayNode();
+                for (String c : currenciesFound) cArr.add(c);
+                metadata.set("currencies", cArr);
+                ObjectNode perCcy = entityService.objectMapper().createObjectNode();
+                for (String c : currencyTotals.keySet()) {
+                    ObjectNode info = entityService.objectMapper().createObjectNode();
+                    info.put("totalRevenue", currencyTotals.getOrDefault(c, 0.0));
+                    info.put("bookingCount", currencyCounts.getOrDefault(c, 0));
+                    perCcy.set(c, info);
+                }
+                metadata.set("perCurrencyMetrics", perCcy);
+                reportNode.set("metadata", metadata);
+            }
+
             // Persist report
             CompletableFuture<java.util.UUID> addFuture = entityService.addItem(
-                "Report",
-                "1",
+                Report.ENTITY_NAME,
+                String.valueOf(Report.ENTITY_VERSION),
                 reportNode
             );
             java.util.UUID persistedReportId = addFuture.get();
@@ -160,7 +202,12 @@ public class AggregateProcessor implements CyodaProcessor {
             // Update job
             job.setStatus("COMPLETED");
             job.setCompletedAt(OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
-            job.setReportId(reportId);
+            try {
+                job.setReportId(reportId);
+            } catch (Exception ex) {
+                // If ReportJob doesn't have reportId field, attach to errorDetails
+                job.setErrorDetails((job.getErrorDetails() == null ? "" : job.getErrorDetails() + " | ") + "reportId=" + reportId);
+            }
 
         } catch (Exception e) {
             logger.error("Aggregation failed: {}", e.getMessage());
