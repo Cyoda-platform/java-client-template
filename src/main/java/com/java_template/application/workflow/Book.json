@@ -1,0 +1,56 @@
+{
+  "version": "1.0",
+  "name": "Book Workflow",
+  "desc": "Workflow for Book validation, scoring and availability for reports",
+  "initialState": "NEW",
+  "active": true,
+  "states": {
+    "NEW": {
+      "transitions": [
+        {
+          "name": "validateBook",
+          "next": "VALIDATED",
+          "manual": false,
+          "processors": [
+            { "name": "ValidateBookProcessor", "config": { "calculationNodesTags": "cyoda_application" } }
+          ]
+        },
+        {
+          "name": "markInvalid",
+          "next": "INVALID",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": { "name": "IsBookValidCriterion", "config": { "calculationNodesTags": "cyoda_application" } }
+          }
+        }
+      ]
+    },
+    "VALIDATED": {
+      "transitions": [
+        {
+          "name": "computeScore",
+          "next": "SCORED",
+          "manual": false,
+          "processors": [
+            { "name": "ComputePopularityProcessor", "config": { "calculationNodesTags": "cyoda_application" } }
+          ]
+        }
+      ]
+    },
+    "SCORED": {
+      "transitions": [
+        {
+          "name": "markAvailable",
+          "next": "AVAILABLE",
+          "manual": false,
+          "processors": [
+            { "name": "MarkAvailableProcessor", "config": { "calculationNodesTags": "cyoda_application" } }
+          ]
+        }
+      ]
+    },
+    "INVALID": { "transitions": [] },
+    "AVAILABLE": { "transitions": [] }
+  }
+}
