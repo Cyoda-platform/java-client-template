@@ -72,10 +72,10 @@ public class FlaggingProcessor implements CyodaProcessor {
                 if (node.has("productId")) p.setProductId(node.get("productId").asText());
                 if (node.has("technicalId")) p.setTechnicalId(node.get("technicalId").asText());
                 if (node.has("stockLevel")) p.setStockLevel(node.get("stockLevel").asInt());
-                if (node.has("reorderPoint")) p.setReorderPoint(node.get("reorderPoint").asInt());
+                if (node.has("reorderPoint")) p.setReorderPoint(node.get("reorderPoint").isNull() ? null : node.get("reorderPoint").asInt());
 
                 ArrayList<String> flags = new ArrayList<>();
-                if (p.getReorderPoint() != null && p.getStockLevel() <= p.getReorderPoint()) {
+                if (p.getReorderPoint() != null && p.getStockLevel() != null && p.getStockLevel() <= p.getReorderPoint()) {
                     flags.add("RESTOCK_CANDIDATE");
                 }
 
@@ -90,9 +90,13 @@ public class FlaggingProcessor implements CyodaProcessor {
                 if (!flags.isEmpty()) {
                     try {
                         p.setFlags(flags);
-                        CompletableFuture<UUID> updated = entityService.updateItem(Product.ENTITY_NAME, String.valueOf(Product.ENTITY_VERSION), UUID.fromString(p.getTechnicalId()), p);
-                        updated.get();
-                        logger.info("Updated flags for productId={} flags={} jobId={}", p.getProductId(), flags, job.getJobId());
+                        if (p.getTechnicalId() != null) {
+                            CompletableFuture<UUID> updated = entityService.updateItem(Product.ENTITY_NAME, String.valueOf(Product.ENTITY_VERSION), UUID.fromString(p.getTechnicalId()), p);
+                            updated.get();
+                            logger.info("Updated flags for productId={} flags={} jobId={}", p.getProductId(), flags, job.getJobId());
+                        } else {
+                            logger.warn("Product technicalId missing for productId={} cannot update flags", p.getProductId());
+                        }
                     } catch (Exception e) {
                         logger.warn("Failed to update product flags productId={} : {}", p.getProductId(), e.getMessage());
                     }
