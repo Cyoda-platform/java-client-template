@@ -15,6 +15,7 @@ public class WeeklyReport implements CyodaEntity {
     public static final Integer ENTITY_VERSION = 1;
     // Add your entity fields here
 
+    private String fetchJobId;
     private OffsetDateTime weekStartDate;
     private OffsetDateTime weekEndDate;
     private Integer totalBooks;
