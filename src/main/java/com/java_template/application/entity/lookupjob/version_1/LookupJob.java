@@ -11,6 +11,7 @@ public class LookupJob implements CyodaEntity {
     public static final Integer ENTITY_VERSION = 1;
     // Add your entity fields here
 
+    private String technicalId; // unique technical identifier (used by workflows)
     private Integer userId; // requested ReqRes user id
     // legacy/compat field - status may be present in older models
     private String status; // PENDING | VALIDATING | IN_PROGRESS | SUCCESS | NOT_FOUND | INVALID_INPUT | ERROR | COMPLETED
