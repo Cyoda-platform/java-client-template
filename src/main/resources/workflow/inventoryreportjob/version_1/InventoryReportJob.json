@@ -1,0 +1,149 @@
+{
+  "version": "1.0",
+  "name": "InventoryReportJob Workflow",
+  "desc": "Workflow for orchestrating inventory report jobs",
+  "initialState": "PENDING",
+  "active": true,
+  "states": {
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "validate_job",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateJobProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "validation_passed",
+          "next": "EXECUTING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidateJobCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_failed",
+          "next": "VALIDATION_FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidateJobCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "EXECUTING": {
+      "transitions": [
+        {
+          "name": "fetch_inventory",
+          "next": "AGGREGATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FetchInventoryProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "AGGREGATING": {
+      "transitions": [
+        {
+          "name": "aggregate_metrics",
+          "next": "FORMATTING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AggregateMetricsProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "FORMATTING": {
+      "transitions": [
+        {
+          "name": "format_success",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FormatReportProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "format_failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "FormatReportErrorCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": [
+        {
+          "name": "notify_users",
+          "next": "NOTIFYING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotifyUsersProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "NOTIFYING": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    },
+    "VALIDATION_FAILED": {
+      "transitions": []
+    }
+  }
+}
