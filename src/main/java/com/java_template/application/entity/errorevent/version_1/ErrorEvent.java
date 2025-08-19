@@ -11,6 +11,7 @@ public class ErrorEvent implements CyodaEntity {
     public static final Integer ENTITY_VERSION = 1;
     // Add your entity fields here
 
+    private String technicalId; // unique technical identifier (used by workflows)
     private Integer code; // HTTP or app error code
     private String message; // user friendly message
     private String details; // optional debug/info
