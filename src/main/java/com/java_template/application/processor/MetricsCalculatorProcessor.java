@@ -3,7 +3,6 @@ package com.java_template.application.processor;
 import com.java_template.application.entity.product.version_1.Product;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
-import com.java_template.common.service.EntityService;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -14,10 +13,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.OffsetDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 @Component
 public class MetricsCalculatorProcessor implements CyodaProcessor {
@@ -25,11 +20,9 @@ public class MetricsCalculatorProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(MetricsCalculatorProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
-    private final EntityService entityService;
 
-    public MetricsCalculatorProcessor(SerializerFactory serializerFactory, EntityService entityService) {
+    public MetricsCalculatorProcessor(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
-        this.entityService = entityService;
     }
 
     @Override
@@ -64,7 +57,7 @@ public class MetricsCalculatorProcessor implements CyodaProcessor {
             if (p.getSalesHistory() != null && !p.getSalesHistory().isEmpty()) {
                 for (Object entryObj : p.getSalesHistory()) {
                     if (entryObj instanceof java.util.Map) {
-                        Map<?, ?> entry = (Map<?, ?>) entryObj;
+                        java.util.Map<?, ?> entry = (java.util.Map<?, ?>) entryObj;
                         Number units = entry.get("unitsSold") instanceof Number ? (Number) entry.get("unitsSold") : null;
                         Number rev = entry.get("revenue") instanceof Number ? (Number) entry.get("revenue") : null;
                         if (units != null) salesVolume += units.doubleValue();
@@ -95,18 +88,12 @@ public class MetricsCalculatorProcessor implements CyodaProcessor {
 
             p.setLastUpdated(OffsetDateTime.now().toString());
 
-            // Persist metrics
-            try {
-                CompletableFuture<UUID> updated = entityService.updateItem(Product.ENTITY_NAME, String.valueOf(Product.ENTITY_VERSION), UUID.fromString(p.getTechnicalId()), p);
-                updated.get();
-            } catch (Exception e) {
-                logger.warn("Failed to persist metrics for productId={} : {}", p.getProductId(), e.getMessage());
-            }
-
             logger.info("Metrics calculated for productId={}", p.getProductId());
         } catch (Exception e) {
             logger.error("Error calculating metrics for productId={}", p != null ? p.getProductId() : "<unknown>", e);
         }
+        // IMPORTANT: do not call entityService.updateItem on the entity that triggered this processor.
+        // Cyoda will persist changes to the Product entity automatically based on workflow.
         return p;
     }
 }
