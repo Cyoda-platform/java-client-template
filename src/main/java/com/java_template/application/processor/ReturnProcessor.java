@@ -12,6 +12,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
+
 @Component
 public class ReturnProcessor implements CyodaProcessor {
 
@@ -55,8 +59,8 @@ public class ReturnProcessor implements CyodaProcessor {
 
         s.setStatus("RETURNED");
         try {
-            java.util.Map<String,Object> meta = s.getMetadata() == null || !(s.getMetadata() instanceof java.util.Map) ? new java.util.HashMap<>() : (java.util.Map<String,Object>) s.getMetadata();
-            meta.put("returnedAt", java.time.Instant.now().toString());
+            Map<String,Object> meta = s.getMetadata() == null || !(s.getMetadata() instanceof Map) ? new HashMap<>() : (Map<String,Object>) s.getMetadata();
+            meta.put("returnedAt", Instant.now().toString());
             s.setMetadata(meta);
         } catch (Exception ignored) {}
 
