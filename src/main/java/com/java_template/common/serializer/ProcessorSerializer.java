@@ -1,6 +1,7 @@
 package com.java_template.common.serializer;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.workflow.CyodaEntity;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
@@ -27,6 +28,14 @@ public interface ProcessorSerializer {
     record ProcessorEntityExecutionContext<T extends CyodaEntity>(EntityProcessorCalculationRequest request, T entity) {}
 
     /**
+     * Small helper that provides a read method to convert an ObjectNode into an entity instance.
+     * This mirrors existing call-sites that expect serializer.toEntity(Foo.class).read(node)
+     */
+    interface EntityReader<T extends CyodaEntity> {
+        T read(ObjectNode node);
+    }
+
+    /**
      * Extracts a typed entity from the request payload.
      */
     <T extends CyodaEntity> T extractEntity(EntityProcessorCalculationRequest request, Class<T> clazz);
@@ -41,6 +50,17 @@ public interface ProcessorSerializer {
      * This method allows processors to convert entities for use with withEntity method.
      */
     <T extends CyodaEntity> JsonNode entityToJsonNode(T entity);
+
+    /**
+     * Converts a CyodaEntity to an ObjectNode for persistence or RPC transport.
+     */
+    ObjectNode toObjectNode(CyodaEntity entity);
+
+    /**
+     * Produces a small reader that can convert ObjectNode into an entity instance.
+     * This keeps the concise call-site style used throughout the processors.
+     */
+    <T extends CyodaEntity> EntityReader<T> toEntity(Class<T> clazz);
 
     /**
      * Gets the serializer type identifier.
@@ -169,9 +189,8 @@ public interface ProcessorSerializer {
         EntityProcessorCalculationResponse complete(Function<T, JsonNode> converter);
     }
 
-    /**
-     * Implementation of the ProcessingChain interface.
-     */
+    // Implementation classes (unchanged) ...
+
     class ProcessingChainImpl implements ProcessingChain {
         private final ProcessorSerializer serializer;
         private final EntityProcessorCalculationRequest request;
@@ -255,10 +274,6 @@ public interface ProcessorSerializer {
         }
     }
 
-    /**
-     * Implementation of the EntityProcessingChain interface.
-     * Handles entity-based processing flows where operations work on entity instances.
-     */
     class EntityProcessingChainImpl<T extends CyodaEntity> implements EntityProcessingChain<T> {
         private final ProcessorSerializer serializer;
         private final EntityProcessorCalculationRequest request;
