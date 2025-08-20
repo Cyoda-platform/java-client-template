@@ -47,11 +47,12 @@ public class MarkAnomalyProcessor implements CyodaProcessor {
     private Activity processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Activity> context) {
         Activity activity = context.entity();
         try {
-            activity.setProcessed(true);
+            activity.setAnomalyFlag(true);
+            activity.setProcessed(false);
             activity.setFailureReason(null);
-            logger.info("Marked activity {} as processed after anomaly flag", activity.getActivityId());
+            logger.info("Marked activity {} as anomaly", activity.getActivityId());
         } catch (Exception ex) {
-            logger.error("Error marking anomaly processed", ex);
+            logger.error("Error marking anomaly", ex);
             activity.setFailureReason("mark anomaly error: " + ex.getMessage());
         }
         return activity;
