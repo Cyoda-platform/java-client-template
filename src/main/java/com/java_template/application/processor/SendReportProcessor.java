@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.report.version_1.Report;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.service.EntityService;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -13,15 +14,21 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+
 @Component
 public class SendReportProcessor implements CyodaProcessor {
 
     private static final Logger logger = LoggerFactory.getLogger(SendReportProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final EntityService entityService;
 
-    public SendReportProcessor(SerializerFactory serializerFactory) {
+    public SendReportProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
     }
 
     @Override
@@ -49,14 +56,16 @@ public class SendReportProcessor implements CyodaProcessor {
         Report report = context.entity();
 
         try {
-            // Simulate sending: check recipients and set deliveryStatus
+            report.setDeliveryStatus("SENDING");
+            report.setGeneratedAt(report.getGeneratedAt() == null ? Instant.now().toString() : report.getGeneratedAt());
             boolean anyFailed = false;
             for (String r : report.getRecipients()) {
                 if (r == null || !r.contains("@")) {
                     anyFailed = true;
-                    logger.warn("Invalid recipient {} for report {}", r, report.getTechnicalId());
+                    logger.warn("Invalid recipient {} for report {}", r, report.getReportDate());
                 } else {
-                    logger.info("Sending report {} to {}", report.getTechnicalId(), r);
+                    // In production call email service and track per-recipient status
+                    logger.info("Simulated sending report {} to {}", report.getTechnicalId(), r);
                 }
             }
             if (anyFailed) {
