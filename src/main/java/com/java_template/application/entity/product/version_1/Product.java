@@ -5,22 +5,18 @@ import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import lombok.Data;
 
-import java.time.Instant;
-
 @Data
 public class Product implements CyodaEntity {
     public static final String ENTITY_NAME = "Product";
     public static final Integer ENTITY_VERSION = 1;
-    // Add your entity fields here
 
+    // Add your entity fields here
     private String sku; // unique product code
-    private String name;
-    private String description;
-    private Double price;
-    private Integer quantityAvailable;
-    private String category;
-    private Instant createdAt;
-    private Instant updatedAt;
+    private String name; // display name
+    private String description; // optional
+    private Double price; // unit price
+    private Integer quantityAvailable; // current stock
+    private String category; // optional
 
     public Product() {}
 
