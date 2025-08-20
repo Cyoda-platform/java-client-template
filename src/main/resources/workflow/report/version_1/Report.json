@@ -1,0 +1,95 @@
+{
+  "version": "1.0",
+  "name": "Report Workflow",
+  "desc": "Workflow for Report assembly and delivery",
+  "initialState": "DRAFT",
+  "active": true,
+  "states": {
+    "DRAFT": {
+      "transitions": [
+        {
+          "name": "assemble",
+          "next": "READY_TO_SEND",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AssembleReportProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "READY_TO_SEND": {
+      "transitions": [
+        {
+          "name": "publish",
+          "next": "PUBLISHING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PublishReportProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PUBLISHING": {
+      "transitions": [
+        {
+          "name": "sent",
+          "next": "SENT",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DeliverySuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DeliveryFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "SENT": {
+      "transitions": [
+        {
+          "name": "archive",
+          "next": "ARCHIVED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ArchiveCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ARCHIVED": { "transitions": [] },
+    "FAILED": { "transitions": [] }
+  }
+}
