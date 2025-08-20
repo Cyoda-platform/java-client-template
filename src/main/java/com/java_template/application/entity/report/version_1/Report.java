@@ -16,6 +16,7 @@ public class Report implements CyodaEntity {
 
     private String technicalId; // internal UUID
     private String reportId; // report business id
+    private String jobId; // reference to originating job technical id
     private String date; // reporting date
     private String generatedAt; // timestamp
     private List<Map<String, Object>> summaryItems; // array of objects containing pattern_type, metrics, confidence
