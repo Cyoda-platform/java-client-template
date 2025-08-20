@@ -1,4 +1,4 @@
-package com.java_template.application.entity.ingestionrun.version_1;
+package com.java_template.application.entity.ingestionrun.version_1; // replace {entityName} with actual entity name in lowercase
 
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
@@ -11,20 +11,13 @@ public class IngestionRun implements CyodaEntity {
     public static final Integer ENTITY_VERSION = 1;
     // Add your entity fields here
 
-    // user-supplied job id
-    private String runId;
-    // scheduled time (ISO timestamp)
-    private String scheduledAt;
-    // actual start time (ISO timestamp)
-    private String startedAt;
-    // end time (ISO timestamp)
-    private String finishedAt;
-    // status: PENDING/IN_PROGRESS/COMPLETED/FAILED/PARTIAL
-    private String status;
-    // counts
-    private Integer recordsFetched;
-    private Integer recordsStored;
-    // summary of errors if any
+    private String runId; // user-supplied job id
+    private String scheduledAt; // scheduled time (ISO timestamp)
+    private String startedAt; // actual start (ISO timestamp)
+    private String finishedAt; // end time (ISO timestamp)
+    private String status; // PENDING/IN_PROGRESS/COMPLETED/FAILED/PARTIAL
+    private Long recordsFetched;
+    private Long recordsStored;
     private String errorsSummary;
 
     public IngestionRun() {}
@@ -39,7 +32,7 @@ public class IngestionRun implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        // Required fields: runId and scheduledAt must be present and not blank
+        // require runId and scheduledAt to be present
         if (this.runId == null || this.runId.isBlank()) return false;
         if (this.scheduledAt == null || this.scheduledAt.isBlank()) return false;
         return true;
