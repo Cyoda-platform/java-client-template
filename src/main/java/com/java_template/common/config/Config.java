@@ -14,6 +14,7 @@ public class Config {
     public static final int GRPC_SERVER_PORT = Integer.parseInt(getEnv("GRPC_SERVER_PORT", "443"));
     public static final String GRPC_PROCESSOR_TAG = getEnv("GRPC_PROCESSOR_TAG", "cloud_manager_app");
     public static final int EXTERNAL_CALCULATIONS_THREAD_POOL = Integer.parseInt(getEnv("EXTERNAL_CALCULATIONS_THREAD_POOL", "10"));
+    public static final int HANDSHAKE_TIMEOUT_MS = Integer.parseInt(getEnv("HANDSHAKE_TIMEOUT_MS", "5000"));
 
     public static final int INITIAL_RECONNECT_DELAY_MS = Integer.parseInt(getEnv("INITIAL_RECONNECT_DELAY_MS", "200"));
     public static final int MAX_RECONNECT_DELAY_MS = Integer.parseInt(getEnv("MAX_RECONNECT_DELAY_MS", "10000"));

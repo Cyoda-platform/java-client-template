@@ -23,6 +23,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
+import static com.java_template.common.config.Config.HANDSHAKE_TIMEOUT_MS;
+
 @Component
 class ConnectionManager implements EventSender {
     private final Logger log = LoggerFactory.getLogger(this.getClass());
@@ -111,7 +113,7 @@ class ConnectionManager implements EventSender {
             connectionStateTracker.trackObserverStateChange(ObserverState.AWAITS_GREET);
 
             return greetPromise.thenApply(acceptedJoinEvent -> newObserver)
-                    .orTimeout(5, TimeUnit.SECONDS)
+                    .orTimeout(HANDSHAKE_TIMEOUT_MS, TimeUnit.MILLISECONDS)
                     .whenComplete((ignored, error) -> {
                         if (error != null) {
                             newObserver.onError(error);
@@ -142,7 +144,7 @@ class ConnectionManager implements EventSender {
 
     private void initiateConnection() {
         if (isConnecting.getAndSet(true)) {
-            log.info("Already connecting. Request will be diskarted");
+            log.info("Already connecting. Initiate connection request ignored");
             return;
         }
 
