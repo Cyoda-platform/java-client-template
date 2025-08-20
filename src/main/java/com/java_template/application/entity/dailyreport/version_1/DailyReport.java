@@ -12,9 +12,8 @@ import java.util.Map;
 public class DailyReport implements CyodaEntity {
     public static final String ENTITY_NAME = "DailyReport";
     public static final Integer ENTITY_VERSION = 1;
-    // Add your entity fields here
 
-    private String technicalId;
+    // Add your entity fields here
     private String reportDate; // ISO date for the report
     private String generatedAt; // ISO datetime
     private String jobTechnicalId; // IngestionJob technicalId used to build report
@@ -36,10 +35,10 @@ public class DailyReport implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        // Validate required string fields using isBlank
-        if (reportDate == null || reportDate.isBlank()) return false;
-        if (generatedAt == null || generatedAt.isBlank()) return false;
-        if (jobTechnicalId == null || jobTechnicalId.isBlank()) return false;
+        if (this.reportDate == null || this.reportDate.isBlank()) return false;
+        if (this.generatedAt == null || this.generatedAt.isBlank()) return false;
+        if (this.jobTechnicalId == null || this.jobTechnicalId.isBlank()) return false;
+        if (this.status == null || this.status.isBlank()) return false;
         return true;
     }
 }
