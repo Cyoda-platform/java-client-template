@@ -1,0 +1,103 @@
+{
+  "version": "1.0",
+  "name": "Activity Workflow",
+  "desc": "Workflow for Activity entity",
+  "initialState": "INGESTED",
+  "active": true,
+  "states": {
+    "INGESTED": {
+      "transitions": [
+        {
+          "name": "validate_activity",
+          "next": "VALIDATED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ActivityValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "mark_invalid",
+          "next": "INVALID",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ActivityValidityCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "VALIDATED": {
+      "transitions": [
+        {
+          "name": "enrich_activity",
+          "next": "ENRICHED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EnrichActivityProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ENRICHED": {
+      "transitions": [
+        {
+          "name": "classify_activity",
+          "next": "ANALYZED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ClassifyActivityProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ANALYZED": {
+      "transitions": [
+        {
+          "name": "persist_activity",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PersistActivityProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "INVALID": {
+      "transitions": [
+        {
+          "name": "manual_correction",
+          "next": "VALIDATED",
+          "manual": true
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": []
+    }
+  }
+}
