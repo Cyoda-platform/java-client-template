@@ -3,7 +3,7 @@ package com.java_template.application.processor;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.cart.version_1.Cart;
-import com.java_template.application.entity.cart.version_1.CartLine;
+import com.java_template.application.entity.cart.version_1.Cart.CartLine;
 import com.java_template.application.entity.user.version_1.User;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
@@ -53,14 +53,13 @@ public class AssignAnonCartProcessor implements CyodaProcessor {
     }
 
     private boolean isValidEntity(User user) {
-        return user != null && "IDENTIFIED".equals(user.getIdentityState());
+        return user != null && "IDENTIFIED".equalsIgnoreCase(user.getIdentity_state());
     }
 
     private User processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<User> context) {
         User user = context.entity();
         try {
-            // Find anonymous cart(s) by user session id stored in user.technicalId or similar
-            // We'll attempt to find carts with null userId
+            // Find anonymous carts (userId == null)
             SearchConditionRequest condition = SearchConditionRequest.group("AND",
                 Condition.of("$.userId", "EQUALS", "null")
             );
@@ -73,14 +72,14 @@ public class AssignAnonCartProcessor implements CyodaProcessor {
             ArrayNode carts = future.get();
             if (carts == null || carts.size() == 0) return user;
 
-            // Strategy: preserve newest cart (by updatedAt)
+            // choose newest cart by updated_at
             ObjectNode newest = null;
             for (int i = 0; i < carts.size(); i++) {
                 ObjectNode c = (ObjectNode) carts.get(i);
                 if (newest == null) newest = c;
                 else {
-                    String t1 = c.has("updatedAt") ? c.get("updatedAt").asText() : null;
-                    String t2 = newest.has("updatedAt") ? newest.get("updatedAt").asText() : null;
+                    String t1 = c.has("updated_at") ? c.get("updated_at").asText() : null;
+                    String t2 = newest.has("updated_at") ? newest.get("updated_at").asText() : null;
                     if (t1 != null && t2 != null && t1.compareTo(t2) > 0) newest = c;
                 }
             }
@@ -88,7 +87,7 @@ public class AssignAnonCartProcessor implements CyodaProcessor {
             if (newest == null) return user;
             Cart anonCart = SerializerFactory.createDefault().getDefaultProcessorSerializer().toEntity(Cart.class).read(newest);
 
-            // If user has existing active cart, merge lines (prefer newest cart)
+            // Find user's existing carts
             SearchConditionRequest userCartCond = SearchConditionRequest.group("AND",
                 Condition.of("$.userId", "EQUALS", user.getUserId())
             );
@@ -107,41 +106,48 @@ public class AssignAnonCartProcessor implements CyodaProcessor {
             if (userCart == null) {
                 // Assign anon cart to user
                 anonCart.setUserId(user.getUserId());
-                anonCart.setUpdatedAt(Instant.now().toString());
+                anonCart.setUpdated_at(Instant.now().toString());
                 // persist update
                 entityService.updateItem(
                     Cart.ENTITY_NAME,
                     String.valueOf(Cart.ENTITY_VERSION),
-                    java.util.UUID.fromString(anonCart.getTechnicalId()),
+                    java.util.UUID.fromString(anonCart.getCartId()),
                     SerializerFactory.createDefault().getDefaultProcessorSerializer().toObjectNode(anonCart)
                 ).get();
             } else {
                 // Merge: prefer newest cart (anonCart) into userCart
-                for (CartLine line : anonCart.getLines()) {
-                    boolean found = false;
-                    for (CartLine ul : userCart.getLines()) {
-                        if (ul.getSku().equals(line.getSku())) {
-                            ul.setQty(ul.getQty() + line.getQty());
-                            ul.setLineTotal(ul.getLineTotal() + line.getLineTotal());
-                            found = true;
-                            break;
+                if (anonCart.getLines() != null) {
+                    for (CartLine line : anonCart.getLines()) {
+                        boolean found = false;
+                        if (userCart.getLines() != null) {
+                            for (CartLine ul : userCart.getLines()) {
+                                if (ul.getSku().equals(line.getSku())) {
+                                    ul.setQty(ul.getQty() + line.getQty());
+                                    ul.setLineTotal(ul.getLineTotal() + line.getLineTotal());
+                                    found = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!found) {
+                            if (userCart.getLines() == null) userCart.setLines(new java.util.ArrayList<>());
+                            userCart.getLines().add(line);
                         }
                     }
-                    if (!found) userCart.getLines().add(line);
                 }
-                userCart.setUpdatedAt(Instant.now().toString());
+                userCart.setUpdated_at(Instant.now().toString());
                 entityService.updateItem(
                     Cart.ENTITY_NAME,
                     String.valueOf(Cart.ENTITY_VERSION),
-                    java.util.UUID.fromString(userCart.getTechnicalId()),
+                    java.util.UUID.fromString(userCart.getCartId()),
                     SerializerFactory.createDefault().getDefaultProcessorSerializer().toObjectNode(userCart)
                 ).get();
 
-                // Delete or archive anon cart (we'll delete)
+                // Delete anon cart
                 entityService.deleteItem(
                     Cart.ENTITY_NAME,
                     String.valueOf(Cart.ENTITY_VERSION),
-                    java.util.UUID.fromString(anonCart.getTechnicalId())
+                    java.util.UUID.fromString(anonCart.getCartId())
                 ).get();
             }
         } catch (Exception e) {
