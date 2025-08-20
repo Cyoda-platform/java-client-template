@@ -19,7 +19,7 @@ public class FulfillmentProcessor implements CyodaProcessor {
 
     private static final Logger logger = LoggerFactory.getLogger(FulfillmentProcessor.class);
     private final String className = this.getClass().getSimpleName();
-    private final ProcessorSerializer.serializer;
+    private final ProcessorSerializer serializer;
     private final EntityService entityService;
     private final ObjectMapper objectMapper;
 
