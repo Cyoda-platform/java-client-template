@@ -60,8 +60,7 @@ public class AggregateMetricsProcessor implements CyodaProcessor {
             // For demo purposes build simple metrics object
             ObjectNode metrics = report.getMetrics() != null ? (ObjectNode) report.getMetrics() : report.objectMapper().createObjectNode();
             Map<String, Integer> perType = new HashMap<>();
-
-            // Attempt to fetch aggregated metrics from EntityService (Metrics entity) - demo: simulate
+            // In real implementation we would fetch activities by date and compute counts.
             perType.put("login", 50);
             perType.put("purchase", 10);
             metrics.put("totalActivities", 60);
