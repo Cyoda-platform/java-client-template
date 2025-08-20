@@ -5,6 +5,7 @@ import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import lombok.Data;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
@@ -14,11 +15,12 @@ public class CoverPhoto implements CyodaEntity {
     public static final Integer ENTITY_VERSION = 1;
     // Add your entity fields here
 
+    private String technicalId; // platform assigned technical id
     private String coverId; // origin identifier from source
     private String title; // display title
     private String bookId; // related book id from source
     private String imageUrl; // location of image
-    private String fetchedAt; // ISO DateTime string
+    private Instant fetchedAt; // timestamp when fetched
     private List<String> tags; // classification tags
     private String status; // active/archived/failed etc
     private Map<String, Object> metadata; // dimensions, size, mimeType
@@ -27,7 +29,7 @@ public class CoverPhoto implements CyodaEntity {
     private String ingestionJobId; // technicalId of the ingestion job that created it
     private Boolean errorFlag; // true when validation/processing failed
     private Integer processingAttempts; // retry counter
-    private String lastProcessedAt; // last processing timestamp
+    private Instant lastProcessedAt; // last processing timestamp
 
     public CoverPhoto() {}
 
