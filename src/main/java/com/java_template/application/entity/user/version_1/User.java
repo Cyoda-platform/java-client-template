@@ -1,4 +1,4 @@
-package com.java_template.application.entity.user.version_1; // replace {entityName} with actual entity name in lowercase
+package com.java_template.application.entity.user.version_1;
 
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
@@ -9,8 +9,8 @@ import lombok.Data;
 public class User implements CyodaEntity {
     public static final String ENTITY_NAME = "User";
     public static final Integer ENTITY_VERSION = 1;
-    // Add your entity fields here
 
+    // Add your entity fields here
     private String userId;
     private String name;
     private String email;
@@ -32,7 +32,6 @@ public class User implements CyodaEntity {
     @Override
     public boolean isValid() {
         if (userId == null || userId.isBlank()) return false;
-        if (identity_state == null || identity_state.isBlank()) return false;
         if (name == null || name.isBlank()) return false;
         if (email == null || email.isBlank()) return false;
         return true;
