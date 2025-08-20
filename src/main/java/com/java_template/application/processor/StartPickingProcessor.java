@@ -48,9 +48,13 @@ public class StartPickingProcessor implements CyodaProcessor {
 
     private Order processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Order> context) {
         Order order = context.entity();
-        order.setStatus("PICKING");
-        order.setUpdatedAt(Instant.now().toString());
-        logger.info("Order {} moved to PICKING", order.getOrderId());
+        try {
+            order.setStatus("PICKING");
+            order.setUpdated_at(Instant.now().toString());
+            logger.info("Order {} moved to PICKING", order.getOrderId());
+        } catch (Exception e) {
+            logger.warn("Failed to start picking for order {}", order != null ? order.getOrderId() : "<null>", e);
+        }
         return order;
     }
 }
