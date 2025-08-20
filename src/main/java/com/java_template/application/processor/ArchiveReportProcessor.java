@@ -3,6 +3,7 @@ package com.java_template.application.processor;
 import com.java_template.application.entity.report.version_1.Report;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.service.EntityService;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -20,9 +21,11 @@ public class ArchiveReportProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(ArchiveReportProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final EntityService entityService;
 
-    public ArchiveReportProcessor(SerializerFactory serializerFactory) {
+    public ArchiveReportProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
     }
 
     @Override
