@@ -98,7 +98,11 @@ public class CreateOrderProcessor implements CyodaProcessor {
                 grand += line.getLineTotal();
             }
             order.setLines(orderLines);
-            order.setTotals(new Totals(items, grand));
+            // Use setters instead of a non-existent constructor
+            Totals totals = new Totals();
+            totals.setItems(items);
+            totals.setGrand(grand);
+            order.setTotals(totals);
             order.setStatus("WAITING_TO_FULFILL");
             order.setState_transitions(new ArrayList<>());
 
@@ -111,8 +115,6 @@ public class CreateOrderProcessor implements CyodaProcessor {
                 ArrayNode allOrders = allOrdersFuture.get();
                 int nextOrderNumber = 1;
                 if (allOrders != null && allOrders.size() > 0) {
-                    nextOrderNumber = 1 + allOrders.elements()
-                        .hasNext() ? 1 : 1; // defensive; we'll compute properly below
                     // compute max orderNumber present
                     int max = 0;
                     for (int i = 0; i < allOrders.size(); i++) {
@@ -137,7 +139,7 @@ public class CreateOrderProcessor implements CyodaProcessor {
             CompletableFuture<UUID> addFuture = entityService.addItem(
                 Order.ENTITY_NAME,
                 String.valueOf(Order.ENTITY_VERSION),
-                SerializerFactory.createDefault().getDefaultProcessorSerializer().toObjectNode(order)
+                this.serializer.toObjectNode(order)
             );
             UUID orderId = addFuture.get();
             order.setOrderId(orderId.toString());
@@ -162,7 +164,7 @@ public class CreateOrderProcessor implements CyodaProcessor {
                             continue;
                         }
                         ObjectNode pNode = (ObjectNode) results.get(0);
-                        Product p = SerializerFactory.createDefault().getDefaultProcessorSerializer().toEntity(Product.class).read(pNode);
+                        Product p = this.serializer.toEntity(Product.class).read(pNode);
 
                         // NOTE: Product model in this codebase does not include quantityReserved.
                         // Reservation conversion is therefore best-effort: ensure timestamps updated and do not drive negative inventory.
@@ -180,7 +182,7 @@ public class CreateOrderProcessor implements CyodaProcessor {
                                     Product.ENTITY_NAME,
                                     String.valueOf(Product.ENTITY_VERSION),
                                     UUID.fromString(p.getSku()),
-                                    SerializerFactory.createDefault().getDefaultProcessorSerializer().toObjectNode(p)
+                                    this.serializer.toObjectNode(p)
                                 );
                                 update.get();
                                 updated = true;
@@ -196,7 +198,7 @@ public class CreateOrderProcessor implements CyodaProcessor {
                                     );
                                     ArrayNode ref = refetch.get();
                                     if (ref != null && ref.size() > 0) {
-                                        p = SerializerFactory.createDefault().getDefaultProcessorSerializer().toEntity(Product.class).read((ObjectNode) ref.get(0));
+                                        p = this.serializer.toEntity(Product.class).read((ObjectNode) ref.get(0));
                                         p.setUpdated_at(Instant.now().toString());
                                     }
                                 } catch (Exception ignore) {}
@@ -230,7 +232,7 @@ public class CreateOrderProcessor implements CyodaProcessor {
                                 break;
                             }
                             ObjectNode pNode = (ObjectNode) results.get(0);
-                            Product p = SerializerFactory.createDefault().getDefaultProcessorSerializer().toEntity(Product.class).read(pNode);
+                            Product p = this.serializer.toEntity(Product.class).read(pNode);
                             Integer available = p.getQuantityAvailable() == null ? 0 : p.getQuantityAvailable();
                             if (available < line.getQty()) {
                                 // Inventory failure - mark order as FAILED and leave cart unchanged
@@ -240,7 +242,7 @@ public class CreateOrderProcessor implements CyodaProcessor {
                                         Order.ENTITY_NAME,
                                         String.valueOf(Order.ENTITY_VERSION),
                                         UUID.fromString(order.getOrderId()),
-                                        SerializerFactory.createDefault().getDefaultProcessorSerializer().toObjectNode(order)
+                                        this.serializer.toObjectNode(order)
                                     );
                                     updateOrder.get();
                                 } catch (Exception ex) {
@@ -258,7 +260,7 @@ public class CreateOrderProcessor implements CyodaProcessor {
                                     Product.ENTITY_NAME,
                                     String.valueOf(Product.ENTITY_VERSION),
                                     UUID.fromString(p.getSku()),
-                                    SerializerFactory.createDefault().getDefaultProcessorSerializer().toObjectNode(p)
+                                    this.serializer.toObjectNode(p)
                                 );
                                 update.get();
                                 success = true;
@@ -276,7 +278,7 @@ public class CreateOrderProcessor implements CyodaProcessor {
                                     Order.ENTITY_NAME,
                                     String.valueOf(Order.ENTITY_VERSION),
                                     UUID.fromString(order.getOrderId()),
-                                    SerializerFactory.createDefault().getDefaultProcessorSerializer().toObjectNode(order)
+                                    this.serializer.toObjectNode(order)
                                 );
                                 updateOrder.get();
                             } catch (Exception ex) {}
@@ -310,7 +312,7 @@ public class CreateOrderProcessor implements CyodaProcessor {
                         Order.ENTITY_NAME,
                         String.valueOf(Order.ENTITY_VERSION),
                         UUID.fromString(order.getOrderId()),
-                        SerializerFactory.createDefault().getDefaultProcessorSerializer().toObjectNode(order)
+                        this.serializer.toObjectNode(order)
                     ).get();
                 } catch (Exception ex) {
                     logger.warn("Failed to persist order state transition for orderId={}", order.getOrderId());
