@@ -1,0 +1,146 @@
+{
+  "version": "1.0",
+  "name": "IngestionJob Workflow",
+  "desc": "Workflow for IngestionJob orchestration from scheduling through execution, persistence and notification.",
+  "initialState": "PENDING",
+  "active": true,
+  "states": {
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "start_job",
+          "next": "RUNNING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "StartIngestionProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "RUNNING": {
+      "transitions": [
+        {
+          "name": "fetch_covers",
+          "next": "FETCHING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FetchCoversProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "FETCHING": {
+      "transitions": [
+        {
+          "name": "persist_items",
+          "next": "PERSISTING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PersistCoversProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PERSISTING": {
+      "transitions": [
+        {
+          "name": "aggregate",
+          "next": "AGGREGATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AggregateResultsProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "AGGREGATING": {
+      "transitions": [
+        {
+          "name": "run_success",
+          "next": "COMPLETED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "RunSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "critical_error",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "CriticalErrorCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": [
+        {
+          "name": "notify_admins_success",
+          "next": "NOTIFY_ADMINS",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotifyAdminProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "FAILED": {
+      "transitions": [
+        {
+          "name": "notify_admins_failure",
+          "next": "NOTIFY_ADMINS",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotifyAdminProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "NOTIFY_ADMINS": {
+      "transitions": []
+    }
+  }
+}
