@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.cart.version_1.Cart;
 import com.java_template.application.entity.order.version_1.Order;
 import com.java_template.application.entity.order.version_1.Order.OrderItem;
+import com.java_template.application.entity.product.version_1.Product;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
