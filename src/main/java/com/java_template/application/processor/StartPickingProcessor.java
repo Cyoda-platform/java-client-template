@@ -36,9 +36,9 @@ public class StartPickingProcessor implements CyodaProcessor {
         logger.info("Processing StartPicking for request: {}", request.getId());
 
         return serializer.withRequest(request)
-            .toEntity(ObjectNode.class)
+            .toEntity((Class) ObjectNode.class)
             .validate(this::isValidPayload, "Invalid start picking payload")
-            .map(this::processEntityLogic)
+            .map(ctx -> processEntityLogic(ctx))
             .complete();
     }
 
@@ -51,13 +51,13 @@ public class StartPickingProcessor implements CyodaProcessor {
         return payload != null && payload.hasNonNull("orderId");
     }
 
-    private ObjectNode processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<ObjectNode> context) {
-        ObjectNode payload = context.entity();
+    private ObjectNode processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<?> context) {
+        ObjectNode payload = (ObjectNode) context.entity();
         try {
             UUID orderId = UUID.fromString(payload.get("orderId").asText());
             CompletableFuture<com.fasterxml.jackson.databind.node.ObjectNode> orderFuture = entityService.getItem(Order.ENTITY_NAME, String.valueOf(Order.ENTITY_VERSION), orderId);
             com.fasterxml.jackson.databind.node.ObjectNode orderNode = orderFuture.get();
-            Order order = context.serializer().convert(orderNode, Order.class);
+            Order order = serializer.convert(orderNode, Order.class);
             if (!"WAITING_TO_FULFILL".equalsIgnoreCase(order.getStatus())) {
                 logger.warn("StartPicking called for order {} in status {}", order.getOrderId(), order.getStatus());
                 return payload;
