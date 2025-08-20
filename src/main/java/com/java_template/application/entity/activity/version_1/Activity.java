@@ -11,9 +11,8 @@ import java.util.Map;
 public class Activity implements CyodaEntity {
     public static final String ENTITY_NAME = "Activity";
     public static final Integer ENTITY_VERSION = 1;
-    // Add your entity fields here
 
-    private String technicalId;
+    // Add your entity fields here
     private String activityId; // external API id
     private String userId; // id of user from external system
     private String timestamp; // ISO datetime of activity
@@ -37,11 +36,9 @@ public class Activity implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        // Validate required string fields using isBlank
-        if (activityId == null || activityId.isBlank()) return false;
-        if (userId == null || userId.isBlank()) return false;
-        if (timestamp == null || timestamp.isBlank()) return false;
-        if (ingestionJobTechnicalId == null || ingestionJobTechnicalId.isBlank()) return false;
+        if (this.activityId == null || this.activityId.isBlank()) return false;
+        if (this.userId == null || this.userId.isBlank()) return false;
+        if (this.timestamp == null || this.timestamp.isBlank()) return false;
         return true;
     }
 }
