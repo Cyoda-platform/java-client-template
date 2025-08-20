@@ -1,0 +1,138 @@
+{
+  "version": "1.0",
+  "name": "Report Workflow",
+  "desc": "Workflow for Report generation: aggregation, generation, delivery, retry and archive",
+  "initialState": "SCHEDULED",
+  "active": true,
+  "states": {
+    "SCHEDULED": {
+      "transitions": [
+        {
+          "name": "aggregate_metrics",
+          "next": "AGGREGATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AggregateMetricsProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "AGGREGATING": {
+      "transitions": [
+        {
+          "name": "metrics_collected",
+          "next": "GENERATED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "GenerateReportContentProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "GENERATED": {
+      "transitions": [
+        {
+          "name": "send_report",
+          "next": "SENDING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendReportProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SENDING": {
+      "transitions": [
+        {
+          "name": "delivery_success",
+          "next": "SENT",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DeliverySuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "delivery_failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DeliveryFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "SENT": {
+      "transitions": [
+        {
+          "name": "archive_report",
+          "next": "ARCHIVED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ArchiveReportProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "FAILED": {
+      "transitions": [
+        {
+          "name": "schedule_retry",
+          "next": "RETRY_PENDING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ScheduleRetryProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "RETRY_PENDING": {
+      "transitions": [
+        {
+          "name": "manual_retry",
+          "next": "SENDING",
+          "manual": true
+        }
+      ]
+    },
+    "ARCHIVED": {
+      "transitions": []
+    }
+  }
+}
