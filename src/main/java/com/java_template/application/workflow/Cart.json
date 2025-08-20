@@ -1,0 +1,88 @@
+{
+  "version": "1.0",
+  "name": "Cart Workflow",
+  "desc": "Workflow for Cart entity",
+  "initialState": "NEW",
+  "active": true,
+  "states": {
+    "NEW": {
+      "transitions": [
+        {
+          "name": "add_first_item",
+          "next": "ACTIVE",
+          "manual": true,
+          "processors": [
+            {
+              "name": "AddFirstItemProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "start_checkout",
+          "next": "CHECKING_OUT",
+          "manual": true,
+          "processors": [
+            {
+              "name": "StartCheckoutProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "CHECKING_OUT": {
+      "transitions": [
+        {
+          "name": "create_order",
+          "next": "CONVERTED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CreateOrderProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "expire_cart",
+          "next": "EXPIRED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ExpireCartProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "CartExpiredCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "CONVERTED": {
+      "transitions": []
+    },
+    "EXPIRED": {
+      "transitions": []
+    }
+  }
+}
