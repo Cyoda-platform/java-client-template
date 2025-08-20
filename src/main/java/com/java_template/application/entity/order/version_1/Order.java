@@ -12,12 +12,13 @@ public class Order implements CyodaEntity {
     public static final String ENTITY_NAME = "Order";
     public static final Integer ENTITY_VERSION = 1;
     // Add your entity fields here
-    private String orderId; // business order number visible to users (serialized UUID as String)
-    private String customerId; // reference to customer (serialized UUID as String)
+
+    private String orderId; // business order number visible to users
+    private String customerId; // serialized UUID reference
     private List<OrderItem> items; // line items
     private Double totalAmount; // calculated total
     private String currency; // currency code
-    private Address shippingAddress; // address details
+    private String shippingAddress; // serialized JSON address
     private String status; // workflow-driven state
     private String createdAt; // ISO timestamp
 
@@ -37,7 +38,7 @@ public class Order implements CyodaEntity {
         if (customerId == null || customerId.isBlank()) return false;
         if (items == null || items.isEmpty()) return false;
         if (currency == null || currency.isBlank()) return false;
-        if (shippingAddress == null) return false;
+        if (shippingAddress == null || shippingAddress.isBlank()) return false;
         return true;
     }
 
@@ -47,17 +48,11 @@ public class Order implements CyodaEntity {
         private Integer quantity;
         private Double price;
 
-        public OrderItem() {}
-    }
-
-    @Data
-    public static class Address {
-        private String line1;
-        private String line2;
-        private String city;
-        private String postalCode;
-        private String country;
-
-        public Address() {}
+        public boolean isValid() {
+            if (sku == null || sku.isBlank()) return false;
+            if (quantity == null || quantity <= 0) return false;
+            if (price == null || price < 0) return false;
+            return true;
+        }
     }
 }
