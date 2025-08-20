@@ -5,21 +5,19 @@ import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import lombok.Data;
 
-import java.util.List;
+import java.util.Objects;
 
 @Data
 public class Job implements CyodaEntity {
     public static final String ENTITY_NAME = "Job";
     public static final Integer ENTITY_VERSION = 1;
-    // Orchestration job fields
-    private String jobId; // business job identifier (serialized UUID as String)
-    private String type; // e.g., "bulk_import", "reconciliation"
+    // Add your entity fields here
+
+    private String jobId; // serialized UUID or business id
+    private String type; // e.g. IMPORT, RECONCILIATION
     private String status; // workflow-driven state
-    private String payload; // optional JSON payload
-    private String result; // optional JSON result
+    private String payload; // arbitrary JSON payload
     private String createdAt; // ISO timestamp
-    private String startedAt; // ISO timestamp
-    private String finishedAt; // ISO timestamp
 
     public Job() {}
 
@@ -35,7 +33,6 @@ public class Job implements CyodaEntity {
     public boolean isValid() {
         if (jobId == null || jobId.isBlank()) return false;
         if (type == null || type.isBlank()) return false;
-        // status can be empty for newly created jobs
         return true;
     }
 }
