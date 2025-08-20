@@ -5,6 +5,7 @@ import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import lombok.Data;
 import java.util.Map;
+import com.fasterxml.jackson.databind.JsonNode;
 
 @Data
 public class IngestionJob implements CyodaEntity {
@@ -19,8 +20,9 @@ public class IngestionJob implements CyodaEntity {
     private String status; // PENDING / RUNNING / COMPLETED / FAILED
     private String startedAt; // timestamp
     private String finishedAt; // timestamp
-    private Map<String, Object> summary; // high level stats after run
+    private JsonNode summary; // high level stats after run (JsonNode to allow object node operations)
     private String initiatedBy; // system or user
+    private String failureReason; // human readable failure
 
     public IngestionJob() {}
 
