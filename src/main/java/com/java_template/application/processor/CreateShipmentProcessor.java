@@ -1,7 +1,9 @@
 package com.java_template.application.processor;
 
 import com.java_template.application.entity.order.version_1.Order;
+import com.java_template.application.entity.order.version_1.Order.OrderItem;
 import com.java_template.application.entity.shipment.version_1.Shipment;
+import com.java_template.application.entity.shipment.version_1.Shipment.ShipmentItem;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
@@ -62,7 +64,7 @@ public class CreateShipmentProcessor implements CyodaProcessor {
         }
 
         // Build shipments based on reservation details if present
-        List<?> items = order.getItems();
+        List<OrderItem> orderItems = order.getItems();
         List<Map<String,Object>> reservation = null;
         try {
             Object meta = order.getMetadata();
@@ -75,11 +77,15 @@ public class CreateShipmentProcessor implements CyodaProcessor {
         List<Shipment> created = new ArrayList<>();
         if (reservation != null && !reservation.isEmpty()) {
             for (Map<String,Object> line : reservation) {
-                Integer reserved = line.get("reserved") == null ? 0 : Integer.parseInt(String.valueOf(line.get("reserved")));
+                Integer reserved = 0;
+                try { reserved = line.get("reserved") == null ? 0 : Integer.parseInt(String.valueOf(line.get("reserved"))); } catch (Exception ex) { }
                 if (reserved <= 0) continue;
                 Shipment s = new Shipment();
                 s.setOrderId(order.getOrderId());
-                s.setItems(Collections.singletonList(Collections.singletonMap("sku", line.get("sku"))));
+                ShipmentItem si = new ShipmentItem();
+                si.setSku(String.valueOf(line.get("sku")));
+                si.setQuantity(reserved);
+                s.setItems(Collections.singletonList(si));
                 s.setStatus("READY");
                 s.setShipmentId("SHP-" + UUID.randomUUID().toString());
                 s.setCarrier("CarrierX");
@@ -89,7 +95,16 @@ public class CreateShipmentProcessor implements CyodaProcessor {
             // fallback: create a single shipment for all items
             Shipment s = new Shipment();
             s.setOrderId(order.getOrderId());
-            s.setItems(items);
+            List<ShipmentItem> sItems = new ArrayList<>();
+            if (orderItems != null) {
+                for (OrderItem it : orderItems) {
+                    ShipmentItem si = new ShipmentItem();
+                    si.setSku(it.getSku());
+                    si.setQuantity(it.getQuantity() == null ? 0 : it.getQuantity());
+                    sItems.add(si);
+                }
+            }
+            s.setItems(sItems);
             s.setStatus("READY");
             s.setShipmentId("SHP-" + UUID.randomUUID().toString());
             s.setCarrier("CarrierX");
