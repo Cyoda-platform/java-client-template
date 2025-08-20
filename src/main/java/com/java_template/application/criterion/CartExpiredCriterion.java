@@ -46,8 +46,8 @@ public class CartExpiredCriterion implements CyodaCriterion {
         Cart cart = context.entity();
         if (cart == null) return EvaluationOutcome.fail("Cart not found", StandardEvalReasonCategories.VALIDATION_FAILURE);
         try {
-            if (cart.getExpiresAt() == null) return EvaluationOutcome.fail("expiresAt not set", StandardEvalReasonCategories.VALIDATION_FAILURE);
-            Instant expires = Instant.parse(cart.getExpiresAt());
+            if (cart.getExpires_at() == null) return EvaluationOutcome.fail("expires_at not set", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            Instant expires = Instant.parse(cart.getExpires_at());
             if (Instant.now().isAfter(expires)) {
                 return EvaluationOutcome.success();
             } else {
@@ -55,7 +55,7 @@ public class CartExpiredCriterion implements CyodaCriterion {
             }
         } catch (Exception e) {
             logger.warn("Failed to evaluate cart expiry", e);
-            return EvaluationOutcome.fail("Invalid expiresAt format", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+            return EvaluationOutcome.fail("Invalid expires_at format", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
         }
     }
 }
