@@ -1,0 +1,95 @@
+{
+  "version": "1.0",
+  "name": "Shipment Workflow",
+  "desc": "Workflow for Shipment entity based on functional requirements",
+  "initialState": "READY",
+  "active": true,
+  "states": {
+    "READY": {
+      "transitions": [
+        {
+          "name": "ready_to_picked",
+          "next": "PICKED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "PickupProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PICKED": {
+      "transitions": [
+        {
+          "name": "picked_to_shipped",
+          "next": "SHIPPED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ShipProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SHIPPED": {
+      "transitions": [
+        {
+          "name": "shipped_to_in_transit",
+          "next": "IN_TRANSIT",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CarrierUpdateProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "IN_TRANSIT": {
+      "transitions": [
+        {
+          "name": "in_transit_to_delivered",
+          "next": "DELIVERED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "DeliveryConfirmationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "DELIVERED": {
+      "transitions": [
+        {
+          "name": "delivered_to_returned",
+          "next": "RETURNED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ReturnProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "RETURNED": { "transitions": [] }
+  }
+}
