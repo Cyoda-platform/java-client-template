@@ -1,0 +1,83 @@
+{
+  "version": "1.0",
+  "name": "User Workflow",
+  "desc": "Workflow for User lifecycle management and interactions.",
+  "initialState": "REGISTERED",
+  "active": true,
+  "states": {
+    "REGISTERED": {
+      "transitions": [
+        {
+          "name": "verify_user",
+          "next": "ACTIVE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "VerifyUserCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "record_interaction",
+          "next": "INTERACTING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "InteractionRecorderProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "suspend_user",
+          "next": "SUSPENDED",
+          "manual": true
+        }
+      ]
+    },
+    "INTERACTING": {
+      "transitions": [
+        {
+          "name": "interaction_complete",
+          "next": "ACTIVE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "InteractionCompleteProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SUSPENDED": {
+      "transitions": [
+        {
+          "name": "unsuspend_user",
+          "next": "ACTIVE",
+          "manual": true
+        },
+        {
+          "name": "delete_user",
+          "next": "DELETED",
+          "manual": true
+        }
+      ]
+    },
+    "DELETED": {
+      "transitions": []
+    }
+  }
+}
