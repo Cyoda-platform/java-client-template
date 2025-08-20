@@ -1,4 +1,4 @@
-package com.java_template.application.entity.activity.version_1;
+package com.java_template.application.entity.activity.version_1; // replace {entityName} with actual entity name in lowercase
 
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
@@ -12,11 +12,11 @@ public class Activity implements CyodaEntity {
     // Add your entity fields here
 
     private String activityId; // external activity id
-    private String userId; // foreign key reference to User (serialized UUID as String)
+    private String userId; // link to User (serialized UUID)
     private String type; // activity type
     private String startTime; // ISO timestamp
     private String endTime; // ISO timestamp
-    private Integer durationSec; // computed
+    private Long durationSec; // computed
     private String sourceFetchedAt; // ISO timestamp
     private String dedupHint; // fingerprint
     private Boolean anomalyFlag; // true if anomalous
@@ -33,7 +33,7 @@ public class Activity implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        // Required fields: activityId, userId, type, startTime, endTime
+        // require activityId, userId, type, startTime, endTime
         if (this.activityId == null || this.activityId.isBlank()) return false;
         if (this.userId == null || this.userId.isBlank()) return false;
         if (this.type == null || this.type.isBlank()) return false;
