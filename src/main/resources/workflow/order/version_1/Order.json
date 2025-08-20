@@ -1,0 +1,164 @@
+{
+  "version": "1.0",
+  "name": "Order Workflow",
+  "desc": "Workflow for Order entity based on functional requirements",
+  "initialState": "NEW",
+  "active": true,
+  "states": {
+    "NEW": {
+      "transitions": [
+        {
+          "name": "new_to_validating",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateOrderProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "validating_to_validated",
+          "next": "VALIDATED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "OrderValidationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validating_to_cancelled",
+          "next": "CANCELLED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidationFailureProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATED": {
+      "transitions": [
+        {
+          "name": "validated_to_inventory_reserved",
+          "next": "INVENTORY_RESERVED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AllocateInventoryProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "INVENTORY_RESERVED": {
+      "transitions": [
+        {
+          "name": "inventory_reserved_to_payment_pending",
+          "next": "PAYMENT_PENDING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CreatePaymentProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PAYMENT_PENDING": {
+      "transitions": [
+        {
+          "name": "payment_pending_to_confirmed",
+          "next": "CONFIRMED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PaymentAuthorizedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "payment_pending_to_cancelled",
+          "next": "CANCELLED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PaymentFailedProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "CONFIRMED": {
+      "transitions": [
+        {
+          "name": "confirmed_to_fulfillment_created",
+          "next": "FULFILLMENT_CREATED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CreateShipmentProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "confirmed_to_cancelled_manual",
+          "next": "CANCELLED",
+          "manual": true
+        }
+      ]
+    },
+    "FULFILLMENT_CREATED": {
+      "transitions": [
+        {
+          "name": "fulfillment_to_completed",
+          "next": "COMPLETED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AllShipmentsDeliveredCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "COMPLETED": { "transitions": [] },
+    "CANCELLED": { "transitions": [] }
+  }
+}
