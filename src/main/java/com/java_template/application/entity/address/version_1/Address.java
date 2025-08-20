@@ -5,22 +5,18 @@ import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import lombok.Data;
 
-import java.time.Instant;
-
 @Data
 public class Address implements CyodaEntity {
     public static final String ENTITY_NAME = "Address";
     public static final Integer ENTITY_VERSION = 1;
-    // Add your entity fields here
 
+    // Add your entity fields here
     private String addressId;
-    private String userId;
+    private String userId; // serialized UUID reference
     private String line1;
     private String city;
     private String postcode;
     private String country;
-    private Instant createdAt;
-    private Instant updatedAt;
 
     public Address() {}
 
