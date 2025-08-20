@@ -1,6 +1,7 @@
 package com.java_template.application.processor;
 
 import com.java_template.application.entity.order.version_1.Order;
+import com.java_template.application.entity.order.version_1.Order.OrderItem;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
@@ -12,7 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.util.*;
+import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Component
@@ -57,50 +58,36 @@ public class AllocateInventoryProcessor implements CyodaProcessor {
             return order;
         }
 
-        // Simple idempotent reservation simulation
-        List<?> items = order.getItems();
+        // Use order items strongly typed
+        List<OrderItem> items = order.getItems();
+        if (items == null || items.isEmpty()) {
+            order.setStatus("INVENTORY_FAILED");
+            logger.warn("Order {} has no items to reserve", order.getOrderId());
+            return order;
+        }
+
         boolean anyReserved = false;
         boolean anyFailed = false;
-        List<Map<String,Object>> reservationDetails = new ArrayList<>();
-        for (Object o : items) {
-            if (!(o instanceof Map)) continue;
-            Map<?,?> m = (Map<?,?>) o;
-            String sku = m.get("sku") == null ? "" : m.get("sku").toString();
-            int qty = 0;
-            try { qty = Integer.parseInt(String.valueOf(m.get("quantity"))); } catch (Exception ignored) {}
 
+        for (OrderItem it : items) {
+            int qty = it.getQuantity() == null ? 0 : it.getQuantity();
             // simulate inventory check: randomize for demo
             int avail = ThreadLocalRandom.current().nextInt(0, 5);
-            Map<String,Object> line = new HashMap<>();
-            line.put("sku", sku);
-            line.put("requested", qty);
-            line.put("reserved", Math.min(avail, qty));
-            reservationDetails.add(line);
-            if (Math.min(avail, qty) > 0) anyReserved = true;
-            if (Math.min(avail, qty) < qty) anyFailed = true;
+            int reserved = Math.min(avail, qty);
+            if (reserved > 0) anyReserved = true;
+            if (reserved < qty) anyFailed = true;
+            logger.debug("Inventory check sku={} requested={} available={} reserved={}", it.getSku(), qty, avail, reserved);
         }
 
         if (!anyReserved) {
             order.setStatus("INVENTORY_FAILED");
-            try {
-                Map<String,Object> meta = order.getMetadata() == null || !(order.getMetadata() instanceof Map) ? new HashMap<>() : (Map<String,Object>) order.getMetadata();
-                meta.put("reservationDetails", reservationDetails);
-                order.setMetadata(meta);
-            } catch (Exception ignored) {}
             logger.info("No inventory reserved for order {}. Marking INVENTORY_FAILED", order.getOrderId());
             return order;
         }
 
         // partial or full reservation
         order.setStatus("INVENTORY_RESERVED");
-        try {
-            Map<String,Object> meta = order.getMetadata() == null || !(order.getMetadata() instanceof Map) ? new HashMap<>() : (Map<String,Object>) order.getMetadata();
-            meta.put("reservationDetails", reservationDetails);
-            meta.put("reservationToken", UUID.randomUUID().toString());
-            order.setMetadata(meta);
-        } catch (Exception ignored) {}
-
-        logger.info("Inventory reserved for order {}. Details: {}", order.getOrderId(), reservationDetails);
+        logger.info("Inventory reserved for order {} (partial={}): moving to INVENTORY_RESERVED", order.getOrderId(), anyFailed);
         return order;
     }
 }
