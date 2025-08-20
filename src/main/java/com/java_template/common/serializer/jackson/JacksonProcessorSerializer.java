@@ -3,7 +3,7 @@ package com.java_template.common.serializer.jackson;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.java_template.common.serializer.EntityReader;
+import com.java_template.common.serializer.ProcessorSerializer.EntityReader;
 import com.java_template.common.serializer.SerializerEnum;
 import com.java_template.common.serializer.ResponseBuilder;
 import com.java_template.common.serializer.ProcessorSerializer;
@@ -64,7 +64,7 @@ public class JacksonProcessorSerializer extends BaseJacksonSerializer<EntityProc
     }
 
     @Override
-    public ObjectNode toObjectNode(CyodaEntity entity) {
+    public ObjectNode toObjectNode(com.java_template.common.workflow.CyodaEntity entity) {
         try {
             JsonNode node = objectMapper.valueToTree(entity);
             if (node instanceof ObjectNode) return (ObjectNode) node;
