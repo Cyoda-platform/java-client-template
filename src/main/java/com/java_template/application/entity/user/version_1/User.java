@@ -9,11 +9,12 @@ import lombok.Data;
 public class User implements CyodaEntity {
     public static final String ENTITY_NAME = "User";
     public static final Integer ENTITY_VERSION = 1;
+    // Add your entity fields here
 
-    private String userId; // business id
-    private String email; // contact/login
-    private String name; // display name
-    private String status; // identity state e.g. ANONYMOUS REGISTERED VERIFIED LOGGED_IN
+    private String userId;
+    private String email;
+    private String name;
+    private String status; // ANONYMOUS REGISTERED VERIFIED LOGGED_IN
 
     public User() {}
 
@@ -31,8 +32,6 @@ public class User implements CyodaEntity {
         if (email == null || email.isBlank()) return false;
         if (name == null || name.isBlank()) return false;
         if (status == null || status.isBlank()) return false;
-        // simple email format check
-        if (!email.contains("@")) return false;
         return true;
     }
 }
