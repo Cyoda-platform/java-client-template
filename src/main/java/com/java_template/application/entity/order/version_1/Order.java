@@ -6,6 +6,7 @@ import org.cyoda.cloud.api.event.common.ModelSpec;
 import lombok.Data;
 
 import java.util.List;
+import java.util.Map;
 
 @Data
 public class Order implements CyodaEntity {
@@ -21,6 +22,7 @@ public class Order implements CyodaEntity {
     private String shippingAddress; // serialized JSON address
     private String status; // workflow-driven state
     private String createdAt; // ISO timestamp
+    private Map<String,Object> metadata; // extensible metadata used by processors
 
     public Order() {}
 
