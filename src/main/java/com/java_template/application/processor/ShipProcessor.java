@@ -12,6 +12,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
+
 @Component
 public class ShipProcessor implements CyodaProcessor {
 
@@ -55,8 +59,8 @@ public class ShipProcessor implements CyodaProcessor {
 
         s.setStatus("SHIPPED");
         try {
-            java.util.Map<String,Object> meta = s.getMetadata() == null || !(s.getMetadata() instanceof java.util.Map) ? new java.util.HashMap<>() : (java.util.Map<String,Object>) s.getMetadata();
-            meta.put("shippedAt", java.time.Instant.now().toString());
+            Map<String,Object> meta = s.getMetadata() == null || !(s.getMetadata() instanceof Map) ? new HashMap<>() : (Map<String,Object>) s.getMetadata();
+            meta.put("shippedAt", Instant.now().toString());
             if (s.getTrackingNumber() == null) {
                 meta.put("autoTrackingAssigned", true);
                 s.setTrackingNumber("TRK-" + java.util.UUID.randomUUID().toString());
