@@ -5,7 +5,6 @@ import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import lombok.Data;
 
-import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -13,18 +12,17 @@ import java.util.Map;
 public class User implements CyodaEntity {
     public static final String ENTITY_NAME = "User";
     public static final Integer ENTITY_VERSION = 1;
-
     // Add your entity fields here
-    private String technicalId;
-    private String userId;
-    private String role;
-    private String email;
-    private Map<String, Object> preferences;
-    private List<String> favorites;
-    private Map<String, Object> notificationPreferences;
-    private OffsetDateTime createdAt;
-    private OffsetDateTime lastActiveAt;
-    private String status;
+
+    private String userId; // business user identifier
+    private String role; // viewer/admin/etc
+    private String email; // contact
+    private Map<String, Object> preferences; // filters, display preferences
+    private List<String> favorites; // list of coverIds
+    private Map<String, Object> notificationPreferences; // which notifications to receive
+    private String createdAt; // registration time
+    private String lastActiveAt; // last activity
+    private String status; // ACTIVE/SUSPENDED/DELETED
 
     public User() {}
 
@@ -38,15 +36,9 @@ public class User implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        if (this.userId == null || this.userId.isBlank()) {
-            return false;
-        }
-        if (this.email == null || this.email.isBlank()) {
-            return false;
-        }
-        if (this.role == null || this.role.isBlank()) {
-            return false;
-        }
+        if (this.userId == null || this.userId.isBlank()) return false;
+        if (this.email == null || this.email.isBlank()) return false;
+        if (this.role == null || this.role.isBlank()) return false;
         return true;
     }
 }
