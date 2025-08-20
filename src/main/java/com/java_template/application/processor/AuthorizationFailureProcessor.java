@@ -12,6 +12,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
+import java.util.Collections;
+
 @Component
 public class AuthorizationFailureProcessor implements CyodaProcessor {
 
@@ -50,7 +53,7 @@ public class AuthorizationFailureProcessor implements CyodaProcessor {
 
         p.setStatus("FAILED");
         try {
-            p.setProviderResponse(java.util.Collections.singletonMap("failedAt", java.time.Instant.now().toString()));
+            p.setProviderResponse(Collections.singletonMap("failedAt", Instant.now().toString()).toString());
         } catch (Exception ignored) {}
         logger.info("Payment {} marked as FAILED due to authorization failure", p.getPaymentId());
         return p;
