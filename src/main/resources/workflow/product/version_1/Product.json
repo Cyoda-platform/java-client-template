@@ -1,0 +1,65 @@
+{
+  "version": "1.0",
+  "name": "Product Workflow",
+  "desc": "Workflow for Product entity to monitor stock levels",
+  "initialState": "ADDED",
+  "active": true,
+  "states": {
+    "ADDED": {
+      "transitions": [
+        {
+          "name": "check_stock",
+          "next": "IN_STOCK",
+          "manual": false,
+          "processors": [
+            {
+              "name": "StockCheckProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "IN_STOCK": {
+      "transitions": [
+        {
+          "name": "to_low_stock",
+          "next": "LOW_STOCK",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "LowStockCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "LOW_STOCK": {
+      "transitions": [
+        {
+          "name": "to_out_of_stock",
+          "next": "OUT_OF_STOCK",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "OutOfStockCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "OUT_OF_STOCK": {
+      "transitions": []
+    }
+  }
+}
