@@ -12,9 +12,10 @@ public class Shipment implements CyodaEntity {
     public static final String ENTITY_NAME = "Shipment";
     public static final Integer ENTITY_VERSION = 1;
     // Add your entity fields here
-    private String shipmentId; // carrier or internal id (serialized UUID as String)
-    private String orderId; // linked order (serialized UUID as String)
-    private java.util.List<ShipmentItem> items;
+
+    private String shipmentId; // carrier or internal id
+    private String orderId; // serialized UUID reference to Order
+    private List<ShipmentItem> items;
     private String trackingNumber;
     private String carrier;
     private String status; // workflow-driven state
@@ -34,6 +35,7 @@ public class Shipment implements CyodaEntity {
     public boolean isValid() {
         if (orderId == null || orderId.isBlank()) return false;
         if (items == null || items.isEmpty()) return false;
+        if (carrier == null || carrier.isBlank()) return false;
         return true;
     }
 
@@ -42,6 +44,10 @@ public class Shipment implements CyodaEntity {
         private String sku;
         private Integer quantity;
 
-        public ShipmentItem() {}
+        public boolean isValid() {
+            if (sku == null || sku.isBlank()) return false;
+            if (quantity == null || quantity <= 0) return false;
+            return true;
+        }
     }
 }
