@@ -1,0 +1,46 @@
+{
+  "version": "1.0",
+  "name": "Product Workflow",
+  "desc": "Workflow for Product entity",
+  "initialState": "PRODUCT_CREATED",
+  "active": true,
+  "states": {
+    "PRODUCT_CREATED": {
+      "transitions": [
+        {
+          "name": "validate_product",
+          "next": "PRODUCT_VALIDATED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateProductProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PRODUCT_VALIDATED": {
+      "transitions": [
+        {
+          "name": "activate_product",
+          "next": "PRODUCT_ACTIVATED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ActivateProductProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PRODUCT_ACTIVATED": {
+      "transitions": []
+    }
+  }
+}
