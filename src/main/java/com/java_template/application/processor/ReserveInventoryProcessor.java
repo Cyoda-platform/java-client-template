@@ -3,6 +3,7 @@ package com.java_template.application.processor;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.cart.version_1.Cart;
+import com.java_template.application.entity.cart.version_1.Cart.CartLine;
 import com.java_template.application.entity.product.version_1.Product;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
@@ -19,7 +20,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 @Component
@@ -58,10 +58,11 @@ public class ReserveInventoryProcessor implements CyodaProcessor {
 
     private Cart processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Cart> context) {
         Cart cart = context.entity();
-        // Attempt reservation by validating each product has sufficient available quantity
         try {
             boolean allAvailable = true;
-            for (com.java_template.application.entity.cart.version_1.CartLine line : cart.getLines()) {
+            if (cart.getLines() == null || cart.getLines().isEmpty()) return cart;
+
+            for (CartLine line : cart.getLines()) {
                 SearchConditionRequest condition = SearchConditionRequest.group("AND",
                     Condition.of("$.sku", "EQUALS", line.getSku())
                 );
@@ -79,8 +80,8 @@ public class ReserveInventoryProcessor implements CyodaProcessor {
                 }
                 ObjectNode pNode = (ObjectNode) results.get(0);
                 Product p = SerializerFactory.createDefault().getDefaultProcessorSerializer().toEntity(Product.class).read(pNode);
-                Integer available = p.getQuantityAvailable();
-                if (available == null || available < line.getQty()) {
+                Integer available = p.getQuantityAvailable() == null ? 0 : p.getQuantityAvailable();
+                if (available < line.getQty()) {
                     logger.warn("Insufficient inventory for sku={} needed={} available={}", line.getSku(), line.getQty(), available);
                     allAvailable = false;
                     break;
@@ -92,8 +93,8 @@ public class ReserveInventoryProcessor implements CyodaProcessor {
                 return cart;
             }
 
-            // Apply reservation: decrement quantityAvailable and increment quantityReserved
-            for (com.java_template.application.entity.cart.version_1.CartLine line : cart.getLines()) {
+            // Apply reservation: decrement quantityAvailable and set updated_at
+            for (CartLine line : cart.getLines()) {
                 SearchConditionRequest condition = SearchConditionRequest.group("AND",
                     Condition.of("$.sku", "EQUALS", line.getSku())
                 );
@@ -107,24 +108,22 @@ public class ReserveInventoryProcessor implements CyodaProcessor {
                 ObjectNode pNode = (ObjectNode) results.get(0);
                 Product p = SerializerFactory.createDefault().getDefaultProcessorSerializer().toEntity(Product.class).read(pNode);
                 Integer available = p.getQuantityAvailable() == null ? 0 : p.getQuantityAvailable();
-                Integer reserved = p.getQuantityReserved() == null ? 0 : p.getQuantityReserved();
                 p.setQuantityAvailable(Math.max(0, available - line.getQty()));
-                p.setQuantityReserved(reserved + line.getQty());
-                p.setUpdatedAt(Instant.now().toString());
+                p.setUpdated_at(Instant.now().toString());
 
                 // persist product update
                 CompletableFuture<ObjectNode> update = entityService.updateItem(
                     Product.ENTITY_NAME,
                     String.valueOf(Product.ENTITY_VERSION),
-                    java.util.UUID.fromString(p.getTechnicalId()),
+                    java.util.UUID.fromString(p.getSku()),
                     SerializerFactory.createDefault().getDefaultProcessorSerializer().toObjectNode(p)
                 );
                 update.get();
             }
 
             cart.setStatus("RESERVED");
-            cart.setExpiresAt(Instant.now().plusSeconds(15 * 60).toString());
-            cart.setUpdatedAt(Instant.now().toString());
+            cart.setExpires_at(Instant.now().plusSeconds(15 * 60).toString());
+            cart.setUpdated_at(Instant.now().toString());
             return cart;
         } catch (Exception e) {
             logger.error("Exception while reserving inventory", e);
