@@ -12,6 +12,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
+
 @Component
 public class JobFailureProcessor implements CyodaProcessor {
 
@@ -52,10 +56,10 @@ public class JobFailureProcessor implements CyodaProcessor {
         try {
             if (job.getMetadata() == null || !(job.getMetadata() instanceof java.util.Map)) {
                 java.util.Map<String,Object> m = new java.util.HashMap<>();
-                m.put("failedAt", java.time.Instant.now().toString());
+                m.put("failedAt", Instant.now().toString());
                 job.setMetadata(m);
             } else {
-                ((java.util.Map) job.getMetadata()).put("failedAt", java.time.Instant.now().toString());
+                ((java.util.Map) job.getMetadata()).put("failedAt", Instant.now().toString());
             }
         } catch (Exception ignored) {}
 
