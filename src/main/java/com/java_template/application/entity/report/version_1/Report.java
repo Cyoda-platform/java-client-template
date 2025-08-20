@@ -6,6 +6,8 @@ import org.cyoda.cloud.api.event.common.ModelSpec;
 import lombok.Data;
 import java.util.Map;
 import java.util.List;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Data
 public class Report implements CyodaEntity {
@@ -16,11 +18,13 @@ public class Report implements CyodaEntity {
     private String reportDate; // ISO date the report summarizes
     private String generatedAt; // timestamp
     private String summary; // textual summary
-    private Map<String, Object> metrics; // aggregated KPIs e.g., totals, per-type counts
+    private JsonNode metrics; // aggregated KPIs e.g., totals, per-type counts
     private List<Map<String, Object>> anomalies; // list of flagged anomalies
     private List<String> recipients; // list of admin emails
     private String deliveryStatus; // PENDING/SENT/FAILED
     private String archivedAt; // timestamp
+    private Integer attempts; // delivery attempts
+    private String failureReason; // human readable
 
     public Report() {}
 
@@ -37,5 +41,10 @@ public class Report implements CyodaEntity {
         if (reportDate == null || reportDate.isBlank()) return false;
         if (generatedAt == null || generatedAt.isBlank()) return false;
         return true;
+    }
+
+    // Helper to provide an ObjectMapper if needed by processors
+    public ObjectMapper objectMapper() {
+        return new ObjectMapper();
     }
 }
