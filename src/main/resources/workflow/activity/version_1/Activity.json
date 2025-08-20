@@ -1,0 +1,79 @@
+{
+  "version": "1.0",
+  "name": "Activity Workflow",
+  "desc": "Workflow for Activity ingestion and processing",
+  "initialState": "RAW_RECEIVED",
+  "active": true,
+  "states": {
+    "RAW_RECEIVED": {
+      "transitions": [
+        {
+          "name": "validate_activity",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateActivityProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "normalize",
+          "next": "DEDUPE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NormalizeProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "DEDUPE": {
+      "transitions": [
+        {
+          "name": "dedup_check",
+          "next": "VALIDATED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DedupCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "VALIDATED": {
+      "transitions": [
+        {
+          "name": "index_for_pattern",
+          "next": "PROCESSED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "IndexedForPatternProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PROCESSED": { "transitions": [] }
+  }
+}
