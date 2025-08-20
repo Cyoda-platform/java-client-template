@@ -1,0 +1,147 @@
+{
+  "version": "1.0",
+  "name": "Activity Workflow",
+  "desc": "Workflow for Activity processing: validation, enrichment, analysis, anomaly detection and completion",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "start_validation",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateActivityProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "validation_passed",
+          "next": "ENRICHING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidationPassedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_failed",
+          "next": "INVALID",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidationFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ENRICHING": {
+      "transitions": [
+        {
+          "name": "enrich_activity",
+          "next": "ANALYZING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EnrichActivityProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ANALYZING": {
+      "transitions": [
+        {
+          "name": "update_metrics",
+          "next": "ANOMALY_CHECK",
+          "manual": false,
+          "processors": [
+            {
+              "name": "UpdateMetricsProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ANOMALY_CHECK": {
+      "transitions": [
+        {
+          "name": "anomaly_detected",
+          "next": "FLAGGED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AnomalyThresholdCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "no_anomaly",
+          "next": "PROCESSED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "NoAnomalyCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "FLAGGED": {
+      "transitions": [
+        {
+          "name": "mark_processed_after_flag",
+          "next": "PROCESSED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "MarkAnomalyProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "INVALID": {
+      "transitions": []
+    },
+    "PROCESSED": {
+      "transitions": []
+    }
+  }
+}
