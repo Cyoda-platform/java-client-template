@@ -56,13 +56,10 @@ public class RecalculateTotalsProcessor implements CyodaProcessor {
 
         if (lines != null) {
             for (CartLine line : lines) {
-                if (line.getQty() == null || line.getUnitPrice() == null) continue; // defensive
+                if (line.getQty() == null || line.getPrice() == null) continue; // defensive
                 if (line.getQty() < 1) line.setQty(1);
-                double lineTotal = line.getUnitPrice() * line.getQty();
-                // set lineTotal if property exists
-                try {
-                    line.setLineTotal(lineTotal);
-                } catch (Exception ignored) {}
+                double lineTotal = line.getPrice() * line.getQty();
+                // set lineTotal if property exists on CartLine - CartLine doesn't have lineTotal so we can't set it
                 totalItems += line.getQty();
                 grandTotal += lineTotal;
             }
