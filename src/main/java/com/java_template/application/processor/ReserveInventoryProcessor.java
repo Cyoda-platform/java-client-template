@@ -79,7 +79,7 @@ public class ReserveInventoryProcessor implements CyodaProcessor {
                     break;
                 }
                 ObjectNode pNode = (ObjectNode) results.get(0);
-                Product p = SerializerFactory.createDefault().getDefaultProcessorSerializer().toEntity(Product.class).read(pNode);
+                Product p = this.serializer.toEntity(Product.class).read(pNode);
                 Integer available = p.getQuantityAvailable() == null ? 0 : p.getQuantityAvailable();
                 if (available < line.getQty()) {
                     logger.warn("Insufficient inventory for sku={} needed={} available={}", line.getSku(), line.getQty(), available);
@@ -106,7 +106,7 @@ public class ReserveInventoryProcessor implements CyodaProcessor {
                 );
                 ArrayNode results = future.get();
                 ObjectNode pNode = (ObjectNode) results.get(0);
-                Product p = SerializerFactory.createDefault().getDefaultProcessorSerializer().toEntity(Product.class).read(pNode);
+                Product p = this.serializer.toEntity(Product.class).read(pNode);
                 Integer available = p.getQuantityAvailable() == null ? 0 : p.getQuantityAvailable();
                 p.setQuantityAvailable(Math.max(0, available - line.getQty()));
                 p.setUpdated_at(Instant.now().toString());
@@ -116,7 +116,7 @@ public class ReserveInventoryProcessor implements CyodaProcessor {
                     Product.ENTITY_NAME,
                     String.valueOf(Product.ENTITY_VERSION),
                     java.util.UUID.fromString(p.getSku()),
-                    SerializerFactory.createDefault().getDefaultProcessorSerializer().toObjectNode(p)
+                    this.serializer.toObjectNode(p)
                 );
                 update.get();
             }
