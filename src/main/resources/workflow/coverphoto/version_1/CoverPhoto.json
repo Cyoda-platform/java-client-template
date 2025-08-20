@@ -1,0 +1,119 @@
+{
+  "version": "1.0",
+  "name": "CoverPhoto Workflow",
+  "desc": "Workflow for processing CoverPhoto entities from ingestion through validation, deduplication, enrichment and finalization.",
+  "initialState": "RECEIVED",
+  "active": true,
+  "states": {
+    "RECEIVED": {
+      "transitions": [
+        {
+          "name": "to_validating",
+          "next": "VALIDATING",
+          "manual": false
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "validation_success",
+          "next": "CHECK_DUPLICATE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateMetadataProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "validation_failure",
+          "next": "FAILED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidationFailureProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "CHECK_DUPLICATE": {
+      "transitions": [
+        {
+          "name": "duplicate_detected",
+          "next": "ARCHIVED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DuplicateDetectedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "no_duplicate",
+          "next": "ENRICHING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "DeduplicateProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ENRICHING": {
+      "transitions": [
+        {
+          "name": "enrich_and_publish",
+          "next": "PUBLISHED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EnrichMetadataProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PUBLISHED": {
+      "transitions": []
+    },
+    "ARCHIVED": {
+      "transitions": [
+        {
+          "name": "link_duplicate",
+          "next": "ARCHIVED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ArchiveDuplicateProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "FAILED": {
+      "transitions": []
+    }
+  }
+}
