@@ -1,0 +1,67 @@
+{
+  "version": "1.0",
+  "name": "Cart Workflow",
+  "desc": "Workflow for cart lifecycle: open -> checkout_initiated -> checked_out or abandoned",
+  "initialState": "OPEN",
+  "active": true,
+  "states": {
+    "OPEN": {
+      "transitions": [
+        {
+          "name": "begin_checkout",
+          "next": "CHECKOUT_INITIATED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "BeginCheckoutProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "expire_cart",
+          "next": "ABANDONED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CartExpirationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "CHECKOUT_INITIATED": {
+      "transitions": [
+        {
+          "name": "payment_confirmed",
+          "next": "CHECKED_OUT",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PaymentConfirmedProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "cancel_checkout",
+          "next": "OPEN",
+          "manual": true
+        }
+      ]
+    },
+    "CHECKED_OUT": {
+      "transitions": []
+    },
+    "ABANDONED": {
+      "transitions": []
+    }
+  }
+}
