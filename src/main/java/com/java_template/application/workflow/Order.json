@@ -1,0 +1,46 @@
+{
+  "version": "1.0",
+  "name": "Order Workflow",
+  "desc": "Workflow for Order entity",
+  "initialState": "WAITING_TO_FULFILL",
+  "active": true,
+  "states": {
+    "WAITING_TO_FULFILL": {
+      "transitions": [
+        {
+          "name": "start_picking",
+          "next": "PICKING",
+          "manual": true,
+          "processors": [
+            {
+              "name": "StartPickingProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PICKING": {
+      "transitions": [
+        {
+          "name": "confirm_shipment",
+          "next": "SENT",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ConfirmShipmentProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SENT": {
+      "transitions": []
+    }
+  }
+}
