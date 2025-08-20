@@ -1,0 +1,29 @@
+{
+  "version": "1.0",
+  "name": "User Workflow",
+  "desc": "Workflow for User identification during checkout",
+  "initialState": "ANON",
+  "active": true,
+  "states": {
+    "ANON": {
+      "transitions": [
+        {
+          "name": "identify",
+          "next": "IDENTIFIED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "IdentifyProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "IDENTIFIED": {
+      "transitions": []
+    }
+  }
+}
