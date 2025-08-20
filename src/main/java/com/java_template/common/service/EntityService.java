@@ -43,8 +43,8 @@ public interface EntityService {
     //     Add a list of items to the repository and return the entities' IDs along with the transaction ID.
     CompletableFuture<ArrayNode> addItemsAndReturnTransactionInfo(String entityModel, String entityVersion, Object entities);
 
-    //     Update an existing item in the repository.
-    CompletableFuture<UUID> updateItem(String entityModel, String entityVersion, UUID technicalId, Object entity);
+    //     Update an existing item in the repository and return the updated entity node.
+    CompletableFuture<ObjectNode> updateItem(String entityModel, String entityVersion, UUID technicalId, Object entity);
 
     //     Delete an item by ID.
     CompletableFuture<UUID> deleteItem(String entityModel, String entityVersion, UUID technicalId);
@@ -52,7 +52,3 @@ public interface EntityService {
     //     Delete all items by entityModel and entityVersion.
     CompletableFuture<ArrayNode> deleteItems(String entityModel, String entityVersion);
 }
-
-
-
-
