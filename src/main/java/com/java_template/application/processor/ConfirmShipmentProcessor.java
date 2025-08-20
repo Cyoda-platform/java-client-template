@@ -48,9 +48,13 @@ public class ConfirmShipmentProcessor implements CyodaProcessor {
 
     private Order processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Order> context) {
         Order order = context.entity();
-        order.setStatus("SENT");
-        order.setUpdatedAt(Instant.now().toString());
-        logger.info("Order {} marked as SENT", order.getOrderId());
+        try {
+            order.setStatus("SENT");
+            order.setUpdated_at(Instant.now().toString());
+            logger.info("Order {} marked as SENT", order.getOrderId());
+        } catch (Exception e) {
+            logger.warn("Failed to confirm shipment for order {}", order != null ? order.getOrderId() : "<null>", e);
+        }
         return order;
     }
 }
