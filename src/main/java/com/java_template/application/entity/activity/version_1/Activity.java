@@ -5,6 +5,7 @@ import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import lombok.Data;
 import java.util.Map;
+import com.fasterxml.jackson.databind.JsonNode;
 
 @Data
 public class Activity implements CyodaEntity {
@@ -16,10 +17,15 @@ public class Activity implements CyodaEntity {
     private String userId; // user identifier
     private String timestamp; // ISO timestamp of activity
     private String type; // activity type / name
-    private Map<String, Object> metadata; // free-form activity details
+    private JsonNode metadata; // free-form activity details (use JsonNode so processors can use has()/asX())
     private String source; // origin system
     private Boolean processed; // whether downstream analysis completed
     private Boolean anomalyFlag; // true if flagged
+
+    // Additional fields used by processors/criteria
+    private Boolean valid; // validation marker (null = unknown)
+    private String failureReason; // human readable failure
+    private String persistedAt; // timestamp when persisted
 
     public Activity() {}
 
