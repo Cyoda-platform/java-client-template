@@ -1,0 +1,29 @@
+{
+  "version": "1.0",
+  "name": "Product Workflow",
+  "desc": "Product lifecycle with inventory monitoring",
+  "initialState": "ACTIVE",
+  "active": true,
+  "states": {
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "inventory_depleted",
+          "next": "OUT_OF_STOCK",
+          "manual": false,
+          "processors": [
+            {
+              "name": "InventoryMonitorProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "OUT_OF_STOCK": {
+      "transitions": []
+    }
+  }
+}
