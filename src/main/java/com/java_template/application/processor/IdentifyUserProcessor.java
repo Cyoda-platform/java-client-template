@@ -43,14 +43,18 @@ public class IdentifyUserProcessor implements CyodaProcessor {
     }
 
     private boolean isValidEntity(User user) {
-        return user != null && user.getIdentityState() != null && "ANON".equals(user.getIdentityState());
+        return user != null && "ANON".equalsIgnoreCase(user.getIdentity_state());
     }
 
     private User processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<User> context) {
         User user = context.entity();
-        user.setIdentityState("IDENTIFIED");
-        user.setUpdatedAt(Instant.now().toString());
-        logger.info("User {} identified", user.getUserId());
+        try {
+            user.setIdentity_state("IDENTIFIED");
+            user.setUpdated_at(Instant.now().toString());
+            logger.info("User {} identified", user.getUserId());
+        } catch (Exception e) {
+            logger.warn("Failed to identify user {}", user != null ? user.getUserId() : "<null>", e);
+        }
         return user;
     }
 }
