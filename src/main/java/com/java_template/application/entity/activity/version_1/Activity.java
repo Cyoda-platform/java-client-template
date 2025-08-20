@@ -5,18 +5,24 @@ import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import lombok.Data;
 
+import java.util.Map;
+
 @Data
 public class Activity implements CyodaEntity {
     public static final String ENTITY_NAME = "Activity";
     public static final Integer ENTITY_VERSION = 1;
-    // Add your entity fields here
 
-    private String activity_id; // source id from Fakerest
-    private String user_id; // owner of activity (serialized UUID)
+    // Business-facing fields (camelCase) expected by processors/criteria
+    private String technicalId; // internal technical id (UUID as string)
+    private String activityId; // source id from Fakerest
+    private String userId; // owner of activity (serialized UUID)
     private String timestamp; // event time
-    private String activity_type; // type of event
-    private String payload; // raw event payload serialized as JSON
-    private String ingestion_status; // RAW/VALIDATED/DEDUPE
+    private String activityType; // type of event
+    private Map<String, Object> payload; // raw event payload as map
+    private String ingestionStatus; // RAW/VALIDATED/DEDUPE/PROCESSED/FAILED
+    private String dedupeKey; // computed dedupe key
+    private String normalizedAt; // timestamp when normalized
+    private String sourceJobId; // reference to job that ingested this
 
     public Activity() {}
 
@@ -30,11 +36,11 @@ public class Activity implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        if (activity_id == null || activity_id.isBlank()) return false;
-        if (user_id == null || user_id.isBlank()) return false;
+        if (activityId == null || activityId.isBlank()) return false;
+        if (userId == null || userId.isBlank()) return false;
         if (timestamp == null || timestamp.isBlank()) return false;
-        if (activity_type == null || activity_type.isBlank()) return false;
-        if (ingestion_status == null || ingestion_status.isBlank()) return false;
+        if (activityType == null || activityType.isBlank()) return false;
+        if (ingestionStatus == null || ingestionStatus.isBlank()) return false;
         return true;
     }
 }
