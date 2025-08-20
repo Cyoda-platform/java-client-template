@@ -25,6 +25,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -101,6 +102,37 @@ public class CreateOrderProcessor implements CyodaProcessor {
             order.setStatus("WAITING_TO_FULFILL");
             order.setState_transitions(new ArrayList<>());
 
+            // Generate an orderNumber by scanning existing orders and taking max+1
+            try {
+                CompletableFuture<ArrayNode> allOrdersFuture = entityService.getItems(
+                    Order.ENTITY_NAME,
+                    String.valueOf(Order.ENTITY_VERSION)
+                );
+                ArrayNode allOrders = allOrdersFuture.get();
+                int nextOrderNumber = 1;
+                if (allOrders != null && allOrders.size() > 0) {
+                    nextOrderNumber = 1 + allOrders.elements()
+                        .hasNext() ? 1 : 1; // defensive; we'll compute properly below
+                    // compute max orderNumber present
+                    int max = 0;
+                    for (int i = 0; i < allOrders.size(); i++) {
+                        ObjectNode oNode = (ObjectNode) allOrders.get(i);
+                        if (oNode.has("orderNumber")) {
+                            try {
+                                int val = Integer.parseInt(oNode.get("orderNumber").asText());
+                                if (val > max) max = val;
+                            } catch (Exception ignored) {}
+                        }
+                    }
+                    nextOrderNumber = max + 1;
+                }
+                order.setOrderNumber(String.valueOf(nextOrderNumber));
+            } catch (Exception e) {
+                // fallback if sequence determination fails
+                logger.warn("Failed to compute orderNumber via scanning, defaulting to 1", e);
+                order.setOrderNumber("1");
+            }
+
             // Persist Order via entityService
             CompletableFuture<UUID> addFuture = entityService.addItem(
                 Order.ENTITY_NAME,
@@ -112,85 +144,179 @@ public class CreateOrderProcessor implements CyodaProcessor {
 
             // Inventory adjustments
             if ("RESERVED".equals(cart.getStatus())) {
-                // convert reserved -> permanent (decrement reserved counts)
+                // convert reserved -> permanent (best-effort)
                 for (CartLine line : cart.getLines()) {
-                    SearchConditionRequest condition = SearchConditionRequest.group("AND",
-                        Condition.of("$.sku", "EQUALS", line.getSku())
-                    );
-                    CompletableFuture<ArrayNode> future = entityService.getItemsByCondition(
-                        Product.ENTITY_NAME,
-                        String.valueOf(Product.ENTITY_VERSION),
-                        condition,
-                        true
-                    );
-                    ArrayNode results = future.get();
-                    if (results == null || results.size() == 0) {
-                        logger.warn("Product not found for sku={}", line.getSku());
-                        continue;
+                    try {
+                        SearchConditionRequest condition = SearchConditionRequest.group("AND",
+                            Condition.of("$.sku", "EQUALS", line.getSku())
+                        );
+                        CompletableFuture<ArrayNode> future = entityService.getItemsByCondition(
+                            Product.ENTITY_NAME,
+                            String.valueOf(Product.ENTITY_VERSION),
+                            condition,
+                            true
+                        );
+                        ArrayNode results = future.get();
+                        if (results == null || results.size() == 0) {
+                            logger.warn("Product not found for sku={}", line.getSku());
+                            continue;
+                        }
+                        ObjectNode pNode = (ObjectNode) results.get(0);
+                        Product p = SerializerFactory.createDefault().getDefaultProcessorSerializer().toEntity(Product.class).read(pNode);
+
+                        // NOTE: Product model in this codebase does not include quantityReserved.
+                        // Reservation conversion is therefore best-effort: ensure timestamps updated and do not drive negative inventory.
+                        Integer available = p.getQuantityAvailable() == null ? 0 : p.getQuantityAvailable();
+                        // If reserved was already decremented from available at reservation time, we do not change available here.
+                        // Ensure invariants
+                        if (available < 0) p.setQuantityAvailable(0);
+                        p.setUpdated_at(Instant.now().toString());
+
+                        // persist product update with simple retry
+                        boolean updated = false;
+                        for (int attempt = 0; attempt < 3 && !updated; attempt++) {
+                            try {
+                                CompletableFuture<ObjectNode> update = entityService.updateItem(
+                                    Product.ENTITY_NAME,
+                                    String.valueOf(Product.ENTITY_VERSION),
+                                    UUID.fromString(p.getSku()),
+                                    SerializerFactory.createDefault().getDefaultProcessorSerializer().toObjectNode(p)
+                                );
+                                update.get();
+                                updated = true;
+                            } catch (Exception ex) {
+                                logger.warn("Retrying product update for sku={} attempt={} due to {}", p.getSku(), attempt + 1, ex.getMessage());
+                                // refetch product state before retry
+                                try {
+                                    CompletableFuture<ArrayNode> refetch = entityService.getItemsByCondition(
+                                        Product.ENTITY_NAME,
+                                        String.valueOf(Product.ENTITY_VERSION),
+                                        SearchConditionRequest.group("AND", Condition.of("$.sku", "EQUALS", line.getSku())),
+                                        true
+                                    );
+                                    ArrayNode ref = refetch.get();
+                                    if (ref != null && ref.size() > 0) {
+                                        p = SerializerFactory.createDefault().getDefaultProcessorSerializer().toEntity(Product.class).read((ObjectNode) ref.get(0));
+                                        p.setUpdated_at(Instant.now().toString());
+                                    }
+                                } catch (Exception ignore) {}
+                            }
+                        }
+
+                        if (!updated) logger.error("Failed to persist product update for sku={} after retries", line.getSku());
+
+                    } catch (Exception e) {
+                        logger.warn("Exception while converting reservation for sku={}: {}", line.getSku(), e.getMessage());
                     }
-                    ObjectNode pNode = (ObjectNode) results.get(0);
-                    Product p = SerializerFactory.createDefault().getDefaultProcessorSerializer().toEntity(Product.class).read(pNode);
-                    Integer reserved = p.getQuantityAvailable() == null ? 0 : p.getQuantityAvailable();
-                    // In reservation conversion we decrease quantityReserved (note: entity Product lacks quantityReserved in model so we'll best-effort)
-                    // Ensure we do not go negative
-                    // As Product entity currently doesn't expose quantityReserved (older model), we'll only set updated_at here.
-                    p.setUpdated_at(Instant.now().toString());
-                    CompletableFuture<ObjectNode> update = entityService.updateItem(
-                        Product.ENTITY_NAME,
-                        String.valueOf(Product.ENTITY_VERSION),
-                        UUID.fromString(p.getSku()),
-                        SerializerFactory.createDefault().getDefaultProcessorSerializer().toObjectNode(p)
-                    );
-                    update.get();
                 }
             } else {
-                // no reservation existed: attempt to decrement available now
+                // no reservation existed: attempt to decrement available now (atomically via retries)
                 for (CartLine line : cart.getLines()) {
-                    SearchConditionRequest condition = SearchConditionRequest.group("AND",
-                        Condition.of("$.sku", "EQUALS", line.getSku())
-                    );
-                    CompletableFuture<ArrayNode> future = entityService.getItemsByCondition(
-                        Product.ENTITY_NAME,
-                        String.valueOf(Product.ENTITY_VERSION),
-                        condition,
-                        true
-                    );
-                    ArrayNode results = future.get();
-                    if (results == null || results.size() == 0) {
-                        logger.warn("Product not found for sku={}", line.getSku());
-                        continue;
-                    }
-                    ObjectNode pNode = (ObjectNode) results.get(0);
-                    Product p = SerializerFactory.createDefault().getDefaultProcessorSerializer().toEntity(Product.class).read(pNode);
-                    Integer available = p.getQuantityAvailable() == null ? 0 : p.getQuantityAvailable();
-                    if (available < line.getQty()) {
-                        // Inventory failure - mark order as FAILED and leave cart unchanged
-                        order.setStatus("FAILED");
-                        CompletableFuture<ObjectNode> updateOrder = entityService.updateItem(
-                            Order.ENTITY_NAME,
-                            String.valueOf(Order.ENTITY_VERSION),
-                            UUID.fromString(order.getOrderId()),
-                            SerializerFactory.createDefault().getDefaultProcessorSerializer().toObjectNode(order)
-                        );
-                        updateOrder.get();
-                        logger.warn("Insufficient inventory for sku={} when creating order", line.getSku());
+                    try {
+                        boolean success = false;
+                        for (int attempt = 0; attempt < 3 && !success; attempt++) {
+                            SearchConditionRequest condition = SearchConditionRequest.group("AND",
+                                Condition.of("$.sku", "EQUALS", line.getSku())
+                            );
+                            CompletableFuture<ArrayNode> future = entityService.getItemsByCondition(
+                                Product.ENTITY_NAME,
+                                String.valueOf(Product.ENTITY_VERSION),
+                                condition,
+                                true
+                            );
+                            ArrayNode results = future.get();
+                            if (results == null || results.size() == 0) {
+                                logger.warn("Product not found for sku={}", line.getSku());
+                                break;
+                            }
+                            ObjectNode pNode = (ObjectNode) results.get(0);
+                            Product p = SerializerFactory.createDefault().getDefaultProcessorSerializer().toEntity(Product.class).read(pNode);
+                            Integer available = p.getQuantityAvailable() == null ? 0 : p.getQuantityAvailable();
+                            if (available < line.getQty()) {
+                                // Inventory failure - mark order as FAILED and leave cart unchanged
+                                order.setStatus("FAILED");
+                                try {
+                                    CompletableFuture<ObjectNode> updateOrder = entityService.updateItem(
+                                        Order.ENTITY_NAME,
+                                        String.valueOf(Order.ENTITY_VERSION),
+                                        UUID.fromString(order.getOrderId()),
+                                        SerializerFactory.createDefault().getDefaultProcessorSerializer().toObjectNode(order)
+                                    );
+                                    updateOrder.get();
+                                } catch (Exception ex) {
+                                    logger.warn("Failed to persist failed order status for orderId={}", order.getOrderId());
+                                }
+                                logger.warn("Insufficient inventory for sku={} when creating order", line.getSku());
+                                return cart;
+                            }
+
+                            p.setQuantityAvailable(Math.max(0, available - line.getQty()));
+                            p.setUpdated_at(Instant.now().toString());
+
+                            try {
+                                CompletableFuture<ObjectNode> update = entityService.updateItem(
+                                    Product.ENTITY_NAME,
+                                    String.valueOf(Product.ENTITY_VERSION),
+                                    UUID.fromString(p.getSku()),
+                                    SerializerFactory.createDefault().getDefaultProcessorSerializer().toObjectNode(p)
+                                );
+                                update.get();
+                                success = true;
+                            } catch (Exception ex) {
+                                logger.warn("Conflict updating product sku={} attempt={} : {}", p.getSku(), attempt + 1, ex.getMessage());
+                                // on retry, loop will refetch and try again
+                            }
+                        }
+                        if (!success) {
+                            logger.error("Failed to decrement inventory for sku={} after retries", line.getSku());
+                            // mark order failed
+                            order.setStatus("FAILED");
+                            try {
+                                CompletableFuture<ObjectNode> updateOrder = entityService.updateItem(
+                                    Order.ENTITY_NAME,
+                                    String.valueOf(Order.ENTITY_VERSION),
+                                    UUID.fromString(order.getOrderId()),
+                                    SerializerFactory.createDefault().getDefaultProcessorSerializer().toObjectNode(order)
+                                );
+                                updateOrder.get();
+                            } catch (Exception ex) {}
+                            return cart;
+                        }
+
+                    } catch (Exception e) {
+                        logger.error("Exception while decrementing inventory for sku={}: {}", line.getSku(), e.getMessage());
                         return cart;
                     }
-                    p.setQuantityAvailable(Math.max(0, available - line.getQty()));
-                    p.setUpdated_at(Instant.now().toString());
-                    CompletableFuture<ObjectNode> update = entityService.updateItem(
-                        Product.ENTITY_NAME,
-                        String.valueOf(Product.ENTITY_VERSION),
-                        UUID.fromString(p.getSku()),
-                        SerializerFactory.createDefault().getDefaultProcessorSerializer().toObjectNode(p)
-                    );
-                    update.get();
                 }
             }
 
             // mark cart converted
             cart.setStatus("CONVERTED");
             cart.setUpdated_at(Instant.now().toString());
+
+            // Append a state transition to the order
+            try {
+                StateTransition st = new StateTransition();
+                st.setFrom("" /* cart status prior to conversion */);
+                st.setTo(order.getStatus());
+                st.setActor("system");
+                st.setTimestamp(Instant.now().toString());
+                st.setNote("Order created from cart " + cart.getCartId());
+                if (order.getState_transitions() == null) order.setState_transitions(new ArrayList<>());
+                order.getState_transitions().add(st);
+                // persist order with state transition
+                try {
+                    entityService.updateItem(
+                        Order.ENTITY_NAME,
+                        String.valueOf(Order.ENTITY_VERSION),
+                        UUID.fromString(order.getOrderId()),
+                        SerializerFactory.createDefault().getDefaultProcessorSerializer().toObjectNode(order)
+                    ).get();
+                } catch (Exception ex) {
+                    logger.warn("Failed to persist order state transition for orderId={}", order.getOrderId());
+                }
+            } catch (Exception ignored) {}
+
             logger.info("Cart {} converted to Order {}", cart.getCartId(), order.getOrderId());
             return cart;
         } catch (Exception e) {
