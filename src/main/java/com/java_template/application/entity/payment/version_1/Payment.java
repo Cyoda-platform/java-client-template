@@ -10,13 +10,14 @@ public class Payment implements CyodaEntity {
     public static final String ENTITY_NAME = "Payment";
     public static final Integer ENTITY_VERSION = 1;
     // Add your entity fields here
-    private String paymentId; // payment provider id if any (serialized UUID as String)
-    private String orderId; // linked order (serialized UUID as String)
+
+    private String paymentId; // payment provider id if any
+    private String orderId; // serialized UUID reference to Order
     private String method; // card, wallet, etc.
-    private Double amount; // payment amount
+    private Double amount;
     private String currency;
     private String status; // workflow-driven state
-    private String providerResponse; // raw provider result as JSON string
+    private String providerResponse; // serialized JSON of provider result
     private String createdAt; // ISO timestamp
 
     public Payment() {}
@@ -33,7 +34,7 @@ public class Payment implements CyodaEntity {
     public boolean isValid() {
         if (orderId == null || orderId.isBlank()) return false;
         if (method == null || method.isBlank()) return false;
-        if (amount == null || amount <= 0) return false;
+        if (amount == null || amount < 0) return false;
         if (currency == null || currency.isBlank()) return false;
         return true;
     }
