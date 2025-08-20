@@ -1,0 +1,121 @@
+{
+  "version": "1.0",
+  "name": "Order Workflow",
+  "desc": "Order lifecycle from created to delivered with payment and fulfillment",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "initiate_payment",
+          "next": "PAYMENT_PENDING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "InitiatePaymentProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PAYMENT_PENDING": {
+      "transitions": [
+        {
+          "name": "payment_success",
+          "next": "PAID",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PaymentSuccessProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "payment_failure",
+          "next": "CANCELLED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PaymentFailureProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PAID": {
+      "transitions": [
+        {
+          "name": "confirm_order",
+          "next": "CONFIRMED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ConfirmOrderProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "refund",
+          "next": "REFUNDED",
+          "manual": true
+        }
+      ]
+    },
+    "CONFIRMED": {
+      "transitions": [
+        {
+          "name": "ship_order",
+          "next": "SHIPPED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FulfillmentProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SHIPPED": {
+      "transitions": [
+        {
+          "name": "deliver_order",
+          "next": "DELIVERED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "DeliveryConfirmedProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "DELIVERED": {
+      "transitions": []
+    },
+    "CANCELLED": {
+      "transitions": []
+    },
+    "REFUNDED": {
+      "transitions": []
+    }
+  }
+}
