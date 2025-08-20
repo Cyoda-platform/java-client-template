@@ -5,7 +5,6 @@ import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import lombok.Data;
 
-import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -13,23 +12,22 @@ import java.util.Map;
 public class CoverPhoto implements CyodaEntity {
     public static final String ENTITY_NAME = "CoverPhoto";
     public static final Integer ENTITY_VERSION = 1;
-
     // Add your entity fields here
-    private String technicalId;
-    private String coverId;
-    private String title;
-    private String bookId;
-    private String imageUrl;
-    private OffsetDateTime fetchedAt;
-    private List<String> tags;
-    private String status;
-    private Map<String, Object> metadata;
-    private Map<String, Object> originPayload;
-    private String duplicateOf;
-    private String ingestionJobId;
-    private Boolean errorFlag;
-    private Integer processingAttempts;
-    private OffsetDateTime lastProcessedAt;
+
+    private String coverId; // origin identifier from source
+    private String title; // display title
+    private String bookId; // related book id from source
+    private String imageUrl; // location of image
+    private String fetchedAt; // ISO DateTime string
+    private List<String> tags; // classification tags
+    private String status; // active/archived/failed etc
+    private Map<String, Object> metadata; // dimensions, size, mimeType
+    private Map<String, Object> originPayload; // raw source payload
+    private String duplicateOf; // coverId it duplicates or null
+    private String ingestionJobId; // technicalId of the ingestion job that created it
+    private Boolean errorFlag; // true when validation/processing failed
+    private Integer processingAttempts; // retry counter
+    private String lastProcessedAt; // last processing timestamp
 
     public CoverPhoto() {}
 
@@ -43,15 +41,12 @@ public class CoverPhoto implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        if (this.coverId == null || this.coverId.isBlank()) {
-            return false;
-        }
-        if (this.title == null || this.title.isBlank()) {
-            return false;
-        }
-        if (this.imageUrl == null || this.imageUrl.isBlank()) {
-            return false;
-        }
+        // Basic validation: required string fields must be present and not blank
+        if (this.coverId == null || this.coverId.isBlank()) return false;
+        if (this.title == null || this.title.isBlank()) return false;
+        if (this.imageUrl == null || this.imageUrl.isBlank()) return false;
+        // status should be present
+        if (this.status == null || this.status.isBlank()) return false;
         return true;
     }
 }
