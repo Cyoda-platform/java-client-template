@@ -50,10 +50,11 @@ public class PlaceOrderProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing PlaceOrder for request: {}", request.getId());
 
+        // We cast Class to raw to satisfy serializer generic API for non-CyodaEntity payloads.
         return serializer.withRequest(request)
-            .toEntity(ObjectNode.class)
+            .toEntity((Class) ObjectNode.class)
             .validate(this::isValidPayload, "Invalid place order payload")
-            .map(this::processEntityLogic)
+            .map(ctx -> processEntityLogic(ctx))
             .complete();
     }
 
@@ -70,30 +71,32 @@ public class PlaceOrderProcessor implements CyodaProcessor {
         return true;
     }
 
-    private ObjectNode processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<ObjectNode> context) {
-        ObjectNode payload = context.entity();
+    private ObjectNode processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<?> context) {
+        ObjectNode payload = (ObjectNode) context.entity();
         try {
             String cartId = payload.get("cartId").asText();
             // fetch cart
             CompletableFuture<ObjectNode> cartFuture = entityService.getItem(Cart.ENTITY_NAME, String.valueOf(Cart.ENTITY_VERSION), UUID.fromString(cartId));
             ObjectNode cartNode = cartFuture.get();
-            Cart cart = context.serializer().convert(cartNode, Cart.class);
+            Cart cart = serializer.convert(cartNode, Cart.class);
 
             // validate stock
             List<String> failures = new ArrayList<>();
-            for (Cart.CartLine line : cart.getLines()) {
-                String sku = line.getSku();
-                SearchConditionRequest cond = SearchConditionRequest.group("AND", Condition.of("$.sku", "IEQUALS", sku));
-                CompletableFuture<com.fasterxml.jackson.databind.node.ArrayNode> prodFuture = entityService.getItemsByCondition(Product.ENTITY_NAME, String.valueOf(Product.ENTITY_VERSION), cond, true);
-                com.fasterxml.jackson.databind.node.ArrayNode prods = prodFuture.get();
-                if (prods == null || prods.size() == 0) {
-                    failures.add(sku + ":SKU_NOT_FOUND");
-                    continue;
-                }
-                ObjectNode p = (ObjectNode) prods.get(0);
-                Product product = context.serializer().convert(p, Product.class);
-                if (product.getQuantityAvailable() == null || product.getQuantityAvailable() < line.getQty()) {
-                    failures.add(sku + ":INSUFFICIENT_STOCK");
+            if (cart.getLines() != null) {
+                for (Cart.CartLine line : cart.getLines()) {
+                    String sku = line.getSku();
+                    SearchConditionRequest cond = SearchConditionRequest.group("AND", Condition.of("$.sku", "IEQUALS", sku));
+                    CompletableFuture<com.fasterxml.jackson.databind.node.ArrayNode> prodFuture = entityService.getItemsByCondition(Product.ENTITY_NAME, String.valueOf(Product.ENTITY_VERSION), cond, true);
+                    com.fasterxml.jackson.databind.node.ArrayNode prods = prodFuture.get();
+                    if (prods == null || prods.size() == 0) {
+                        failures.add(sku + ":SKU_NOT_FOUND");
+                        continue;
+                    }
+                    ObjectNode p = (ObjectNode) prods.get(0);
+                    Product product = serializer.convert(p, Product.class);
+                    if (product.getQuantityAvailable() == null || product.getQuantityAvailable() < line.getQty()) {
+                        failures.add(sku + ":INSUFFICIENT_STOCK");
+                    }
                 }
             }
 
@@ -122,16 +125,19 @@ public class PlaceOrderProcessor implements CyodaProcessor {
             List<Order.OrderLine> olines = new ArrayList<>();
             int items = 0;
             double grand = 0.0;
-            for (Cart.CartLine line : cart.getLines()) {
-                Order.OrderLine ol = new Order.OrderLine();
-                ol.setSku(line.getSku());
-                ol.setName(line.getName());
-                ol.setUnitPrice(line.getUnitPrice());
-                ol.setQty(line.getQty());
-                ol.setLineTotal(line.getUnitPrice() * line.getQty());
-                items += ol.getQty();
-                grand += ol.getLineTotal();
-                olines.add(ol);
+            if (cart.getLines() != null) {
+                for (Cart.CartLine line : cart.getLines()) {
+                    Order.OrderLine ol = new Order.OrderLine();
+                    ol.setSku(line.getSku());
+                    ol.setName(line.getName());
+                    // Cart has price field
+                    ol.setUnitPrice(line.getPrice());
+                    ol.setQty(line.getQty());
+                    ol.setLineTotal((line.getPrice() != null ? line.getPrice() : 0.0) * (line.getQty() != null ? line.getQty() : 0));
+                    items += ol.getQty() == null ? 0 : ol.getQty();
+                    grand += ol.getLineTotal() == null ? 0.0 : ol.getLineTotal();
+                    olines.add(ol);
+                }
             }
             Order.Totals totals = new Order.Totals();
             totals.setItems(items);
@@ -153,8 +159,8 @@ public class PlaceOrderProcessor implements CyodaProcessor {
                 com.fasterxml.jackson.databind.node.ArrayNode prods = prodFuture.get();
                 if (prods == null || prods.size() == 0) continue;
                 ObjectNode p = (ObjectNode) prods.get(0);
-                Product product = context.serializer().convert(p, Product.class);
-                int remaining = product.getQuantityAvailable() - ol.getQty();
+                Product product = serializer.convert(p, Product.class);
+                int remaining = (product.getQuantityAvailable() == null ? 0 : product.getQuantityAvailable()) - (ol.getQty() == null ? 0 : ol.getQty());
                 product.setQuantityAvailable(remaining);
                 // update product
                 String technicalId = p.get("technicalId").asText();
