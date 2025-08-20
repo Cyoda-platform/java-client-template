@@ -66,11 +66,11 @@ public class PaymentAuthorizationProcessor implements CyodaProcessor {
             if (outcome == 1) {
                 payment.setStatus("CAPTURED");
             }
-            payment.setProviderResponse(java.util.Collections.singletonMap("provider", "simulated"));
+            try { payment.setProviderResponse("{\"provider\":\"simulated\"}"); } catch (Exception ignored) {}
             logger.info("Payment {} authorized (simulated)", payment.getPaymentId());
         } else {
             payment.setStatus("FAILED");
-            payment.setProviderResponse(java.util.Collections.singletonMap("providerError", "insufficient_funds"));
+            try { payment.setProviderResponse("{\"providerError\":\"insufficient_funds\"}"); } catch (Exception ignored) {}
             logger.warn("Payment {} authorization failed (simulated)", payment.getPaymentId());
         }
 
