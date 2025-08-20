@@ -234,11 +234,10 @@ public class EntityServiceImpl implements EntityService {
     }
 
     @Override
-    public CompletableFuture<UUID> updateItem(String entityModel, String entityVersion, UUID technicalId, Object entity) {
+    public CompletableFuture<ObjectNode> updateItem(String entityModel, String entityVersion, UUID technicalId, Object entity) {
         return executeWithTokenRetry(token -> {
             Meta meta = repository.getMeta(token, entityModel, entityVersion);
-            return repository.update(meta, technicalId, entity)
-                    .thenApply(resultNode -> UUID.fromString(resultNode.get("entityIds").get(0).asText()));
+            return repository.update(meta, technicalId, entity);
         });
     }
 
@@ -259,4 +258,3 @@ public class EntityServiceImpl implements EntityService {
         });
     }
 }
-
