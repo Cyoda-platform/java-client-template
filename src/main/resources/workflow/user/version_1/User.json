@@ -1,0 +1,77 @@
+{
+  "version": "1.0",
+  "name": "User Workflow",
+  "desc": "Identity lifecycle from anonymous to logged in",
+  "initialState": "ANONYMOUS",
+  "active": true,
+  "states": {
+    "ANONYMOUS": {
+      "transitions": [
+        {
+          "name": "register_user",
+          "next": "REGISTERED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RegisterProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "REGISTERED": {
+      "transitions": [
+        {
+          "name": "verify_email",
+          "next": "VERIFIED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "VerifyEmailProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VERIFIED": {
+      "transitions": [
+        {
+          "name": "login",
+          "next": "LOGGED_IN",
+          "manual": false,
+          "processors": [
+            {
+              "name": "LoginProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "LOGGED_IN": {
+      "transitions": [
+        {
+          "name": "inactivity_cleanup",
+          "next": "ANONYMOUS",
+          "manual": false,
+          "processors": [
+            {
+              "name": "InactivityCleanupProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
