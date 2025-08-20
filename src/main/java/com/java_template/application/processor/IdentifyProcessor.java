@@ -42,9 +42,9 @@ public class IdentifyProcessor implements CyodaProcessor {
         logger.info("Processing Identify for request: {}", request.getId());
 
         return serializer.withRequest(request)
-            .toEntity(ObjectNode.class)
+            .toEntity((Class) ObjectNode.class)
             .validate(this::isValidPayload, "Invalid identify payload")
-            .map(this::processEntityLogic)
+            .map(ctx -> processEntityLogic(ctx))
             .complete();
     }
 
@@ -63,8 +63,8 @@ public class IdentifyProcessor implements CyodaProcessor {
         return true;
     }
 
-    private ObjectNode processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<ObjectNode> context) {
-        ObjectNode payload = context.entity();
+    private ObjectNode processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<?> context) {
+        ObjectNode payload = (ObjectNode) context.entity();
         // Upsert user by email
         String email = payload.get("email").asText();
         String name = payload.get("name").asText();
@@ -81,7 +81,7 @@ public class IdentifyProcessor implements CyodaProcessor {
                 String technicalId = existing.get("technicalId").asText();
                 CompletableFuture<ObjectNode> fetched = entityService.getItem(User.ENTITY_NAME, String.valueOf(User.ENTITY_VERSION), UUID.fromString(technicalId));
                 ObjectNode userNode = fetched.get();
-                user = context.serializer().convert(userNode, User.class);
+                user = serializer.convert(userNode, User.class);
                 user.setName(name);
                 user.setPhone(phone);
                 user.setStatus("IDENTIFIED");
@@ -101,7 +101,7 @@ public class IdentifyProcessor implements CyodaProcessor {
 
             // Create Address linked to user (we'll link by email-based lookup of technicalId)
             Address address = new Address();
-            JsonNode addr = payload.get("address");
+            com.fasterxml.jackson.databind.JsonNode addr = payload.get("address");
             address.setLine1(addr.get("line1").asText());
             address.setCity(addr.get("city").asText());
             address.setPostcode(addr.get("postcode").asText());
