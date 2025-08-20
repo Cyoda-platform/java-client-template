@@ -1,4 +1,4 @@
-package com.java_template.application.entity.order.version_1; // replace {entityName} with actual entity name in lowercase
+package com.java_template.application.entity.order.version_1;
 
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
@@ -6,24 +6,23 @@ import org.cyoda.cloud.api.event.common.ModelSpec;
 import lombok.Data;
 
 import java.util.List;
-import java.util.ArrayList;
 
 @Data
 public class Order implements CyodaEntity {
     public static final String ENTITY_NAME = "Order";
     public static final Integer ENTITY_VERSION = 1;
-    // Add your entity fields here
 
+    // Add your entity fields here
     private String orderId;
     private String orderNumber;
-    private String userId; // serialized UUID reference
-    private String shippingAddressId; // serialized UUID reference
-    private List<OrderLine> lines = new ArrayList<>();
+    private String userId;
+    private String shippingAddressId;
+    private List<OrderLine> lines;
     private Totals totals;
-    private String status; // WAITING_TO_FULFILL, PICKING, SENT
+    private String status; // WAITING_TO_FULFILL PICKING SENT
     private String createdAt;
     private String updated_at;
-    private List<StateTransition> state_transitions = new ArrayList<>();
+    private List<StateTransition> state_transitions;
 
     public Order() {}
 
@@ -43,8 +42,6 @@ public class Order implements CyodaEntity {
         if (shippingAddressId == null || shippingAddressId.isBlank()) return false;
         if (lines == null || lines.isEmpty()) return false;
         if (totals == null) return false;
-        if (totals.getItems() == null || totals.getItems() < 0) return false;
-        if (totals.getGrand() == null || totals.getGrand() < 0) return false;
         return true;
     }
 
@@ -55,16 +52,12 @@ public class Order implements CyodaEntity {
         private Double unitPrice;
         private Integer qty;
         private Double lineTotal;
-
-        public OrderLine() {}
     }
 
     @Data
     public static class Totals {
         private Integer items;
         private Double grand;
-
-        public Totals() {}
     }
 
     @Data
@@ -74,7 +67,5 @@ public class Order implements CyodaEntity {
         private String actor;
         private String timestamp;
         private String note;
-
-        public StateTransition() {}
     }
 }
