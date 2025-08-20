@@ -12,6 +12,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
+
 @Component
 public class PaymentFailedProcessor implements CyodaProcessor {
 
@@ -57,8 +61,8 @@ public class PaymentFailedProcessor implements CyodaProcessor {
         logger.info("Payment failure handling for order {}. Marking CANCELLED.", order.getOrderId());
         order.setStatus("CANCELLED");
         try {
-            java.util.Map<String,Object> meta = order.getMetadata() == null || !(order.getMetadata() instanceof java.util.Map) ? new java.util.HashMap<>() : (java.util.Map<String,Object>) order.getMetadata();
-            meta.put("paymentFailureHandledAt", java.time.Instant.now().toString());
+            Map<String,Object> meta = order.getMetadata() == null || !(order.getMetadata() instanceof Map) ? new HashMap<>() : (Map<String,Object>) order.getMetadata();
+            meta.put("paymentFailureHandledAt", Instant.now().toString());
             order.setMetadata(meta);
         } catch (Exception ignored) {}
 
