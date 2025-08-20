@@ -1,0 +1,99 @@
+{
+  "version": "1.0",
+  "name": "Activity Workflow",
+  "desc": "Workflow for Activity entity",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "validate_activity",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateActivityProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "check_duplicate",
+          "next": "DEDUPLICATING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "CheckDuplicateCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "DEDUPLICATING": {
+      "transitions": [
+        {
+          "name": "enrich_activity",
+          "next": "ENRICHING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EnrichActivityProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ENRICHING": {
+      "transitions": [
+        {
+          "name": "store_or_review",
+          "next": "STORED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DetectAnomalyCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "STORED": {
+      "transitions": []
+    },
+    "REVIEW": {
+      "transitions": [
+        {
+          "name": "manual_approve",
+          "next": "STORED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ManualApproveProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
