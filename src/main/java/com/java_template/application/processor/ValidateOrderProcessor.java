@@ -1,6 +1,7 @@
 package com.java_template.application.processor;
 
 import com.java_template.application.entity.order.version_1.Order;
+import com.java_template.application.entity.order.version_1.Order.OrderItem;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
@@ -15,7 +16,6 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 @Component
 public class ValidateOrderProcessor implements CyodaProcessor {
@@ -73,10 +73,17 @@ public class ValidateOrderProcessor implements CyodaProcessor {
 
         // items not empty
         try {
-            List<?> items = order.getItems();
+            List<OrderItem> items = order.getItems();
             if (items == null || items.isEmpty()) {
                 logger.warn("Order {} has no items", order.getOrderId());
                 valid = false;
+            } else {
+                for (OrderItem it : items) {
+                    if (!it.isValid()) {
+                        logger.warn("Invalid order item: {}", it);
+                        valid = false;
+                    }
+                }
             }
         } catch (Exception e) {
             logger.warn("Unable to inspect items: {}", e.getMessage());
@@ -87,17 +94,12 @@ public class ValidateOrderProcessor implements CyodaProcessor {
         try {
             BigDecimal total = order.getTotalAmount() == null ? null : new BigDecimal(order.getTotalAmount().toString());
             BigDecimal computed = BigDecimal.ZERO;
-            List<?> items = order.getItems();
+            List<OrderItem> items = order.getItems();
             if (items != null) {
-                for (Object o : items) {
-                    if (o instanceof Map) {
-                        Map<?,?> m = (Map<?,?>) o;
-                        Object q = m.get("quantity");
-                        Object p = m.get("price");
-                        BigDecimal qty = q == null ? BigDecimal.ZERO : new BigDecimal(q.toString());
-                        BigDecimal price = p == null ? BigDecimal.ZERO : new BigDecimal(p.toString());
-                        computed = computed.add(price.multiply(qty));
-                    }
+                for (OrderItem it : items) {
+                    BigDecimal qty = it.getQuantity() == null ? BigDecimal.ZERO : new BigDecimal(it.getQuantity());
+                    BigDecimal price = it.getPrice() == null ? BigDecimal.ZERO : new BigDecimal(it.getPrice().toString());
+                    computed = computed.add(price.multiply(qty));
                 }
             }
             if (total == null || computed.compareTo(total) != 0) {
@@ -111,16 +113,10 @@ public class ValidateOrderProcessor implements CyodaProcessor {
 
         // shipping address basic validation
         try {
-            Object shippingAddress = order.getShippingAddress();
-            if (shippingAddress == null) {
+            String shippingAddress = order.getShippingAddress();
+            if (shippingAddress == null || shippingAddress.isBlank()) {
                 logger.warn("Order {} missing shipping address", order.getOrderId());
                 valid = false;
-            } else if (shippingAddress instanceof Map) {
-                Map<?,?> addr = (Map<?,?>) shippingAddress;
-                if (addr.get("line1") == null || addr.get("city") == null || addr.get("postalCode") == null || addr.get("country") == null) {
-                    logger.warn("Order {} has incomplete shipping address", order.getOrderId());
-                    valid = false;
-                }
             }
         } catch (Exception e) {
             logger.warn("Unable to inspect shipping address: {}", e.getMessage());
