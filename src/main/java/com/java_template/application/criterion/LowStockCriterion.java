@@ -46,8 +46,8 @@ public class LowStockCriterion implements CyodaCriterion {
         if (p == null) return EvaluationOutcome.success();
         Integer qty = p.getQuantityAvailable();
         if (qty == null) return EvaluationOutcome.success();
-        Integer threshold = p.getLowStockThreshold();
-        if (threshold == null) threshold = 5; // default threshold
+        // Product does not have lowStockThreshold field - use default threshold
+        Integer threshold = 5; // default threshold
         if (qty <= 0) {
             return EvaluationOutcome.fail("Product out of stock", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
         }
