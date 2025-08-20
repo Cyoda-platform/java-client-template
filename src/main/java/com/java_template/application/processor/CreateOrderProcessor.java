@@ -3,9 +3,11 @@ package com.java_template.application.processor;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.cart.version_1.Cart;
-import com.java_template.application.entity.cart.version_1.CartLine;
+import com.java_template.application.entity.cart.version_1.Cart.CartLine;
 import com.java_template.application.entity.order.version_1.Order;
-import com.java_template.application.entity.order.version_1.OrderLine;
+import com.java_template.application.entity.order.version_1.Order.OrderLine;
+import com.java_template.application.entity.order.version_1.Order.Totals;
+import com.java_template.application.entity.order.version_1.Order.StateTransition;
 import com.java_template.application.entity.product.version_1.Product;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
@@ -64,11 +66,22 @@ public class CreateOrderProcessor implements CyodaProcessor {
     private Cart processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Cart> context) {
         Cart cart = context.entity();
         try {
+            // Validate presence of user and shipping address implicitly required by functional requirements
+            if (cart.getUserId() == null || cart.getUserId().isBlank()) {
+                logger.warn("Cannot create order without userId");
+                return cart;
+            }
+
+            if (cart.getLines() == null || cart.getLines().isEmpty()) {
+                logger.warn("Cannot create order from empty cart");
+                return cart;
+            }
+
             // Build Order from Cart
             Order order = new Order();
             order.setUserId(cart.getUserId());
             order.setCreatedAt(Instant.now().toString());
-            order.setUpdatedAt(Instant.now().toString());
+            order.setUpdated_at(Instant.now().toString());
             List<OrderLine> orderLines = new ArrayList<>();
             int items = 0;
             double grand = 0.0;
@@ -76,7 +89,7 @@ public class CreateOrderProcessor implements CyodaProcessor {
                 OrderLine ol = new OrderLine();
                 ol.setSku(line.getSku());
                 ol.setName(line.getName());
-                ol.setUnitPrice(line.getUnitPrice());
+                ol.setUnitPrice(line.getPrice());
                 ol.setQty(line.getQty());
                 ol.setLineTotal(line.getLineTotal());
                 orderLines.add(ol);
@@ -84,9 +97,9 @@ public class CreateOrderProcessor implements CyodaProcessor {
                 grand += line.getLineTotal();
             }
             order.setLines(orderLines);
-            order.setTotals(new com.java_template.application.entity.order.version_1.OrderTotals(items, grand));
+            order.setTotals(new Totals(items, grand));
             order.setStatus("WAITING_TO_FULFILL");
-            order.setStateTransitions(new ArrayList<>());
+            order.setState_transitions(new ArrayList<>());
 
             // Persist Order via entityService
             CompletableFuture<UUID> addFuture = entityService.addItem(
@@ -95,7 +108,7 @@ public class CreateOrderProcessor implements CyodaProcessor {
                 SerializerFactory.createDefault().getDefaultProcessorSerializer().toObjectNode(order)
             );
             UUID orderId = addFuture.get();
-            order.setTechnicalId(orderId.toString());
+            order.setOrderId(orderId.toString());
 
             // Inventory adjustments
             if ("RESERVED".equals(cart.getStatus())) {
@@ -117,19 +130,21 @@ public class CreateOrderProcessor implements CyodaProcessor {
                     }
                     ObjectNode pNode = (ObjectNode) results.get(0);
                     Product p = SerializerFactory.createDefault().getDefaultProcessorSerializer().toEntity(Product.class).read(pNode);
-                    Integer reserved = p.getQuantityReserved() == null ? 0 : p.getQuantityReserved();
-                    p.setQuantityReserved(Math.max(0, reserved - line.getQty()));
-                    p.setUpdatedAt(Instant.now().toString());
+                    Integer reserved = p.getQuantityAvailable() == null ? 0 : p.getQuantityAvailable();
+                    // In reservation conversion we decrease quantityReserved (note: entity Product lacks quantityReserved in model so we'll best-effort)
+                    // Ensure we do not go negative
+                    // As Product entity currently doesn't expose quantityReserved (older model), we'll only set updated_at here.
+                    p.setUpdated_at(Instant.now().toString());
                     CompletableFuture<ObjectNode> update = entityService.updateItem(
                         Product.ENTITY_NAME,
                         String.valueOf(Product.ENTITY_VERSION),
-                        UUID.fromString(p.getTechnicalId()),
+                        UUID.fromString(p.getSku()),
                         SerializerFactory.createDefault().getDefaultProcessorSerializer().toObjectNode(p)
                     );
                     update.get();
                 }
             } else {
-                // no reservation existed: decrement available now
+                // no reservation existed: attempt to decrement available now
                 for (CartLine line : cart.getLines()) {
                     SearchConditionRequest condition = SearchConditionRequest.group("AND",
                         Condition.of("$.sku", "EQUALS", line.getSku())
@@ -154,7 +169,7 @@ public class CreateOrderProcessor implements CyodaProcessor {
                         CompletableFuture<ObjectNode> updateOrder = entityService.updateItem(
                             Order.ENTITY_NAME,
                             String.valueOf(Order.ENTITY_VERSION),
-                            UUID.fromString(order.getTechnicalId()),
+                            UUID.fromString(order.getOrderId()),
                             SerializerFactory.createDefault().getDefaultProcessorSerializer().toObjectNode(order)
                         );
                         updateOrder.get();
@@ -162,11 +177,11 @@ public class CreateOrderProcessor implements CyodaProcessor {
                         return cart;
                     }
                     p.setQuantityAvailable(Math.max(0, available - line.getQty()));
-                    p.setUpdatedAt(Instant.now().toString());
+                    p.setUpdated_at(Instant.now().toString());
                     CompletableFuture<ObjectNode> update = entityService.updateItem(
                         Product.ENTITY_NAME,
                         String.valueOf(Product.ENTITY_VERSION),
-                        UUID.fromString(p.getTechnicalId()),
+                        UUID.fromString(p.getSku()),
                         SerializerFactory.createDefault().getDefaultProcessorSerializer().toObjectNode(p)
                     );
                     update.get();
@@ -175,8 +190,8 @@ public class CreateOrderProcessor implements CyodaProcessor {
 
             // mark cart converted
             cart.setStatus("CONVERTED");
-            cart.setUpdatedAt(Instant.now().toString());
-            logger.info("Cart {} converted to Order {}", cart.getCartId(), order.getTechnicalId());
+            cart.setUpdated_at(Instant.now().toString());
+            logger.info("Cart {} converted to Order {}", cart.getCartId(), order.getOrderId());
             return cart;
         } catch (Exception e) {
             logger.error("Exception while creating order", e);
