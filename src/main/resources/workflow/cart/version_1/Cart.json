@@ -1,0 +1,68 @@
+{
+  "version": "1.0",
+  "name": "Cart Workflow",
+  "desc": "Workflow for Cart entity managing lifecycle from creation to checkout",
+  "initialState": "NEW",
+  "active": true,
+  "states": {
+    "NEW": {
+      "transitions": [
+        {
+          "name": "activate",
+          "next": "ACTIVE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CreateCartProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "update_lines",
+          "next": "ACTIVE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RecalculateTotalsProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "open_checkout",
+          "next": "CHECKING_OUT",
+          "manual": true
+        }
+      ]
+    },
+    "CHECKING_OUT": {
+      "transitions": [
+        {
+          "name": "checkout",
+          "next": "CONVERTED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CheckoutProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "CONVERTED": {
+      "transitions": []
+    }
+  }
+}
