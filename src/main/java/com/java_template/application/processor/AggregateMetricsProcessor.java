@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.report.version_1.Report;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.service.EntityService;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Component;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 @Component
 public class AggregateMetricsProcessor implements CyodaProcessor {
@@ -23,9 +25,11 @@ public class AggregateMetricsProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(AggregateMetricsProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final EntityService entityService;
 
-    public AggregateMetricsProcessor(SerializerFactory serializerFactory) {
+    public AggregateMetricsProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
     }
 
     @Override
@@ -56,7 +60,8 @@ public class AggregateMetricsProcessor implements CyodaProcessor {
             // For demo purposes build simple metrics object
             ObjectNode metrics = report.getMetrics() != null ? (ObjectNode) report.getMetrics() : report.objectMapper().createObjectNode();
             Map<String, Integer> perType = new HashMap<>();
-            // In real implementation we would fetch activities by date and compute counts.
+
+            // Attempt to fetch aggregated metrics from EntityService (Metrics entity) - demo: simulate
             perType.put("login", 50);
             perType.put("purchase", 10);
             metrics.put("totalActivities", 60);
