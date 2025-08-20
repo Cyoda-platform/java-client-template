@@ -1,6 +1,7 @@
 package com.java_template.application.criterion;
 
 import com.java_template.application.entity.order.version_1.Order;
+import com.java_template.application.entity.order.version_1.Order.OrderItem;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -17,7 +18,6 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Map;
 
 @Component
 public class OrderValidationCriterion implements CyodaCriterion {
@@ -51,9 +51,16 @@ public class OrderValidationCriterion implements CyodaCriterion {
         }
 
         // items
-        List<?> items = order.getItems();
+        List<OrderItem> items = order.getItems();
         if (items == null || items.isEmpty()) {
             return EvaluationOutcome.fail("Order has no items", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+
+        // validate item structure
+        for (OrderItem it : items) {
+            if (!it.isValid()) {
+                return EvaluationOutcome.fail("Invalid order item", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            }
         }
 
         // totals match
@@ -61,15 +68,10 @@ public class OrderValidationCriterion implements CyodaCriterion {
             BigDecimal total = order.getTotalAmount() == null ? null : new BigDecimal(order.getTotalAmount().toString());
             BigDecimal computed = BigDecimal.ZERO;
             if (items != null) {
-                for (Object o : items) {
-                    if (o instanceof Map) {
-                        Map<?,?> m = (Map<?,?>) o;
-                        Object q = m.get("quantity");
-                        Object p = m.get("price");
-                        BigDecimal qty = q == null ? BigDecimal.ZERO : new BigDecimal(q.toString());
-                        BigDecimal price = p == null ? BigDecimal.ZERO : new BigDecimal(p.toString());
-                        computed = computed.add(price.multiply(qty));
-                    }
+                for (OrderItem it : items) {
+                    BigDecimal qty = it.getQuantity() == null ? BigDecimal.ZERO : new BigDecimal(it.getQuantity());
+                    BigDecimal price = it.getPrice() == null ? BigDecimal.ZERO : new BigDecimal(it.getPrice().toString());
+                    computed = computed.add(price.multiply(qty));
                 }
             }
             if (total == null || computed.compareTo(total) != 0) {
@@ -82,15 +84,9 @@ public class OrderValidationCriterion implements CyodaCriterion {
 
         // address basic validation
         try {
-            Object shippingAddress = order.getShippingAddress();
-            if (shippingAddress == null) {
+            String shippingAddress = order.getShippingAddress();
+            if (shippingAddress == null || shippingAddress.isBlank()) {
                 return EvaluationOutcome.fail("Shipping address missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
-            }
-            if (shippingAddress instanceof Map) {
-                Map<?,?> addr = (Map<?,?>) shippingAddress;
-                if (addr.get("line1") == null || addr.get("city") == null || addr.get("postalCode") == null || addr.get("country") == null) {
-                    return EvaluationOutcome.fail("Incomplete shipping address", StandardEvalReasonCategories.VALIDATION_FAILURE);
-                }
             }
         } catch (Exception e) {
             logger.warn("Unable to inspect shipping address: {}", e.getMessage());
