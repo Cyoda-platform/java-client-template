@@ -48,10 +48,14 @@ public class AddFirstItemProcessor implements CyodaProcessor {
 
     private Cart processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Cart> context) {
         Cart cart = context.entity();
-        cart.setStatus("ACTIVE");
-        cart.setLastActivityAt(Instant.now().toString());
-        cart.setUpdatedAt(Instant.now().toString());
-        logger.info("Cart {} moved to ACTIVE", cart.getCartId());
+        try {
+            cart.setStatus("ACTIVE");
+            cart.setLast_activity_at(Instant.now().toString());
+            cart.setUpdated_at(Instant.now().toString());
+            logger.info("Cart {} moved to ACTIVE", cart.getCartId());
+        } catch (Exception e) {
+            logger.warn("Failed to move cart to ACTIVE", e);
+        }
         return cart;
     }
 }
