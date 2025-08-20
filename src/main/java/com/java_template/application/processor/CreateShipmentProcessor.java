@@ -79,9 +79,10 @@ public class CreateShipmentProcessor implements CyodaProcessor {
                 if (reserved <= 0) continue;
                 Shipment s = new Shipment();
                 s.setOrderId(order.getOrderId());
-                s.setItems(java.util.Collections.singletonList(java.util.Collections.singletonMap("sku", line.get("sku"))));
+                s.setItems(Collections.singletonList(Collections.singletonMap("sku", line.get("sku"))));
                 s.setStatus("READY");
                 s.setShipmentId("SHP-" + UUID.randomUUID().toString());
+                s.setCarrier("CarrierX");
                 created.add(s);
             }
         } else {
@@ -91,6 +92,7 @@ public class CreateShipmentProcessor implements CyodaProcessor {
             s.setItems(items);
             s.setStatus("READY");
             s.setShipmentId("SHP-" + UUID.randomUUID().toString());
+            s.setCarrier("CarrierX");
             created.add(s);
         }
 
