@@ -66,11 +66,11 @@ public class PaymentCaptureProcessor implements CyodaProcessor {
         int outcome = ThreadLocalRandom.current().nextInt(0, 10);
         if (outcome < 8) {
             p.setStatus("CAPTURED");
-            p.setProviderResponse(java.util.Collections.singletonMap("capture", "ok"));
+            try { p.setProviderResponse("{\"capture\":\"ok\"}"); } catch (Exception ignored) {}
             logger.info("Payment {} captured (simulated)", p.getPaymentId());
         } else {
             p.setStatus("FAILED");
-            p.setProviderResponse(java.util.Collections.singletonMap("captureError", "timeout"));
+            try { p.setProviderResponse("{\"captureError\":\"timeout\"}"); } catch (Exception ignored) {}
             logger.warn("Payment {} capture failed (simulated)", p.getPaymentId());
         }
 
