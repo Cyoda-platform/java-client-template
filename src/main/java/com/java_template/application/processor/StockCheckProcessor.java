@@ -62,19 +62,21 @@ public class StockCheckProcessor implements CyodaProcessor {
         Cart cart = context.entity();
         List<String> failures = new ArrayList<>();
         try {
-            for (Cart.CartLine line : cart.getLines()) {
-                String sku = line.getSku();
-                SearchConditionRequest cond = SearchConditionRequest.group("AND", Condition.of("$.sku", "IEQUALS", sku));
-                CompletableFuture<ArrayNode> prodFuture = entityService.getItemsByCondition(Product.ENTITY_NAME, String.valueOf(Product.ENTITY_VERSION), cond, true);
-                ArrayNode prods = prodFuture.get();
-                if (prods == null || prods.size() == 0) {
-                    failures.add(sku + ":SKU_NOT_FOUND");
-                    continue;
-                }
-                ObjectNode p = (ObjectNode) prods.get(0);
-                Product product = context.serializer().convert(p, Product.class);
-                if (product.getQuantityAvailable() == null || product.getQuantityAvailable() < line.getQty()) {
-                    failures.add(sku + ":INSUFFICIENT_STOCK");
+            if (cart.getLines() != null) {
+                for (Cart.CartLine line : cart.getLines()) {
+                    String sku = line.getSku();
+                    SearchConditionRequest cond = SearchConditionRequest.group("AND", Condition.of("$.sku", "IEQUALS", sku));
+                    CompletableFuture<ArrayNode> prodFuture = entityService.getItemsByCondition(Product.ENTITY_NAME, String.valueOf(Product.ENTITY_VERSION), cond, true);
+                    ArrayNode prods = prodFuture.get();
+                    if (prods == null || prods.size() == 0) {
+                        failures.add(sku + ":SKU_NOT_FOUND");
+                        continue;
+                    }
+                    ObjectNode p = (ObjectNode) prods.get(0);
+                    Product product = serializer.convert(p, Product.class);
+                    if (product.getQuantityAvailable() == null || product.getQuantityAvailable() < line.getQty()) {
+                        failures.add(sku + ":INSUFFICIENT_STOCK");
+                    }
                 }
             }
 
