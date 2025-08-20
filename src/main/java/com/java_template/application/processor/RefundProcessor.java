@@ -58,10 +58,10 @@ public class RefundProcessor implements CyodaProcessor {
         int outcome = ThreadLocalRandom.current().nextInt(0, 10);
         if (outcome < 9) {
             p.setStatus("REFUNDED");
-            p.setProviderResponse(java.util.Collections.singletonMap("refund", "ok"));
+            try { p.setProviderResponse("{\"refund\":\"ok\"}"); } catch (Exception ignored) {}
             logger.info("Payment {} refunded (simulated)", p.getPaymentId());
         } else {
-            p.setProviderResponse(java.util.Collections.singletonMap("refundError", "gateway_timeout"));
+            try { p.setProviderResponse("{\"refundError\":\"gateway_timeout\"}"); } catch (Exception ignored) {}
             logger.warn("Payment {} refund failed (simulated)", p.getPaymentId());
         }
 
