@@ -1,0 +1,46 @@
+{
+  "version": "1.0",
+  "name": "User Workflow",
+  "desc": "Workflow for User entity",
+  "initialState": "USER_CREATED",
+  "active": true,
+  "states": {
+    "USER_CREATED": {
+      "transitions": [
+        {
+          "name": "identify_user",
+          "next": "IDENTIFIED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "IdentifyUserProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "IDENTIFIED": {
+      "transitions": [
+        {
+          "name": "assign_anon_cart",
+          "next": "CART_ASSIGNED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AssignAnonCartProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "CART_ASSIGNED": {
+      "transitions": []
+    }
+  }
+}
