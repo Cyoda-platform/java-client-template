@@ -1,0 +1,92 @@
+{
+  "version": "1.0",
+  "name": "User Workflow",
+  "desc": "Workflow for User entity",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "enrich_user",
+          "next": "ENRICHED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EnrichUserProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ENRICHED": {
+      "transitions": [
+        {
+          "name": "activate_if_recent",
+          "next": "ACTIVE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "RecentActivityCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "deactivate_if_no_activity",
+          "next": "INACTIVE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "NoActivityCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "manual_deactivate",
+          "next": "INACTIVE",
+          "manual": true,
+          "processors": [
+            {
+              "name": "DeactivateProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "INACTIVE": {
+      "transitions": [
+        {
+          "name": "manual_reactivate",
+          "next": "ACTIVE",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ReactivateProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
