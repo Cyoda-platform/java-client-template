@@ -48,9 +48,14 @@ public class ActivateProductProcessor implements CyodaProcessor {
 
     private Product processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Product> context) {
         Product product = context.entity();
-        product.setActive(true);
-        product.setUpdatedAt(Instant.now().toString());
-        logger.info("Product {} activated", product.getSku());
+        try {
+            product.setActive(true);
+            // Use existing entity field name for timestamp
+            product.setUpdated_at(Instant.now().toString());
+            logger.info("Product {} activated", product.getSku());
+        } catch (Exception e) {
+            logger.warn("Failed to activate product {}", product != null ? product.getSku() : "<null>", e);
+        }
         return product;
     }
 }
