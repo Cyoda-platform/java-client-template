@@ -1,0 +1,75 @@
+{
+  "version": "1.0",
+  "name": "Payment Workflow",
+  "desc": "Workflow for Payment entity based on functional requirements",
+  "initialState": "PENDING",
+  "active": true,
+  "states": {
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "pending_to_authorized",
+          "next": "AUTHORIZED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PaymentAuthorizationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "AUTHORIZED": {
+      "transitions": [
+        {
+          "name": "authorized_to_captured",
+          "next": "CAPTURED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PaymentCaptureProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "authorized_to_failed",
+          "next": "FAILED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AuthorizationFailureProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "CAPTURED": {
+      "transitions": [
+        {
+          "name": "captured_to_refunded",
+          "next": "REFUNDED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RefundProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "FAILED": { "transitions": [] },
+    "REFUNDED": { "transitions": [] }
+  }
+}
