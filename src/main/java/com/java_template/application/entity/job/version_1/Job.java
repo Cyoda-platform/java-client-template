@@ -5,19 +5,24 @@ import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import lombok.Data;
 
+import java.util.Map;
+
 @Data
 public class Job implements CyodaEntity {
     public static final String ENTITY_NAME = "Job";
     public static final Integer ENTITY_VERSION = 1;
     // Add your entity fields here
 
-    private String schedule_date; // date for the run, e.g. 2025-08-21
+    private String technicalId; // internal UUID
+    private String scheduleDate; // date for the run, e.g. 2025-08-21
     private String timezone; // timezone for schedule
-    private String status; // PENDING/IN_PROGRESS/COMPLETED/FAILED
-    private String created_by; // user or system
-    private String parameters; // serialized JSON object (ingestion window, Fakerest endpoints, retry_policy)
-    private String started_at; // timestamp
-    private String completed_at; // timestamp
+    private String status; // PENDING/IN_PROGRESS/COMPLETED/FAILED/VALIDATED
+    private String createdBy; // user or system
+    private Map<String, Object> parameters; // JSON object (ingestion window, Fakerest endpoints, retry_policy)
+    private String startedAt; // timestamp
+    private String completedAt; // timestamp
+    private Integer attempts; // retry attempts
+    private Map<String, Integer> resultCounts; // result counters
 
     public Job() {}
 
@@ -31,11 +36,11 @@ public class Job implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        if (schedule_date == null || schedule_date.isBlank()) return false;
+        if (scheduleDate == null || scheduleDate.isBlank()) return false;
         if (timezone == null || timezone.isBlank()) return false;
         if (status == null || status.isBlank()) return false;
-        if (created_by == null || created_by.isBlank()) return false;
-        if (parameters == null || parameters.isBlank()) return false;
+        if (createdBy == null || createdBy.isBlank()) return false;
+        if (parameters == null) return false;
         return true;
     }
 }
