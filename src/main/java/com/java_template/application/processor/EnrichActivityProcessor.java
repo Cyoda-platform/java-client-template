@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.activity.version_1.Activity;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.service.EntityService;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -22,9 +23,11 @@ public class EnrichActivityProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(EnrichActivityProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final EntityService entityService;
 
-    public EnrichActivityProcessor(SerializerFactory serializerFactory) {
+    public EnrichActivityProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
     }
 
     @Override
@@ -53,14 +56,14 @@ public class EnrichActivityProcessor implements CyodaProcessor {
 
         try {
             ObjectMapper mapper = new ObjectMapper();
-            ObjectNode metadata = activity.getMetadata() != null ? (ObjectNode) activity.getMetadata() : mapper.createObjectNode();
+            ObjectNode metadata = activity.getMetadata() != null ? mapper.valueToTree(activity.getMetadata()) : mapper.createObjectNode();
             // Example enrichment: add a synthetic geo or user-agent derived field
             if (!metadata.has("enriched")) {
                 ObjectNode enriched = mapper.createObjectNode();
                 enriched.put("enrichedAt", Instant.now().toString());
                 enriched.put("sourceHint", activity.getSource() == null ? "unknown" : activity.getSource());
                 metadata.set("enriched", enriched);
-                activity.setMetadata(metadata);
+                activity.setMetadata(mapper.convertValue(metadata, java.util.Map.class));
             }
             logger.info("Enriched activity {}", activity.getActivityId());
         } catch (Exception ex) {
