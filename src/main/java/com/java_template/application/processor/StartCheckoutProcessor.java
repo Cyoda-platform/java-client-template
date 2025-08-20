@@ -48,11 +48,15 @@ public class StartCheckoutProcessor implements CyodaProcessor {
 
     private Cart processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Cart> context) {
         Cart cart = context.entity();
-        // Address presence is validated via separate criterion; here we assume criterion passed
-        cart.setStatus("CHECKING_OUT");
-        cart.setLastActivityAt(Instant.now().toString());
-        cart.setUpdatedAt(Instant.now().toString());
-        logger.info("Cart {} moved to CHECKING_OUT", cart.getCartId());
+        try {
+            // Address presence is validated via separate criterion; here we assume criterion passed
+            cart.setStatus("CHECKING_OUT");
+            cart.setLast_activity_at(Instant.now().toString());
+            cart.setUpdated_at(Instant.now().toString());
+            logger.info("Cart {} moved to CHECKING_OUT", cart.getCartId());
+        } catch (Exception e) {
+            logger.warn("Failed to start checkout for cart {}", cart != null ? cart.getCartId() : "<null>", e);
+        }
         return cart;
     }
 }
