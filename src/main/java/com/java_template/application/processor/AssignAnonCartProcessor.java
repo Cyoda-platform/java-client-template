@@ -85,7 +85,7 @@ public class AssignAnonCartProcessor implements CyodaProcessor {
             }
 
             if (newest == null) return user;
-            Cart anonCart = SerializerFactory.createDefault().getDefaultProcessorSerializer().toEntity(Cart.class).read(newest);
+            Cart anonCart = this.serializer.toEntity(Cart.class).read(newest);
 
             // Find user's existing carts
             SearchConditionRequest userCartCond = SearchConditionRequest.group("AND",
@@ -100,7 +100,7 @@ public class AssignAnonCartProcessor implements CyodaProcessor {
             ArrayNode userCarts = userCartFuture.get();
             Cart userCart = null;
             if (userCarts != null && userCarts.size() > 0) {
-                userCart = SerializerFactory.createDefault().getDefaultProcessorSerializer().toEntity(Cart.class).read((ObjectNode) userCarts.get(0));
+                userCart = this.serializer.toEntity(Cart.class).read((ObjectNode) userCarts.get(0));
             }
 
             if (userCart == null) {
@@ -112,7 +112,7 @@ public class AssignAnonCartProcessor implements CyodaProcessor {
                     Cart.ENTITY_NAME,
                     String.valueOf(Cart.ENTITY_VERSION),
                     java.util.UUID.fromString(anonCart.getCartId()),
-                    SerializerFactory.createDefault().getDefaultProcessorSerializer().toObjectNode(anonCart)
+                    this.serializer.toObjectNode(anonCart)
                 ).get();
             } else {
                 // Merge: prefer newest cart (anonCart) into userCart
@@ -140,7 +140,7 @@ public class AssignAnonCartProcessor implements CyodaProcessor {
                     Cart.ENTITY_NAME,
                     String.valueOf(Cart.ENTITY_VERSION),
                     java.util.UUID.fromString(userCart.getCartId()),
-                    SerializerFactory.createDefault().getDefaultProcessorSerializer().toObjectNode(userCart)
+                    this.serializer.toObjectNode(userCart)
                 ).get();
 
                 // Delete anon cart
