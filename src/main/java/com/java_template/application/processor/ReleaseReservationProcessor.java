@@ -3,6 +3,7 @@ package com.java_template.application.processor;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.cart.version_1.Cart;
+import com.java_template.application.entity.cart.version_1.Cart.CartLine;
 import com.java_template.application.entity.product.version_1.Product;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
@@ -58,7 +59,9 @@ public class ReleaseReservationProcessor implements CyodaProcessor {
     private Cart processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Cart> context) {
         Cart cart = context.entity();
         try {
-            for (com.java_template.application.entity.cart.version_1.CartLine line : cart.getLines()) {
+            if (cart.getLines() == null || cart.getLines().isEmpty()) return cart;
+
+            for (CartLine line : cart.getLines()) {
                 SearchConditionRequest condition = SearchConditionRequest.group("AND",
                     Condition.of("$.sku", "EQUALS", line.getSku())
                 );
@@ -73,22 +76,21 @@ public class ReleaseReservationProcessor implements CyodaProcessor {
                 ObjectNode pNode = (ObjectNode) results.get(0);
                 Product p = SerializerFactory.createDefault().getDefaultProcessorSerializer().toEntity(Product.class).read(pNode);
                 Integer available = p.getQuantityAvailable() == null ? 0 : p.getQuantityAvailable();
-                Integer reserved = p.getQuantityReserved() == null ? 0 : p.getQuantityReserved();
-                p.setQuantityReserved(Math.max(0, reserved - line.getQty()));
+                // Product model currently lacks quantityReserved, so we only increment available back
                 p.setQuantityAvailable(available + line.getQty());
-                p.setUpdatedAt(Instant.now().toString());
+                p.setUpdated_at(Instant.now().toString());
 
                 CompletableFuture<ObjectNode> update = entityService.updateItem(
                     Product.ENTITY_NAME,
                     String.valueOf(Product.ENTITY_VERSION),
-                    java.util.UUID.fromString(p.getTechnicalId()),
+                    java.util.UUID.fromString(p.getSku()),
                     SerializerFactory.createDefault().getDefaultProcessorSerializer().toObjectNode(p)
                 );
                 update.get();
             }
 
             cart.setStatus("EXPIRED");
-            cart.setUpdatedAt(Instant.now().toString());
+            cart.setUpdated_at(Instant.now().toString());
             return cart;
         } catch (Exception e) {
             logger.error("Exception while releasing reservation", e);
