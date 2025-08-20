@@ -49,8 +49,6 @@ public class ValidateProductProcessor implements CyodaProcessor {
             if (product.getPrice().doubleValue() < 0.0) return false;
             if (product.getQuantityAvailable() == null) return false;
             if (product.getQuantityAvailable() < 0) return false;
-            if (product.getQuantityReserved() == null) return false;
-            if (product.getQuantityReserved() < 0) return false;
         } catch (Exception e) {
             logger.warn("Validation check failed due to exception", e);
             return false;
@@ -62,7 +60,7 @@ public class ValidateProductProcessor implements CyodaProcessor {
         Product product = context.entity();
         // update timestamp and ensure product becomes ready
         try {
-            product.setUpdatedAt(Instant.now().toString());
+            product.setUpdated_at(Instant.now().toString());
         } catch (Exception e) {
             logger.warn("Failed to set updatedAt on product", e);
         }
