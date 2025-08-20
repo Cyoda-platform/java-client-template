@@ -1,0 +1,46 @@
+{
+  "version": "1.0",
+  "name": "Address Workflow",
+  "desc": "Workflow managing address validation and primary flag handling",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "validate_address",
+          "next": "VALIDATED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AddressValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATED": {
+      "transitions": [
+        {
+          "name": "set_primary",
+          "next": "PRIMARY_SET",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SetPrimaryAddressProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PRIMARY_SET": {
+      "transitions": []
+    }
+  }
+}
