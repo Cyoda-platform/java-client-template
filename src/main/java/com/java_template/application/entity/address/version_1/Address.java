@@ -1,4 +1,4 @@
-package com.java_template.application.entity.address.version_1; // replace {entityName} with actual entity name in lowercase
+package com.java_template.application.entity.address.version_1;
 
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
@@ -9,10 +9,10 @@ import lombok.Data;
 public class Address implements CyodaEntity {
     public static final String ENTITY_NAME = "Address";
     public static final Integer ENTITY_VERSION = 1;
-    // Add your entity fields here
 
+    // Add your entity fields here
     private String addressId;
-    private String userId; // serialized UUID reference
+    private String userId; // foreign key reference as String
     private String line1;
     private String city;
     private String postcode;
