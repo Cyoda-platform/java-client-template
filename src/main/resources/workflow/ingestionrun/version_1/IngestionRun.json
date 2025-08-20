@@ -1,0 +1,146 @@
+{
+  "version": "1.0",
+  "name": "IngestionRun Workflow",
+  "desc": "Workflow for IngestionRun",
+  "initialState": "PENDING",
+  "active": true,
+  "states": {
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "start_ingestion",
+          "next": "IN_PROGRESS",
+          "manual": false,
+          "processors": [
+            {
+              "name": "StartIngestionProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "IN_PROGRESS": {
+      "transitions": [
+        {
+          "name": "create_activity_entities",
+          "next": "PROCESSING_ACTIVITIES",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CreateActivityEntitiesProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PROCESSING_ACTIVITIES": {
+      "transitions": [
+        {
+          "name": "aggregate_results",
+          "next": "AGGREGATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AggregateResultsProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "AGGREGATING": {
+      "transitions": [
+        {
+          "name": "all_stored",
+          "next": "COMPLETED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AllRecordsStoredCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "some_errors",
+          "next": "PARTIAL",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "SomeErrorsCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "major_failure",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "MajorFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": [
+        {
+          "name": "publish_reports",
+          "next": "PUBLISHED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PublishReportsProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PARTIAL": {
+      "transitions": [
+        {
+          "name": "manual_review",
+          "next": "FAILED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ManualReviewProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PUBLISHED": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    }
+  }
+}
