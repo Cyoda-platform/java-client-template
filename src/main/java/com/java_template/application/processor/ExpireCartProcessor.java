@@ -43,22 +43,17 @@ public class ExpireCartProcessor implements CyodaProcessor {
     }
 
     private boolean isValidEntity(Cart cart) {
-        return cart != null && cart.getExpiresAt() != null;
+        return cart != null && cart.getExpires_at() != null;
     }
 
     private Cart processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Cart> context) {
         Cart cart = context.entity();
         try {
             Instant now = Instant.now();
-            Instant expires = Instant.parse(cart.getExpiresAt());
+            Instant expires = Instant.parse(cart.getExpires_at());
             if (now.isAfter(expires)) {
-                if ("RESERVED".equals(cart.getStatus())) {
-                    // Set to EXPIRED and rely on ReleaseReservationProcessor to handle stock release
-                    cart.setStatus("EXPIRED");
-                } else {
-                    cart.setStatus("EXPIRED");
-                }
-                cart.setUpdatedAt(Instant.now().toString());
+                cart.setStatus("EXPIRED");
+                cart.setUpdated_at(Instant.now().toString());
                 logger.info("Cart {} expired", cart.getCartId());
             }
         } catch (Exception e) {
