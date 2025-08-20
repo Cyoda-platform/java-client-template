@@ -9,13 +9,14 @@ import lombok.Data;
 public class Product implements CyodaEntity {
     public static final String ENTITY_NAME = "Product";
     public static final Integer ENTITY_VERSION = 1;
+    // Add your entity fields here
 
-    private String productId; // business id / SKU
-    private String name; // display name
-    private String description; // marketing text
-    private Double price; // unit price
-    private Integer inventory; // available quantity
-    private Boolean active; // sellable
+    private String productId;
+    private String name;
+    private String description;
+    private Double price;
+    private Integer inventory;
+    private Boolean active;
 
     public Product() {}
 
