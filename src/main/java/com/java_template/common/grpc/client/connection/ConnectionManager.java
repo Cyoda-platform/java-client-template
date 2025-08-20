@@ -11,6 +11,9 @@ import io.cloudevents.v1.proto.CloudEvent;
 import io.grpc.stub.StreamObserver;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import org.cyoda.cloud.api.event.processing.CalculationMemberJoinEvent;
@@ -23,6 +26,7 @@ import org.springframework.stereotype.Component;
 @Component
 class ConnectionManager implements EventSender {
     private final Logger log = LoggerFactory.getLogger(this.getClass());
+    private final AtomicBoolean isConnecting = new AtomicBoolean(false);
 
     private final EventHandler eventHandler;
     private final EventTracker eventTracker;
@@ -30,6 +34,7 @@ class ConnectionManager implements EventSender {
     private final CloudEventBuilder eventBuilder;
     private final CloudEventsServiceGrpc.CloudEventsServiceStub cloudEventsServiceStub;
     private final ReconnectionStrategy reconnectionStrategy;
+    private final GreetEventListener greetEventListener;
 
     private StreamObserver<CloudEvent> streamObserver;
 
@@ -39,7 +44,8 @@ class ConnectionManager implements EventSender {
             final ConnectionStateTracker connectionStateTracker,
             final CloudEventBuilder eventBuilder,
             final CloudEventsServiceGrpc.CloudEventsServiceStub cloudEventsServiceStub,
-            final ReconnectionStrategy reconnectionStrategy
+            final ReconnectionStrategy reconnectionStrategy,
+            final GreetEventListener greetEventListener
     ) {
         this.eventHandler = eventHandler;
         this.eventTracker = eventTracker;
@@ -47,6 +53,7 @@ class ConnectionManager implements EventSender {
         this.eventBuilder = eventBuilder;
         this.cloudEventsServiceStub = cloudEventsServiceStub;
         this.reconnectionStrategy = reconnectionStrategy;
+        this.greetEventListener = greetEventListener;
     }
 
     private CloudEvent createJoinEvent(
@@ -60,12 +67,7 @@ class ConnectionManager implements EventSender {
 
     @PostConstruct
     private void init() {
-        try {
-            initNewStreamObserver();
-        } catch (Exception e) {
-            log.error("Failed to connect", e);
-            requestReconnection();
-        }
+        initiateConnection();
     }
 
     @PreDestroy
@@ -77,28 +79,47 @@ class ConnectionManager implements EventSender {
         log.info("Stream observer stoped");
     }
 
-    private StreamObserver<CloudEvent> connect() throws InvalidProtocolBufferException {
+    private CompletableFuture<StreamObserver<CloudEvent>> connect() {
         connectionStateTracker.trackObserverStateChange(ObserverState.CONNECTING);
 
-        final var newObserver = cloudEventsServiceStub.startStreaming(
-                new CloudEventStreamObserver(
-                        eventHandler::handleEvent,
-                        e -> {
-                            log.error("Stream observer error:", e);
-                            requestReconnection();
-                        },
-                        () -> connectionStateTracker.trackObserverStateChange(ObserverState.DISCONNECTED)
-                )
-        );
+        final var joinEventId = UUID.randomUUID().toString();
+        final var greetPromise = new CompletableFuture<String>();
+        greetEventListener.registerPendingGreetEvent(joinEventId, greetPromise);
 
-        connectionStateTracker.trackObserverStateChange(ObserverState.JOINING);
+        try {
+            final var newObserver = cloudEventsServiceStub.startStreaming(
+                    new CloudEventStreamObserver(
+                            eventHandler::handleEvent,
+                            error -> {
+                                connectionStateTracker.trackObserverStateChange(ObserverState.ERROR);
+                                log.error("Stream observer error:", error);
+                                requestReconnection();
+                            },
+                            () -> {
+                                connectionStateTracker.trackObserverStateChange(ObserverState.DISCONNECTED);
+                                log.info("Stream observer disconnected");
+                                requestReconnection();
+                            }
+                    )
+            );
 
-        final var joinEvent = createJoinEvent(UUID.randomUUID().toString(), eventHandler.getSupportedTags());
-        sendEvent(newObserver, joinEvent);
+            connectionStateTracker.trackObserverStateChange(ObserverState.JOINING);
 
-        connectionStateTracker.trackObserverStateChange(ObserverState.AWAITS_GREET);
+            final var joinEvent = createJoinEvent(joinEventId, eventHandler.getSupportedTags());
+            sendEvent(newObserver, joinEvent);
 
-        return newObserver;
+            connectionStateTracker.trackObserverStateChange(ObserverState.AWAITS_GREET);
+
+            return greetPromise.thenApply(acceptedJoinEvent -> newObserver)
+                    .orTimeout(5, TimeUnit.SECONDS)
+                    .whenComplete((ignored, error) -> {
+                        if (error != null) {
+                            newObserver.onError(error);
+                        }
+                    });
+        } catch (InvalidProtocolBufferException e) {
+            return CompletableFuture.failedFuture(e);
+        }
     }
 
     @Override
@@ -116,16 +137,26 @@ class ConnectionManager implements EventSender {
     }
 
     private void requestReconnection() {
-        reconnectionStrategy.requestReconnection(() -> {
-            initNewStreamObserver();
-            return null;
-        });
+        reconnectionStrategy.requestReconnection(this::initiateConnection);
     }
 
-    private void initNewStreamObserver() throws InvalidProtocolBufferException {
-        if (streamObserver != null) {
-            streamObserver.onCompleted();
+    private void initiateConnection() {
+        if (isConnecting.getAndSet(true)) {
+            log.info("Already connecting. Request will be diskarted");
+            return;
         }
-        streamObserver = connect();
+
+        log.info("Attempting to establish a new stream...");
+        connect().whenComplete((newObserver, error) -> {
+            if (error == null && newObserver != null) {
+                streamObserver = newObserver;
+                reconnectionStrategy.reset();
+                log.info("Stream successfully established");
+            } else {
+                log.error("Stream establishing failed. Scheduling reconnect", error);
+                requestReconnection();
+            }
+            isConnecting.set(false);
+        });
     }
 }

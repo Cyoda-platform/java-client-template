@@ -28,7 +28,7 @@ public class CloudEventBuilder {
     }
 
     public CloudEvent buildEvent(final BaseEvent event) throws InvalidProtocolBufferException {
-        // TODO: Do we really need to build CloudEvent -> serialize -> parseFrom ???
+        // TODO: Do we really need to CloudEvent -> serialize -> parseFrom ???
         return CloudEvent.parseFrom(
                 eventFormat.serialize(
                         io.cloudevents.core.builder.CloudEventBuilder.v1()

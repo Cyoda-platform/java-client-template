@@ -18,6 +18,8 @@ import jakarta.annotation.PreDestroy;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.cyoda.cloud.api.grpc.CloudEventsServiceGrpc;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -30,6 +32,8 @@ import static com.java_template.common.config.Config.GRPC_SERVER_PORT;
 @Configuration
 public class GrpcClientAutoConfiguration {
 
+    private final Logger log = LoggerFactory.getLogger(this.getClass());
+
     private final ManagedChannel managedChannel;
 
     public GrpcClientAutoConfiguration(@Lazy final ManagedChannel managedChannel) {
@@ -41,7 +45,12 @@ public class GrpcClientAutoConfiguration {
             final ConnectionStateTracker connectionStateTracker,
             @Value("${connection.grpc.skip-ssl:false}") final boolean grpcSkipSsl
     ) {
-        final ManagedChannel channel = SslUtils.createGrpcChannelBuilder(GRPC_ADDRESS, GRPC_SERVER_PORT, grpcSkipSsl).build();
+        final ManagedChannel channel = SslUtils.createGrpcChannelBuilder(
+                GRPC_ADDRESS,
+                GRPC_SERVER_PORT,
+                grpcSkipSsl
+        ).build();
+
         final Supplier<ConnectivityState> currentStateProvider = () -> channel.getState(false);
 
         final Runnable initSubscription = () -> connectionStateTracker.trackConnectionStateChanged(
@@ -111,9 +120,11 @@ public class GrpcClientAutoConfiguration {
 
     @PreDestroy
     private void shutdown() throws InterruptedException {
+        log.info("Stopping managed channel...");
         if (managedChannel != null && !managedChannel.isShutdown() && !managedChannel.isTerminated()) {
             managedChannel.shutdown().awaitTermination(1, TimeUnit.SECONDS);
         }
+        log.info("Managed channel stoped");
     }
 
 }

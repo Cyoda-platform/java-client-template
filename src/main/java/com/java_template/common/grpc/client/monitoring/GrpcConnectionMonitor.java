@@ -29,7 +29,7 @@ import static com.java_template.common.config.Config.MONITORING_SCHEDULER_INITIA
 import static com.java_template.common.config.Config.SENT_EVENTS_CACHE_MAX_SIZE;
 
 @Component
-class GrpcConnectionMonitor implements EventTracker, ConnectionStateTracker {
+class GrpcConnectionMonitor implements EventTracker, ConnectionStateTracker, GrpcConnectionStateProvider {
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final AtomicLong lastKeepAliveTimestampMs = new AtomicLong(-1);
     private final AtomicReference<ConnectivityState> lastConnectionState = new AtomicReference<>(ConnectivityState.SHUTDOWN);
@@ -150,11 +150,12 @@ class GrpcConnectionMonitor implements EventTracker, ConnectionStateTracker {
     ) {
         final var newState = newStateProvider.get();
         initNextListener.accept(newState, () -> trackConnectionStateChanged(newStateProvider, initNextListener));
-        broadcastMonitoringEvent(new GrpcConnectionStateChangedEvent(newState));
 
         final var oldState = this.lastConnectionState.getAndSet(newState);
+        broadcastMonitoringEvent(new GrpcConnectionStateChangedEvent(oldState, newState));
+
         logger.info(
-                "gRPC connection state changed: {} -> {} (member status: {})",
+                "gRPC Managed Channel state changed: {} -> {} (stream observer state: {})",
                 oldState,
                 newState,
                 lastObserverState.get()
@@ -184,7 +185,7 @@ class GrpcConnectionMonitor implements EventTracker, ConnectionStateTracker {
         final var lastKeepAliveTimestampMs = this.lastKeepAliveTimestampMs.get();
         if (lastKeepAliveTimestampMs < 0) {
             logger.warn(
-                    "Keep alive not received yet (Connection state: {}; Member state: {})",
+                    "Keep alive not received yet (Managed Channel state: {}; Stream Observer state: {})",
                     lastConnectionState.get(),
                     lastObserverState.get()
             );
@@ -196,9 +197,11 @@ class GrpcConnectionMonitor implements EventTracker, ConnectionStateTracker {
 
         if (timeSinceLastKeepAlive > KEEP_ALIVE_WARNING_THRESHOLD) {
             logger.warn(
-                    "No Keep alive received within the {}ms threshold. Last successful was {}ms ago.",
+                    "No Keep alive received within the {}ms threshold. Last successful was {}ms ago. (Managed Channel state: {}; Stream Observer state: {})",
                     KEEP_ALIVE_WARNING_THRESHOLD,
-                    timeSinceLastKeepAlive
+                    timeSinceLastKeepAlive,
+                    lastConnectionState.get(),
+                    lastObserverState.get()
             );
         }
     }
@@ -207,12 +210,12 @@ class GrpcConnectionMonitor implements EventTracker, ConnectionStateTracker {
     public void trackObserverStateChange(final ObserverState newState) {
         final var oldState = lastObserverState.getAndSet(newState);
         logger.info(
-                "Observer state changes from {} to {} (connection state: {})",
+                "Stream Observer state changes: {} -> {} (managed channel state: {})",
                 oldState,
                 newState,
                 lastConnectionState.get()
         );
-        broadcastMonitoringEvent(new StreamObserverStateChangedEvent(newState));
+        broadcastMonitoringEvent(new StreamObserverStateChangedEvent(oldState, newState));
     }
 
     private void broadcastMonitoringEvent(final MonitoringEvent monitoringEvent) {
@@ -222,6 +225,11 @@ class GrpcConnectionMonitor implements EventTracker, ConnectionStateTracker {
         for (final var monitoringEventListener : monitoringEventListeners.get(monitoringEvent.getClass())) {
             monitoringEventListener.handle(monitoringEvent);
         }
+    }
+
+    @Override
+    public ConnectivityState getLastKnownState() {
+        return lastConnectionState.get();
     }
 }
 
