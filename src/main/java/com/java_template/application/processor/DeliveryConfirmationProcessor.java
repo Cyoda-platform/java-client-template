@@ -12,6 +12,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
+
 @Component
 public class DeliveryConfirmationProcessor implements CyodaProcessor {
 
@@ -56,8 +60,8 @@ public class DeliveryConfirmationProcessor implements CyodaProcessor {
         if ("IN_TRANSIT".equalsIgnoreCase(s.getStatus()) || "SHIPPED".equalsIgnoreCase(s.getStatus())) {
             s.setStatus("DELIVERED");
             try {
-                java.util.Map<String,Object> meta = s.getMetadata() == null || !(s.getMetadata() instanceof java.util.Map) ? new java.util.HashMap<>() : (java.util.Map<String,Object>) s.getMetadata();
-                meta.put("deliveredAt", java.time.Instant.now().toString());
+                Map<String,Object> meta = s.getMetadata() == null || !(s.getMetadata() instanceof Map) ? new HashMap<>() : (Map<String,Object>) s.getMetadata();
+                meta.put("deliveredAt", Instant.now().toString());
                 s.setMetadata(meta);
             } catch (Exception ignored) {}
             logger.info("Shipment {} marked DELIVERED", s.getShipmentId());
