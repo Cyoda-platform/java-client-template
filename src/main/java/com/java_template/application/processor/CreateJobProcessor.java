@@ -39,9 +39,9 @@ public class CreateJobProcessor implements CyodaProcessor {
         logger.info("Processing CreateJob for request: {}", request.getId());
 
         return serializer.withRequest(request)
-            .toEntity(ObjectNode.class)
+            .toEntity((Class) ObjectNode.class)
             .validate(this::isValidPayload, "Invalid create job payload")
-            .map(this::processEntityLogic)
+            .map(ctx -> processEntityLogic(ctx))
             .complete();
     }
 
@@ -54,8 +54,8 @@ public class CreateJobProcessor implements CyodaProcessor {
         return payload != null && payload.hasNonNull("type");
     }
 
-    private ObjectNode processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<ObjectNode> context) {
-        ObjectNode payload = context.entity();
+    private ObjectNode processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<?> context) {
+        ObjectNode payload = (ObjectNode) context.entity();
         try {
             Job job = new Job();
             job.setType(payload.get("type").asText());
