@@ -1,0 +1,59 @@
+package com.java_template.application.criterion;
+
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.java_template.application.entity.product.version_1.Product;
+import com.java_template.common.serializer.CriterionSerializer;
+import com.java_template.common.serializer.EvaluationOutcome;
+import com.java_template.common.serializer.ReasonAttachmentStrategy;
+import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.serializer.StandardEvalReasonCategories;
+import com.java_template.common.workflow.CyodaCriterion;
+import com.java_template.common.workflow.CyodaEventContext;
+import com.java_template.common.workflow.OperationSpecification;
+import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationRequest;
+import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+
+@Component
+public class LowStockCriterion implements CyodaCriterion {
+
+    private final Logger logger = LoggerFactory.getLogger(this.getClass());
+    private final CriterionSerializer serializer;
+    private final String className = this.getClass().getSimpleName();
+
+    public LowStockCriterion(SerializerFactory serializerFactory) {
+        this.serializer = serializerFactory.getDefaultCriteriaSerializer();
+    }
+
+    @Override
+    public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
+        EntityCriteriaCalculationRequest request = context.getEvent();
+        return serializer.withRequest(request)
+            .evaluateEntity(Product.class, this::validateEntity)
+            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+            .complete();
+    }
+
+    @Override
+    public boolean supports(OperationSpecification modelSpec) {
+        return className.equalsIgnoreCase(modelSpec.operationName());
+    }
+
+    private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Product> context) {
+        Product p = context.entity();
+        if (p == null) return EvaluationOutcome.success();
+        Integer qty = p.getQuantityAvailable();
+        if (qty == null) return EvaluationOutcome.success();
+        Integer threshold = p.getLowStockThreshold();
+        if (threshold == null) threshold = 5; // default threshold
+        if (qty <= 0) {
+            return EvaluationOutcome.fail("Product out of stock", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+        }
+        if (qty <= threshold) {
+            return EvaluationOutcome.fail("Product low stock", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        }
+        return EvaluationOutcome.success();
+    }
+}
