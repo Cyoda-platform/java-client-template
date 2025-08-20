@@ -37,9 +37,9 @@ public class StartJobProcessor implements CyodaProcessor {
         logger.info("Processing StartJob for request: {}", request.getId());
 
         return serializer.withRequest(request)
-            .toEntity(ObjectNode.class)
+            .toEntity((Class) ObjectNode.class)
             .validate(this::isValidPayload, "Invalid start job payload")
-            .map(this::processEntityLogic)
+            .map(ctx -> processEntityLogic(ctx))
             .complete();
     }
 
@@ -52,13 +52,13 @@ public class StartJobProcessor implements CyodaProcessor {
         return payload != null && payload.hasNonNull("jobId");
     }
 
-    private ObjectNode processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<ObjectNode> context) {
-        ObjectNode payload = context.entity();
+    private ObjectNode processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<?> context) {
+        ObjectNode payload = (ObjectNode) context.entity();
         try {
             UUID jobId = UUID.fromString(payload.get("jobId").asText());
             CompletableFuture<com.fasterxml.jackson.databind.node.ObjectNode> jobFuture = entityService.getItem(Job.ENTITY_NAME, String.valueOf(Job.ENTITY_VERSION), jobId);
             com.fasterxml.jackson.databind.node.ObjectNode jobNode = jobFuture.get();
-            Job job = context.serializer().convert(jobNode, Job.class);
+            Job job = serializer.convert(jobNode, Job.class);
             job.setStatus("RUNNING");
             job.setUpdatedAt(Instant.now());
             entityService.updateItem(Job.ENTITY_NAME, String.valueOf(Job.ENTITY_VERSION), jobId, job);
