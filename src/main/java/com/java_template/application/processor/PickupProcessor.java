@@ -12,6 +12,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
+
 @Component
 public class PickupProcessor implements CyodaProcessor {
 
@@ -55,8 +59,8 @@ public class PickupProcessor implements CyodaProcessor {
 
         s.setStatus("PICKED");
         try {
-            java.util.Map<String,Object> meta = s.getMetadata() == null || !(s.getMetadata() instanceof java.util.Map) ? new java.util.HashMap<>() : (java.util.Map<String,Object>) s.getMetadata();
-            meta.put("pickedAt", java.time.Instant.now().toString());
+            Map<String,Object> meta = s.getMetadata() == null || !(s.getMetadata() instanceof Map) ? new HashMap<>() : (Map<String,Object>) s.getMetadata();
+            meta.put("pickedAt", Instant.now().toString());
             s.setMetadata(meta);
         } catch (Exception ignored) {}
 
