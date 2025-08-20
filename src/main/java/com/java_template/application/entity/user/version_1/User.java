@@ -5,21 +5,17 @@ import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import lombok.Data;
 
-import java.time.Instant;
-
 @Data
 public class User implements CyodaEntity {
     public static final String ENTITY_NAME = "User";
     public static final Integer ENTITY_VERSION = 1;
-    // Add your entity fields here
 
+    // Add your entity fields here
     private String userId;
     private String name;
     private String email;
     private String phone;
-    private String status; // ANON, IDENTIFIED
-    private Instant createdAt;
-    private Instant updatedAt;
+    private String status; // ANON -> IDENTIFIED
 
     public User() {}
 
