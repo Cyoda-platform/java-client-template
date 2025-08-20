@@ -74,7 +74,7 @@ public class ReleaseReservationProcessor implements CyodaProcessor {
                 ArrayNode results = future.get();
                 if (results == null || results.size() == 0) continue;
                 ObjectNode pNode = (ObjectNode) results.get(0);
-                Product p = SerializerFactory.createDefault().getDefaultProcessorSerializer().toEntity(Product.class).read(pNode);
+                Product p = this.serializer.toEntity(Product.class).read(pNode);
                 Integer available = p.getQuantityAvailable() == null ? 0 : p.getQuantityAvailable();
                 // Product model currently lacks quantityReserved, so we only increment available back
                 p.setQuantityAvailable(available + line.getQty());
@@ -84,7 +84,7 @@ public class ReleaseReservationProcessor implements CyodaProcessor {
                     Product.ENTITY_NAME,
                     String.valueOf(Product.ENTITY_VERSION),
                     java.util.UUID.fromString(p.getSku()),
-                    SerializerFactory.createDefault().getDefaultProcessorSerializer().toObjectNode(p)
+                    this.serializer.toObjectNode(p)
                 );
                 update.get();
             }
