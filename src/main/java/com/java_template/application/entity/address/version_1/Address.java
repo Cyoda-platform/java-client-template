@@ -9,9 +9,10 @@ import lombok.Data;
 public class Address implements CyodaEntity {
     public static final String ENTITY_NAME = "Address";
     public static final Integer ENTITY_VERSION = 1;
+    // Add your entity fields here
 
-    private String addressId; // business id
-    private String userId; // owner serialized UUID reference
+    private String addressId;
+    private String userId;
     private String line1;
     private String line2;
     private String city;
@@ -37,11 +38,9 @@ public class Address implements CyodaEntity {
         if (userId == null || userId.isBlank()) return false;
         if (line1 == null || line1.isBlank()) return false;
         if (city == null || city.isBlank()) return false;
-        if (region == null || region.isBlank()) return false;
         if (postalCode == null || postalCode.isBlank()) return false;
         if (country == null || country.isBlank()) return false;
         if (type == null || type.isBlank()) return false;
-        if (primary == null) return false;
         return true;
     }
 }
