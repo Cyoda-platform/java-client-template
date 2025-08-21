@@ -1,5 +1,6 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.batchjob.version_1.BatchJob;
 import com.java_template.application.entity.monthlyreport.version_1.MonthlyReport;
@@ -61,11 +62,11 @@ public class DeliverReportProcessor implements CyodaProcessor {
             // Try to fetch an associated BatchJob to get adminEmails if present
             List<String> recipients = new ArrayList<>();
             try {
-                CompletableFuture<java.util.ArrayNode> listFuture = entityService.getItems(
+                CompletableFuture<ArrayNode> listFuture = entityService.getItems(
                     BatchJob.ENTITY_NAME,
                     String.valueOf(BatchJob.ENTITY_VERSION)
                 );
-                java.util.ArrayNode items = listFuture.join();
+                ArrayNode items = listFuture.join();
                 if (items != null && items.size() > 0) {
                     for (int i=0;i<items.size();i++) {
                         ObjectNode node = (ObjectNode) items.get(i);
@@ -90,14 +91,15 @@ public class DeliverReportProcessor implements CyodaProcessor {
             report.setStatus("PUBLISHED");
             if (report.getGeneratedAt() == null) report.setGeneratedAt(Instant.now().toString());
 
-            // Persist updated report via entity service update
+            // Persist updated report via entity service update (best-effort)
             try {
-                CompletableFuture<java.util.ArrayNode> reports = entityService.getItemsByCondition(
+                CompletableFuture<ArrayNode> reports = entityService.getItemsByCondition(
                     MonthlyReport.ENTITY_NAME,
                     String.valueOf(MonthlyReport.ENTITY_VERSION),
                     null,
                     true
                 );
+                // No further action required here; Cyoda will persist the triggering entity
             } catch (Exception ignored) {}
 
             logger.info("DeliverReportProcessor published report {} to {} recipients", report.getMonth(), recipients.size());
