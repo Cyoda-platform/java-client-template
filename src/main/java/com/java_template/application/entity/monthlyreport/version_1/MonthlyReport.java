@@ -4,15 +4,14 @@ import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import lombok.Data;
+
 import java.util.List;
 
 @Data
 public class MonthlyReport implements CyodaEntity {
     public static final String ENTITY_NAME = "MonthlyReport";
     public static final Integer ENTITY_VERSION = 1;
-    // Add your entity fields here
 
-    private String technicalId;
     private String month; // YYYY-MM, report month
     private String generatedAt; // ISO datetime
     private Integer totalUsers;
@@ -38,7 +37,8 @@ public class MonthlyReport implements CyodaEntity {
         if (month == null || month.isBlank()) return false;
         if (generatedAt == null || generatedAt.isBlank()) return false;
         if (totalUsers == null) return false;
-        if (deliveredTo == null) return false;
+        if (newUsers == null) return false;
+        if (changedUsers == null) return false;
         return true;
     }
 }
