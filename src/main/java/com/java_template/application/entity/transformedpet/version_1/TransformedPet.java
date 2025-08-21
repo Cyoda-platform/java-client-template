@@ -22,6 +22,11 @@ public class TransformedPet implements CyodaEntity {
     private String sourceMeta; // rawId + ingestedAt
     private String searchRequestId; // link (serialized UUID)
 
+    // Added fields to support processors/criteria
+    private String state; // e.g., TP_CREATED, VALIDATED, TP_FAILED, PUBLISHED, VIEWED, ARCHIVED
+    private String createdAt; // timestamp when transformed pet was created
+    private String technicalId; // serialized UUID for this entity
+
     public TransformedPet() {}
 
     @Override
