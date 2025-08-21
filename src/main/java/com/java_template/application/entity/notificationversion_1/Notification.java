@@ -15,9 +15,15 @@ public class Notification implements CyodaEntity {
     private String timerId; // links to EggTimer.id (serialized UUID)
     private String userId; // links to User.id (serialized UUID)
     private String notifyAt; // ISO timestamp
-    private String method; // alarm/sound/visual
+    private String method; // alarm/sound/visual/email
     private Boolean delivered;
     private Integer snoozeCount;
+
+    // Additional fields used by processors
+    private String state; // PENDING/DELIVERING/DELIVERED/FAILED/RESCHEDULED
+    private Integer deliveryAttempts;
+    private String lastAttemptAt; // ISO timestamp
+    private String technicalId; // persisted technical id as string
 
     public Notification() {}
 
@@ -38,6 +44,7 @@ public class Notification implements CyodaEntity {
         if (this.method == null || this.method.isBlank()) return false;
         if (this.delivered == null) return false;
         if (this.snoozeCount == null || this.snoozeCount < 0) return false;
+        // deliveryAttempts/lastAttemptAt/state/technicalId are optional for validity
         return true;
     }
 }
