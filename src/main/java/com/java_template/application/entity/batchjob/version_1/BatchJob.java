@@ -4,6 +4,7 @@ import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import lombok.Data;
+
 import java.util.List;
 
 @Data
@@ -12,7 +13,6 @@ public class BatchJob implements CyodaEntity {
     public static final Integer ENTITY_VERSION = 1;
     // Add your entity fields here
 
-    private String technicalId;
     private String jobName; // friendly name for the run
     private String scheduledFor; // ISO datetime when job should run
     private String timezone; // job timezone
@@ -36,7 +36,6 @@ public class BatchJob implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        // Validate required string fields using isBlank()
         if (jobName == null || jobName.isBlank()) return false;
         if (scheduledFor == null || scheduledFor.isBlank()) return false;
         if (timezone == null || timezone.isBlank()) return false;
