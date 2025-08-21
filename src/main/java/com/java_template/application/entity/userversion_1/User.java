@@ -20,6 +20,9 @@ public class User implements CyodaEntity {
     private String defaultEggSize; // e.g., small/medium/large
     private Boolean allowMultipleTimers;
 
+    // Additional fields
+    private String state; // ACTIVE/INACTIVE
+
     public User() {}
 
     @Override
