@@ -7,12 +7,12 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
 import org.cyoda.cloud.api.event.common.DataPayload;
+import org.cyoda.cloud.api.event.entity.EntityTransactionInfo;
 
 public interface EntityService {
 
@@ -20,14 +20,14 @@ public interface EntityService {
     CompletableFuture<DataPayload> getItem(@NotNull UUID entityId);
 
     // Retrieve an item based on a condition.
-    CompletableFuture<Optional<ObjectNode>> getFirstItemByCondition(
+    CompletableFuture<Optional<DataPayload>> getFirstItemByCondition(
             @NotNull String modelName,
             @NotNull Integer modelVersion,
             @NotNull Object condition
     );
 
     // Retrieve multiple items based on the entity model and version.
-    CompletableFuture<ArrayNode> getItems(
+    CompletableFuture<List<DataPayload>> getItems(
             @NotNull String modelName,
             @NotNull Integer modelVersion,
             @Nullable Integer pageSize,
@@ -36,7 +36,7 @@ public interface EntityService {
     );
 
     // Retrieve items based on a condition with option for in-memory search.
-    CompletableFuture<ArrayNode> getItemsByCondition(
+    CompletableFuture<List<DataPayload>> getItemsByCondition(
             @NotNull String modelName,
             @NotNull Integer modelVersion,
             @NotNull Object condition,
@@ -67,7 +67,7 @@ public interface EntityService {
 
     // Add a list of items to the repository and return the entities' IDs along with
     // the transaction ID.
-    <ENTITY_TYPE> CompletableFuture<ObjectNode> addItemsAndReturnTransactionInfo(
+    <ENTITY_TYPE> CompletableFuture<EntityTransactionInfo> addItemsAndReturnTransactionInfo(
             @NotNull String modelName,
             @NotNull Integer modelVersion,
             @NotNull Collection<ENTITY_TYPE> entities

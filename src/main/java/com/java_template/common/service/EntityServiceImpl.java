@@ -2,7 +2,6 @@ package com.java_template.common.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.repository.CrudRepository;
 import jakarta.annotation.Nullable;
@@ -49,7 +48,7 @@ public class EntityServiceImpl implements EntityService {
     }
 
     @Override
-    public CompletableFuture<ArrayNode> getItems(
+    public CompletableFuture<List<DataPayload>> getItems(
             @NotNull final String modelName,
             @NotNull final Integer modelVersion,
             @Nullable final Integer pageSize,
@@ -62,11 +61,11 @@ public class EntityServiceImpl implements EntityService {
                 pageSize != null ? pageSize : DEFAULT_PAGE_SIZE,
                 pageNumber != null ? pageNumber : FIRST_PAGE,
                 pointTime
-        ).thenApply(objectMapper::valueToTree);
+        );
     }
 
     @Override
-    public CompletableFuture<Optional<ObjectNode>> getFirstItemByCondition(
+    public CompletableFuture<Optional<DataPayload>> getFirstItemByCondition(
             @NotNull final String modelName,
             @NotNull final Integer modelVersion,
             @NotNull final Object condition
@@ -78,16 +77,11 @@ public class EntityServiceImpl implements EntityService {
                 1,
                 1,
                 false
-        ).thenApply(items -> {
-            if (items == null || items.isEmpty()) {
-                return Optional.empty();
-            }
-            return Optional.of(objectMapper.valueToTree(items.getFirst()));
-        });
+        ).thenApply(it -> it.stream().findFirst());
     }
 
     @Override
-    public CompletableFuture<ArrayNode> getItemsByCondition(
+    public CompletableFuture<List<DataPayload>> getItemsByCondition(
             @NotNull final String modelName,
             @NotNull final Integer modelVersion,
             @NotNull final Object condition,
@@ -100,11 +94,7 @@ public class EntityServiceImpl implements EntityService {
                 DEFAULT_PAGE_SIZE,
                 FIRST_PAGE,
                 inMemory
-        ).thenApply(items -> items.stream()
-                .filter(Objects::nonNull)
-                .map(DataPayload::getData)
-                .toList()
-        ).thenApply(objectMapper::valueToTree);
+        ).thenApply(items -> items.stream().filter(Objects::nonNull).toList());
     }
 
     @Override
@@ -137,27 +127,29 @@ public class EntityServiceImpl implements EntityService {
             @NotNull final Integer modelVersion,
             @NotNull final Collection<ENTITY_TYPE> entities
     ) {
-        return repository.saveAll(modelName, modelVersion, objectMapper.valueToTree(entities))
+        return repository.saveAll(modelName, modelVersion, entities)
                 .thenApply(EntityTransactionResponse::getTransactionInfo)
                 .thenApply(EntityTransactionInfo::getEntityIds);
     }
 
     @Override
-    public <ENTITY_TYPE> CompletableFuture<ObjectNode> addItemsAndReturnTransactionInfo(
+    public <ENTITY_TYPE> CompletableFuture<EntityTransactionInfo> addItemsAndReturnTransactionInfo(
             @NotNull final String modelName,
             @NotNull final Integer modelVersion,
             @NotNull final Collection<ENTITY_TYPE> entities
     ) {
         return repository.saveAll(
-                        modelName,
-                        modelVersion,
-                        objectMapper.valueToTree(entities)
-                ).thenApply(EntityTransactionResponse::getTransactionInfo)
-                .thenApply(objectMapper::valueToTree);
+                modelName,
+                modelVersion,
+                objectMapper.valueToTree(entities)
+        ).thenApply(EntityTransactionResponse::getTransactionInfo);
     }
 
     @Override
-    public <ENTITY_TYPE> CompletableFuture<UUID> updateItem(@NotNull final UUID entityId, @NotNull final ENTITY_TYPE entity) {
+    public <ENTITY_TYPE> CompletableFuture<UUID> updateItem(
+            @NotNull final UUID entityId,
+            @NotNull final ENTITY_TYPE entity
+    ) {
         return repository.update(entityId, objectMapper.valueToTree(entity), UPDATE_TRANSITION)
                 .thenApply(EntityTransactionResponse::getTransactionInfo)
                 .thenApply(EntityTransactionInfo::getEntityIds)
