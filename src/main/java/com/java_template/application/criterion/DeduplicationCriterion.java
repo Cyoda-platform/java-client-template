@@ -1,5 +1,6 @@
 package com.java_template.application.criterion;
 
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.userrecord.version_1.UserRecord;
 import com.java_template.common.serializer.CriterionSerializer;
@@ -54,26 +55,28 @@ public class DeduplicationCriterion implements CyodaCriterion {
         try {
             // Check by externalId
             if (user.getExternalId() != null) {
-                CompletableFuture<java.util.ArrayNode> fut = entityService.getItemsByCondition(
+                CompletableFuture<ArrayNode> fut = entityService.getItemsByCondition(
                     UserRecord.ENTITY_NAME,
                     String.valueOf(UserRecord.ENTITY_VERSION),
                     SearchConditionRequest.group("AND", Condition.of("$.externalId", "EQUALS", String.valueOf(user.getExternalId()))),
                     true
                 );
-                if (fut.join() != null && fut.join().size() > 0) {
+                ArrayNode arr = fut.join();
+                if (arr != null && arr.size() > 0) {
                     return EvaluationOutcome.success();
                 }
             }
 
             // Check by email
             if (user.getEmail() != null) {
-                CompletableFuture<java.util.ArrayNode> fut = entityService.getItemsByCondition(
+                CompletableFuture<ArrayNode> fut = entityService.getItemsByCondition(
                     UserRecord.ENTITY_NAME,
                     String.valueOf(UserRecord.ENTITY_VERSION),
                     SearchConditionRequest.group("AND", Condition.of("$.email", "IEQUALS", user.getEmail())),
                     true
                 );
-                if (fut.join() != null && fut.join().size() > 0) {
+                ArrayNode arr = fut.join();
+                if (arr != null && arr.size() > 0) {
                     return EvaluationOutcome.success();
                 }
             }
