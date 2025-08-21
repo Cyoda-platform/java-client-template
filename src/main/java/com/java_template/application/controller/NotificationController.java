@@ -94,7 +94,7 @@ public class NotificationController {
             CompletableFuture<java.util.UUID> fut = entityService.updateItem(
                     Notification.ENTITY_NAME,
                     String.valueOf(Notification.ENTITY_VERSION),
-                    technicalId,
+                    UUID.fromString(technicalId),
                     node
             );
             UUID updated = fut.get();
@@ -140,7 +140,7 @@ public class NotificationController {
             CompletableFuture<java.util.UUID> fut = entityService.updateItem(
                     Notification.ENTITY_NAME,
                     String.valueOf(Notification.ENTITY_VERSION),
-                    technicalId,
+                    UUID.fromString(technicalId),
                     node
             );
             UUID updated = fut.get();
