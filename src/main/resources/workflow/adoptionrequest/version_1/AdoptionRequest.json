@@ -1,0 +1,107 @@
+{
+  "version": "1.0",
+  "name": "AdoptionRequest Workflow",
+  "desc": "Workflow for AdoptionRequest entity",
+  "initialState": "SUBMITTED",
+  "active": true,
+  "states": {
+    "SUBMITTED": {
+      "transitions": [
+        {
+          "name": "submitted_to_screening",
+          "next": "SCREENING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ScreeningProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SCREENING": {
+      "transitions": [
+        {
+          "name": "screening_to_under_review",
+          "next": "UNDER_REVIEW",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ScreeningCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "screening_to_rejected",
+          "next": "REJECTED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ScreeningCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "UNDER_REVIEW": {
+      "transitions": [
+        {
+          "name": "under_review_to_approved",
+          "next": "APPROVED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ManualApproveProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "under_review_to_rejected",
+          "next": "REJECTED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ManualRejectProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "APPROVED": {
+      "transitions": [
+        {
+          "name": "approved_to_completed",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AdoptionFinalizeProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "REJECTED": { "transitions": [] },
+    "COMPLETED": { "transitions": [] }
+  }
+}
