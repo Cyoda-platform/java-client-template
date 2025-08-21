@@ -1,0 +1,57 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "age": 2,
+                    "breed": "Tabby",
+                    "id": "p123",
+                    "importedAt": "2025-08-20T14:32:00Z",
+                    "name": "Mittens",
+                    "photos": [
+                        "https://example.com/photos/p123-1.jpg",
+                        "https://example.com/photos/p123-2.jpg"
+                    ],
+                    "source": "petstore",
+                    "species": "cat",
+                    "status": "AVAILABLE",
+                    "tags": [
+                        "friendly",
+                        "indoor"
+                    ]
+                }
+            }
+        },
+        {
+            "AdoptionRequest": {
+                "entity_data_example": {
+                    "+phone": "+15551234567",
+                    "adminNotes": "",
+                    "applicantContact": "alex.johnson@example.com",
+                    "applicantName": "Alex Johnson",
+                    "message": "I have a quiet home and lots of time for a cat.",
+                    "petId": "p123",
+                    "status": "CREATED",
+                    "submittedAt": "2025-08-20T15:00:00Z"
+                }
+            }
+        },
+        {
+            "PetImportJob": {
+                "entity_data_example": {
+                    "filter": "cats",
+                    "finishedAt": "2025-08-20T14:30:00Z",
+                    "requestedBy": "admin",
+                    "resultSummary": {
+                        "failed": 2,
+                        "imported": 10,
+                        "skipped": 1
+                    },
+                    "sourceUrl": "https://petstore/api/pets",
+                    "startedAt": "2025-08-20T13:00:00Z",
+                    "status": "COMPLETED"
+                }
+            }
+        }
+    ]
+}
