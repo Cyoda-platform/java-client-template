@@ -1,0 +1,123 @@
+{
+  "version": "1.0",
+  "name": "Order Workflow",
+  "desc": "Workflow for Order entity according to the functional requirements",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "to_verify_payment",
+          "next": "VERIFY_PAYMENT",
+          "manual": false,
+          "processors": [
+            {
+              "name": "VerifyPaymentProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VERIFY_PAYMENT": {
+      "transitions": [
+        {
+          "name": "to_payment_failed_if_unpaid",
+          "next": "PAYMENT_FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PaymentFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "to_reserve_pet_if_paid",
+          "next": "RESERVE_PET",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PaymentApprovedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "RESERVE_PET": {
+      "transitions": [
+        {
+          "name": "to_approved",
+          "next": "APPROVED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ReservePetProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "APPROVED": {
+      "transitions": [
+        {
+          "name": "to_fulfillment",
+          "next": "FULFILLMENT",
+          "manual": false,
+          "processors": [
+            {
+              "name": "StartFulfillmentProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "admin_cancel",
+          "next": "CANCELLED",
+          "manual": true
+        }
+      ]
+    },
+    "FULFILLMENT": {
+      "transitions": [
+        {
+          "name": "complete_order",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CompleteOrderProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PAYMENT_FAILED": {
+      "transitions": []
+    },
+    "COMPLETED": {
+      "transitions": []
+    },
+    "CANCELLED": {
+      "transitions": []
+    }
+  }
+}
