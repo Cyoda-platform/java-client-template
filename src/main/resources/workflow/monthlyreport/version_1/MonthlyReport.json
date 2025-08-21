@@ -1,0 +1,66 @@
+{
+  "version": "1.0",
+  "name": "MonthlyReport Workflow",
+  "desc": "Workflow for MonthlyReport generation and delivery",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "generate_metrics",
+          "next": "GENERATING",
+          "manual": false,
+          "processors": [
+            { "name": "GenerateMetricsProcessor", "config": { "calculationNodesTags": "cyoda_application" } }
+          ]
+        }
+      ]
+    },
+    "GENERATING": {
+      "transitions": [
+        {
+          "name": "is_complete",
+          "next": "READY",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": { "name": "IsReportCompleteCriterion", "config": { "calculationNodesTags": "cyoda_application" } }
+          }
+        }
+      ]
+    },
+    "READY": {
+      "transitions": [
+        {
+          "name": "create_attachment",
+          "next": "PUBLISHING",
+          "manual": false,
+          "processors": [ { "name": "CreateAttachmentProcessor", "config": { "calculationNodesTags": "cyoda_application" } } ]
+        }
+      ]
+    },
+    "PUBLISHING": {
+      "transitions": [
+        {
+          "name": "deliver_success",
+          "next": "PUBLISHED",
+          "manual": false,
+          "processors": [ { "name": "DeliverReportProcessor", "config": { "calculationNodesTags": "cyoda_application" } } ]
+        },
+        {
+          "name": "deliver_failure",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": { "name": "DeliveryFailureCriterion", "config": { "calculationNodesTags": "cyoda_application" } }
+          }
+        }
+      ]
+    },
+    "PUBLISHED": { "transitions": [ { "name": "archive_report", "next": "ARCHIVED", "manual": false, "processors": [ { "name": "ArchiveReportProcessor", "config": { "calculationNodesTags": "cyoda_application" } } ] } ] },
+    "FAILED": { "transitions": [] },
+    "ARCHIVED": { "transitions": [] }
+  }
+}
