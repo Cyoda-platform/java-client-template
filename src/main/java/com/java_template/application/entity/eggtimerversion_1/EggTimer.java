@@ -4,6 +4,7 @@ import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import lombok.Data;
+import com.fasterxml.jackson.databind.JsonNode;
 
 @Data
 public class EggTimer implements CyodaEntity {
@@ -20,6 +21,11 @@ public class EggTimer implements CyodaEntity {
     private String startAt; // ISO timestamp when timer should start
     private String state; // created/scheduled/running/paused/completed/cancelled
     private String createdAt; // ISO timestamp
+
+    // Added fields used by processors/criteria
+    private String scheduledStartAt; // when scheduled to start (ISO)
+    private String expectedEndAt; // when timer expected to end (ISO)
+    private JsonNode metadata; // arbitrary metadata provided by client
 
     public EggTimer() {}
 
