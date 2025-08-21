@@ -21,6 +21,7 @@ public class MonthlyReport implements CyodaEntity {
     private String status; // GENERATING, READY, PUBLISHING, PUBLISHED, FAILED
     private List<String> deliveredTo;
     private String deliveryStatus; // SENT, FAILED
+    private String errorMessage; // last error
 
     public MonthlyReport() {}
 
