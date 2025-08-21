@@ -1,0 +1,61 @@
+{
+  "version": "1.0",
+  "name": "UserRecord Workflow",
+  "desc": "Workflow for UserRecord processing",
+  "initialState": "INGESTED",
+  "active": true,
+  "states": {
+    "INGESTED": {
+      "transitions": [
+        {
+          "name": "transform_user",
+          "next": "TRANSFORMED",
+          "manual": false,
+          "processors": [
+            { "name": "TransformUserProcessor", "config": { "calculationNodesTags": "cyoda_application" } }
+          ]
+        }
+      ]
+    },
+    "TRANSFORMED": {
+      "transitions": [
+        {
+          "name": "validate_user",
+          "next": "VERIFIED",
+          "manual": false,
+          "processors": [
+            { "name": "ValidateUserProcessor", "config": { "calculationNodesTags": "cyoda_application" } }
+          ]
+        }
+      ]
+    },
+    "VERIFIED": {
+      "transitions": [
+        {
+          "name": "persist_user",
+          "next": "STORED",
+          "manual": false,
+          "processors": [
+            { "name": "PersistUserProcessor", "config": { "calculationNodesTags": "cyoda_application" } }
+          ]
+        },
+        {
+          "name": "detect_duplicate",
+          "next": "DUPLICATE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": { "name": "DeduplicationCriterion", "config": { "calculationNodesTags": "cyoda_application" } }
+          }
+        }
+      ]
+    },
+    "DUPLICATE": {
+      "transitions": [
+        { "name": "merge_user", "next": "STORED", "manual": false, "processors": [ { "name": "MergeProcessor", "config": { "calculationNodesTags": "cyoda_application" } } ] }
+      ]
+    },
+    "STORED": { "transitions": [ { "name": "archive_user", "next": "ARCHIVED", "manual": false, "criterion": { "type": "function", "function": { "name": "ArchiveCriterion", "config": { "calculationNodesTags": "cyoda_application" } } } } ] },
+    "ARCHIVED": { "transitions": [] }
+  }
+}
