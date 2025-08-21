@@ -1,0 +1,110 @@
+{
+  "version": "1.0",
+  "name": "AdoptionOrder Workflow",
+  "desc": "Workflow for AdoptionOrder entity",
+  "initialState": "REQUESTED",
+  "active": true,
+  "states": {
+    "REQUESTED": {
+      "transitions": [
+        {
+          "name": "notify_staff",
+          "next": "UNDER_REVIEW",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotifyStaffProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "UNDER_REVIEW": {
+      "transitions": [
+        {
+          "name": "approve_by_staff",
+          "next": "APPROVED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "StaffApproveProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "reject_by_staff",
+          "next": "REJECTED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "StaffRejectProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "APPROVED": {
+      "transitions": [
+        {
+          "name": "finalize_adoption",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FinalizeAdoptionProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": [
+        {
+          "name": "close_order",
+          "next": "CLOSED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CloseOrderProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "REJECTED": {
+      "transitions": [
+        {
+          "name": "close_order",
+          "next": "CLOSED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CloseOrderProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "CLOSED": {
+      "transitions": []
+    }
+  }
+}
