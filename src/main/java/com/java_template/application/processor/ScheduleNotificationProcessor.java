@@ -3,6 +3,7 @@ package com.java_template.application.processor;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.eggtimer.version_1.EggTimer;
 import com.java_template.application.entity.notification.version_1.Notification;
+import com.java_template.application.entity.user.version_1.User;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
@@ -70,16 +71,17 @@ public class ScheduleNotificationProcessor implements CyodaProcessor {
                 Condition.of("$.notifyAt", "EQUALS", notifyAt)
             );
 
-            CompletableFuture<ObjectNode> itemsFuture = entityService.getItemsByCondition(
+            CompletableFuture<com.fasterxml.jackson.databind.node.ArrayNode> itemsFuture = entityService.getItemsByCondition(
                 Notification.ENTITY_NAME,
                 String.valueOf(Notification.ENTITY_VERSION),
                 condition,
                 true
             );
 
-            ObjectNode found = null;
+            com.fasterxml.jackson.databind.node.ObjectNode found = null;
             try {
-                found = itemsFuture.get().size() > 0 ? (ObjectNode) itemsFuture.get().get(0) : null;
+                com.fasterxml.jackson.databind.node.ArrayNode arr = itemsFuture.get();
+                found = (arr != null && arr.size() > 0) ? (ObjectNode) arr.get(0) : null;
             } catch (Exception ex) {
                 logger.warn("Error checking existing notifications for timer {}: {}", timer.getId(), ex.getMessage());
             }
@@ -89,7 +91,35 @@ public class ScheduleNotificationProcessor implements CyodaProcessor {
                 notif.setTimerId(timer.getId());
                 notif.setUserId(timer.getOwnerUserId());
                 notif.setNotifyAt(notifyAt);
-                notif.setMethod(timer.getMetadata() != null && timer.getMetadata().has("preferredMethod") ? timer.getMetadata().get("preferredMethod").asText() : "alarm");
+
+                // determine method: prefer metadata.preferredMethod -> user's defaultNotificationMethod -> fallback to alarm
+                String method = "alarm";
+                try {
+                    if (timer.getMetadata() != null && timer.getMetadata().has("preferredMethod")) {
+                        method = timer.getMetadata().get("preferredMethod").asText();
+                    } else if (timer.getOwnerUserId() != null) {
+                        SearchConditionRequest userCond = SearchConditionRequest.group("AND",
+                            Condition.of("$.id", "EQUALS", timer.getOwnerUserId())
+                        );
+                        CompletableFuture<com.fasterxml.jackson.databind.node.ArrayNode> userFuture = entityService.getItemsByCondition(
+                            User.ENTITY_NAME,
+                            String.valueOf(User.ENTITY_VERSION),
+                            userCond,
+                            true
+                        );
+                        com.fasterxml.jackson.databind.node.ArrayNode users = userFuture.get();
+                        if (users != null && users.size() > 0) {
+                            com.fasterxml.jackson.databind.JsonNode u = users.get(0);
+                            if (u.has("defaultNotificationMethod")) {
+                                method = u.get("defaultNotificationMethod").asText("alarm");
+                            }
+                        }
+                    }
+                } catch (Exception ex) {
+                    logger.warn("Failed to resolve notification method for timer {}: {}", timer.getId(), ex.getMessage());
+                }
+
+                notif.setMethod(method);
                 notif.setDelivered(false);
                 notif.setDeliveryAttempts(0);
                 notif.setSnoozeCount(0);
@@ -102,7 +132,7 @@ public class ScheduleNotificationProcessor implements CyodaProcessor {
                         notif
                     );
                     future.get();
-                    logger.info("Created notification for timer {} at {}", timer.getId(), notifyAt);
+                    logger.info("Created notification for timer {} at {} via method={}", timer.getId(), notifyAt, method);
                 } catch (Exception ex) {
                     logger.error("Failed to create notification for timer {}: {}", timer.getId(), ex.getMessage(), ex);
                 }
