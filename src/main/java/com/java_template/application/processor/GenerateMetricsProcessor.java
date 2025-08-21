@@ -57,6 +57,7 @@ public class GenerateMetricsProcessor implements CyodaProcessor {
         } catch (Exception ex) {
             logger.error("Unexpected error during GenerateMetricsProcessor", ex);
             report.setStatus("FAILED");
+            // MonthlyReport now contains errorMessage field, set it
             report.setErrorMessage("Metrics generation failed: " + ex.getMessage());
             return report;
         }
