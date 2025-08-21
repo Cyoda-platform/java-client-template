@@ -1,0 +1,121 @@
+{
+  "version": "1.0",
+  "name": "Owner Workflow",
+  "desc": "Workflow for Owner entity",
+  "initialState": "REGISTERED",
+  "active": true,
+  "states": {
+    "REGISTERED": {
+      "transitions": [
+        {
+          "name": "to_verification_pending",
+          "next": "VERIFICATION_PENDING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendVerificationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VERIFICATION_PENDING": {
+      "transitions": [
+        {
+          "name": "to_verified_if_contact_confirmed",
+          "next": "VERIFIED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "OwnerContactVerifiedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "to_suspended_if_unverified_long",
+          "next": "SUSPENDED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "OwnerVerificationTimeoutCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "VERIFIED": {
+      "transitions": [
+        {
+          "name": "to_eligibility_check",
+          "next": "ELIGIBILITY_CHECK",
+          "manual": false,
+          "processors": [
+            {
+              "name": "OwnerEligibilityProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ELIGIBILITY_CHECK": {
+      "transitions": [
+        {
+          "name": "to_active_if_eligible",
+          "next": "ACTIVE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "OwnerEligibleCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "to_suspended_if_flagged",
+          "next": "SUSPENDED",
+          "manual": true
+        }
+      ]
+    },
+    "SUSPENDED": {
+      "transitions": [
+        {
+          "name": "to_deleted",
+          "next": "DELETED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "DeleteOwnerProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": []
+    },
+    "DELETED": {
+      "transitions": []
+    }
+  }
+}
