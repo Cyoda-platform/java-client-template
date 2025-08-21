@@ -1,0 +1,140 @@
+{
+  "version": "1.0",
+  "name": "Pet Workflow",
+  "desc": "Workflow for Pet entity",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "to_validating",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidatePetProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "to_tagging_if_valid",
+          "next": "TAGGING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PetHasRequiredFieldsCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "to_validation_failed_if_invalid",
+          "next": "VALIDATION_FAILED",
+          "manual": false
+        }
+      ]
+    },
+    "TAGGING": {
+      "transitions": [
+        {
+          "name": "to_available",
+          "next": "AVAILABLE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AssignTagsProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "AVAILABLE": {
+      "transitions": [
+        {
+          "name": "to_reserved",
+          "next": "RESERVED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ReservePetProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "RESERVED": {
+      "transitions": [
+        {
+          "name": "to_under_review",
+          "next": "UNDER_REVIEW",
+          "manual": true,
+          "processors": [
+            {
+              "name": "NotifyShelterProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "UNDER_REVIEW": {
+      "transitions": [
+        {
+          "name": "approve_adoption",
+          "next": "ADOPTED",
+          "manual": true
+        },
+        {
+          "name": "reject_reservation",
+          "next": "REJECTED",
+          "manual": true
+        }
+      ]
+    },
+    "ADOPTED": {
+      "transitions": [
+        {
+          "name": "archive_pet",
+          "next": "REMOVED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ArchivePetProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATION_FAILED": {
+      "transitions": []
+    },
+    "REJECTED": {
+      "transitions": []
+    },
+    "REMOVED": {
+      "transitions": []
+    }
+  }
+}
