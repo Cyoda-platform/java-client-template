@@ -1,0 +1,142 @@
+{
+  "version": "1.0",
+  "name": "SearchRequest Workflow",
+  "desc": "Workflow for SearchRequest orchestration entity",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "validate_search",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateSearchProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "user_cancel",
+          "next": "CANCELED",
+          "manual": true
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "to_ingesting_if_valid",
+          "next": "INGESTING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IngestionCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "criterion": {
+                "type": "simple",
+                "jsonPath": "$.valid",
+                "operation": "EQUALS",
+                "value": true
+              }
+            }
+          }
+        }
+      ]
+    },
+    "INGESTING": {
+      "transitions": [
+        {
+          "name": "ingest_pets",
+          "next": "TRANSFORMING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "IngestPetsProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "TRANSFORMING": {
+      "transitions": [
+        {
+          "name": "to_results_ready_if_some",
+          "next": "RESULTS_READY",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "TransformationCompleteCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "criterion": {
+                "type": "simple",
+                "jsonPath": "$.transformedCount",
+                "operation": "GREATER_THAN",
+                "value": 0
+              }
+            }
+          }
+        },
+        {
+          "name": "to_no_results_if_none",
+          "next": "NO_RESULTS",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "TransformationCompleteCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "criterion": {
+                "type": "simple",
+                "jsonPath": "$.transformedCount",
+                "operation": "EQUALS",
+                "value": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    "NO_RESULTS": {
+      "transitions": [
+        {
+          "name": "notify_if_no_results",
+          "next": "NOTIFIED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotifyIfNoResultsProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "RESULTS_READY": {
+      "transitions": []
+    },
+    "NOTIFIED": {
+      "transitions": []
+    },
+    "CANCELED": {
+      "transitions": []
+    }
+  }
+}
