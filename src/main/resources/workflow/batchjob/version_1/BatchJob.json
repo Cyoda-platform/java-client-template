@@ -1,0 +1,114 @@
+{
+  "version": "1.0",
+  "name": "BatchJob Workflow",
+  "desc": "Workflow for BatchJob orchestration entity",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "validate_parameters",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateJobParametersProcessor",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "is_scheduled",
+          "next": "SCHEDULED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsScheduledCriterion",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          }
+        },
+        {
+          "name": "start_immediately",
+          "next": "IN_PROGRESS",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "StartImmediatelyCriterion",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          }
+        }
+      ]
+    },
+    "SCHEDULED": {
+      "transitions": [
+        {
+          "name": "schedule_job",
+          "next": "IN_PROGRESS",
+          "manual": false,
+          "processors": [
+            { "name": "ScheduleJobProcessor", "config": { "calculationNodesTags": "cyoda_application" } }
+          ]
+        }
+      ]
+    },
+    "IN_PROGRESS": {
+      "transitions": [
+        {
+          "name": "start_ingestion",
+          "next": "COLLECTING_RESULTS",
+          "manual": false,
+          "processors": [
+            { "name": "StartIngestionProcessor", "config": { "calculationNodesTags": "cyoda_application" } }
+          ]
+        }
+      ]
+    },
+    "COLLECTING_RESULTS": {
+      "transitions": [
+        {
+          "name": "aggregate_success",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            { "name": "AggregateResultsProcessor", "config": { "calculationNodesTags": "cyoda_application" } }
+          ]
+        },
+        {
+          "name": "aggregate_failure",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IfErrorsCriterion",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          }
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": [
+        {
+          "name": "publish_report",
+          "next": "NOTIFIED",
+          "manual": false,
+          "processors": [
+            { "name": "PublishReportProcessor", "config": { "calculationNodesTags": "cyoda_application" } }
+          ]
+        }
+      ]
+    },
+    "NOTIFIED": { "transitions": [] },
+    "FAILED": { "transitions": [] }
+  }
+}
