@@ -5,6 +5,8 @@ import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import lombok.Data;
 import java.util.Objects;
+import java.util.List;
+import java.util.Map;
 
 @Data
 public class SearchRequest implements CyodaEntity {
@@ -21,6 +23,15 @@ public class SearchRequest implements CyodaEntity {
     private String userId; // requester
     private Boolean notifyOnNoResults; // save/search alert
     private String createdAt; // timestamp
+
+    // Added fields used by processors/criteria
+    private String state; // e.g., VALIDATED, INGESTING, TRANSFORMING, RESULTS_READY, NO_RESULTS
+    private String technicalId; // serialized UUID for this entity
+    private List<String> validationErrors;
+    private Map<String, Object> resultSummary;
+    private Boolean ingestionStarted;
+    private Integer transformedCount;
+    private Boolean valid; // used by IngestionCriterion
 
     public SearchRequest() {}
 
