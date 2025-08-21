@@ -1,0 +1,78 @@
+{
+  "version": "1.0",
+  "name": "Notification Workflow",
+  "desc": "Workflow for Notification entity based on functional requirements",
+  "initialState": "pending",
+  "active": true,
+  "states": {
+    "pending": {
+      "transitions": [
+        {
+          "name": "attempt_delivery",
+          "next": "delivering",
+          "manual": false,
+          "processors": [
+            {
+              "name": "DeliverNotificationProcessor",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        }
+      ]
+    },
+    "delivering": {
+      "transitions": [
+        {
+          "name": "on_success",
+          "next": "delivered",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DeliverySuccessCriterion",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          }
+        },
+        {
+          "name": "on_failure",
+          "next": "failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DeliveryFailureCriterion",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          }
+        },
+        {
+          "name": "snooze",
+          "next": "rescheduled",
+          "manual": true
+        }
+      ]
+    },
+    "delivered": {
+      "transitions": []
+    },
+    "rescheduled": {
+      "transitions": [
+        {
+          "name": "reschedule_to_pending",
+          "next": "pending",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RescheduleProcessor",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        }
+      ]
+    },
+    "failed": {
+      "transitions": []
+    }
+  }
+}
