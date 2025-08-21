@@ -1,0 +1,105 @@
+{
+  "version": "1.0",
+  "name": "AdoptionRequest Workflow",
+  "desc": "Workflow for AdoptionRequest entity",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "to_under_review",
+          "next": "UNDER_REVIEW",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateApplicantProcessor",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        }
+      ]
+    },
+    "UNDER_REVIEW": {
+      "transitions": [
+        {
+          "name": "start_background_check",
+          "next": "BACKGROUND_CHECK",
+          "manual": false,
+          "processors": [
+            {
+              "name": "StartBackgroundCheckProcessor",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        },
+        {
+          "name": "reject_request",
+          "next": "REJECTED",
+          "manual": true
+        }
+      ]
+    },
+    "BACKGROUND_CHECK": {
+      "transitions": [
+        {
+          "name": "background_to_approved",
+          "next": "APPROVED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsEligibleCriterion",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          }
+        },
+        {
+          "name": "background_to_rejected",
+          "next": "REJECTED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsNotEligibleCriterion",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          }
+        }
+      ]
+    },
+    "APPROVED": {
+      "transitions": [
+        {
+          "name": "request_payment",
+          "next": "PAYMENT_PENDING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RequestPaymentProcessor",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        }
+      ]
+    },
+    "PAYMENT_PENDING": {
+      "transitions": [
+        {
+          "name": "payment_completed",
+          "next": "COMPLETED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PaymentCompletedCriterion",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          }
+        }
+      ]
+    },
+    "COMPLETED": { "transitions": [] },
+    "REJECTED": { "transitions": [] }
+  }
+}
