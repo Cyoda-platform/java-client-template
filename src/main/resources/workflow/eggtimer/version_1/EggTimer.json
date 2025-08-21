@@ -1,0 +1,111 @@
+{
+  "version": "1.0",
+  "name": "EggTimer Workflow",
+  "desc": "Workflow for EggTimer entity based on functional requirements",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": [
+        {
+          "name": "validate_and_schedule",
+          "next": "scheduled",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateDurationProcessor",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            },
+            {
+              "name": "ScheduleNotificationProcessor",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        }
+      ]
+    },
+    "scheduled": {
+      "transitions": [
+        {
+          "name": "start_if_due",
+          "next": "running",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "StartTimerCriterion",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          }
+        }
+      ]
+    },
+    "running": {
+      "transitions": [
+        {
+          "name": "complete_if_elapsed",
+          "next": "completed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "TimerCompleteCriterion",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          },
+          "processors": [
+            {
+              "name": "TimerCompleteProcessor",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        },
+        {
+          "name": "pause_timer",
+          "next": "paused",
+          "manual": true
+        },
+        {
+          "name": "cancel_timer",
+          "next": "cancelled",
+          "manual": true
+        }
+      ]
+    },
+    "paused": {
+      "transitions": [
+        {
+          "name": "resume_timer",
+          "next": "running",
+          "manual": true
+        },
+        {
+          "name": "cancel_from_paused",
+          "next": "cancelled",
+          "manual": true
+        }
+      ]
+    },
+    "completed": {
+      "transitions": [
+        {
+          "name": "deliver_notification",
+          "next": "notified",
+          "manual": false,
+          "processors": [
+            {
+              "name": "DeliverNotificationProcessor",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        }
+      ]
+    },
+    "notified": {
+      "transitions": []
+    },
+    "cancelled": {
+      "transitions": []
+    }
+  }
+}
