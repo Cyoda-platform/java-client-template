@@ -1,0 +1,85 @@
+{
+  "version": "1.0",
+  "name": "TransformedPet Workflow",
+  "desc": "Workflow for TransformedPet entity",
+  "initialState": "TP_CREATED",
+  "active": true,
+  "states": {
+    "TP_CREATED": {
+      "transitions": [
+        {
+          "name": "validate_transformed",
+          "next": "VALIDATED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateTransformedProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATED": {
+      "transitions": [
+        {
+          "name": "publish_to_ui",
+          "next": "PUBLISHED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PublishToUIProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PUBLISHED": {
+      "transitions": [
+        {
+          "name": "archive_after_ttl",
+          "next": "ARCHIVED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ArchiveAfterTTLProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "user_view",
+          "next": "VIEWED",
+          "manual": true
+        }
+      ]
+    },
+    "VIEWED": {
+      "transitions": [
+        {
+          "name": "archive_viewed",
+          "next": "ARCHIVED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ArchiveAfterTTLProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ARCHIVED": {
+      "transitions": []
+    }
+  }
+}
