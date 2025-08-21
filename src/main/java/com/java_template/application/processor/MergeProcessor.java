@@ -1,6 +1,7 @@
 package com.java_template.application.processor;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.userrecord.version_1.UserRecord;
 import com.java_template.common.serializer.ProcessorSerializer;
@@ -62,23 +63,23 @@ public class MergeProcessor implements CyodaProcessor {
             // Find existing by externalId or email
             ObjectNode existing = null;
             if (user.getExternalId() != null) {
-                CompletableFuture<ObjectNode> future = entityService.getItemsByCondition(
+                CompletableFuture<ArrayNode> future = entityService.getItemsByCondition(
                     UserRecord.ENTITY_NAME,
                     String.valueOf(UserRecord.ENTITY_VERSION),
                     SearchConditionRequest.group("AND", Condition.of("$.externalId", "EQUALS", String.valueOf(user.getExternalId()))),
                     true
                 );
-                try { existing = (ObjectNode) future.join().get(0); } catch (Exception ignored) {}
+                try { ArrayNode arr = future.join(); if (arr != null && arr.size() > 0) existing = (ObjectNode) arr.get(0); } catch (Exception ignored) {}
             }
 
             if (existing == null && user.getEmail() != null) {
-                CompletableFuture<ObjectNode> future = entityService.getItemsByCondition(
+                CompletableFuture<ArrayNode> future = entityService.getItemsByCondition(
                     UserRecord.ENTITY_NAME,
                     String.valueOf(UserRecord.ENTITY_VERSION),
                     SearchConditionRequest.group("AND", Condition.of("$.email", "IEQUALS", user.getEmail())),
                     true
                 );
-                try { existing = (ObjectNode) future.join().get(0); } catch (Exception ignored) {}
+                try { ArrayNode arr = future.join(); if (arr != null && arr.size() > 0) existing = (ObjectNode) arr.get(0); } catch (Exception ignored) {}
             }
 
             if (existing != null) {
