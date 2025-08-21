@@ -1,0 +1,113 @@
+{
+  "version": "1.0",
+  "name": "Pet Workflow",
+  "desc": "Workflow for Pet entity",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "to_enrich",
+          "next": "ENRICHING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EnrichFromPetstoreProcessor",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        }
+      ]
+    },
+    "ENRICHING": {
+      "transitions": [
+        {
+          "name": "to_validating",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "TransformPetDataProcessor",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "validate_to_available",
+          "next": "AVAILABLE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsValidPetCriterion",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          }
+        }
+      ]
+    },
+    "AVAILABLE": {
+      "transitions": [
+        {
+          "name": "adoption_requested",
+          "next": "PENDING_ADOPTION",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AdoptionPendingCriterion",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          }
+        },
+        {
+          "name": "archive_available",
+          "next": "ARCHIVED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ArchiveProcessor",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        }
+      ]
+    },
+    "PENDING_ADOPTION": {
+      "transitions": [
+        {
+          "name": "approve_adoption",
+          "next": "ADOPTED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ApproveAdoptionProcessor",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        }
+      ]
+    },
+    "ADOPTED": {
+      "transitions": [
+        {
+          "name": "archive_adopted",
+          "next": "ARCHIVED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ArchiveProcessor",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        }
+      ]
+    },
+    "ARCHIVED": { "transitions": [] }
+  }
+}
