@@ -43,7 +43,8 @@ public class UnrecoverableErrorCriterion implements CyodaCriterion {
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<BatchJob> context) {
         BatchJob job = context.entity();
         if (job == null) return EvaluationOutcome.fail("Job missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        if (job.getStatus() != null && job.getStatus().equalsIgnoreCase("FAILED") && job.getAttempts() != null && job.getAttempts() > 3) {
+        // BatchJob does not have attempts field; use status and errorMessage heuristic - if FAILED and errorMessage not empty, treat as unrecoverable
+        if (job.getStatus() != null && job.getStatus().equalsIgnoreCase("FAILED") && job.getErrorMessage() != null && !job.getErrorMessage().isBlank()) {
             return EvaluationOutcome.success();
         }
         return EvaluationOutcome.fail("Not an unrecoverable error", StandardEvalReasonCategories.VALIDATION_FAILURE);
