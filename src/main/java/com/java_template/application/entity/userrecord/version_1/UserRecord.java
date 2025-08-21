@@ -9,9 +9,7 @@ import lombok.Data;
 public class UserRecord implements CyodaEntity {
     public static final String ENTITY_NAME = "UserRecord";
     public static final Integer ENTITY_VERSION = 1;
-    // Add your entity fields here
 
-    private String technicalId;
     private Integer externalId; // id from Fakerest
     private String firstName;
     private String lastName;
@@ -35,8 +33,8 @@ public class UserRecord implements CyodaEntity {
     @Override
     public boolean isValid() {
         if (externalId == null) return false;
-        if (email == null || email.isBlank()) return false;
         if (sourcePayload == null || sourcePayload.isBlank()) return false;
+        if (email == null || email.isBlank()) return false;
         return true;
     }
 }
