@@ -1,0 +1,98 @@
+{
+  "version": "1.0",
+  "name": "Pet Workflow",
+  "desc": "Workflow for Pet entity",
+  "initialState": "NEW",
+  "active": true,
+  "states": {
+    "NEW": {
+      "transitions": [
+        {
+          "name": "enrich_pet",
+          "next": "ENRICHED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EnrichPetProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ENRICHED": {
+      "transitions": [
+        {
+          "name": "check_availability",
+          "next": "AVAILABLE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "CheckAvailabilityCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "AVAILABLE": {
+      "transitions": [
+        {
+          "name": "reserve_pet",
+          "next": "RESERVED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ReservePetProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "RESERVED": {
+      "transitions": [
+        {
+          "name": "finalize_adoption",
+          "next": "ADOPTED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FinalizeAdoptionProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ADOPTED": {
+      "transitions": [
+        {
+          "name": "archive_pet",
+          "next": "ARCHIVED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ArchivePetProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ARCHIVED": {
+      "transitions": []
+    }
+  }
+}
