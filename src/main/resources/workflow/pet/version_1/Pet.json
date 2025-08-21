@@ -1,0 +1,108 @@
+{
+  "version": "1.0",
+  "name": "Pet Workflow",
+  "desc": "Workflow for Pet entity",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "created_to_verification",
+          "next": "VERIFICATION",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ImportPetProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VERIFICATION": {
+      "transitions": [
+        {
+          "name": "verification_to_enrichment",
+          "next": "ENRICHMENT",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DuplicateCheckCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "verification_to_retired",
+          "next": "RETIRED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ENRICHMENT": {
+      "transitions": [
+        {
+          "name": "enrichment_to_available",
+          "next": "AVAILABLE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EnrichProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "AVAILABLE": {
+      "transitions": [
+        {
+          "name": "available_to_pending",
+          "next": "PENDING",
+          "manual": true
+        },
+        {
+          "name": "available_to_retired_manual",
+          "next": "RETIRED",
+          "manual": true
+        }
+      ]
+    },
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "pending_to_adopted",
+          "next": "ADOPTED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AdoptionConfirmedProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ADOPTED": { "transitions": [] },
+    "RETIRED": { "transitions": [] }
+  }
+}
