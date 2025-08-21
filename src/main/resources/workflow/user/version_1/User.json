@@ -1,0 +1,47 @@
+{
+  "version": "1.0",
+  "name": "User Workflow",
+  "desc": "Workflow for User entity based on functional requirements",
+  "initialState": "active",
+  "active": true,
+  "states": {
+    "active": {
+      "transitions": [
+        {
+          "name": "update_preferences",
+          "next": "updated",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ApplyPreferencesProcessor",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        },
+        {
+          "name": "deactivate_user",
+          "next": "inactive",
+          "manual": true,
+          "processors": [
+            {
+              "name": "DeactivateProcessor",
+              "config": { "calculationNodesTags": "cyoda_application" }
+            }
+          ]
+        }
+      ]
+    },
+    "updated": {
+      "transitions": []
+    },
+    "inactive": {
+      "transitions": [
+        {
+          "name": "reactivate_user",
+          "next": "active",
+          "manual": true
+        }
+      ]
+    }
+  }
+}
