@@ -1,0 +1,62 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "age": 2,
+                    "breed": "Tabby",
+                    "color": "Brown",
+                    "createdAt": "2025-08-20T12:00:00Z",
+                    "description": "Friendly indoor cat",
+                    "id": "PET-123",
+                    "name": "Mittens",
+                    "photos": [
+                        "https://example.com/photos/mittens-1.jpg"
+                    ],
+                    "sex": "Female",
+                    "species": "Cat",
+                    "status": "AVAILABLE",
+                    "tags": [
+                        "indoor",
+                        "tabby"
+                    ],
+                    "updatedAt": "2025-08-20T12:05:00Z"
+                }
+            }
+        },
+        {
+            "Owner": {
+                "entity_data_example": {
+                    "address": "123 Main St",
+                    "createdAt": "2025-08-20T12:01:00Z",
+                    "email": "alex@example.com",
+                    "fullName": "Alex Doe",
+                    "id": "OWN-55",
+                    "phone": "+1-555-0000",
+                    "preferences": [
+                        "Cat"
+                    ],
+                    "savedPets": [
+                        "PET-123"
+                    ],
+                    "updatedAt": "2025-08-20T12:01:00Z",
+                    "verificationStatus": "VERIFICATION_PENDING"
+                }
+            }
+        },
+        {
+            "AdoptionOrder": {
+                "entity_data_example": {
+                    "fees": 50.0,
+                    "id": "ORD-900",
+                    "notes": "Has fenced yard",
+                    "ownerId": "OWN-55",
+                    "petId": "PET-123",
+                    "processedAt": null,
+                    "requestedAt": "2025-08-20T12:10:00Z",
+                    "status": "PENDING_APPROVAL"
+                }
+            }
+        }
+    ]
+}
