@@ -1,0 +1,107 @@
+{
+  "version": "1.0",
+  "name": "RawPet Workflow",
+  "desc": "Workflow for RawPet entity",
+  "initialState": "RAW_CREATED",
+  "active": true,
+  "states": {
+    "RAW_CREATED": {
+      "transitions": [
+        {
+          "name": "store_raw_pet",
+          "next": "STORED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "StoreRawPetProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "STORED": {
+      "transitions": [
+        {
+          "name": "mark_for_transform_if_integrity_ok",
+          "next": "MARKED_FOR_TRANSFORM",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "RawIntegrityCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "criterion": {
+                "type": "simple",
+                "jsonPath": "$.integrityOk",
+                "operation": "EQUALS",
+                "value": true
+              }
+            }
+          }
+        },
+        {
+          "name": "archive_if_integrity_fail",
+          "next": "ARCHIVED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "RawIntegrityCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "criterion": {
+                "type": "simple",
+                "jsonPath": "$.integrityOk",
+                "operation": "EQUALS",
+                "value": false
+              }
+            }
+          }
+        }
+      ]
+    },
+    "MARKED_FOR_TRANSFORM": {
+      "transitions": [
+        {
+          "name": "transform_raw_pet",
+          "next": "TRANSFORMED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "TransformRawPetProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "TRANSFORMED": {
+      "transitions": [
+        {
+          "name": "archive_transformed",
+          "next": "ARCHIVED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ArchiveProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ARCHIVED": {
+      "transitions": []
+    }
+  }
+}
