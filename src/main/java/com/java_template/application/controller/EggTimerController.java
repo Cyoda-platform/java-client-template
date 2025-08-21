@@ -199,7 +199,7 @@ public class EggTimerController {
             CompletableFuture<java.util.UUID> fut = entityService.updateItem(
                     EggTimer.ENTITY_NAME,
                     String.valueOf(EggTimer.ENTITY_VERSION),
-                    technicalId,
+                    techId,
                     node
             );
             UUID updated = fut.get();
