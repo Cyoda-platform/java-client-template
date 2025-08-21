@@ -19,6 +19,9 @@ public class UserRecord implements CyodaEntity {
     private Boolean normalized; // true if standardization applied
     private String storedAt; // ISO datetime
     private String lastSeen; // ISO datetime
+    // Added fields to carry processing state
+    private String status; // e.g. INGESTED, TRANSFORMED, VERIFIED, STORED, ERROR
+    private String errorMessage; // last error message
 
     public UserRecord() {}
 
