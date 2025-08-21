@@ -1,0 +1,103 @@
+{
+  "version": "1.0",
+  "name": "ImportJob Workflow",
+  "desc": "Workflow for ImportJob entity",
+  "initialState": "QUEUED",
+  "active": true,
+  "states": {
+    "QUEUED": {
+      "transitions": [
+        {
+          "name": "queued_to_running",
+          "next": "RUNNING",
+          "manual": true,
+          "processors": [
+            {
+              "name": "StartImportProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "RUNNING": {
+      "transitions": [
+        {
+          "name": "running_to_importing",
+          "next": "IMPORTING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ImportBatchProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "IMPORTING": {
+      "transitions": [
+        {
+          "name": "importing_to_aggregating",
+          "next": "AGGREGATING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "BatchCompleteCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "AGGREGATING": {
+      "transitions": [
+        {
+          "name": "aggregating_to_completed",
+          "next": "COMPLETED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "SuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          },
+          "processors": [
+            {
+              "name": "NotifyProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "aggregating_to_failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "FailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "COMPLETED": { "transitions": [] },
+    "FAILED": { "transitions": [] }
+  }
+}
