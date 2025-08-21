@@ -13,7 +13,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -71,6 +70,8 @@ public class RescheduleProcessor implements CyodaProcessor {
                 } catch (Exception ex) {
                     logger.warn("Failed to persist notification {} during reschedule: {}", notification.getId(), ex.getMessage());
                 }
+            } else {
+                logger.debug("Notification {} in state {}; no reschedule action taken", notification.getId(), notification.getState());
             }
             return notification;
         } catch (Exception ex) {
