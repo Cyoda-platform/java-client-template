@@ -1,0 +1,144 @@
+{
+  "version": "1.0",
+  "name": "Pet Workflow",
+  "desc": "Workflow for Pet entity according to the functional requirements",
+  "initialState": "CREATED",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "to_validating",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidatePetProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "to_enriching_if_images_present",
+          "next": "ENRICHING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ImagesPresentCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "to_manual_review_if_incomplete",
+          "next": "MANUAL_REVIEW",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DataCompleteCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ENRICHING": {
+      "transitions": [
+        {
+          "name": "to_moderation",
+          "next": "MODERATION",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EnrichImagesProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "MODERATION": {
+      "transitions": [
+        {
+          "name": "to_manual_review_if_flagged",
+          "next": "MANUAL_REVIEW",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "FlaggedForReview",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "to_published_if_not_flagged",
+          "next": "PUBLISHED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ModerateContentProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "MANUAL_REVIEW": {
+      "transitions": [
+        {
+          "name": "admin_approve",
+          "next": "PUBLISHED",
+          "manual": true
+        }
+      ]
+    },
+    "PUBLISHED": {
+      "transitions": [
+        {
+          "name": "to_adopted_if_order_complete",
+          "next": "ADOPTED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "OrderCompleteCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "admin_retire",
+          "next": "RETIRED",
+          "manual": true
+        }
+      ]
+    },
+    "ADOPTED": {
+      "transitions": []
+    },
+    "RETIRED": {
+      "transitions": []
+    }
+  }
+}
