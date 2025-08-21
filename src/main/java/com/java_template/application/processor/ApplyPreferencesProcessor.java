@@ -47,20 +47,19 @@ public class ApplyPreferencesProcessor implements CyodaProcessor {
     private User processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<User> context) {
         User user = context.entity();
         try {
-            // Ensure preferences object has sensible defaults
-            if (user.getPreferences() == null) {
-                user.setPreferences(new com.fasterxml.jackson.databind.node.ObjectNode(com.fasterxml.jackson.databind.node.JsonNodeFactory.instance));
+            // Ensure user-level default preferences fields are present and sensible
+            if (user.getDefaultBoilType() == null || user.getDefaultBoilType().isBlank()) {
+                user.setDefaultBoilType("medium");
             }
-            com.fasterxml.jackson.databind.JsonNode prefs = user.getPreferences();
-            com.fasterxml.jackson.databind.node.ObjectNode prefsObj = prefs.isObject() ? (com.fasterxml.jackson.databind.node.ObjectNode) prefs : com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.objectNode();
+            if (user.getDefaultEggSize() == null || user.getDefaultEggSize().isBlank()) {
+                user.setDefaultEggSize("medium");
+            }
+            if (user.getAllowMultipleTimers() == null) {
+                user.setAllowMultipleTimers(Boolean.TRUE);
+            }
 
-            if (!prefsObj.has("defaultBoilType")) prefsObj.put("defaultBoilType", "medium");
-            if (!prefsObj.has("defaultEggSize")) prefsObj.put("defaultEggSize", "medium");
-            if (!prefsObj.has("allowMultipleTimers")) prefsObj.put("allowMultipleTimers", true);
-            if (!prefsObj.has("defaultNotificationMethod")) prefsObj.put("defaultNotificationMethod", "alarm");
-
-            user.setPreferences(prefsObj);
-            logger.info("Applied default preferences for user {}", user.getId());
+            logger.info("Applied normalized preferences for user {}: boilType={}, eggSize={}, allowMultipleTimers={}",
+                user.getId(), user.getDefaultBoilType(), user.getDefaultEggSize(), user.getAllowMultipleTimers());
         } catch (Exception ex) {
             logger.error("Error in ApplyPreferencesProcessor for user {}: {}", user != null ? user.getId() : null, ex.getMessage(), ex);
         }
