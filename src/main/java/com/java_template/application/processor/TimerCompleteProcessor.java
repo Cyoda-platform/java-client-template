@@ -1,11 +1,15 @@
 package com.java_template.application.processor;
 
 import com.java_template.application.entity.eggtimer.version_1.EggTimer;
+import com.java_template.application.entity.notification.version_1.Notification;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
+import com.java_template.common.service.EntityService;
+import com.java_template.common.util.Condition;
+import com.java_template.common.util.SearchConditionRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
@@ -13,6 +17,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 @Component
 public class TimerCompleteProcessor implements CyodaProcessor {
@@ -20,9 +26,11 @@ public class TimerCompleteProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(TimerCompleteProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final EntityService entityService;
 
-    public TimerCompleteProcessor(SerializerFactory serializerFactory) {
+    public TimerCompleteProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
     }
 
     @Override
@@ -70,11 +78,50 @@ public class TimerCompleteProcessor implements CyodaProcessor {
                 logger.info("Timer {} marked COMPLETED", timer.getId());
 
                 // ensure notification exists (idempotent)
-                // Note: ScheduleNotificationProcessor may be invoked as part of workflow; call it explicitly is optional here
+                try {
+                    SearchConditionRequest condition = SearchConditionRequest.group("AND",
+                        Condition.of("$.timerId", "EQUALS", timer.getId()),
+                        Condition.of("$.notifyAt", "EQUALS", timer.getExpectedEndAt())
+                    );
 
-                // Persist history - This should be handled by a separate processor in real implementation
-                // For now just log the history creation
-                logger.info("Persisting history for timer {}", timer.getId());
+                    CompletableFuture<com.fasterxml.jackson.databind.node.ArrayNode> itemsFuture = entityService.getItemsByCondition(
+                        Notification.ENTITY_NAME,
+                        String.valueOf(Notification.ENTITY_VERSION),
+                        condition,
+                        true
+                    );
+
+                    com.fasterxml.jackson.databind.node.ArrayNode arr = itemsFuture.get();
+                    if (arr == null || arr.size() == 0) {
+                        // create missing notification
+                        Notification notif = new Notification();
+                        notif.setTimerId(timer.getId());
+                        notif.setUserId(timer.getOwnerUserId());
+                        notif.setNotifyAt(timer.getExpectedEndAt());
+                        notif.setMethod(timer.getMetadata() != null && timer.getMetadata().has("preferredMethod") ? timer.getMetadata().get("preferredMethod").asText() : "alarm");
+                        notif.setDelivered(false);
+                        notif.setDeliveryAttempts(0);
+                        notif.setSnoozeCount(0);
+                        notif.setState("PENDING");
+
+                        try {
+                            CompletableFuture<UUID> fut = entityService.addItem(
+                                Notification.ENTITY_NAME,
+                                String.valueOf(Notification.ENTITY_VERSION),
+                                notif
+                            );
+                            fut.get();
+                            logger.info("Created missing notification for timer {} at {}", timer.getId(), timer.getExpectedEndAt());
+                        } catch (Exception ex) {
+                            logger.warn("Failed to persist created notification for timer {}: {}", timer.getId(), ex.getMessage());
+                        }
+                    }
+                } catch (Exception ex) {
+                    logger.warn("Error ensuring notification exists for timer {}: {}", timer.getId(), ex.getMessage());
+                }
+
+                // Persist history note (implementation may use separate history entity)
+                logger.info("Timer {} completion processed; history should be persisted by a dedicated processor", timer.getId());
             } else {
                 logger.info("Timer {} not yet completed. expectedEndAt={}", timer.getId(), expectedStr);
             }
