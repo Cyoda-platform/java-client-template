@@ -20,6 +20,11 @@ public class RawPet implements CyodaEntity {
     private String searchRequestId; // link (serialized UUID)
     private Boolean transformed; // flag
 
+    // Added fields to support processors/criteria
+    private String state; // e.g., RAW_CREATED, STORED, TRANSFORMED, RAW_FAILED
+    private String transformedAt; // timestamp when transformed
+    private String technicalId; // serialized UUID for this entity
+
     public RawPet() {}
 
     @Override
