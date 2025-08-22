@@ -1,0 +1,337 @@
+{
+  "version": "1.0",
+  "name": "Animal Shelter Workflows (Pet, User, AdoptionOrder)",
+  "desc": "Combined finite-state workflows for Pet, User and AdoptionOrder entities derived from functional requirements. initialState is 'none' because each entity workflow is started by its POST event.",
+  "initialState": "none",
+  "active": true,
+  "states": {
+    "PET_CREATED": {
+      "transitions": [
+        {
+          "name": "created_to_validating",
+          "next": "PET_VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidatePetProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PET_VALIDATING": {
+      "transitions": [
+        {
+          "name": "valid_images_to_media_processing",
+          "next": "PET_MEDIA_PROCESSING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "HasValidImagesCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "no_valid_images_to_review",
+          "next": "PET_REVIEW",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "NoValidImagesCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "PET_MEDIA_PROCESSING": {
+      "transitions": [
+        {
+          "name": "media_processing_to_review",
+          "next": "PET_REVIEW",
+          "manual": false,
+          "processors": [
+            {
+              "name": "GenerateThumbnailProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PET_REVIEW": {
+      "transitions": [
+        {
+          "name": "admin_approve_listing",
+          "next": "PET_AVAILABLE",
+          "manual": true
+        },
+        {
+          "name": "admin_reject_archive",
+          "next": "PET_ARCHIVED",
+          "manual": true
+        }
+      ]
+    },
+    "PET_AVAILABLE": {
+      "transitions": [
+        {
+          "name": "adoption_hold_condition",
+          "next": "PET_HOLD",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AdoptionPlacedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "PET_HOLD": {
+      "transitions": [
+        {
+          "name": "adoption_completed_to_adopted",
+          "next": "PET_ADOPTED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "OnAdoptionCompletedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "PET_ADOPTED": {
+      "transitions": [
+        {
+          "name": "needs_medical_followup_check",
+          "next": "PET_MEDICAL_FOLLOWUP",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "NeedsMedicalFollowupCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "PET_MEDICAL_FOLLOWUP": {
+      "transitions": [
+        {
+          "name": "archive_after_followup",
+          "next": "PET_ARCHIVED",
+          "manual": true
+        }
+      ]
+    },
+    "PET_ARCHIVED": {
+      "transitions": []
+    },
+    "USER_CREATED": {
+      "transitions": [
+        {
+          "name": "created_to_verifying",
+          "next": "USER_VERIFYING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "VerifyContactProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "USER_VERIFYING": {
+      "transitions": [
+        {
+          "name": "verifying_to_ready",
+          "next": "USER_READY",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CompleteProfileProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "USER_READY": {
+      "transitions": [
+        {
+          "name": "activate_on_first_adoption",
+          "next": "USER_ACTIVE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "FirstAdoptionOccurredCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "admin_disable_user",
+          "next": "USER_DISABLED",
+          "manual": true
+        }
+      ]
+    },
+    "USER_ACTIVE": {
+      "transitions": [
+        {
+          "name": "admin_archive_active_user",
+          "next": "USER_ARCHIVED",
+          "manual": true
+        }
+      ]
+    },
+    "USER_DISABLED": {
+      "transitions": [
+        {
+          "name": "admin_archive_disabled_user",
+          "next": "USER_ARCHIVED",
+          "manual": true
+        }
+      ]
+    },
+    "USER_ARCHIVED": {
+      "transitions": []
+    },
+    "ADOPTION_REQUESTED": {
+      "transitions": [
+        {
+          "name": "requested_to_eligibility_check",
+          "next": "ADOPTION_ELIGIBILITY_CHECK",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EligibilityCheckProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ADOPTION_ELIGIBILITY_CHECK": {
+      "transitions": [
+        {
+          "name": "eligibility_passes_to_under_review",
+          "next": "ADOPTION_UNDER_REVIEW",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PassEligibilityCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "eligibility_fails_to_declined",
+          "next": "ADOPTION_DECLINED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "FailEligibilityCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ADOPTION_UNDER_REVIEW": {
+      "transitions": [
+        {
+          "name": "admin_approve_adoption",
+          "next": "ADOPTION_APPROVED",
+          "manual": true
+        },
+        {
+          "name": "admin_decline_adoption",
+          "next": "ADOPTION_DECLINED",
+          "manual": true
+        }
+      ]
+    },
+    "ADOPTION_APPROVED": {
+      "transitions": [
+        {
+          "name": "approved_to_hold",
+          "next": "ADOPTION_HOLD",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AdoptionHoldProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ADOPTION_HOLD": {
+      "transitions": [
+        {
+          "name": "hold_to_completed_on_pickup",
+          "next": "ADOPTION_COMPLETED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "OnPickupConfirmedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ADOPTION_COMPLETED": {
+      "transitions": []
+    },
+    "ADOPTION_DECLINED": {
+      "transitions": []
+    }
+  }
+}

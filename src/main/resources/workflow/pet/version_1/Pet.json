@@ -1,0 +1,174 @@
+{
+  "version": "1.0",
+  "name": "Pet Workflow",
+  "desc": "FSM for Pet entity lifecycle (creation, validation, media processing, review, publish, hold, adoption, medical follow-up, archive)",
+  "initialState": "none",
+  "active": true,
+  "states": {
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "to_validating",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidatePetProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "has_valid_images",
+          "next": "MEDIA_PROCESSING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "HasValidImagesCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "no_valid_images",
+          "next": "REVIEW",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "NoImagesCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "MEDIA_PROCESSING": {
+      "transitions": [
+        {
+          "name": "generate_thumbnails",
+          "next": "REVIEW",
+          "manual": false,
+          "processors": [
+            {
+              "name": "GenerateThumbnailProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "REVIEW": {
+      "transitions": [
+        {
+          "name": "admin_approve",
+          "next": "AVAILABLE",
+          "manual": true
+        },
+        {
+          "name": "admin_reject",
+          "next": "ARCHIVED",
+          "manual": true
+        }
+      ]
+    },
+    "AVAILABLE": {
+      "transitions": [
+        {
+          "name": "place_on_hold",
+          "next": "HOLD",
+          "manual": false
+        }
+      ]
+    },
+    "HOLD": {
+      "transitions": [
+        {
+          "name": "adoption_completed",
+          "next": "ADOPTED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "OnAdoptionCompletedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "hold_cancelled",
+          "next": "AVAILABLE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "HoldCancelledCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ADOPTED": {
+      "transitions": [
+        {
+          "name": "medical_followup_check",
+          "next": "MEDICAL_FOLLOWUP",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "NeedsMedicalFollowupCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "no_followup_needed",
+          "next": "ARCHIVED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "NoFollowupCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "MEDICAL_FOLLOWUP": {
+      "transitions": [
+        {
+          "name": "archive_after_followup",
+          "next": "ARCHIVED",
+          "manual": true
+        }
+      ]
+    },
+    "ARCHIVED": {
+      "transitions": []
+    }
+  }
+}
