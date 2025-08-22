@@ -3,9 +3,7 @@ package com.java_template.application.entity.user.version_1;
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.common.ModelSpec;
-import lombok.Data;
 
-@Data
 public class User implements CyodaEntity {
     public static final String ENTITY_NAME = "User"; 
     public static final Integer ENTITY_VERSION = 1;
@@ -39,4 +37,18 @@ public class User implements CyodaEntity {
         if (updatedAt == null || updatedAt.isBlank()) return false;
         return true;
     }
+
+    // getters/setters
+    public String getId() { return id; }
+    public void setId(String id) { this.id = id; }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+    public String getIdentificationStatus() { return identificationStatus; }
+    public void setIdentificationStatus(String identificationStatus) { this.identificationStatus = identificationStatus; }
+    public String getCreatedAt() { return createdAt; }
+    public void setCreatedAt(String createdAt) { this.createdAt = createdAt; }
+    public String getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(String updatedAt) { this.updatedAt = updatedAt; }
 }
