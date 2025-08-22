@@ -1,0 +1,87 @@
+{
+    "entities": [
+        {
+            "Product": {
+                "entity_data_example": {
+                    "available": true,
+                    "currency": "USD",
+                    "description": "Cotton tee",
+                    "id": "P-123",
+                    "name": "T-Shirt",
+                    "price": 19.99,
+                    "sku": "TS-001",
+                    "stock": 100
+                }
+            }
+        },
+        {
+            "Cart": {
+                "entity_data_example": {
+                    "createdAt": "2025-08-22T12:00:00Z",
+                    "id": "C-789",
+                    "items": [
+                        {
+                            "priceAtAdd": 19.99,
+                            "productId": "P-123",
+                            "quantity": 2
+                        }
+                    ],
+                    "status": "Active",
+                    "total": 39.98,
+                    "userId": "U-1"
+                }
+            }
+        },
+        {
+            "Order": {
+                "entity_data_example": {
+                    "billingAddressId": "A-1",
+                    "createdAt": "2025-08-22T12:05:00Z",
+                    "currency": "USD",
+                    "id": "O-555",
+                    "items": [
+                        {
+                            "name": "T-Shirt",
+                            "productId": "P-123",
+                            "quantity": 2,
+                            "unitPrice": 19.99
+                        }
+                    ],
+                    "paymentStatus": "Pending",
+                    "shippingAddressId": "A-1",
+                    "status": "Created",
+                    "total": 39.98,
+                    "userId": "U-1"
+                }
+            }
+        },
+        {
+            "User": {
+                "entity_data_example": {
+                    "defaultAddressId": "A-1",
+                    "email": "alice@example.com",
+                    "id": "U-1",
+                    "name": "Alice",
+                    "phone": "+1234567890",
+                    "status": "Active"
+                }
+            }
+        },
+        {
+            "Address": {
+                "entity_data_example": {
+                    "city": "Exampleville",
+                    "country": "US",
+                    "id": "A-1",
+                    "isDefault": true,
+                    "line1": "123 Main St",
+                    "line2": null,
+                    "postalCode": "12345",
+                    "status": "Unverified",
+                    "userId": "U-1",
+                    "verified": false
+                }
+            }
+        }
+    ]
+}
