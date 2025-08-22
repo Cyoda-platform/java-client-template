@@ -1,0 +1,84 @@
+{
+    "entities": [
+        {
+            "Product": {
+                "entity_data_example": {
+                    "availableQuantity": 100,
+                    "currency": "USD",
+                    "description": "Reusable tote",
+                    "id": "sku-123",
+                    "name": "Tote",
+                    "price": 19.99
+                }
+            }
+        },
+        {
+            "Cart": {
+                "entity_data_example": {
+                    "createdAt": "2025-01-01T00:00:00Z",
+                    "id": "cart-1",
+                    "items": [
+                        {
+                            "productId": "sku-123",
+                            "quantity": 2,
+                            "unitPrice": 19.99
+                        }
+                    ],
+                    "status": "NEW",
+                    "totalAmount": 39.98,
+                    "updatedAt": "2025-01-01T00:00:00Z",
+                    "userId": null
+                }
+            }
+        },
+        {
+            "Order": {
+                "entity_data_example": {
+                    "billingAddressId": "addr-1",
+                    "cartId": "cart-1",
+                    "createdAt": "2025-01-02T00:00:00Z",
+                    "id": "order-1",
+                    "itemsSnapshot": [
+                        {
+                            "productId": "sku-123",
+                            "quantity": 2,
+                            "unitPrice": 19.99
+                        }
+                    ],
+                    "shippingAddressId": "addr-1",
+                    "status": "WAITING_TO_FULFILL",
+                    "totalAmount": 39.98,
+                    "updatedAt": "2025-01-02T00:00:00Z",
+                    "userId": "user-1"
+                }
+            }
+        },
+        {
+            "User": {
+                "entity_data_example": {
+                    "createdAt": "2025-01-01T00:00:00Z",
+                    "email": "a@x.com",
+                    "id": "user-1",
+                    "identificationStatus": "ANON",
+                    "name": "Alice",
+                    "updatedAt": "2025-01-01T00:00:00Z"
+                }
+            }
+        },
+        {
+            "Address": {
+                "entity_data_example": {
+                    "city": "Townsville",
+                    "country": "US",
+                    "id": "addr-1",
+                    "line1": "123 Main St",
+                    "line2": "",
+                    "phone": "555-0100",
+                    "postalCode": "12345",
+                    "region": "Region",
+                    "userId": "user-1"
+                }
+            }
+        }
+    ]
+}
