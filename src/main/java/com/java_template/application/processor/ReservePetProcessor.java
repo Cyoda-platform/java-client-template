@@ -4,21 +4,22 @@ import com.java_template.application.entity.adoptionrequest.version_1.AdoptionRe
 import com.java_template.application.entity.pet.version_1.Pet;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.service.EntityService;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
-import com.java_template.common.service.EntityService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
-import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
-import java.util.UUID;
-import java.util.List;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @Component
@@ -30,6 +31,7 @@ public class ReservePetProcessor implements CyodaProcessor {
     private final EntityService entityService;
     private final ObjectMapper objectMapper;
 
+    @Autowired
     public ReservePetProcessor(SerializerFactory serializerFactory, EntityService entityService, ObjectMapper objectMapper) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
         this.entityService = entityService;
@@ -41,10 +43,10 @@ public class ReservePetProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing AdoptionRequest for request: {}", request.getId());
 
-        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
+        return serializer.withRequest(request)
             .toEntity(AdoptionRequest.class)
             .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+            .map(this::processEntityLogic)
             .complete();
     }
 
@@ -58,85 +60,103 @@ public class ReservePetProcessor implements CyodaProcessor {
     }
 
     private AdoptionRequest processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<AdoptionRequest> context) {
-        AdoptionRequest request = context.entity();
+        AdoptionRequest requestEntity = context.entity();
+        logger.info("ReservePetProcessor - handling adoption request id={}, petId={}, ownerId={}",
+            requestEntity.getId(), requestEntity.getPetId(), requestEntity.getOwnerId());
 
-        // Default to failing reservation unless succeeded below
+        // Attempt to read the Pet entity referenced by this adoption request.
         try {
-            String petTechnicalId = request.getPetId();
-            if (petTechnicalId == null || petTechnicalId.isBlank()) {
-                logger.warn("AdoptionRequest {} missing petId, marking as RESERVE_FAILED", request.getId());
-                request.setStatus("RESERVE_FAILED");
-                return request;
+            if (requestEntity.getPetId() == null || requestEntity.getPetId().isBlank()) {
+                logger.warn("AdoptionRequest {} has no petId, marking as reserve_failed", requestEntity.getId());
+                requestEntity.setStatus("reserve_failed");
+                return requestEntity;
             }
 
-            // Fetch the pet entity (may throw if id not UUID format)
+            // Retrieve pet by technical id - follow existing conventions: convert to UUID
+            UUID petTechnicalId;
+            try {
+                petTechnicalId = UUID.fromString(requestEntity.getPetId());
+            } catch (IllegalArgumentException ex) {
+                // petId is not a UUID string — try to fetch by id via search fallback is not provided here,
+                // so mark request as reserve_failed to be safe.
+                logger.warn("Pet id '{}' on AdoptionRequest {} is not a UUID. Marking request as reserve_failed.",
+                    requestEntity.getPetId(), requestEntity.getId());
+                requestEntity.setStatus("reserve_failed");
+                return requestEntity;
+            }
+
             CompletableFuture<ObjectNode> petFuture = entityService.getItem(
                 Pet.ENTITY_NAME,
                 String.valueOf(Pet.ENTITY_VERSION),
-                UUID.fromString(petTechnicalId)
+                petTechnicalId
             );
 
-            ObjectNode petNode = petFuture.join();
+            ObjectNode petNode = petFuture == null ? null : petFuture.join();
             if (petNode == null || petNode.isEmpty()) {
-                logger.info("Pet not found for id {}. Marking AdoptionRequest {} as RESERVE_FAILED", petTechnicalId, request.getId());
-                request.setStatus("RESERVE_FAILED");
-                return request;
+                logger.warn("Pet not found for id {} referenced by AdoptionRequest {}. Marking as reserve_failed.",
+                    requestEntity.getPetId(), requestEntity.getId());
+                requestEntity.setStatus("reserve_failed");
+                return requestEntity;
             }
 
             Pet pet = objectMapper.treeToValue(petNode, Pet.class);
             if (pet == null) {
-                logger.info("Failed to deserialize Pet for id {}. Marking AdoptionRequest {} as RESERVE_FAILED", petTechnicalId, request.getId());
-                request.setStatus("RESERVE_FAILED");
-                return request;
+                logger.warn("Unable to deserialize Pet for id {}. Marking AdoptionRequest {} as reserve_failed.",
+                    requestEntity.getPetId(), requestEntity.getId());
+                requestEntity.setStatus("reserve_failed");
+                return requestEntity;
             }
 
             String petStatus = pet.getStatus();
             if (petStatus == null || !petStatus.equalsIgnoreCase("available")) {
-                logger.info("Pet {} status is not available (status={}). Marking AdoptionRequest {} as RESERVE_FAILED", pet.getId(), petStatus, request.getId());
-                request.setStatus("RESERVE_FAILED");
-                return request;
+                logger.info("Pet {} is not available (status={}). Marking AdoptionRequest {} as reserve_failed.",
+                    pet.getId(), petStatus, requestEntity.getId());
+                requestEntity.setStatus("reserve_failed");
+                return requestEntity;
             }
 
-            // Pet is available -> reserve it by marking as pending and linking reservation
+            // Pet is available -> reserve it: set pet.status = pending and add a reservation tag linking request id.
             pet.setStatus("pending");
 
-            // Link reservation by adding a tag with the reservation id if tags supported
+            // Link reservation: use tags to record reservation reference (existing property)
             List<String> tags = pet.getTags();
             if (tags == null) {
                 tags = new ArrayList<>();
             }
-            String reservationTag = "reservation:" + request.getId();
+            String reservationTag = "reserved_by:" + requestEntity.getId();
             if (!tags.contains(reservationTag)) {
                 tags.add(reservationTag);
             }
             pet.setTags(tags);
 
-            // Update the Pet entity (allowed since it's a different entity)
+            // Update pet entity via EntityService (allowed - updating other entities)
             try {
-                CompletableFuture<UUID> updateFuture = entityService.updateItem(
+                CompletableFuture<UUID> updated = entityService.updateItem(
                     Pet.ENTITY_NAME,
                     String.valueOf(Pet.ENTITY_VERSION),
-                    UUID.fromString(pet.getId()),
+                    petTechnicalId,
                     pet
                 );
-                updateFuture.join();
-                // Update successful, mark request as RESERVED
-                request.setStatus("RESERVED");
-                logger.info("Successfully reserved Pet {} for AdoptionRequest {}", pet.getId(), request.getId());
+                // Wait for update to complete to ensure consistent state before advancing request.
+                if (updated != null) {
+                    updated.join();
+                }
             } catch (Exception e) {
-                logger.error("Failed to update Pet {} while reserving for AdoptionRequest {}: {}", pet.getId(), request.getId(), e.getMessage(), e);
-                request.setStatus("RESERVE_FAILED");
+                logger.error("Failed to update Pet {} while reserving for AdoptionRequest {}. Rolling back request status.",
+                    pet.getId(), requestEntity.getId(), e);
+                requestEntity.setStatus("reserve_failed");
+                return requestEntity;
             }
 
-        } catch (IllegalArgumentException iae) {
-            // UUID parsing error or similar
-            logger.warn("Invalid UUID provided in AdoptionRequest {}: {}. Marking as RESERVE_FAILED", request.getId(), request.getPetId());
-            request.setStatus("RESERVE_FAILED");
-        } catch (Exception e) {
-            logger.error("Unexpected error while processing AdoptionRequest {}: {}", request.getId(), e.getMessage(), e);
-            request.setStatus("RESERVE_FAILED");
-        }
+            // Mark adoption request as reserved
+            requestEntity.setStatus("reserved");
+            logger.info("Successfully reserved Pet {} for AdoptionRequest {}", pet.getId(), requestEntity.getId());
+            return requestEntity;
 
-        return request;
+        } catch (Exception e) {
+            logger.error("Unexpected error while processing AdoptionRequest {}: {}", requestEntity.getId(), e.getMessage(), e);
+            requestEntity.setStatus("reserve_failed");
+            return requestEntity;
+        }
     }
 }

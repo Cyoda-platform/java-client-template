@@ -29,7 +29,7 @@ public class FetchFailureCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(PetSyncJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,43 +38,35 @@ public class FetchFailureCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
+        // Must use exact criterion name (case-sensitive)
         return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<PetSyncJob> context) {
          PetSyncJob job = context.entity();
-
-         // Basic required status check
-         if (job.getStatus() == null || job.getStatus().isBlank()) {
-             logger.debug("PetSyncJob {} missing status", job.getId());
-             return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         if (job == null) {
+             logger.warn("PetSyncJob entity is null in context");
+             return EvaluationOutcome.fail("PetSyncJob entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         String status = job.getStatus().trim().toLowerCase();
-
-         // This criterion focuses on fetch failures: when a job reports 'failed' ensure error details are present.
-         if ("failed".equals(status)) {
-             if (job.getErrorMessage() == null || job.getErrorMessage().isBlank()) {
-                 logger.debug("PetSyncJob {} marked failed but missing errorMessage", job.getId());
-                 return EvaluationOutcome.fail("Failed job must include errorMessage", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-             }
-             if (job.getEndTime() == null || job.getEndTime().isBlank()) {
-                 logger.debug("PetSyncJob {} marked failed but missing endTime", job.getId());
-                 return EvaluationOutcome.fail("Failed job must include endTime", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-             }
-             // A failed job is considered a business/process-level failure (fetch failed)
-             return EvaluationOutcome.fail("Pet sync job has failed: " + job.getErrorMessage(), StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         String status = job.getStatus();
+         if (status == null || status.isBlank()) {
+             logger.warn("PetSyncJob [{}] missing status", job.getId());
+             return EvaluationOutcome.fail("Job status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Additional sanity checks for fetching state: ensure startTime exists when fetching
-         if ("fetching".equals(status)) {
-             if (job.getStartTime() == null || job.getStartTime().isBlank()) {
-                 logger.debug("PetSyncJob {} in fetching state but missing startTime", job.getId());
-                 return EvaluationOutcome.fail("Fetching job must have startTime", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         // If the job has entered a failed state, mark evaluation as failed with the failure reason attached.
+         if ("failed".equalsIgnoreCase(status)) {
+             String errorMessage = job.getErrorMessage();
+             String message = "Fetch operation failed";
+             if (errorMessage != null && !errorMessage.isBlank()) {
+                 message = message + ": " + errorMessage;
              }
+             logger.info("PetSyncJob [{}] marked as failed: {}", job.getId(), errorMessage);
+             return EvaluationOutcome.fail(message, StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
-         // If not a failure or invalid fetching state, the criterion passes.
+         // If not failed, the criterion passes.
          return EvaluationOutcome.success();
     }
 }

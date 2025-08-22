@@ -32,7 +32,7 @@ public class OwnerValidationCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Owner.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -45,66 +45,76 @@ public class OwnerValidationCriterion implements CyodaCriterion {
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Owner> context) {
-         Owner owner = context.entity();
-
-         if (owner == null) {
+         Owner entity = context.entity();
+         if (entity == null) {
              return EvaluationOutcome.fail("Owner entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Required fields
-         if (owner.getId() == null || owner.getId().isBlank()) {
-             return EvaluationOutcome.fail("Owner.id is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         // Required fields: id, name, email, role
+         if (isBlank(entity.getId())) {
+             return EvaluationOutcome.fail("id is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-         if (owner.getName() == null || owner.getName().isBlank()) {
-             return EvaluationOutcome.fail("Owner.name is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         if (isBlank(entity.getName())) {
+             return EvaluationOutcome.fail("name is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-         if (owner.getEmail() == null || owner.getEmail().isBlank()) {
-             return EvaluationOutcome.fail("Owner.email is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         if (isBlank(entity.getEmail())) {
+             return EvaluationOutcome.fail("email is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-         if (owner.getRole() == null || owner.getRole().isBlank()) {
-             return EvaluationOutcome.fail("Owner.role is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         if (isBlank(entity.getRole())) {
+             return EvaluationOutcome.fail("role is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-         if (owner.getVerified() == null) {
-             return EvaluationOutcome.fail("Owner.verified must be present", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-
-         // Email format basic check
-         String email = owner.getEmail();
-         if (!email.matches("^.+@.+\\..+$")) {
-             return EvaluationOutcome.fail("Owner.email has invalid format", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         if (entity.getVerified() == null) {
+             return EvaluationOutcome.fail("verified flag must be present", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Role must be one of allowed values
-         Set<String> allowedRoles = Set.of("user", "admin", "staff");
-         String roleLower = owner.getRole() == null ? "" : owner.getRole().trim().toLowerCase();
-         if (!allowedRoles.contains(roleLower)) {
-             return EvaluationOutcome.fail("Owner.role is invalid", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         // Email format basic validation
+         if (!isValidEmail(entity.getEmail())) {
+             return EvaluationOutcome.fail("Invalid email format", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Phone (optional) basic quality check if present
-         String phone = owner.getPhone();
-         if (phone != null && !phone.isBlank()) {
-             // Accept digits, spaces, parentheses, plus and dashes; require at least 5 digits overall
-             if (!phone.matches("^[+\\d][\\d \\-()]{3,}$")) {
-                 return EvaluationOutcome.fail("Owner.phone has invalid format", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         // Phone: if present, perform basic sanity checks (digits/+, length)
+         if (entity.getPhone() != null && !entity.getPhone().isBlank()) {
+             String phone = entity.getPhone().trim();
+             String normalized = phone.replaceAll("[\\s\\-()]", "");
+             if (normalized.length() < 6 || !normalized.matches("^[+0-9].*")) {
+                 return EvaluationOutcome.fail("Phone number appears invalid", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
              }
          }
 
-         // Favorites quality check
-         List<String> favorites = owner.getFavorites();
+         // Favorites list quality check
+         List<String> favorites = entity.getFavorites();
          if (favorites != null) {
              for (String fav : favorites) {
-                 if (fav == null || fav.isBlank()) {
-                     return EvaluationOutcome.fail("Owner.favorites contains invalid entry", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+                 if (isBlank(fav)) {
+                     return EvaluationOutcome.fail("favorites contains invalid pet id", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
                  }
              }
          }
 
-         // Business rule: contact must be verified to progress to VERIFIED state
-         if (!Boolean.TRUE.equals(owner.getVerified())) {
+         // Business rule: role must be one of allowed values
+         Set<String> allowedRoles = Set.of("user", "admin", "staff");
+         if (!allowedRoles.contains(entity.getRole().toLowerCase())) {
+             return EvaluationOutcome.fail("role must be one of [user, admin, staff]", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         }
+
+         // Business rule: if not verified -> action required (fail with BUSINESS_RULE_FAILURE)
+         if (!Boolean.TRUE.equals(entity.getVerified())) {
              return EvaluationOutcome.fail("Owner contact not verified", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
          return EvaluationOutcome.success();
+    }
+
+    private boolean isBlank(String s) {
+        return s == null || s.isBlank();
+    }
+
+    private boolean isValidEmail(String email) {
+        if (isBlank(email)) return false;
+        String e = email.trim();
+        int at = e.indexOf('@');
+        if (at <= 0 || at == e.length() - 1) return false;
+        String domain = e.substring(at + 1);
+        return domain.contains(".") && !domain.startsWith(".") && !domain.endsWith(".");
     }
 }

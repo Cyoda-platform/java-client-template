@@ -3,7 +3,6 @@ package com.java_template.application.processor;
 import com.java_template.application.entity.petsyncjob.version_1.PetSyncJob;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
-import com.java_template.common.service.EntityService;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -13,7 +12,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.time.OffsetDateTime;
+import java.time.Instant;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 
 @Component
@@ -22,11 +22,9 @@ public class StartFetchProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(StartFetchProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
-    private final EntityService entityService;
 
-    public StartFetchProcessor(SerializerFactory serializerFactory, EntityService entityService) {
+    public StartFetchProcessor(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
-        this.entityService = entityService;
     }
 
     @Override
@@ -34,10 +32,10 @@ public class StartFetchProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing PetSyncJob for request: {}", request.getId());
 
-        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
+        return serializer.withRequest(request)
             .toEntity(PetSyncJob.class)
-            .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+            .validate(this::isValidEntity, "Invalid PetSyncJob state")
+            .map(this::processEntityLogic)
             .complete();
     }
 
@@ -52,47 +50,85 @@ public class StartFetchProcessor implements CyodaProcessor {
 
     private PetSyncJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<PetSyncJob> context) {
         PetSyncJob job = context.entity();
-
-        // Initialize startTime if not present
-        if (job.getStartTime() == null || job.getStartTime().isBlank()) {
-            job.setStartTime(OffsetDateTime.now().toString());
+        if (job == null) {
+            logger.warn("Received null PetSyncJob in execution context");
+            return null;
         }
 
-        // Basic validation of config and sourceUrl to decide next status
-        Map<String, Object> cfg = job.getConfig();
-        if (cfg == null) {
-            logger.error("PetSyncJob {} missing config", job.getId());
-            job.setStatus("failed");
-            job.setErrorMessage("Missing config for job");
-            job.setEndTime(OffsetDateTime.now().toString());
-            return job;
-        }
-
-        Object sourceUrlObj = cfg.get("sourceUrl");
-        String sourceUrl = sourceUrlObj != null ? String.valueOf(sourceUrlObj) : null;
-        if (sourceUrl == null || sourceUrl.isBlank()) {
-            logger.error("PetSyncJob {} missing sourceUrl in config", job.getId());
-            job.setStatus("failed");
-            job.setErrorMessage("Missing sourceUrl in config");
-            job.setEndTime(OffsetDateTime.now().toString());
-            return job;
-        }
-
-        // At this stage we consider the job ready to fetch.
-        // Actual HTTP fetching/parsing is performed by subsequent processors.
-        logger.info("PetSyncJob {} starting fetch from {}", job.getId(), sourceUrl);
-        job.setStatus("fetching");
-        job.setErrorMessage(null);
-
-        // Ensure fetchedCount initialized
+        // Ensure fetchedCount is initialized
         if (job.getFetchedCount() == null) {
             job.setFetchedCount(0);
         }
 
-        // Persisting/updating of this triggering entity must NOT be done via entityService here.
-        // The workflow runtime will persist changes to this entity automatically.
-        // If needed, other entities may be added/updated via entityService (not used here).
+        // Set start time if not already present
+        if (job.getStartTime() == null || job.getStartTime().isBlank()) {
+            String now = DateTimeFormatter.ISO_INSTANT.format(Instant.now());
+            job.setStartTime(now);
+        }
+
+        // Basic config validation: expect a sourceUrl (or at least source) in config
+        Map<String, Object> config = job.getConfig();
+        if (config == null) {
+            logger.error("PetSyncJob {} has null config - marking as FAILED", job.getId());
+            job.setStatus("FAILED");
+            job.setErrorMessage("Missing config for PetSyncJob");
+            job.setEndTime(DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
+            return job;
+        }
+
+        // Try to find a sourceUrl in config
+        Object sourceUrlObj = config.get("sourceUrl");
+        String sourceUrl = sourceUrlObj != null ? String.valueOf(sourceUrlObj) : null;
+
+        if (sourceUrl == null || sourceUrl.isBlank()) {
+            // If no sourceUrl, we still may have a logical source name
+            Object sourceObj = config.get("source");
+            String sourceCfg = sourceObj != null ? String.valueOf(sourceObj) : null;
+            if ((sourceCfg == null || sourceCfg.isBlank()) && (job.getSource() == null || job.getSource().isBlank())) {
+                logger.error("PetSyncJob {} missing sourceUrl and source config - marking as FAILED", job.getId());
+                job.setStatus("FAILED");
+                job.setErrorMessage("Missing sourceUrl or source in config");
+                job.setEndTime(DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
+                return job;
+            } else {
+                // Set source if provided in config but not on job
+                if ((job.getSource() == null || job.getSource().isBlank()) && sourceCfg != null && !sourceCfg.isBlank()) {
+                    job.setSource(sourceCfg);
+                }
+                // We can proceed to fetching state even without explicit URL (assume connector by source)
+            }
+        } else {
+            // If sourceUrl present and source missing, populate source by URL host if possible
+            if (job.getSource() == null || job.getSource().isBlank()) {
+                job.setSource(extractSourceFromUrl(sourceUrl));
+            }
+        }
+
+        // Mark job as FETCHING and reset error message
+        job.setStatus("FETCHING");
+        job.setErrorMessage(null);
+
+        // At this stage the orchestration system should route to the next processors (parsing) after external fetch.
+        // This processor solely updates the orchestration entity state to indicate work started.
+        logger.info("PetSyncJob {} set to FETCHING (source: {}, sourceUrl: {})", job.getId(), job.getSource(), sourceUrl);
 
         return job;
+    }
+
+    private String extractSourceFromUrl(String url) {
+        if (url == null) return null;
+        try {
+            String cleaned = url.trim();
+            // naive extraction: host from URL
+            java.net.URI uri = new java.net.URI(cleaned);
+            String host = uri.getHost();
+            if (host == null) return null;
+            // use host without www.
+            if (host.startsWith("www.")) host = host.substring(4);
+            return host;
+        } catch (Exception ex) {
+            logger.debug("Failed to parse source from url '{}': {}", url, ex.getMessage());
+            return null;
+        }
     }
 }

@@ -15,7 +15,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 @Component
 public class PetValidationFailureCriterion implements CyodaCriterion {
@@ -31,7 +35,7 @@ public class PetValidationFailureCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Pet.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -40,18 +44,19 @@ public class PetValidationFailureCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Pet> context) {
          Pet entity = context.entity();
 
          if (entity == null) {
-             logger.warn("Pet entity is null in evaluation context");
+             logger.debug("Pet entity is null in context");
              return EvaluationOutcome.fail("Pet entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Required identifiers and core fields
+         // Required fields
          if (entity.getId() == null || entity.getId().isBlank()) {
              return EvaluationOutcome.fail("id is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
@@ -62,61 +67,63 @@ public class PetValidationFailureCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("species is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
          if (entity.getStatus() == null || entity.getStatus().isBlank()) {
-             // Status is required per domain model; validation processor may default it,
-             // but if missing here we treat it as validation failure.
              return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Age should be non-negative if present
+         // Data quality checks
          if (entity.getAge() != null && entity.getAge() < 0) {
              return EvaluationOutcome.fail("age must be non-negative", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // Validate gender if present (domain expects specific values)
-         String gender = entity.getGender();
-         if (gender != null && !gender.isBlank()) {
-             String normal = gender.trim().toLowerCase();
-             if (!(normal.equals("male") || normal.equals("female") || normal.equals("unknown"))) {
-                 return EvaluationOutcome.fail("gender must be one of [male, female, unknown]", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-             }
-         }
-
-         // Validate status against known domain states
-         String status = entity.getStatus().trim().toLowerCase();
-         if (!(status.equals("available") || status.equals("pending") || status.equals("adopted") || status.equals("removed") || status.equals("completed"))) {
-             return EvaluationOutcome.fail("status has invalid value", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-         }
-
-         // Photos: if present, ensure no null/blank entries
+         // Validate photos if present: non-blank and valid URLs
          List<String> photos = entity.getPhotos();
          if (photos != null) {
              for (String p : photos) {
                  if (p == null || p.isBlank()) {
-                     return EvaluationOutcome.fail("photos must not contain empty entries", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+                     return EvaluationOutcome.fail("photos must not contain blank entries", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+                 }
+                 try {
+                     new URL(p);
+                 } catch (MalformedURLException e) {
+                     return EvaluationOutcome.fail("photo URL is invalid: " + p, StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
                  }
              }
          }
 
-         // Source metadata quality checks
+         // Source metadata validation (use existing getters only)
          Pet.SourceMetadata sm = entity.getSourceMetadata();
          if (sm != null) {
              if (sm.getExternalId() == null || sm.getExternalId().isBlank()) {
-                 return EvaluationOutcome.fail("sourceMetadata.externalId is required when sourceMetadata is provided", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+                 return EvaluationOutcome.fail("source_metadata.externalId is required when source_metadata is provided", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
              }
              if (sm.getSource() == null || sm.getSource().isBlank()) {
-                 return EvaluationOutcome.fail("sourceMetadata.source is required when sourceMetadata is provided", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+                 return EvaluationOutcome.fail("source_metadata.source is required when source_metadata is provided", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
              }
          }
 
-         // Breed and location are optional, but if present ensure not blank
-         if (entity.getBreed() != null && entity.getBreed().isBlank()) {
-             return EvaluationOutcome.fail("breed, if provided, must not be blank", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-         }
-         if (entity.getLocation() != null && entity.getLocation().isBlank()) {
-             return EvaluationOutcome.fail("location, if provided, must not be blank", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         // Business rules: enforce allowed statuses and genders (if provided)
+         Set<String> allowedStatuses = Set.of("available", "pending", "adopted", "removed");
+         if (!allowedStatuses.contains(entity.getStatus())) {
+             return EvaluationOutcome.fail("status must be one of " + allowedStatuses, StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
-         // If all checks pass
+         String gender = entity.getGender();
+         if (gender != null && !gender.isBlank()) {
+             Set<String> allowedGenders = Set.of("male", "female", "unknown");
+             if (!allowedGenders.contains(gender)) {
+                 return EvaluationOutcome.fail("gender must be one of " + allowedGenders, StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+         }
+
+         // Optional sanity checks: name length and species length
+         if (entity.getName() != null && entity.getName().length() > 250) {
+             return EvaluationOutcome.fail("name is too long", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+         if (entity.getSpecies() != null && entity.getSpecies().length() > 100) {
+             return EvaluationOutcome.fail("species is too long", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+
+         // All checks passed
          return EvaluationOutcome.success();
     }
 }

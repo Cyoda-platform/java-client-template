@@ -29,7 +29,7 @@ public class PersistSuccessCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(PetSyncJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,42 +38,53 @@ public class PersistSuccessCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        // Must use exact criterion name
-        return "PersistSuccessCriterion".equals(modelSpec.operationName());
+        // must use exact criterion name (case-sensitive)
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<PetSyncJob> context) {
-         PetSyncJob job = context.entity();
-         if (job == null) {
-             return EvaluationOutcome.fail("PetSyncJob entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         PetSyncJob entity = context.entity();
+         if (entity == null) {
+             logger.warn("PersistSuccessCriterion: received null entity in evaluation context");
+             return EvaluationOutcome.fail("PetSyncJob entity is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // Basic required field validation
-         if (job.getStatus() == null || job.getStatus().isBlank()) {
-             return EvaluationOutcome.fail("Job status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         // Basic structural validation using the entity's own isValid() implementation
+         if (!entity.isValid()) {
+             String id = entity.getId();
+             String msg = "PetSyncJob is invalid: missing required fields" + (id != null ? " (id=" + id + ")" : "");
+             logger.debug("PersistSuccessCriterion: {}", msg);
+             return EvaluationOutcome.fail(msg, StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Persist success criterion: job must be completed without errors and with a valid fetched count and endTime
-         if (!"completed".equalsIgnoreCase(job.getStatus())) {
-             return EvaluationOutcome.fail("Job status is not 'completed'", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         // fetchedCount must be non-negative if present
+         Integer fetchedCount = entity.getFetchedCount();
+         if (fetchedCount != null && fetchedCount < 0) {
+             return EvaluationOutcome.fail("fetchedCount must be non-negative", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         if (job.getFetchedCount() == null) {
-             return EvaluationOutcome.fail("fetchedCount is missing for completed job", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         String status = entity.getStatus();
+         if (status == null || status.isBlank()) {
+             return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         if (job.getFetchedCount() < 0) {
-             return EvaluationOutcome.fail("fetchedCount is negative", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         // If the job reported an error -> failing outcome
+         String errorMessage = entity.getErrorMessage();
+         if (errorMessage != null && !errorMessage.isBlank()) {
+             return EvaluationOutcome.fail("Job reported error: " + errorMessage, StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
-         if (job.getEndTime() == null || job.getEndTime().isBlank()) {
-             return EvaluationOutcome.fail("endTime is required for completed job", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         // Success condition: status must be 'completed'
+         if ("completed".equalsIgnoreCase(status)) {
+             return EvaluationOutcome.success();
          }
 
-         if (job.getErrorMessage() != null && !job.getErrorMessage().isBlank()) {
-             return EvaluationOutcome.fail("Completed job must not have an errorMessage", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         // If the job explicitly failed
+         if ("failed".equalsIgnoreCase(status)) {
+             return EvaluationOutcome.fail("Job status is failed", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
-         return EvaluationOutcome.success();
+         // Not completed yet -> criterion not satisfied
+         return EvaluationOutcome.fail("Persist not completed, current status: " + status, StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
     }
 }

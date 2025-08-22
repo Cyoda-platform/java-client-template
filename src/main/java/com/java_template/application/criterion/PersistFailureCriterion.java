@@ -29,7 +29,7 @@ public class PersistFailureCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(PetSyncJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,33 +38,62 @@ public class PersistFailureCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must match exact criterion name
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<PetSyncJob> context) {
          PetSyncJob job = context.entity();
-
          if (job == null) {
-             logger.warn("PetSyncJob entity is null in PersistFailureCriterion");
-             return EvaluationOutcome.fail("Job entity missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             logger.warn("PersistFailureCriterion: received null PetSyncJob entity");
+             return EvaluationOutcome.fail("PetSyncJob entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
          String status = job.getStatus();
          if (status == null || status.isBlank()) {
-             return EvaluationOutcome.fail("Job status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             logger.warn("PersistFailureCriterion: job {} has no status", job.getId());
+             return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // If job indicates a failure in the persisting step, report failure with reason
+         // If the job is marked failed, ensure failure details are present and sensible.
          if ("failed".equalsIgnoreCase(status)) {
-             String err = job.getErrorMessage();
-             if (err == null || err.isBlank()) {
-                 return EvaluationOutcome.fail("Job marked as failed but no errorMessage provided", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             if (job.getErrorMessage() == null || job.getErrorMessage().isBlank()) {
+                 logger.warn("PersistFailureCriterion: failed job {} missing errorMessage", job.getId());
+                 return EvaluationOutcome.fail("error_message is required for failed job", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
              }
-             // Provide the operational failure reason collected from the job
-             return EvaluationOutcome.fail("Persisting failed: " + err, StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+             if (job.getEndTime() == null || job.getEndTime().isBlank()) {
+                 logger.warn("PersistFailureCriterion: failed job {} missing endTime", job.getId());
+                 return EvaluationOutcome.fail("end_time is required for failed job", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+             if (job.getFetchedCount() == null) {
+                 logger.warn("PersistFailureCriterion: failed job {} missing fetchedCount", job.getId());
+                 return EvaluationOutcome.fail("fetched_count is required for failed job", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+             if (job.getFetchedCount() < 0) {
+                 logger.warn("PersistFailureCriterion: failed job {} has negative fetchedCount {}", job.getId(), job.getFetchedCount());
+                 return EvaluationOutcome.fail("fetched_count cannot be negative", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+             // Return a failure outcome reflecting that the job indeed failed (business-level failure)
+             return EvaluationOutcome.fail("Persisting job failed: " + job.getErrorMessage(), StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
-         // Otherwise consider the criterion successful (no persist failure detected)
+         // During persisting status ensure we at least have sensible counters and start time
+         if ("persisting".equalsIgnoreCase(status)) {
+             if (job.getStartTime() == null || job.getStartTime().isBlank()) {
+                 logger.warn("PersistFailureCriterion: persisting job {} missing startTime", job.getId());
+                 return EvaluationOutcome.fail("start_time is required for persisting job", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             }
+             if (job.getFetchedCount() == null) {
+                 logger.warn("PersistFailureCriterion: persisting job {} missing fetchedCount", job.getId());
+                 return EvaluationOutcome.fail("fetched_count is required while persisting", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+             if (job.getFetchedCount() < 0) {
+                 logger.warn("PersistFailureCriterion: persisting job {} has negative fetchedCount {}", job.getId(), job.getFetchedCount());
+                 return EvaluationOutcome.fail("fetched_count cannot be negative", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+         }
+
+         // For other statuses no persistent-failure related problems detected
          return EvaluationOutcome.success();
     }
 }

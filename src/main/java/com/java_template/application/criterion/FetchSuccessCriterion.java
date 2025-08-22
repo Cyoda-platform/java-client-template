@@ -15,6 +15,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
+
 @Component
 public class FetchSuccessCriterion implements CyodaCriterion {
 
@@ -29,7 +31,7 @@ public class FetchSuccessCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(PetSyncJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,52 +40,83 @@ public class FetchSuccessCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Requirement: supports() MUST use exact criterion name (case sensitive)
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<PetSyncJob> context) {
          PetSyncJob entity = context.entity();
-
-         // Basic required fields validation
-         if (entity.getId() == null || entity.getId().isBlank()) {
-             return EvaluationOutcome.fail("id is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-         if (entity.getSource() == null || entity.getSource().isBlank()) {
-             return EvaluationOutcome.fail("source is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-         if (entity.getStartTime() == null || entity.getStartTime().isBlank()) {
-             return EvaluationOutcome.fail("start_time is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-         if (entity.getConfig() == null) {
-             return EvaluationOutcome.fail("config is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-         if (entity.getStatus() == null || entity.getStatus().isBlank()) {
-             return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         if (entity == null) {
+             logger.warn("PetSyncJob entity is null");
+             return EvaluationOutcome.fail("PetSyncJob entity is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Business rule: a successful fetch should move the job to 'parsing' status (per workflow)
-         if (!"parsing".equalsIgnoreCase(entity.getStatus())) {
-             // If job explicitly failed, surface as business rule failure with any error message
-             if ("failed".equalsIgnoreCase(entity.getStatus())) {
-                 String err = entity.getErrorMessage() == null ? "fetch failed" : ("fetch failed: " + entity.getErrorMessage());
-                 return EvaluationOutcome.fail(err, StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         // Basic required fields validation using only available getters
+         String id = entity.getId();
+         String source = entity.getSource();
+         String status = entity.getStatus();
+         String startTime = entity.getStartTime();
+         Map<String, Object> config = entity.getConfig();
+         Integer fetchedCount = entity.getFetchedCount();
+         String errorMessage = entity.getErrorMessage();
+
+         if (id == null || id.isBlank()) {
+             logger.warn("PetSyncJob.id is missing or blank");
+             return EvaluationOutcome.fail("Job id is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+         if (source == null || source.isBlank()) {
+             logger.warn("PetSyncJob.source is missing or blank for job {}", id);
+             return EvaluationOutcome.fail("Job source is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+         if (status == null || status.isBlank()) {
+             logger.warn("PetSyncJob.status is missing or blank for job {}", id);
+             return EvaluationOutcome.fail("Job status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+         if (startTime == null || startTime.isBlank()) {
+             logger.warn("PetSyncJob.startTime is missing or blank for job {}", id);
+             return EvaluationOutcome.fail("Job start time is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+         if (config == null) {
+             logger.warn("PetSyncJob.config is missing for job {}", id);
+             return EvaluationOutcome.fail("Job config is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         // If job explicitly failed during fetch
+         if ("failed".equalsIgnoreCase(status)) {
+             String msg = "Fetch failed";
+             if (errorMessage != null && !errorMessage.isBlank()) {
+                 msg = "Fetch failed: " + errorMessage;
              }
-             return EvaluationOutcome.fail("fetch not completed; expected status 'parsing' but was '" + entity.getStatus() + "'",
-                 StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+             logger.warn("PetSyncJob {} marked as failed during fetch: {}", id, errorMessage);
+             return EvaluationOutcome.fail(msg, StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // Data quality checks for fetched count and error message
-         if (entity.getFetchedCount() == null) {
-             return EvaluationOutcome.fail("fetched_count is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-         }
-         if (entity.getFetchedCount() < 0) {
-             return EvaluationOutcome.fail("fetched_count must be non-negative", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-         }
-         if (entity.getErrorMessage() != null && !entity.getErrorMessage().isBlank()) {
-             return EvaluationOutcome.fail("error_message present despite parsing status: " + entity.getErrorMessage(),
-                 StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         // Only consider success for jobs that are in FETCHING (ready to move to PARSING) or COMPLETED (edge-case)
+         if ("fetching".equalsIgnoreCase(status) || "completed".equalsIgnoreCase(status)) {
+             if (fetchedCount == null) {
+                 logger.warn("PetSyncJob {} has null fetchedCount while in status {}", id, status);
+                 return EvaluationOutcome.fail("fetched_count is missing after fetch", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+             if (fetchedCount < 0) {
+                 logger.warn("PetSyncJob {} has negative fetchedCount: {}", id, fetchedCount);
+                 return EvaluationOutcome.fail("fetched_count must be non-negative", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+             if (errorMessage != null && !errorMessage.isBlank()) {
+                 logger.warn("PetSyncJob {} contains an error message despite non-failed status: {}", id, errorMessage);
+                 return EvaluationOutcome.fail("Fetch produced error: " + errorMessage, StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+             // If no items fetched, treat as data-quality issue — parsing step likely unnecessary
+             if (fetchedCount == 0) {
+                 logger.info("PetSyncJob {} fetched 0 items; nothing to parse", id);
+                 return EvaluationOutcome.fail("No items fetched", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+             // passed all checks -> success
+             logger.info("PetSyncJob {} fetch considered successful (status={}, fetchedCount={})", id, status, fetchedCount);
+             return EvaluationOutcome.success();
          }
 
-         return EvaluationOutcome.success();
+         // For other statuses (pending, parsing, persisting, etc.) this criterion is not satisfied
+         logger.warn("PetSyncJob {} is in status '{}' which is not eligible for fetch-success transition", id, status);
+         return EvaluationOutcome.fail("Job not in fetching/completed state", StandardEvalReasonCategories.VALIDATION_FAILURE);
     }
 }

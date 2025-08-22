@@ -1,27 +1,19 @@
 package com.java_template.application.processor;
 
-import com.java_template.application.entity.adoptionrequest.version_1.AdoptionRequest;
 import com.java_template.application.entity.pet.version_1.Pet;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
-import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
+import java.util.ArrayList;
+import java.util.List;
 
 @Component
 public class PetIndexProcessor implements CyodaProcessor {
@@ -29,13 +21,9 @@ public class PetIndexProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(PetIndexProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
-    private final EntityService entityService;
-    private final ObjectMapper objectMapper;
 
-    public PetIndexProcessor(SerializerFactory serializerFactory, EntityService entityService, ObjectMapper objectMapper) {
+    public PetIndexProcessor(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
-        this.entityService = entityService;
-        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -43,10 +31,10 @@ public class PetIndexProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing Pet for request: {}", request.getId());
 
-        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
+        return serializer.withRequest(request)
             .toEntity(Pet.class)
             .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+            .map(this::processEntityLogic)
             .complete();
     }
 
@@ -60,75 +48,62 @@ public class PetIndexProcessor implements CyodaProcessor {
     }
 
     private Pet processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Pet> context) {
-        Pet pet = context.entity();
+        Pet entity = context.entity();
 
-        try {
-            // Determine whether the pet is currently reserved/under request by checking AdoptionRequest entities.
-            SearchConditionRequest condition = SearchConditionRequest.group(
-                "AND",
-                Condition.of("$.petId", "EQUALS", pet.getId())
-            );
-
-            CompletableFuture<ArrayNode> requestsFuture = entityService.getItemsByCondition(
-                AdoptionRequest.ENTITY_NAME,
-                String.valueOf(AdoptionRequest.ENTITY_VERSION),
-                condition,
-                true
-            );
-
-            ArrayNode requests = requestsFuture.join();
-
-            // Define statuses that indicate the pet is not available for general adoption (i.e., reserved/pending)
-            Set<String> nonAvailableStatuses = new HashSet<>(Arrays.asList(
-                "reserved",        // explicitly reserved
-                "requested",       // newly requested and not yet reviewed
-                "under_review",    // admin review in progress
-                "approved",        // approved but not completed pickup
-                "pending"          // generic pending state
-            ));
-
-            boolean hasActiveRequest = false;
-            if (requests != null && requests.size() > 0) {
-                for (int i = 0; i < requests.size(); i++) {
-                    String status = null;
-                    if (requests.get(i).has("status") && !requests.get(i).get("status").isNull()) {
-                        status = requests.get(i).get("status").asText();
-                    }
-                    if (status != null && nonAvailableStatuses.contains(status.toLowerCase())) {
-                        hasActiveRequest = true;
-                        break;
-                    }
-                }
-            }
-
-            // Set pet status according to reservation presence.
-            if (hasActiveRequest) {
-                pet.setStatus("pending");
-                logger.info("Pet {} marked as pending due to active adoption request.", pet.getId());
-            } else {
-                // If pet was marked removed/adopted explicitly, don't override.
-                String current = pet.getStatus();
-                if (current == null || current.isBlank() || "pending".equalsIgnoreCase(current)) {
-                    pet.setStatus("available");
-                    logger.info("Pet {} marked as available for adoption.", pet.getId());
-                } else {
-                    logger.debug("Pet {} retains existing status: {}", pet.getId(), current);
-                }
-            }
-
-            // Optionally add an index tag so downstream systems can detect indexing has occurred.
-            // Only add if tags exists and doesn't already contain marker.
-            if (pet.getTags() != null) {
-                boolean containsIndex = pet.getTags().stream().anyMatch(t -> "indexed".equalsIgnoreCase(t));
-                if (!containsIndex) {
-                    pet.getTags().add("indexed");
-                }
-            }
-        } catch (Exception ex) {
-            // On any failure, log and leave entity state unchanged. The workflow can handle retries or failures.
-            logger.error("Failed to evaluate adoption requests for pet {}: {}", pet.getId(), ex.getMessage(), ex);
+        if (entity == null) {
+            logger.warn("Pet entity is null in execution context");
+            return null;
         }
 
-        return pet;
+        // Ensure tags list is initialized
+        List<String> tags = entity.getTags();
+        if (tags == null) {
+            tags = new ArrayList<>();
+            entity.setTags(tags);
+        }
+
+        // Business logic:
+        // - If pet is explicitly reserved (tag "reserved") or status is "pending", keep/mark as pending.
+        // - Otherwise, move ENRICHED (or blank) to AVAILABLE for publishing/indexing.
+        // - Add an "indexed" tag to indicate it has been processed by the indexer.
+
+        boolean hasReservedTag = tags.stream()
+            .anyMatch(t -> t != null && t.equalsIgnoreCase("reserved"));
+
+        String currentStatus = entity.getStatus();
+        if (currentStatus != null && currentStatus.equalsIgnoreCase("pending")) {
+            // already pending - no change, but ensure indexed tag added for the processing trace
+            logger.debug("Pet {} already in pending status; leaving status unchanged", entity.getId());
+        } else if (hasReservedTag) {
+            logger.info("Pet {} has reserved tag; marking as pending", entity.getId());
+            entity.setStatus("pending");
+        } else {
+            // Default to available when indexing unless explicitly pending/reserved
+            if (currentStatus == null || currentStatus.isBlank() || currentStatus.equalsIgnoreCase("enriched")) {
+                entity.setStatus("available");
+                logger.info("Pet {} marked as available by PetIndexProcessor", entity.getId());
+            } else {
+                // If status is something else (e.g., available/adopted/removed), leave as-is but log
+                logger.debug("Pet {} status is '{}'; no status change applied by indexer", entity.getId(), currentStatus);
+            }
+        }
+
+        // Ensure "indexed" tag is present to indicate indexing step completed
+        boolean hasIndexed = tags.stream()
+            .anyMatch(t -> t != null && t.equalsIgnoreCase("indexed"));
+        if (!hasIndexed) {
+            tags.add("indexed");
+        }
+
+        // Additional minor enrichment: normalize tags to lowercase for consistent filtering (non-destructive)
+        List<String> normalized = new ArrayList<>();
+        for (String t : tags) {
+            if (t != null) {
+                normalized.add(t.trim().toLowerCase());
+            }
+        }
+        entity.setTags(normalized);
+
+        return entity;
     }
 }

@@ -2,9 +2,6 @@ package com.java_template.application.controller.petsyncjob.version_1;
 
 import static com.java_template.common.config.Config.*;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
@@ -16,15 +13,9 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
+import jakarta.validation.Valid;
 import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,406 +23,347 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-/**
- * Dull proxy controller for PetSyncJob entity. All business logic is executed in workflows.
- */
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+
 @RestController
-@RequestMapping("/api/v1/jobs/pet-sync")
-@Tag(name = "PetSyncJob Controller", description = "Proxy endpoints for PetSyncJob entity")
+@RequestMapping("/api/petsyncjob/v1")
+@Tag(name = "PetSyncJob", description = "Operations for PetSyncJob entity")
 public class PetSyncJobController {
 
     private static final Logger logger = LoggerFactory.getLogger(PetSyncJobController.class);
+
     private final EntityService entityService;
-    private final ObjectMapper mapper = new ObjectMapper();
 
     public PetSyncJobController(EntityService entityService) {
         this.entityService = entityService;
     }
 
-    @Operation(summary = "Start a Pet Sync Job", description = "Create a PetSyncJob entity (starts the orchestration). Returns only technicalId.")
+    @Operation(summary = "Add PetSyncJob", description = "Creates a new PetSyncJob entity")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
-        @ApiResponse(responseCode = "400", description = "Bad Request"),
-        @ApiResponse(responseCode = "500", description = "Internal Server Error")
+            @ApiResponse(responseCode = "200", description = "Created", content = @Content(schema = @Schema(implementation = AddResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
-    @PostMapping
-    public ResponseEntity<?> createJob(@RequestBody PetSyncJobCreateRequest request) {
+    @PostMapping(consumes = "application/json", produces = "application/json")
+    public ResponseEntity<?> addItem(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "PetSyncJob payload")
+                                     @Valid @RequestBody PetSyncJob data) {
         try {
-            if (request == null) {
-                throw new IllegalArgumentException("Request body is required");
-            }
-            ObjectNode data = mapper.valueToTree(request);
             CompletableFuture<UUID> idFuture = entityService.addItem(
-                PetSyncJob.ENTITY_NAME,
-                String.valueOf(PetSyncJob.ENTITY_VERSION),
-                data
+                    PetSyncJob.ENTITY_NAME,
+                    String.valueOf(PetSyncJob.ENTITY_VERSION),
+                    data
             );
             UUID id = idFuture.get();
-            TechnicalIdResponse resp = new TechnicalIdResponse(id.toString());
+            AddResponse resp = new AddResponse(id);
             return ResponseEntity.ok(resp);
-        } catch (IllegalArgumentException iae) {
-            logger.warn("Invalid request to create PetSyncJob", iae);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(iae.getMessage());
-        } catch (ExecutionException ee) {
-            Throwable cause = ee.getCause();
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid argument when adding PetSyncJob: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
             if (cause instanceof NoSuchElementException) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
             } else if (cause instanceof IllegalArgumentException) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
             } else {
-                logger.error("ExecutionException while creating PetSyncJob", ee);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : ee.getMessage());
+                logger.error("ExecutionException while adding PetSyncJob", e);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : e.getMessage());
             }
-        } catch (InterruptedException ie) {
+        } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            logger.error("Interrupted while creating PetSyncJob", ie);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ie.getMessage());
+            logger.error("Interrupted while adding PetSyncJob", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         } catch (Exception e) {
-            logger.error("Error while creating PetSyncJob", e);
+            logger.error("Unexpected error while adding PetSyncJob", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
 
-    @Operation(summary = "Create multiple Pet Sync Jobs", description = "Bulk create PetSyncJob entities. Returns list of technicalIds.")
+    @Operation(summary = "Add multiple PetSyncJobs", description = "Creates multiple PetSyncJob entities")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = TechnicalIdResponse.class)))),
-        @ApiResponse(responseCode = "400", description = "Bad Request"),
-        @ApiResponse(responseCode = "500", description = "Internal Server Error")
+            @ApiResponse(responseCode = "200", description = "Created", content = @Content(schema = @Schema(implementation = AddMultipleResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
-    @PostMapping("/batch")
-    public ResponseEntity<?> createJobsBulk(@RequestBody List<PetSyncJobCreateRequest> requests) {
+    @PostMapping(path = "/bulk", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<?> addItems(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "List of PetSyncJob payloads")
+                                      @Valid @RequestBody List<PetSyncJob> data) {
         try {
-            if (requests == null) {
-                throw new IllegalArgumentException("Request body is required");
-            }
-            ArrayNode data = mapper.valueToTree(requests);
             CompletableFuture<List<UUID>> idsFuture = entityService.addItems(
-                PetSyncJob.ENTITY_NAME,
-                String.valueOf(PetSyncJob.ENTITY_VERSION),
-                data
+                    PetSyncJob.ENTITY_NAME,
+                    String.valueOf(PetSyncJob.ENTITY_VERSION),
+                    data
             );
             List<UUID> ids = idsFuture.get();
-            List<TechnicalIdResponse> resp = ids.stream().map(uuid -> new TechnicalIdResponse(uuid.toString())).toList();
+            AddMultipleResponse resp = new AddMultipleResponse(ids);
             return ResponseEntity.ok(resp);
-        } catch (IllegalArgumentException iae) {
-            logger.warn("Invalid bulk request to create PetSyncJob", iae);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(iae.getMessage());
-        } catch (ExecutionException ee) {
-            Throwable cause = ee.getCause();
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid argument when adding PetSyncJob list: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
             if (cause instanceof NoSuchElementException) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
             } else if (cause instanceof IllegalArgumentException) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
             } else {
-                logger.error("ExecutionException while bulk creating PetSyncJob", ee);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : ee.getMessage());
+                logger.error("ExecutionException while adding PetSyncJob list", e);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : e.getMessage());
             }
-        } catch (InterruptedException ie) {
+        } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            logger.error("Interrupted while bulk creating PetSyncJob", ie);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ie.getMessage());
+            logger.error("Interrupted while adding PetSyncJob list", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         } catch (Exception e) {
-            logger.error("Error while bulk creating PetSyncJob", e);
+            logger.error("Unexpected error while adding PetSyncJob list", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
 
-    @Operation(summary = "Get PetSyncJob by technicalId", description = "Retrieve a PetSyncJob by its technicalId")
+    @Operation(summary = "Get PetSyncJob by technicalId", description = "Retrieves a PetSyncJob entity by its technical id")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = PetSyncJobResponse.class))),
-        @ApiResponse(responseCode = "400", description = "Bad Request"),
-        @ApiResponse(responseCode = "404", description = "Not Found"),
-        @ApiResponse(responseCode = "500", description = "Internal Server Error")
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = ObjectNode.class))),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "404", description = "Not Found"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
-    @GetMapping("/{technicalId}")
-    public ResponseEntity<?> getJobById(
-        @Parameter(name = "technicalId", description = "Technical ID of the entity")
-        @PathVariable String technicalId) {
+    @GetMapping(path = "/{technicalId}", produces = "application/json")
+    public ResponseEntity<?> getItem(
+            @Parameter(name = "technicalId", description = "Technical ID of the entity")
+            @PathVariable("technicalId") String technicalId) {
         try {
-            UUID uuid = UUID.fromString(technicalId);
+            UUID id = UUID.fromString(technicalId);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
-                PetSyncJob.ENTITY_NAME,
-                String.valueOf(PetSyncJob.ENTITY_VERSION),
-                uuid
+                    PetSyncJob.ENTITY_NAME,
+                    String.valueOf(PetSyncJob.ENTITY_VERSION),
+                    id
             );
-            ObjectNode node = itemFuture.get();
-            PetSyncJobResponse resp = mapper.convertValue(node, PetSyncJobResponse.class);
-            resp.setTechnicalId(technicalId);
-            return ResponseEntity.ok(resp);
-        } catch (IllegalArgumentException iae) {
-            logger.warn("Invalid technicalId for getJobById: {}", technicalId, iae);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(iae.getMessage());
-        } catch (ExecutionException ee) {
-            Throwable cause = ee.getCause();
+            ObjectNode result = itemFuture.get();
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid technicalId or argument when getting PetSyncJob: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
             if (cause instanceof NoSuchElementException) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
             } else if (cause instanceof IllegalArgumentException) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
             } else {
-                logger.error("ExecutionException while retrieving PetSyncJob", ee);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : ee.getMessage());
+                logger.error("ExecutionException while getting PetSyncJob", e);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : e.getMessage());
             }
-        } catch (InterruptedException ie) {
+        } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            logger.error("Interrupted while retrieving PetSyncJob", ie);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ie.getMessage());
+            logger.error("Interrupted while getting PetSyncJob", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         } catch (Exception e) {
-            logger.error("Error while retrieving PetSyncJob", e);
+            logger.error("Unexpected error while getting PetSyncJob", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
 
-    @Operation(summary = "List all PetSyncJobs", description = "Retrieve all PetSyncJob entities")
+    @Operation(summary = "Get all PetSyncJobs", description = "Retrieves all PetSyncJob entities")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = PetSyncJobResponse.class)))),
-        @ApiResponse(responseCode = "500", description = "Internal Server Error")
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = ArrayNode.class))),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
-    @GetMapping
-    public ResponseEntity<?> listJobs() {
+    @GetMapping(produces = "application/json")
+    public ResponseEntity<?> getItems() {
         try {
             CompletableFuture<ArrayNode> itemsFuture = entityService.getItems(
-                PetSyncJob.ENTITY_NAME,
-                String.valueOf(PetSyncJob.ENTITY_VERSION)
+                    PetSyncJob.ENTITY_NAME,
+                    String.valueOf(PetSyncJob.ENTITY_VERSION)
             );
-            ArrayNode array = itemsFuture.get();
-            List<PetSyncJobResponse> resp = mapper.convertValue(array, new TypeReference<List<PetSyncJobResponse>>() {});
-            return ResponseEntity.ok(resp);
-        } catch (ExecutionException ee) {
-            Throwable cause = ee.getCause();
-            if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
-            } else {
-                logger.error("ExecutionException while listing PetSyncJob", ee);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : ee.getMessage());
-            }
-        } catch (InterruptedException ie) {
+            ArrayNode items = itemsFuture.get();
+            return ResponseEntity.ok(items);
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            logger.error("ExecutionException while getting PetSyncJob list", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : e.getMessage());
+        } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            logger.error("Interrupted while listing PetSyncJob", ie);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ie.getMessage());
+            logger.error("Interrupted while getting PetSyncJob list", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         } catch (Exception e) {
-            logger.error("Error while listing PetSyncJob", e);
+            logger.error("Unexpected error while getting PetSyncJob list", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
 
-    @Operation(summary = "Search PetSyncJobs by condition", description = "Retrieve PetSyncJobs matching a simple search condition")
+    @Operation(summary = "Search PetSyncJobs by condition", description = "Retrieves PetSyncJob entities filtered by provided condition")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = PetSyncJobResponse.class)))),
-        @ApiResponse(responseCode = "400", description = "Bad Request"),
-        @ApiResponse(responseCode = "500", description = "Internal Server Error")
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = ArrayNode.class))),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
-    @PostMapping("/search")
-    public ResponseEntity<?> searchJobs(@RequestBody SearchConditionRequest condition) {
+    @PostMapping(path = "/search", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<?> getItemsByCondition(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Search condition")
+                                                 @Valid @RequestBody SearchConditionRequest condition) {
         try {
-            if (condition == null) {
-                throw new IllegalArgumentException("Search condition is required");
-            }
-            CompletableFuture<ArrayNode> itemsFuture = entityService.getItemsByCondition(
-                PetSyncJob.ENTITY_NAME,
-                String.valueOf(PetSyncJob.ENTITY_VERSION),
-                condition,
-                true
+            CompletableFuture<ArrayNode> filteredItemsFuture = entityService.getItemsByCondition(
+                    PetSyncJob.ENTITY_NAME,
+                    String.valueOf(PetSyncJob.ENTITY_VERSION),
+                    condition,
+                    true
             );
-            ArrayNode array = itemsFuture.get();
-            List<PetSyncJobResponse> resp = mapper.convertValue(array, new TypeReference<List<PetSyncJobResponse>>() {});
-            return ResponseEntity.ok(resp);
-        } catch (IllegalArgumentException iae) {
-            logger.warn("Invalid search condition for PetSyncJob", iae);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(iae.getMessage());
-        } catch (ExecutionException ee) {
-            Throwable cause = ee.getCause();
-            if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
-            } else {
-                logger.error("ExecutionException while searching PetSyncJob", ee);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : ee.getMessage());
-            }
-        } catch (InterruptedException ie) {
+            ArrayNode results = filteredItemsFuture.get();
+            return ResponseEntity.ok(results);
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid search condition: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            logger.error("ExecutionException while searching PetSyncJob", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : e.getMessage());
+        } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            logger.error("Interrupted while searching PetSyncJob", ie);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ie.getMessage());
+            logger.error("Interrupted while searching PetSyncJob", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         } catch (Exception e) {
-            logger.error("Error while searching PetSyncJob", e);
+            logger.error("Unexpected error while searching PetSyncJob", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
 
-    @Operation(summary = "Update a PetSyncJob", description = "Update a PetSyncJob by technicalId. Returns technicalId.")
+    @Operation(summary = "Update PetSyncJob", description = "Updates an existing PetSyncJob entity by technical id")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
-        @ApiResponse(responseCode = "400", description = "Bad Request"),
-        @ApiResponse(responseCode = "404", description = "Not Found"),
-        @ApiResponse(responseCode = "500", description = "Internal Server Error")
+            @ApiResponse(responseCode = "200", description = "Updated", content = @Content(schema = @Schema(implementation = UpdateResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "404", description = "Not Found"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
-    @PutMapping("/{technicalId}")
-    public ResponseEntity<?> updateJob(
-        @Parameter(name = "technicalId", description = "Technical ID of the entity")
-        @PathVariable String technicalId,
-        @RequestBody PetSyncJobUpdateRequest request) {
+    @PutMapping(path = "/{technicalId}", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<?> updateItem(
+            @Parameter(name = "technicalId", description = "Technical ID of the entity")
+            @PathVariable("technicalId") String technicalId,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "PetSyncJob payload")
+            @Valid @RequestBody PetSyncJob data) {
         try {
-            if (request == null) {
-                throw new IllegalArgumentException("Request body is required");
-            }
-            UUID uuid = UUID.fromString(technicalId);
-            ObjectNode data = mapper.valueToTree(request);
-            CompletableFuture<UUID> updatedId = entityService.updateItem(
-                PetSyncJob.ENTITY_NAME,
-                String.valueOf(PetSyncJob.ENTITY_VERSION),
-                uuid,
-                data
+            UUID id = UUID.fromString(technicalId);
+            CompletableFuture<UUID> updatedIdFuture = entityService.updateItem(
+                    PetSyncJob.ENTITY_NAME,
+                    String.valueOf(PetSyncJob.ENTITY_VERSION),
+                    id,
+                    data
             );
-            UUID id = updatedId.get();
-            return ResponseEntity.ok(new TechnicalIdResponse(id.toString()));
-        } catch (IllegalArgumentException iae) {
-            logger.warn("Invalid request to update PetSyncJob: {}", technicalId, iae);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(iae.getMessage());
-        } catch (ExecutionException ee) {
-            Throwable cause = ee.getCause();
+            UUID updatedId = updatedIdFuture.get();
+            UpdateResponse resp = new UpdateResponse(updatedId);
+            return ResponseEntity.ok(resp);
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid argument when updating PetSyncJob: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
             if (cause instanceof NoSuchElementException) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
             } else if (cause instanceof IllegalArgumentException) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
             } else {
-                logger.error("ExecutionException while updating PetSyncJob", ee);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : ee.getMessage());
+                logger.error("ExecutionException while updating PetSyncJob", e);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : e.getMessage());
             }
-        } catch (InterruptedException ie) {
+        } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            logger.error("Interrupted while updating PetSyncJob", ie);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ie.getMessage());
+            logger.error("Interrupted while updating PetSyncJob", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         } catch (Exception e) {
-            logger.error("Error while updating PetSyncJob", e);
+            logger.error("Unexpected error while updating PetSyncJob", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
 
-    @Operation(summary = "Delete a PetSyncJob", description = "Delete a PetSyncJob by technicalId. Returns technicalId.")
+    @Operation(summary = "Delete PetSyncJob", description = "Deletes a PetSyncJob entity by technical id")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
-        @ApiResponse(responseCode = "400", description = "Bad Request"),
-        @ApiResponse(responseCode = "404", description = "Not Found"),
-        @ApiResponse(responseCode = "500", description = "Internal Server Error")
+            @ApiResponse(responseCode = "200", description = "Deleted", content = @Content(schema = @Schema(implementation = DeleteResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "404", description = "Not Found"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
-    @DeleteMapping("/{technicalId}")
-    public ResponseEntity<?> deleteJob(
-        @Parameter(name = "technicalId", description = "Technical ID of the entity")
-        @PathVariable String technicalId) {
+    @DeleteMapping(path = "/{technicalId}", produces = "application/json")
+    public ResponseEntity<?> deleteItem(
+            @Parameter(name = "technicalId", description = "Technical ID of the entity")
+            @PathVariable("technicalId") String technicalId) {
         try {
-            UUID uuid = UUID.fromString(technicalId);
-            CompletableFuture<UUID> deletedId = entityService.deleteItem(
-                PetSyncJob.ENTITY_NAME,
-                String.valueOf(PetSyncJob.ENTITY_VERSION),
-                uuid
+            UUID id = UUID.fromString(technicalId);
+            CompletableFuture<UUID> deletedIdFuture = entityService.deleteItem(
+                    PetSyncJob.ENTITY_NAME,
+                    String.valueOf(PetSyncJob.ENTITY_VERSION),
+                    id
             );
-            UUID id = deletedId.get();
-            return ResponseEntity.ok(new TechnicalIdResponse(id.toString()));
-        } catch (IllegalArgumentException iae) {
-            logger.warn("Invalid technicalId for deleteJob: {}", technicalId, iae);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(iae.getMessage());
-        } catch (ExecutionException ee) {
-            Throwable cause = ee.getCause();
+            UUID deletedId = deletedIdFuture.get();
+            DeleteResponse resp = new DeleteResponse(deletedId);
+            return ResponseEntity.ok(resp);
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid argument when deleting PetSyncJob: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
             if (cause instanceof NoSuchElementException) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
             } else if (cause instanceof IllegalArgumentException) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
             } else {
-                logger.error("ExecutionException while deleting PetSyncJob", ee);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : ee.getMessage());
+                logger.error("ExecutionException while deleting PetSyncJob", e);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : e.getMessage());
             }
-        } catch (InterruptedException ie) {
+        } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            logger.error("Interrupted while deleting PetSyncJob", ie);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ie.getMessage());
+            logger.error("Interrupted while deleting PetSyncJob", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         } catch (Exception e) {
-            logger.error("Error while deleting PetSyncJob", e);
+            logger.error("Unexpected error while deleting PetSyncJob", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
 
-    // --- Static DTO classes ---
+    // DTOs
 
     @Data
-    @Schema(name = "PetSyncJobCreateRequest", description = "Request to start a PetSyncJob")
-    public static class PetSyncJobCreateRequest {
-        @Schema(description = "Source of the job (e.g. petstore)", example = "petstore")
-        private String source;
+    @Schema(name = "AddResponse", description = "Response containing created entity id")
+    public static class AddResponse {
+        @Schema(description = "Technical id of created entity")
+        private UUID id;
 
-        @Schema(description = "Configuration for the job (filters, paging, mapping rules)")
-        private Map<String, Object> config;
-
-        @Schema(description = "Optional start time (ISO timestamp)", example = "2025-08-20T10:00:00Z")
-        private String start_time;
+        public AddResponse(UUID id) {
+            this.id = id;
+        }
     }
 
     @Data
-    @Schema(name = "PetSyncJobUpdateRequest", description = "Update payload for PetSyncJob")
-    public static class PetSyncJobUpdateRequest {
-        @Schema(description = "Job id (domain id)", example = "job_123456")
-        private String id;
+    @Schema(name = "AddMultipleResponse", description = "Response containing created entities ids")
+    public static class AddMultipleResponse {
+        @Schema(description = "Technical ids of created entities")
+        private List<UUID> ids;
 
-        @Schema(description = "Source of the job", example = "petstore")
-        private String source;
-
-        @Schema(description = "Start time (ISO timestamp)", example = "2025-08-20T10:00:00Z")
-        private String start_time;
-
-        @Schema(description = "End time (ISO timestamp)", example = "2025-08-20T10:01:30Z")
-        private String end_time;
-
-        @Schema(description = "Status of the job", example = "completed")
-        private String status;
-
-        @Schema(description = "Number of fetched items", example = "120")
-        private Integer fetched_count;
-
-        @Schema(description = "Error message in case of failure")
-        private String error_message;
-
-        @Schema(description = "Job config")
-        private Map<String, Object> config;
+        public AddMultipleResponse(List<UUID> ids) {
+            this.ids = ids;
+        }
     }
 
     @Data
-    @Schema(name = "PetSyncJobResponse", description = "Response payload for PetSyncJob retrieval")
-    public static class PetSyncJobResponse {
-        @Schema(description = "Technical ID of the entity", example = "job_123456")
-        private String technicalId;
+    @Schema(name = "UpdateResponse", description = "Response containing updated entity id")
+    public static class UpdateResponse {
+        @Schema(description = "Technical id of updated entity")
+        private UUID id;
 
-        @Schema(description = "Domain id / job id", example = "job_123456")
-        private String id;
-
-        @Schema(description = "Source of the job", example = "petstore")
-        private String source;
-
-        @Schema(description = "Status of the job", example = "completed")
-        private String status;
-
-        @Schema(description = "Number of fetched items", example = "120")
-        private Integer fetched_count;
-
-        @Schema(description = "Start time (ISO timestamp)", example = "2025-08-20T10:00:00Z")
-        private String start_time;
-
-        @Schema(description = "End time (ISO timestamp)", example = "2025-08-20T10:01:30Z")
-        private String end_time;
-
-        @Schema(description = "Error message if failed")
-        private String error_message;
-
-        @Schema(description = "Config object", implementation = Object.class)
-        private Map<String, Object> config;
+        public UpdateResponse(UUID id) {
+            this.id = id;
+        }
     }
 
     @Data
-    @Schema(name = "TechnicalIdResponse", description = "Response containing a technical id")
-    public static class TechnicalIdResponse {
-        @Schema(description = "Technical ID of the entity", example = "job_123456")
-        private String technicalId;
+    @Schema(name = "DeleteResponse", description = "Response containing deleted entity id")
+    public static class DeleteResponse {
+        @Schema(description = "Technical id of deleted entity")
+        private UUID id;
 
-        public TechnicalIdResponse() {}
-
-        public TechnicalIdResponse(String technicalId) {
-            this.technicalId = technicalId;
+        public DeleteResponse(UUID id) {
+            this.id = id;
         }
     }
 }

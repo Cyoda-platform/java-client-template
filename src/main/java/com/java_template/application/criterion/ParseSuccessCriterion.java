@@ -29,7 +29,7 @@ public class ParseSuccessCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(PetSyncJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,53 +38,46 @@ public class ParseSuccessCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<PetSyncJob> context) {
          PetSyncJob entity = context.entity();
 
-         if (entity == null) {
-             return EvaluationOutcome.fail("PetSyncJob entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         // Validate presence of required technical id
+         if (entity.getId() == null || entity.getId().isBlank()) {
+             logger.debug("ParseSuccessCriterion failed: missing job id");
+             return EvaluationOutcome.fail("PetSyncJob id is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Basic required fields for parse-to-persist transition
-         if (entity.getStatus() == null || entity.getStatus().isBlank()) {
-             return EvaluationOutcome.fail("Job status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         // Ensure the job is in the expected parsing state
+         String status = entity.getStatus();
+         if (status == null || status.isBlank()) {
+             logger.debug("ParseSuccessCriterion failed: missing status for job {}", entity.getId());
+             return EvaluationOutcome.fail("PetSyncJob status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+         if (!"parsing".equalsIgnoreCase(status)) {
+             logger.debug("ParseSuccessCriterion failed: job {} is in status '{}', expected 'parsing'", entity.getId(), status);
+             return EvaluationOutcome.fail("PetSyncJob is not in parsing state", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // ParseSuccessCriterion expects the job to be in PARSING state before moving to PERSISTING
-         if (!"parsing".equalsIgnoreCase(entity.getStatus())) {
-             return EvaluationOutcome.fail("Job status must be 'parsing' to proceed to persist", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         // If parser reported an error -> business rule failure
+         String errorMessage = entity.getErrorMessage();
+         if (errorMessage != null && !errorMessage.isBlank()) {
+             logger.debug("ParseSuccessCriterion failed: job {} has errorMessage='{}'", entity.getId(), errorMessage);
+             return EvaluationOutcome.fail("Parsing produced an error: " + errorMessage, StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
-         // Config must be present (parser depends on config like sourceUrl)
-         if (entity.getConfig() == null) {
-             return EvaluationOutcome.fail("Job config is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         // Ensure parsing produced at least one record to persist
+         Integer fetchedCount = entity.getFetchedCount();
+         if (fetchedCount == null || fetchedCount <= 0) {
+             logger.debug("ParseSuccessCriterion data quality failure: job {} fetchedCount={}", entity.getId(), fetchedCount);
+             return EvaluationOutcome.fail("No parsed items to persist (fetched_count is zero or missing)", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // fetchedCount should be set by the parsing process (can be zero but must not be null/negative)
-         Integer fetched = entity.getFetchedCount();
-         if (fetched == null) {
-             return EvaluationOutcome.fail("fetchedCount is not set by parser", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-         }
-         if (fetched < 0) {
-             return EvaluationOutcome.fail("fetchedCount is invalid (negative)", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-         }
-
-         // Any error message indicates parsing problems
-         if (entity.getErrorMessage() != null && !entity.getErrorMessage().isBlank()) {
-             return EvaluationOutcome.fail("Parsing produced error: " + entity.getErrorMessage(), StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-         }
-
-         // startTime and source are expected to be present for a valid job execution context
-         if (entity.getStartTime() == null || entity.getStartTime().isBlank()) {
-             return EvaluationOutcome.fail("startTime is required for job lifecycle", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-         if (entity.getSource() == null || entity.getSource().isBlank()) {
-             return EvaluationOutcome.fail("source is required for job lifecycle", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-
+         // All checks passed
+         logger.debug("ParseSuccessCriterion succeeded for job {} (fetched_count={})", entity.getId(), fetchedCount);
          return EvaluationOutcome.success();
     }
 }
