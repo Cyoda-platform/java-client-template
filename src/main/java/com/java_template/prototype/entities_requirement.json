@@ -1,0 +1,64 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "age": 2,
+                    "breed": "Siamese",
+                    "healthNotes": "Up-to-date on vaccinations; no known conditions",
+                    "id": "P456",
+                    "name": "Mittens",
+                    "photos": [
+                        "https://example.com/photos/mittens1.jpg",
+                        "https://example.com/photos/mittens2.jpg"
+                    ],
+                    "species": "cat",
+                    "status": "AVAILABLE",
+                    "tags": [
+                        "friendly",
+                        "indoor"
+                    ]
+                }
+            }
+        },
+        {
+            "Customer": {
+                "entity_data_example": {
+                    "address": {
+                        "city": "Springfield",
+                        "postcode": "12345",
+                        "street": "123 Main St"
+                    },
+                    "adoptionHistory": [
+                        {
+                            "adoptedAt": "2024-05-10T14:30:00Z",
+                            "petId": "P001"
+                        }
+                    ],
+                    "contactInfo": {
+                        "email": "jane.doe@example.com",
+                        "phone": "+15551234567"
+                    },
+                    "favorites": [
+                        "P456"
+                    ],
+                    "fullName": "Jane Doe",
+                    "id": "C123",
+                    "status": "VERIFIED"
+                }
+            }
+        },
+        {
+            "AdoptionJob": {
+                "entity_data_example": {
+                    "customerId": "C123",
+                    "jobId": "job-789-uuid",
+                    "petId": "P456",
+                    "requestedAt": "2025-08-22T10:00:00Z",
+                    "resultNotes": "",
+                    "status": "PENDING"
+                }
+            }
+        }
+    ]
+}
