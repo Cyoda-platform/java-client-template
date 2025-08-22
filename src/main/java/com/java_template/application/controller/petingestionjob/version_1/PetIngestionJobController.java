@@ -1,4 +1,4 @@
-package com.java_template.application.controller;
+package com.java_template.application.controller.petingestionjob.version_1;
 
 import static com.java_template.common.config.Config.*;
 
@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
+import com.java_template.application.entity.petingestionjob.version_1.PetIngestionJob; // NOSONAR - placeholder import reference
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -41,18 +42,12 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/jobs/ingestPets")
 @RequiredArgsConstructor
-public class Controller {
+public class PetIngestionJobController {
 
-    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
+    private static final Logger logger = LoggerFactory.getLogger(PetIngestionJobController.class);
 
     private final EntityService entityService;
     private final ObjectMapper objectMapper = new ObjectMapper();
-
-    // Import the entity class (reused as-is)
-    // Note: entity implementation is expected to exist under the versioned package
-    // This import is kept here to reference entity meta constants.
-    // If package differs adjust accordingly in project.
-    import com.java_template.application.entity.petingestionjob.version_1.PetIngestionJob; // NOSONAR - placeholder import reference
 
     @Operation(summary = "Create Pet Ingestion Job", description = "Creates a PetIngestionJob. Returns technicalId and Location header. Controller proxies to EntityService.")
     @ApiResponses(value = {
