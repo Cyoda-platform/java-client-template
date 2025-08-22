@@ -1,4 +1,7 @@
 package com.java_template.application.processor;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.ingestjob.version_1.IngestJob;
 import com.java_template.application.entity.hnitem.version_1.HNItem;
 import com.java_template.common.serializer.ProcessorSerializer;
@@ -8,11 +11,12 @@ import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
-import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
-import java.util.*;
+import java.util.Map;
+import java.util.HashMap;
 
 @Component
 public class TransformProcessor implements CyodaProcessor {
@@ -20,9 +24,11 @@ public class TransformProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(TransformProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final ObjectMapper objectMapper;
 
-    public TransformProcessor(SerializerFactory serializerFactory) {
+    public TransformProcessor(SerializerFactory serializerFactory, ObjectMapper objectMapper) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -30,10 +36,10 @@ public class TransformProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing IngestJob for request: {}", request.getId());
 
-        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
+        return serializer.withRequest(request)
             .toEntity(IngestJob.class)
             .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+            .map(this::processEntityLogic)
             .complete();
     }
 
@@ -48,128 +54,63 @@ public class TransformProcessor implements CyodaProcessor {
 
     private IngestJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<IngestJob> context) {
         IngestJob entity = context.entity();
-
         try {
-            Map<String, Object> original = entity.getHnPayload();
-            if (original == null) {
-                logger.warn("IngestJob {} has null hnPayload, nothing to transform", entity.getTechnicalId());
+            Map<String, Object> originalPayload = entity.getHnPayload();
+            if (originalPayload == null) {
+                logger.warn("IngestJob {} has null hnPayload, marking as FAILED", entity.getTechnicalId());
+                entity.setStatus("FAILED");
+                entity.setErrorMessage("hn_payload missing");
                 return entity;
             }
 
-            // Build normalized HNItem from the incoming payload (best-effort conversion)
-            HNItem hnItem = new HNItem();
+            // Convert incoming map to a typed HNItem for normalization/enrichment
+            HNItem hnItem = objectMapper.convertValue(originalPayload, HNItem.class);
 
-            // id
-            Object idObj = original.get("id");
-            if (idObj instanceof Number) {
-                hnItem.setId(((Number) idObj).longValue());
-            } else if (idObj instanceof String) {
-                try {
-                    hnItem.setId(Long.parseLong((String) idObj));
-                } catch (NumberFormatException ignored) { /* leave null */ }
+            // Preserve full raw JSON payload for fidelity
+            try {
+                String rawJson = objectMapper.writeValueAsString(originalPayload);
+                hnItem.setRawJson(rawJson);
+            } catch (JsonProcessingException e) {
+                // If serialization fails, log but continue; keep rawJson null
+                logger.warn("Failed to serialize raw hn_payload for job {}: {}", entity.getTechnicalId(), e.getMessage());
             }
 
-            // by
-            Object byObj = original.get("by");
-            if (byObj != null) hnItem.setBy(String.valueOf(byObj));
+            // Minimal normalization: ensure optional string fields are not null (avoid downstream NPEs)
+            if (hnItem.getTitle() == null) hnItem.setTitle("");
+            if (hnItem.getBy() == null) hnItem.setBy("");
+            if (hnItem.getType() == null) hnItem.setType("");
+            if (hnItem.getUrl() == null) hnItem.setUrl("");
+            if (hnItem.getText() == null) hnItem.setText("");
 
-            // title
-            Object titleObj = original.get("title");
-            if (titleObj != null) hnItem.setTitle(String.valueOf(titleObj));
-
-            // time
-            Object timeObj = original.get("time");
-            if (timeObj instanceof Number) {
-                hnItem.setTime(((Number) timeObj).longValue());
-            } else if (timeObj instanceof String) {
-                try {
-                    hnItem.setTime(Long.parseLong((String) timeObj));
-                } catch (NumberFormatException ignored) { /* leave null */ }
+            // Convert back to a Map representation for storage in the IngestJob.hnPayload
+            @SuppressWarnings("unchecked")
+            Map<String, Object> normalized = objectMapper.convertValue(hnItem, Map.class);
+            if (normalized == null) {
+                normalized = new HashMap<>();
             }
 
-            // type
-            Object typeObj = original.get("type");
-            if (typeObj != null) hnItem.setType(String.valueOf(typeObj));
-
-            // url
-            Object urlObj = original.get("url");
-            if (urlObj != null) hnItem.setUrl(String.valueOf(urlObj));
-
-            // text
-            Object textObj = original.get("text");
-            if (textObj != null) hnItem.setText(String.valueOf(textObj));
-
-            // score
-            Object scoreObj = original.get("score");
-            if (scoreObj instanceof Number) {
-                hnItem.setScore(((Number) scoreObj).intValue());
-            } else if (scoreObj instanceof String) {
-                try {
-                    hnItem.setScore(Integer.parseInt((String) scoreObj));
-                } catch (NumberFormatException ignored) { /* leave null */ }
+            // Ensure raw_json exists in the normalized map
+            if (!normalized.containsKey("rawJson") && hnItem.getRawJson() != null) {
+                normalized.put("raw_json", hnItem.getRawJson());
+            } else if (!normalized.containsKey("raw_json") && hnItem.getRawJson() != null) {
+                normalized.put("raw_json", hnItem.getRawJson());
             }
 
-            // descendants
-            Object descObj = original.get("descendants");
-            if (descObj instanceof Number) {
-                hnItem.setDescendants(((Number) descObj).intValue());
-            } else if (descObj instanceof String) {
-                try {
-                    hnItem.setDescendants(Integer.parseInt((String) descObj));
-                } catch (NumberFormatException ignored) { /* leave null */ }
-            }
-
-            // kids - normalize to List<Long>
-            Object kidsObj = original.get("kids");
-            if (kidsObj instanceof List<?>) {
-                List<?> rawKids = (List<?>) kidsObj;
-                List<Long> kids = new ArrayList<>();
-                for (Object k : rawKids) {
-                    if (k instanceof Number) {
-                        kids.add(((Number) k).longValue());
-                    } else if (k instanceof String) {
-                        try {
-                            kids.add(Long.parseLong((String) k));
-                        } catch (NumberFormatException ignored) { /* skip */ }
-                    }
-                }
-                if (!kids.isEmpty()) hnItem.setKids(kids);
-            }
-
-            // raw_json - keep a string representation of the original payload for fidelity
-            // Use Map.toString() as a fallback textual serialization
-            hnItem.setRawJson(String.valueOf(original));
-
-            // Convert HNItem back into a normalized Map<String,Object> to store in the IngestJob.hnPayload
-            Map<String, Object> normalized = new HashMap<>();
-            if (hnItem.getId() != null) normalized.put("id", hnItem.getId());
-            if (hnItem.getBy() != null) normalized.put("by", hnItem.getBy());
-            if (hnItem.getTitle() != null) normalized.put("title", hnItem.getTitle());
-            if (hnItem.getTime() != null) normalized.put("time", hnItem.getTime());
-            if (hnItem.getType() != null) normalized.put("type", hnItem.getType());
-            if (hnItem.getUrl() != null) normalized.put("url", hnItem.getUrl());
-            if (hnItem.getText() != null) normalized.put("text", hnItem.getText());
-            if (hnItem.getScore() != null) normalized.put("score", hnItem.getScore());
-            if (hnItem.getDescendants() != null) normalized.put("descendants", hnItem.getDescendants());
-            if (hnItem.getKids() != null) normalized.put("kids", hnItem.getKids());
-            normalized.put("raw_json", hnItem.getRawJson());
-
-            // Replace the job payload with the normalized representation
+            // Update the job payload with normalized representation
             entity.setHnPayload(normalized);
 
-            // If the job was in VALIDATING state, progress it to PROCESSING; otherwise keep existing status
-            String currentStatus = entity.getStatus();
-            if (currentStatus != null && currentStatus.equalsIgnoreCase("VALIDATING")) {
-                entity.setStatus("PROCESSING");
+            // Move job forward to next state for persistence stage
+            entity.setStatus("PERSISTING");
+
+            logger.info("IngestJob {} transformed successfully, moving to PERSISTING", entity.getTechnicalId());
+            return entity;
+        } catch (Exception ex) {
+            logger.error("Error while transforming IngestJob {}: {}", entity != null ? entity.getTechnicalId() : "unknown", ex.getMessage(), ex);
+            if (entity != null) {
+                entity.setStatus("FAILED");
+                entity.setErrorMessage("transform error: " + ex.getMessage());
             }
-
-            logger.info("Transformed IngestJob {} payload into normalized HNItem shape", entity.getTechnicalId());
-        } catch (Exception e) {
-            logger.error("Error while transforming IngestJob {}: {}", entity.getTechnicalId(), e.getMessage(), e);
-            entity.setStatus("FAILED");
-            entity.setErrorMessage("Transform error: " + e.getMessage());
+            return entity;
         }
-
-        return entity;
     }
 }

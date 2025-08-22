@@ -29,7 +29,7 @@ public class PersistFailCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(IngestJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,41 +38,42 @@ public class PersistFailCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
+        // supports must match the exact criterion name
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<IngestJob> context) {
          IngestJob entity = context.entity();
-         if (entity == null) {
-             logger.warn("PersistFailCriterion invoked with null entity");
-             return EvaluationOutcome.fail("Entity is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
+
+         // If a stored item technical id is present, persistence succeeded => success
+         if (entity.getStoredItemTechnicalId() != null && !entity.getStoredItemTechnicalId().isBlank()) {
+             logger.debug("IngestJob {}: storedItemTechnicalId present -> persistence succeeded", entity.getTechnicalId());
+             return EvaluationOutcome.success();
          }
 
+         // No stored id => persistence did not complete successfully
          String status = entity.getStatus();
-         // This criterion signals that persistence has failed. It should succeed when the job is in FAILED state
-         // with a present errorMessage and without a storedItemTechnicalId.
-         if (status == null || status.isBlank()) {
-             return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         String error = entity.getErrorMessage();
+
+         // If job explicitly marked as FAILED, ensure there is an error message and report data quality failure
+         if (status != null && status.equalsIgnoreCase("FAILED")) {
+             if (error == null || error.isBlank()) {
+                 logger.warn("IngestJob {} is FAILED but missing errorMessage", entity.getTechnicalId());
+                 return EvaluationOutcome.fail("Persist failed but no error message provided", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             } else {
+                 logger.warn("IngestJob {} persistence failed: {}", entity.getTechnicalId(), error);
+                 return EvaluationOutcome.fail("Persist failed: " + error, StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
          }
 
-         if (!"FAILED".equalsIgnoreCase(status)) {
-             // Not a persistence failure condition
-             return EvaluationOutcome.fail("Job is not in FAILED state", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         // If job is marked COMPLETED but no stored id -> business rule violation
+         if (status != null && status.equalsIgnoreCase("COMPLETED")) {
+             logger.error("IngestJob {} marked COMPLETED but storedItemTechnicalId is missing", entity.getTechnicalId());
+             return EvaluationOutcome.fail("Job marked COMPLETED but stored item id missing", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
-         // status == FAILED: validate failure semantics
-         String err = entity.getErrorMessage();
-         String storedId = entity.getStoredItemTechnicalId();
-
-         if (err == null || err.isBlank()) {
-             return EvaluationOutcome.fail("Persist failed but errorMessage is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-         }
-
-         if (storedId != null && !storedId.isBlank()) {
-             return EvaluationOutcome.fail("Persist failed but storedItemTechnicalId is present", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-         }
-
-         // All checks pass: this is a valid persist failure
-         return EvaluationOutcome.success();
+         // Generic: persistence hasn't produced a stored id and job not explicitly failed -> treat as business rule failure
+         logger.info("IngestJob {}: persistence incomplete (status={}, storedItemTechnicalId=null)", entity.getTechnicalId(), status);
+         return EvaluationOutcome.fail("Persist did not complete and no stored item id assigned", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
     }
 }

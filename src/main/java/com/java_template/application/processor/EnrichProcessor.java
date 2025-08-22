@@ -12,10 +12,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
-import java.util.Objects;
-import java.util.stream.Collectors;
-
 @Component
 public class EnrichProcessor implements CyodaProcessor {
 
@@ -51,114 +47,87 @@ public class EnrichProcessor implements CyodaProcessor {
     private HNItem processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<HNItem> context) {
         HNItem entity = context.entity();
 
-        // Ensure basic normalization/enrichment of HNItem fields without persisting other entities.
         if (entity == null) return null;
 
-        // Normalize type to lowercase for consistency
-        if (entity.getType() != null) {
-            String type = entity.getType().trim();
-            if (!type.isEmpty()) {
-                entity.setType(type.toLowerCase());
-            } else {
-                entity.setType(null);
-            }
-        }
-
-        // Trim textual fields
+        // Trim textual fields if present
         if (entity.getTitle() != null) {
-            String t = entity.getTitle().trim();
-            entity.setTitle(t.isEmpty() ? null : t);
-        }
-        if (entity.getText() != null) {
-            String tx = entity.getText().trim();
-            entity.setText(tx.isEmpty() ? null : tx);
+            entity.setTitle(entity.getTitle().trim());
         }
         if (entity.getBy() != null) {
-            String by = entity.getBy().trim();
-            entity.setBy(by.isEmpty() ? null : by);
+            entity.setBy(entity.getBy().trim());
+        }
+        if (entity.getText() != null) {
+            entity.setText(entity.getText().trim());
         }
 
-        // Normalize URL: ensure scheme present (default to https if missing)
+        // Normalize type to lowercase
+        if (entity.getType() != null) {
+            entity.setType(entity.getType().trim().toLowerCase());
+        }
+
+        // Normalize URL: ensure scheme is present (default https:// if missing)
         if (entity.getUrl() != null) {
             String url = entity.getUrl().trim();
-            if (!url.isEmpty()) {
-                String lower = url.toLowerCase();
-                if (!(lower.startsWith("http://") || lower.startsWith("https://"))) {
-                    url = "https://" + url;
-                }
-                entity.setUrl(url);
-            } else {
-                entity.setUrl(null);
+            if (!url.isEmpty() && !(url.startsWith("http://") || url.startsWith("https://"))) {
+                url = "https://" + url;
             }
+            entity.setUrl(url);
         }
 
-        // Ensure rawJson exists. If missing, synthesize a minimal JSON representation from available fields.
+        // Ensure rawJson field contains a serialized representation for fidelity if absent
         if (entity.getRawJson() == null || entity.getRawJson().isBlank()) {
             StringBuilder sb = new StringBuilder();
-            sb.append('{');
-            boolean first = true;
-
-            if (entity.getId() != null) {
-                sb.append("\"id\":").append(entity.getId());
-                first = false;
+            sb.append("{");
+            // id
+            sb.append("\"id\":").append(entity.getId() == null ? "null" : entity.getId());
+            // by
+            sb.append(",\"by\":").append(stringOrNull(entity.getBy()));
+            // title
+            sb.append(",\"title\":").append(stringOrNull(entity.getTitle()));
+            // time
+            sb.append(",\"time\":").append(entity.getTime() == null ? "null" : entity.getTime());
+            // type
+            sb.append(",\"type\":").append(stringOrNull(entity.getType()));
+            // url
+            sb.append(",\"url\":").append(stringOrNull(entity.getUrl()));
+            // text
+            sb.append(",\"text\":").append(stringOrNull(entity.getText()));
+            // kids
+            sb.append(",\"kids\":");
+            if (entity.getKids() == null) {
+                sb.append("null");
+            } else {
+                sb.append("[");
+                for (int i = 0; i < entity.getKids().size(); i++) {
+                    Long kid = entity.getKids().get(i);
+                    sb.append(kid == null ? "null" : kid);
+                    if (i < entity.getKids().size() - 1) sb.append(",");
+                }
+                sb.append("]");
             }
-            if (entity.getBy() != null) {
-                if (!first) sb.append(',');
-                sb.append("\"by\":").append(quote(entity.getBy()));
-                first = false;
-            }
-            if (entity.getTitle() != null) {
-                if (!first) sb.append(',');
-                sb.append("\"title\":").append(quote(entity.getTitle()));
-                first = false;
-            }
-            if (entity.getTime() != null) {
-                if (!first) sb.append(',');
-                sb.append("\"time\":").append(entity.getTime());
-                first = false;
-            }
-            if (entity.getType() != null) {
-                if (!first) sb.append(',');
-                sb.append("\"type\":").append(quote(entity.getType()));
-                first = false;
-            }
-            if (entity.getUrl() != null) {
-                if (!first) sb.append(',');
-                sb.append("\"url\":").append(quote(entity.getUrl()));
-                first = false;
-            }
-            if (entity.getText() != null) {
-                if (!first) sb.append(',');
-                sb.append("\"text\":").append(quote(entity.getText()));
-                first = false;
-            }
-            if (entity.getScore() != null) {
-                if (!first) sb.append(',');
-                sb.append("\"score\":").append(entity.getScore());
-                first = false;
-            }
-            if (entity.getDescendants() != null) {
-                if (!first) sb.append(',');
-                sb.append("\"descendants\":").append(entity.getDescendants());
-                first = false;
-            }
-            List<Long> kids = entity.getKids();
-            if (kids != null && !kids.isEmpty()) {
-                if (!first) sb.append(',');
-                sb.append("\"kids\":[");
-                sb.append(kids.stream().filter(Objects::nonNull).map(String::valueOf).collect(Collectors.joining(",")));
-                sb.append(']');
-            }
-            sb.append('}');
+            // score
+            sb.append(",\"score\":").append(entity.getScore() == null ? "null" : entity.getScore());
+            // descendants
+            sb.append(",\"descendants\":").append(entity.getDescendants() == null ? "null" : entity.getDescendants());
+            sb.append("}");
             entity.setRawJson(sb.toString());
         }
 
+        // Additional light-weight enrichment: if score is null set to 0
+        if (entity.getScore() == null) {
+            entity.setScore(0);
+        }
+
+        // No external entity modifications (persist) are performed here; Cyoda runtime will persist changes to this entity automatically.
+
+        logger.debug("Enriched HNItem id={} by={} title='{}'", entity.getId(), entity.getBy(), entity.getTitle());
         return entity;
     }
 
-    private String quote(String s) {
-        if (s == null) return "null";
-        String escaped = s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r");
+    private String stringOrNull(String value) {
+        if (value == null) return "null";
+        // simple escape of backslashes and quotes to keep produced JSON stable for storage
+        String escaped = value.replace("\\", "\\\\").replace("\"", "\\\"");
         return "\"" + escaped + "\"";
     }
 }

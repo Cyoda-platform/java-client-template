@@ -31,7 +31,7 @@ public class ValidationFailCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(IngestJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -40,53 +40,74 @@ public class ValidationFailCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must match exact criterion name
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<IngestJob> context) {
          IngestJob entity = context.entity();
+         if (entity == null) {
+             logger.debug("ValidationFailCriterion: entity is null");
+             return EvaluationOutcome.fail("IngestJob entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
 
-         Map<String, Object> hn = entity.getHnPayload();
-         if (hn == null) {
+         // Basic job metadata validations
+         if (entity.getCreatedAt() == null || entity.getCreatedAt().isBlank()) {
+             return EvaluationOutcome.fail("created_at is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+         if (entity.getStatus() == null || entity.getStatus().isBlank()) {
+             return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         // Validate hn_payload presence and required HN fields
+         Map<String, Object> payload = entity.getHnPayload();
+         if (payload == null) {
              return EvaluationOutcome.fail("hn_payload is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
+         // type
+         Object typeObj = payload.get("type");
+         if (!(typeObj instanceof String) || ((String) typeObj).isBlank()) {
+             return EvaluationOutcome.fail("hn_payload.type is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+         String type = ((String) typeObj).trim();
+
+         // time
+         Object timeObj = payload.get("time");
+         if (!(timeObj instanceof Number)) {
+             return EvaluationOutcome.fail("hn_payload.time is required and must be a number (unix timestamp)", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
          // id
-         Object id = hn.get("id");
-         if (id == null) {
-             return EvaluationOutcome.fail("hn_payload.id is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         Object idObj = payload.get("id");
+         if (!(idObj instanceof Number)) {
+             return EvaluationOutcome.fail("hn_payload.id is required and must be a number", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
          // by (author)
-         Object by = hn.get("by");
-         if (by == null) {
-             return EvaluationOutcome.fail("hn_payload.by is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-         if (by instanceof String && ((String) by).isBlank()) {
-             return EvaluationOutcome.fail("hn_payload.by must be non-blank", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         Object byObj = payload.get("by");
+         if (!(byObj instanceof String) || ((String) byObj).isBlank()) {
+             return EvaluationOutcome.fail("hn_payload.by (author) is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // time
-         Object time = hn.get("time");
-         if (time == null) {
-             return EvaluationOutcome.fail("hn_payload.time is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         // title is required for story items (and recommended otherwise)
+         Object titleObj = payload.get("title");
+         if ("story".equalsIgnoreCase(type)) {
+             if (!(titleObj instanceof String) || ((String) titleObj).isBlank()) {
+                 return EvaluationOutcome.fail("hn_payload.title is required for story items", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             }
          }
 
-         // title (HNItem entity requires title)
-         Object title = hn.get("title");
-         if (title == null) {
-             return EvaluationOutcome.fail("hn_payload.title is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-         if (title instanceof String && ((String) title).isBlank()) {
-             return EvaluationOutcome.fail("hn_payload.title must be non-blank", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-
-         // Optionally validate type if present (ensure it's a non-blank string)
-         Object type = hn.get("type");
-         if (type != null && type instanceof String && ((String) type).isBlank()) {
-             return EvaluationOutcome.fail("hn_payload.type must be non-blank when provided", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         // Additional data-quality check: raw fidelity - ensure raw_json or payload has at least one of url/text/title
+         boolean hasContent = (titleObj instanceof String && !((String) titleObj).isBlank())
+                 || (payload.get("url") instanceof String && !((String) payload.get("url")).isBlank())
+                 || (payload.get("text") instanceof String && !((String) payload.get("text")).isBlank());
+         if (!hasContent) {
+             // mark as data quality failure (not structural validation) to surface as warning/attachment
+             return EvaluationOutcome.fail("hn_payload lacks content fields (title/url/text) — possible data quality issue", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
+         // All validations passed
          return EvaluationOutcome.success();
     }
 }

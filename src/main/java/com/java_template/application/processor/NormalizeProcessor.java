@@ -1,4 +1,5 @@
 package com.java_template.application.processor;
+
 import com.java_template.application.entity.hnitem.version_1.HNItem;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
@@ -7,12 +8,13 @@ import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
-import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 @Component
 public class NormalizeProcessor implements CyodaProcessor {
@@ -30,10 +32,10 @@ public class NormalizeProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing HNItem for request: {}", request.getId());
 
-        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
+        return serializer.withRequest(request)
             .toEntity(HNItem.class)
             .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+            .map(this::processEntityLogic)
             .complete();
     }
 
@@ -48,8 +50,9 @@ public class NormalizeProcessor implements CyodaProcessor {
 
     private HNItem processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<HNItem> context) {
         HNItem entity = context.entity();
+        if (entity == null) return null;
 
-        // Trim textual fields
+        // Trim basic string fields to normalize whitespace
         if (entity.getBy() != null) {
             entity.setBy(entity.getBy().trim());
         }
@@ -62,41 +65,45 @@ public class NormalizeProcessor implements CyodaProcessor {
         if (entity.getType() != null) {
             entity.setType(entity.getType().trim());
         }
-        if (entity.getUrl() != null) {
-            entity.setUrl(entity.getUrl().trim());
-        }
 
-        // Normalize URL: ensure scheme present (default to https:// if missing)
+        // Normalize URL: ensure scheme present if user provided a URL without scheme
         String url = entity.getUrl();
-        if (url != null && !url.isBlank()) {
-            String lower = url.toLowerCase();
-            if (!lower.startsWith("http://") && !lower.startsWith("https://")) {
-                entity.setUrl("https://" + url);
+        if (url != null) {
+            url = url.trim();
+            if (!url.isBlank() && !url.startsWith("http://") && !url.startsWith("https://")) {
+                // Prefer https by default
+                url = "https://" + url;
             }
+            entity.setUrl(url.isBlank() ? null : url);
         }
 
-        // Ensure kids list is non-null
+        // Ensure kids is an empty list instead of null for downstream processing
         if (entity.getKids() == null) {
             entity.setKids(new ArrayList<>());
+        } else {
+            // remove any nulls from kids list
+            List<Long> cleaned = new ArrayList<>();
+            for (Long k : entity.getKids()) {
+                if (k != null) cleaned.add(k);
+            }
+            entity.setKids(cleaned);
         }
 
-        // Ensure rawJson exists; if not, build a minimal raw JSON representation from available fields
+        // If rawJson is missing, synthesize a minimal raw JSON representation for fidelity
         if (entity.getRawJson() == null || entity.getRawJson().isBlank()) {
             StringBuilder sb = new StringBuilder();
             sb.append("{");
-
-            // helper to append comma if needed
             boolean first = true;
             if (entity.getId() != null) {
                 sb.append("\"id\":").append(entity.getId());
                 first = false;
             }
-            if (entity.getBy() != null) {
+            if (entity.getBy() != null && !entity.getBy().isBlank()) {
                 if (!first) sb.append(",");
                 sb.append("\"by\":\"").append(escapeJson(entity.getBy())).append("\"");
                 first = false;
             }
-            if (entity.getTitle() != null) {
+            if (entity.getTitle() != null && !entity.getTitle().isBlank()) {
                 if (!first) sb.append(",");
                 sb.append("\"title\":\"").append(escapeJson(entity.getTitle())).append("\"");
                 first = false;
@@ -106,58 +113,62 @@ public class NormalizeProcessor implements CyodaProcessor {
                 sb.append("\"time\":").append(entity.getTime());
                 first = false;
             }
-            if (entity.getType() != null) {
+            if (entity.getType() != null && !entity.getType().isBlank()) {
                 if (!first) sb.append(",");
                 sb.append("\"type\":\"").append(escapeJson(entity.getType())).append("\"");
                 first = false;
             }
-            if (entity.getUrl() != null) {
+            if (entity.getUrl() != null && !entity.getUrl().isBlank()) {
                 if (!first) sb.append(",");
                 sb.append("\"url\":\"").append(escapeJson(entity.getUrl())).append("\"");
-                first = false;
             }
-            if (entity.getText() != null) {
-                if (!first) sb.append(",");
-                sb.append("\"text\":\"").append(escapeJson(entity.getText())).append("\"");
-                first = false;
-            }
-            if (entity.getScore() != null) {
-                if (!first) sb.append(",");
-                sb.append("\"score\":").append(entity.getScore());
-                first = false;
-            }
-            if (entity.getDescendants() != null) {
-                if (!first) sb.append(",");
-                sb.append("\"descendants\":").append(entity.getDescendants());
-                first = false;
-            }
-            // kids array
-            List<Long> kids = entity.getKids();
-            if (kids != null) {
-                if (!first) sb.append(",");
-                sb.append("\"kids\":[");
-                for (int i = 0; i < kids.size(); i++) {
-                    if (i > 0) sb.append(",");
-                    sb.append(kids.get(i));
-                }
-                sb.append("]");
-            }
-
             sb.append("}");
             entity.setRawJson(sb.toString());
+        } else {
+            // Trim stored rawJson
+            entity.setRawJson(entity.getRawJson().trim());
         }
 
-        // Additional small normalizations/enrichments (kept minimal and safe)
-        // Ensure type is lowercase for consistency
-        if (entity.getType() != null) {
-            entity.setType(entity.getType().toLowerCase());
-        }
-
+        logger.debug("Normalized HNItem id={} by={} title={} url={}", entity.getId(), entity.getBy(), entity.getTitle(), entity.getUrl());
         return entity;
     }
 
-    private String escapeJson(String s) {
-        if (s == null) return null;
-        return s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r");
+    // Basic JSON string escaper for synthesized rawJson (handles quotes and backslashes)
+    private String escapeJson(String input) {
+        if (input == null) return null;
+        StringBuilder sb = new StringBuilder(input.length());
+        for (int i = 0; i < input.length(); i++) {
+            char c = input.charAt(i);
+            switch (c) {
+                case '\\':
+                    sb.append("\\\\");
+                    break;
+                case '\"':
+                    sb.append("\\\"");
+                    break;
+                case '\b':
+                    sb.append("\\b");
+                    break;
+                case '\f':
+                    sb.append("\\f");
+                    break;
+                case '\n':
+                    sb.append("\\n");
+                    break;
+                case '\r':
+                    sb.append("\\r");
+                    break;
+                case '\t':
+                    sb.append("\\t");
+                    break;
+                default:
+                    if (c < 0x20) {
+                        sb.append(String.format("\\u%04x", (int) c));
+                    } else {
+                        sb.append(c);
+                    }
+            }
+        }
+        return sb.toString();
     }
 }

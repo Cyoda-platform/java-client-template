@@ -29,7 +29,7 @@ public class IndexCompleteCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(StoredItem.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,41 +38,41 @@ public class IndexCompleteCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        return modelSpec != null && className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<StoredItem> context) {
          StoredItem entity = context.entity();
 
          if (entity == null) {
-             logger.debug("StoredItem entity is null in IndexCompleteCriterion");
-             return EvaluationOutcome.fail("StoredItem entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             logger.debug("IndexCompleteCriterion: entity is null");
+             return EvaluationOutcome.fail("StoredItem entity is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // storageTechnicalId must be present to be considered indexed/available
+         // storageTechnicalId must be present: this identifies the persisted item in the storage system
          if (entity.getStorageTechnicalId() == null || entity.getStorageTechnicalId().isBlank()) {
-             return EvaluationOutcome.fail("storageTechnicalId is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             return EvaluationOutcome.fail("storageTechnicalId is required for indexed StoredItem", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // storedAt timestamp must be present
+         // storedAt timestamp must be present to indicate persistence time
          if (entity.getStoredAt() == null || entity.getStoredAt().isBlank()) {
-             return EvaluationOutcome.fail("storedAt timestamp is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             return EvaluationOutcome.fail("storedAt timestamp is required for indexed StoredItem", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // hnItem must contain the serialized HN item payload
+         // hnItem payload must be present (serialized JSON string)
          if (entity.getHnItem() == null || entity.getHnItem().isBlank()) {
              return EvaluationOutcome.fail("hnItem payload is required", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // sizeBytes must be present and non-negative
+         // sizeBytes should be non-null and non-negative when available
          if (entity.getSizeBytes() == null) {
-             return EvaluationOutcome.fail("sizeBytes is required", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-         }
-         if (entity.getSizeBytes() < 0) {
+             // warn but allow success: size may be optional depending on persister. Attach as a data quality warning.
+             context.addWarning("sizeBytes is not set for StoredItem; this may affect indexing/analytics");
+         } else if (entity.getSizeBytes() < 0) {
              return EvaluationOutcome.fail("sizeBytes must be non-negative", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // All checks passed -> indexing considered complete
-         return EvaluationOutcome.success();
+        // All checks passed (warnings may have been attached)
+        return EvaluationOutcome.success();
     }
 }

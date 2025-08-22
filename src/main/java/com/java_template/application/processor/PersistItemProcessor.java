@@ -1,14 +1,15 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.ingestjob.version_1.IngestJob;
 import com.java_template.application.entity.storeditem.version_1.StoredItem;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.service.EntityService;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
-import com.java_template.common.service.EntityService;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
@@ -16,8 +17,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
+import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -62,48 +62,50 @@ public class PersistItemProcessor implements CyodaProcessor {
     private IngestJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<IngestJob> context) {
         IngestJob job = context.entity();
         try {
-            // Serialize hnPayload to JSON string for storage
-            String hnJson = objectMapper.writeValueAsString(job.getHnPayload());
-
-            // Build StoredItem
+            // Build StoredItem from job.hnPayload
             StoredItem stored = new StoredItem();
+
+            String hnJson;
+            try {
+                hnJson = objectMapper.writeValueAsString(job.getHnPayload());
+            } catch (JsonProcessingException e) {
+                throw new RuntimeException("Failed to serialize hn payload", e);
+            }
+
             stored.setHnItem(hnJson);
             stored.setSizeBytes(hnJson.getBytes(StandardCharsets.UTF_8).length);
-            stored.setStoredAt(OffsetDateTime.now(ZoneOffset.UTC).toString());
+            stored.setStoredAt(Instant.now().toString());
 
-            // Persist StoredItem (other-entity add)
+            // Persist StoredItem (ADD)
             CompletableFuture<UUID> idFuture = entityService.addItem(
                 StoredItem.ENTITY_NAME,
                 String.valueOf(StoredItem.ENTITY_VERSION),
                 stored
             );
 
-            // Wait for creation to complete to obtain technical id
-            UUID createdId = idFuture.join();
-            String storageTechnicalId = createdId.toString();
+            UUID storedUuid = idFuture.join();
+            String storageTechnicalId = storedUuid.toString();
 
-            // Update stored entity to include the storageTechnicalId
+            // Update the StoredItem to include its storageTechnicalId (allowed: updating other entities)
             stored.setStorageTechnicalId(storageTechnicalId);
-            CompletableFuture<UUID> updateFuture = entityService.updateItem(
+            entityService.updateItem(
                 StoredItem.ENTITY_NAME,
                 String.valueOf(StoredItem.ENTITY_VERSION),
-                createdId,
+                storedUuid,
                 stored
-            );
-            // Wait for update to finish (optional but ensures storageTechnicalId is persisted)
-            updateFuture.join();
+            ).join();
 
-            // Update the originating job entity fields (this entity will be persisted by Cyoda)
+            // Update the originating job state - it will be persisted automatically by Cyoda
             job.setStoredItemTechnicalId(storageTechnicalId);
             job.setStatus("COMPLETED");
             job.setErrorMessage(null);
 
-            logger.info("Successfully persisted StoredItem with id {} for job {}", storageTechnicalId, job.getTechnicalId());
+            logger.info("Persisted StoredItem with id {} for job {}", storageTechnicalId, job.getTechnicalId());
         } catch (Exception e) {
             logger.error("Failed to persist StoredItem for job {}: {}", job != null ? job.getTechnicalId() : "unknown", e.getMessage(), e);
             if (job != null) {
                 job.setStatus("FAILED");
-                job.setErrorMessage(e.getMessage() != null ? e.getMessage() : "persisting stored item failed");
+                job.setErrorMessage(e.getMessage() != null ? e.getMessage() : "unknown error");
             }
         }
 

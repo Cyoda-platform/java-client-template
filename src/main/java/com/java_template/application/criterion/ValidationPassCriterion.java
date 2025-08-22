@@ -31,7 +31,7 @@ public class ValidationPassCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(IngestJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -40,25 +40,33 @@ public class ValidationPassCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must match exact criterion name
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<IngestJob> context) {
          IngestJob entity = context.entity();
 
-         // Basic presence checks on the ingest job
          if (entity == null) {
-             logger.warn("IngestJob entity is null in ValidationPassCriterion");
-             return EvaluationOutcome.fail("IngestJob is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             logger.warn("IngestJob entity is null");
+             return EvaluationOutcome.fail("ingest job missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         Map<String, Object> payload = entity.getHnPayload();
-         if (payload == null) {
+         // Basic required fields on the job
+         if (entity.getCreatedAt() == null || entity.getCreatedAt().isBlank()) {
+             return EvaluationOutcome.fail("created_at is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+         if (entity.getStatus() == null || entity.getStatus().isBlank()) {
+             return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         Map<String, Object> hnPayload = entity.getHnPayload();
+         if (hnPayload == null) {
              return EvaluationOutcome.fail("hn_payload is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // id must be present and numeric
-         Object idObj = payload.get("id");
+         // Validate core Hacker News fields expected in the payload
+         Object idObj = hnPayload.get("id");
          if (idObj == null) {
              return EvaluationOutcome.fail("hn_payload.id is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
@@ -66,17 +74,12 @@ public class ValidationPassCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("hn_payload.id must be a number", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // by must be present and non-blank
-         Object byObj = payload.get("by");
-         if (byObj == null) {
-             return EvaluationOutcome.fail("hn_payload.by is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-         if (!(byObj instanceof String) || ((String) byObj).isBlank()) {
-             return EvaluationOutcome.fail("hn_payload.by must be a non-blank string", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         Object byObj = hnPayload.get("by");
+         if (byObj == null || !(byObj instanceof String) || ((String) byObj).isBlank()) {
+             return EvaluationOutcome.fail("hn_payload.by is required and must be non-blank", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // time must be present and numeric
-         Object timeObj = payload.get("time");
+         Object timeObj = hnPayload.get("time");
          if (timeObj == null) {
              return EvaluationOutcome.fail("hn_payload.time is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
@@ -84,28 +87,26 @@ public class ValidationPassCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("hn_payload.time must be a number (unix timestamp)", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // type must be present and non-blank
-         Object typeObj = payload.get("type");
-         if (typeObj == null) {
-             return EvaluationOutcome.fail("hn_payload.type is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         // type/title rules: for story-type items, title must be present
+         Object typeObj = hnPayload.get("type");
+         String typeStr = null;
+         if (typeObj instanceof String) {
+             typeStr = (String) typeObj;
          }
-         if (!(typeObj instanceof String) || ((String) typeObj).isBlank()) {
-             return EvaluationOutcome.fail("hn_payload.type must be a non-blank string", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-         String type = (String) typeObj;
-
-         // If type is 'story' then title must be present and non-blank
-         if ("story".equalsIgnoreCase(type)) {
-             Object titleObj = payload.get("title");
-             if (titleObj == null) {
+         if ("story".equalsIgnoreCase(typeStr)) {
+             Object titleObj = hnPayload.get("title");
+             if (titleObj == null || !(titleObj instanceof String) || ((String) titleObj).isBlank()) {
                  return EvaluationOutcome.fail("hn_payload.title is required for story items", StandardEvalReasonCategories.VALIDATION_FAILURE);
              }
-             if (!(titleObj instanceof String) || ((String) titleObj).isBlank()) {
-                 return EvaluationOutcome.fail("hn_payload.title must be a non-blank string for story items", StandardEvalReasonCategories.VALIDATION_FAILURE);
-             }
          }
 
-         // All checks passed
+         // Optional sanity check: if url present it should be a non-blank string
+         Object urlObj = hnPayload.get("url");
+         if (urlObj != null && !(urlObj instanceof String)) {
+             return EvaluationOutcome.fail("hn_payload.url must be a string when present", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         // If all checks passed, success
          return EvaluationOutcome.success();
     }
 }

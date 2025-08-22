@@ -1,9 +1,6 @@
 package com.java_template.application.processor;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.ingestjob.version_1.IngestJob;
-import com.java_template.application.entity.hnitem.version_1.HNItem;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
@@ -15,9 +12,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Component
 public class ValidateJobProcessor implements CyodaProcessor {
@@ -25,11 +21,9 @@ public class ValidateJobProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(ValidateJobProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
-    private final ObjectMapper objectMapper;
 
-    public ValidateJobProcessor(SerializerFactory serializerFactory, ObjectMapper objectMapper) {
+    public ValidateJobProcessor(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
-        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -54,132 +48,67 @@ public class ValidateJobProcessor implements CyodaProcessor {
     }
 
     private IngestJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<IngestJob> context) {
-        IngestJob entity = context.entity();
-
-        try {
-            // Basic presence checks already covered by isValidEntity.
-            // Validate hn_payload structure and required HN fields by mapping to HNItem.
-            Map<String, Object> payload = entity.getHnPayload();
-
-            if (payload == null) {
-                entity.setStatus("FAILED");
-                entity.setErrorMessage("invalid json");
-                logger.warn("IngestJob {} failed validation: hn_payload is null", entity.getTechnicalId());
-                return entity;
-            }
-
-            HNItem hnItem = new HNItem();
-
-            // id
-            Object idObj = payload.get("id");
-            Long idVal = null;
-            if (idObj instanceof Number) {
-                idVal = ((Number) idObj).longValue();
-            } else if (idObj instanceof String) {
-                try {
-                    idVal = Long.parseLong((String) idObj);
-                } catch (NumberFormatException ignored) { }
-            }
-            hnItem.setId(idVal);
-
-            // by
-            Object byObj = payload.get("by");
-            if (byObj != null) {
-                hnItem.setBy(String.valueOf(byObj));
-            }
-
-            // time
-            Object timeObj = payload.get("time");
-            Long timeVal = null;
-            if (timeObj instanceof Number) {
-                timeVal = ((Number) timeObj).longValue();
-            } else if (timeObj instanceof String) {
-                try {
-                    timeVal = Long.parseLong((String) timeObj);
-                } catch (NumberFormatException ignored) { }
-            }
-            hnItem.setTime(timeVal);
-
-            // title
-            Object titleObj = payload.get("title");
-            if (titleObj != null) {
-                hnItem.setTitle(String.valueOf(titleObj));
-            }
-
-            // optional fields
-            Object typeObj = payload.get("type");
-            if (typeObj != null) hnItem.setType(String.valueOf(typeObj));
-
-            Object urlObj = payload.get("url");
-            if (urlObj != null) hnItem.setUrl(String.valueOf(urlObj));
-
-            Object textObj = payload.get("text");
-            if (textObj != null) hnItem.setText(String.valueOf(textObj));
-
-            Object scoreObj = payload.get("score");
-            if (scoreObj instanceof Number) {
-                hnItem.setScore(((Number) scoreObj).intValue());
-            } else if (scoreObj instanceof String) {
-                try {
-                    hnItem.setScore(Integer.parseInt((String) scoreObj));
-                } catch (NumberFormatException ignored) { }
-            }
-
-            Object descendantsObj = payload.get("descendants");
-            if (descendantsObj instanceof Number) {
-                hnItem.setDescendants(((Number) descendantsObj).intValue());
-            } else if (descendantsObj instanceof String) {
-                try {
-                    hnItem.setDescendants(Integer.parseInt((String) descendantsObj));
-                } catch (NumberFormatException ignored) { }
-            }
-
-            // kids - attempt to convert to List<Long>
-            Object kidsObj = payload.get("kids");
-            if (kidsObj instanceof List) {
-                List<?> rawKids = (List<?>) kidsObj;
-                List<Long> kids = new ArrayList<>();
-                for (Object o : rawKids) {
-                    if (o instanceof Number) {
-                        kids.add(((Number) o).longValue());
-                    } else if (o instanceof String) {
-                        try {
-                            kids.add(Long.parseLong((String) o));
-                        } catch (NumberFormatException ignored) { }
-                    }
-                }
-                if (!kids.isEmpty()) {
-                    hnItem.setKids(kids);
-                }
-            }
-
-            // rawJson - serialize payload for fidelity
-            try {
-                String raw = objectMapper.writeValueAsString(payload);
-                hnItem.setRawJson(raw);
-            } catch (JsonProcessingException e) {
-                hnItem.setRawJson(null);
-            }
-
-            // Use HNItem.isValid() to perform canonical validation of required HN fields.
-            if (!hnItem.isValid()) {
-                entity.setStatus("FAILED");
-                entity.setErrorMessage("missing required fields");
-                logger.warn("IngestJob {} failed HNItem validation: {}", entity.getTechnicalId(), entity.getErrorMessage());
-                return entity;
-            }
-
-            // Validation passed -> move job to PROCESSING
-            entity.setStatus("PROCESSING");
-            entity.setErrorMessage(null);
-            logger.info("IngestJob {} validation passed, moving to PROCESSING", entity.getTechnicalId());
-            return entity;
-
-        } catch (Exception ex) {
-            logger.error("Unexpected error while validating IngestJob {}: {}", entity.getTechnicalId(), ex.getMessage(), ex);
-            entity.setStatus("FAILED");
-            entity.setErrorMessage("validation error: " + ex.getMessage());
-            return entity;
+        IngestJob job = context.entity();
+        if (job == null) {
+            logger.warn("Received null IngestJob in processing context");
+            return null;
         }
+
+        // Move to VALIDATING state
+        job.setStatus("VALIDATING");
+        job.setErrorMessage(null);
+
+        Map<String, Object> payload = job.getHnPayload();
+        if (payload == null) {
+            job.setStatus("FAILED");
+            job.setErrorMessage("hn_payload missing or not a valid JSON object");
+            logger.info("IngestJob {} validation failed: {}", job.getTechnicalId(), job.getErrorMessage());
+            return job;
+        }
+
+        // Basic required fields validation based on HNItem rules:
+        Object idObj = payload.get("id");
+        Object byObj = payload.get("by");
+        Object timeObj = payload.get("time");
+        Object typeObj = payload.get("type");
+        Object titleObj = payload.get("title");
+
+        if (idObj == null) {
+            job.setStatus("FAILED");
+            job.setErrorMessage("missing required field: id");
+            logger.info("IngestJob {} validation failed: {}", job.getTechnicalId(), job.getErrorMessage());
+            return job;
+        }
+
+        if (byObj == null || String.valueOf(byObj).isBlank()) {
+            job.setStatus("FAILED");
+            job.setErrorMessage("missing or blank required field: by");
+            logger.info("IngestJob {} validation failed: {}", job.getTechnicalId(), job.getErrorMessage());
+            return job;
+        }
+
+        if (timeObj == null) {
+            job.setStatus("FAILED");
+            job.setErrorMessage("missing required field: time");
+            logger.info("IngestJob {} validation failed: {}", job.getTechnicalId(), job.getErrorMessage());
+            return job;
+        }
+
+        // For story items require a non-blank title
+        String type = typeObj == null ? null : String.valueOf(typeObj);
+        if ("story".equalsIgnoreCase(type)) {
+            if (titleObj == null || String.valueOf(titleObj).isBlank()) {
+                job.setStatus("FAILED");
+                job.setErrorMessage("missing or blank required field: title for story item");
+                logger.info("IngestJob {} validation failed: {}", job.getTechnicalId(), job.getErrorMessage());
+                return job;
+            }
+        }
+
+        // All validations passed: advance to PROCESSING
+        job.setStatus("PROCESSING");
+        job.setErrorMessage(null);
+        logger.info("IngestJob {} validation passed, moving to PROCESSING", job.getTechnicalId());
+        return job;
     }
 }

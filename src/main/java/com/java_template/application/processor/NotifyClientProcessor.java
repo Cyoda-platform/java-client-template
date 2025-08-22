@@ -8,9 +8,9 @@ import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
+import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
 
 @Component
 public class NotifyClientProcessor implements CyodaProcessor {
@@ -46,41 +46,30 @@ public class NotifyClientProcessor implements CyodaProcessor {
 
     private IngestJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<IngestJob> context) {
         IngestJob entity = context.entity();
-        try {
-            logger.info("NotifyClientProcessor started for job technicalId={}", entity.getTechnicalId());
 
+        // Only notify when job reached COMPLETED state. If client id is present, simulate notification.
+        String currentStatus = entity.getStatus();
+        if (currentStatus != null && "COMPLETED".equalsIgnoreCase(currentStatus)) {
             String clientId = entity.getClientId();
             String storedItemId = entity.getStoredItemTechnicalId();
 
-            if (clientId == null || clientId.isBlank()) {
-                logger.info("No clientId present for job {}. No notification will be sent.", entity.getTechnicalId());
-                // No client to notify; leave job state as-is.
-                return entity;
+            if (clientId != null && !clientId.isBlank()) {
+                if (storedItemId != null && !storedItemId.isBlank()) {
+                    // In a real implementation this would enqueue/send a notification to the client.
+                    logger.info("NotifyClientProcessor: Notifying client '{}' about stored item '{}'", clientId, storedItemId);
+                } else {
+                    logger.warn("NotifyClientProcessor: Job '{}' has no storedItemTechnicalId to notify client '{}'", entity.getTechnicalId(), clientId);
+                }
+            } else {
+                logger.info("NotifyClientProcessor: No clientId present for job '{}', skipping external notification", entity.getTechnicalId());
             }
 
-            // Ensure we have a stored item id to notify about
-            if (storedItemId == null || storedItemId.isBlank()) {
-                String msg = "Missing storedItemTechnicalId: unable to notify client " + clientId;
-                logger.error(msg + " for job {}", entity.getTechnicalId());
-                // Mark job as failed to reflect notification failure
-                entity.setStatus("FAILED");
-                entity.setErrorMessage(msg);
-                return entity;
-            }
-
-            // Simulate notification (actual external notification systems are out of scope)
-            logger.info("Notifying client '{}' about stored item '{}'", clientId, storedItemId);
-
-            // Mark job as NOTIFIED to indicate completion of notification step
+            // Transition job to NOTIFIED state so clients can see it was handled.
             entity.setStatus("NOTIFIED");
-            entity.setErrorMessage(null);
-
-            return entity;
-        } catch (Exception ex) {
-            logger.error("Exception while notifying client for job {}: {}", entity.getTechnicalId(), ex.getMessage(), ex);
-            entity.setStatus("FAILED");
-            entity.setErrorMessage("Notification error: " + ex.getMessage());
-            return entity;
+        } else {
+            logger.info("NotifyClientProcessor: Job '{}' not in COMPLETED state (current='{}'), skipping notify step", entity.getTechnicalId(), currentStatus);
         }
+
+        return entity;
     }
 }

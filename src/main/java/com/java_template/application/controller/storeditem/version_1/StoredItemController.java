@@ -2,24 +2,20 @@ package com.java_template.application.controller.storeditem.version_1;
 
 import static com.java_template.common.config.Config.*;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.java_template.application.entity.storeditem.version_1.StoredItem;
 import com.java_template.common.service.EntityService;
+import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,393 +23,337 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-/**
- * Dull proxy controller for StoredItem entity. All business logic lives in workflows.
- */
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+
 @RestController
-@RequestMapping("/api/stored-items/v1")
-@io.swagger.v3.oas.annotations.tags.Tag(name = "StoredItem", description = "StoredItem entity proxy endpoints")
+@RequestMapping("/api/stored-item/v1")
+@Tag(name = "StoredItem", description = "API for StoredItem entity operations")
 public class StoredItemController {
 
     private static final Logger logger = LoggerFactory.getLogger(StoredItemController.class);
 
     private final EntityService entityService;
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public StoredItemController(EntityService entityService) {
         this.entityService = entityService;
     }
 
-    @Operation(summary = "Create StoredItem", description = "Persist a StoredItem. Returns the created technicalId (UUID string). Business logic is executed asynchronously via workflows.")
+    @Operation(summary = "Add StoredItem", description = "Adds a single StoredItem entity")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "201", description = "Created", content = @Content(schema = @Schema(implementation = CreateStoredItemResponse.class))),
-        @ApiResponse(responseCode = "400", description = "Bad Request"),
-        @ApiResponse(responseCode = "500", description = "Internal Server Error")
+            @ApiResponse(responseCode = "200", description = "OK",
+                    content = @Content(schema = @Schema(implementation = IdResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
     @PostMapping
-    public ResponseEntity<?> createStoredItem(
-        @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "StoredItem payload", required = true, content = @Content(schema = @Schema(implementation = CreateStoredItemRequest.class)))
-        @RequestBody CreateStoredItemRequest request
-    ) {
+    public ResponseEntity<?> addItem(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "StoredItem payload", required = true,
+                    content = @Content(schema = @Schema(implementation = ObjectNode.class)))
+            @RequestBody ObjectNode data) {
         try {
-            ObjectNode node = objectMapper.valueToTree(request);
             CompletableFuture<UUID> idFuture = entityService.addItem(
-                StoredItem.ENTITY_NAME,
-                String.valueOf(StoredItem.ENTITY_VERSION),
-                node
+                    StoredItem.ENTITY_NAME,
+                    String.valueOf(StoredItem.ENTITY_VERSION),
+                    data
             );
             UUID id = idFuture.get();
-            CreateStoredItemResponse resp = new CreateStoredItemResponse(id.toString());
-            return ResponseEntity.status(HttpStatus.CREATED).body(resp);
+            return ResponseEntity.ok(new IdResponse(id));
         } catch (IllegalArgumentException e) {
-            logger.warn("Invalid argument creating stored item", e);
+            logger.warn("Invalid request for addItem", e);
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (ExecutionException e) {
             Throwable cause = e.getCause();
-            if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
-            } else if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.badRequest().body(cause.getMessage());
-            } else {
-                logger.error("Execution error creating stored item", e);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : e.getMessage());
-            }
+            return handleExecutionExceptionCause(cause);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            logger.error("Interrupted creating stored item", e);
+            logger.error("Thread interrupted while adding item", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         } catch (Exception e) {
-            logger.error("Unexpected error creating stored item", e);
+            logger.error("Unexpected error in addItem", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
 
-    @Operation(summary = "Create multiple StoredItems", description = "Persist multiple StoredItems in bulk. Returns the list of created technicalIds.")
+    @Operation(summary = "Add multiple StoredItems", description = "Adds multiple StoredItem entities")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = BulkCreateStoredItemResponse.class)))),
-        @ApiResponse(responseCode = "400", description = "Bad Request"),
-        @ApiResponse(responseCode = "500", description = "Internal Server Error")
+            @ApiResponse(responseCode = "200", description = "OK",
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = IdsResponse.class)))),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
     @PostMapping("/bulk")
-    public ResponseEntity<?> createStoredItemsBulk(
-        @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "List of StoredItem payloads", required = true, content = @Content(array = @ArraySchema(schema = @Schema(implementation = CreateStoredItemRequest.class))))
-        @RequestBody List<CreateStoredItemRequest> requests
-    ) {
+    public ResponseEntity<?> addItems(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Array of StoredItem payloads", required = true,
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = ObjectNode.class))))
+            @RequestBody ArrayNode data) {
         try {
-            ArrayNode arrayNode = objectMapper.valueToTree(requests);
             CompletableFuture<List<UUID>> idsFuture = entityService.addItems(
-                StoredItem.ENTITY_NAME,
-                String.valueOf(StoredItem.ENTITY_VERSION),
-                arrayNode
+                    StoredItem.ENTITY_NAME,
+                    String.valueOf(StoredItem.ENTITY_VERSION),
+                    data
             );
             List<UUID> ids = idsFuture.get();
-            BulkCreateStoredItemResponse resp = new BulkCreateStoredItemResponse(ids.stream().map(UUID::toString).toList());
-            return ResponseEntity.ok(resp);
+            return ResponseEntity.ok(new IdsResponse(ids));
         } catch (IllegalArgumentException e) {
-            logger.warn("Invalid argument in bulk create", e);
+            logger.warn("Invalid request for addItems", e);
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (ExecutionException e) {
             Throwable cause = e.getCause();
-            if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
-            } else if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.badRequest().body(cause.getMessage());
-            } else {
-                logger.error("Execution error in bulk create", e);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : e.getMessage());
-            }
+            return handleExecutionExceptionCause(cause);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            logger.error("Interrupted bulk create", e);
+            logger.error("Thread interrupted while adding items", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         } catch (Exception e) {
-            logger.error("Unexpected error in bulk create", e);
+            logger.error("Unexpected error in addItems", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
 
-    @Operation(summary = "Get StoredItem by technicalId", description = "Retrieve a StoredItem by its technicalId.")
+    @Operation(summary = "Get StoredItem by technicalId", description = "Retrieves a single StoredItem by technicalId")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = StoredItemGetResponse.class))),
-        @ApiResponse(responseCode = "400", description = "Bad Request"),
-        @ApiResponse(responseCode = "404", description = "Not Found"),
-        @ApiResponse(responseCode = "500", description = "Internal Server Error")
+            @ApiResponse(responseCode = "200", description = "OK",
+                    content = @Content(schema = @Schema(implementation = ItemResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Not Found"),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
     @GetMapping("/{technicalId}")
-    public ResponseEntity<?> getStoredItem(
-        @Parameter(name = "technicalId", description = "Technical ID of the entity", required = true)
-        @PathVariable("technicalId") String technicalId
-    ) {
+    public ResponseEntity<?> getItem(
+            @Parameter(name = "technicalId", description = "Technical ID of the entity", required = true)
+            @PathVariable String technicalId) {
         try {
             UUID id = UUID.fromString(technicalId);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
-                StoredItem.ENTITY_NAME,
-                String.valueOf(StoredItem.ENTITY_VERSION),
-                id
+                    StoredItem.ENTITY_NAME,
+                    String.valueOf(StoredItem.ENTITY_VERSION),
+                    id
             );
             ObjectNode item = itemFuture.get();
-            return ResponseEntity.ok(item);
+            return ResponseEntity.ok(new ItemResponse(item));
         } catch (IllegalArgumentException e) {
-            logger.warn("Invalid technicalId for getStoredItem", e);
+            logger.warn("Invalid id format for getItem", e);
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (ExecutionException e) {
             Throwable cause = e.getCause();
-            if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
-            } else if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.badRequest().body(cause.getMessage());
-            } else {
-                logger.error("Execution error getting stored item", e);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : e.getMessage());
-            }
+            return handleExecutionExceptionCause(cause);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            logger.error("Interrupted getting stored item", e);
+            logger.error("Thread interrupted while getting item", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         } catch (Exception e) {
-            logger.error("Unexpected error getting stored item", e);
+            logger.error("Unexpected error in getItem", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
 
-    @Operation(summary = "Get all StoredItems", description = "Retrieve all StoredItems.")
+    @Operation(summary = "Get all StoredItems", description = "Retrieves all StoredItem entities")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = StoredItemGetResponse.class)))),
-        @ApiResponse(responseCode = "500", description = "Internal Server Error")
+            @ApiResponse(responseCode = "200", description = "OK",
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = ItemsResponse.class)))),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
     @GetMapping
-    public ResponseEntity<?> getStoredItems() {
+    public ResponseEntity<?> getItems() {
         try {
             CompletableFuture<ArrayNode> itemsFuture = entityService.getItems(
-                StoredItem.ENTITY_NAME,
-                String.valueOf(StoredItem.ENTITY_VERSION)
+                    StoredItem.ENTITY_NAME,
+                    String.valueOf(StoredItem.ENTITY_VERSION)
             );
             ArrayNode items = itemsFuture.get();
-            return ResponseEntity.ok(items);
+            return ResponseEntity.ok(new ItemsResponse(items));
         } catch (ExecutionException e) {
             Throwable cause = e.getCause();
-            if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.badRequest().body(cause.getMessage());
-            } else {
-                logger.error("Execution error getting stored items", e);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : e.getMessage());
-            }
+            return handleExecutionExceptionCause(cause);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            logger.error("Interrupted getting stored items", e);
+            logger.error("Thread interrupted while getting items", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         } catch (Exception e) {
-            logger.error("Unexpected error getting stored items", e);
+            logger.error("Unexpected error in getItems", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
 
-    @Operation(summary = "Search StoredItems by condition", description = "Retrieve StoredItems filtered by a SearchConditionRequest. For simple field-based queries use SearchConditionRequest.group and Condition.of.")
+    @Operation(summary = "Filter StoredItems", description = "Retrieves StoredItem entities by given search condition")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = StoredItemGetResponse.class)))),
-        @ApiResponse(responseCode = "400", description = "Bad Request"),
-        @ApiResponse(responseCode = "500", description = "Internal Server Error")
+            @ApiResponse(responseCode = "200", description = "OK",
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = ItemsResponse.class)))),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
     @PostMapping("/search")
-    public ResponseEntity<?> searchStoredItems(
-        @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Search condition request", required = true, content = @Content(schema = @Schema(implementation = SearchConditionRequest.class)))
-        @RequestBody SearchConditionRequest condition
-    ) {
+    public ResponseEntity<?> getItemsByCondition(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Search condition request", required = true,
+                    content = @Content(schema = @Schema(implementation = SearchConditionRequest.class)))
+            @RequestBody SearchConditionRequest condition) {
         try {
-            ArrayNode items = entityService.getItemsByCondition(
-                StoredItem.ENTITY_NAME,
-                String.valueOf(StoredItem.ENTITY_VERSION),
-                condition,
-                true
-            ).get();
-            return ResponseEntity.ok(items);
+            CompletableFuture<ArrayNode> filteredItemsFuture = entityService.getItemsByCondition(
+                    StoredItem.ENTITY_NAME,
+                    String.valueOf(StoredItem.ENTITY_VERSION),
+                    condition,
+                    true
+            );
+            ArrayNode items = filteredItemsFuture.get();
+            return ResponseEntity.ok(new ItemsResponse(items));
         } catch (IllegalArgumentException e) {
             logger.warn("Invalid search condition", e);
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (ExecutionException e) {
             Throwable cause = e.getCause();
-            if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.badRequest().body(cause.getMessage());
-            } else {
-                logger.error("Execution error searching stored items", e);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : e.getMessage());
-            }
+            return handleExecutionExceptionCause(cause);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            logger.error("Interrupted searching stored items", e);
+            logger.error("Thread interrupted while searching items", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         } catch (Exception e) {
-            logger.error("Unexpected error searching stored items", e);
+            logger.error("Unexpected error in getItemsByCondition", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
 
-    @Operation(summary = "Update StoredItem", description = "Update an existing StoredItem by technicalId.")
+    @Operation(summary = "Update StoredItem", description = "Updates a StoredItem by technicalId")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = UpdateStoredItemResponse.class))),
-        @ApiResponse(responseCode = "400", description = "Bad Request"),
-        @ApiResponse(responseCode = "404", description = "Not Found"),
-        @ApiResponse(responseCode = "500", description = "Internal Server Error")
+            @ApiResponse(responseCode = "200", description = "OK",
+                    content = @Content(schema = @Schema(implementation = IdResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "404", description = "Not Found"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
     @PutMapping("/{technicalId}")
-    public ResponseEntity<?> updateStoredItem(
-        @Parameter(name = "technicalId", description = "Technical ID of the entity", required = true)
-        @PathVariable("technicalId") String technicalId,
-        @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "StoredItem payload", required = true, content = @Content(schema = @Schema(implementation = CreateStoredItemRequest.class)))
-        @RequestBody CreateStoredItemRequest request
-    ) {
+    public ResponseEntity<?> updateItem(
+            @Parameter(name = "technicalId", description = "Technical ID of the entity", required = true)
+            @PathVariable String technicalId,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "StoredItem payload for update", required = true,
+                    content = @Content(schema = @Schema(implementation = ObjectNode.class)))
+            @RequestBody ObjectNode data) {
         try {
             UUID id = UUID.fromString(technicalId);
-            ObjectNode node = objectMapper.valueToTree(request);
-            CompletableFuture<UUID> updatedFuture = entityService.updateItem(
-                StoredItem.ENTITY_NAME,
-                String.valueOf(StoredItem.ENTITY_VERSION),
-                id,
-                node
+            CompletableFuture<UUID> updatedIdFuture = entityService.updateItem(
+                    StoredItem.ENTITY_NAME,
+                    String.valueOf(StoredItem.ENTITY_VERSION),
+                    id,
+                    data
             );
-            UUID updatedId = updatedFuture.get();
-            UpdateStoredItemResponse resp = new UpdateStoredItemResponse(updatedId.toString());
-            return ResponseEntity.ok(resp);
+            UUID updatedId = updatedIdFuture.get();
+            return ResponseEntity.ok(new IdResponse(updatedId));
         } catch (IllegalArgumentException e) {
-            logger.warn("Invalid argument updating stored item", e);
+            logger.warn("Invalid request for updateItem", e);
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (ExecutionException e) {
             Throwable cause = e.getCause();
-            if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
-            } else if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.badRequest().body(cause.getMessage());
-            } else {
-                logger.error("Execution error updating stored item", e);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : e.getMessage());
-            }
+            return handleExecutionExceptionCause(cause);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            logger.error("Interrupted updating stored item", e);
+            logger.error("Thread interrupted while updating item", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         } catch (Exception e) {
-            logger.error("Unexpected error updating stored item", e);
+            logger.error("Unexpected error in updateItem", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
 
-    @Operation(summary = "Delete StoredItem", description = "Delete a StoredItem by technicalId.")
+    @Operation(summary = "Delete StoredItem", description = "Deletes a StoredItem by technicalId")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Deleted", content = @Content(schema = @Schema(implementation = DeleteStoredItemResponse.class))),
-        @ApiResponse(responseCode = "400", description = "Bad Request"),
-        @ApiResponse(responseCode = "404", description = "Not Found"),
-        @ApiResponse(responseCode = "500", description = "Internal Server Error")
+            @ApiResponse(responseCode = "200", description = "OK",
+                    content = @Content(schema = @Schema(implementation = IdResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "404", description = "Not Found"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
     @DeleteMapping("/{technicalId}")
-    public ResponseEntity<?> deleteStoredItem(
-        @Parameter(name = "technicalId", description = "Technical ID of the entity", required = true)
-        @PathVariable("technicalId") String technicalId
-    ) {
+    public ResponseEntity<?> deleteItem(
+            @Parameter(name = "technicalId", description = "Technical ID of the entity", required = true)
+            @PathVariable String technicalId) {
         try {
             UUID id = UUID.fromString(technicalId);
-            CompletableFuture<UUID> deletedFuture = entityService.deleteItem(
-                StoredItem.ENTITY_NAME,
-                String.valueOf(StoredItem.ENTITY_VERSION),
-                id
+            CompletableFuture<UUID> deletedIdFuture = entityService.deleteItem(
+                    StoredItem.ENTITY_NAME,
+                    String.valueOf(StoredItem.ENTITY_VERSION),
+                    id
             );
-            UUID deletedId = deletedFuture.get();
-            DeleteStoredItemResponse resp = new DeleteStoredItemResponse(deletedId.toString());
-            return ResponseEntity.ok(resp);
+            UUID deletedId = deletedIdFuture.get();
+            return ResponseEntity.ok(new IdResponse(deletedId));
         } catch (IllegalArgumentException e) {
-            logger.warn("Invalid technicalId deleting stored item", e);
+            logger.warn("Invalid id format for deleteItem", e);
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (ExecutionException e) {
             Throwable cause = e.getCause();
-            if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
-            } else if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.badRequest().body(cause.getMessage());
-            } else {
-                logger.error("Execution error deleting stored item", e);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : e.getMessage());
-            }
+            return handleExecutionExceptionCause(cause);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            logger.error("Interrupted deleting stored item", e);
+            logger.error("Thread interrupted while deleting item", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         } catch (Exception e) {
-            logger.error("Unexpected error deleting stored item", e);
+            logger.error("Unexpected error in deleteItem", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
 
-    // --- DTOs ---
-
-    @Data
-    @Schema(name = "CreateStoredItemRequest", description = "Request payload to create a StoredItem")
-    public static class CreateStoredItemRequest {
-        @Schema(description = "HackerNews item payload (full JSON)", required = true)
-        private Object hn_item;
-
-        @Schema(description = "When the item was stored (optional)")
-        private String stored_at;
-
-        @Schema(description = "Storage technical id (optional)")
-        private String storage_technicalId;
-
-        @Schema(description = "Approximate size in bytes (optional)")
-        private Long size_bytes;
+    private ResponseEntity<?> handleExecutionExceptionCause(Throwable cause) {
+        if (cause == null) {
+            logger.error("ExecutionException with null cause");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Unknown error");
+        }
+        if (cause instanceof NoSuchElementException) {
+            logger.warn("Entity not found", cause);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
+        } else if (cause instanceof IllegalArgumentException) {
+            logger.warn("Illegal argument in execution", cause);
+            return ResponseEntity.badRequest().body(cause.getMessage());
+        } else {
+            logger.error("Execution failed", cause);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause.getMessage());
+        }
     }
 
-    @Data
-    @Schema(name = "CreateStoredItemResponse", description = "Response returned when a StoredItem is created")
-    public static class CreateStoredItemResponse {
-        @Schema(description = "Technical id (UUID string) of created entity", example = "3fa85f64-5717-4562-b3fc-2c963f66afa6")
-        private String technicalId;
+    // DTOs used for requests/responses
 
-        public CreateStoredItemResponse(String technicalId) {
-            this.technicalId = technicalId;
+    @Data
+    @Schema(name = "IdResponse", description = "Response containing single UUID")
+    public static class IdResponse {
+        @Schema(description = "Technical id", required = true, example = "3fa85f64-5717-4562-b3fc-2c963f66afa6")
+        private UUID id;
+
+        public IdResponse(UUID id) {
+            this.id = id;
         }
     }
 
     @Data
-    @Schema(name = "BulkCreateStoredItemResponse", description = "Response returned when multiple StoredItems are created")
-    public static class BulkCreateStoredItemResponse {
-        @Schema(description = "List of created technical ids")
-        private List<String> technicalIds;
+    @Schema(name = "IdsResponse", description = "Response containing list of UUIDs")
+    public static class IdsResponse {
+        @Schema(description = "List of technical ids", required = true)
+        private List<UUID> ids;
 
-        public BulkCreateStoredItemResponse(List<String> technicalIds) {
-            this.technicalIds = technicalIds;
+        public IdsResponse(List<UUID> ids) {
+            this.ids = ids;
         }
     }
 
     @Data
-    @Schema(name = "StoredItemGetResponse", description = "StoredItem returned by GET endpoints")
-    public static class StoredItemGetResponse {
-        @Schema(description = "Technical id (storage_technicalId) of the item")
-        private String technicalId;
+    @Schema(name = "ItemResponse", description = "Response containing single entity as ObjectNode")
+    public static class ItemResponse {
+        @Schema(description = "Entity data", required = true)
+        private ObjectNode item;
 
-        @Schema(description = "When the item was stored")
-        private String stored_at;
-
-        @Schema(description = "The HN item payload")
-        private Object hn_item;
-    }
-
-    @Data
-    @Schema(name = "UpdateStoredItemResponse", description = "Response returned when a StoredItem is updated")
-    public static class UpdateStoredItemResponse {
-        @Schema(description = "Technical id (UUID string) of updated entity")
-        private String technicalId;
-
-        public UpdateStoredItemResponse(String technicalId) {
-            this.technicalId = technicalId;
+        public ItemResponse(ObjectNode item) {
+            this.item = item;
         }
     }
 
     @Data
-    @Schema(name = "DeleteStoredItemResponse", description = "Response returned when a StoredItem is deleted")
-    public static class DeleteStoredItemResponse {
-        @Schema(description = "Technical id (UUID string) of deleted entity")
-        private String technicalId;
+    @Schema(name = "ItemsResponse", description = "Response containing list/array of entities")
+    public static class ItemsResponse {
+        @Schema(description = "Entities array", required = true)
+        private ArrayNode items;
 
-        public DeleteStoredItemResponse(String technicalId) {
-            this.technicalId = technicalId;
+        public ItemsResponse(ArrayNode items) {
+            this.items = items;
         }
     }
 }
