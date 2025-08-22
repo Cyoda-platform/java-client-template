@@ -1,0 +1,81 @@
+{
+  "version": "1.0",
+  "name": "StoredItem Workflow",
+  "desc": "Workflow for StoredItem entity derived from functional requirements: creation (by PersistItemProcessor), indexing (IndexProcessor) and availability. Includes criteria for index success/failure.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "create_stored_item",
+          "next": "CREATED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PersistItemProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "start_indexing",
+          "next": "INDEXING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "IndexProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "INDEXING": {
+      "transitions": [
+        {
+          "name": "index_complete",
+          "next": "AVAILABLE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IndexCompleteCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "index_failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IndexFailCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "AVAILABLE": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    }
+  }
+}

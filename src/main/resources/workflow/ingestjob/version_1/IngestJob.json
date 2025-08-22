@@ -1,0 +1,138 @@
+{
+  "version": "1.0",
+  "name": "IngestJob Workflow",
+  "desc": "Finite state workflow for IngestJob: validate payload, transform, persist StoredItem, notify client. Derived from functional requirements.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "start_to_pending",
+          "next": "PENDING",
+          "manual": false
+        }
+      ]
+    },
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "pending_to_validating",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateJobProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "validation_pass",
+          "next": "PROCESSING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidationPassCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_fail",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidationFailCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "PROCESSING": {
+      "transitions": [
+        {
+          "name": "processing_to_persisting",
+          "next": "PERSISTING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "TransformProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PERSISTING": {
+      "transitions": [
+        {
+          "name": "persist_success",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PersistItemProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "persist_fail",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PersistFailCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": [
+        {
+          "name": "completed_to_notified",
+          "next": "NOTIFIED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotifyClientProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "NOTIFIED": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    }
+  }
+}
