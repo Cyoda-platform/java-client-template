@@ -1,0 +1,95 @@
+package com.java_template.application.processor;
+import com.java_template.application.entity.product.version_1.Product;
+import com.java_template.common.serializer.ProcessorSerializer;
+import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.workflow.CyodaEventContext;
+import com.java_template.common.workflow.CyodaProcessor;
+import com.java_template.common.workflow.OperationSpecification;
+import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
+import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
+import org.springframework.stereotype.Component;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+
+@Component
+public class InventorySyncProcessor implements CyodaProcessor {
+
+    private static final Logger logger = LoggerFactory.getLogger(InventorySyncProcessor.class);
+    private final String className = this.getClass().getSimpleName();
+    private final ProcessorSerializer serializer;
+
+    public InventorySyncProcessor(SerializerFactory serializerFactory) {
+        this.serializer = serializerFactory.getDefaultProcessorSerializer();
+    }
+
+    @Override
+    public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
+        EntityProcessorCalculationRequest request = context.getEvent();
+        logger.info("Processing Product for request: {}", request.getId());
+
+        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
+            .toEntity(Product.class)
+            .validate(this::isValidEntity, "Invalid entity state")
+            .map(this::processEntityLogic) // Implement business logic here
+            .complete();
+    }
+
+    @Override
+    public boolean supports(OperationSpecification modelSpec) {
+        return className.equalsIgnoreCase(modelSpec.operationName());
+    }
+
+    private boolean isValidEntity(Product entity) {
+        return entity != null && entity.isValid();
+    }
+
+    private Product processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Product> context) {
+        Product entity = context.entity();
+
+        // InventorySyncProcessor business logic:
+        // - Normalize textual fields (trim)
+        // - Ensure description is non-null
+        // - Normalize currency to upper-case ISO code
+        // - Ensure availableQuantity is non-null and non-negative
+        // - Round price to 2 decimal places
+
+        try {
+            if (entity.getName() != null) {
+                entity.setName(entity.getName().trim());
+            }
+
+            if (entity.getDescription() == null) {
+                entity.setDescription("");
+            } else {
+                entity.setDescription(entity.getDescription().trim());
+            }
+
+            if (entity.getCurrency() != null) {
+                entity.setCurrency(entity.getCurrency().trim().toUpperCase());
+            }
+
+            if (entity.getAvailableQuantity() == null) {
+                entity.setAvailableQuantity(0);
+            } else if (entity.getAvailableQuantity() < 0) {
+                // Defensive: avoid negative inventory by setting to 0
+                entity.setAvailableQuantity(0);
+            }
+
+            if (entity.getPrice() != null) {
+                BigDecimal bd = BigDecimal.valueOf(entity.getPrice());
+                bd = bd.setScale(2, RoundingMode.HALF_UP);
+                entity.setPrice(bd.doubleValue());
+            }
+
+            logger.info("InventorySyncProcessor completed normalization for product id={}", entity.getId());
+        } catch (Exception ex) {
+            logger.error("Error during InventorySyncProcessor for product id=" + entity.getId(), ex);
+            // Do not throw; keep processor idempotent. Entity will be persisted as modified.
+        }
+
+        return entity;
+    }
+}
