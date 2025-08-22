@@ -1,0 +1,57 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "age": 2,
+                    "breed": "Tabby",
+                    "description": "Loves naps",
+                    "gender": "F",
+                    "healthNotes": "Vaccinated",
+                    "id": "PET-123",
+                    "name": "Mittens",
+                    "photos": [
+                        "https://example.com/photos/mit1.jpg"
+                    ],
+                    "species": "cat",
+                    "status": "available",
+                    "tags": [
+                        "friendly",
+                        "playful"
+                    ]
+                }
+            }
+        },
+        {
+            "User": {
+                "entity_data_example": {
+                    "contact": "+123456",
+                    "email": "ava@example.com",
+                    "id": "USR-99",
+                    "name": "Ava Smith",
+                    "notes": "First-time adopter",
+                    "role": "customer",
+                    "savedPets": [
+                        "PET-123"
+                    ],
+                    "verified": false
+                }
+            }
+        },
+        {
+            "Order": {
+                "entity_data_example": {
+                    "createdAt": "2025-08-22T10:00:00Z",
+                    "expiresAt": "2025-08-29T10:00:00Z",
+                    "id": "ORD-777",
+                    "notes": "First-time adopter",
+                    "petId": "PET-123",
+                    "status": "initiated",
+                    "total": 50,
+                    "type": "adopt",
+                    "userId": "USR-99"
+                }
+            }
+        }
+    ]
+}
