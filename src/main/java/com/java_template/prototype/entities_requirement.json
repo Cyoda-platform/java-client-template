@@ -1,0 +1,65 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "ageMonths": 24,
+                    "breed": "Domestic Shorthair",
+                    "createdAt": "2025-08-22T11:00:00Z",
+                    "gender": "female",
+                    "id": "pet-789",
+                    "name": "Mittens",
+                    "photos": [
+                        "https://petstore.example/photos/pet-789-1.jpg",
+                        "https://petstore.example/photos/pet-789-2.jpg"
+                    ],
+                    "sourceOrigin": "Petstore",
+                    "species": "cat",
+                    "status": "available",
+                    "technicalMetadata": {
+                        "enrichedAt": "2025-08-22T11:05:00Z",
+                        "ingestedByJob": "job-1",
+                        "sourceRecordId": "ps-456"
+                    }
+                }
+            }
+        },
+        {
+            "AdoptionRequest": {
+                "entity_data_example": {
+                    "applicantName": "Jane Doe",
+                    "contactInfo": {
+                        "address": {
+                            "city": "Anytown",
+                            "state": "CA",
+                            "street": "123 Main St",
+                            "zip": "12345"
+                        },
+                        "email": "jane@example.com",
+                        "phone": "123-456-7890"
+                    },
+                    "decisionNotes": "",
+                    "petId": "pet-789",
+                    "requestId": "req-1",
+                    "requestedAt": "2025-08-22T11:00:00Z",
+                    "status": "under_review",
+                    "verificationCompleted": false
+                }
+            }
+        },
+        {
+            "ImportJob": {
+                "entity_data_example": {
+                    "completedAt": null,
+                    "errorSummary": "",
+                    "importedCount": 10,
+                    "initiatedBy": "system",
+                    "jobId": "job-1",
+                    "sourceUrl": "https://petstore.example/api",
+                    "startedAt": "2025-08-22T10:00:00Z",
+                    "status": "running"
+                }
+            }
+        }
+    ]
+}
