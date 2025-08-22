@@ -1,0 +1,118 @@
+{
+    "entities": [
+        {
+            "IngestJob": {
+                "entity_data_example": {
+                    "client_id": "optional-caller-id",
+                    "created_at": "2025-08-22T12:00:00Z",
+                    "error_message": null,
+                    "hn_payload": {
+                        "by": "pg",
+                        "descendants": 2,
+                        "id": 12345,
+                        "kids": [
+                            12346,
+                            12347
+                        ],
+                        "raw_json": {
+                            "by": "pg",
+                            "descendants": 2,
+                            "id": 12345,
+                            "kids": [
+                                12346,
+                                12347
+                            ],
+                            "score": 100,
+                            "text": "Example story text",
+                            "time": 1700000000,
+                            "title": "Example Story",
+                            "type": "story",
+                            "url": "https://example.com"
+                        },
+                        "score": 100,
+                        "text": "Example story text",
+                        "time": 1700000000,
+                        "title": "Example Story",
+                        "type": "story",
+                        "url": "https://example.com"
+                    },
+                    "status": "PENDING",
+                    "stored_item_technicalId": null
+                }
+            }
+        },
+        {
+            "HNItem": {
+                "entity_data_example": {
+                    "by": "pg",
+                    "descendants": 2,
+                    "id": 12345,
+                    "kids": [
+                        12346,
+                        12347
+                    ],
+                    "raw_json": {
+                        "by": "pg",
+                        "descendants": 2,
+                        "id": 12345,
+                        "kids": [
+                            12346,
+                            12347
+                        ],
+                        "score": 100,
+                        "text": "Example story text",
+                        "time": 1700000000,
+                        "title": "Example Story",
+                        "type": "story",
+                        "url": "https://example.com"
+                    },
+                    "score": 100,
+                    "text": "Example story text",
+                    "time": 1700000000,
+                    "title": "Example Story",
+                    "type": "story",
+                    "url": "https://example.com"
+                }
+            }
+        },
+        {
+            "StoredItem": {
+                "entity_data_example": {
+                    "hn_item": {
+                        "by": "pg",
+                        "descendants": 2,
+                        "id": 12345,
+                        "kids": [
+                            12346,
+                            12347
+                        ],
+                        "raw_json": {
+                            "by": "pg",
+                            "descendants": 2,
+                            "id": 12345,
+                            "kids": [
+                                12346,
+                                12347
+                            ],
+                            "score": 100,
+                            "text": "Example story text",
+                            "time": 1700000000,
+                            "title": "Example Story",
+                            "type": "story",
+                            "url": "https://example.com"
+                        },
+                        "score": 100,
+                        "text": "Example story text",
+                        "time": 1700000000,
+                        "title": "Example Story",
+                        "type": "story",
+                        "url": "https://example.com"
+                    },
+                    "size_bytes": 512,
+                    "storage_technicalId": "item_def456",
+                    "stored_at": "2025-08-22T12:00:03Z"
+                }
+            }
+        }
+    ]
+}
