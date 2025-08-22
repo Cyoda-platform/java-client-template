@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
+import com.java_template.application.entity.subscriber.version_1.Subscriber;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
