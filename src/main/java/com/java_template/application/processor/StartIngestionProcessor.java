@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.java_template.application.entity.pet.version_1.Pet;
-import com.java_template.application.entity.pet_ingestion_job.version_1.PetIngestionJob;
+import com.java_template.application.entity.petingestionjob.version_1.PetIngestionJob;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.service.EntityService;
