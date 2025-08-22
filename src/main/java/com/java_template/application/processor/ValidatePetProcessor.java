@@ -13,7 +13,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
-import java.util.List;
+import java.util.Objects;
 
 @Component
 public class ValidatePetProcessor implements CyodaProcessor {
@@ -31,10 +31,10 @@ public class ValidatePetProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing Pet for request: {}", request.getId());
 
-        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
+        return serializer.withRequest(request)
             .toEntity(Pet.class)
             .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+            .map(this::processEntityLogic)
             .complete();
     }
 
@@ -44,27 +44,39 @@ public class ValidatePetProcessor implements CyodaProcessor {
     }
 
     private boolean isValidEntity(Pet entity) {
-        if (entity == null) return false;
-        // Business validation for workflow entry:
-        // A Pet must have at least a name and species to be considered valid for processing.
-        if (entity.getName() == null || entity.getName().isBlank()) return false;
-        if (entity.getSpecies() == null || entity.getSpecies().isBlank()) return false;
-        // photos list must be non-null (can be empty)
-        if (entity.getPhotos() == null) return false;
-        // age if present must be non-negative
-        if (entity.getAge() != null && entity.getAge() < 0) return false;
-        return true;
+        return entity != null && entity.isValid();
     }
 
     private Pet processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Pet> context) {
         Pet entity = context.entity();
+        if (entity == null) return null;
 
-        // Ensure photos is non-null (business rule: photos must be present, can be empty)
+        // Ensure photos list is non-null
         if (entity.getPhotos() == null) {
             entity.setPhotos(new ArrayList<>());
         }
 
-        // Ensure age is non-negative; if invalid, clear it and mark as invalid
+        // Normalize string fields (trim) if present
+        if (entity.getName() != null) {
+            entity.setName(entity.getName().trim());
+        }
+        if (entity.getSpecies() != null) {
+            entity.setSpecies(entity.getSpecies().trim());
+        }
+        if (entity.getBreed() != null) {
+            entity.setBreed(entity.getBreed().trim());
+        }
+        if (entity.getDescription() != null) {
+            entity.setDescription(entity.getDescription().trim());
+        }
+        if (entity.getGender() != null) {
+            entity.setGender(entity.getGender().trim());
+        }
+        if (entity.getStatus() != null) {
+            entity.setStatus(entity.getStatus().trim());
+        }
+
+        // Business rule: negative age is invalid — clear and mark invalid
         Integer age = entity.getAge();
         if (age != null && age < 0) {
             entity.setAge(null);
@@ -73,29 +85,28 @@ public class ValidatePetProcessor implements CyodaProcessor {
             return entity;
         }
 
-        // Main validation: name and species must be present (already checked in validate),
-        // but double-check and set status accordingly.
-        boolean hasName = entity.getName() != null && !entity.getName().isBlank();
-        boolean hasSpecies = entity.getSpecies() != null && !entity.getSpecies().isBlank();
-
-        if (!hasName || !hasSpecies) {
-            entity.setStatus("invalid");
-            logger.info("Pet {} is missing required fields; marked invalid", entity.getId());
+        // If entity already invalid by status, keep it
+        String currentStatus = entity.getStatus();
+        if (currentStatus != null && currentStatus.equalsIgnoreCase("invalid")) {
+            logger.info("Pet {} is explicitly marked as invalid; skipping further validation adjustments", entity.getId());
             return entity;
         }
 
-        // If the pet is valid, set its workflow status to 'available' if not already set to a meaningful value.
-        String currentStatus = entity.getStatus();
-        if (currentStatus == null || currentStatus.isBlank() || "created".equalsIgnoreCase(currentStatus)) {
+        // If entity passes isValid(), and status is not set or is a placeholder, mark as available
+        boolean hasStatus = currentStatus != null && !currentStatus.isBlank();
+        if (entity.isValid() && !hasStatus) {
             entity.setStatus("available");
+            logger.info("Pet {} validated and set to status '{}'", entity.getId(), entity.getStatus());
+            return entity;
         }
 
-        // Additional light normalization: trim name/species/breed if present
-        if (entity.getName() != null) entity.setName(entity.getName().trim());
-        if (entity.getSpecies() != null) entity.setSpecies(entity.getSpecies().trim());
-        if (entity.getBreed() != null) entity.setBreed(entity.getBreed().trim());
-
-        logger.info("Pet {} validated and set to status '{}'", entity.getId(), entity.getStatus());
+        // If entity not fully valid (but reached here because of serializer flow), mark invalid
+        if (!entity.isValid()) {
+            entity.setStatus("invalid");
+            logger.info("Pet {} missing required fields; marked invalid", entity.getId());
+        } else {
+            logger.debug("Pet {} remains in status '{}'", entity.getId(), entity.getStatus());
+        }
 
         return entity;
     }

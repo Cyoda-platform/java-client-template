@@ -1,4 +1,5 @@
 package com.java_template.application.processor;
+
 import com.java_template.application.entity.pet.version_1.Pet;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
@@ -7,12 +8,11 @@ import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
-import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
-import java.util.List;
 
 @Component
 public class EnrichPetProcessor implements CyodaProcessor {
@@ -48,52 +48,58 @@ public class EnrichPetProcessor implements CyodaProcessor {
 
     private Pet processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Pet> context) {
         Pet entity = context.entity();
+        if (entity == null) return null;
 
-        // Business rule: If the pet source indicates it comes from Petstore, enrich missing optional fields.
-        // Source matching is case-insensitive and checks for the substring "petstore".
+        // Trim basic string fields if present
+        try {
+            if (entity.getName() != null) entity.setName(entity.getName().trim());
+            if (entity.getSpecies() != null) entity.setSpecies(entity.getSpecies().trim());
+            if (entity.getBreed() != null) entity.setBreed(entity.getBreed().trim());
+            if (entity.getDescription() != null) entity.setDescription(entity.getDescription().trim());
+            if (entity.getGender() != null) entity.setGender(entity.getGender().trim());
+            if (entity.getStatus() != null) entity.setStatus(entity.getStatus().trim());
+        } catch (Exception e) {
+            logger.debug("Error trimming fields for pet: {}", e.getMessage());
+        }
+
         String source = entity.getSource();
-        boolean isPetstoreSource = source != null && source.toLowerCase().contains("petstore");
-
-        if (isPetstoreSource) {
+        if (source != null && source.toLowerCase().contains("petstore")) {
             logger.info("Enriching pet (id={}) from Petstore source '{}'", entity.getId(), source);
 
-            // Ensure photos list is non-null (Pet.isValid requires non-null photos)
             if (entity.getPhotos() == null) {
                 entity.setPhotos(new ArrayList<>());
                 logger.debug("Set empty photos list for pet id={}", entity.getId());
             }
 
-            // Enrich species if missing
             if (entity.getSpecies() == null || entity.getSpecies().isBlank()) {
                 entity.setSpecies("unknown");
                 logger.debug("Enriched species to 'unknown' for pet id={}", entity.getId());
             }
 
-            // Enrich breed if missing
             if (entity.getBreed() == null || entity.getBreed().isBlank()) {
                 entity.setBreed("unknown");
                 logger.debug("Enriched breed to 'unknown' for pet id={}", entity.getId());
             }
 
-            // Enrich description if missing
             if (entity.getDescription() == null || entity.getDescription().isBlank()) {
                 entity.setDescription("No description provided");
                 logger.debug("Enriched description for pet id={}", entity.getId());
             }
 
-            // Enrich age if missing (default to 0)
             if (entity.getAge() == null) {
                 entity.setAge(0);
                 logger.debug("Enriched age to 0 for pet id={}", entity.getId());
+            } else if (entity.getAge() < 0) {
+                // Normalize negative ages to null so validation can mark invalid if needed
+                logger.warn("Pet {} has negative age {}; normalizing to null", entity.getId(), entity.getAge());
+                entity.setAge(null);
             }
 
-            // Enrich gender if missing
             if (entity.getGender() == null || entity.getGender().isBlank()) {
                 entity.setGender("unknown");
                 logger.debug("Enriched gender to 'unknown' for pet id={}", entity.getId());
             }
 
-            // Ensure status is set; default to "available" for Petstore entries
             if (entity.getStatus() == null || entity.getStatus().isBlank()) {
                 entity.setStatus("available");
                 logger.debug("Enriched status to 'available' for pet id={}", entity.getId());

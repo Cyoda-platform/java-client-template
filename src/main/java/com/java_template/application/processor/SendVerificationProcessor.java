@@ -47,28 +47,26 @@ public class SendVerificationProcessor implements CyodaProcessor {
     private User processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<User> context) {
         User entity = context.entity();
 
-        // Business logic:
-        // - Ensure user has an email to send verification to. If missing, log and return.
-        // - If verified flag is null, explicitly set it to false (unverified).
-        // - If user is already verified, do nothing except log.
-        // - Otherwise, simulate sending verification by logging. The actual persistence of the entity
-        //   (with any state changes) is handled by Cyoda automatically after this processor returns.
-
+        // Business logic for sending verification:
+        // - If no email present -> log warning, ensure verified flag is not null (set to false) and do nothing else.
+        // - If verified is null -> initialize to FALSE.
+        // - If already verified -> log info and skip sending.
+        // - Otherwise "send" verification (here: log the intent) and keep verified=false (actual verification happens via separate flow).
         if (entity == null) {
-            logger.warn("User entity is null in SendVerificationProcessor");
-            return entity;
+            logger.warn("SendVerificationProcessor received null entity in context");
+            return null;
         }
 
-        if (entity.getEmail() == null || entity.getEmail().isBlank()) {
+        String email = entity.getEmail();
+        if (email == null || email.isBlank()) {
             logger.warn("User {} has no email, cannot send verification", entity.getId());
-            // Ensure verified is non-null as required by isValid() even if email missing
             if (entity.getVerified() == null) {
                 entity.setVerified(Boolean.FALSE);
             }
             return entity;
         }
 
-        // Ensure verified flag is non-null
+        // Normalize verified flag if missing
         if (entity.getVerified() == null) {
             entity.setVerified(Boolean.FALSE);
         }
@@ -78,10 +76,10 @@ public class SendVerificationProcessor implements CyodaProcessor {
             return entity;
         }
 
-        // Simulate sending verification email (actual sending should be done by an external service)
-        logger.info("Sending verification email to user {} at {}", entity.getId(), entity.getEmail());
+        // "Send" verification (no external calls allowed here). The actual delivery would be handled by infrastructure.
+        logger.info("Sending verification email to user {} at {}", entity.getId(), email);
 
-        // Keep user as unverified until external confirmation arrives.
+        // Keep verified = false until user confirms via separate flow/criterion.
         entity.setVerified(Boolean.FALSE);
 
         return entity;

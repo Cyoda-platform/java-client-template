@@ -29,7 +29,7 @@ public class FetchSuccessCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(PetEnrichmentJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,34 +38,58 @@ public class FetchSuccessCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equals(modelSpec.operationName());
+        return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<PetEnrichmentJob> context) {
          PetEnrichmentJob entity = context.entity();
-         // Validate required inputs
+
+         // Validate required input: petSource
          if (entity.getPetSource() == null || entity.getPetSource().isBlank()) {
+             String id = entity.getJobId() != null ? entity.getJobId() : "<unknown-jobId>";
+             logger.warn("FetchSuccessCriterion: petSource missing for job {}", id);
              return EvaluationOutcome.fail("petSource is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-         if (entity.getFetchedCount() == null) {
-             return EvaluationOutcome.fail("fetchedCount is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+
+         // fetchedCount must be present and non-negative
+         Integer fetched = entity.getFetchedCount();
+         if (fetched == null) {
+             String id = entity.getJobId() != null ? entity.getJobId() : "<unknown-jobId>";
+             logger.warn("FetchSuccessCriterion: fetchedCount is null for job {}", id);
+             return EvaluationOutcome.fail("fetchedCount is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
-         if (entity.getFetchedCount() < 0) {
+         if (fetched < 0) {
+             String id = entity.getJobId() != null ? entity.getJobId() : "<unknown-jobId>";
+             logger.warn("FetchSuccessCriterion: fetchedCount is negative ({}) for job {}", fetched, id);
              return EvaluationOutcome.fail("fetchedCount must be non-negative", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
-         if (entity.getErrors() == null) {
-             return EvaluationOutcome.fail("errors list must be present (can be empty)", StandardEvalReasonCategories.VALIDATION_FAILURE);
+
+         // If job has explicit FAILED status -> fail
+         String status = entity.getStatus();
+         if (status != null && status.equalsIgnoreCase("FAILED")) {
+             String id = entity.getJobId() != null ? entity.getJobId() : "<unknown-jobId>";
+             logger.info("FetchSuccessCriterion: job {} has status FAILED", id);
+             return EvaluationOutcome.fail("Job status is FAILED", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
-         if (!entity.getErrors().isEmpty()) {
-             return EvaluationOutcome.fail("Fetch completed with errors", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+
+         // If errors were recorded during fetch, treat as failure for success criterion
+         if (entity.getErrors() != null && !entity.getErrors().isEmpty()) {
+             String id = entity.getJobId() != null ? entity.getJobId() : "<unknown-jobId>";
+             String firstError = entity.getErrors().get(0);
+             logger.info("FetchSuccessCriterion: job {} contains errors from fetch: {}", id, firstError);
+             return EvaluationOutcome.fail("Errors present from fetch: " + firstError, StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
-         if (entity.getStatus() == null || entity.getStatus().isBlank()) {
-             return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+
+         // If nothing was fetched -> not a success
+         if (fetched == 0) {
+             String id = entity.getJobId() != null ? entity.getJobId() : "<unknown-jobId>";
+             logger.info("FetchSuccessCriterion: job {} fetched 0 items", id);
+             return EvaluationOutcome.fail("No items fetched", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
-         // If job status explicitly indicates failure treat as failure
-         if ("FAILED".equalsIgnoreCase(entity.getStatus())) {
-             return EvaluationOutcome.fail("job status indicates failure", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-         }
+
+         // All checks passed -> consider fetch successful
+         logger.debug("FetchSuccessCriterion: job {} passed fetch-success checks (fetchedCount={})",
+                 entity.getJobId() != null ? entity.getJobId() : "<unknown-jobId>", fetched);
         return EvaluationOutcome.success();
     }
 }

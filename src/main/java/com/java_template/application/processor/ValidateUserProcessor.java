@@ -1,4 +1,5 @@
 package com.java_template.application.processor;
+
 import com.java_template.application.entity.user.version_1.User;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
@@ -11,12 +12,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.regex.Pattern;
+
 @Component
 public class ValidateUserProcessor implements CyodaProcessor {
 
     private static final Logger logger = LoggerFactory.getLogger(ValidateUserProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+
+    private static final Pattern EMAIL_PATTERN = Pattern.compile(
+        "^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}$",
+        Pattern.CASE_INSENSITIVE
+    );
 
     public ValidateUserProcessor(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
@@ -46,26 +54,33 @@ public class ValidateUserProcessor implements CyodaProcessor {
     private User processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<User> context) {
         User entity = context.entity();
 
-        // Normalize and trim textual fields
+        if (entity == null) {
+            return null;
+        }
+
+        // Normalize textual fields: trim spaces
         if (entity.getName() != null) {
             entity.setName(entity.getName().trim());
         }
+
         if (entity.getEmail() != null) {
             entity.setEmail(entity.getEmail().trim().toLowerCase());
         }
+
         if (entity.getPhone() != null) {
             entity.setPhone(entity.getPhone().trim());
         }
+
         if (entity.getAddress() != null) {
             entity.setAddress(entity.getAddress().trim());
         }
 
-        // Ensure verified flag is non-null (isValid already asserts this, but guard defensively)
+        // Ensure verified is non-null
         if (entity.getVerified() == null) {
-            entity.setVerified(false);
+            entity.setVerified(Boolean.FALSE);
         }
 
-        // Normalize role: allow only "customer" or "staff", default to "customer"
+        // Normalize and validate role
         if (entity.getRole() == null || entity.getRole().isBlank()) {
             entity.setRole("customer");
         } else {
@@ -78,21 +93,21 @@ public class ValidateUserProcessor implements CyodaProcessor {
             }
         }
 
-        // Basic email format validation: if invalid, mark as unverified and log
-        if (entity.getEmail() != null && !isValidEmail(entity.getEmail())) {
-            logger.warn("Invalid email format for user id {}: '{}'. Marking as unverified.", entity.getId(), entity.getEmail());
-            entity.setVerified(false);
+        // Validate email format if present
+        if (entity.getEmail() != null && !entity.getEmail().isBlank()) {
+            if (!isValidEmail(entity.getEmail())) {
+                logger.warn("Invalid email format for user id {}: '{}'. Marking as unverified.", entity.getId(), entity.getEmail());
+                entity.setVerified(Boolean.FALSE);
+            }
         }
 
-        // No updates to other entities here. The current user entity will be persisted by Cyoda automatically.
+        logger.info("User {} processed: name='{}', email='{}', verified={}", entity.getId(), entity.getName(), entity.getEmail(), entity.getVerified());
+
         return entity;
     }
 
     private boolean isValidEmail(String email) {
         if (email == null) return false;
-        int at = email.indexOf('@');
-        if (at <= 0) return false;
-        int dot = email.indexOf('.', at);
-        return dot > at + 1 && dot < email.length() - 1;
+        return EMAIL_PATTERN.matcher(email).matches();
     }
 }

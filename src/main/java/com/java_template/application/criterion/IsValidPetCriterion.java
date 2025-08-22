@@ -15,6 +15,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.Set;
+
 @Component
 public class IsValidPetCriterion implements CyodaCriterion {
 
@@ -29,7 +31,7 @@ public class IsValidPetCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Pet.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -43,59 +45,77 @@ public class IsValidPetCriterion implements CyodaCriterion {
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Pet> context) {
          Pet entity = context.entity();
+
          if (entity == null) {
-             logger.warn("Pet entity is null in IsValidPetCriterion");
-             return EvaluationOutcome.fail("Pet entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             return EvaluationOutcome.fail("Pet entity is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Required fields: id, name, species, status
+         // Required business id
          if (entity.getId() == null || entity.getId().isBlank()) {
              return EvaluationOutcome.fail("id is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
+
+         // Required pet name
          if (entity.getName() == null || entity.getName().isBlank()) {
              return EvaluationOutcome.fail("name is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
+
+         // Required species
          if (entity.getSpecies() == null || entity.getSpecies().isBlank()) {
              return EvaluationOutcome.fail("species is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
+
+         // Required status
          if (entity.getStatus() == null || entity.getStatus().isBlank()) {
              return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // photos must be present (can be empty list but not null)
+         // Photos must be non-null (can be empty list)
          if (entity.getPhotos() == null) {
-             return EvaluationOutcome.fail("photos collection must be present (can be empty)", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             return EvaluationOutcome.fail("photos list must be present (can be empty)", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // age if present must be non-negative
+         // Age if present must be non-negative
          if (entity.getAge() != null && entity.getAge() < 0) {
              return EvaluationOutcome.fail("age must be non-negative", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // gender if present should be one of expected values
+         // Gender allowed values (if present)
          if (entity.getGender() != null && !entity.getGender().isBlank()) {
              String g = entity.getGender().trim().toLowerCase();
-             if (!g.equals("male") && !g.equals("female") && !g.equals("unknown")) {
-                 return EvaluationOutcome.fail("gender must be one of: male, female, unknown", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             Set<String> allowedGenders = Set.of("male", "female", "unknown");
+             if (!allowedGenders.contains(g)) {
+                 return EvaluationOutcome.fail("unsupported gender value: '" + entity.getGender() + "'", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
              }
          }
 
-         // status should be one of allowed workflow states
-         String s = entity.getStatus().trim().toLowerCase();
-         if (!(s.equals("available") || s.equals("reserved") || s.equals("adopted") || s.equals("created") || s.equals("validation") || s.equals("enrichment"))) {
-             // classify invalid status as validation failure because it prevents workflow transition
-             return EvaluationOutcome.fail("status must be one of: available, reserved, adopted", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-
-         // source if present can be validated against known sources (optional)
-         if (entity.getSource() != null && !entity.getSource().isBlank()) {
-             String src = entity.getSource().trim().toLowerCase();
-             if (!(src.equals("petstore") || src.equals("manual"))) {
-                 return EvaluationOutcome.fail("source should be either 'Petstore' or 'Manual' when provided", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         // Status should be one of expected lifecycle values (normalized check)
+         if (entity.getStatus() != null && !entity.getStatus().isBlank()) {
+             String s = entity.getStatus().trim().toLowerCase();
+             // Accept common lifecycle statuses; allow others but treat unknown as business rule failure
+             Set<String> allowedStatuses = Set.of("available", "reserved", "adopted", "created", "in_progress", "invalid", "pending", "completed", "failed", "notified");
+             if (!allowedStatuses.contains(s)) {
+                 return EvaluationOutcome.fail("unsupported status value: '" + entity.getStatus() + "'", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
              }
          }
 
-         // All validations passed
-         return EvaluationOutcome.success();
+         // Source is optional; if present, ensure it's not blank
+         if (entity.getSource() != null && entity.getSource().isBlank()) {
+             return EvaluationOutcome.fail("source is present but blank", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+
+         // Final holistic check using entity's own validation helper if provided
+         try {
+             if (!entity.isValid()) {
+                 // isValid() already encapsulates required checks; provide a generic message
+                 return EvaluationOutcome.fail("pet entity failed validity checks", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             }
+         } catch (Exception ex) {
+             logger.warn("Error while calling isValid() for pet {}: {}", entity.getId(), ex.getMessage(), ex);
+             // If isValid throws, consider it a data quality failure
+             return EvaluationOutcome.fail("error validating pet entity: " + ex.getMessage(), StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+
+        return EvaluationOutcome.success();
     }
 }

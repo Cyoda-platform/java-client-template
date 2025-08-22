@@ -20,7 +20,7 @@ public class FetchFailureCriterion implements CyodaCriterion {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final CriterionSerializer serializer;
-    private final String className = this.getClass().getSimpleName();
+    private final String CRITERION_NAME = "FetchFailureCriterion";
 
     public FetchFailureCriterion(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultCriteriaSerializer();
@@ -29,8 +29,7 @@ public class FetchFailureCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
-        return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
+        return serializer.withRequest(request)
             .evaluateEntity(PetEnrichmentJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
@@ -38,37 +37,47 @@ public class FetchFailureCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name
+        return CRITERION_NAME.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<PetEnrichmentJob> context) {
          PetEnrichmentJob entity = context.entity();
 
-         // If the job status explicitly indicates failure, mark as failure.
+         if (entity == null) {
+             logger.debug("FetchFailureCriterion invoked with null entity");
+             return EvaluationOutcome.fail("PetEnrichmentJob entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         String id = entity.getJobId() != null ? entity.getJobId() : "<unknown-jobId>";
+
+         // If job was explicitly marked FAILED -> criterion triggers fail
          if (entity.getStatus() != null && entity.getStatus().equalsIgnoreCase("FAILED")) {
-             String id = entity.getJobId() != null ? entity.getJobId() : "<unknown-jobId>";
-             logger.debug("PetEnrichmentJob {} marked FAILED by status field.", id);
-             return EvaluationOutcome.fail("Fetch failed (status=FAILED) for job " + id,
-                     StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+             logger.info("PetEnrichmentJob {} status is FAILED", id);
+             return EvaluationOutcome.fail("Fetch operation marked FAILED for job " + id, StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
-         // If the fetch produced errors, consider it a data-quality failure.
+         // If there are reported errors -> consider data quality failure
          if (entity.getErrors() != null && !entity.getErrors().isEmpty()) {
-             String id = entity.getJobId() != null ? entity.getJobId() : "<unknown-jobId>";
-             // Attach a short summary of errors (first one) to reason message to avoid huge payloads.
              String firstError = entity.getErrors().get(0);
-             return EvaluationOutcome.fail("Fetch produced errors for job " + id + ": " + firstError,
-                     StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             logger.info("PetEnrichmentJob {} reported errors during fetch: {}", id, firstError);
+             return EvaluationOutcome.fail("Errors reported during fetch for job " + id + ": " + firstError,
+                 StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // If no records were fetched, consider this a data quality issue (nothing to create).
+         // If fetched count is present but zero or negative -> treat as failure
          if (entity.getFetchedCount() != null && entity.getFetchedCount() <= 0) {
-             String id = entity.getJobId() != null ? entity.getJobId() : "<unknown-jobId>";
-             return EvaluationOutcome.fail("No records fetched for job " + id,
-                     StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             logger.info("PetEnrichmentJob {} fetchedCount={}", id, entity.getFetchedCount());
+             return EvaluationOutcome.fail("No items fetched for job " + id, StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // Otherwise, not a fetch failure.
+         // Missing petSource is a validation issue (job likely invalid)
+         if (entity.getPetSource() == null || entity.getPetSource().isBlank()) {
+             logger.warn("PetEnrichmentJob {} has missing petSource", id);
+             return EvaluationOutcome.fail("petSource is required for PetEnrichmentJob " + id, StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         // If none of the failure conditions met -> success
          return EvaluationOutcome.success();
     }
 }

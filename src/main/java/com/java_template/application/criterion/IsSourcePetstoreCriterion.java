@@ -29,7 +29,7 @@ public class IsSourcePetstoreCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Pet.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,26 +38,31 @@ public class IsSourcePetstoreCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
+        // Must use exact criterion name
         return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Pet> context) {
          Pet entity = context.entity();
          if (entity == null) {
-             return EvaluationOutcome.fail("Entity is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             logger.warn("IsSourcePetstoreCriterion: entity is null in evaluation context");
+             return EvaluationOutcome.fail("Entity is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
          String source = entity.getSource();
          if (source == null || source.isBlank()) {
-             return EvaluationOutcome.fail("Source is required to determine enrichment path", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             logger.debug("IsSourcePetstoreCriterion: pet {} has missing source", entity.getId());
+             return EvaluationOutcome.fail("source is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         if (!"Petstore".equalsIgnoreCase(source.trim())) {
-             // Not from Petstore — enrichment should not run
-             return EvaluationOutcome.fail("Source is not Petstore; skipping enrichment", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         String normalized = source.trim().toLowerCase();
+         // Treat explicit "petstore" or any source containing "petstore" (e.g. "petstore/v1/...") as Petstore
+         if ("petstore".equalsIgnoreCase(normalized) || normalized.contains("petstore")) {
+             logger.debug("IsSourcePetstoreCriterion: pet {} source '{}' considered Petstore", entity.getId(), source);
+             return EvaluationOutcome.success();
          }
 
-         // Source is Petstore -> eligible for enrichment
-         return EvaluationOutcome.success();
+         logger.debug("IsSourcePetstoreCriterion: pet {} source '{}' is not Petstore", entity.getId(), source);
+         return EvaluationOutcome.fail("Not from Petstore", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
     }
 }
