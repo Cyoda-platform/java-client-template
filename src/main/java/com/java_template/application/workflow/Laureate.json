@@ -1,116 +1,116 @@
 {
-    "active": true,
-    "desc": "Workflow representing the lifecycle of a Job entity from creation through ingestion to notification",
-    "initialState": "none",
-    "name": "Job Workflow",
-    "states": {
-        "end": {
-            "transitions": []
-        },
-        "failed": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "notify_subscribers_after_failure",
-                    "next": "notified",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "LaureateProcessor"
-                        }
-                    ]
-                }
-            ]
-        },
-        "ingesting": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IngestionSuccessCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "ingestion_success",
-                    "next": "succeeded"
-                },
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "IngestionFailureCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "ingestion_failure",
-                    "next": "failed"
-                }
-            ]
-        },
-        "none": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "start_job",
-                    "next": "pending"
-                }
-            ]
-        },
-        "notified": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "end_workflow",
-                    "next": "end"
-                }
-            ]
-        },
-        "pending": {
-            "transitions": [
-                {
-                    "criterion": {
-                        "function": {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "name": "JobValidCriterion"
-                        },
-                        "type": "function"
-                    },
-                    "manual": false,
-                    "name": "validate_and_ingest",
-                    "next": "ingesting"
-                }
-            ]
-        },
-        "succeeded": {
-            "transitions": [
-                {
-                    "manual": false,
-                    "name": "notify_subscribers_after_success",
-                    "next": "notified",
-                    "processors": [
-                        {
-                            "config": {
-                                "calculationNodesTags": "cyoda_application"
-                            },
-                            "executionMode": "SYNC",
-                            "name": "LaureateProcessor"
-                        }
-                    ]
-                }
-            ]
+  "active": true,
+  "desc": "Workflow representing the lifecycle of a Job entity from creation through ingestion to notification",
+  "initialState": "none",
+  "name": "Job Workflow",
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "start_job",
+          "next": "pending"
         }
+      ]
     },
-    "version": "1.0"
+    "pending": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "JobValidCriterion"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "validate_and_ingest",
+          "next": "ingesting"
+        }
+      ]
+    },
+    "ingesting": {
+      "transitions": [
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IngestionSuccessCriterion"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "ingestion_success",
+          "next": "succeeded"
+        },
+        {
+          "criterion": {
+            "function": {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "name": "IngestionFailureCriterion"
+            },
+            "type": "function"
+          },
+          "manual": false,
+          "name": "ingestion_failure",
+          "next": "failed"
+        }
+      ]
+    },
+    "succeeded": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "notify_subscribers_after_success",
+          "next": "notified",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "LaureateProcessor"
+            }
+          ]
+        }
+      ]
+    },
+    "notified": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "end_workflow",
+          "next": "end"
+        }
+      ]
+    },
+    "end": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "notify_subscribers_after_failure",
+          "next": "notified",
+          "processors": [
+            {
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "LaureateProcessor"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "version": "1.0"
 }
