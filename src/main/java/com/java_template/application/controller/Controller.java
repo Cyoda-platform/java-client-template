@@ -1,13 +1,13 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.Job;
 import com.java_template.application.entity.Laureate;
 import com.java_template.application.entity.Subscriber;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
@@ -15,14 +15,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.UUID;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.ENTITY_VERSION;
 
 @RestController
 @RequestMapping(path = "/api")
@@ -34,12 +33,11 @@ public class Controller {
 
     private final EntityService entityService;
 
-    private final RestTemplate restTemplate = new RestTemplate();
-    private static final String OPEN_DATA_SOFT_API = "https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/nobel-prize-laureates/records";
+    private final ObjectMapper objectMapper;
 
     // POST /api/jobs - create Job, trigger ingestion
     @PostMapping("/jobs")
-    public ResponseEntity<Map<String, String>> createJob(@RequestBody Job job) {
+    public ResponseEntity<Map<String, String>> createJob(@RequestBody Job job) throws ExecutionException, InterruptedException {
         try {
             if (job == null || !job.isValid()) {
                 logger.error("Invalid Job data received");
@@ -54,11 +52,7 @@ public class Controller {
 
             logger.info("Job created with technicalId {}", technicalId);
 
-            try {
-                // processJob method removed during extraction
-            } catch (Exception e) {
-                logger.error("Error processing job {}: {}", technicalId, e.getMessage());
-            }
+            // processJob method removed during extraction
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId);
@@ -75,7 +69,7 @@ public class Controller {
 
     // GET /api/jobs/{id} - retrieve Job by technicalId
     @GetMapping("/jobs/{id}")
-    public ResponseEntity<Job> getJob(@PathVariable String id) {
+    public ResponseEntity<Job> getJob(@PathVariable String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         try {
             UUID technicalUUID;
             try {
@@ -91,12 +85,15 @@ public class Controller {
                 logger.error("Job not found with technicalId {}", id);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
-            Job job = node.traverse().readValueAs(Job.class);
+            Job job = objectMapper.treeToValue(node, Job.class);
             return ResponseEntity.ok(job);
 
         } catch (IllegalArgumentException e) {
             logger.error("Illegal argument in getJob: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        } catch (JsonProcessingException e) {
+            logger.error("JSON processing exception in getJob: {}", e.getMessage());
+            throw e; // propagate as declared
         } catch (Exception e) {
             logger.error("Exception in getJob: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
@@ -105,7 +102,7 @@ public class Controller {
 
     // POST /api/subscribers - create Subscriber
     @PostMapping("/subscribers")
-    public ResponseEntity<Map<String, String>> createSubscriber(@RequestBody Subscriber subscriber) {
+    public ResponseEntity<Map<String, String>> createSubscriber(@RequestBody Subscriber subscriber) throws ExecutionException, InterruptedException {
         try {
             if (subscriber == null || !subscriber.isValid()) {
                 logger.error("Invalid Subscriber data received");
@@ -118,11 +115,7 @@ public class Controller {
 
             logger.info("Subscriber created with technicalId {}", technicalId);
 
-            try {
-                // processSubscriber method removed during extraction
-            } catch (Exception e) {
-                logger.error("Error processing subscriber {}: {}", technicalId, e.getMessage());
-            }
+            // processSubscriber method removed during extraction
 
             Map<String, String> response = new HashMap<>();
             response.put("technicalId", technicalId);
@@ -139,7 +132,7 @@ public class Controller {
 
     // GET /api/subscribers/{id} - retrieve Subscriber
     @GetMapping("/subscribers/{id}")
-    public ResponseEntity<Subscriber> getSubscriber(@PathVariable String id) {
+    public ResponseEntity<Subscriber> getSubscriber(@PathVariable String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         try {
             UUID technicalUUID;
             try {
@@ -155,12 +148,15 @@ public class Controller {
                 logger.error("Subscriber not found with technicalId {}", id);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
-            Subscriber subscriber = node.traverse().readValueAs(Subscriber.class);
+            Subscriber subscriber = objectMapper.treeToValue(node, Subscriber.class);
             return ResponseEntity.ok(subscriber);
 
         } catch (IllegalArgumentException e) {
             logger.error("Illegal argument in getSubscriber: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        } catch (JsonProcessingException e) {
+            logger.error("JSON processing exception in getSubscriber: {}", e.getMessage());
+            throw e;
         } catch (Exception e) {
             logger.error("Exception in getSubscriber: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
@@ -169,7 +165,7 @@ public class Controller {
 
     // GET /api/laureates/{id} - retrieve Laureate (no POST endpoint)
     @GetMapping("/laureates/{id}")
-    public ResponseEntity<Laureate> getLaureate(@PathVariable String id) {
+    public ResponseEntity<Laureate> getLaureate(@PathVariable String id) throws ExecutionException, InterruptedException, JsonProcessingException {
         try {
             UUID technicalUUID;
             try {
@@ -185,12 +181,15 @@ public class Controller {
                 logger.error("Laureate not found with technicalId {}", id);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
-            Laureate laureate = node.traverse().readValueAs(Laureate.class);
+            Laureate laureate = objectMapper.treeToValue(node, Laureate.class);
             return ResponseEntity.ok(laureate);
 
         } catch (IllegalArgumentException e) {
             logger.error("Illegal argument in getLaureate: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        } catch (JsonProcessingException e) {
+            logger.error("JSON processing exception in getLaureate: {}", e.getMessage());
+            throw e;
         } catch (Exception e) {
             logger.error("Exception in getLaureate: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
@@ -207,7 +206,7 @@ public class Controller {
 
             for (int i = 0; i < subscribers.size(); i++) {
                 ObjectNode subscriberNode = (ObjectNode) subscribers.get(i);
-                Subscriber subscriber = subscriberNode.traverse().readValueAs(Subscriber.class);
+                Subscriber subscriber = objectMapper.treeToValue(subscriberNode, Subscriber.class);
                 Boolean active = subscriber.getActive();
                 if (Boolean.TRUE.equals(active)) {
                     String technicalId = subscriberNode.has("technicalId") ? subscriberNode.get("technicalId").asText() : "unknown";
