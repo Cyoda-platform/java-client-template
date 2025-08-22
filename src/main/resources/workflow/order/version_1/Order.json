@@ -1,0 +1,171 @@
+{
+  "version": "1.0",
+  "name": "Order Workflow",
+  "desc": "Workflow for Order entity: creation, validation/confirmation, payment, fulfillment, shipping, delivery, cancellation and refund paths based on functional requirements.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "create_to_created",
+          "next": "CREATED",
+          "manual": false
+        }
+      ]
+    },
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "created_to_confirmed",
+          "next": "CONFIRMED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "OrderValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "created_manual_cancel",
+          "next": "CANCELLED",
+          "manual": true
+        }
+      ]
+    },
+    "CONFIRMED": {
+      "transitions": [
+        {
+          "name": "confirmed_to_waiting_for_payment",
+          "next": "WAITING_FOR_PAYMENT",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PaymentInitiationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "confirmed_manual_cancel",
+          "next": "CANCELLED",
+          "manual": true
+        }
+      ]
+    },
+    "WAITING_FOR_PAYMENT": {
+      "transitions": [
+        {
+          "name": "payment_success_path",
+          "next": "PAID",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PaymentSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "payment_failed_path",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PaymentFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "waiting_for_payment_manual_cancel",
+          "next": "CANCELLED",
+          "manual": true
+        }
+      ]
+    },
+    "PAID": {
+      "transitions": [
+        {
+          "name": "paid_to_fulfilled",
+          "next": "FULFILLED",
+          "manual": false
+        },
+        {
+          "name": "paid_manual_cancel",
+          "next": "CANCELLED",
+          "manual": true
+        }
+      ]
+    },
+    "FAILED": {
+      "transitions": [
+        {
+          "name": "failed_to_cancelled",
+          "next": "CANCELLED",
+          "manual": false
+        }
+      ]
+    },
+    "FULFILLED": {
+      "transitions": [
+        {
+          "name": "fulfilled_to_shipped",
+          "next": "SHIPPED",
+          "manual": false
+        },
+        {
+          "name": "fulfilled_manual_cancel",
+          "next": "CANCELLED",
+          "manual": true
+        }
+      ]
+    },
+    "SHIPPED": {
+      "transitions": [
+        {
+          "name": "shipped_to_delivered",
+          "next": "DELIVERED",
+          "manual": false
+        },
+        {
+          "name": "shipped_manual_cancel",
+          "next": "CANCELLED",
+          "manual": true
+        }
+      ]
+    },
+    "DELIVERED": {
+      "transitions": [
+        {
+          "name": "delivered_manual_cancel",
+          "next": "CANCELLED",
+          "manual": true
+        }
+      ]
+    },
+    "CANCELLED": {
+      "transitions": [
+        {
+          "name": "cancelled_to_refunded",
+          "next": "REFUNDED",
+          "manual": false
+        }
+      ]
+    },
+    "REFUNDED": {
+      "transitions": []
+    }
+  }
+}

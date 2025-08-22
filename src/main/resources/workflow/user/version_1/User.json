@@ -1,0 +1,91 @@
+{
+  "version": "1.0",
+  "name": "User Workflow",
+  "desc": "Workflow for User entity: creation, verification, manual deactivate/activate. Designed as a linear FSM (no loops) based on functional requirements.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "init_to_active",
+          "next": "USER_ACTIVE",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.status",
+            "operation": "EQUALS",
+            "value": "Active"
+          }
+        },
+        {
+          "name": "init_to_inactive",
+          "next": "USER_INACTIVE",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.status",
+            "operation": "EQUALS",
+            "value": "Inactive"
+          }
+        }
+      ]
+    },
+    "USER_ACTIVE": {
+      "transitions": [
+        {
+          "name": "start_verification",
+          "next": "VERIFICATION_PENDING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "UserVerificationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VERIFICATION_PENDING": {
+      "transitions": [
+        {
+          "name": "verification_complete",
+          "next": "USER_VERIFIED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "VerificationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "USER_VERIFIED": {
+      "transitions": [
+        {
+          "name": "manual_deactivate",
+          "next": "USER_INACTIVE",
+          "manual": true
+        }
+      ]
+    },
+    "USER_INACTIVE": {
+      "transitions": [
+        {
+          "name": "manual_activate",
+          "next": "USER_REACTIVATED",
+          "manual": true
+        }
+      ]
+    },
+    "USER_REACTIVATED": {
+      "transitions": []
+    }
+  }
+}

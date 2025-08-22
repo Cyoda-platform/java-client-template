@@ -1,0 +1,81 @@
+{
+  "version": "1.0",
+  "name": "Cart Workflow",
+  "desc": "Workflow for Cart entity based on functional requirements (create, update, abandon, checkout, create order).",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "persist_to_active",
+          "next": "ACTIVE",
+          "manual": false
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "cart_updated",
+          "next": "UPDATED",
+          "manual": false
+        }
+      ]
+    },
+    "UPDATED": {
+      "transitions": [
+        {
+          "name": "abandon_check",
+          "next": "ABANDONED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "CartAbandonCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "checkout_manual",
+          "next": "CHECKEDOUT",
+          "manual": true,
+          "processors": [
+            {
+              "name": "CheckoutProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ABANDONED": {
+      "transitions": []
+    },
+    "CHECKEDOUT": {
+      "transitions": [
+        {
+          "name": "create_order",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CreateOrderProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": []
+    }
+  }
+}

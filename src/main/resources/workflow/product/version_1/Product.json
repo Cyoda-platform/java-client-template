@@ -1,0 +1,122 @@
+{
+  "version": "1.0",
+  "name": "Product Workflow",
+  "desc": "Workflow for Product entity: creation (active/inactive), validation, indexing, publication, deactivation and removal. Linear progression without loops; manual transitions represent admin actions.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "create_activate",
+          "next": "ACTIVE",
+          "manual": true
+        },
+        {
+          "name": "create_inactivate",
+          "next": "INACTIVE",
+          "manual": true
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "start_validation",
+          "next": "VALIDATION",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ProductValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "manual_deactivate_from_active",
+          "next": "INACTIVE",
+          "manual": true
+        }
+      ]
+    },
+    "VALIDATION": {
+      "transitions": [
+        {
+          "name": "index_after_validation",
+          "next": "INDEXED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ProductIndexProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "INDEXED": {
+      "transitions": [
+        {
+          "name": "publish_if_ready",
+          "next": "PUBLISHED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ProductReadyCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "PUBLISHED": {
+      "transitions": [
+        {
+          "name": "manual_deactivate_from_published",
+          "next": "INACTIVE",
+          "manual": true
+        },
+        {
+          "name": "auto_remove_from_published",
+          "next": "REMOVED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ProductRemovedProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "INACTIVE": {
+      "transitions": [
+        {
+          "name": "auto_remove_from_inactive",
+          "next": "REMOVED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ProductRemovedProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "REMOVED": {
+      "transitions": []
+    }
+  }
+}
