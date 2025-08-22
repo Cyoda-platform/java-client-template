@@ -1,0 +1,48 @@
+{
+    "entities": [
+        {
+            "Job": {
+                "entity_data_example": {
+                    "enabled": true,
+                    "lastResultSummary": "Scheduled but not yet run",
+                    "lastRunTimestamp": "2025-08-20T00:00:00Z",
+                    "name": "Daily Laureates Ingest",
+                    "scheduleSpec": "0 0 * * *",
+                    "scheduleType": "recurring",
+                    "sourceEndpoint": "dataset_nobel_laureates",
+                    "status": "PENDING"
+                }
+            }
+        },
+        {
+            "Laureate": {
+                "entity_data_example": {
+                    "birthDate": "1867-11-07",
+                    "changeSummary": "initial import",
+                    "country": "Poland/France",
+                    "externalId": "ods_123",
+                    "firstSeenTimestamp": "2025-01-01T00:00:00Z",
+                    "fullName": "Marie Curie",
+                    "lastSeenTimestamp": "2025-01-01T00:00:00Z",
+                    "motivation": "in recognition of...",
+                    "prizeCategory": "Physics",
+                    "prizeYear": 1903,
+                    "rawPayload": "{\"id\":\"ods_123\",\"name\":\"Marie Curie\"}"
+                }
+            }
+        },
+        {
+            "Subscriber": {
+                "entity_data_example": {
+                    "contactDetails": "alerts@example.com",
+                    "contactMethod": "email",
+                    "createdTimestamp": "2025-08-01T12:00:00Z",
+                    "filters": "{\"prizeCategory\":\"Physics\"}",
+                    "name": "Nobel Alerts",
+                    "preference": "immediate",
+                    "status": "active"
+                }
+            }
+        }
+    ]
+}
