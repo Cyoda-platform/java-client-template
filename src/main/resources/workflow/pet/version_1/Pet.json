@@ -1,0 +1,123 @@
+{
+  "version": "1.0",
+  "name": "Pet Workflow",
+  "desc": "Workflow for Pet entity derived from functional requirements: creation, validation, enrichment, publish/quarantine decision, reservation/adoption progression and archival (acyclic).",
+  "initialState": "none",
+  "active": true,
+  "states": {
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "to_validation",
+          "next": "VALIDATION",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidatePetProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATION": {
+      "transitions": [
+        {
+          "name": "to_enrichment",
+          "next": "ENRICHMENT",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EnrichPetProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ENRICHMENT": {
+      "transitions": [
+        {
+          "name": "to_quarantine_if_health_issues",
+          "next": "QUARANTINE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "QuarantineCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "to_available_if_valid",
+          "next": "AVAILABLE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "RequiredFieldsCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "AVAILABLE": {
+      "transitions": [
+        {
+          "name": "reserve_pet",
+          "next": "RESERVED",
+          "manual": false
+        }
+      ]
+    },
+    "RESERVED": {
+      "transitions": [
+        {
+          "name": "start_adoption",
+          "next": "ADOPTION_IN_PROGRESS",
+          "manual": false
+        }
+      ]
+    },
+    "ADOPTION_IN_PROGRESS": {
+      "transitions": [
+        {
+          "name": "complete_adoption",
+          "next": "ADOPTED",
+          "manual": false
+        }
+      ]
+    },
+    "ADOPTED": {
+      "transitions": [
+        {
+          "name": "archive_adopted_pet",
+          "next": "ARCHIVED",
+          "manual": true
+        }
+      ]
+    },
+    "QUARANTINE": {
+      "transitions": [
+        {
+          "name": "archive_quarantined_pet",
+          "next": "ARCHIVED",
+          "manual": true
+        }
+      ]
+    },
+    "ARCHIVED": {
+      "transitions": []
+    }
+  }
+}
