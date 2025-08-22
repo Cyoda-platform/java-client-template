@@ -1,0 +1,157 @@
+{
+  "version": "1.0",
+  "name": "Order Workflow",
+  "desc": "Workflow for Order entity based on functional requirements",
+  "initialState": "none",
+  "active": true,
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "to_initiated",
+          "next": "initiated",
+          "manual": false
+        }
+      ]
+    },
+    "initiated": {
+      "transitions": [
+        {
+          "name": "validate_order",
+          "next": "validated",
+          "manual": false,
+          "processors": [
+            {
+              "name": "OrderValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "validated": {
+      "transitions": [
+        {
+          "name": "to_cancelled_on_unavailable",
+          "next": "cancelled",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.validation.petAvailable",
+            "operation": "EQUALS",
+            "value": false
+          }
+        },
+        {
+          "name": "to_payment_pending_if_payment_required",
+          "next": "payment_pending",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.validation.requiresPayment",
+            "operation": "EQUALS",
+            "value": true
+          }
+        },
+        {
+          "name": "to_approved_if_no_payment_required",
+          "next": "approved",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.validation.requiresPayment",
+            "operation": "EQUALS",
+            "value": false
+          }
+        }
+      ]
+    },
+    "payment_pending": {
+      "transitions": [
+        {
+          "name": "payment_captured",
+          "next": "approved",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.payment.captured",
+            "operation": "EQUALS",
+            "value": true
+          }
+        },
+        {
+          "name": "payment_failed",
+          "next": "cancelled",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.payment.captured",
+            "operation": "EQUALS",
+            "value": false
+          }
+        }
+      ]
+    },
+    "approved": {
+      "transitions": [
+        {
+          "name": "requires_staff_approval",
+          "next": "staff_approval",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.approval.requiresStaffApproval",
+            "operation": "EQUALS",
+            "value": true
+          }
+        },
+        {
+          "name": "auto_complete_without_staff",
+          "next": "completed",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.approval.requiresStaffApproval",
+            "operation": "EQUALS",
+            "value": false
+          }
+        },
+        {
+          "name": "manual_cancel_from_approved",
+          "next": "cancelled",
+          "manual": true
+        }
+      ]
+    },
+    "staff_approval": {
+      "transitions": [
+        {
+          "name": "staff_approve_complete",
+          "next": "completed",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CompleteOrderProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "staff_reject_cancel",
+          "next": "cancelled",
+          "manual": true
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "cancelled": {
+      "transitions": []
+    }
+  }
+}

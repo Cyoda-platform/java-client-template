@@ -1,0 +1,111 @@
+{
+  "version": "1.0",
+  "name": "User Workflow",
+  "desc": "Workflow for User entity: creation, verification, activation and role updates based on functional requirements.",
+  "initialState": "none",
+  "active": true,
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "initial_to_created",
+          "next": "Created",
+          "manual": false
+        }
+      ]
+    },
+    "Created": {
+      "transitions": [
+        {
+          "name": "start_verification",
+          "next": "VerificationInProgress",
+          "manual": false,
+          "processors": [
+            {
+              "name": "UserVerificationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VerificationInProgress": {
+      "transitions": [
+        {
+          "name": "verification_success",
+          "next": "Verified",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsVerifiedUserCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "verification_failed",
+          "next": "VerificationFailed",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.verified",
+            "operation": "EQUALS",
+            "value": false
+          }
+        }
+      ]
+    },
+    "VerificationFailed": {
+      "transitions": [
+        {
+          "name": "finalize_failed_verification",
+          "next": "Completed",
+          "manual": false
+        }
+      ]
+    },
+    "Verified": {
+      "transitions": [
+        {
+          "name": "activate_user",
+          "next": "Active",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotifyUserProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "Active": {
+      "transitions": [
+        {
+          "name": "request_role_update",
+          "next": "RoleUpdated",
+          "manual": true
+        }
+      ]
+    },
+    "RoleUpdated": {
+      "transitions": [
+        {
+          "name": "finalize_role_update",
+          "next": "Completed",
+          "manual": false
+        }
+      ]
+    },
+    "Completed": {
+      "transitions": []
+    }
+  }
+}
