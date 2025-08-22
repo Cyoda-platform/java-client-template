@@ -8,9 +8,9 @@ import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
+import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 
@@ -30,10 +30,10 @@ public class NotifyUserProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing User for request: {}", request.getId());
 
-        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
+        return serializer.withRequest(request)
             .toEntity(User.class)
             .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+            .map(this::processEntityLogic)
             .complete();
     }
 
@@ -49,33 +49,26 @@ public class NotifyUserProcessor implements CyodaProcessor {
     private User processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<User> context) {
         User user = context.entity();
 
-        // Business logic:
-        // - NotifyUserProcessor is triggered when a user becomes verified.
-        // - If the user is verified, mark that a notification has been sent by updating the notes field.
-        // - Preserve existing notes and avoid duplicating notification entries.
-        if (Boolean.TRUE.equals(user.getVerified())) {
-            String existingNotes = user.getNotes();
-            String marker = "Notified of verification";
-            boolean alreadyNotified = existingNotes != null && existingNotes.contains(marker);
-
-            if (!alreadyNotified) {
-                String timestamp = Instant.now().toString();
-                String newEntry = marker + " at " + timestamp;
-
-                String updatedNotes;
+        try {
+            // Business logic: when a user is verified, perform notification steps and mark user as active via notes.
+            // Use only existing getters/setters on User. User has fields: id,name,email,contact,notes,role,savedPets,verified
+            if (Boolean.TRUE.equals(user.getVerified())) {
+                String now = Instant.now().toString();
+                String existingNotes = user.getNotes();
+                String notifyMessage = "NOTIFIED: user verified and activated at " + now;
                 if (existingNotes == null || existingNotes.isBlank()) {
-                    updatedNotes = newEntry;
+                    user.setNotes(notifyMessage);
                 } else {
-                    updatedNotes = existingNotes + "\n" + newEntry;
+                    user.setNotes(existingNotes + " | " + notifyMessage);
                 }
-
-                user.setNotes(updatedNotes);
-                logger.info("User {} verified - appended notification note", user.getId());
+                logger.info("User {} verified - notification appended to notes", user.getId());
             } else {
-                logger.info("User {} already has notification note; skipping update", user.getId());
+                // If not verified, ensure we do not send notification; optionally record reason.
+                logger.debug("User {} not verified - skipping notify", user.getId());
             }
-        } else {
-            logger.info("User {} is not verified; no notification performed", user.getId());
+        } catch (Exception e) {
+            // Do not throw; log and allow serializer to persist current entity state.
+            logger.error("Error while processing NotifyUserProcessor for user {}: {}", user != null ? user.getId() : "null", e.getMessage(), e);
         }
 
         return user;

@@ -15,8 +15,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
-
 @Component
 public class HealthCheckCriterion implements CyodaCriterion {
 
@@ -31,7 +29,7 @@ public class HealthCheckCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Pet.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -40,51 +38,70 @@ public class HealthCheckCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must match exact criterion name
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Pet> context) {
-         Pet pet = context.entity();
+         Pet entity = context.entity();
 
-         if (pet == null) {
-             logger.warn("HealthCheckCriterion: entity is null");
-             return EvaluationOutcome.fail("Entity missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-
-         // 1) If pet is explicitly marked sick or unavailable, fail business rule
-         String status = pet.getStatus();
-         if (status != null) {
-             String s = status.trim().toLowerCase();
-             if ("sick".equals(s)) {
-                 return EvaluationOutcome.fail("Pet status indicates sickness", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         // Basic entity validity check using existing entity validation
+         try {
+             if (entity == null) {
+                 return EvaluationOutcome.fail("Pet entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
              }
-             if ("unavailable".equals(s)) {
-                 return EvaluationOutcome.fail("Pet is marked unavailable", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-             }
+         } catch (Exception e) {
+             logger.warn("Unexpected null pet in HealthCheckCriterion", e);
+             return EvaluationOutcome.fail("Pet entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // 2) Inspect health notes for obvious problem indicators
-         String notes = pet.getHealthNotes();
-         if (notes != null && !notes.isBlank()) {
-             String lower = notes.toLowerCase();
-             if (lower.contains("sick") || lower.contains("ill") || lower.contains("injury") || lower.contains("injured") || lower.contains("medical") || lower.contains("disease")) {
-                 return EvaluationOutcome.fail("Health notes indicate potential issues", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-             }
+         // Use the entity's own validation for required fields and basic rules
+         if (!entity.isValid()) {
+             return EvaluationOutcome.fail("Pet failed basic validation (required fields/format)", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // 3) Ensure there is at least one photo (health checks rely on visual inspection/records)
-         List<String> photos = pet.getPhotos();
-         if (photos == null || photos.isEmpty()) {
-             return EvaluationOutcome.fail("Pet has no photos", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         String status = entity.getStatus();
+         String healthNotes = entity.getHealthNotes();
+         boolean hasHealthNotes = healthNotes != null && !healthNotes.isBlank();
+
+         // If health notes indicate sickness/injury/disease -> business rule failure
+         if (hasHealthNotes && containsHealthIssue(healthNotes)) {
+             return EvaluationOutcome.fail("Health check failed: health notes indicate illness or injury", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
-         // photos list entries should be non-blank (Pet.isValid() already enforces this, but double-check defensively)
-         for (String p : photos) {
-             if (p == null || p.isBlank()) {
-                 return EvaluationOutcome.fail("Pet has invalid photo references", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+
+         // If pet is being marked 'available' ensure it has media (photos) and no health issues
+         if (status != null && status.equalsIgnoreCase("available")) {
+             if (entity.getPhotos() == null || entity.getPhotos().isEmpty()) {
+                 // We cannot access mediaStatus on this model, but photos being absent means media is not ready
+                 return EvaluationOutcome.fail("Pet cannot be 'available' without media (photos missing)", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+             // Already checked health notes above; repeat safe-check for defensive coding
+             if (hasHealthNotes && containsHealthIssue(healthNotes)) {
+                 return EvaluationOutcome.fail("Pet cannot be 'available' because health notes indicate issues", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
              }
          }
 
-         // If none of the checks failed, consider health check passed
+         // Additional quality check: age must be non-negative (entity.isValid covers this) but defensive check:
+         if (entity.getAge() != null && entity.getAge() < 0) {
+             return EvaluationOutcome.fail("Age must be non-negative", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         // All health checks passed
          return EvaluationOutcome.success();
+    }
+
+    private boolean containsHealthIssue(String notes) {
+        if (notes == null) return false;
+        String n = notes.toLowerCase();
+        // common indicators of health problems
+        return n.contains("sick")
+            || n.contains("ill")
+            || n.contains("injur")
+            || n.contains("diseas")
+            || n.contains("infection")
+            || n.contains("fracture")
+            || n.contains("needs vet")
+            || n.contains("vet required")
+            || n.contains("medical");
     }
 }

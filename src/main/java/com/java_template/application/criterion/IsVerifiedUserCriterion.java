@@ -29,7 +29,7 @@ public class IsVerifiedUserCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(User.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -44,16 +44,23 @@ public class IsVerifiedUserCriterion implements CyodaCriterion {
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<User> context) {
          User user = context.entity();
          if (user == null) {
-             return EvaluationOutcome.fail("User entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             logger.warn("IsVerifiedUserCriterion: user entity is null");
+             return EvaluationOutcome.fail("User entity is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Use the existing 'verified' property only (verificationStatus not present on this entity)
-         Boolean verified = user.getVerified();
-         if (Boolean.TRUE.equals(verified)) {
+         // Primary check: explicit verified flag (preferred source)
+         if (Boolean.TRUE.equals(user.getVerified())) {
              return EvaluationOutcome.success();
          }
 
-         // If not explicitly verified, treat as business rule failure (requires verification)
-         return EvaluationOutcome.fail("User not verified", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         // Fallback checks / informative failures:
+         // If email or contact missing, treat as data quality failure (can't verify)
+         if (user.getEmail() == null || user.getEmail().isBlank()) {
+             logger.debug("IsVerifiedUserCriterion: user {} missing email", user.getId());
+             return EvaluationOutcome.fail("User not verified: missing email", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+         // If verified flag false or null, report validation failure (user not verified)
+         logger.debug("IsVerifiedUserCriterion: user {} not verified", user.getId());
+         return EvaluationOutcome.fail("User not verified", StandardEvalReasonCategories.VALIDATION_FAILURE);
     }
 }

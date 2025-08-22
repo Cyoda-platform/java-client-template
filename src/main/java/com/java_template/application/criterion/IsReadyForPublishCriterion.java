@@ -15,6 +15,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 @Component
 public class IsReadyForPublishCriterion implements CyodaCriterion {
 
@@ -29,7 +31,7 @@ public class IsReadyForPublishCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Pet.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,61 +40,59 @@ public class IsReadyForPublishCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Pet> context) {
-         Pet pet = context.entity();
-         if (pet == null) {
-             logger.debug("Pet entity is null in IsReadyForPublishCriterion");
-             return EvaluationOutcome.fail("Pet entity is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         Pet entity = context.entity();
+         if (entity == null) {
+             logger.debug("IsReadyForPublishCriterion: entity is null");
+             return EvaluationOutcome.fail("Entity missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Basic required fields for publishability
-         if (pet.getName() == null || pet.getName().isBlank()) {
-             return EvaluationOutcome.fail("Pet name is required for publishing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         // Basic sanity: required fields for publishability
+         if (entity.getId() == null || entity.getId().isBlank()) {
+             return EvaluationOutcome.fail("Pet technical id is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-         if (pet.getSpecies() == null || pet.getSpecies().isBlank()) {
-             return EvaluationOutcome.fail("Pet species is required for publishing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         if (entity.getName() == null || entity.getName().isBlank()) {
+             return EvaluationOutcome.fail("Pet name is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+         if (entity.getSpecies() == null || entity.getSpecies().isBlank()) {
+             return EvaluationOutcome.fail("Pet species is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Media check: must have at least one valid photo to consider media present/processed (mediaStatus not modeled here)
-         if (pet.getPhotos() == null || pet.getPhotos().isEmpty()) {
-             return EvaluationOutcome.fail("No photos/media present - media must be provided before publishing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         // Data quality: media must be present (project entity does not include mediaStatus field).
+         List<String> photos = entity.getPhotos();
+         if (photos == null || photos.isEmpty()) {
+             return EvaluationOutcome.fail("No photos attached - media required before publish", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
-         // Ensure no blank photo entries
-         for (String p : pet.getPhotos()) {
+         // Ensure there are no blank photo entries
+         for (String p : photos) {
              if (p == null || p.isBlank()) {
-                 return EvaluationOutcome.fail("Invalid photo entry detected", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+                 return EvaluationOutcome.fail("Photos contain invalid entries", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
              }
          }
 
-         // Health/status checks: pet must not be in exclusionary states
-         String status = pet.getStatus();
+         // Business rules: pet should not be in a disqualifying state
+         String status = entity.getStatus();
          if (status != null) {
-             String s = status.trim().toLowerCase();
-             if ("sick".equals(s) || "unavailable".equals(s) || "adopted".equals(s)) {
-                 return EvaluationOutcome.fail(
-                     String.format("Pet status '%s' prevents publishing", status),
-                     StandardEvalReasonCategories.BUSINESS_RULE_FAILURE
-                 );
+             String normalized = status.trim().toLowerCase();
+             if ("sick".equals(normalized) || "unavailable".equals(normalized) || "adopted".equals(normalized) || "held".equals(normalized) || "reserved".equals(normalized)) {
+                 return EvaluationOutcome.fail("Pet status prevents publishing: " + status, StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
              }
          }
 
-         // Heuristic healthNotes check: if healthNotes explicitly mention sickness indicators, block publish.
-         if (pet.getHealthNotes() != null && !pet.getHealthNotes().isBlank()) {
-             String notes = pet.getHealthNotes().toLowerCase();
-             if (notes.contains("sick") || notes.contains("ill") || notes.contains("unhealthy") || notes.contains("injur")) {
-                 return EvaluationOutcome.fail("Health notes indicate the pet is not healthy", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         // Health check heuristic: if healthNotes explicitly indicate sickness, block publish.
+         String healthNotes = entity.getHealthNotes();
+         if (healthNotes != null && !healthNotes.isBlank()) {
+             String notesLower = healthNotes.toLowerCase();
+             if (notesLower.contains("sick") || notesLower.contains("ill") || notesLower.contains("injur")) {
+                 return EvaluationOutcome.fail("Health notes indicate the pet is not healthy for publish", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
              }
          }
 
-         // Age sanity check (if present)
-         if (pet.getAge() != null && pet.getAge() < 0) {
-             return EvaluationOutcome.fail("Invalid age for pet", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-         }
-
-         // If all checks pass, the pet is considered ready for publish
+         // All checks passed
          return EvaluationOutcome.success();
     }
 }

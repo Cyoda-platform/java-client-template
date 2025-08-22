@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
+import java.util.Set;
 
 @Component
 public class OrderAdoptedCriterion implements CyodaCriterion {
@@ -32,7 +33,7 @@ public class OrderAdoptedCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Order.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -41,56 +42,106 @@ public class OrderAdoptedCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        // Must match the exact criterion name
+        // Must use exact criterion name (case sensitive)
         return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Order> context) {
          Order order = context.entity();
+
          if (order == null) {
-             return EvaluationOutcome.fail("Order entity is null", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             logger.warn("Order entity is null in context");
+             return EvaluationOutcome.fail("Order entity missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // Validate timestamp ordering: expiresAt must be after createdAt
-         String createdAt = order.getCreatedAt();
-         String expiresAt = order.getExpiresAt();
-         if (createdAt == null || createdAt.isBlank()) {
-             return EvaluationOutcome.fail("createdAt is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         // Basic required checks (use only existing properties)
+         if (order.getId() == null || order.getId().isBlank()) {
+             return EvaluationOutcome.fail("Order.id is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-         if (expiresAt == null || expiresAt.isBlank()) {
-             return EvaluationOutcome.fail("expiresAt is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         if (order.getUserId() == null || order.getUserId().isBlank()) {
+             return EvaluationOutcome.fail("Order.userId is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+         if (order.getPetId() == null || order.getPetId().isBlank()) {
+             return EvaluationOutcome.fail("Order.petId is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+         if (order.getType() == null || order.getType().isBlank()) {
+             return EvaluationOutcome.fail("Order.type is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+         if (order.getStatus() == null || order.getStatus().isBlank()) {
+             return EvaluationOutcome.fail("Order.status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+         if (order.getCreatedAt() == null || order.getCreatedAt().isBlank()) {
+             return EvaluationOutcome.fail("Order.createdAt is required", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+         if (order.getExpiresAt() == null || order.getExpiresAt().isBlank()) {
+             // Note: entity currently requires expiresAt; but if missing it's a data quality issue
+             return EvaluationOutcome.fail("Order.expiresAt is required", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+         if (order.getTotal() == null) {
+             return EvaluationOutcome.fail("Order.total is required", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+         if (order.getTotal() < 0) {
+             return EvaluationOutcome.fail("Order.total must be non-negative", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         // Validate allowed order types
+         Set<String> allowedTypes = Set.of("adopt", "purchase", "reserve");
+         if (!allowedTypes.contains(order.getType().toLowerCase())) {
+             return EvaluationOutcome.fail("Order.type contains unsupported value: " + order.getType(),
+                 StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         // Validate allowed statuses according to functional requirements
+         Set<String> allowedStatuses = Set.of(
+             "initiated", "validation_failed", "pending_verification", "payment_pending",
+             "payment_failed", "approved", "staff_review", "completed", "cancelled", "expired"
+         );
+         if (!allowedStatuses.contains(order.getStatus().toLowerCase())) {
+             return EvaluationOutcome.fail("Order.status contains unsupported value: " + order.getStatus(),
+                 StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+
+         // Validate timestamps are ISO-8601 parsable and logical (createdAt <= expiresAt)
+         Instant createdInstant;
+         Instant expiresInstant;
+         try {
+             createdInstant = Instant.parse(order.getCreatedAt());
+         } catch (DateTimeParseException e) {
+             return EvaluationOutcome.fail("Order.createdAt is not a valid ISO-8601 timestamp: " + order.getCreatedAt(),
+                 StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
          try {
-             Instant created = Instant.parse(createdAt);
-             Instant expires = Instant.parse(expiresAt);
-             if (expires.isBefore(created) || expires.equals(created)) {
-                 return EvaluationOutcome.fail("expiresAt must be after createdAt", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-             }
-         } catch (DateTimeParseException dte) {
-             logger.debug("Invalid timestamp format on order {}: {}", order.getId(), dte.getMessage());
-             return EvaluationOutcome.fail("Invalid timestamp format for createdAt or expiresAt", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             expiresInstant = Instant.parse(order.getExpiresAt());
+         } catch (DateTimeParseException e) {
+             return EvaluationOutcome.fail("Order.expiresAt is not a valid ISO-8601 timestamp: " + order.getExpiresAt(),
+                 StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+         if (createdInstant.isAfter(expiresInstant)) {
+             return EvaluationOutcome.fail("Order.createdAt must be before or equal to Order.expiresAt",
+                 StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // Business rule specific to adoption orders:
-         // If the order is an adoption, it must be in 'completed' status to be considered adopted.
-         String type = order.getType();
-         String status = order.getStatus();
-         if (type != null && "adopt".equalsIgnoreCase(type)) {
-             if (status == null || !"completed".equalsIgnoreCase(status)) {
-                 return EvaluationOutcome.fail("Adopt orders must be in 'completed' status", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         // Business rule checks specific to adopt orders
+         if ("adopt".equalsIgnoreCase(order.getType())) {
+             // Adopt orders must progress through allowed workflow states.
+             // If an adopt order is marked as 'completed' it is expected to be final.
+             // We can't inspect Pet state here, but we can ensure current order state is consistent.
+             Set<String> terminalStates = Set.of("completed", "cancelled", "expired", "validation_failed", "payment_failed");
+             if (!terminalStates.contains(order.getStatus().toLowerCase())) {
+                 // For adopt orders not yet terminal, ensure there is a sensible total (already checked) and expiresAt in future.
+                 if (expiresInstant.isBefore(Instant.now())) {
+                     return EvaluationOutcome.fail("Adopt order has already expired (expiresAt in the past) but is not in an expiry state",
+                         StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+                 }
+             } else {
+                 // If completed, ensure total is non-negative (already validated) and createdAt is not in the future
+                 if (createdInstant.isAfter(Instant.now().plusSeconds(5))) {
+                     return EvaluationOutcome.fail("Order.createdAt is in the future", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+                 }
              }
          }
 
-         // For any completed order, ensure essential references exist (petId and userId)
-         if (status != null && "completed".equalsIgnoreCase(status)) {
-             if (order.getPetId() == null || order.getPetId().isBlank()) {
-                 return EvaluationOutcome.fail("Completed orders must reference a petId", StandardEvalReasonCategories.VALIDATION_FAILURE);
-             }
-             if (order.getUserId() == null || order.getUserId().isBlank()) {
-                 return EvaluationOutcome.fail("Completed orders must reference a userId", StandardEvalReasonCategories.VALIDATION_FAILURE);
-             }
-         }
-
-        return EvaluationOutcome.success();
+         // All checks passed
+         return EvaluationOutcome.success();
     }
 }

@@ -2,11 +2,12 @@ package com.java_template.application.controller.user.version_1;
 
 import static com.java_template.common.config.Config.*;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.user.version_1.User;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -16,463 +17,509 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import lombok.Data;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
+/**
+ * Controller for User entity (version 1).
+ *
+ * Responsibilities:
+ * - Accept HTTP requests
+ * - Validate basic request format
+ * - Proxy calls to EntityService (no business logic)
+ * - Return appropriate HTTP responses
+ * - Handle ExecutionException unwrapping per requirements
+ */
 @RestController
-@RequestMapping("/api/v1/users")
-@Tag(name = "User API", description = "Controller proxy for User entity (version 1)")
+@RequestMapping("/api/user/v1")
+@Tag(name = "UserController", description = "Operations for User entity (v1)")
 public class UserController {
 
     private static final Logger logger = LoggerFactory.getLogger(UserController.class);
-
     private final EntityService entityService;
+    private final ObjectMapper mapper = new ObjectMapper();
 
     public UserController(EntityService entityService) {
         this.entityService = entityService;
     }
 
-    @Operation(summary = "Create User", description = "Create a new User entity. Returns technicalId on success.")
+    @Operation(summary = "Create a user", description = "Creates a new User and returns its technical id.")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = CreateUserResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Bad Request"),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+        @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Bad Request"),
+        @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
     @PostMapping
-    public ResponseEntity<CreateUserResponse> createUser(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "User creation payload")
-                                                         @RequestBody CreateUserRequest request) {
+    public ResponseEntity<?> addUser(@Valid @RequestBody CreateUserRequest request) {
         try {
-            if (request == null) {
-                throw new IllegalArgumentException("Request body is required");
-            }
-
-            User user = new User();
-            // Basic mapping from request to entity. No business logic here.
-            user.setId(request.getId());
-            user.setTechnicalId(request.getTechnicalId());
-            user.setName(request.getName());
-            user.setEmail(request.getEmail());
-            user.setRole(request.getRole());
-            user.setContact(request.getContact());
-            user.setVerified(request.getVerified());
-            user.setVerificationStatus(request.getVerificationStatus());
-            user.setSavedPets(request.getSavedPets());
-            user.setNotes(request.getNotes());
-            user.setCreatedAt(request.getCreatedAt());
-            user.setUpdatedAt(request.getUpdatedAt());
+            ObjectNode data = mapper.createObjectNode();
+            if (request.getTechnicalId() != null) data.put("technicalId", request.getTechnicalId());
+            if (request.getName() != null) data.put("name", request.getName());
+            if (request.getEmail() != null) data.put("email", request.getEmail());
+            if (request.getVerificationStatus() != null) data.put("verificationStatus", request.getVerificationStatus());
+            if (request.getCreatedAt() != null) data.put("createdAt", request.getCreatedAt());
+            if (request.getUpdatedAt() != null) data.put("updatedAt", request.getUpdatedAt());
 
             CompletableFuture<UUID> idFuture = entityService.addItem(
-                    User.ENTITY_NAME,
-                    String.valueOf(User.ENTITY_VERSION),
-                    user
+                User.ENTITY_NAME,
+                String.valueOf(User.ENTITY_VERSION),
+                data
             );
 
-            UUID technicalId = idFuture.get();
-
-            CreateUserResponse resp = new CreateUserResponse();
-            resp.setTechnicalId(technicalId.toString());
+            UUID id = idFuture.get();
+            TechnicalIdResponse resp = new TechnicalIdResponse(id);
             return ResponseEntity.ok(resp);
-        } catch (IllegalArgumentException iae) {
-            logger.warn("Invalid createUser request: {}", iae.getMessage(), iae);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        } catch (ExecutionException ee) {
-            Throwable cause = ee.getCause();
-            if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-            } else if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-            } else {
-                logger.error("ExecutionException in createUser", ee);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-            }
-        } catch (Exception e) {
-            logger.error("Unexpected error in createUser", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        } catch (IllegalArgumentException ex) {
+            logger.error("Invalid request for addUser", ex);
+            return ResponseEntity.badRequest().body(ex.getMessage());
+        } catch (ExecutionException ex) {
+            return handleExecutionException(ex);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while adding user", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
+        } catch (Exception ex) {
+            logger.error("Unexpected error while adding user", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
         }
     }
 
-    @Operation(summary = "Create multiple Users", description = "Create multiple User entities in bulk. Returns list of technicalIds.")
+    @Operation(summary = "Create multiple users", description = "Creates multiple Users and returns their technical ids.")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = BulkCreateUserResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Bad Request"),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+        @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = IdsResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Bad Request"),
+        @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
     @PostMapping("/bulk")
-    public ResponseEntity<BulkCreateUserResponse> createUsersBulk(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Bulk user creation payload")
-                                                                 @RequestBody List<CreateUserRequest> requests) {
+    public ResponseEntity<?> addUsers(@Valid @RequestBody List<CreateUserRequest> requests) {
         try {
-            if (requests == null || requests.isEmpty()) {
-                throw new IllegalArgumentException("Request body must contain at least one user");
-            }
-
-            List<User> users = new ArrayList<>();
+            ArrayNode array = mapper.createArrayNode();
             for (CreateUserRequest request : requests) {
-                User user = new User();
-                user.setId(request.getId());
-                user.setTechnicalId(request.getTechnicalId());
-                user.setName(request.getName());
-                user.setEmail(request.getEmail());
-                user.setRole(request.getRole());
-                user.setContact(request.getContact());
-                user.setVerified(request.getVerified());
-                user.setVerificationStatus(request.getVerificationStatus());
-                user.setSavedPets(request.getSavedPets());
-                user.setNotes(request.getNotes());
-                user.setCreatedAt(request.getCreatedAt());
-                user.setUpdatedAt(request.getUpdatedAt());
-                users.add(user);
+                ObjectNode data = mapper.createObjectNode();
+                if (request.getTechnicalId() != null) data.put("technicalId", request.getTechnicalId());
+                if (request.getName() != null) data.put("name", request.getName());
+                if (request.getEmail() != null) data.put("email", request.getEmail());
+                if (request.getVerificationStatus() != null) data.put("verificationStatus", request.getVerificationStatus());
+                if (request.getCreatedAt() != null) data.put("createdAt", request.getCreatedAt());
+                if (request.getUpdatedAt() != null) data.put("updatedAt", request.getUpdatedAt());
+                array.add(data);
             }
 
             CompletableFuture<List<UUID>> idsFuture = entityService.addItems(
-                    User.ENTITY_NAME,
-                    String.valueOf(User.ENTITY_VERSION),
-                    users
+                User.ENTITY_NAME,
+                String.valueOf(User.ENTITY_VERSION),
+                array
             );
 
             List<UUID> ids = idsFuture.get();
-            BulkCreateUserResponse resp = new BulkCreateUserResponse();
-            List<String> technicalIds = new ArrayList<>();
-            for (UUID id : ids) {
-                technicalIds.add(id.toString());
-            }
-            resp.setTechnicalIds(technicalIds);
-            return ResponseEntity.ok(resp);
-        } catch (IllegalArgumentException iae) {
-            logger.warn("Invalid createUsersBulk request: {}", iae.getMessage(), iae);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        } catch (ExecutionException ee) {
-            Throwable cause = ee.getCause();
-            if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-            } else if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-            } else {
-                logger.error("ExecutionException in createUsersBulk", ee);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-            }
-        } catch (Exception e) {
-            logger.error("Unexpected error in createUsersBulk", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            return ResponseEntity.ok(new IdsResponse(ids));
+        } catch (IllegalArgumentException ex) {
+            logger.error("Invalid request for addUsers", ex);
+            return ResponseEntity.badRequest().body(ex.getMessage());
+        } catch (ExecutionException ex) {
+            return handleExecutionException(ex);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while adding users", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
+        } catch (Exception ex) {
+            logger.error("Unexpected error while adding users", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
         }
     }
 
-    @Operation(summary = "Get User by technicalId", description = "Retrieve a persisted User entity by technicalId")
+    @Operation(summary = "Get user by technicalId", description = "Retrieves a User by its technical id.")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = GetUserResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Bad Request"),
-            @ApiResponse(responseCode = "404", description = "Not Found"),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+        @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = UserResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Not Found"),
+        @ApiResponse(responseCode = "400", description = "Bad Request"),
+        @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
     @GetMapping("/{technicalId}")
-    public ResponseEntity<GetUserResponse> getUserById(@Parameter(name = "technicalId", description = "Technical ID of the entity")
-                                                       @PathVariable String technicalId) {
+    public ResponseEntity<?> getUser(
+        @Parameter(name = "technicalId", description = "Technical ID of the entity") @PathVariable String technicalId
+    ) {
         try {
-            UUID tid = UUID.fromString(technicalId);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
-                    User.ENTITY_NAME,
-                    String.valueOf(User.ENTITY_VERSION),
-                    tid
+                User.ENTITY_NAME,
+                String.valueOf(User.ENTITY_VERSION),
+                UUID.fromString(technicalId)
             );
 
-            ObjectNode entityNode = itemFuture.get();
-            GetUserResponse resp = new GetUserResponse();
-            resp.setTechnicalId(technicalId);
-            resp.setEntity(entityNode);
+            ObjectNode item = itemFuture.get();
+            UserResponse resp = new UserResponse(item);
             return ResponseEntity.ok(resp);
-        } catch (IllegalArgumentException iae) {
-            logger.warn("Invalid getUserById request: {}", iae.getMessage(), iae);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        } catch (ExecutionException ee) {
-            Throwable cause = ee.getCause();
-            if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-            } else if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-            } else {
-                logger.error("ExecutionException in getUserById", ee);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-            }
-        } catch (Exception e) {
-            logger.error("Unexpected error in getUserById", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        } catch (IllegalArgumentException ex) {
+            logger.error("Invalid technicalId for getUser: {}", technicalId, ex);
+            return ResponseEntity.badRequest().body(ex.getMessage());
+        } catch (ExecutionException ex) {
+            return handleExecutionException(ex);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while getting user", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
+        } catch (Exception ex) {
+            logger.error("Unexpected error while getting user", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
         }
     }
 
-    @Operation(summary = "List all Users", description = "Retrieve all persisted User entities")
+    @Operation(summary = "Get all users", description = "Retrieves all Users.")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = ObjectNode.class)))),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+        @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = UserResponse.class)))),
+        @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
     @GetMapping
-    public ResponseEntity<ArrayNode> getAllUsers() {
+    public ResponseEntity<?> getUsers() {
         try {
             CompletableFuture<ArrayNode> itemsFuture = entityService.getItems(
-                    User.ENTITY_NAME,
-                    String.valueOf(User.ENTITY_VERSION)
+                User.ENTITY_NAME,
+                String.valueOf(User.ENTITY_VERSION)
             );
+
             ArrayNode items = itemsFuture.get();
-            return ResponseEntity.ok(items);
-        } catch (ExecutionException ee) {
-            Throwable cause = ee.getCause();
-            if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-            } else if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-            } else {
-                logger.error("ExecutionException in getAllUsers", ee);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            List<UserResponse> respList = new ArrayList<>();
+            for (JsonNode node : items) {
+                respList.add(new UserResponse(node));
             }
-        } catch (Exception e) {
-            logger.error("Unexpected error in getAllUsers", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            return ResponseEntity.ok(respList);
+        } catch (ExecutionException ex) {
+            return handleExecutionException(ex);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while getting users", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
+        } catch (Exception ex) {
+            logger.error("Unexpected error while getting users", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
         }
     }
 
-    @Operation(summary = "Search Users", description = "Search Users by simple field-based conditions (AND group).")
+    @Operation(summary = "Search users by condition", description = "Retrieves Users by a search condition.")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = ObjectNode.class)))),
-            @ApiResponse(responseCode = "400", description = "Bad Request"),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+        @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = UserResponse.class)))),
+        @ApiResponse(responseCode = "400", description = "Bad Request"),
+        @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
     @PostMapping("/search")
-    public ResponseEntity<ArrayNode> searchUsers(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "List of simple conditions to AND together")
-                                                 @RequestBody List<SearchFilter> filters) {
+    public ResponseEntity<?> searchUsers(@Valid @RequestBody SearchConditionRequest condition) {
         try {
-            if (filters == null || filters.isEmpty()) {
-                throw new IllegalArgumentException("At least one filter is required");
-            }
-
-            List<Condition> conds = new ArrayList<>();
-            for (SearchFilter f : filters) {
-                if (f.getField() == null || f.getOperator() == null) {
-                    throw new IllegalArgumentException("Filter must contain field and operator");
-                }
-                String path = "$." + f.getField();
-                conds.add(Condition.of(path, f.getOperator(), f.getValue()));
-            }
-
-            // Build grouped condition using AND
-            SearchConditionRequest condition = SearchConditionRequest.group("AND", conds.toArray(new Condition[0]));
-
             CompletableFuture<ArrayNode> filteredItemsFuture = entityService.getItemsByCondition(
-                    User.ENTITY_NAME,
-                    String.valueOf(User.ENTITY_VERSION),
-                    condition,
-                    true
+                User.ENTITY_NAME,
+                String.valueOf(User.ENTITY_VERSION),
+                condition,
+                true
             );
 
-            ArrayNode results = filteredItemsFuture.get();
-            return ResponseEntity.ok(results);
-        } catch (IllegalArgumentException iae) {
-            logger.warn("Invalid searchUsers request: {}", iae.getMessage(), iae);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        } catch (ExecutionException ee) {
-            Throwable cause = ee.getCause();
-            if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-            } else if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-            } else {
-                logger.error("ExecutionException in searchUsers", ee);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            ArrayNode items = filteredItemsFuture.get();
+            List<UserResponse> respList = new ArrayList<>();
+            for (JsonNode node : items) {
+                respList.add(new UserResponse(node));
             }
-        } catch (Exception e) {
-            logger.error("Unexpected error in searchUsers", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            return ResponseEntity.ok(respList);
+        } catch (IllegalArgumentException ex) {
+            logger.error("Invalid search condition", ex);
+            return ResponseEntity.badRequest().body(ex.getMessage());
+        } catch (ExecutionException ex) {
+            return handleExecutionException(ex);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while searching users", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
+        } catch (Exception ex) {
+            logger.error("Unexpected error while searching users", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
         }
     }
 
-    @Operation(summary = "Update User", description = "Update an existing User by technicalId.")
+    @Operation(summary = "Update a user", description = "Updates an existing User.")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = UpdateUserResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Bad Request"),
-            @ApiResponse(responseCode = "404", description = "Not Found"),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+        @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Bad Request"),
+        @ApiResponse(responseCode = "404", description = "Not Found"),
+        @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
     @PutMapping("/{technicalId}")
-    public ResponseEntity<UpdateUserResponse> updateUser(@Parameter(name = "technicalId", description = "Technical ID of the entity")
-                                                         @PathVariable String technicalId,
-                                                         @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "User update payload")
-                                                         @RequestBody CreateUserRequest request) {
+    public ResponseEntity<?> updateUser(
+        @Parameter(name = "technicalId", description = "Technical ID of the entity") @PathVariable String technicalId,
+        @Valid @RequestBody UpdateUserRequest request
+    ) {
         try {
-            if (request == null) {
-                throw new IllegalArgumentException("Request body is required");
-            }
+            ObjectNode data = mapper.createObjectNode();
+            if (request.getTechnicalId() != null) data.put("technicalId", request.getTechnicalId());
+            if (request.getName() != null) data.put("name", request.getName());
+            if (request.getEmail() != null) data.put("email", request.getEmail());
+            if (request.getVerificationStatus() != null) data.put("verificationStatus", request.getVerificationStatus());
+            if (request.getCreatedAt() != null) data.put("createdAt", request.getCreatedAt());
+            if (request.getUpdatedAt() != null) data.put("updatedAt", request.getUpdatedAt());
 
-            UUID tid = UUID.fromString(technicalId);
-
-            User user = new User();
-            user.setId(request.getId());
-            user.setTechnicalId(request.getTechnicalId());
-            user.setName(request.getName());
-            user.setEmail(request.getEmail());
-            user.setRole(request.getRole());
-            user.setContact(request.getContact());
-            user.setVerified(request.getVerified());
-            user.setVerificationStatus(request.getVerificationStatus());
-            user.setSavedPets(request.getSavedPets());
-            user.setNotes(request.getNotes());
-            user.setCreatedAt(request.getCreatedAt());
-            user.setUpdatedAt(request.getUpdatedAt());
-
-            CompletableFuture<UUID> updatedIdFuture = entityService.updateItem(
-                    User.ENTITY_NAME,
-                    String.valueOf(User.ENTITY_VERSION),
-                    tid,
-                    user
+            CompletableFuture<UUID> updatedId = entityService.updateItem(
+                User.ENTITY_NAME,
+                String.valueOf(User.ENTITY_VERSION),
+                UUID.fromString(technicalId),
+                data
             );
 
-            UUID updatedId = updatedIdFuture.get();
-            UpdateUserResponse resp = new UpdateUserResponse();
-            resp.setTechnicalId(updatedId.toString());
-            return ResponseEntity.ok(resp);
-        } catch (IllegalArgumentException iae) {
-            logger.warn("Invalid updateUser request: {}", iae.getMessage(), iae);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        } catch (ExecutionException ee) {
-            Throwable cause = ee.getCause();
-            if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-            } else if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-            } else {
-                logger.error("ExecutionException in updateUser", ee);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-            }
-        } catch (Exception e) {
-            logger.error("Unexpected error in updateUser", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            UUID id = updatedId.get();
+            return ResponseEntity.ok(new TechnicalIdResponse(id));
+        } catch (IllegalArgumentException ex) {
+            logger.error("Invalid update request", ex);
+            return ResponseEntity.badRequest().body(ex.getMessage());
+        } catch (ExecutionException ex) {
+            return handleExecutionException(ex);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while updating user", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
+        } catch (Exception ex) {
+            logger.error("Unexpected error while updating user", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
         }
     }
 
-    @Operation(summary = "Delete User", description = "Delete an existing User by technicalId.")
+    @Operation(summary = "Delete a user", description = "Deletes a User by technical id.")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = DeleteUserResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Bad Request"),
-            @ApiResponse(responseCode = "404", description = "Not Found"),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+        @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Not Found"),
+        @ApiResponse(responseCode = "400", description = "Bad Request"),
+        @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
     @DeleteMapping("/{technicalId}")
-    public ResponseEntity<DeleteUserResponse> deleteUser(@Parameter(name = "technicalId", description = "Technical ID of the entity")
-                                                         @PathVariable String technicalId) {
+    public ResponseEntity<?> deleteUser(
+        @Parameter(name = "technicalId", description = "Technical ID of the entity") @PathVariable String technicalId
+    ) {
         try {
-            UUID tid = UUID.fromString(technicalId);
-
-            CompletableFuture<UUID> deletedIdFuture = entityService.deleteItem(
-                    User.ENTITY_NAME,
-                    String.valueOf(User.ENTITY_VERSION),
-                    tid
+            CompletableFuture<UUID> deletedId = entityService.deleteItem(
+                User.ENTITY_NAME,
+                String.valueOf(User.ENTITY_VERSION),
+                UUID.fromString(technicalId)
             );
 
-            UUID deletedId = deletedIdFuture.get();
-            DeleteUserResponse resp = new DeleteUserResponse();
-            resp.setTechnicalId(deletedId.toString());
-            return ResponseEntity.ok(resp);
-        } catch (IllegalArgumentException iae) {
-            logger.warn("Invalid deleteUser request: {}", iae.getMessage(), iae);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        } catch (ExecutionException ee) {
-            Throwable cause = ee.getCause();
-            if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-            } else if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-            } else {
-                logger.error("ExecutionException in deleteUser", ee);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-            }
-        } catch (Exception e) {
-            logger.error("Unexpected error in deleteUser", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            UUID id = deletedId.get();
+            return ResponseEntity.ok(new TechnicalIdResponse(id));
+        } catch (IllegalArgumentException ex) {
+            logger.error("Invalid technicalId for deleteUser: {}", technicalId, ex);
+            return ResponseEntity.badRequest().body(ex.getMessage());
+        } catch (ExecutionException ex) {
+            return handleExecutionException(ex);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while deleting user", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
+        } catch (Exception ex) {
+            logger.error("Unexpected error while deleting user", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
+        }
+    }
+
+    private ResponseEntity<?> handleExecutionException(ExecutionException ex) {
+        Throwable cause = ex.getCause();
+        if (cause instanceof NoSuchElementException) {
+            logger.warn("Entity not found: {}", cause.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
+        } else if (cause instanceof IllegalArgumentException) {
+            logger.warn("Illegal argument in async execution: {}", cause.getMessage());
+            return ResponseEntity.badRequest().body(cause.getMessage());
+        } else {
+            logger.error("Execution exception", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : ex.getMessage());
         }
     }
 
     // Static DTO classes
 
-    @Data
-    @Schema(name = "CreateUserRequest", description = "Payload to create or update a User")
+    public record TechnicalIdResponse(@Schema(description = "Technical id", example = "3fa85f64-5717-4562-b3fc-2c963f66afa6") UUID id) {
+    }
+
+    public static class IdsResponse {
+        @Schema(description = "List of technical ids")
+        private List<UUID> ids;
+
+        public IdsResponse() {
+        }
+
+        public IdsResponse(List<UUID> ids) {
+            this.ids = ids;
+        }
+
+        public List<UUID> getIds() {
+            return ids;
+        }
+
+        public void setIds(List<UUID> ids) {
+            this.ids = ids;
+        }
+    }
+
+    public static class UserResponse {
+        @Schema(description = "User raw data as JSON")
+        private JsonNode data;
+
+        public UserResponse() {
+        }
+
+        public UserResponse(JsonNode data) {
+            this.data = data;
+        }
+
+        public JsonNode getData() {
+            return data;
+        }
+
+        public void setData(JsonNode data) {
+            this.data = data;
+        }
+    }
+
     public static class CreateUserRequest {
-        @Schema(description = "Business id (e.g. USR-99)")
-        private String id;
-        @Schema(description = "Optional technicalId (ignored on create)")
+        @Schema(description = "Technical id (optional). If provided, will be stored as-is", example = "3fa85f64-5717-4562-b3fc-2c963f66afa6")
         private String technicalId;
-        @Schema(description = "User name")
+
+        @Schema(description = "Name of the user", example = "John Doe")
         private String name;
-        @Schema(description = "User email")
+
+        @Schema(description = "Email of the user", example = "john.doe@example.com")
         private String email;
-        @Schema(description = "User role (customer/staff/admin)")
-        private String role;
-        @Schema(description = "Contact phone")
-        private String contact;
-        @Schema(description = "Verified flag")
-        private Boolean verified;
-        @Schema(description = "Verification status (unverified/pending/verified/rejected)")
+
+        @Schema(description = "Verification status", example = "VERIFIED")
         private String verificationStatus;
-        @Schema(description = "Saved pet business ids")
-        private List<String> savedPets;
-        @Schema(description = "Internal notes")
-        private String notes;
-        @Schema(description = "Created at timestamp")
+
+        @Schema(description = "Created timestamp", example = "2025-08-22T12:00:00Z")
         private String createdAt;
-        @Schema(description = "Updated at timestamp")
+
+        @Schema(description = "Updated timestamp", example = "2025-08-22T12:00:00Z")
         private String updatedAt;
+
+        public CreateUserRequest() {
+        }
+
+        public String getTechnicalId() {
+            return technicalId;
+        }
+
+        public void setTechnicalId(String technicalId) {
+            this.technicalId = technicalId;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
+
+        public String getVerificationStatus() {
+            return verificationStatus;
+        }
+
+        public void setVerificationStatus(String verificationStatus) {
+            this.verificationStatus = verificationStatus;
+        }
+
+        public String getCreatedAt() {
+            return createdAt;
+        }
+
+        public void setCreatedAt(String createdAt) {
+            this.createdAt = createdAt;
+        }
+
+        public String getUpdatedAt() {
+            return updatedAt;
+        }
+
+        public void setUpdatedAt(String updatedAt) {
+            this.updatedAt = updatedAt;
+        }
     }
 
-    @Data
-    @Schema(name = "CreateUserResponse", description = "Response after creating a User")
-    public static class CreateUserResponse {
-        @Schema(description = "Technical id assigned by datastore")
+    public static class UpdateUserRequest {
+        @Schema(description = "Technical id (optional)", example = "3fa85f64-5717-4562-b3fc-2c963f66afa6")
         private String technicalId;
-    }
 
-    @Data
-    @Schema(name = "BulkCreateUserResponse", description = "Response after bulk creating Users")
-    public static class BulkCreateUserResponse {
-        @Schema(description = "List of technical ids assigned by datastore")
-        private List<String> technicalIds;
-    }
+        @Schema(description = "Name of the user", example = "John Doe")
+        private String name;
 
-    @Data
-    @Schema(name = "GetUserResponse", description = "Response for get User by technicalId")
-    public static class GetUserResponse {
-        @Schema(description = "Technical id of the entity")
-        private String technicalId;
-        @Schema(description = "Persisted entity as stored", implementation = ObjectNode.class)
-        private ObjectNode entity;
-    }
+        @Schema(description = "Email of the user", example = "john.doe@example.com")
+        private String email;
 
-    @Data
-    @Schema(name = "UpdateUserResponse", description = "Response after updating a User")
-    public static class UpdateUserResponse {
-        @Schema(description = "Technical id of the updated entity")
-        private String technicalId;
-    }
+        @Schema(description = "Verification status", example = "VERIFIED")
+        private String verificationStatus;
 
-    @Data
-    @Schema(name = "DeleteUserResponse", description = "Response after deleting a User")
-    public static class DeleteUserResponse {
-        @Schema(description = "Technical id of the deleted entity")
-        private String technicalId;
-    }
+        @Schema(description = "Created timestamp", example = "2025-08-22T12:00:00Z")
+        private String createdAt;
 
-    @Data
-    @Schema(name = "SearchFilter", description = "Simple field-based search filter")
-    public static class SearchFilter {
-        @Schema(description = "Field name on the User entity (e.g. email, role)")
-        private String field;
-        @Schema(description = "Operator (EQUALS, NOT_EQUAL, IEQUALS, GREATER_THAN, LESS_THAN, etc.)")
-        private String operator;
-        @Schema(description = "Value to compare with (string representation)")
-        private String value;
+        @Schema(description = "Updated timestamp", example = "2025-08-22T12:00:00Z")
+        private String updatedAt;
+
+        public UpdateUserRequest() {
+        }
+
+        public String getTechnicalId() {
+            return technicalId;
+        }
+
+        public void setTechnicalId(String technicalId) {
+            this.technicalId = technicalId;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
+
+        public String getVerificationStatus() {
+            return verificationStatus;
+        }
+
+        public void setVerificationStatus(String verificationStatus) {
+            this.verificationStatus = verificationStatus;
+        }
+
+        public String getCreatedAt() {
+            return createdAt;
+        }
+
+        public void setCreatedAt(String createdAt) {
+            this.createdAt = createdAt;
+        }
+
+        public String getUpdatedAt() {
+            return updatedAt;
+        }
+
+        public void setUpdatedAt(String updatedAt) {
+            this.updatedAt = updatedAt;
+        }
     }
 }

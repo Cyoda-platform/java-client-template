@@ -1,4 +1,5 @@
 package com.java_template.application.processor;
+
 import com.java_template.application.entity.user.version_1.User;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
@@ -7,11 +8,9 @@ import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
-import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.regex.Pattern;
+import org.springframework.stereotype.Component;
 
 @Component
 public class UserVerificationProcessor implements CyodaProcessor {
@@ -19,8 +18,6 @@ public class UserVerificationProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(UserVerificationProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
-
-    private static final Pattern DIGIT_PATTERN = Pattern.compile("\\d");
 
     public UserVerificationProcessor(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
@@ -31,10 +28,10 @@ public class UserVerificationProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing User for request: {}", request.getId());
 
-        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
+        return serializer.withRequest(request)
             .toEntity(User.class)
             .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+            .map(this::processEntityLogic)
             .complete();
     }
 
@@ -49,82 +46,45 @@ public class UserVerificationProcessor implements CyodaProcessor {
 
     private User processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<User> context) {
         User user = context.entity();
+        if (user == null) {
+            logger.warn("User entity is null in execution context");
+            return null;
+        }
 
-        try {
-            // Basic automatic verification checks:
-            // - Email must have local and domain parts and domain contains a dot.
-            // - Contact, if present, must contain at least 7 digits.
-            // - Fallback: name must be present and reasonably long to help auto-verify.
-            String email = user.getEmail() != null ? user.getEmail().trim() : null;
-            String contact = user.getContact() != null ? user.getContact().trim() : null;
-            String name = user.getName() != null ? user.getName().trim() : null;
+        boolean emailOk = false;
+        if (user.getEmail() != null) {
+            String email = user.getEmail().trim();
+            emailOk = !email.isBlank() && email.contains("@") && !email.startsWith("@") && !email.endsWith("@");
+        }
 
-            boolean emailOk = false;
-            if (email != null && !email.isBlank() && email.contains("@")) {
-                String[] parts = email.split("@", 2);
-                if (parts.length == 2) {
-                    String domain = parts[1];
-                    String local = parts[0];
-                    if (!local.isBlank() && domain.contains(".") && !domain.startsWith(".") && !domain.endsWith(".")) {
-                        emailOk = true;
-                    }
-                }
-            }
+        boolean contactOk = user.getContact() != null && !user.getContact().isBlank();
 
-            boolean contactOk = false;
-            if (contact != null && !contact.isBlank()) {
-                int digits = 0;
-                var m = DIGIT_PATTERN.matcher(contact);
-                while (m.find()) digits++;
-                contactOk = digits >= 7;
-            }
+        // Basic automatic verification rules:
+        // - If both email and contact look valid, mark as verified
+        // - Otherwise, mark as not verified (pending manual review)
+        Boolean before = user.getVerified();
+        if (emailOk && contactOk) {
+            user.setVerified(Boolean.TRUE);
+            user.setNotes(appendNote(user.getNotes(), "User auto-verified by UserVerificationProcessor"));
+            logger.info("User [{}] auto-verified (emailOk={}, contactOk={})", user.getId(), emailOk, contactOk);
+        } else {
+            user.setVerified(Boolean.FALSE);
+            user.setNotes(appendNote(user.getNotes(), "User verification pending/manual review"));
+            logger.info("User [{}] verification pending (emailOk={}, contactOk={})", user.getId(), emailOk, contactOk);
+        }
 
-            boolean nameOk = name != null && name.length() >= 2;
-
-            // Decide verification:
-            // - If email is good and either contact is good or name looks valid -> auto-verify
-            // - Otherwise mark as not verified and record a note indicating pending/failed verification
-            if (emailOk && (contactOk || nameOk)) {
-                user.setVerified(Boolean.TRUE);
-                appendNote(user, "auto-verified: basic checks passed");
-                logger.info("User {} auto-verified by UserVerificationProcessor", safeId(user));
-            } else {
-                user.setVerified(Boolean.FALSE);
-                String reason;
-                if (!emailOk) reason = "invalid email";
-                else if (!contactOk) reason = "insufficient contact info";
-                else reason = "verification checks failed";
-                appendNote(user, "verification_pending: " + reason);
-                logger.info("User {} left unverified ({})", safeId(user), reason);
-            }
-        } catch (Exception e) {
-            // On unexpected errors, do not throw; mark as not verified and record the error in notes.
-            try {
-                user.setVerified(Boolean.FALSE);
-                appendNote(user, "verification_error: " + e.getMessage());
-            } catch (Exception ex) {
-                logger.error("Failed to set verification state for user {}: {}", safeId(user), ex.getMessage());
-            }
-            logger.error("Error during user verification for {}: {}", safeId(user), e.getMessage(), e);
+        // If verification state changed, emit an info log (auditing handled elsewhere)
+        if ((before == null && user.getVerified() != null) || (before != null && !before.equals(user.getVerified()))) {
+            logger.info("User [{}] verification flag changed from {} to {}", user.getId(), before, user.getVerified());
         }
 
         return user;
     }
 
-    private void appendNote(User user, String note) {
-        String existing = user.getNotes();
+    private String appendNote(String existing, String addition) {
         if (existing == null || existing.isBlank()) {
-            user.setNotes(note);
-        } else {
-            user.setNotes(existing + "\n" + note);
+            return addition;
         }
-    }
-
-    private String safeId(User user) {
-        try {
-            return user != null && user.getId() != null ? user.getId() : "<unknown>";
-        } catch (Exception e) {
-            return "<unknown>";
-        }
+        return existing + " | " + addition;
     }
 }
