@@ -1,0 +1,61 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "age": 3,
+                    "breed": "Labrador Retriever",
+                    "description": "Friendly family dog good with kids",
+                    "gender": "male",
+                    "id": "pet-001",
+                    "name": "Buddy",
+                    "owner_id": null,
+                    "photos": [
+                        "https://petstore.example/images/pet-001-1.jpg",
+                        "https://petstore.example/images/pet-001-2.jpg"
+                    ],
+                    "species": "dog",
+                    "status": "available",
+                    "tags": [
+                        "family-friendly",
+                        "trained",
+                        "vaccinated"
+                    ]
+                }
+            }
+        },
+        {
+            "Owner": {
+                "entity_data_example": {
+                    "address": "123 Pet Lane",
+                    "email": "alex@example.com",
+                    "favorites": [
+                        "Labrador",
+                        "Golden Retriever"
+                    ],
+                    "id": "owner-123",
+                    "name": "Alex Smith",
+                    "pets_owned": [
+                        "pet-002",
+                        "pet-003"
+                    ],
+                    "phone": "123-456-7890",
+                    "registered_at": "2025-08-22T10:00:00Z"
+                }
+            }
+        },
+        {
+            "IngestionJob": {
+                "entity_data_example": {
+                    "completed_at": "2025-08-22T10:03:00Z",
+                    "error_summary": null,
+                    "imported_count": 42,
+                    "jobId": "job-2025-06-01",
+                    "source": "https://petstore.example/api/pets",
+                    "started_at": "2025-08-22T10:00:00Z",
+                    "status": "COMPLETED"
+                }
+            }
+        }
+    ]
+}
