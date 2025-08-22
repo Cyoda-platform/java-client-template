@@ -1,0 +1,65 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "age": 2,
+                    "breed": "Tabby",
+                    "createdAt": "2025-08-21T09:00:00Z",
+                    "description": "Friendly tabby cat, good with children",
+                    "gender": "female",
+                    "id": "pet-001",
+                    "medicalRecords": [
+                        "vaccination-2024-05-01",
+                        "spayed-2023-08-10"
+                    ],
+                    "name": "Mittens",
+                    "photos": [
+                        "https://example.com/photos/mittens1.jpg"
+                    ],
+                    "shelterLocation": "Shelter A - Room 3",
+                    "species": "cat",
+                    "status": "available",
+                    "tags": [
+                        "friendly",
+                        "vaccinated"
+                    ],
+                    "updatedAt": "2025-08-21T09:00:00Z"
+                }
+            }
+        },
+        {
+            "User": {
+                "entity_data_example": {
+                    "address": "123 Main St, Anytown, USA",
+                    "adoptionHistory": [],
+                    "createdAt": "2025-01-15T10:00:00Z",
+                    "email": "jane.doe@example.com",
+                    "favorites": [
+                        "pet-001"
+                    ],
+                    "id": "user-001",
+                    "name": "Jane Doe",
+                    "phone": "+15551234567",
+                    "role": "customer"
+                }
+            }
+        },
+        {
+            "AdoptionOrder": {
+                "entity_data_example": {
+                    "createdAt": "2025-08-21T10:01:00Z",
+                    "fee": 50,
+                    "id": "order-001",
+                    "meetAndGreetAt": "2025-08-25T14:00:00Z",
+                    "notes": "Looking to adopt for a family with kids",
+                    "paymentConfirmed": false,
+                    "petId": "pet-001",
+                    "requestedDate": "2025-08-21T10:00:00Z",
+                    "status": "requested",
+                    "userId": "user-001"
+                }
+            }
+        }
+    ]
+}
