@@ -1,4 +1,4 @@
-package com.java_template.application.controller;
+package com.java_template.application.controller.owner.version_1;
 
 import static com.java_template.common.config.Config.*;
 
@@ -43,9 +43,9 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 @RequestMapping("/api/owners")
 @Tag(name = "Owner Controller", description = "Proxy controller for Owner entity - delegates to EntityService")
 @RequiredArgsConstructor
-public class Controller {
+public class OwnerController {
 
-    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
+    private static final Logger logger = LoggerFactory.getLogger(OwnerController.class);
 
     private final EntityService entityService;
 
