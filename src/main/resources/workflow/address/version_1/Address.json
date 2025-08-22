@@ -1,0 +1,38 @@
+{
+  "version": "1.0",
+  "name": "Address Workflow",
+  "desc": "Workflow for Address entity: persisted -> validation -> validated (terminal).",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "persist_to_created",
+          "next": "CREATED",
+          "manual": false
+        }
+      ]
+    },
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "validate_address",
+          "next": "VALIDATED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AddressValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATED": {
+      "transitions": []
+    }
+  }
+}

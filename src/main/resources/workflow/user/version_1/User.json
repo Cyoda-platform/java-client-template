@@ -1,0 +1,35 @@
+{
+  "version": "1.0",
+  "name": "User Workflow",
+  "desc": "Workflow for User entity: anonymous users become identified and their anonymous carts are linked.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "identify_user",
+          "next": "IDENTIFIED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "IdentifyUserProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            },
+            {
+              "name": "LinkAnonCartsProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "IDENTIFIED": {
+      "transitions": []
+    }
+  }
+}
