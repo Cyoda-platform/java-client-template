@@ -1,0 +1,98 @@
+{
+    "active": true,
+    "desc": "Finite state machine for Job entity lifecycle management including ingestion and notification.",
+    "initialState": "none",
+    "name": "Job Workflow",
+    "states": {
+        "failed": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "notify_subscribers_on_failure",
+                    "next": "notified",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "SubscriberProcessor"
+                        }
+                    ]
+                }
+            ]
+        },
+        "ingesting": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsIngestionSuccessful"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "complete_success",
+                    "next": "succeeded"
+                },
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsIngestionFailed"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "complete_failure",
+                    "next": "failed"
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "criterion": {
+                        "function": {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "name": "IsJobValid"
+                        },
+                        "type": "function"
+                    },
+                    "manual": false,
+                    "name": "start_ingestion_if_valid",
+                    "next": "ingesting"
+                }
+            ]
+        },
+        "notified": {
+            "transitions": []
+        },
+        "succeeded": {
+            "transitions": [
+                {
+                    "manual": false,
+                    "name": "notify_subscribers_on_success",
+                    "next": "notified",
+                    "processors": [
+                        {
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "executionMode": "SYNC",
+                            "name": "SubscriberProcessor"
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "version": "1.0"
+}
