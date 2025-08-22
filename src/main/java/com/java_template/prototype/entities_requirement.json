@@ -1,0 +1,65 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "adoptionRequests": [
+                        {
+                            "notes": "Would love to adopt after weekend visit",
+                            "ownerId": "owner_xyz789",
+                            "requestedAt": "2025-08-20T10:15:30Z",
+                            "status": "pending"
+                        }
+                    ],
+                    "age": 2,
+                    "bio": "Friendly tabby looking for a loving home.",
+                    "breed": "Tabby",
+                    "gender": "female",
+                    "id": "pet_001",
+                    "location": "Shelter A",
+                    "name": "Mittens",
+                    "photos": [
+                        "https://shelter.example/photos/pet_001_1.jpg",
+                        "https://shelter.example/photos/pet_001_2.jpg"
+                    ],
+                    "species": "cat",
+                    "status": "available"
+                }
+            }
+        },
+        {
+            "Owner": {
+                "entity_data_example": {
+                    "accountStatus": "active",
+                    "address": "123 Main St, City",
+                    "adoptedPets": [],
+                    "contact": {
+                        "email": "alex@example.com",
+                        "phone": "555-0100"
+                    },
+                    "createdAt": "2025-08-01T09:00:00Z",
+                    "favorites": [
+                        "pet_001",
+                        "pet_045"
+                    ],
+                    "id": "owner_xyz789",
+                    "name": "Alex Doe"
+                }
+            }
+        },
+        {
+            "PetIngestionJob": {
+                "entity_data_example": {
+                    "completedAt": "2025-08-21T12:05:00Z",
+                    "errors": [],
+                    "importedCount": 24,
+                    "jobId": "job_abc123",
+                    "requestedBy": "user_123",
+                    "source": "https://petstore.example/api/pets",
+                    "startedAt": "2025-08-21T12:00:00Z",
+                    "status": "completed"
+                }
+            }
+        }
+    ]
+}
