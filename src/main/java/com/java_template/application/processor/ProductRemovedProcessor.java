@@ -108,8 +108,10 @@ public class ProductRemovedProcessor implements CyodaProcessor {
                             continue;
                         }
 
+                        final String technicalIdFinal = technicalIdStr; // make effectively final for lambdas
+
                         try {
-                            UUID technicalId = UUID.fromString(technicalIdStr);
+                            UUID technicalId = UUID.fromString(technicalIdFinal);
                             // Read latest cart item
                             CompletableFuture<ObjectNode> cartFuture = entityService.getItem(
                                 Cart.ENTITY_NAME,
@@ -172,11 +174,11 @@ public class ProductRemovedProcessor implements CyodaProcessor {
                                     }
                                 }
                             }).exceptionally(ex -> {
-                                logger.error("Error fetching cart {} for cleanup: {}", technicalIdStr, ex.getMessage(), ex);
+                                logger.error("Error fetching cart {} for cleanup: {}", technicalIdFinal, ex.getMessage(), ex);
                                 return null;
                             });
                         } catch (IllegalArgumentException iae) {
-                            logger.warn("ProductRemovedProcessor: cart technicalId '{}' is not a valid UUID, skipping", technicalIdStr);
+                            logger.warn("ProductRemovedProcessor: cart technicalId '{}' is not a valid UUID, skipping", technicalIdFinal);
                         } catch (Exception ex) {
                             logger.error("Unexpected error while processing cart search result: {}", ex.getMessage(), ex);
                         }
