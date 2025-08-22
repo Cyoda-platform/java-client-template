@@ -2,9 +2,8 @@ package com.java_template.application.processor;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.java_template.application.entity.hn_item.version_1.HN_Item;
 import com.java_template.application.entity.importjob.version_1.ImportJob;
+import com.java_template.application.entity.hn_item.version_1.HN_Item;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.service.EntityService;
@@ -18,7 +17,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
-import java.util.UUID;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 @Component
@@ -30,7 +30,9 @@ public class PersistHNItemProcessor implements CyodaProcessor {
     private final EntityService entityService;
     private final ObjectMapper objectMapper;
 
-    public PersistHNItemProcessor(SerializerFactory serializerFactory, EntityService entityService, ObjectMapper objectMapper) {
+    public PersistHNItemProcessor(SerializerFactory serializerFactory,
+                                  EntityService entityService,
+                                  ObjectMapper objectMapper) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
         this.entityService = entityService;
         this.objectMapper = objectMapper;
@@ -43,7 +45,7 @@ public class PersistHNItemProcessor implements CyodaProcessor {
 
         return serializer.withRequest(request)
             .toEntity(ImportJob.class)
-            .validate(this::isValidEntity, "Invalid entity state")
+            .validate(this::isValidEntity, "Invalid import job state")
             .map(this::processEntityLogic)
             .complete();
     }
@@ -54,92 +56,71 @@ public class PersistHNItemProcessor implements CyodaProcessor {
     }
 
     private boolean isValidEntity(ImportJob entity) {
-        return entity != null && entity.isValid();
+        if (entity == null) return false;
+        // basic check: payload must be present to attempt persisting HN item
+        if (entity.getPayload() == null || entity.getPayload().isBlank()) return false;
+        return true;
     }
 
     private ImportJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<ImportJob> context) {
         ImportJob job = context.entity();
 
         try {
-            // Parse payload JSON
-            String payload = job.getPayload();
-            if (payload == null || payload.isBlank()) {
-                throw new IllegalArgumentException("Payload is missing");
-            }
-            JsonNode root = objectMapper.readTree(payload);
-            if (root == null || root.isNull()) {
-                throw new IllegalArgumentException("Payload JSON is invalid");
+            JsonNode payloadNode = objectMapper.readTree(job.getPayload());
+
+            // Validate presence of required fields "id" and "type"
+            List<String> missing = new ArrayList<>();
+            if (!payloadNode.hasNonNull("id")) missing.add("id");
+            if (!payloadNode.hasNonNull("type")) missing.add("type");
+
+            if (!missing.isEmpty()) {
+                String msg = "Missing required fields: " + String.join(",", missing);
+                logger.warn("ImportJob payload validation failed: {}", msg);
+                job.setStatus("FAILED");
+                job.setErrorMessage(msg);
+                return job;
             }
 
-            // Ensure id field exists and convert to Long
-            JsonNode idNode = root.get("id");
-            if (idNode == null || idNode.isNull()) {
-                throw new IllegalArgumentException("Missing required field 'id' in payload");
-            }
-            long hnId = idNode.asLong();
-            if (hnId <= 0) {
-                throw new IllegalArgumentException("Invalid 'id' value in payload");
+            // Ensure importTimestamp exists; if not, enrich it
+            if (!payloadNode.hasNonNull("importTimestamp") || payloadNode.get("importTimestamp").asText().isBlank()) {
+                ((com.fasterxml.jackson.databind.node.ObjectNode) payloadNode).put("importTimestamp", Instant.now().toString());
+                // update job payload string so the enriched payload is preserved
+                String updatedPayload = objectMapper.writeValueAsString(payloadNode);
+                job.setPayload(updatedPayload);
             }
 
-            // Ensure type field exists
-            JsonNode typeNode = root.get("type");
-            if (typeNode == null || typeNode.isNull() || typeNode.asText().isBlank()) {
-                throw new IllegalArgumentException("Missing required field 'type' in payload");
-            }
-            String type = typeNode.asText();
-
-            // Ensure importTimestamp exists; if not, add it
-            String importTs;
-            JsonNode tsNode = root.get("importTimestamp");
-            if (tsNode == null || tsNode.isNull() || tsNode.asText().isBlank()) {
-                importTs = Instant.now().toString();
-                if (root instanceof ObjectNode) {
-                    ((ObjectNode) root).put("importTimestamp", importTs);
-                    // update job payload so it gets persisted with timestamp
-                    job.setPayload(objectMapper.writeValueAsString(root));
-                } else {
-                    // fallback - set importTs but cannot modify original structure
-                    importTs = Instant.now().toString();
-                }
-            } else {
-                importTs = tsNode.asText();
-            }
-
-            // Build HN_Item entity
+            // Build HN_Item entity from payload
             HN_Item hnItem = new HN_Item();
-            hnItem.setId(hnId);
-            hnItem.setType(type);
-            hnItem.setImportTimestamp(importTs);
-            // Ensure rawJson contains the payload including importTimestamp
             hnItem.setRawJson(job.getPayload());
+            hnItem.setId(payloadNode.get("id").asLong());
+            hnItem.setType(payloadNode.get("type").asText());
+            hnItem.setImportTimestamp(payloadNode.get("importTimestamp").asText());
 
-            // Persist HN_Item via EntityService (allowed to add other entities)
-            CompletableFuture<UUID> addFuture = entityService.addItem(
+            // Persist HN_Item as a separate entity (allowed)
+            CompletableFuture<java.util.UUID> addFuture = entityService.addItem(
                 HN_Item.ENTITY_NAME,
                 String.valueOf(HN_Item.ENTITY_VERSION),
                 hnItem
             );
 
-            // Wait for completion and update ImportJob accordingly
-            try {
-                UUID createdId = addFuture.get();
-                // On success, mark job completed and attach resultItemId (HN id)
-                job.setStatus("COMPLETED");
-                job.setResultItemId(hnItem.getId());
-                job.setErrorMessage(null);
-                logger.info("Persisted HN_Item (hnId={}), created technicalId={}", hnItem.getId(), createdId);
-            } catch (Exception ex) {
-                // On failure, mark job failed and record error message
-                job.setStatus("FAILED");
-                job.setErrorMessage(ex.getMessage() == null ? "Unknown error while persisting HN_Item" : ex.getMessage());
-                logger.error("Failed to persist HN_Item for job: {}, error: {}", context.request().getId(), ex.getMessage(), ex);
-            }
+            // We don't need the returned technical UUID for the ImportJob.resultItemId.
+            // The business requirement expects the HN numeric id to be recorded.
+            addFuture.whenComplete((uuid, ex) -> {
+                if (ex != null) {
+                    logger.error("Failed to persist HN_Item for import job: {}", ex.getMessage(), ex);
+                } else {
+                    logger.info("Persisted HN_Item technical id: {}", uuid);
+                }
+            });
+
+            // Mark job as completed and record the source HN id
+            job.setStatus("COMPLETED");
+            job.setResultItemId(hnItem.getId());
 
         } catch (Exception e) {
-            // If any processing/parsing error occurs, mark job failed
+            logger.error("Exception while persisting HN item: {}", e.getMessage(), e);
             job.setStatus("FAILED");
-            job.setErrorMessage(e.getMessage() == null ? "Processing error" : e.getMessage());
-            logger.error("Error processing ImportJob {}: {}", context.request().getId(), e.getMessage(), e);
+            job.setErrorMessage("Persist error: " + e.getMessage());
         }
 
         return job;

@@ -1,4 +1,5 @@
 package com.java_template.application.processor;
+
 import com.java_template.application.entity.hn_item.version_1.HN_Item;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
@@ -12,9 +13,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import org.springframework.beans.factory.annotation.Autowired;
 
 @Component
 public class ArchiveProcessor implements CyodaProcessor {
@@ -22,12 +20,10 @@ public class ArchiveProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(ArchiveProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
-    private final ObjectMapper objectMapper;
+    private final ObjectMapper mapper = new ObjectMapper();
 
-    @Autowired
-    public ArchiveProcessor(SerializerFactory serializerFactory, ObjectMapper objectMapper) {
+    public ArchiveProcessor(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
-        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -35,10 +31,10 @@ public class ArchiveProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing HN_Item for request: {}", request.getId());
 
-        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
+        return serializer.withRequest(request)
             .toEntity(HN_Item.class)
             .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+            .map(this::processEntityLogic)
             .complete();
     }
 
@@ -54,64 +50,33 @@ public class ArchiveProcessor implements CyodaProcessor {
     private HN_Item processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<HN_Item> context) {
         HN_Item entity = context.entity();
 
-        // Business goal: mark the stored HN item as archived.
-        // We must not call update on this entity via EntityService; instead modify the entity state so Cyoda persists it.
-        // Approach: update the rawJson payload to include an "archived": true flag. Preserve existing fields where possible.
-
-        String raw = entity.getRawJson();
-        if (raw == null || raw.isBlank()) {
-            // No raw JSON available — create a minimal JSON with known entity fields and archived flag
-            ObjectNode created = objectMapper.createObjectNode();
-            if (entity.getId() != null) created.put("id", entity.getId());
-            if (entity.getType() != null) created.put("type", entity.getType());
-            if (entity.getImportTimestamp() != null) created.put("importTimestamp", entity.getImportTimestamp());
-            created.put("archived", true);
-            try {
-                entity.setRawJson(objectMapper.writeValueAsString(created));
-            } catch (JsonProcessingException e) {
-                // Fallback: set a simple string representation
-                logger.warn("Failed to serialize fallback archived JSON for HN_Item id={}: {}", entity.getId(), e.getMessage());
-                entity.setRawJson("{\"archived\":true}");
-            }
-            return entity;
-        }
-
         try {
-            JsonNode node = objectMapper.readTree(raw);
-            if (node.isObject()) {
-                ObjectNode obj = (ObjectNode) node;
-                obj.put("archived", true);
-                // ensure importTimestamp exists in raw JSON (do not overwrite if present)
-                if (!obj.has("importTimestamp") && entity.getImportTimestamp() != null) {
-                    obj.put("importTimestamp", entity.getImportTimestamp());
-                }
-                entity.setRawJson(objectMapper.writeValueAsString(obj));
-            } else {
-                // Raw JSON is not an object (array, primitive), wrap it into an object with original payload and archived flag
-                ObjectNode wrapper = objectMapper.createObjectNode();
-                wrapper.set("original", node);
-                if (entity.getId() != null) wrapper.put("id", entity.getId());
-                if (entity.getType() != null) wrapper.put("type", entity.getType());
-                if (entity.getImportTimestamp() != null) wrapper.put("importTimestamp", entity.getImportTimestamp());
-                wrapper.put("archived", true);
-                entity.setRawJson(objectMapper.writeValueAsString(wrapper));
+            String raw = entity.getRawJson();
+            if (raw == null || raw.isBlank()) {
+                // nothing to enrich; return entity unchanged
+                logger.warn("HN_Item rawJson is empty for id={}", entity.getId());
+                return entity;
             }
-        } catch (JsonProcessingException e) {
-            // If parsing fails, create a new JSON preserving known fields and mark archived
-            logger.warn("Failed to parse rawJson for HN_Item id={}: {}. Creating fallback archived JSON.", entity.getId(), e.getMessage());
-            ObjectNode created = objectMapper.createObjectNode();
-            if (entity.getId() != null) created.put("id", entity.getId());
-            if (entity.getType() != null) created.put("type", entity.getType());
-            if (entity.getImportTimestamp() != null) created.put("importTimestamp", entity.getImportTimestamp());
-            created.put("archived", true);
-            // also preserve the original raw string under a field to avoid data loss
-            created.put("originalRawJson", raw);
+
+            // Attempt to parse the raw JSON and add an "archived": true flag.
+            // This preserves the original payload structure while marking it archived.
+            ObjectNode node;
             try {
-                entity.setRawJson(objectMapper.writeValueAsString(created));
-            } catch (JsonProcessingException ex) {
-                logger.error("Failed to serialize fallback archived JSON for HN_Item id={}: {}", entity.getId(), ex.getMessage());
-                entity.setRawJson("{\"archived\":true}");
+                node = (ObjectNode) mapper.readTree(raw);
+            } catch (Exception ex) {
+                // If rawJson is not a JSON object, wrap it into an object containing original payload and archived flag.
+                node = mapper.createObjectNode();
+                node.put("rawPayload", raw);
             }
+
+            node.put("archived", true);
+            String updated = mapper.writeValueAsString(node);
+            entity.setRawJson(updated);
+
+            logger.info("Archived HN_Item id={} by adding archived flag to rawJson", entity.getId());
+        } catch (Exception e) {
+            // Log and return entity unchanged; do not fail the processor here.
+            logger.error("Failed to mark HN_Item id={} as archived: {}", entity.getId(), e.getMessage(), e);
         }
 
         return entity;

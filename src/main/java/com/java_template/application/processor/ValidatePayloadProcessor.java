@@ -3,10 +3,8 @@ package com.java_template.application.processor;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.importjob.version_1.ImportJob;
-import com.java_template.application.entity.validation_result.version_1.Validation_Result;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
-import com.java_template.common.service.EntityService;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -18,8 +16,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.UUID;
 
 @Component
 public class ValidatePayloadProcessor implements CyodaProcessor {
@@ -27,12 +23,10 @@ public class ValidatePayloadProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(ValidatePayloadProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
-    private final EntityService entityService;
     private final ObjectMapper objectMapper;
 
-    public ValidatePayloadProcessor(SerializerFactory serializerFactory, EntityService entityService, ObjectMapper objectMapper) {
+    public ValidatePayloadProcessor(SerializerFactory serializerFactory, ObjectMapper objectMapper) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
-        this.entityService = entityService;
         this.objectMapper = objectMapper;
     }
 
@@ -54,73 +48,57 @@ public class ValidatePayloadProcessor implements CyodaProcessor {
     }
 
     private boolean isValidEntity(ImportJob entity) {
-        return entity != null && entity.isValid();
+        // Basic check: payload must be present to run validation of payload contents
+        return entity != null && entity.getPayload() != null && !entity.getPayload().isBlank();
     }
 
     private ImportJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<ImportJob> context) {
         ImportJob job = context.entity();
+        if (job == null) {
+            logger.warn("ImportJob entity is null in validation processor");
+            return null;
+        }
 
         String payload = job.getPayload();
-        Validation_Result result = new Validation_Result();
-        List<String> missingFields = new ArrayList<>();
-
         if (payload == null || payload.isBlank()) {
-            // payload absence is already guarded by ImportJob.isValid(), but handle defensively
-            result.setIsValid(false);
-            result.setErrorMessage("Payload is empty or missing");
-            result.setMissingFields(List.of("payload"));
-            persistValidationResult(result);
+            job.setStatus("FAILED");
+            job.setErrorMessage("Payload is missing or empty");
+            logger.info("ImportJob {} validation failed: payload missing", context.request().getId());
             return job;
         }
 
+        List<String> missingFields = new ArrayList<>();
         try {
             JsonNode root = objectMapper.readTree(payload);
 
-            // Check presence (and non-null) of "id" and "type"
-            if (!root.has("id") || root.get("id").isNull()) {
+            // Check for numeric id or string id presence (HN uses numeric id)
+            JsonNode idNode = root.get("id");
+            if (idNode == null || idNode.isNull()) {
                 missingFields.add("id");
             }
-            if (!root.has("type") || root.get("type").isNull()) {
+
+            JsonNode typeNode = root.get("type");
+            if (typeNode == null || typeNode.isNull() || typeNode.asText().isBlank()) {
                 missingFields.add("type");
             }
 
             if (missingFields.isEmpty()) {
-                result.setIsValid(true);
-                result.setMissingFields(null);
-                result.setErrorMessage(null);
+                // Payload contains required fields -> mark job to proceed to enrichment
+                job.setStatus("IN_PROGRESS");
+                job.setErrorMessage(null);
+                logger.info("ImportJob {} validation succeeded, proceeding to enrichment", context.request().getId());
             } else {
-                result.setIsValid(false);
-                result.setMissingFields(missingFields);
-                result.setErrorMessage("Missing required fields: " + String.join(", ", missingFields));
+                // Missing required fields -> fail the job with details
+                job.setStatus("FAILED");
+                job.setErrorMessage("Missing required fields: " + String.join(", ", missingFields));
+                logger.info("ImportJob {} validation failed: {}", context.request().getId(), job.getErrorMessage());
             }
-
         } catch (Exception e) {
-            logger.warn("Failed to parse payload JSON for ImportJob: {}", e.getMessage());
-            result.setIsValid(false);
-            result.setErrorMessage("Invalid payload JSON: " + e.getMessage());
+            job.setStatus("FAILED");
+            job.setErrorMessage("Payload JSON parsing error: " + e.getMessage());
+            logger.error("ImportJob {} payload parsing failed", context.request().getId(), e);
         }
-
-        persistValidationResult(result);
 
         return job;
-    }
-
-    private void persistValidationResult(Validation_Result result) {
-        try {
-            CompletableFuture<UUID> idFuture = entityService.addItem(
-                Validation_Result.ENTITY_NAME,
-                String.valueOf(Validation_Result.ENTITY_VERSION),
-                result
-            );
-            idFuture.whenComplete((id, ex) -> {
-                if (ex != null) {
-                    logger.error("Failed to persist Validation_Result: {}", ex.getMessage());
-                } else {
-                    logger.info("Persisted Validation_Result with technicalId: {}", id);
-                }
-            });
-        } catch (Exception ex) {
-            logger.error("Exception while adding Validation_Result: {}", ex.getMessage());
-        }
     }
 }

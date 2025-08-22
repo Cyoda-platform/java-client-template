@@ -1,6 +1,5 @@
 package com.java_template.application.processor;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.importjob.version_1.ImportJob;
@@ -33,10 +32,10 @@ public class MarkJobCompletedProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing ImportJob for request: {}", request.getId());
 
-        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
+        return serializer.withRequest(request)
             .toEntity(ImportJob.class)
             .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+            .map(this::processEntityLogic)
             .complete();
     }
 
@@ -51,56 +50,56 @@ public class MarkJobCompletedProcessor implements CyodaProcessor {
 
     private ImportJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<ImportJob> context) {
         ImportJob entity = context.entity();
+        if (entity == null) return null;
 
-        // If payload is missing or empty, mark job as FAILED and set errorMessage
-        if (entity.getPayload() == null || entity.getPayload().isBlank()) {
-            logger.warn("ImportJob payload is empty, marking job as FAILED");
-            entity.setStatus("FAILED");
-            entity.setErrorMessage("Missing payload");
-            return entity;
-        }
-
-        // Attempt to extract numeric id from payload if resultItemId is not already set
-        if (entity.getResultItemId() == null) {
-            try {
-                JsonNode root = objectMapper.readTree(entity.getPayload());
-                JsonNode idNode = root.get("id");
-                if (idNode != null && idNode.isNumber()) {
-                    long idValue = idNode.asLong();
-                    entity.setResultItemId(idValue);
-                    logger.info("Extracted id={} from payload and set as resultItemId", idValue);
-                } else if (idNode != null && idNode.isTextual()) {
-                    // sometimes id might be textual; try parse long
-                    try {
-                        long idValue = Long.parseLong(idNode.asText());
-                        entity.setResultItemId(idValue);
-                        logger.info("Parsed textual id={} from payload and set as resultItemId", idValue);
-                    } catch (NumberFormatException nfe) {
-                        logger.warn("Unable to parse textual id from payload: {}", idNode.asText());
-                        // leave resultItemId null; will still mark COMPLETED but without result id
+        try {
+            // Ensure job is marked completed and has resultItemId if possible.
+            // If resultItemId is missing but payload contains an "id" field, extract it.
+            String payload = entity.getPayload();
+            if (payload != null && !payload.isBlank()) {
+                try {
+                    JsonNode root = objectMapper.readTree(payload);
+                    if (entity.getResultItemId() == null && root.has("id") && !root.get("id").isNull()) {
+                        JsonNode idNode = root.get("id");
+                        if (idNode.canConvertToLong()) {
+                            entity.setResultItemId(idNode.longValue());
+                            logger.info("Extracted resultItemId {} from payload for ImportJob", entity.getResultItemId());
+                        } else if (idNode.isTextual()) {
+                            try {
+                                long parsed = Long.parseLong(idNode.asText());
+                                entity.setResultItemId(parsed);
+                                logger.info("Parsed resultItemId {} from textual payload id for ImportJob", entity.getResultItemId());
+                            } catch (NumberFormatException nfe) {
+                                // ignore - cannot parse textual id
+                                logger.debug("Could not parse textual id from payload: {}", idNode.asText());
+                            }
+                        }
                     }
-                } else {
-                    logger.warn("Payload does not contain numeric 'id' field");
+                } catch (Exception ex) {
+                    // Non-fatal: log and continue. We don't want to fail the whole processor because of payload parse issues.
+                    logger.debug("Failed to parse payload JSON for ImportJob id {}: {}", context.request().getId(), ex.getMessage());
                 }
-            } catch (JsonProcessingException e) {
-                logger.error("Failed to parse payload JSON: {}", e.getMessage());
-                entity.setStatus("FAILED");
-                entity.setErrorMessage("Invalid payload JSON: " + e.getMessage());
-                return entity;
             }
+
+            // If status is not COMPLETED but we have a resultItemId, set COMPLETED.
+            if (entity.getStatus() == null || !entity.getStatus().equalsIgnoreCase("COMPLETED")) {
+                if (entity.getResultItemId() != null) {
+                    entity.setStatus("COMPLETED");
+                    entity.setErrorMessage(null);
+                    logger.info("Marking ImportJob as COMPLETED with resultItemId={}", entity.getResultItemId());
+                } else {
+                    // If no resultItemId but status is not COMPLETED, leave as-is.
+                    logger.debug("ImportJob status not COMPLETED and no resultItemId available; leaving state unchanged.");
+                }
+            }
+
+        } catch (Exception e) {
+            // As a safety net, if something unexpected happens, set job to FAILED with an error message.
+            logger.error("Unexpected error while marking job completed: {}", e.getMessage(), e);
+            entity.setStatus("FAILED");
+            entity.setErrorMessage("MarkJobCompletedProcessor error: " + e.getMessage());
         }
 
-        // Ensure status is COMPLETED (if not already FAILED)
-        if (!"FAILED".equalsIgnoreCase(entity.getStatus())) {
-            entity.setStatus("COMPLETED");
-            // clear errorMessage on successful completion if present
-            entity.setErrorMessage(null);
-            logger.info("Marked ImportJob as COMPLETED for request");
-        } else {
-            logger.info("ImportJob already marked as FAILED; leaving state intact");
-        }
-
-        // No external entity updates here — notification will be handled by downstream processors
         return entity;
     }
 }
