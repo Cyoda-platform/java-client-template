@@ -1,0 +1,86 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "age": 3,
+                    "breed": "Tabby",
+                    "color": "brown",
+                    "description": "Friendly tabby cat, good with kids.",
+                    "gender": "female",
+                    "id": "pet_555",
+                    "location": "Shelter Downtown",
+                    "name": "Mittens",
+                    "photos": [
+                        "https://example.com/photos/pet_555_1.jpg",
+                        "https://example.com/photos/pet_555_2.jpg"
+                    ],
+                    "source_metadata": {
+                        "external_id": "12345",
+                        "raw": {
+                            "original_name": "Mittens",
+                            "payload_version": 1
+                        },
+                        "source": "petstore"
+                    },
+                    "species": "cat",
+                    "status": "available",
+                    "tags": [
+                        "house-trained",
+                        "good-with-children"
+                    ]
+                }
+            }
+        },
+        {
+            "Owner": {
+                "entity_data_example": {
+                    "address": "123 Cat Lane",
+                    "email": "alex@example.com",
+                    "favorites": [
+                        "pet_555"
+                    ],
+                    "id": "owner_98765",
+                    "name": "Alex Smith",
+                    "phone": "+1234567890",
+                    "role": "user",
+                    "verified": false
+                }
+            }
+        },
+        {
+            "AdoptionRequest": {
+                "entity_data_example": {
+                    "decision_by": null,
+                    "decision_date": null,
+                    "id": "req_222",
+                    "notes": "I have a fenced yard and other pets",
+                    "owner_id": "owner_98765",
+                    "pet_id": "pet_555",
+                    "preferred_pickup_date": "2025-09-01",
+                    "request_date": "2025-08-20T12:00:00Z",
+                    "status": "under_review"
+                }
+            }
+        },
+        {
+            "PetSyncJob": {
+                "entity_data_example": {
+                    "config": {
+                        "filters": {
+                            "species": "cat"
+                        },
+                        "sourceUrl": "https://petstore.example/api/pets"
+                    },
+                    "end_time": "2025-08-20T10:01:30Z",
+                    "error_message": null,
+                    "fetched_count": 120,
+                    "id": "job_123456",
+                    "source": "petstore",
+                    "start_time": "2025-08-20T10:00:00Z",
+                    "status": "completed"
+                }
+            }
+        }
+    ]
+}
