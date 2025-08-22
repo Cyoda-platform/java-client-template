@@ -1,0 +1,49 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "age": 2,
+                    "breed": "Tabby",
+                    "description": "Friendly tabby cat, good with children.",
+                    "gender": "female",
+                    "id": "pet-789",
+                    "name": "Mittens",
+                    "photos": [
+                        "https://example.com/photos/mittens1.jpg"
+                    ],
+                    "source": "Petstore",
+                    "species": "cat",
+                    "status": "available"
+                }
+            }
+        },
+        {
+            "User": {
+                "entity_data_example": {
+                    "address": "123 Pet Lane",
+                    "createdAt": "2025-08-01T12:00:00Z",
+                    "email": "alex@example.com",
+                    "id": "user-123",
+                    "name": "Alex Smith",
+                    "phone": "+15551234",
+                    "role": "customer",
+                    "verified": false
+                }
+            }
+        },
+        {
+            "PetEnrichmentJob": {
+                "entity_data_example": {
+                    "createdAt": "2025-08-01T11:00:00Z",
+                    "errors": [],
+                    "fetchedCount": 48,
+                    "jobId": "job-123",
+                    "petSource": "petstore/v1/pets?limit=50",
+                    "requestedBy": "user-123",
+                    "status": "COMPLETED"
+                }
+            }
+        }
+    ]
+}
