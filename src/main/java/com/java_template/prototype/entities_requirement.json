@@ -1,0 +1,65 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "adoptedByUserId": null,
+                    "ageMonths": 18,
+                    "arrivalDate": "2025-07-01",
+                    "breed": "Tabby",
+                    "color": "brown",
+                    "createdAt": "2025-07-01T10:00:00Z",
+                    "description": "Playful",
+                    "externalId": "petstore-123",
+                    "healthRecords": [],
+                    "id": "pet-123",
+                    "name": "Mittens",
+                    "photos": [
+                        "https://example.com/photos/1.jpg"
+                    ],
+                    "sex": "F",
+                    "size": "small",
+                    "source": "Petstore",
+                    "species": "cat",
+                    "status": "available",
+                    "updatedAt": "2025-07-02T11:00:00Z"
+                }
+            }
+        },
+        {
+            "User": {
+                "entity_data_example": {
+                    "address": "123 Main St",
+                    "createdAt": "2025-06-01T09:00:00Z",
+                    "email": "jane@example.com",
+                    "favorites": [
+                        "pet-1",
+                        "pet-2"
+                    ],
+                    "id": "user-456",
+                    "name": "Jane Doe",
+                    "phone": "+10000000000",
+                    "role": "customer",
+                    "updatedAt": "2025-07-01T12:00:00Z"
+                }
+            }
+        },
+        {
+            "AdoptionJob": {
+                "entity_data_example": {
+                    "decisionBy": null,
+                    "fee": 25.0,
+                    "id": "job-123",
+                    "notes": "Interested in adopting after meeting",
+                    "petId": "pet-123",
+                    "processedAt": null,
+                    "requestType": "adoption",
+                    "requestedAt": "2025-08-22T12:00:00Z",
+                    "resultDetails": null,
+                    "status": "pending",
+                    "userId": "user-456"
+                }
+            }
+        }
+    ]
+}
