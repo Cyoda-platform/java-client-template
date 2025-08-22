@@ -15,9 +15,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.List;
-
 @Component
 public class NoMatchCriterion implements CyodaCriterion {
 
@@ -32,7 +29,7 @@ public class NoMatchCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Laureate.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -41,54 +38,58 @@ public class NoMatchCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name (case-sensitive)
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Laureate> context) {
          Laureate entity = context.entity();
          if (entity == null) {
-             logger.warn("Laureate entity is null in NoMatchCriterion");
-             return EvaluationOutcome.fail("Laureate entity is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             logger.warn("NoMatchCriterion: incoming Laureate entity is null");
+             return EvaluationOutcome.fail("Entity payload is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // Use entity's own validation where possible, but provide detailed messages for failures
-         List<String> errors = new ArrayList<>();
-
+         // Required validation: essential identity & classification fields
          if (entity.getExternalId() == null || entity.getExternalId().isBlank()) {
-             errors.add("externalId is required");
+             logger.debug("NoMatchCriterion: externalId is missing or blank");
+             return EvaluationOutcome.fail("externalId is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
          if (entity.getFullName() == null || entity.getFullName().isBlank()) {
-             errors.add("fullName is required");
+             logger.debug("NoMatchCriterion: fullName is missing or blank");
+             return EvaluationOutcome.fail("fullName is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
          if (entity.getPrizeCategory() == null || entity.getPrizeCategory().isBlank()) {
-             errors.add("prizeCategory is required");
+             logger.debug("NoMatchCriterion: prizeCategory is missing or blank");
+             return EvaluationOutcome.fail("prizeCategory is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
          if (entity.getPrizeYear() == null) {
-             errors.add("prizeYear is required");
+             logger.debug("NoMatchCriterion: prizeYear is missing");
+             return EvaluationOutcome.fail("prizeYear is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-         // If optional string fields are provided they must not be blank
-         if (entity.getRawPayload() != null && entity.getRawPayload().isBlank()) {
-             errors.add("rawPayload, if provided, must not be blank");
-         }
-         if (entity.getFirstSeenTimestamp() != null && entity.getFirstSeenTimestamp().isBlank()) {
-             errors.add("firstSeenTimestamp, if provided, must not be blank");
-         }
-         if (entity.getLastSeenTimestamp() != null && entity.getLastSeenTimestamp().isBlank()) {
-             errors.add("lastSeenTimestamp, if provided, must not be blank");
+         if (entity.getPrizeYear() <= 0) {
+             logger.debug("NoMatchCriterion: prizeYear has invalid value: {}", entity.getPrizeYear());
+             return EvaluationOutcome.fail("prizeYear must be a positive integer", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         if (!errors.isEmpty()) {
-             String message = String.join("; ", errors);
-             logger.warn("NoMatchCriterion validation failed for Laureate id={} : {}", entity.getId(), message);
-             return EvaluationOutcome.fail(message, StandardEvalReasonCategories.VALIDATION_FAILURE);
+         // Data quality checks for timestamps and raw payload for new records
+         if (entity.getFirstSeenTimestamp() == null || entity.getFirstSeenTimestamp().isBlank()) {
+             logger.debug("NoMatchCriterion: firstSeenTimestamp missing for externalId={}", entity.getExternalId());
+             return EvaluationOutcome.fail("firstSeenTimestamp is required for new records", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+         if (entity.getLastSeenTimestamp() == null || entity.getLastSeenTimestamp().isBlank()) {
+             logger.debug("NoMatchCriterion: lastSeenTimestamp missing for externalId={}", entity.getExternalId());
+             return EvaluationOutcome.fail("lastSeenTimestamp is required for new records", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // As a final sanity check, also respect entity.isValid() implementation
-         if (!entity.isValid()) {
-             logger.warn("Laureate.isValid() returned false for id={}", entity.getId());
-             return EvaluationOutcome.fail("Laureate entity failed domain validation", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         // rawPayload is recommended to keep an audit of the source, treat missing as data-quality failure
+         if (entity.getRawPayload() == null || entity.getRawPayload().isBlank()) {
+             logger.debug("NoMatchCriterion: rawPayload missing for externalId={}", entity.getExternalId());
+             return EvaluationOutcome.fail("rawPayload is required for incoming laureate payloads", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
+         // Basic business rule: ensure changeSummary consistent for a newly created record (may be empty for initial import)
+         // No strict rule here, just pass — richer merge decisions happen in Merge/Update processors.
+         logger.debug("NoMatchCriterion: Laureate passed validation checks externalId={}", entity.getExternalId());
          return EvaluationOutcome.success();
     }
 }

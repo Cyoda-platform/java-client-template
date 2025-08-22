@@ -29,7 +29,7 @@ public class MatchFoundCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Laureate.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -43,45 +43,38 @@ public class MatchFoundCriterion implements CyodaCriterion {
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Laureate> context) {
          Laureate entity = context.entity();
-
          if (entity == null) {
-             logger.warn("Laureate entity is null in MatchFoundCriterion");
-             return EvaluationOutcome.fail("Entity is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             logger.warn("MatchFoundCriterion: received null entity in context");
+             return EvaluationOutcome.fail("Entity is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
+         // Basic validation: required fields to attempt deduplication must be present
          String externalId = entity.getExternalId();
          String fullName = entity.getFullName();
          Integer prizeYear = entity.getPrizeYear();
          String prizeCategory = entity.getPrizeCategory();
 
-         // Primary matching strategy: externalId
+         // If externalId is present, we treat this as a reliable key for matching existing records.
          if (externalId != null && !externalId.isBlank()) {
-             logger.debug("MatchFoundCriterion: externalId present, treating as match for id={}", entity.getId());
+             logger.debug("MatchFoundCriterion: externalId present ({}). Treating as match-key candidate.", externalId);
              return EvaluationOutcome.success();
          }
 
-         // Secondary matching strategy: composite key (fullName + prizeYear + prizeCategory)
-         boolean hasFullName = fullName != null && !fullName.isBlank();
-         boolean hasPrizeCategory = prizeCategory != null && !prizeCategory.isBlank();
-         boolean hasPrizeYear = prizeYear != null;
-
-         if (hasFullName && hasPrizeYear && hasPrizeCategory) {
-             logger.debug("MatchFoundCriterion: composite keys present (fullName, prizeYear, prizeCategory) for id={}", entity.getId());
+         // Heuristic matching: if fullName + prizeYear + prizeCategory present, we can consider this a potential match.
+         if (fullName != null && !fullName.isBlank()
+             && prizeYear != null
+             && prizeCategory != null && !prizeCategory.isBlank()) {
+             logger.debug("MatchFoundCriterion: fullName/prizeYear/prizeCategory present ({} / {} / {}). Treating as match-key candidate.",
+                 fullName, prizeYear, prizeCategory);
              return EvaluationOutcome.success();
          }
 
-         // If neither primary nor secondary identifiers are present, we cannot determine a match.
-         StringBuilder msg = new StringBuilder("Insufficient identifiers for matching. Require externalId or (fullName + prizeYear + prizeCategory). Missing:");
-         if (!hasFullName) msg.append(" fullName");
-         if (!hasPrizeYear) msg.append(" prizeYear");
-         if (!hasPrizeCategory) msg.append(" prizeCategory");
-         if ((externalId == null || externalId.isBlank()) && !hasFullName && !hasPrizeYear && !hasPrizeCategory) {
-             logger.warn("MatchFoundCriterion: {}", msg.toString());
-             return EvaluationOutcome.fail(msg.toString(), StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-         }
+         // Insufficient data to determine a match
+         logger.info("MatchFoundCriterion: insufficient identifying information for deduplication. externalId={}, fullName={}, prizeYear={}, prizeCategory={}",
+             externalId, fullName, prizeYear, prizeCategory);
 
-         // If some fields present but not enough to match reliably, treat as validation issue.
-         logger.warn("MatchFoundCriterion: partial identifiers present but insufficient to assert match for id={}. {}", entity.getId(), msg.toString());
-         return EvaluationOutcome.fail(msg.toString(), StandardEvalReasonCategories.VALIDATION_FAILURE);
+         return EvaluationOutcome.fail(
+             "Insufficient identifying information to determine existing match (need externalId or fullName+prizeYear+prizeCategory)",
+             StandardEvalReasonCategories.VALIDATION_FAILURE);
     }
 }

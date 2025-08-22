@@ -29,7 +29,7 @@ public class ProcessingSucceededCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Job.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,35 +38,31 @@ public class ProcessingSucceededCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
+        // MUST use exact criterion name (case-sensitive)
         return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Job> context) {
-         Job entity = context.entity();
-         if (entity == null) {
-             return EvaluationOutcome.fail("Job entity is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         Job job = context.entity();
+         if (job == null) {
+             return EvaluationOutcome.fail("Job entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-
-         // status must be present
-         if (entity.getStatus() == null || entity.getStatus().isBlank()) {
-             return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         // status is required for finalization decisions
+         if (job.getStatus() == null || job.getStatus().isBlank()) {
+             return EvaluationOutcome.fail("Job.status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-
-         // ProcessingSucceededCriterion expects the Job to be marked COMPLETED
-         if (!"COMPLETED".equalsIgnoreCase(entity.getStatus())) {
-             return EvaluationOutcome.fail("job processing not completed", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         // Business rule: only pass this criterion when job reached COMPLETED
+         if (!"COMPLETED".equals(job.getStatus())) {
+             return EvaluationOutcome.fail("Job status is not COMPLETED", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
-
-         // For a completed job, lastResultSummary should be present to explain outcome
-         if (entity.getLastResultSummary() == null || entity.getLastResultSummary().isBlank()) {
+         // Data quality checks for completed job: ensure run/result timestamps and summary present
+         if (job.getLastResultSummary() == null || job.getLastResultSummary().isBlank()) {
              return EvaluationOutcome.fail("lastResultSummary is required for completed jobs", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
-
-         // lastRunTimestamp should be present for completed jobs
-         if (entity.getLastRunTimestamp() == null || entity.getLastRunTimestamp().isBlank()) {
+         if (job.getLastRunTimestamp() == null || job.getLastRunTimestamp().isBlank()) {
              return EvaluationOutcome.fail("lastRunTimestamp is required for completed jobs", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
-
+         // All checks passed
          return EvaluationOutcome.success();
     }
 }

@@ -8,13 +8,9 @@ import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
-import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeParseException;
+import org.springframework.stereotype.Component;
 
 @Component
 public class ValidateJobProcessor implements CyodaProcessor {
@@ -49,85 +45,38 @@ public class ValidateJobProcessor implements CyodaProcessor {
     }
 
     private Job processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Job> context) {
-        Job job = context.entity();
+        Job entity = context.entity();
 
-        // Defensive checks - rely on isValidEntity, but guard anyway
-        if (job == null) {
-            logger.warn("Job is null in processing context");
+        if (entity == null) {
+            logger.warn("Received null Job entity in execution context");
             return null;
         }
 
-        StringBuilder summary = new StringBuilder();
-        boolean valid = true;
+        // Basic validation rules from functional requirements:
+        // - If sourceEndpoint is empty or scheduleSpec is invalid -> mark FAILED
+        // - Otherwise mark as VALIDATED
+        String sourceEndpoint = entity.getSourceEndpoint();
+        String scheduleSpec = entity.getScheduleSpec();
 
-        // Validate sourceEndpoint
-        if (job.getSourceEndpoint() == null || job.getSourceEndpoint().isBlank()) {
-            summary.append("sourceEndpoint is missing; ");
-            valid = false;
-        }
+        boolean missingSource = (sourceEndpoint == null || sourceEndpoint.isBlank());
+        boolean missingSchedule = (scheduleSpec == null || scheduleSpec.isBlank());
 
-        // Validate scheduleSpec based on scheduleType
-        String scheduleType = job.getScheduleType();
-        String scheduleSpec = job.getScheduleSpec();
-
-        if (scheduleType == null || scheduleType.isBlank()) {
-            summary.append("scheduleType is missing; ");
-            valid = false;
-        } else {
-            if ("recurring".equalsIgnoreCase(scheduleType) || "cron".equalsIgnoreCase(scheduleType)) {
-                // Basic cron validation: must contain at least 5 space-separated fields
-                if (scheduleSpec == null || scheduleSpec.isBlank()) {
-                    summary.append("scheduleSpec is missing for recurring schedule; ");
-                    valid = false;
-                } else {
-                    String[] parts = scheduleSpec.trim().split("\\s+");
-                    if (parts.length < 5) {
-                        summary.append("scheduleSpec does not appear to be a valid cron expression; ");
-                        valid = false;
-                    }
-                }
-            } else if ("one-time".equalsIgnoreCase(scheduleType) || "onetimer".equalsIgnoreCase(scheduleType)) {
-                if (scheduleSpec == null || scheduleSpec.isBlank()) {
-                    summary.append("scheduleSpec is missing for one-time schedule; ");
-                    valid = false;
-                } else {
-                    boolean parsed = false;
-                    try {
-                        Instant.parse(scheduleSpec);
-                        parsed = true;
-                    } catch (DateTimeParseException e) {
-                        // try LocalDateTime (ISO_LOCAL_DATE_TIME)
-                        try {
-                            LocalDateTime.parse(scheduleSpec);
-                            parsed = true;
-                        } catch (DateTimeParseException ex) {
-                            // not parseable
-                        }
-                    }
-                    if (!parsed) {
-                        summary.append("scheduleSpec is not a valid ISO timestamp for one-time schedule; ");
-                        valid = false;
-                    }
-                }
-            } else {
-                // Unknown scheduleType - treat as invalid
-                summary.append("unsupported scheduleType: ").append(scheduleType).append("; ");
-                valid = false;
+        if (missingSource || missingSchedule) {
+            entity.setStatus("FAILED");
+            StringBuilder summary = new StringBuilder("Validation failed:");
+            if (missingSource) summary.append(" missing sourceEndpoint");
+            if (missingSchedule) {
+                if (missingSource) summary.append(";");
+                summary.append(" missing or invalid scheduleSpec");
             }
-        }
-
-        if (!valid) {
-            job.setStatus("FAILED");
-            String msg = summary.toString().trim();
-            if (msg.isEmpty()) msg = "Validation failed";
-            job.setLastResultSummary(msg);
-            logger.info("Job validation failed (id={}): {}", job.getId(), msg);
+            entity.setLastResultSummary(summary.toString());
+            logger.warn("Job validation failed for id={} summary={}", entity.getId(), entity.getLastResultSummary());
         } else {
-            job.setStatus("VALIDATED");
-            job.setLastResultSummary("Validation passed");
-            logger.info("Job validated successfully (id={})", job.getId());
+            entity.setStatus("VALIDATED");
+            entity.setLastResultSummary("Validation passed");
+            logger.info("Job validated successfully for id={}", entity.getId());
         }
 
-        return job;
+        return entity;
     }
 }

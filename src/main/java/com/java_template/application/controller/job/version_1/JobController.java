@@ -2,9 +2,7 @@ package com.java_template.application.controller.job.version_1;
 
 import static com.java_template.common.config.Config.*;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
@@ -17,248 +15,382 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
-import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.ExecutionException;
 
 @RestController
-@RequestMapping("/api/v1/job")
-@Tag(name = "Job", description = "APIs for Job entity (version 1) - controller is a thin proxy to EntityService")
+@RequestMapping("/api/job/v1")
+@Tag(name = "Job Controller", description = "APIs to manage Job entities (v1)")
 public class JobController {
 
     private static final Logger logger = LoggerFactory.getLogger(JobController.class);
 
     private final EntityService entityService;
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public JobController(EntityService entityService) {
         this.entityService = entityService;
     }
 
-    @Operation(summary = "Create Job", description = "Create a Job entity. This will persist the job and trigger workflows. Returns the technicalId only.")
+    @Operation(summary = "Add Job", description = "Add a single Job entity")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
+            @ApiResponse(responseCode = "200", description = "OK",
+                    content = @Content(schema = @Schema(implementation = IdResponse.class))),
             @ApiResponse(responseCode = "400", description = "Bad Request", content = @Content),
             @ApiResponse(responseCode = "500", description = "Internal Server Error", content = @Content)
     })
-    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> createJob(
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Job create request", required = true,
-                    content = @Content(schema = @Schema(implementation = JobCreateRequest.class)))
-            @RequestBody JobCreateRequest request) {
+    @PostMapping
+    public ResponseEntity<?> addJob(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Job create request")
+            @RequestBody CreateJobRequest request) {
         try {
-            // Basic format validation
-            if (request.getName() == null || request.getName().trim().isEmpty()) {
-                throw new IllegalArgumentException("name is required");
+            if (request == null || request.getJob() == null) {
+                throw new IllegalArgumentException("Request body must contain job");
             }
-            if (request.getScheduleType() == null || request.getScheduleType().trim().isEmpty()) {
-                throw new IllegalArgumentException("scheduleType is required");
-            }
-            // Map request to entity (no business logic here)
-            Job jobEntity = objectMapper.convertValue(request, Job.class);
 
-            CompletableFuture<UUID> idFuture = entityService.addItem(
+            CompletableFuture<java.util.UUID> idFuture = entityService.addItem(
                     Job.ENTITY_NAME,
                     String.valueOf(Job.ENTITY_VERSION),
-                    jobEntity
+                    request.getJob()
             );
 
-            UUID technicalId = idFuture.get();
-            TechnicalIdResponse response = new TechnicalIdResponse();
-            response.setTechnicalId(technicalId.toString());
-            return ResponseEntity.ok(response);
-
+            UUID id = idFuture.get();
+            return ResponseEntity.ok(new IdResponse(id));
         } catch (IllegalArgumentException iae) {
-            logger.warn("Invalid createJob request: {}", iae.getMessage());
+            logger.warn("Invalid request for addJob", iae);
             return ResponseEntity.badRequest().body(iae.getMessage());
         } catch (ExecutionException ee) {
             Throwable cause = ee.getCause();
-            if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(404).body(cause.getMessage());
-            } else if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.badRequest().body(cause.getMessage());
-            } else {
-                logger.error("ExecutionException in createJob", ee);
-                return ResponseEntity.status(500).body(cause != null ? cause.getMessage() : ee.getMessage());
-            }
+            return handleExecutionException(cause);
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
-            logger.error("Interrupted while creating job", ie);
-            return ResponseEntity.status(500).body("Interrupted");
-        } catch (Exception ex) {
-            logger.error("Unexpected error in createJob", ex);
-            return ResponseEntity.status(500).body(ex.getMessage());
+            logger.error("Thread interrupted during addJob", ie);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ie.getMessage());
+        } catch (Exception e) {
+            logger.error("Unexpected error in addJob", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
 
-    @Operation(summary = "Get Job by technicalId", description = "Retrieve Job entity by technicalId.")
+    @Operation(summary = "Add multiple Jobs", description = "Add multiple Job entities")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = JobResponse.class))),
+            @ApiResponse(responseCode = "200", description = "OK",
+                    content = @Content(schema = @Schema(implementation = IdsResponse.class))),
             @ApiResponse(responseCode = "400", description = "Bad Request", content = @Content),
-            @ApiResponse(responseCode = "404", description = "Not Found", content = @Content),
             @ApiResponse(responseCode = "500", description = "Internal Server Error", content = @Content)
     })
-    @GetMapping(path = "/{technicalId}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> getJobById(
-            @Parameter(name = "technicalId", description = "Technical ID of the entity", required = true)
-            @PathVariable("technicalId") String technicalId) {
+    @PostMapping("/batch")
+    public ResponseEntity<?> addJobs(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Jobs create request")
+            @RequestBody CreateJobsRequest request) {
         try {
-            UUID uuid = UUID.fromString(technicalId);
-            CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
+            if (request == null || request.getJobs() == null) {
+                throw new IllegalArgumentException("Request body must contain jobs list");
+            }
+
+            CompletableFuture<List<UUID>> idsFuture = entityService.addItems(
                     Job.ENTITY_NAME,
                     String.valueOf(Job.ENTITY_VERSION),
-                    uuid
+                    request.getJobs()
             );
 
-            ObjectNode node = itemFuture.get();
-            if (node == null || node.isNull()) {
-                return ResponseEntity.status(404).body("Job not found");
-            }
-            // Convert ObjectNode to response DTO
-            JobResponse response = objectMapper.treeToValue(node, JobResponse.class);
-            // Ensure technicalId present in response
-            if (response.getTechnicalId() == null) {
-                response.setTechnicalId(technicalId);
-            }
-            return ResponseEntity.ok(response);
-
+            List<UUID> ids = idsFuture.get();
+            return ResponseEntity.ok(new IdsResponse(ids));
         } catch (IllegalArgumentException iae) {
-            logger.warn("Invalid getJobById request: {}", iae.getMessage());
+            logger.warn("Invalid request for addJobs", iae);
             return ResponseEntity.badRequest().body(iae.getMessage());
         } catch (ExecutionException ee) {
             Throwable cause = ee.getCause();
-            if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(404).body(cause.getMessage());
-            } else if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.badRequest().body(cause.getMessage());
-            } else {
-                logger.error("ExecutionException in getJobById", ee);
-                return ResponseEntity.status(500).body(cause != null ? cause.getMessage() : ee.getMessage());
-            }
+            return handleExecutionException(cause);
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
-            logger.error("Interrupted while getting job", ie);
-            return ResponseEntity.status(500).body("Interrupted");
-        } catch (Exception ex) {
-            logger.error("Unexpected error in getJobById", ex);
-            return ResponseEntity.status(500).body(ex.getMessage());
+            logger.error("Thread interrupted during addJobs", ie);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ie.getMessage());
+        } catch (Exception e) {
+            logger.error("Unexpected error in addJobs", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
 
-    @Operation(summary = "List all Jobs", description = "Retrieve all Job entities.")
+    @Operation(summary = "Get all Jobs", description = "Retrieve all Job entities")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = JobResponse.class)))),
+            @ApiResponse(responseCode = "200", description = "OK",
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = JobsResponse.class)))),
             @ApiResponse(responseCode = "500", description = "Internal Server Error", content = @Content)
     })
-    @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> listJobs() {
+    @GetMapping
+    public ResponseEntity<?> getJobs() {
         try {
             CompletableFuture<ArrayNode> itemsFuture = entityService.getItems(
                     Job.ENTITY_NAME,
                     String.valueOf(Job.ENTITY_VERSION)
             );
-            ArrayNode arrayNode = itemsFuture.get();
-            if (arrayNode == null) {
-                return ResponseEntity.ok(List.of());
-            }
-            List<JobResponse> list = objectMapper.convertValue(arrayNode, new TypeReference<List<JobResponse>>() {});
-            return ResponseEntity.ok(list);
+
+            ArrayNode array = itemsFuture.get();
+            return ResponseEntity.ok(new JobsResponse(array));
         } catch (ExecutionException ee) {
             Throwable cause = ee.getCause();
-            logger.error("ExecutionException in listJobs", ee);
-            if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.badRequest().body(cause.getMessage());
-            } else {
-                return ResponseEntity.status(500).body(cause != null ? cause.getMessage() : ee.getMessage());
-            }
+            return handleExecutionException(cause);
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
-            logger.error("Interrupted while listing jobs", ie);
-            return ResponseEntity.status(500).body("Interrupted");
-        } catch (Exception ex) {
-            logger.error("Unexpected error in listJobs", ex);
-            return ResponseEntity.status(500).body(ex.getMessage());
+            logger.error("Thread interrupted during getJobs", ie);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ie.getMessage());
+        } catch (Exception e) {
+            logger.error("Unexpected error in getJobs", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
 
-    // Static DTO classes used for request/response payloads
+    @Operation(summary = "Search Jobs by condition", description = "Retrieve Jobs filtered by a search condition (in-memory)")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "OK",
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = JobsResponse.class)))),
+            @ApiResponse(responseCode = "400", description = "Bad Request", content = @Content),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error", content = @Content)
+    })
+    @PostMapping("/search")
+    public ResponseEntity<?> searchJobs(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Search condition request")
+            @RequestBody SearchConditionRequest condition) {
+        try {
+            if (condition == null) {
+                throw new IllegalArgumentException("Search condition must be provided");
+            }
+
+            CompletableFuture<ArrayNode> filteredItemsFuture = entityService.getItemsByCondition(
+                    Job.ENTITY_NAME,
+                    String.valueOf(Job.ENTITY_VERSION),
+                    condition,
+                    true
+            );
+
+            ArrayNode array = filteredItemsFuture.get();
+            return ResponseEntity.ok(new JobsResponse(array));
+        } catch (IllegalArgumentException iae) {
+            logger.warn("Invalid request for searchJobs", iae);
+            return ResponseEntity.badRequest().body(iae.getMessage());
+        } catch (ExecutionException ee) {
+            Throwable cause = ee.getCause();
+            return handleExecutionException(cause);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Thread interrupted during searchJobs", ie);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ie.getMessage());
+        } catch (Exception e) {
+            logger.error("Unexpected error in searchJobs", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
+    @Operation(summary = "Get Job by id", description = "Retrieve a Job entity by its technical id")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "OK",
+                    content = @Content(schema = @Schema(implementation = JobResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad Request", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Not Found", content = @Content),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error", content = @Content)
+    })
+    @GetMapping("/{technicalId}")
+    public ResponseEntity<?> getJob(
+            @Parameter(name = "technicalId", description = "Technical ID of the entity")
+            @PathVariable("technicalId") String technicalId) {
+        try {
+            UUID id = UUID.fromString(technicalId);
+
+            CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
+                    Job.ENTITY_NAME,
+                    String.valueOf(Job.ENTITY_VERSION),
+                    id
+            );
+
+            ObjectNode node = itemFuture.get();
+            return ResponseEntity.ok(new JobResponse(node));
+        } catch (IllegalArgumentException iae) {
+            logger.warn("Invalid technicalId for getJob", iae);
+            return ResponseEntity.badRequest().body(iae.getMessage());
+        } catch (ExecutionException ee) {
+            Throwable cause = ee.getCause();
+            return handleExecutionException(cause);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Thread interrupted during getJob", ie);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ie.getMessage());
+        } catch (Exception e) {
+            logger.error("Unexpected error in getJob", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
+    @Operation(summary = "Update Job", description = "Update a Job entity by its technical id")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "OK",
+                    content = @Content(schema = @Schema(implementation = IdResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad Request", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Not Found", content = @Content),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error", content = @Content)
+    })
+    @PutMapping("/{technicalId}")
+    public ResponseEntity<?> updateJob(
+            @Parameter(name = "technicalId", description = "Technical ID of the entity")
+            @PathVariable("technicalId") String technicalId,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Job update request")
+            @RequestBody CreateJobRequest request) {
+        try {
+            if (request == null || request.getJob() == null) {
+                throw new IllegalArgumentException("Request body must contain job");
+            }
+
+            UUID id = UUID.fromString(technicalId);
+
+            CompletableFuture<UUID> updatedIdFuture = entityService.updateItem(
+                    Job.ENTITY_NAME,
+                    String.valueOf(Job.ENTITY_VERSION),
+                    id,
+                    request.getJob()
+            );
+
+            UUID updatedId = updatedIdFuture.get();
+            return ResponseEntity.ok(new IdResponse(updatedId));
+        } catch (IllegalArgumentException iae) {
+            logger.warn("Invalid request for updateJob", iae);
+            return ResponseEntity.badRequest().body(iae.getMessage());
+        } catch (ExecutionException ee) {
+            Throwable cause = ee.getCause();
+            return handleExecutionException(cause);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Thread interrupted during updateJob", ie);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ie.getMessage());
+        } catch (Exception e) {
+            logger.error("Unexpected error in updateJob", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
+    @Operation(summary = "Delete Job", description = "Delete a Job entity by its technical id")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "OK",
+                    content = @Content(schema = @Schema(implementation = IdResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad Request", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Not Found", content = @Content),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error", content = @Content)
+    })
+    @DeleteMapping("/{technicalId}")
+    public ResponseEntity<?> deleteJob(
+            @Parameter(name = "technicalId", description = "Technical ID of the entity")
+            @PathVariable("technicalId") String technicalId) {
+        try {
+            UUID id = UUID.fromString(technicalId);
+
+            CompletableFuture<UUID> deletedIdFuture = entityService.deleteItem(
+                    Job.ENTITY_NAME,
+                    String.valueOf(Job.ENTITY_VERSION),
+                    id
+            );
+
+            UUID deletedId = deletedIdFuture.get();
+            return ResponseEntity.ok(new IdResponse(deletedId));
+        } catch (IllegalArgumentException iae) {
+            logger.warn("Invalid technicalId for deleteJob", iae);
+            return ResponseEntity.badRequest().body(iae.getMessage());
+        } catch (ExecutionException ee) {
+            Throwable cause = ee.getCause();
+            return handleExecutionException(cause);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Thread interrupted during deleteJob", ie);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ie.getMessage());
+        } catch (Exception e) {
+            logger.error("Unexpected error in deleteJob", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
+    private ResponseEntity<?> handleExecutionException(Throwable cause) {
+        if (cause == null) {
+            logger.error("ExecutionException with null cause");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Unknown error");
+        }
+        if (cause instanceof NoSuchElementException) {
+            logger.warn("Entity not found", cause);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
+        } else if (cause instanceof IllegalArgumentException) {
+            logger.warn("Invalid argument in async operation", cause);
+            return ResponseEntity.badRequest().body(cause.getMessage());
+        } else {
+            logger.error("ExecutionException with unexpected cause", cause);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause.getMessage());
+        }
+    }
+
+    // DTOs
+
     @Data
-    @Schema(name = "JobCreateRequest", description = "Request payload to create a Job")
-    public static class JobCreateRequest {
-        @Schema(description = "Human name of the job", example = "Daily Laureates Ingest")
-        private String name;
-
-        @Schema(description = "Schedule type (one-time or recurring)", example = "recurring")
-        private String scheduleType;
-
-        @Schema(description = "Cron or human schedule descriptor", example = "0 0 * * *")
-        private String scheduleSpec;
-
-        @Schema(description = "Data source identifier", example = "dataset_nobel_laureates")
-        private String sourceEndpoint;
-
-        @Schema(description = "Whether the job is enabled", example = "true")
-        private Boolean enabled;
-
-        @Schema(description = "Optional initial status", example = "PENDING")
-        private String status;
-
-        @Schema(description = "Optional lastResultSummary")
-        private String lastResultSummary;
-
-        @Schema(description = "Optional lastRunTimestamp (ISO)", example = "2025-01-01T00:00:00Z")
-        private String lastRunTimestamp;
+    @Schema(name = "CreateJobRequest", description = "Request to create or update a Job")
+    public static class CreateJobRequest {
+        @Schema(description = "Job entity", implementation = Job.class)
+        private Job job;
     }
 
     @Data
-    @Schema(name = "TechnicalIdResponse", description = "Response containing the technicalId")
-    public static class TechnicalIdResponse {
-        @Schema(description = "Technical ID of the entity", example = "job_technical_123")
-        private String technicalId;
+    @Schema(name = "CreateJobsRequest", description = "Request to create multiple Jobs")
+    public static class CreateJobsRequest {
+        @Schema(description = "List of Job entities", implementation = Job.class)
+        private List<Job> jobs;
     }
 
     @Data
-    @Schema(name = "JobResponse", description = "Job entity response")
+    @Schema(name = "IdResponse", description = "Response containing a single technical id")
+    public static class IdResponse {
+        @Schema(description = "Technical id")
+        private UUID id;
+
+        public IdResponse(UUID id) {
+            this.id = id;
+        }
+    }
+
+    @Data
+    @Schema(name = "IdsResponse", description = "Response containing list of technical ids")
+    public static class IdsResponse {
+        @Schema(description = "List of technical ids")
+        private List<UUID> ids;
+
+        public IdsResponse(List<UUID> ids) {
+            this.ids = ids;
+        }
+    }
+
+    @Data
+    @Schema(name = "JobResponse", description = "Response containing a job")
     public static class JobResponse {
-        @Schema(description = "Technical ID of the entity", example = "job_technical_123")
-        private String technicalId;
+        @Schema(description = "Job data", implementation = ObjectNode.class)
+        private JsonNode data;
 
-        @Schema(description = "Human name of the job", example = "Daily Laureates Ingest")
-        private String name;
+        public JobResponse(JsonNode data) {
+            this.data = data;
+        }
+    }
 
-        @Schema(description = "Schedule type (one-time or recurring)", example = "recurring")
-        private String scheduleType;
+    @Data
+    @Schema(name = "JobsResponse", description = "Response containing jobs array")
+    public static class JobsResponse {
+        @Schema(description = "Array of job items", implementation = ArrayNode.class)
+        private ArrayNode items;
 
-        @Schema(description = "Cron or human schedule descriptor", example = "0 0 * * *")
-        private String scheduleSpec;
-
-        @Schema(description = "Data source identifier", example = "dataset_nobel_laureates")
-        private String sourceEndpoint;
-
-        @Schema(description = "ISO timestamp of last run", example = "2025-01-01T00:00:00Z")
-        private String lastRunTimestamp;
-
-        @Schema(description = "Current job status", example = "PENDING")
-        private String status;
-
-        @Schema(description = "Job enabled flag", example = "true")
-        private Boolean enabled;
-
-        @Schema(description = "Summary of last run")
-        private String lastResultSummary;
+        public JobsResponse(ArrayNode items) {
+            this.items = items;
+        }
     }
 }

@@ -15,12 +15,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.Locale;
+import java.util.Objects;
+import java.util.regex.Pattern;
+
 @Component
 public class NotificationDispatchSucceededCriterion implements CyodaCriterion {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final CriterionSerializer serializer;
     private final String className = this.getClass().getSimpleName();
+
+    private static final Pattern EMAIL_SIMPLE = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
 
     public NotificationDispatchSucceededCriterion(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultCriteriaSerializer();
@@ -29,7 +35,7 @@ public class NotificationDispatchSucceededCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Subscriber.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,62 +44,68 @@ public class NotificationDispatchSucceededCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // MUST use exact criterion name (case-sensitive)
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Subscriber> context) {
          Subscriber subscriber = context.entity();
 
+         // Basic null checks for required fields
          if (subscriber == null) {
-             logger.warn("Subscriber entity is null in NotificationDispatchSucceededCriterion");
-             return EvaluationOutcome.fail("Subscriber entity is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             logger.debug("Subscriber entity is null");
+             return EvaluationOutcome.fail("Subscriber entity missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Subscriber must be ACTIVE to receive notifications
-         String status = subscriber.getStatus();
-         if (status == null || !status.equalsIgnoreCase("active")) {
-             return EvaluationOutcome.fail("Subscriber is not active", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         if (subscriber.getName() == null || subscriber.getName().isBlank()) {
+             return EvaluationOutcome.fail("Subscriber.name is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // contactMethod must be present
-         String contactMethod = subscriber.getContactMethod();
-         if (contactMethod == null || contactMethod.isBlank()) {
-             return EvaluationOutcome.fail("Contact method is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         if (subscriber.getContactMethod() == null || subscriber.getContactMethod().isBlank()) {
+             return EvaluationOutcome.fail("Subscriber.contactMethod is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // contactDetails must be present
-         String contactDetails = subscriber.getContactDetails();
-         if (contactDetails == null || contactDetails.isBlank()) {
-             return EvaluationOutcome.fail("Contact details are required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         if (subscriber.getContactDetails() == null || subscriber.getContactDetails().isBlank()) {
+             return EvaluationOutcome.fail("Subscriber.contactDetails is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Validate contact details format based on method
-         if ("email".equalsIgnoreCase(contactMethod)) {
-             // simple email pattern check
-             String email = contactDetails.trim();
-             String simpleEmailRegex = "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$";
-             if (!email.matches(simpleEmailRegex)) {
-                 return EvaluationOutcome.fail("Invalid email address", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         if (subscriber.getStatus() == null || subscriber.getStatus().isBlank()) {
+             return EvaluationOutcome.fail("Subscriber.status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         // Data quality checks for contact method and details
+         String method = subscriber.getContactMethod().trim().toLowerCase(Locale.ROOT);
+         String details = subscriber.getContactDetails().trim();
+
+         if ("email".equals(method)) {
+             if (!EMAIL_SIMPLE.matcher(details).matches()) {
+                 return EvaluationOutcome.fail("Invalid email address in contactDetails", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
              }
-         } else if ("webhook".equalsIgnoreCase(contactMethod)) {
-             String url = contactDetails.trim().toLowerCase();
-             if (!(url.startsWith("http://") || url.startsWith("https://"))) {
-                 return EvaluationOutcome.fail("Webhook URL must start with http:// or https://", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         } else if ("webhook".equals(method) || "http".equals(method) || "https".equals(method)) {
+             String lower = details.toLowerCase(Locale.ROOT);
+             if (!(lower.startsWith("http://") || lower.startsWith("https://"))) {
+                 return EvaluationOutcome.fail("Invalid webhook URL in contactDetails (must start with http:// or https://)", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
              }
          } else {
-             return EvaluationOutcome.fail("Unsupported contact method: " + contactMethod, StandardEvalReasonCategories.VALIDATION_FAILURE);
+             return EvaluationOutcome.fail("Unsupported contactMethod: " + subscriber.getContactMethod(), StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // If preference is present, ensure it is one of known values (immediate, dailyDigest, weeklyDigest)
-         String preference = subscriber.getPreference();
-         if (preference != null && !preference.isBlank()) {
-             String p = preference.trim().toLowerCase();
-             if (!("immediate".equals(p) || "dailydigest".equals(p) || "weeklydigest".equals(p) || "dailyDigest".equals(preference) || "weeklyDigest".equals(preference))) {
-                 // treat unknown preference as data quality issue but do not block notification if other fields are valid
-                 return EvaluationOutcome.fail("Unknown preference value", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         // Business rule: subscriber must be ACTIVE to receive notifications
+         // Allowed statuses per requirements: active, paused, unsubscribed
+         if (!"active".equalsIgnoreCase(subscriber.getStatus())) {
+             return EvaluationOutcome.fail("Subscriber not active - notifications cannot be dispatched to this subscriber", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         }
+
+         // If preference provided, validate allowed values (optional field per requirements)
+         if (subscriber.getPreference() != null && !subscriber.getPreference().isBlank()) {
+             String pref = subscriber.getPreference().trim().toLowerCase(Locale.ROOT);
+             if (!(Objects.equals(pref, "immediate") || Objects.equals(pref, "dailydigest") || Objects.equals(pref, "weeklydigest")
+                   || Objects.equals(pref, "daily") || Objects.equals(pref, "weekly"))) { // accept common variants
+                 return EvaluationOutcome.fail("Unknown preference value: " + subscriber.getPreference(), StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
              }
          }
 
-        return EvaluationOutcome.success();
+         // Passed all checks
+         return EvaluationOutcome.success();
     }
 }

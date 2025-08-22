@@ -29,7 +29,7 @@ public class ProcessingFailedCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Job.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -43,27 +43,37 @@ public class ProcessingFailedCriterion implements CyodaCriterion {
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Job> context) {
          Job job = context.entity();
+         if (job == null) {
+             logger.debug("ProcessingFailedCriterion: job entity is null");
+             return EvaluationOutcome.fail("Job entity missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
 
-         // Ensure status is present
+         // Basic required fields checks
          if (job.getStatus() == null || job.getStatus().isBlank()) {
-             return EvaluationOutcome.fail("Job status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             logger.debug("ProcessingFailedCriterion: job.status is missing or blank (id={})", job.getId());
+             return EvaluationOutcome.fail("Job.status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
+         if (job.getEnabled() == null) {
+             logger.debug("ProcessingFailedCriterion: job.enabled is null (id={})", job.getId());
+             return EvaluationOutcome.fail("Job.enabled flag is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         // This criterion is used to detect jobs that have failed during finalization.
+         // It should only succeed when the job is in FAILED state and includes a lastResultSummary.
          String status = job.getStatus().trim();
-
-         // Terminal failed state
-         if ("FAILED".equalsIgnoreCase(status)) {
-             String summary = job.getLastResultSummary();
-             String message = "Job processing marked as FAILED" + (summary != null && !summary.isBlank() ? ": " + summary : "");
-             return EvaluationOutcome.fail(message, StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-         }
-
-         // Terminal success state
-         if ("COMPLETED".equalsIgnoreCase(status) || "SUCCEEDED".equalsIgnoreCase(status)) {
+         if (status.equalsIgnoreCase("FAILED")) {
+             if (job.getLastResultSummary() == null || job.getLastResultSummary().isBlank()) {
+                 logger.debug("ProcessingFailedCriterion: failed job missing lastResultSummary (id={})", job.getId());
+                 return EvaluationOutcome.fail("Failed job must include lastResultSummary", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+             // All checks passed for a failed job -> criterion matched
+             logger.debug("ProcessingFailedCriterion: job is FAILED and has lastResultSummary (id={})", job.getId());
              return EvaluationOutcome.success();
          }
 
-         // Non-terminal or unexpected status - not considered a processing failure
-         return EvaluationOutcome.fail("Job not in a terminal completed/failed state: " + status, StandardEvalReasonCategories.VALIDATION_FAILURE);
+         // If job is not in FAILED state, this criterion does not match.
+         logger.debug("ProcessingFailedCriterion: job not in FAILED state (id={}, status={})", job.getId(), job.getStatus());
+         return EvaluationOutcome.fail("Job is not in FAILED state", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
     }
 }
