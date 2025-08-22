@@ -20,6 +20,7 @@ public class Address implements CyodaEntity {
     private String status;
     private Boolean isDefault;
     private Boolean verified;
+    private String region; // added region field used by controller
 
     public Address() {} 
 
