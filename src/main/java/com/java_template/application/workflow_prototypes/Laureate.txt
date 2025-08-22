@@ -1,0 +1,8 @@
+// No processLaureate method found that starts with 'processLaureate' and directly called after saving laureate
+// However, processLaureate is called within processJob for each laureate in ingestion
+// Included processLaureate method here for clarity
+
+private void processLaureate(String technicalId, Laureate laureate) {
+    // Validation and enrichment already done in isValid() and ingestion step
+    logger.info("Processed Laureate {}", technicalId);
+}
