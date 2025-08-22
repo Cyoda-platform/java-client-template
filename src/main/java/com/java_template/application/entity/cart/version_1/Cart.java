@@ -3,12 +3,9 @@ package com.java_template.application.entity.cart.version_1;
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.common.ModelSpec;
-import lombok.Data;
 
 import java.util.List;
-import java.util.Objects;
 
-@Data
 public class Cart implements CyodaEntity {
     public static final String ENTITY_NAME = "Cart";
     public static final Integer ENTITY_VERSION = 1;
@@ -54,11 +51,28 @@ public class Cart implements CyodaEntity {
         return true;
     }
 
-    @Data
+    // explicit getters and setters to avoid Lombok reliance
+    public String getId() { return id; }
+    public void setId(String id) { this.id = id; }
+    public String getUserId() { return userId; }
+    public void setUserId(String userId) { this.userId = userId; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+    public String getCreatedAt() { return createdAt; }
+    public void setCreatedAt(String createdAt) { this.createdAt = createdAt; }
+    public String getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(String updatedAt) { this.updatedAt = updatedAt; }
+    public Double getTotalAmount() { return totalAmount; }
+    public void setTotalAmount(Double totalAmount) { this.totalAmount = totalAmount; }
+    public List<CartItem> getItems() { return items; }
+    public void setItems(List<CartItem> items) { this.items = items; }
+
     public static class CartItem {
         private String productId; // serialized product id (sku)
         private Integer quantity;
         private Double unitPrice;
+
+        public CartItem() {}
 
         public boolean isValid() {
             if (productId == null || productId.isBlank()) return false;
@@ -66,5 +80,12 @@ public class Cart implements CyodaEntity {
             if (unitPrice == null || unitPrice < 0) return false;
             return true;
         }
+
+        public String getProductId() { return productId; }
+        public void setProductId(String productId) { this.productId = productId; }
+        public Integer getQuantity() { return quantity; }
+        public void setQuantity(Integer quantity) { this.quantity = quantity; }
+        public Double getUnitPrice() { return unitPrice; }
+        public void setUnitPrice(Double unitPrice) { this.unitPrice = unitPrice; }
     }
 }
