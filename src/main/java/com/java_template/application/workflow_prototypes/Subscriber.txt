@@ -1,0 +1,6 @@
+// Extracted processSubscriber method
+
+private void processSubscriber(String technicalId, Subscriber subscriber) {
+    // No further processing required on creation as per requirements
+    logger.info("Processed Subscriber {}", technicalId);
+}
