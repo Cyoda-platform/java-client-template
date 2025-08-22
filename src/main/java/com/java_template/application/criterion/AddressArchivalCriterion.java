@@ -29,7 +29,7 @@ public class AddressArchivalCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Address.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,32 +38,51 @@ public class AddressArchivalCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Address> context) {
          Address entity = context.entity();
-         // Data quality: address must reference a user
+
+         // Ensure entity is present
+         if (entity == null) {
+             logger.warn("AddressArchivalCriterion: null entity provided");
+             return EvaluationOutcome.fail("Address entity is null", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+
+         // userId must be present and non-blank
          if (entity.getUserId() == null || entity.getUserId().isBlank()) {
+             logger.warn("Address {} missing userId, cannot evaluate archival", entity.getId());
              return EvaluationOutcome.fail("Address missing userId", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // Business rule: default addresses must not be archived
+         // Do not archive if marked as default for the user
          if (Boolean.TRUE.equals(entity.getIsDefault())) {
+             logger.debug("Address {} is default for user {}, archival not allowed", entity.getId(), entity.getUserId());
              return EvaluationOutcome.fail("Default address cannot be archived", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
-         // Validation: only verified addresses are eligible for archival
+         // Address must be verified to be eligible for archival
          if (!Boolean.TRUE.equals(entity.getVerified())) {
-             return EvaluationOutcome.fail("Only verified addresses can be archived", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             logger.debug("Address {} for user {} is not verified (verified={}), archival blocked", entity.getId(), entity.getUserId(), entity.getVerified());
+             return EvaluationOutcome.fail("Address must be verified before archival", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Optional: status should not be explicitly unverified
+         // Status should indicate Verified (business model defines Verified/Unverified/Archived)
          String status = entity.getStatus();
-         if (status != null && status.equalsIgnoreCase("Unverified")) {
-             return EvaluationOutcome.fail("Address status is Unverified and cannot be archived", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         if (status == null || status.isBlank()) {
+             logger.debug("Address {} has missing status, cannot archive", entity.getId());
+             return EvaluationOutcome.fail("Address missing status", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+         if (!"Verified".equalsIgnoreCase(status.trim())) {
+             logger.debug("Address {} has status '{}' and is not in 'Verified' state required for archival", entity.getId(), status);
+             return EvaluationOutcome.fail("Address must be in 'Verified' status to be archived", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
+         // Note: Reference checks (users/orders referencing this address) are outside the scope of a pure-entity check here.
+         // The processor responsible for archival should perform snapshot searches to ensure the address is unreferenced.
+         logger.info("Address {} evaluated eligible for archival checks: verified={}, isDefault={}, status={}", entity.getId(), entity.getVerified(), entity.getIsDefault(), status);
          return EvaluationOutcome.success();
     }
 }

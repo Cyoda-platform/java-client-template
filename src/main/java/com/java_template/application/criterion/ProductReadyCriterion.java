@@ -29,7 +29,7 @@ public class ProductReadyCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Product.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,57 +38,73 @@ public class ProductReadyCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // must use exact criterion name
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Product> context) {
-         Product entity = context.entity();
+         Product entity = context.entity(); // Product is the subject of this criterion.
+
          if (entity == null) {
-             logger.warn("Product entity is null in ProductReadyCriterion");
-             return EvaluationOutcome.fail("Product entity is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             logger.warn("ProductReadyCriterion: received null entity in evaluation context");
+             return EvaluationOutcome.fail("Product entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Basic required fields validation
+         // Required identity and descriptive fields
          if (entity.getId() == null || entity.getId().isBlank()) {
+             logger.warn("ProductReadyCriterion: product missing id");
              return EvaluationOutcome.fail("Product id is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
          if (entity.getName() == null || entity.getName().isBlank()) {
+             logger.warn("ProductReadyCriterion: product {} missing name", entity.getId());
              return EvaluationOutcome.fail("Product name is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
          if (entity.getSku() == null || entity.getSku().isBlank()) {
-             return EvaluationOutcome.fail("Product sku is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             logger.warn("ProductReadyCriterion: product {} missing sku", entity.getId());
+             return EvaluationOutcome.fail("Product SKU is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
          if (entity.getCurrency() == null || entity.getCurrency().isBlank()) {
-             return EvaluationOutcome.fail("Product currency is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             logger.warn("ProductReadyCriterion: product {} missing currency", entity.getId());
+             return EvaluationOutcome.fail("Currency is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
          // Numeric validations
          if (entity.getPrice() == null) {
-             return EvaluationOutcome.fail("Product price is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             logger.warn("ProductReadyCriterion: product {} missing price", entity.getId());
+             return EvaluationOutcome.fail("Price must be specified", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
          if (entity.getPrice() < 0.0) {
-             return EvaluationOutcome.fail("Product price must be >= 0", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             logger.warn("ProductReadyCriterion: product {} has negative price {}", entity.getId(), entity.getPrice());
+             return EvaluationOutcome.fail("Price must be non-negative", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
+
          if (entity.getStock() == null) {
-             return EvaluationOutcome.fail("Product stock is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             logger.warn("ProductReadyCriterion: product {} missing stock", entity.getId());
+             return EvaluationOutcome.fail("Stock must be specified", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
          if (entity.getStock() < 0) {
-             return EvaluationOutcome.fail("Product stock must be >= 0", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             logger.warn("ProductReadyCriterion: product {} has negative stock {}", entity.getId(), entity.getStock());
+             return EvaluationOutcome.fail("Stock must be non-negative", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // Availability flag presence
+         // Availability/business rules
          if (entity.getAvailable() == null) {
-             return EvaluationOutcome.fail("Product availability flag is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             logger.warn("ProductReadyCriterion: product {} missing available flag", entity.getId());
+             return EvaluationOutcome.fail("Available flag must be specified", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-
-         // Business rules: product must be available and have stock to be considered ready
          if (!entity.getAvailable()) {
-             return EvaluationOutcome.fail("Product is not marked as available", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-         }
-         if (entity.getStock() != null && entity.getStock() <= 0) {
-             return EvaluationOutcome.fail("Product is out of stock", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+             logger.info("ProductReadyCriterion: product {} marked not available", entity.getId());
+             return EvaluationOutcome.fail("Product is not available for sale/indexing", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
+         // If stock is zero -> not ready (business rule)
+         if (entity.getStock() != null && entity.getStock() <= 0) {
+             logger.info("ProductReadyCriterion: product {} has non-positive stock ({})", entity.getId(), entity.getStock());
+             return EvaluationOutcome.fail("Product out of stock", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         }
+
+         // All checks passed
+         logger.debug("ProductReadyCriterion: product {} passed readiness checks", entity.getId());
          return EvaluationOutcome.success();
     }
 }

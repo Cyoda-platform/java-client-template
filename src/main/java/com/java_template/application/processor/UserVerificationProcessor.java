@@ -28,10 +28,10 @@ public class UserVerificationProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing User for request: {}", request.getId());
 
-        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
+        return serializer.withRequest(request)
             .toEntity(User.class)
             .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+            .map(this::processEntityLogic)
             .complete();
     }
 
@@ -46,35 +46,34 @@ public class UserVerificationProcessor implements CyodaProcessor {
 
     private User processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<User> context) {
         User entity = context.entity();
+        if (entity == null) return null;
 
-        // Business logic:
-        // - If a freshly active user requires verification, move them to VERIFICATION_PENDING and "send" verification
-        // - If contact details available, log the intent to send verification via email or SMS
-        // - Do not perform external calls here; Cyoda will persist the modified entity state automatically
-
-        if (entity == null) {
-            logger.warn("Received null User entity in processing context");
-            return entity;
-        }
-
-        String currentStatus = entity.getStatus();
-        if (currentStatus == null) {
-            logger.warn("User {} has null status, skipping verification flow", entity.getId());
-            return entity;
-        }
-
-        // If user is Active, trigger verification flow by marking as VERIFICATION_PENDING
-        if ("Active".equalsIgnoreCase(currentStatus)) {
-            entity.setStatus("VERIFICATION_PENDING");
-            if (entity.getEmail() != null && !entity.getEmail().isBlank()) {
-                logger.info("User {} marked VERIFICATION_PENDING - scheduling verification email to {}", entity.getId(), entity.getEmail());
-            } else if (entity.getPhone() != null && !entity.getPhone().isBlank()) {
-                logger.info("User {} marked VERIFICATION_PENDING - scheduling verification SMS to {}", entity.getId(), entity.getPhone());
-            } else {
-                logger.warn("User {} marked VERIFICATION_PENDING but no contact info (email/phone) available", entity.getId());
+        try {
+            String currentStatus = entity.getStatus();
+            if (currentStatus == null) {
+                // If status is missing, we don't change it automatically to avoid unintended transitions.
+                logger.warn("User {} has null status, skipping verification flow", entity.getId());
+                return entity;
             }
-        } else {
-            logger.debug("User {} status is '{}', no verification action taken", entity.getId(), currentStatus);
+
+            // If user is Active, initiate verification flow -> move to VERIFICATION_PENDING
+            if ("Active".equalsIgnoreCase(currentStatus.trim())) {
+                entity.setStatus("VERIFICATION_PENDING");
+
+                // Prefer email, fallback to phone. We only log scheduling here; actual delivery is out-of-scope.
+                if (entity.getEmail() != null && !entity.getEmail().isBlank()) {
+                    logger.info("User {} marked VERIFICATION_PENDING - scheduling verification email to {}", entity.getId(), entity.getEmail());
+                } else if (entity.getPhone() != null && !entity.getPhone().isBlank()) {
+                    logger.info("User {} marked VERIFICATION_PENDING - scheduling verification SMS to {}", entity.getId(), entity.getPhone());
+                } else {
+                    logger.warn("User {} marked VERIFICATION_PENDING but no contact info (email/phone) available", entity.getId());
+                }
+            } else {
+                // For other statuses (VERIFICATION_PENDING, Inactive, etc.) we do not change state here
+                logger.debug("User {} status is '{}', no verification action taken", entity.getId(), currentStatus);
+            }
+        } catch (Exception ex) {
+            logger.error("Unexpected error in UserVerificationProcessor for user {}: {}", entity.getId(), ex.getMessage(), ex);
         }
 
         return entity;

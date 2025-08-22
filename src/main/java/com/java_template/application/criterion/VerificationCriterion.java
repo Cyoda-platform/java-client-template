@@ -29,7 +29,7 @@ public class VerificationCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(User.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,70 +38,84 @@ public class VerificationCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // CRITICAL: must use exact criterion name
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<User> context) {
          User user = context.entity();
 
-         // Basic required fields validation using only available getters
          if (user == null) {
-             return EvaluationOutcome.fail("User entity is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             return EvaluationOutcome.fail("User entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
+         // Basic required fields
          if (user.getId() == null || user.getId().isBlank()) {
              return EvaluationOutcome.fail("User id is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-
-         if (user.getEmail() == null || user.getEmail().isBlank()) {
-             return EvaluationOutcome.fail("Email is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-
          if (user.getName() == null || user.getName().isBlank()) {
              return EvaluationOutcome.fail("User name is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-
          if (user.getStatus() == null || user.getStatus().isBlank()) {
              return EvaluationOutcome.fail("User status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
+         // Normalize status for checks
          String status = user.getStatus().trim();
 
-         // If the user is explicitly inactive, this fails business rule
-         if (status.equalsIgnoreCase("INACTIVE") || status.equalsIgnoreCase("USER_INACTIVE")) {
-             return EvaluationOutcome.fail("User is inactive", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-         }
+         // Ensure at least one contact method exists (email or phone) for verification flows
+         boolean hasEmail = user.getEmail() != null && !user.getEmail().isBlank();
+         boolean hasPhone = user.getPhone() != null && !user.getPhone().isBlank();
 
-         // If the user is in a verification pending state, perform data quality checks to decide pass/fail
-         if (status.equalsIgnoreCase("VERIFICATION_PENDING") || status.equalsIgnoreCase("VERIFICATIONPENDING") || status.equalsIgnoreCase("PENDING_VERIFICATION")) {
-             String email = user.getEmail().trim();
-             // Basic email format check: contains '@' and a dot in domain part
-             int atIdx = email.indexOf('@');
-             if (atIdx <= 0 || atIdx == email.length() - 1) {
-                 return EvaluationOutcome.fail("Email format invalid", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         // If user is expected to be verified (VERIFICATION_PENDING) there must be a contact method
+         if ("VERIFICATION_PENDING".equalsIgnoreCase(status)) {
+             if (!hasEmail && !hasPhone) {
+                 return EvaluationOutcome.fail(
+                     "User requires an email or phone to perform verification",
+                     StandardEvalReasonCategories.BUSINESS_RULE_FAILURE
+                 );
              }
-             String domain = email.substring(atIdx + 1);
-             if (!domain.contains(".") || domain.startsWith(".") || domain.endsWith(".")) {
-                 return EvaluationOutcome.fail("Email domain appears invalid", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-             }
-             // If phone provided, ensure it is not obviously invalid (basic digits check)
-             if (user.getPhone() != null && !user.getPhone().isBlank()) {
-                 String digits = user.getPhone().replaceAll("[^0-9]", "");
-                 if (digits.length() < 7) {
-                     return EvaluationOutcome.fail("Phone number appears invalid", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             // Data quality checks: simple email and phone heuristics
+             if (hasEmail) {
+                 String email = user.getEmail().trim();
+                 if (!email.contains("@") || email.startsWith("@") || email.endsWith("@")) {
+                     return EvaluationOutcome.fail(
+                         "User email format is invalid",
+                         StandardEvalReasonCategories.DATA_QUALITY_FAILURE
+                     );
                  }
              }
-             // Basic checks passed — consider verification successful for automatic transition
+             if (hasPhone) {
+                 String digits = user.getPhone().replaceAll("[^0-9]", "");
+                 if (digits.length() < 7) {
+                     return EvaluationOutcome.fail(
+                         "User phone number appears too short",
+                         StandardEvalReasonCategories.DATA_QUALITY_FAILURE
+                     );
+                 }
+             }
+             // If basic checks pass, evaluation success for verification criterion
              return EvaluationOutcome.success();
          }
 
-         // If status is active (or equivalent), it's a success
-         if (status.equalsIgnoreCase("ACTIVE") || status.equalsIgnoreCase("USER_ACTIVE")) {
+         // If user is Active, verification criterion passes
+         if ("Active".equalsIgnoreCase(status) || "USER_ACTIVE".equalsIgnoreCase(status) || "USER_ACTIVE".equals(status)) {
              return EvaluationOutcome.success();
          }
 
-         // For any other statuses, treat as data quality failure unless required fields missing
+         // If user is Inactive, this is a business rule failure for verification
+         if ("Inactive".equalsIgnoreCase(status) || "USER_INACTIVE".equalsIgnoreCase(status)) {
+             return EvaluationOutcome.fail(
+                 "User is inactive and cannot be verified",
+                 StandardEvalReasonCategories.BUSINESS_RULE_FAILURE
+             );
+         }
+
+         // Unknown status - treat as data quality / business rule concern
          logger.debug("User status '{}' is not explicitly handled by VerificationCriterion for user id {}", status, user.getId());
-         return EvaluationOutcome.fail("User status not eligible for verification: " + status, StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         return EvaluationOutcome.fail(
+             String.format("Unhandled user status: '%s'", status),
+             StandardEvalReasonCategories.BUSINESS_RULE_FAILURE
+         );
     }
 }

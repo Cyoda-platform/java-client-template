@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 
 @Component
@@ -26,12 +27,6 @@ public class CartAbandonCriterion implements CyodaCriterion {
     private final CriterionSerializer serializer;
     private final String className = this.getClass().getSimpleName();
 
-    /**
-     * Threshold in minutes after which an Active cart is considered abandoned.
-     * Chosen as 30 minutes per common e-commerce inactivity heuristics.
-     */
-    private static final long ABANDON_THRESHOLD_MINUTES = 30L;
-
     public CartAbandonCriterion(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultCriteriaSerializer();
     }
@@ -39,7 +34,7 @@ public class CartAbandonCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Cart.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -48,51 +43,64 @@ public class CartAbandonCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must match exact criterion name
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Cart> context) {
          Cart cart = context.entity();
 
+         // Basic validation: id presence is required for logging context — but do not invent properties.
+         String cartId = cart != null ? cart.getId() : null;
+
          if (cart == null) {
-             logger.warn("Cart entity is null in CartAbandonCriterion");
-             return EvaluationOutcome.fail("Cart entity is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             logger.warn("Cart entity is null in CartAbandonCriterion invocation");
+             return EvaluationOutcome.fail("Cart entity missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Ensure status is present
+         // Ensure status exists
          if (cart.getStatus() == null || cart.getStatus().isBlank()) {
-             logger.warn("Cart {} has missing status", cart.getId());
-             return EvaluationOutcome.fail("Cart status is required", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+            logger.warn("Cart {} has missing status", cartId);
+            return EvaluationOutcome.fail("Cart status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
          // Only Active carts are eligible for abandonment evaluation
          if (!"Active".equalsIgnoreCase(cart.getStatus())) {
-             // Not an active cart -> nothing to do (criterion passes)
-             return EvaluationOutcome.success();
+             logger.debug("Cart {} not in Active state (status='{}'), skipping abandonment evaluation", cartId, cart.getStatus());
+             return EvaluationOutcome.fail("Cart not Active", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
-         // createdAt is required to compute inactivity
+         // Ensure there are items to abandon (no need to abandon empty carts)
+         if (cart.getItems() == null || cart.getItems().isEmpty()) {
+             logger.debug("Cart {} has no items, not eligible for abandonment", cartId);
+             return EvaluationOutcome.fail("Cart has no items", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+
+         // Use createdAt as the last-known timestamp (entity lacks lastUpdated)
          if (cart.getCreatedAt() == null || cart.getCreatedAt().isBlank()) {
-             logger.warn("Cart {} has missing createdAt", cart.getId());
-             return EvaluationOutcome.fail("Cart createdAt timestamp is required to evaluate abandonment", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             logger.warn("Cart {} has missing createdAt", cartId);
+             return EvaluationOutcome.fail("Cart createdAt is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
          OffsetDateTime createdAt;
          try {
              createdAt = OffsetDateTime.parse(cart.getCreatedAt());
          } catch (DateTimeParseException ex) {
-             logger.warn("Cart {} has invalid createdAt format: {}", cart.getId(), cart.getCreatedAt());
-             return EvaluationOutcome.fail("Invalid createdAt format", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             logger.warn("Cart {} has invalid createdAt format: {}", cartId, cart.getCreatedAt());
+             return EvaluationOutcome.fail("createdAt has invalid format", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         Duration age = Duration.between(createdAt.toInstant(), OffsetDateTime.now().toInstant());
-         long minutes = age.toMinutes();
+         // Business rule: mark eligible for abandonment if inactivity exceeds threshold.
+         // Threshold chosen: 48 hours (2 days) of inactivity based on workflow timeout semantics.
+         Duration inactivityThreshold = Duration.ofHours(48);
+         OffsetDateTime nowUtc = OffsetDateTime.now(ZoneOffset.UTC);
 
-         if (minutes >= ABANDON_THRESHOLD_MINUTES) {
-             String msg = String.format("Cart inactive for %d minutes (threshold %d)", minutes, ABANDON_THRESHOLD_MINUTES);
-             return EvaluationOutcome.fail(msg, StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         if (createdAt.isBefore(nowUtc.minus(inactivityThreshold))) {
+             logger.info("Cart {} eligible for abandonment (createdAt={}, now={}, thresholdHours={})", cartId, cart.getCreatedAt(), nowUtc.toString(), inactivityThreshold.toHours());
+             return EvaluationOutcome.success();
+         } else {
+             logger.debug("Cart {} not yet eligible for abandonment (createdAt={}, now={}, thresholdHours={})", cartId, cart.getCreatedAt(), nowUtc.toString(), inactivityThreshold.toHours());
+             return EvaluationOutcome.fail("Cart activity within abandonment threshold", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
-
-         return EvaluationOutcome.success();
     }
 }

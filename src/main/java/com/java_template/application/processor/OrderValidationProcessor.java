@@ -1,5 +1,6 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.address.version_1.Address;
 import com.java_template.application.entity.order.version_1.Order;
 import com.java_template.common.serializer.ProcessorSerializer;
@@ -8,13 +9,13 @@ import com.java_template.common.service.EntityService;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -36,10 +37,10 @@ public class OrderValidationProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing Order for request: {}", request.getId());
 
-        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
+        return serializer.withRequest(request)
             .toEntity(Order.class)
-            .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+            .validate(this::isValidEntity, "Invalid order state")
+            .map(this::processEntityLogic)
             .complete();
     }
 
@@ -55,59 +56,98 @@ public class OrderValidationProcessor implements CyodaProcessor {
     private Order processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Order> context) {
         Order entity = context.entity();
 
-        // Business rules:
-        // - Ensure shipping and billing addresses exist in Address entity store.
-        // - If both addresses exist, mark order as Confirmed.
-        // - Do not perform any add/update/delete on the Order entity via EntityService (Cyoda will persist changes).
-        // - Log any missing address information; leave status unchanged when addresses are missing.
+        try {
+            // Validate presence of billing and shipping address IDs
+            String billingId = entity.getBillingAddressId();
+            String shippingId = entity.getShippingAddressId();
 
-        boolean billingExists = false;
-        boolean shippingExists = false;
+            if (billingId == null || billingId.isBlank()) {
+                logger.warn("Order {} missing billingAddressId", entity.getId());
+                return entity;
+            }
+            if (shippingId == null || shippingId.isBlank()) {
+                logger.warn("Order {} missing shippingAddressId", entity.getId());
+                return entity;
+            }
 
-        String billingId = entity.getBillingAddressId();
-        String shippingId = entity.getShippingAddressId();
+            boolean billingExists = false;
+            boolean shippingExists = false;
 
-        if (billingId != null && !billingId.isBlank()) {
             try {
                 CompletableFuture<ObjectNode> billingFuture = entityService.getItem(
                     Address.ENTITY_NAME,
                     String.valueOf(Address.ENTITY_VERSION),
                     UUID.fromString(billingId)
                 );
-                ObjectNode billingNode = billingFuture.join();
-                billingExists = billingNode != null && !billingNode.isEmpty();
+                ObjectNode billingNode = billingFuture != null ? billingFuture.join() : null;
+                billingExists = billingNode != null;
             } catch (Exception ex) {
-                logger.warn("Failed to fetch billing address [{}]: {}", billingId, ex.getMessage());
+                logger.warn("Order {}: failed to fetch billing address {}: {}", entity.getId(), billingId, ex.getMessage());
+                billingExists = false;
             }
-        } else {
-            logger.warn("Order {} missing billingAddressId", entity.getId());
-        }
 
-        if (shippingId != null && !shippingId.isBlank()) {
             try {
                 CompletableFuture<ObjectNode> shippingFuture = entityService.getItem(
                     Address.ENTITY_NAME,
                     String.valueOf(Address.ENTITY_VERSION),
                     UUID.fromString(shippingId)
                 );
-                ObjectNode shippingNode = shippingFuture.join();
-                shippingExists = shippingNode != null && !shippingNode.isEmpty();
+                ObjectNode shippingNode = shippingFuture != null ? shippingFuture.join() : null;
+                shippingExists = shippingNode != null;
             } catch (Exception ex) {
-                logger.warn("Failed to fetch shipping address [{}]: {}", shippingId, ex.getMessage());
+                logger.warn("Order {}: failed to fetch shipping address {}: {}", entity.getId(), shippingId, ex.getMessage());
+                shippingExists = false;
             }
-        } else {
-            logger.warn("Order {} missing shippingAddressId", entity.getId());
-        }
 
-        if (billingExists && shippingExists) {
-            logger.info("Order {}: billing and shipping addresses validated. Marking as Confirmed.", entity.getId());
+            if (!billingExists) {
+                logger.warn("Order {}: billing address {} not found", entity.getId(), billingId);
+                return entity;
+            }
+            if (!shippingExists) {
+                logger.warn("Order {}: shipping address {} not found", entity.getId(), shippingId);
+                return entity;
+            }
+
+            // Validate totals consistency
+            List<Order.OrderItem> items = entity.getItems();
+            if (items == null || items.isEmpty()) {
+                logger.warn("Order {} has no items to validate totals", entity.getId());
+                return entity;
+            }
+
+            double sum = 0.0;
+            for (Order.OrderItem it : items) {
+                if (it == null) {
+                    logger.warn("Order {} contains null item", entity.getId());
+                    return entity;
+                }
+                Integer qty = it.getQuantity();
+                Double unitPrice = it.getUnitPrice();
+                if (qty == null || unitPrice == null) {
+                    logger.warn("Order {} has item with null quantity or unitPrice", entity.getId());
+                    return entity;
+                }
+                sum += unitPrice * qty;
+            }
+
+            if (entity.getTotal() == null) {
+                logger.warn("Order {} total is null", entity.getId());
+                return entity;
+            }
+
+            if (Math.abs(entity.getTotal() - sum) > 0.01) {
+                logger.warn("Order {} total mismatch. Declared total={}, computed sum={}", entity.getId(), entity.getTotal(), sum);
+                return entity;
+            }
+
+            // All validations passed -> mark Confirmed
+            logger.info("Order {}: billing and shipping addresses validated and totals consistent. Marking as Confirmed.", entity.getId());
             entity.setStatus("Confirmed");
-        } else {
-            logger.warn("Order {}: address validation failed. billingExists={}, shippingExists={}. Leaving status unchanged.",
-                entity.getId(), billingExists, shippingExists);
-        }
+            return entity;
 
-        // Additional consistency checks (items / totals) are already enforced by entity.isValid() in validate step.
-        return entity;
+        } catch (Exception ex) {
+            logger.error("Unexpected error in OrderValidationProcessor for order {}: {}", entity != null ? entity.getId() : "unknown", ex.getMessage(), ex);
+            return entity;
+        }
     }
 }

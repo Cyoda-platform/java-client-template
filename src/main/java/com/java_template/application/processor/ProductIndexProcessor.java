@@ -28,10 +28,10 @@ public class ProductIndexProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing Product for request: {}", request.getId());
 
-        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
+        return serializer.withRequest(request)
             .toEntity(Product.class)
             .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+            .map(this::processEntityLogic)
             .complete();
     }
 
@@ -46,52 +46,40 @@ public class ProductIndexProcessor implements CyodaProcessor {
 
     private Product processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Product> context) {
         Product product = context.entity();
-
-        // Business logic: prepare catalog-ready fields and set availability based on stock.
-        // - Normalize textual fields (trim)
-        // - Ensure currency is uppercase
-        // - Ensure price and stock are sane
-        // - Set available automatically according to stock count (stock > 0 => available true)
-        // - Log a lightweight catalog document for downstream indexing systems
-
-        if (product == null) {
-            logger.warn("Product entity is null in ProductIndexProcessor");
-            return product;
-        }
-
-        // Normalize and guard string fields
-        if (product.getName() != null) {
-            product.setName(product.getName().trim());
-        }
-        if (product.getSku() != null) {
-            product.setSku(product.getSku().trim());
-        }
-        if (product.getCurrency() != null) {
-            product.setCurrency(product.getCurrency().trim().toUpperCase());
-        }
-        if (product.getDescription() != null) {
-            product.setDescription(product.getDescription().trim());
-        } else {
-            product.setDescription("");
-        }
-
-        // Ensure numeric fields are not null or negative
-        if (product.getPrice() == null || product.getPrice() < 0.0) {
-            logger.warn("Product {} has invalid price (null or negative). Normalizing to 0.0", product.getId());
-            product.setPrice(0.0);
-        }
-
-        if (product.getStock() == null || product.getStock() < 0) {
-            logger.warn("Product {} has invalid stock (null or negative). Normalizing to 0", product.getId());
-            product.setStock(product.getStock() == null ? 0 : Math.max(0, product.getStock()));
-        }
-
-        // Automatic availability based on stock threshold: available if stock > 0
-        boolean computedAvailable = product.getStock() != null && product.getStock() > 0;
-        product.setAvailable(computedAvailable);
-
-        // Build a lightweight catalog log (this simulates preparing a catalog document for indexing)
         try {
+            // Normalize textual fields
+            if (product.getName() != null) {
+                product.setName(product.getName().trim());
+            }
+            if (product.getSku() != null) {
+                product.setSku(product.getSku().trim());
+            }
+            if (product.getCurrency() != null) {
+                product.setCurrency(product.getCurrency().trim().toUpperCase());
+            }
+            if (product.getDescription() != null) {
+                product.setDescription(product.getDescription().trim());
+            } else {
+                product.setDescription("");
+            }
+
+            // Normalize numeric fields: price and stock
+            if (product.getPrice() == null || product.getPrice() < 0.0) {
+                logger.warn("Product {} has invalid price (null or negative). Normalizing to 0.0", product.getId());
+                product.setPrice(0.0);
+            }
+
+            if (product.getStock() == null || product.getStock() < 0) {
+                logger.warn("Product {} has invalid stock (null or negative). Normalizing to 0", product.getId());
+                product.setStock(product.getStock() == null ? 0 : Math.max(0, product.getStock()));
+            }
+
+            // Compute availability from stock if not explicitly set or to enforce consistency
+            boolean computedAvailable = product.getStock() != null && product.getStock() > 0;
+            // Always align available flag with current stock state
+            product.setAvailable(computedAvailable);
+
+            // Prepare a simple catalog document (stringified JSON) to be used by downstream indexer
             StringBuilder catalogDoc = new StringBuilder();
             catalogDoc.append("{")
                 .append("\"id\":\"").append(product.getId()).append("\",")
@@ -102,11 +90,15 @@ public class ProductIndexProcessor implements CyodaProcessor {
                 .append("\"available\":").append(product.getAvailable()).append(",")
                 .append("\"stock\":").append(product.getStock())
                 .append("}");
-            // In a real implementation this would call an indexing service or emit an event.
-            // Here we log the prepared catalog document for downstream consumers.
+
+            // In a real implementation we would call an indexing service or emit an event.
+            // Here we only log the prepared document so the workflow can pick it up or an external
+            // integration can be implemented later.
             logger.info("Prepared catalog document for product {}: {}", product.getId(), catalogDoc.toString());
+
         } catch (Exception ex) {
-            logger.error("Failed to prepare catalog document for product {}: {}", product.getId(), ex.getMessage(), ex);
+            logger.error("Failed to prepare catalog document for product {}: {}", product != null ? product.getId() : "unknown", ex.getMessage(), ex);
+            // Do not throw; keep processor tolerant. The entity state will still be persisted.
         }
 
         return product;

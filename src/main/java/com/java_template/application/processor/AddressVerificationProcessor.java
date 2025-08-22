@@ -12,6 +12,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 @Component
@@ -20,6 +22,17 @@ public class AddressVerificationProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(AddressVerificationProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+
+    // Basic postal code patterns for a few countries; can be extended later.
+    private static final Map<String, Pattern> POSTAL_PATTERNS = new HashMap<>();
+    static {
+        POSTAL_PATTERNS.put("US", Pattern.compile("^\\d{5}(-\\d{4})?$"));
+        POSTAL_PATTERNS.put("CA", Pattern.compile("^[A-Za-z]\\d[A-Za-z] ?\\d[A-Za-z]\\d$"));
+        POSTAL_PATTERNS.put("GB", Pattern.compile("^[A-Za-z0-9 \\-]{2,10}$")); // simplified
+        POSTAL_PATTERNS.put("DE", Pattern.compile("^\\d{5}$"));
+        POSTAL_PATTERNS.put("FR", Pattern.compile("^\\d{5}$"));
+        // default will be a lenient check
+    }
 
     public AddressVerificationProcessor(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
@@ -30,10 +43,10 @@ public class AddressVerificationProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing Address for request: {}", request.getId());
 
-        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
+        return serializer.withRequest(request)
             .toEntity(Address.class)
             .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+            .map(this::processEntityLogic)
             .complete();
     }
 
@@ -48,85 +61,86 @@ public class AddressVerificationProcessor implements CyodaProcessor {
 
     private Address processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Address> context) {
         Address entity = context.entity();
-
-        // Business logic: Validate address format and mark as verified/unverified.
-        // Rule summary:
-        // - Required fields (id, userId, line1, city, country, postalCode) are already validated by isValidEntity.
-        // - Perform lightweight format checks:
-        //   * postalCode format validated according to country when possible (US, CA). Otherwise basic length check.
-        //   * country should be an uppercase 2-letter code (if not, accept but normalize to upper-case).
-        // - If all checks pass -> set verified = true and status = "Verified"
-        // - Otherwise -> set verified = false and status = "Unverified"
-        // Note: Do not perform external calls here. Keep idempotent and deterministic.
-
-        boolean formatOk = true;
-
-        // Normalize country code if present
-        String country = entity.getCountry();
-        if (country != null) {
-            country = country.trim();
-            if (!country.isEmpty()) {
-                entity.setCountry(country.toUpperCase());
+        try {
+            // Normalize and trim text fields if present
+            if (entity.getCountry() != null) {
+                String country = entity.getCountry().trim();
+                if (!country.isEmpty()) {
+                    entity.setCountry(country.toUpperCase());
+                } else {
+                    entity.setCountry(null);
+                }
             }
-        }
 
-        // Basic non-blank checks (guarding, although isValid already checked)
-        if (isBlank(entity.getLine1()) || isBlank(entity.getCity()) || isBlank(entity.getPostalCode()) || isBlank(entity.getCountry())) {
-            formatOk = false;
-            logger.debug("Address {} failed basic non-blank checks.", entity.getId());
-        } else {
-            // Validate postal code by country when possible
-            String postal = entity.getPostalCode().trim();
+            if (entity.getLine1() != null) {
+                entity.setLine1(entity.getLine1().trim());
+            }
+            if (entity.getLine2() != null) {
+                entity.setLine2(entity.getLine2().trim());
+            }
+            if (entity.getCity() != null) {
+                entity.setCity(entity.getCity().trim());
+            }
+            if (entity.getPostalCode() != null) {
+                entity.setPostalCode(entity.getPostalCode().trim());
+            }
+
+            // Ensure isDefault is not null (default false)
+            if (entity.getIsDefault() == null) {
+                entity.setIsDefault(Boolean.FALSE);
+            }
+
+            // Minimal presence checks (do not override entity.isValid behavior)
+            boolean hasRequired = entity.getLine1() != null && !entity.getLine1().isBlank()
+                && entity.getCity() != null && !entity.getCity().isBlank()
+                && entity.getPostalCode() != null && !entity.getPostalCode().isBlank()
+                && entity.getCountry() != null && !entity.getCountry().isBlank();
+
+            if (!hasRequired) {
+                logger.debug("Address {} failed basic non-blank checks.", entity.getId());
+                entity.setVerified(Boolean.FALSE);
+                entity.setStatus("Unverified");
+                return entity;
+            }
+
+            // Validate postal code by country where pattern is available
             String ctry = entity.getCountry() != null ? entity.getCountry().trim().toUpperCase() : "";
+            String postal = entity.getPostalCode() != null ? entity.getPostalCode().trim() : "";
 
-            if (!validatePostalCodeForCountry(postal, ctry)) {
-                formatOk = false;
-                logger.debug("Address {} postal code '{}' not valid for country '{}'.", entity.getId(), postal, ctry);
+            boolean postalValid = true;
+            if (!ctry.isEmpty()) {
+                Pattern p = POSTAL_PATTERNS.get(ctry);
+                if (p != null) {
+                    postalValid = p.matcher(postal).matches();
+                } else {
+                    // Fallback: require postal length between 2 and 12 and at least one alphanumeric
+                    postalValid = postal.length() >= 2 && postal.length() <= 12 && postal.matches(".*[A-Za-z0-9].*");
+                }
+            } else {
+                postalValid = postal.length() >= 2 && postal.length() <= 12;
             }
-        }
 
-        if (formatOk) {
+            if (!postalValid) {
+                logger.debug("Address {} postal code '{}' not valid for country '{}'.", entity.getId(), postal, ctry);
+                entity.setVerified(Boolean.FALSE);
+                entity.setStatus("Unverified");
+                return entity;
+            }
+
+            // If reached here, mark as verified.
             entity.setVerified(Boolean.TRUE);
             entity.setStatus("Verified");
             logger.info("Address {} marked as Verified.", entity.getId());
-        } else {
-            entity.setVerified(Boolean.FALSE);
-            entity.setStatus("Unverified");
-            logger.info("Address {} marked as Unverified.", entity.getId());
+            return entity;
+
+        } catch (Exception ex) {
+            // On unexpected errors, mark unverified but do not throw to avoid breaking workflow.
+            logger.error("Unexpected error in AddressVerificationProcessor for address {}: {}", entity != null ? entity.getId() : "unknown", ex.getMessage(), ex);
+            if (entity != null) {
+                entity.setVerified(Boolean.FALSE);
+                entity.setStatus("Unverified");
+            }
+            return entity;
         }
-
-        return entity;
-    }
-
-    // Helper methods
-
-    private boolean isBlank(String s) {
-        return s == null || s.isBlank();
-    }
-
-    private boolean validatePostalCodeForCountry(String postal, String country) {
-        if (postal == null || postal.isBlank()) return false;
-
-        // US: 5 digits or 5-4
-        if ("US".equalsIgnoreCase(country) || "USA".equalsIgnoreCase(country)) {
-            Pattern us = Pattern.compile("^\\d{5}(-\\d{4})?$");
-            return us.matcher(postal).matches();
-        }
-
-        // Canada: A1A 1A1 (allow with or without space)
-        if ("CA".equalsIgnoreCase(country) || "CAN".equalsIgnoreCase(country)) {
-            Pattern ca = Pattern.compile("^[A-Za-z]\\d[A-Za-z][ -]?\\d[A-Za-z]\\d$");
-            return ca.matcher(postal).matches();
-        }
-
-        // UK: simplified broad check (alphanumeric between 5 and 8 chars)
-        if ("GB".equalsIgnoreCase(country) || "UK".equalsIgnoreCase(country) || "GBR".equalsIgnoreCase(country)) {
-            Pattern uk = Pattern.compile("^[A-Za-z0-9 ]{5,8}$");
-            return uk.matcher(postal).matches();
-        }
-
-        // For other countries, accept postal codes with length between 3 and 10 and alphanumeric
-        Pattern generic = Pattern.compile("^[A-Za-z0-9 \\-]{3,10}$");
-        return generic.matcher(postal).matches();
     }
 }

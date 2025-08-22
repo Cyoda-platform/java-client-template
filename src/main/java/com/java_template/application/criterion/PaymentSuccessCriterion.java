@@ -29,8 +29,7 @@ public class PaymentSuccessCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
-        return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
+        return serializer.withRequest(request)
             .evaluateEntity(Order.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
@@ -38,46 +37,45 @@ public class PaymentSuccessCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
+        // must use exact criterion name
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Order> context) {
-         Order order = context.entity();
-         if (order == null) {
-             logger.warn("PaymentSuccessCriterion: received null order in evaluation context");
-             return EvaluationOutcome.fail("Order entity is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-         }
+        Order order = context.entity();
 
-         String paymentStatus = order.getPaymentStatus();
-         if (paymentStatus == null || paymentStatus.isBlank()) {
-             String msg = String.format("Order [%s] missing paymentStatus", order.getId());
-             logger.debug(msg);
-             return EvaluationOutcome.fail(msg, StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
+        if (order == null) {
+            logger.warn("PaymentSuccessCriterion invoked with null order entity");
+            return EvaluationOutcome.fail("Order entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
 
-         // Success path: paymentStatus indicates payment completed
-         if ("Paid".equalsIgnoreCase(paymentStatus) || "PAID".equals(paymentStatus) || "paid".equalsIgnoreCase(paymentStatus)) {
-             logger.debug("Order [{}] paymentStatus is Paid -> criterion success", order.getId());
-             return EvaluationOutcome.success();
-         }
+        String paymentStatus = order.getPaymentStatus();
+        if (paymentStatus == null || paymentStatus.isBlank()) {
+            String msg = String.format("Order [%s] missing paymentStatus", order.getId());
+            logger.warn(msg);
+            return EvaluationOutcome.fail(msg, StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
 
-         // Explicit failure paths
-         if ("Failed".equalsIgnoreCase(paymentStatus)) {
-             String msg = String.format("Order [%s] payment failed", order.getId());
-             logger.debug(msg);
-             return EvaluationOutcome.fail(msg, StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-         }
+        String normalized = paymentStatus.trim();
+        if ("Paid".equalsIgnoreCase(normalized) || "Success".equalsIgnoreCase(normalized)) {
+            logger.debug("Order [{}] paymentStatus is Paid -> criterion success", order.getId());
+            return EvaluationOutcome.success();
+        }
 
-         if ("Pending".equalsIgnoreCase(paymentStatus) || "PendingPayment".equalsIgnoreCase(paymentStatus)
-             || "WAITING_FOR_PAYMENT".equalsIgnoreCase(paymentStatus) || "WaitingForPayment".equalsIgnoreCase(paymentStatus)) {
-             String msg = String.format("Order [%s] payment still pending", order.getId());
-             logger.debug(msg);
-             return EvaluationOutcome.fail(msg, StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-         }
+        if ("Failed".equalsIgnoreCase(normalized) || "Failure".equalsIgnoreCase(normalized)) {
+            String msg = String.format("Order [%s] payment failed", order.getId());
+            logger.info(msg);
+            return EvaluationOutcome.fail(msg, StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        }
 
-         // Unknown status - treat as business rule failure (unexpected state)
-         String msg = String.format("Order [%s] has unknown paymentStatus '%s'", order.getId(), paymentStatus);
-         logger.debug(msg);
-         return EvaluationOutcome.fail(msg, StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        if ("Pending".equalsIgnoreCase(normalized) || "PendingPayment".equalsIgnoreCase(normalized)) {
+            String msg = String.format("Order [%s] payment still pending", order.getId());
+            logger.info(msg);
+            return EvaluationOutcome.fail(msg, StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+
+        String msg = String.format("Order [%s] has unknown paymentStatus '%s'", order.getId(), paymentStatus);
+        logger.warn(msg);
+        return EvaluationOutcome.fail(msg, StandardEvalReasonCategories.VALIDATION_FAILURE);
     }
 }

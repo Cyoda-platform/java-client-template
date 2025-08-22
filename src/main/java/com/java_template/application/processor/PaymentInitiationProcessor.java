@@ -28,10 +28,10 @@ public class PaymentInitiationProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing Order for request: {}", request.getId());
 
-        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
+        return serializer.withRequest(request)
             .toEntity(Order.class)
-            .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+            .validate(this::isValidEntity, "Invalid order state")
+            .map(this::processEntityLogic)
             .complete();
     }
 
@@ -47,32 +47,42 @@ public class PaymentInitiationProcessor implements CyodaProcessor {
     private Order processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Order> context) {
         Order entity = context.entity();
 
-        // Only initiate payment when order is in a confirmed state
-        String currentStatus = entity.getStatus();
-        String currentPaymentStatus = entity.getPaymentStatus();
+        try {
+            String currentStatus = entity.getStatus();
+            String currentPaymentStatus = entity.getPaymentStatus();
 
-        if (currentStatus != null && currentStatus.equalsIgnoreCase("CONFIRMED")) {
-            // If payment already initiated or completed, do nothing
-            if (currentPaymentStatus != null && (currentPaymentStatus.equalsIgnoreCase("PENDING")
-                    || currentPaymentStatus.equalsIgnoreCase("PAID"))) {
-                logger.info("Order {} already has paymentStatus={}, skipping initiation", entity.getId(), entity.getPaymentStatus());
+            // If payment already initiated or completed, skip
+            if (currentPaymentStatus != null) {
+                String ps = currentPaymentStatus.trim();
+                if (!ps.isEmpty() && (ps.equalsIgnoreCase("PENDING") || ps.equalsIgnoreCase("PAID") || ps.equalsIgnoreCase("FAILED"))) {
+                    logger.info("Order {} already has paymentStatus='{}', skipping initiation", entity.getId(), currentPaymentStatus);
+                    return entity;
+                }
+            }
+
+            if (currentStatus == null || currentStatus.isBlank()) {
+                logger.warn("Order {} has null or blank status, skipping payment initiation", entity.getId());
                 return entity;
             }
 
-            // Set order into waiting for payment and mark payment as pending
-            entity.setStatus("WAITING_FOR_PAYMENT");
-            entity.setPaymentStatus("PENDING");
+            // Only initiate payment for Confirmed orders
+            if ("CONFIRMED".equalsIgnoreCase(currentStatus.trim())) {
+                // Mark order awaiting payment and set payment status to pending.
+                entity.setStatus("WAITING_FOR_PAYMENT");
+                entity.setPaymentStatus("PENDING");
 
-            // In a real implementation here we would call the payment gateway to create a payment request.
-            // Per constraints we do not call external services or persist this entity manually - Cyoda will persist changes.
-            logger.info("Initiated payment for Order {}: set status='{}', paymentStatus='{}'",
-                    entity.getId(), entity.getStatus(), entity.getPaymentStatus());
+                logger.info("Order {} moved from '{}' to '{}' with paymentStatus='{}'.",
+                        entity.getId(), currentStatus, entity.getStatus(), entity.getPaymentStatus());
 
-            return entity;
-        } else {
-            // If order is not confirmed, do not initiate payment. Log and leave entity unchanged.
-            logger.warn("Order {} is in status '{}', payment initiation skipped. Expected 'CONFIRMED'.", entity.getId(), currentStatus);
-            return entity;
+                // NOTE: Do not call external persistence for this entity. Cyoda will persist the modified entity automatically.
+                // Any actual integration with a payment gateway should be handled asynchronously by separate components/events.
+            } else {
+                logger.warn("Order {} is in status '{}', payment initiation skipped. Expected 'CONFIRMED'.", entity.getId(), currentStatus);
+            }
+        } catch (Exception ex) {
+            logger.error("Unexpected error in PaymentInitiationProcessor for order {}: {}", entity != null ? entity.getId() : "unknown", ex.getMessage(), ex);
         }
+
+        return entity;
     }
 }
