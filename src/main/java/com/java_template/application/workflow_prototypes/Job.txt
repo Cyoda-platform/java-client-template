@@ -1,0 +1,94 @@
+// Extracted processJob method and its helpers
+
+private void processJob(String technicalId, Job job) {
+    logger.info("Starting processJob for {}", technicalId);
+    try {
+        // Update status to INGESTING and set startedAt timestamp
+        job.setStatus("INGESTING");
+        job.setStartedAt(java.time.Instant.now().toString());
+
+        // TODO: Update job in EntityService - not supported, so skipped
+
+        // Call OpenDataSoft API for Nobel laureates data
+        org.springframework.http.ResponseEntity<Map> response = restTemplate.getForEntity(OPEN_DATA_SOFT_API, Map.class);
+        if (!response.getStatusCode().is2xxSuccessful()) {
+            throw new RuntimeException("Failed to fetch data from OpenDataSoft API");
+        }
+
+        Map body = response.getBody();
+        if (body == null || !body.containsKey("records")) {
+            throw new RuntimeException("Invalid data received from OpenDataSoft API");
+        }
+
+        List records = (List) body.get("records");
+        if (records == null) records = Collections.emptyList();
+
+        for (Object recordObj : records) {
+            Map recordMap = (Map) recordObj;
+            if (!recordMap.containsKey("record")) continue;
+            Map record = (Map) recordMap.get("record");
+            if (!record.containsKey("fields")) continue;
+            Map fields = (Map) record.get("fields");
+
+            Laureate laureate = new Laureate();
+            // Map fields carefully with null checks and type casts
+            laureate.setLaureateId(String.valueOf(fields.getOrDefault("id", UUID.randomUUID().toString())));
+            laureate.setFirstname((String) fields.getOrDefault("firstname", ""));
+            laureate.setSurname((String) fields.getOrDefault("surname", ""));
+            laureate.setBorn((String) fields.getOrDefault("born", ""));
+            laureate.setDied((String) fields.getOrDefault("died", ""));
+            laureate.setBornCountry((String) fields.getOrDefault("borncountry", ""));
+            laureate.setBornCity((String) fields.getOrDefault("borncity", ""));
+            laureate.setGender((String) fields.getOrDefault("gender", ""));
+            laureate.setYear((String) fields.getOrDefault("year", ""));
+            laureate.setCategory((String) fields.getOrDefault("category", ""));
+            laureate.setMotivation((String) fields.getOrDefault("motivation", ""));
+            laureate.setAffiliationName((String) fields.getOrDefault("name", ""));
+            laureate.setAffiliationCity((String) fields.getOrDefault("city", ""));
+            laureate.setAffiliationCountry((String) fields.getOrDefault("country", ""));
+
+            if (laureate.isValid()) {
+                CompletableFuture<UUID> addFuture = entityService.addItem(Laureate.ENTITY_NAME, ENTITY_VERSION, laureate);
+                UUID laureateUUID = addFuture.get();
+                String laureateId = "laureate-" + laureateUUID.toString();
+                processLaureate(laureateId, laureate);
+            } else {
+                logger.error("Invalid laureate data skipped: {}", laureate);
+            }
+        }
+
+        // Update job status to SUCCEEDED and finishedAt timestamp
+        job.setStatus("SUCCEEDED");
+        job.setFinishedAt(java.time.Instant.now().toString());
+        // TODO: Update job in EntityService - not supported, so skipped
+
+        // Notify all active subscribers
+        notifySubscribers();
+
+        // Update job status to NOTIFIED
+        job.setStatus("NOTIFIED");
+        // TODO: Update job in EntityService - not supported, so skipped
+
+        logger.info("processJob completed successfully for {}", technicalId);
+
+    } catch (Exception e) {
+        logger.error("processJob failed for {}: {}", technicalId, e.getMessage());
+        job.setStatus("FAILED");
+        job.setMessage(e.getMessage());
+        job.setFinishedAt(java.time.Instant.now().toString());
+        // TODO: Update job in EntityService - not supported, so skipped
+
+        try {
+            notifySubscribers();
+            job.setStatus("NOTIFIED");
+            // TODO: Update job in EntityService - not supported, so skipped
+        } catch (Exception notifyEx) {
+            logger.error("Failed to notify subscribers after job failure: {}", notifyEx.getMessage());
+        }
+    }
+}
+
+private void processLaureate(String technicalId, Laureate laureate) {
+    // Validation and enrichment already done in isValid() and ingestion step
+    logger.info("Processed Laureate {}", technicalId);
+}
