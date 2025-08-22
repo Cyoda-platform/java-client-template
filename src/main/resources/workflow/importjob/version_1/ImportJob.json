@@ -1,0 +1,284 @@
+{
+  "version": "1.0",
+  "name": "PetSystem Combined Workflows (ImportJob, Pet, AdoptionRequest)",
+  "desc": "Finite state machine workflows for ImportJob, Pet and AdoptionRequest derived from functional requirements. Workflows are acyclic and follow the provided processor/criterion constraints.",
+  "initialState": "none",
+  "active": true,
+  "states": {
+    "ImportJob:PENDING": {
+      "transitions": [
+        {
+          "name": "start_import",
+          "next": "ImportJob:VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "StartImportProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ImportJob:VALIDATING": {
+      "transitions": [
+        {
+          "name": "validation_passed",
+          "next": "ImportJob:FETCHING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidateSourceCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ImportJob:FETCHING": {
+      "transitions": [
+        {
+          "name": "fetch_pets",
+          "next": "ImportJob:INGESTING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FetchPetsProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ImportJob:INGESTING": {
+      "transitions": [
+        {
+          "name": "all_records_processed",
+          "next": "ImportJob:COMPLETED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AllRecordsProcessedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "import_error_detected",
+          "next": "ImportJob:FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ImportErrorCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ImportJob:COMPLETED": {
+      "transitions": []
+    },
+    "ImportJob:FAILED": {
+      "transitions": []
+    },
+    "Pet:INCOMING": {
+      "transitions": [
+        {
+          "name": "start_enrichment",
+          "next": "Pet:ENRICHING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EnrichPetProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "Pet:ENRICHING": {
+      "transitions": [
+        {
+          "name": "missing_photos",
+          "next": "Pet:HOLD",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PhotoMissingCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "photos_valid",
+          "next": "Pet:VISIBLE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PhotoValidationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "Pet:HOLD": {
+      "transitions": [
+        {
+          "name": "escalate_for_manual_review",
+          "next": "Pet:ESCALATED",
+          "manual": true
+        }
+      ]
+    },
+    "Pet:ESCALATED": {
+      "transitions": []
+    },
+    "Pet:VISIBLE": {
+      "transitions": [
+        {
+          "name": "adoption_requested",
+          "next": "Pet:PENDING_ADOPTION",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AdoptionRequestedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "Pet:PENDING_ADOPTION": {
+      "transitions": [
+        {
+          "name": "finalize_adoption",
+          "next": "Pet:ADOPTED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FinalizeAdoptionProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "cancel_adoption",
+          "next": "Pet:CANCELLED",
+          "manual": true
+        }
+      ]
+    },
+    "Pet:ADOPTED": {
+      "transitions": []
+    },
+    "Pet:CANCELLED": {
+      "transitions": []
+    },
+    "AdoptionRequest:SUBMITTED": {
+      "transitions": [
+        {
+          "name": "verify_applicant",
+          "next": "AdoptionRequest:VERIFYING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "VerifyApplicantProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "AdoptionRequest:VERIFYING": {
+      "transitions": [
+        {
+          "name": "verification_passed",
+          "next": "AdoptionRequest:UNDER_REVIEW",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "VerificationPassedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "AdoptionRequest:UNDER_REVIEW": {
+      "transitions": [
+        {
+          "name": "approve_by_staff",
+          "next": "AdoptionRequest:APPROVED",
+          "manual": true
+        },
+        {
+          "name": "decline_by_staff",
+          "next": "AdoptionRequest:DECLINED",
+          "manual": true
+        }
+      ]
+    },
+    "AdoptionRequest:APPROVED": {
+      "transitions": [
+        {
+          "name": "finalize_approved_request",
+          "next": "AdoptionRequest:COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FinalizeAdoptionProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "AdoptionRequest:DECLINED": {
+      "transitions": [
+        {
+          "name": "complete_declined_request",
+          "next": "AdoptionRequest:COMPLETED",
+          "manual": true
+        }
+      ]
+    },
+    "AdoptionRequest:COMPLETED": {
+      "transitions": []
+    }
+  }
+}
