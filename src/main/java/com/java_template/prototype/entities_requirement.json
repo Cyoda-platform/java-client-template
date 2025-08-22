@@ -1,0 +1,42 @@
+{
+    "entities": [
+        {
+            "HN_Item": {
+                "entity_data_example": {
+                    "id": 123,
+                    "importTimestamp": "2025-08-22T12:00:00Z",
+                    "rawJson": {
+                        "id": 123,
+                        "type": "story"
+                    },
+                    "type": "story"
+                }
+            }
+        },
+        {
+            "ImportJob": {
+                "entity_data_example": {
+                    "createdBy": "caller-1",
+                    "errorMessage": null,
+                    "payload": {
+                        "id": 123,
+                        "type": "story"
+                    },
+                    "resultItemId": 123,
+                    "status": "COMPLETED"
+                }
+            }
+        },
+        {
+            "Validation_Result": {
+                "entity_data_example": {
+                    "errorMessage": "Missing required fields: id",
+                    "isValid": false,
+                    "missingFields": [
+                        "id"
+                    ]
+                }
+            }
+        }
+    ]
+}
