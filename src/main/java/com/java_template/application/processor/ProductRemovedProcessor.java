@@ -81,10 +81,11 @@ public class ProductRemovedProcessor implements CyodaProcessor {
 
             // Perform the search asynchronously; don't block processor flow.
             try {
-                CompletableFuture<ArrayNode> searchFuture = entityService.search(
+                CompletableFuture<ArrayNode> searchFuture = entityService.getItemsByCondition(
                     Cart.ENTITY_NAME,
                     String.valueOf(Cart.ENTITY_VERSION),
-                    searchRequest
+                    searchRequest,
+                    true
                 );
 
                 searchFuture.thenAccept(results -> {
