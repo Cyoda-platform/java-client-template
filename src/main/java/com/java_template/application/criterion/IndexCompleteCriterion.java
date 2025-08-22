@@ -66,8 +66,8 @@ public class IndexCompleteCriterion implements CyodaCriterion {
 
          // sizeBytes should be non-null and non-negative when available
          if (entity.getSizeBytes() == null) {
-             // warn but allow success: size may be optional depending on persister. Attach as a data quality warning.
-             context.addWarning("sizeBytes is not set for StoredItem; this may affect indexing/analytics");
+             // warn but allow success: size may be optional depending on persister. Log a warning so operators can see it.
+             logger.warn("sizeBytes is not set for StoredItem {}; this may affect indexing/analytics", entity.getStorageTechnicalId());
          } else if (entity.getSizeBytes() < 0) {
              return EvaluationOutcome.fail("sizeBytes must be non-negative", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
