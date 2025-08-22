@@ -1,0 +1,58 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "addedAt": "2025-08-22T10:00:00Z",
+                    "ageMonths": 12,
+                    "breed": "Tabby",
+                    "id": "pet-123",
+                    "images": [
+                        "https://example.com/images/pet-123-1.jpg"
+                    ],
+                    "location": "Store A",
+                    "medicalNotes": "",
+                    "name": "Mittens",
+                    "sex": "F",
+                    "species": "Cat",
+                    "status": "available",
+                    "vaccinationSummary": "Rabies up to date"
+                }
+            }
+        },
+        {
+            "User": {
+                "entity_data_example": {
+                    "address": "123 Main St",
+                    "adoptionHistory": [
+                        "pet-001"
+                    ],
+                    "createdAt": "2025-08-22T10:05:00Z",
+                    "email": "alex@example.com",
+                    "fullName": "Alex Doe",
+                    "id": "user-55",
+                    "phone": "555-0100",
+                    "preferences": [
+                        "cat",
+                        "small"
+                    ]
+                }
+            }
+        },
+        {
+            "AdoptionOrder": {
+                "entity_data_example": {
+                    "approvedDate": null,
+                    "completedDate": null,
+                    "id": "order-900",
+                    "notes": "Would prefer home delivery",
+                    "petId": "pet-123",
+                    "pickupMethod": "homeDelivery",
+                    "requestedDate": "2025-08-22T11:00:00Z",
+                    "status": "requested",
+                    "userId": "user-55"
+                }
+            }
+        }
+    ]
+}
