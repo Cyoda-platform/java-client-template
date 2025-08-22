@@ -1,0 +1,221 @@
+{
+  "version": "1.0",
+  "name": "Pet_Owner_PetIngestionJob_CombinedWorkflows",
+  "desc": "Combined FSM workflows for Pet, Owner and PetIngestionJob based on functional requirements",
+  "initialState": "none",
+  "active": true,
+  "states": {
+    "PET_NEW": {
+      "transitions": [
+        {
+          "name": "new_to_validation",
+          "next": "PET_VALIDATION",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ProcessPetValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PET_VALIDATION": {
+      "transitions": [
+        {
+          "name": "validation_if_valid_to_enrichment",
+          "next": "PET_ENRICHMENT",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PetValidCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_if_invalid_to_archived",
+          "next": "PET_ARCHIVED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PetInvalidCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "PET_ENRICHMENT": {
+      "transitions": [
+        {
+          "name": "enrichment_to_available",
+          "next": "PET_AVAILABLE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EnrichPetProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PET_AVAILABLE": {
+      "transitions": [
+        {
+          "name": "available_to_reserved_manual",
+          "next": "PET_RESERVED",
+          "manual": true
+        }
+      ]
+    },
+    "PET_RESERVED": {
+      "transitions": [
+        {
+          "name": "reserved_to_adopted_manual",
+          "next": "PET_ADOPTED",
+          "manual": true
+        }
+      ]
+    },
+    "PET_ADOPTED": {
+      "transitions": [
+        {
+          "name": "adopted_to_post_adoption",
+          "next": "PET_POST_ADOPTION",
+          "manual": false
+        }
+      ]
+    },
+    "PET_POST_ADOPTION": {
+      "transitions": [
+        {
+          "name": "post_adoption_to_archived",
+          "next": "PET_ARCHIVED",
+          "manual": false
+        }
+      ]
+    },
+    "PET_ARCHIVED": {
+      "transitions": []
+    },
+    "OWNER_CREATED": {
+      "transitions": [
+        {
+          "name": "created_to_verified",
+          "next": "OWNER_VERIFIED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "VerifyOwnerProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "OWNER_VERIFIED": {
+      "transitions": [
+        {
+          "name": "verified_to_active",
+          "next": "OWNER_ACTIVE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ActivateOwnerProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "OWNER_ACTIVE": {
+      "transitions": [
+        {
+          "name": "active_to_suspended_manual",
+          "next": "OWNER_SUSPENDED",
+          "manual": true
+        }
+      ]
+    },
+    "OWNER_SUSPENDED": {
+      "transitions": [
+        {
+          "name": "suspended_to_active_manual",
+          "next": "OWNER_ACTIVE",
+          "manual": true
+        }
+      ]
+    },
+    "JOB_PENDING": {
+      "transitions": [
+        {
+          "name": "pending_to_running_manual",
+          "next": "JOB_RUNNING",
+          "manual": true,
+          "processors": [
+            {
+              "name": "StartIngestionProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "JOB_RUNNING": {
+      "transitions": [
+        {
+          "name": "running_if_success_to_completed",
+          "next": "JOB_COMPLETED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ImportThresholdCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "running_if_errors_to_failed",
+          "next": "JOB_FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ImportErrorCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "JOB_COMPLETED": {
+      "transitions": []
+    },
+    "JOB_FAILED": {
+      "transitions": []
+    }
+  }
+}
