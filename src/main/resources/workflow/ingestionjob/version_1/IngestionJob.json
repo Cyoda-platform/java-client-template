@@ -1,0 +1,252 @@
+[
+  {
+    "version": "1.0",
+    "name": "Pet Workflow",
+    "desc": "Workflow for Pet entity: enrichment, publication, reservation, adoption and archival.",
+    "initialState": "none",
+    "active": true,
+    "states": {
+      "NEW": {
+        "transitions": [
+          {
+            "name": "auto_enrich",
+            "next": "ENRICHED",
+            "manual": false,
+            "processors": [
+              {
+                "name": "EnrichPetProcessor",
+                "config": {
+                  "calculationNodesTags": "cyoda_application"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "ENRICHED": {
+        "transitions": [
+          {
+            "name": "auto_publish",
+            "next": "AVAILABLE",
+            "manual": false,
+            "processors": [
+              {
+                "name": "PublishPetProcessor",
+                "config": {
+                  "calculationNodesTags": "cyoda_application"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "AVAILABLE": {
+        "transitions": [
+          {
+            "name": "manual_reserve",
+            "next": "RESERVED",
+            "manual": true
+          }
+        ]
+      },
+      "RESERVED": {
+        "transitions": [
+          {
+            "name": "manual_confirm_adoption",
+            "next": "ADOPTED",
+            "manual": true
+          }
+        ]
+      },
+      "ADOPTED": {
+        "transitions": [
+          {
+            "name": "auto_archive",
+            "next": "ARCHIVED",
+            "manual": false
+          }
+        ]
+      },
+      "ARCHIVED": {
+        "transitions": []
+      }
+    }
+  },
+  {
+    "version": "1.0",
+    "name": "Owner Workflow",
+    "desc": "Workflow for Owner entity: registration, verification, activation and suspension. Verification is automatic; activation/suspension are manually executed after criteria evaluation.",
+    "initialState": "none",
+    "active": true,
+    "states": {
+      "REGISTERED": {
+        "transitions": [
+          {
+            "name": "auto_verify_contact",
+            "next": "VERIFIED",
+            "manual": false,
+            "processors": [
+              {
+                "name": "VerifyContactProcessor",
+                "config": {
+                  "calculationNodesTags": "cyoda_application"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "VERIFIED": {
+        "transitions": [
+          {
+            "name": "to_activation_pending_if_email_valid",
+            "next": "ACTIVATION_PENDING",
+            "manual": false,
+            "criterion": {
+              "type": "function",
+              "function": {
+                "name": "EmailValidCriterion",
+                "config": {
+                  "calculationNodesTags": "cyoda_application"
+                }
+              }
+            }
+          },
+          {
+            "name": "to_suspension_pending_if_open_complaints",
+            "next": "SUSPENSION_PENDING",
+            "manual": false,
+            "criterion": {
+              "type": "function",
+              "function": {
+                "name": "NoOpenComplaintsCriterion",
+                "config": {
+                  "calculationNodesTags": "cyoda_application"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ACTIVATION_PENDING": {
+        "transitions": [
+          {
+            "name": "manual_activate_owner",
+            "next": "ACTIVE",
+            "manual": true,
+            "processors": [
+              {
+                "name": "ActivateOwnerProcessor",
+                "config": {
+                  "calculationNodesTags": "cyoda_application"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "SUSPENSION_PENDING": {
+        "transitions": [
+          {
+            "name": "manual_suspend_owner",
+            "next": "SUSPENDED",
+            "manual": true
+          }
+        ]
+      },
+      "ACTIVE": {
+        "transitions": [
+          {
+            "name": "manual_suspend_from_active",
+            "next": "SUSPENDED",
+            "manual": true
+          }
+        ]
+      },
+      "SUSPENDED": {
+        "transitions": []
+      }
+    }
+  },
+  {
+    "version": "1.0",
+    "name": "IngestionJob Workflow",
+    "desc": "Workflow for IngestionJob: pending -> running -> importing -> completed/failed. Import results determine final state.",
+    "initialState": "none",
+    "active": true,
+    "states": {
+      "PENDING": {
+        "transitions": [
+          {
+            "name": "manual_start_ingestion",
+            "next": "RUNNING",
+            "manual": true,
+            "processors": [
+              {
+                "name": "StartIngestionProcessor",
+                "config": {
+                  "calculationNodesTags": "cyoda_application"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "RUNNING": {
+        "transitions": [
+          {
+            "name": "auto_fetch_and_parse",
+            "next": "IMPORTING",
+            "manual": false,
+            "processors": [
+              {
+                "name": "FetchAndParseProcessor",
+                "config": {
+                  "calculationNodesTags": "cyoda_application"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "IMPORTING": {
+        "transitions": [
+          {
+            "name": "import_success",
+            "next": "COMPLETED",
+            "manual": false,
+            "criterion": {
+              "type": "function",
+              "function": {
+                "name": "DataValidCriterion",
+                "config": {
+                  "calculationNodesTags": "cyoda_application"
+                }
+              }
+            }
+          },
+          {
+            "name": "import_failure",
+            "next": "FAILED",
+            "manual": false,
+            "criterion": {
+              "type": "function",
+              "function": {
+                "name": "SourceReachableCriterion",
+                "config": {
+                  "calculationNodesTags": "cyoda_application"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "COMPLETED": {
+        "transitions": []
+      },
+      "FAILED": {
+        "transitions": []
+      }
+    }
+  }
+]
