@@ -29,7 +29,7 @@ public class InventoryReservedCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Order.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -43,46 +43,76 @@ public class InventoryReservedCriterion implements CyodaCriterion {
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Order> context) {
          Order entity = context.entity();
+
          if (entity == null) {
              return EvaluationOutcome.fail("Order entity is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Basic entity validity (structure & required fields)
-         if (!entity.isValid()) {
-             return EvaluationOutcome.fail("Order failed basic entity validation", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-         }
-
-         // Ensure itemsSnapshot sums to totalAmount (data quality check)
-         double computedTotal = 0.0;
+         // itemsSnapshot must be present and non-empty
          if (entity.getItemsSnapshot() == null || entity.getItemsSnapshot().isEmpty()) {
-             return EvaluationOutcome.fail("Order itemsSnapshot is missing or empty", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-         }
-         for (Order.Item it : entity.getItemsSnapshot()) {
-             if (it == null || !it.isValid()) {
-                 return EvaluationOutcome.fail("Order contains invalid item in itemsSnapshot", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-             }
-             computedTotal += it.getUnitPrice() * it.getQuantity();
-         }
-         Double totalAmount = entity.getTotalAmount();
-         if (totalAmount == null) {
-             return EvaluationOutcome.fail("Order totalAmount is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-         }
-         if (Math.abs(computedTotal - totalAmount) > 0.01) {
-             return EvaluationOutcome.fail("Order totalAmount does not match sum of itemsSnapshot", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             return EvaluationOutcome.fail("Order must contain at least one item", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Business rule: inventory reservation is expected to be performed when an order is in WAITING_TO_FULFILL or later.
+         // Validate items and compute total
+         double computedTotal = 0.0;
+         int idx = 0;
+         for (Order.Item it : entity.getItemsSnapshot()) {
+             idx++;
+             if (it == null) {
+                 return EvaluationOutcome.fail("Order contains null item at position " + idx, StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+             // Use existing item validation if available
+             try {
+                 if (!it.isValid()) {
+                     return EvaluationOutcome.fail("Order contains invalid item at position " + idx, StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+                 }
+             } catch (Exception ex) {
+                 // Fallback to manual checks if isValid throws or is not usable
+                 if (it.getProductId() == null || it.getProductId().isBlank()) {
+                     return EvaluationOutcome.fail("Order item missing productId at position " + idx, StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+                 }
+                 if (it.getQuantity() == null || it.getQuantity() <= 0) {
+                     return EvaluationOutcome.fail("Order item has invalid quantity at position " + idx, StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+                 }
+                 if (it.getUnitPrice() == null || it.getUnitPrice() < 0) {
+                     return EvaluationOutcome.fail("Order item has invalid unitPrice at position " + idx, StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+                 }
+             }
+
+             // accumulate
+             Double up = it.getUnitPrice() != null ? it.getUnitPrice() : 0.0;
+             Integer q = it.getQuantity() != null ? it.getQuantity() : 0;
+             computedTotal += up * q;
+         }
+
+         // totalAmount must be present and non-negative
+         Double totalAmount = entity.getTotalAmount();
+         if (totalAmount == null || totalAmount < 0) {
+             return EvaluationOutcome.fail("Order.totalAmount is required and must be non-negative", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         // Allow small rounding differences
+         if (Math.abs(computedTotal - totalAmount) > 0.01) {
+             return EvaluationOutcome.fail(
+                 String.format("Order totalAmount mismatch. Computed=%.2f, Declared=%.2f", computedTotal, totalAmount),
+                 StandardEvalReasonCategories.DATA_QUALITY_FAILURE
+             );
+         }
+
+         // Status must be present and one of expected workflow states
          String status = entity.getStatus();
          if (status == null || status.isBlank()) {
-             return EvaluationOutcome.fail("Order status is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             return EvaluationOutcome.fail("Order.status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // We cannot access Product inventory here; the contract is that when an Order reaches WAITING_TO_FULFILL (or beyond)
-         // CreateOrderProcessor should have reserved inventory. Fail if order is not yet in a state where reservation should have happened.
-         if ("WAITING_TO_FULFILL".equals(status) || "PICKING".equals(status) || "SENT".equals(status)) {
-             return EvaluationOutcome.success();
-         } else {
-             return EvaluationOutcome.fail("Order is not in a state where inventory reservation is expected", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         // Valid order workflow states (as per functional requirements)
+         String st = status.trim().toUpperCase();
+         if (!"WAITING_TO_FULFILL".equals(st) && !"PICKING".equals(st) && !"SENT".equals(st)) {
+             return EvaluationOutcome.fail("Order.status is not a valid state for order workflow: " + status, StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
+
+         // If all checks pass, we consider the inventory reservation criterion satisfied (note: actual inventory reservations
+         // are handled by processors; this criterion validates order structure and integrity).
+         return EvaluationOutcome.success();
     }
 }

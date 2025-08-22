@@ -1,4 +1,7 @@
 package com.java_template.application.processor;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.cart.version_1.Cart;
 import com.java_template.application.entity.cart.version_1.Cart.CartItem;
 import com.java_template.application.entity.product.version_1.Product;
@@ -10,18 +13,14 @@ import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 import java.time.Instant;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 
 @Component
 public class AddItemProcessor implements CyodaProcessor {
@@ -30,13 +29,10 @@ public class AddItemProcessor implements CyodaProcessor {
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
     private final EntityService entityService;
-    private final ObjectMapper objectMapper;
 
-    @Autowired
-    public AddItemProcessor(SerializerFactory serializerFactory, EntityService entityService, ObjectMapper objectMapper) {
+    public AddItemProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
         this.entityService = entityService;
-        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -57,95 +53,89 @@ public class AddItemProcessor implements CyodaProcessor {
     }
 
     private boolean isValidEntity(Cart entity) {
-        return entity != null && entity.isValid();
+        // Allow processing of carts in any state (we don't enforce full entity.isValid() here,
+        // because initial NEW carts may be created with empty items list).
+        return entity != null;
     }
 
     private Cart processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Cart> context) {
         Cart cart = context.entity();
         if (cart == null) return null;
 
+        // Ensure items list is initialized
         List<CartItem> items = cart.getItems();
-        if (items == null || items.isEmpty()) {
-            // Nothing to add; ensure status remains consistent
-            if (cart.getStatus() == null || cart.getStatus().isBlank()) {
-                cart.setStatus("NEW");
-            }
-            // leave totals as-is
-            return cart;
+        if (items == null) {
+            items = new ArrayList<>();
         }
 
-        // Merge items by productId (sum quantities), ensure unitPrice resolved from Product when missing
-        Map<String, CartItem> merged = new LinkedHashMap<>();
-        for (CartItem item : items) {
-            if (item == null || item.getProductId() == null) continue;
-            String pid = item.getProductId();
-            CartItem existing = merged.get(pid);
-            if (existing == null) {
-                // clone to avoid modifying original list instances unexpectedly
-                CartItem copy = new CartItem();
-                copy.setProductId(item.getProductId());
-                copy.setQuantity(item.getQuantity() == null ? 0 : item.getQuantity());
-                copy.setUnitPrice(item.getUnitPrice());
-                merged.put(pid, copy);
-            } else {
-                int addQty = item.getQuantity() == null ? 0 : item.getQuantity();
-                existing.setQuantity(existing.getQuantity() + addQty);
-                // prefer existing unitPrice, if missing try to set from current item
-                if (existing.getUnitPrice() == null && item.getUnitPrice() != null) {
-                    existing.setUnitPrice(item.getUnitPrice());
-                }
-            }
+        // Ensure status is set (default to NEW if absent)
+        if (cart.getStatus() == null || cart.getStatus().isBlank()) {
+            cart.setStatus("NEW");
         }
 
-        // Resolve missing unit prices by querying Product entity (by business id -> id field)
-        for (Map.Entry<String, CartItem> entry : merged.entrySet()) {
-            CartItem ci = entry.getValue();
-            if (ci.getUnitPrice() == null) {
+        // Normalize items: for each item, ensure quantity >= 0 and attempt to resolve unitPrice from Product if missing
+        for (CartItem ci : items) {
+            if (ci == null) continue;
+            // Defensive defaults
+            if (ci.getQuantity() == null) ci.setQuantity(0);
+            // If unitPrice missing attempt to read product price via EntityService
+            if (ci.getUnitPrice() == null && ci.getProductId() != null && !ci.getProductId().isBlank()) {
                 try {
-                    SearchConditionRequest condition = SearchConditionRequest.group(
-                        "AND",
-                        Condition.of("$.id", "EQUALS", entry.getKey())
-                    );
-                    ArrayNode result = entityService.getItemsByCondition(
+                    // product technical id is expected to be a UUID string; if not, getItem may fail and we handle gracefully
+                    UUID productTechnicalId = UUID.fromString(ci.getProductId());
+                    ObjectNode prodNode = entityService.getItem(
                         Product.ENTITY_NAME,
                         String.valueOf(Product.ENTITY_VERSION),
-                        condition,
-                        true
+                        productTechnicalId
                     ).join();
-                    if (result != null && result.size() > 0) {
-                        Product prod = objectMapper.treeToValue(result.get(0), Product.class);
-                        if (prod != null && prod.getPrice() != null) {
-                            ci.setUnitPrice(prod.getPrice());
+
+                    if (prodNode != null) {
+                        // the returned structure may contain an "entity" wrapper; try both
+                        JsonNode entityNode = prodNode.has("entity") ? prodNode.get("entity") : prodNode;
+                        if (entityNode != null && entityNode.has("price") && !entityNode.get("price").isNull()) {
+                            try {
+                                double price = entityNode.get("price").asDouble();
+                                ci.setUnitPrice(price);
+                            } catch (Exception e) {
+                                logger.debug("Failed to parse product.price for product {}: {}", ci.getProductId(), e.getMessage());
+                            }
                         }
                     }
-                } catch (Exception e) {
-                    logger.warn("Failed to resolve product price for productId={} : {}", entry.getKey(), e.getMessage());
-                    // leave unitPrice null if resolution fails
+                } catch (IllegalArgumentException ie) {
+                    // product id is not a valid UUID - skip resolving price
+                    logger.debug("Product id {} is not a valid UUID - skipping price resolution", ci.getProductId());
+                } catch (Exception ex) {
+                    logger.warn("Failed to fetch product {} to resolve unitPrice: {}", ci.getProductId(), ex.getMessage());
                 }
             }
         }
 
-        // Build final items list and compute total amount
-        List<CartItem> finalItems = merged.values().stream().collect(Collectors.toList());
+        // Compute totals
         double total = 0.0;
-        for (CartItem ci : finalItems) {
+        for (CartItem ci : items) {
+            if (ci == null) continue;
             int qty = ci.getQuantity() == null ? 0 : ci.getQuantity();
             double up = ci.getUnitPrice() == null ? 0.0 : ci.getUnitPrice();
             total += qty * up;
         }
 
-        // Update cart with merged items and totals
-        cart.setItems(finalItems);
+        // Update cart fields
+        cart.setItems(items);
         cart.setTotalAmount(total);
 
-        // Set status to ACTIVE when items are present, unless already CONVERTED
-        if (cart.getStatus() == null || !"CONVERTED".equalsIgnoreCase(cart.getStatus())) {
-            cart.setStatus("ACTIVE");
+        // Transition to ACTIVE when there are items and cart is not CONVERTED
+        boolean hasItems = items.stream().anyMatch(i -> i != null && i.getQuantity() != null && i.getQuantity() > 0);
+        if (hasItems) {
+            String status = cart.getStatus();
+            if (status == null || !"CONVERTED".equalsIgnoreCase(status)) {
+                cart.setStatus("ACTIVE");
+            }
         }
 
         // Update timestamp
         cart.setUpdatedAt(Instant.now().toString());
 
+        logger.debug("AddItemProcessor completed for cart id={}. Items={}, total={}", cart.getId(), items.size(), cart.getTotalAmount());
         return cart;
     }
 }

@@ -4,10 +4,10 @@ import static com.java_template.common.config.Config.*;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.java_template.application.entity.address.version_1.Address;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
-import com.java_template.application.entity.address.version_1.Address;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -20,22 +20,20 @@ import jakarta.validation.Valid;
 import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 
-/**
- * Dull proxy controller for Address entity. All business logic occurs in workflows/processors.
- */
 @RestController
-@RequestMapping("/api/address/v1/addresses")
-@Tag(name = "Address Controller", description = "Proxy API for Address entity (v1)")
+@RequestMapping(path = "/api/address/v1", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.ALL_VALUE)
+@Tag(name = "Address", description = "Address entity operations (v1)")
 public class AddressController {
 
     private static final Logger logger = LoggerFactory.getLogger(AddressController.class);
@@ -46,342 +44,334 @@ public class AddressController {
         this.entityService = entityService;
     }
 
-    @Operation(summary = "Create Address", description = "Persist an Address entity. Returns only technicalId.")
+    @Operation(summary = "Create Address", description = "Create a single Address entity")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Bad Request"),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+            @ApiResponse(responseCode = "200", description = "Address created",
+                    content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad request"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
     })
-    @PostMapping
-    public ResponseEntity<?> createAddress(
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    description = "Address payload",
-                    content = @Content(schema = @Schema(implementation = AddressRequest.class))
-            )
-            @Valid @RequestBody AddressRequest request
+    @PostMapping(path = "", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> addAddress(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Address payload", required = true,
+                    content = @Content(schema = @Schema(implementation = ObjectNode.class)))
+            @RequestBody ObjectNode request
     ) {
         try {
-            // pass request payload as entity to EntityService (controller must be dull)
-            UUID technicalId = entityService.addItem(
+            // forward the raw ObjectNode to the service
+            CompletableFuture<java.util.UUID> idFuture = entityService.addItem(
                     Address.ENTITY_NAME,
                     String.valueOf(Address.ENTITY_VERSION),
                     request
-            ).get();
+            );
 
-            return ResponseEntity.ok(new TechnicalIdResponse(technicalId.toString()));
+            UUID id = idFuture.get();
+            TechnicalIdResponse resp = new TechnicalIdResponse();
+            resp.setTechnicalId(id.toString());
+            return ResponseEntity.ok(resp);
         } catch (IllegalArgumentException iae) {
-            logger.warn("Invalid request for createAddress", iae);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(iae.getMessage());
+            logger.warn("Invalid request to add Address: {}", iae.getMessage(), iae);
+            return ResponseEntity.badRequest().body(iae.getMessage());
         } catch (ExecutionException ee) {
             Throwable cause = ee.getCause();
             if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
+                return ResponseEntity.status(404).body(cause.getMessage());
             } else if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
+                return ResponseEntity.badRequest().body(cause.getMessage());
             } else {
-                logger.error("ExecutionException in createAddress", ee);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause == null ? ee.getMessage() : cause.getMessage());
+                logger.error("ExecutionException while adding Address", ee);
+                return ResponseEntity.status(500).body(cause != null ? cause.getMessage() : ee.getMessage());
             }
-        } catch (Exception e) {
-            logger.error("Unexpected error in createAddress", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while adding Address", ie);
+            return ResponseEntity.status(500).body("Interrupted");
+        } catch (Exception ex) {
+            logger.error("Unexpected error while adding Address", ex);
+            return ResponseEntity.status(500).body(ex.getMessage());
         }
     }
 
-    @Operation(summary = "Create multiple Addresses", description = "Persist multiple Address entities. Returns list of technicalIds.")
+    @Operation(summary = "Create Addresses (bulk)", description = "Create multiple Address entities in bulk")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdsResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Bad Request"),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+            @ApiResponse(responseCode = "200", description = "Addresses created",
+                    content = @Content(schema = @Schema(implementation = TechnicalIdsResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad request"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
     })
-    @PostMapping("/batch")
-    public ResponseEntity<?> createAddressesBatch(
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    description = "Batch of Address payloads",
-                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = AddressRequest.class)))
-            )
-            @Valid @RequestBody List<AddressRequest> requests
+    @PostMapping(path = "/bulk", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> addAddressesBulk(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Array of Address payloads", required = true,
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = ObjectNode.class))))
+            @RequestBody ArrayNode request
     ) {
         try {
-            List<UUID> ids = entityService.addItems(
+            CompletableFuture<List<UUID>> idsFuture = entityService.addItems(
                     Address.ENTITY_NAME,
                     String.valueOf(Address.ENTITY_VERSION),
-                    requests
-            ).get();
+                    request
+            );
 
-            List<String> technicalIds = ids.stream().map(UUID::toString).collect(Collectors.toList());
-            return ResponseEntity.ok(new TechnicalIdsResponse(technicalIds));
+            List<UUID> ids = idsFuture.get();
+            TechnicalIdsResponse resp = new TechnicalIdsResponse();
+            for (UUID id : ids) resp.getTechnicalIds().add(id.toString());
+            return ResponseEntity.ok(resp);
         } catch (IllegalArgumentException iae) {
-            logger.warn("Invalid request for createAddressesBatch", iae);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(iae.getMessage());
+            logger.warn("Invalid bulk add request for Addresses: {}", iae.getMessage(), iae);
+            return ResponseEntity.badRequest().body(iae.getMessage());
         } catch (ExecutionException ee) {
             Throwable cause = ee.getCause();
             if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
+                return ResponseEntity.status(404).body(cause.getMessage());
             } else if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
+                return ResponseEntity.badRequest().body(cause.getMessage());
             } else {
-                logger.error("ExecutionException in createAddressesBatch", ee);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause == null ? ee.getMessage() : cause.getMessage());
+                logger.error("ExecutionException while bulk adding Addresses", ee);
+                return ResponseEntity.status(500).body(cause != null ? cause.getMessage() : ee.getMessage());
             }
-        } catch (Exception e) {
-            logger.error("Unexpected error in createAddressesBatch", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while bulk adding Addresses", ie);
+            return ResponseEntity.status(500).body("Interrupted");
+        } catch (Exception ex) {
+            logger.error("Unexpected error while bulk adding Addresses", ex);
+            return ResponseEntity.status(500).body(ex.getMessage());
         }
     }
 
-    @Operation(summary = "Get Address by technicalId", description = "Retrieve Address entity by technicalId.")
+    @Operation(summary = "Get Address", description = "Retrieve a single Address by technicalId")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = AddressGetResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Bad Request"),
-            @ApiResponse(responseCode = "404", description = "Not Found"),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+            @ApiResponse(responseCode = "200", description = "Address found",
+                    content = @Content(schema = @Schema(implementation = ObjectNode.class))),
+            @ApiResponse(responseCode = "404", description = "Not found"),
+            @ApiResponse(responseCode = "400", description = "Bad request"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
     })
-    @GetMapping("/{technicalId}")
-    public ResponseEntity<?> getAddressById(
-            @Parameter(name = "technicalId", description = "Technical ID of the entity") @PathVariable String technicalId
+    @GetMapping(path = "/{technicalId}", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.ALL_VALUE)
+    public ResponseEntity<?> getAddress(
+            @Parameter(name = "technicalId", description = "Technical ID of the entity", required = true)
+            @PathVariable("technicalId") String technicalId
     ) {
         try {
-            ObjectNode entity = entityService.getItem(
+            UUID id = UUID.fromString(technicalId);
+            CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
                     Address.ENTITY_NAME,
                     String.valueOf(Address.ENTITY_VERSION),
-                    UUID.fromString(technicalId)
-            ).get();
-
-            AddressGetResponse response = new AddressGetResponse(technicalId, entity);
-            return ResponseEntity.ok(response);
+                    id
+            );
+            ObjectNode item = itemFuture.get();
+            return ResponseEntity.ok(item);
         } catch (IllegalArgumentException iae) {
-            logger.warn("Invalid technicalId for getAddressById: {}", technicalId, iae);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(iae.getMessage());
+            logger.warn("Invalid technicalId or request for getAddress: {}", iae.getMessage(), iae);
+            return ResponseEntity.badRequest().body(iae.getMessage());
         } catch (ExecutionException ee) {
             Throwable cause = ee.getCause();
             if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
+                return ResponseEntity.status(404).body(cause.getMessage());
             } else if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
+                return ResponseEntity.badRequest().body(cause.getMessage());
             } else {
-                logger.error("ExecutionException in getAddressById", ee);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause == null ? ee.getMessage() : cause.getMessage());
+                logger.error("ExecutionException while retrieving Address", ee);
+                return ResponseEntity.status(500).body(cause != null ? cause.getMessage() : ee.getMessage());
             }
-        } catch (Exception e) {
-            logger.error("Unexpected error in getAddressById", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while retrieving Address", ie);
+            return ResponseEntity.status(500).body("Interrupted");
+        } catch (Exception ex) {
+            logger.error("Unexpected error while retrieving Address", ex);
+            return ResponseEntity.status(500).body(ex.getMessage());
         }
     }
 
-    @Operation(summary = "Get all Addresses", description = "Retrieve all Address entities.")
+    @Operation(summary = "Get Addresses", description = "Retrieve all Address entities")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = ObjectNode.class)))),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+            @ApiResponse(responseCode = "200", description = "Addresses retrieved",
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = ObjectNode.class)))),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
     })
-    @GetMapping
-    public ResponseEntity<?> getAllAddresses() {
+    @GetMapping(path = "", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.ALL_VALUE)
+    public ResponseEntity<?> getAddresses() {
         try {
-            ArrayNode items = entityService.getItems(
+            CompletableFuture<ArrayNode> itemsFuture = entityService.getItems(
                     Address.ENTITY_NAME,
                     String.valueOf(Address.ENTITY_VERSION)
-            ).get();
-
+            );
+            ArrayNode items = itemsFuture.get();
             return ResponseEntity.ok(items);
         } catch (ExecutionException ee) {
             Throwable cause = ee.getCause();
-            if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
-            } else if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
+            if (cause instanceof IllegalArgumentException) {
+                return ResponseEntity.badRequest().body(cause.getMessage());
             } else {
-                logger.error("ExecutionException in getAllAddresses", ee);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause == null ? ee.getMessage() : cause.getMessage());
+                logger.error("ExecutionException while retrieving Addresses", ee);
+                return ResponseEntity.status(500).body(cause != null ? cause.getMessage() : ee.getMessage());
             }
-        } catch (Exception e) {
-            logger.error("Unexpected error in getAllAddresses", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while retrieving Addresses", ie);
+            return ResponseEntity.status(500).body("Interrupted");
+        } catch (Exception ex) {
+            logger.error("Unexpected error while retrieving Addresses", ex);
+            return ResponseEntity.status(500).body(ex.getMessage());
         }
     }
 
-    @Operation(summary = "Search Addresses by condition", description = "Retrieve Address entities matching provided search condition.")
+    @Operation(summary = "Search Addresses by condition", description = "Retrieve Address entities filtered by a simple condition group")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = ObjectNode.class)))),
-            @ApiResponse(responseCode = "400", description = "Bad Request"),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+            @ApiResponse(responseCode = "200", description = "Addresses retrieved",
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = ObjectNode.class)))),
+            @ApiResponse(responseCode = "400", description = "Bad request"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
     })
-    @PostMapping("/search")
+    @PostMapping(path = "/search", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> searchAddresses(
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    description = "Search condition",
-                    content = @Content(schema = @Schema(implementation = SearchConditionRequest.class))
-            )
-            @Valid @RequestBody SearchConditionRequest condition
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Search condition", required = true,
+                    content = @Content(schema = @Schema(implementation = SearchConditionRequest.class)))
+            @RequestBody SearchConditionRequest conditionRequest
     ) {
         try {
-            ArrayNode items = entityService.getItemsByCondition(
+            // forward the search condition; use inMemory=true as requested by functional requirements
+            CompletableFuture<ArrayNode> filteredItemsFuture = entityService.getItemsByCondition(
                     Address.ENTITY_NAME,
                     String.valueOf(Address.ENTITY_VERSION),
-                    condition,
+                    conditionRequest,
                     true
-            ).get();
-
+            );
+            ArrayNode items = filteredItemsFuture.get();
             return ResponseEntity.ok(items);
         } catch (IllegalArgumentException iae) {
-            logger.warn("Invalid search condition", iae);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(iae.getMessage());
+            logger.warn("Invalid search request for Addresses: {}", iae.getMessage(), iae);
+            return ResponseEntity.badRequest().body(iae.getMessage());
         } catch (ExecutionException ee) {
             Throwable cause = ee.getCause();
-            if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
-            } else if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
+            if (cause instanceof IllegalArgumentException) {
+                return ResponseEntity.badRequest().body(cause.getMessage());
+            } else if (cause instanceof NoSuchElementException) {
+                return ResponseEntity.status(404).body(cause.getMessage());
             } else {
-                logger.error("ExecutionException in searchAddresses", ee);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause == null ? ee.getMessage() : cause.getMessage());
+                logger.error("ExecutionException while searching Addresses", ee);
+                return ResponseEntity.status(500).body(cause != null ? cause.getMessage() : ee.getMessage());
             }
-        } catch (Exception e) {
-            logger.error("Unexpected error in searchAddresses", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while searching Addresses", ie);
+            return ResponseEntity.status(500).body("Interrupted");
+        } catch (Exception ex) {
+            logger.error("Unexpected error while searching Addresses", ex);
+            return ResponseEntity.status(500).body(ex.getMessage());
         }
     }
 
-    @Operation(summary = "Update Address", description = "Update an existing Address entity by technicalId.")
+    @Operation(summary = "Update Address", description = "Update an existing Address by technicalId")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Bad Request"),
-            @ApiResponse(responseCode = "404", description = "Not Found"),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+            @ApiResponse(responseCode = "200", description = "Address updated",
+                    content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad request"),
+            @ApiResponse(responseCode = "404", description = "Not found"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
     })
-    @PutMapping("/{technicalId}")
+    @PutMapping(path = "/{technicalId}", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> updateAddress(
-            @Parameter(name = "technicalId", description = "Technical ID of the entity") @PathVariable String technicalId,
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    description = "Address payload for update",
-                    content = @Content(schema = @Schema(implementation = AddressRequest.class))
-            )
-            @Valid @RequestBody AddressRequest request
+            @Parameter(name = "technicalId", description = "Technical ID of the entity", required = true)
+            @PathVariable("technicalId") String technicalId,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Address payload to update", required = true,
+                    content = @Content(schema = @Schema(implementation = ObjectNode.class)))
+            @RequestBody ObjectNode request
     ) {
         try {
-            UUID updatedId = entityService.updateItem(
+            UUID id = UUID.fromString(technicalId);
+            CompletableFuture<UUID> updatedIdFuture = entityService.updateItem(
                     Address.ENTITY_NAME,
                     String.valueOf(Address.ENTITY_VERSION),
-                    UUID.fromString(technicalId),
+                    id,
                     request
-            ).get();
-
-            return ResponseEntity.ok(new TechnicalIdResponse(updatedId.toString()));
+            );
+            UUID updatedId = updatedIdFuture.get();
+            TechnicalIdResponse resp = new TechnicalIdResponse();
+            resp.setTechnicalId(updatedId.toString());
+            return ResponseEntity.ok(resp);
         } catch (IllegalArgumentException iae) {
-            logger.warn("Invalid request for updateAddress: {}", technicalId, iae);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(iae.getMessage());
+            logger.warn("Invalid request to update Address: {}", iae.getMessage(), iae);
+            return ResponseEntity.badRequest().body(iae.getMessage());
         } catch (ExecutionException ee) {
             Throwable cause = ee.getCause();
             if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
+                return ResponseEntity.status(404).body(cause.getMessage());
             } else if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
+                return ResponseEntity.badRequest().body(cause.getMessage());
             } else {
-                logger.error("ExecutionException in updateAddress", ee);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause == null ? ee.getMessage() : cause.getMessage());
+                logger.error("ExecutionException while updating Address", ee);
+                return ResponseEntity.status(500).body(cause != null ? cause.getMessage() : ee.getMessage());
             }
-        } catch (Exception e) {
-            logger.error("Unexpected error in updateAddress", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while updating Address", ie);
+            return ResponseEntity.status(500).body("Interrupted");
+        } catch (Exception ex) {
+            logger.error("Unexpected error while updating Address", ex);
+            return ResponseEntity.status(500).body(ex.getMessage());
         }
     }
 
-    @Operation(summary = "Delete Address", description = "Delete an Address entity by technicalId.")
+    @Operation(summary = "Delete Address", description = "Delete an Address by technicalId")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Bad Request"),
-            @ApiResponse(responseCode = "404", description = "Not Found"),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+            @ApiResponse(responseCode = "200", description = "Address deleted",
+                    content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad request"),
+            @ApiResponse(responseCode = "404", description = "Not found"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
     })
-    @DeleteMapping("/{technicalId}")
+    @DeleteMapping(path = "/{technicalId}", consumes = MediaType.ALL_VALUE)
     public ResponseEntity<?> deleteAddress(
-            @Parameter(name = "technicalId", description = "Technical ID of the entity") @PathVariable String technicalId
+            @Parameter(name = "technicalId", description = "Technical ID of the entity", required = true)
+            @PathVariable("technicalId") String technicalId
     ) {
         try {
-            UUID deletedId = entityService.deleteItem(
+            UUID id = UUID.fromString(technicalId);
+            CompletableFuture<UUID> deletedIdFuture = entityService.deleteItem(
                     Address.ENTITY_NAME,
                     String.valueOf(Address.ENTITY_VERSION),
-                    UUID.fromString(technicalId)
-            ).get();
-
-            return ResponseEntity.ok(new TechnicalIdResponse(deletedId.toString()));
+                    id
+            );
+            UUID deletedId = deletedIdFuture.get();
+            TechnicalIdResponse resp = new TechnicalIdResponse();
+            resp.setTechnicalId(deletedId.toString());
+            return ResponseEntity.ok(resp);
         } catch (IllegalArgumentException iae) {
-            logger.warn("Invalid technicalId for deleteAddress: {}", technicalId, iae);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(iae.getMessage());
+            logger.warn("Invalid request to delete Address: {}", iae.getMessage(), iae);
+            return ResponseEntity.badRequest().body(iae.getMessage());
         } catch (ExecutionException ee) {
             Throwable cause = ee.getCause();
             if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
+                return ResponseEntity.status(404).body(cause.getMessage());
             } else if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
+                return ResponseEntity.badRequest().body(cause.getMessage());
             } else {
-                logger.error("ExecutionException in deleteAddress", ee);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause == null ? ee.getMessage() : cause.getMessage());
+                logger.error("ExecutionException while deleting Address", ee);
+                return ResponseEntity.status(500).body(cause != null ? cause.getMessage() : ee.getMessage());
             }
-        } catch (Exception e) {
-            logger.error("Unexpected error in deleteAddress", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while deleting Address", ie);
+            return ResponseEntity.status(500).body("Interrupted");
+        } catch (Exception ex) {
+            logger.error("Unexpected error while deleting Address", ex);
+            return ResponseEntity.status(500).body(ex.getMessage());
         }
     }
 
-    // --- Static DTO classes required by the controller (requests/responses) ---
+    // --- DTOs for request/response payloads ---
 
     @Data
-    @Schema(name = "AddressRequest", description = "Request payload for creating/updating an Address")
-    public static class AddressRequest {
-        @Schema(description = "Business id of the address", example = "addr-1")
-        private String id;
-        @Schema(description = "User business id", example = "user-1")
-        private String userId;
-        @Schema(description = "Address line 1", example = "123 Main St")
-        private String line1;
-        @Schema(description = "Address line 2", example = "Apt 4B")
-        private String line2;
-        @Schema(description = "City", example = "Townsville")
-        private String city;
-        @Schema(description = "Postal code", example = "12345")
-        private String postalCode;
-        @Schema(description = "Region", example = "Region")
-        private String region;
-        @Schema(description = "Country (ISO)", example = "US")
-        private String country;
-        @Schema(description = "Phone", example = "555-0100")
-        private String phone;
-    }
-
-    @Data
-    @Schema(name = "TechnicalIdResponse", description = "Response containing only the technical id")
     public static class TechnicalIdResponse {
-        @Schema(description = "Technical id", example = "tx-addr-001")
+        @Schema(description = "Technical identifier of the entity", example = "3fa85f64-5717-4562-b3fc-2c963f66afa6")
         private String technicalId;
-
-        public TechnicalIdResponse(String technicalId) {
-            this.technicalId = technicalId;
-        }
     }
 
     @Data
-    @Schema(name = "TechnicalIdsResponse", description = "Response containing multiple technical ids")
     public static class TechnicalIdsResponse {
-        @Schema(description = "List of technical ids")
-        private List<String> technicalIds;
-
-        public TechnicalIdsResponse(List<String> technicalIds) {
-            this.technicalIds = technicalIds;
-        }
-    }
-
-    @Data
-    @Schema(name = "AddressGetResponse", description = "Response containing technicalId and the entity")
-    public static class AddressGetResponse {
-        @Schema(description = "Technical id", example = "tx-addr-001")
-        private String technicalId;
-
-        @Schema(description = "Raw entity JSON")
-        private ObjectNode entity;
-
-        public AddressGetResponse(String technicalId, ObjectNode entity) {
-            this.technicalId = technicalId;
-            this.entity = entity;
-        }
+        @Schema(description = "List of technical identifiers")
+        private List<String> technicalIds = new ArrayList<>();
     }
 }

@@ -30,10 +30,10 @@ public class MarkSentProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing Order for request: {}", request.getId());
 
-        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
+        return serializer.withRequest(request)
             .toEntity(Order.class)
             .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+            .map(this::processEntityLogic)
             .complete();
     }
 
@@ -49,14 +49,9 @@ public class MarkSentProcessor implements CyodaProcessor {
     private Order processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Order> context) {
         Order entity = context.entity();
 
-        // Business logic:
-        // - This processor marks an Order as SENT.
-        // - It should only transition orders that are currently in PICKING state to SENT.
-        // - If already SENT or in another state, no change is made.
-        // - Update the updatedAt timestamp when transitioning.
         if (entity == null) {
-            logger.warn("Order entity is null in execution context");
-            return entity;
+            logger.warn("MarkSentProcessor received null entity in context");
+            return null;
         }
 
         String currentStatus = entity.getStatus();
@@ -65,10 +60,12 @@ public class MarkSentProcessor implements CyodaProcessor {
             return entity;
         }
 
+        // Business rule:
+        // - If Order is in PICKING -> automatically transition to SENT
+        // - Otherwise leave unchanged (idempotent)
         if ("PICKING".equalsIgnoreCase(currentStatus)) {
             logger.info("Order {} status '{}' -> 'SENT'", entity.getId(), currentStatus);
             entity.setStatus("SENT");
-            // update updatedAt to current time in ISO-8601 format
             entity.setUpdatedAt(Instant.now().toString());
         } else {
             logger.info("Order {} not in PICKING state (current='{}'), no transition performed", entity.getId(), currentStatus);

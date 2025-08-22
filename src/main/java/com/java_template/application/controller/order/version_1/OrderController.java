@@ -1,12 +1,14 @@
 package com.java_template.application.controller.order.version_1;
 
 import static com.java_template.common.config.Config.*;
-import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
+
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.java_template.common.service.EntityService;
+import com.java_template.common.util.SearchConditionRequest;
+import com.java_template.application.entity.order.version_1.Order;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -15,366 +17,358 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import lombok.Data;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-import com.java_template.application.entity.order.version_1.Order;
-
-import java.math.BigDecimal;
-import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import lombok.Data;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
+/**
+ * OrderController - proxy controller delegating to EntityService for Order entity operations.
+ *
+ * Rules followed:
+ * - No business logic implemented in controller.
+ * - Entity classes reused from package com.java_template.application.entity.order.version_1.
+ * - Request/Response DTOs defined as static classes below with Swagger Schema annotations.
+ */
 @RestController
-@RequestMapping("/api/v1/orders")
-@Tag(name = "Order API", description = "CRUD and query endpoints for Order entity (version 1). Controller acts as a proxy to EntityService; business logic lives in workflows.")
+@RequestMapping(path = "/api/order/v1", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.ALL_VALUE)
+@Tag(name = "Order", description = "Operations for Order entity (version 1)")
 public class OrderController {
 
     private static final Logger logger = LoggerFactory.getLogger(OrderController.class);
 
     private final EntityService entityService;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
-    public OrderController(EntityService entityService) {
+    public OrderController(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
-    @Operation(summary = "Create Order", description = "Persist a new Order entity. Returns only technicalId.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Bad Request"),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    @Operation(summary = "Create Order", description = "Create a single Order entity")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Bad Request"),
+        @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
-    @PostMapping
-    public ResponseEntity<?> createOrder(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Order payload") @RequestBody OrderRequest request) {
+    @PostMapping(path = "", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> addOrder(@io.swagger.v3.oas.annotations.parameters.RequestBody(
+            description = "Order payload", content = @Content(schema = @Schema(implementation = OrderRequest.class)))
+            @RequestBody OrderRequest request) {
         try {
-            ObjectNode data = objectMapper.valueToTree(request);
+            if (request == null || request.getOrder() == null) {
+                throw new IllegalArgumentException("Order payload is required");
+            }
+
+            ObjectNode data = objectMapper.valueToTree(request.getOrder());
             CompletableFuture<UUID> idFuture = entityService.addItem(
                     Order.ENTITY_NAME,
                     String.valueOf(Order.ENTITY_VERSION),
                     data
             );
+
             UUID technicalId = idFuture.get();
-            return ResponseEntity.ok(new TechnicalIdResponse(technicalId.toString()));
+            TechnicalIdResponse resp = new TechnicalIdResponse();
+            resp.setTechnicalId(technicalId.toString());
+            return ResponseEntity.ok(resp);
         } catch (IllegalArgumentException iae) {
-            logger.error("Invalid request for createOrder", iae);
+            logger.warn("Invalid addOrder request: {}", iae.getMessage());
             return ResponseEntity.badRequest().body(iae.getMessage());
         } catch (ExecutionException ee) {
             Throwable cause = ee.getCause();
-            if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(404).body(cause.getMessage());
-            } else if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.badRequest().body(cause.getMessage());
-            } else {
-                logger.error("Execution error during createOrder", ee);
-                return ResponseEntity.status(500).body(cause != null ? cause.getMessage() : ee.getMessage());
-            }
+            return handleExecutionExceptionCause(cause);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while creating order", ie);
+            return ResponseEntity.status(500).body("Interrupted");
         } catch (Exception ex) {
-            logger.error("Unexpected error during createOrder", ex);
-            return ResponseEntity.status(500).body(ex.getMessage());
+            logger.error("Unexpected error while creating order", ex);
+            return ResponseEntity.status(500).body("Internal error");
         }
     }
 
-    @Operation(summary = "Create multiple Orders", description = "Persist multiple Order entities. Returns list of technicalIds.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdsResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Bad Request"),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    @Operation(summary = "Create Orders (bulk)", description = "Create multiple Order entities in bulk")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdsResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Bad Request"),
+        @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
-    @PostMapping("/bulk")
-    public ResponseEntity<?> createOrdersBulk(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "List of orders") @RequestBody BulkOrderRequest request) {
+    @PostMapping(path = "/bulk", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> addOrders(@io.swagger.v3.oas.annotations.parameters.RequestBody(
+            description = "Bulk orders payload", content = @Content(array = @ArraySchema(schema = @Schema(implementation = BulkOrderRequest.class))))
+            @RequestBody BulkOrderRequest request) {
         try {
+            if (request == null || request.getOrders() == null || request.getOrders().isEmpty()) {
+                throw new IllegalArgumentException("Orders payload is required");
+            }
+
             ArrayNode data = objectMapper.valueToTree(request.getOrders());
             CompletableFuture<List<UUID>> idsFuture = entityService.addItems(
                     Order.ENTITY_NAME,
                     String.valueOf(Order.ENTITY_VERSION),
                     data
             );
+
             List<UUID> ids = idsFuture.get();
             TechnicalIdsResponse resp = new TechnicalIdsResponse();
             for (UUID id : ids) resp.getTechnicalIds().add(id.toString());
             return ResponseEntity.ok(resp);
         } catch (IllegalArgumentException iae) {
-            logger.error("Invalid request for createOrdersBulk", iae);
+            logger.warn("Invalid addOrders request: {}", iae.getMessage());
             return ResponseEntity.badRequest().body(iae.getMessage());
         } catch (ExecutionException ee) {
             Throwable cause = ee.getCause();
-            if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(404).body(cause.getMessage());
-            } else if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.badRequest().body(cause.getMessage());
-            } else {
-                logger.error("Execution error during createOrdersBulk", ee);
-                return ResponseEntity.status(500).body(cause != null ? cause.getMessage() : ee.getMessage());
-            }
+            return handleExecutionExceptionCause(cause);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while creating orders", ie);
+            return ResponseEntity.status(500).body("Interrupted");
         } catch (Exception ex) {
-            logger.error("Unexpected error during createOrdersBulk", ex);
-            return ResponseEntity.status(500).body(ex.getMessage());
+            logger.error("Unexpected error while creating orders", ex);
+            return ResponseEntity.status(500).body("Internal error");
         }
     }
 
-    @Operation(summary = "Get Order by technicalId", description = "Retrieve an Order by its technicalId.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = OrderGetResponse.class))),
-            @ApiResponse(responseCode = "404", description = "Not Found"),
-            @ApiResponse(responseCode = "400", description = "Bad Request"),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    @Operation(summary = "Get Order", description = "Retrieve a single Order by technicalId")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = OrderResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Not Found"),
+        @ApiResponse(responseCode = "400", description = "Bad Request"),
+        @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
-    @GetMapping("/{technicalId}")
-    public ResponseEntity<?> getOrderById(
-            @Parameter(name = "technicalId", description = "Technical ID of the entity") @PathVariable("technicalId") String technicalId
-    ) {
+    @GetMapping(path = "/{technicalId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> getOrder(
+            @Parameter(name = "technicalId", description = "Technical ID of the entity")
+            @PathVariable("technicalId") String technicalId) {
         try {
+            if (technicalId == null || technicalId.isBlank()) throw new IllegalArgumentException("technicalId is required");
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
                     Order.ENTITY_NAME,
                     String.valueOf(Order.ENTITY_VERSION),
                     UUID.fromString(technicalId)
             );
-            ObjectNode entity = itemFuture.get();
-            OrderGetResponse resp = new OrderGetResponse(technicalId, entity);
-            return ResponseEntity.ok(resp);
+
+            ObjectNode node = itemFuture.get();
+            return ResponseEntity.ok(node);
         } catch (IllegalArgumentException iae) {
-            logger.error("Invalid technicalId for getOrderById", iae);
+            logger.warn("Invalid getOrder request: {}", iae.getMessage());
             return ResponseEntity.badRequest().body(iae.getMessage());
         } catch (ExecutionException ee) {
             Throwable cause = ee.getCause();
-            if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(404).body(cause.getMessage());
-            } else if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.badRequest().body(cause.getMessage());
-            } else {
-                logger.error("Execution error during getOrderById", ee);
-                return ResponseEntity.status(500).body(cause != null ? cause.getMessage() : ee.getMessage());
-            }
+            return handleExecutionExceptionCause(cause);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while retrieving order", ie);
+            return ResponseEntity.status(500).body("Interrupted");
         } catch (Exception ex) {
-            logger.error("Unexpected error during getOrderById", ex);
-            return ResponseEntity.status(500).body(ex.getMessage());
+            logger.error("Unexpected error while retrieving order", ex);
+            return ResponseEntity.status(500).body("Internal error");
         }
     }
 
-    @Operation(summary = "Get all Orders", description = "Retrieve all Order entities.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = ObjectNode.class)))),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    @Operation(summary = "Get all Orders", description = "Retrieve all Order entities")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = OrderResponse.class)))),
+        @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
-    @GetMapping
-    public ResponseEntity<?> getAllOrders() {
+    @GetMapping(path = "", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> getOrders() {
         try {
             CompletableFuture<ArrayNode> itemsFuture = entityService.getItems(
                     Order.ENTITY_NAME,
                     String.valueOf(Order.ENTITY_VERSION)
             );
-            ArrayNode items = itemsFuture.get();
-            return ResponseEntity.ok(items);
+            ArrayNode arr = itemsFuture.get();
+            return ResponseEntity.ok(arr);
         } catch (ExecutionException ee) {
             Throwable cause = ee.getCause();
-            if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.badRequest().body(cause.getMessage());
-            } else {
-                logger.error("Execution error during getAllOrders", ee);
-                return ResponseEntity.status(500).body(cause != null ? cause.getMessage() : ee.getMessage());
-            }
+            return handleExecutionExceptionCause(cause);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while retrieving orders", ie);
+            return ResponseEntity.status(500).body("Interrupted");
         } catch (Exception ex) {
-            logger.error("Unexpected error during getAllOrders", ex);
-            return ResponseEntity.status(500).body(ex.getMessage());
+            logger.error("Unexpected error while retrieving orders", ex);
+            return ResponseEntity.status(500).body("Internal error");
         }
     }
 
-    @Operation(summary = "Search Orders by condition", description = "Retrieve Order entities matching provided search condition (basic field-based).")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = ObjectNode.class)))),
-            @ApiResponse(responseCode = "400", description = "Bad Request"),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    @Operation(summary = "Search Orders", description = "Retrieve orders by a simple search condition (in-memory)")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = OrderResponse.class)))),
+        @ApiResponse(responseCode = "400", description = "Bad Request"),
+        @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
-    @PostMapping("/search")
-    public ResponseEntity<?> searchOrders(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Search condition request") @RequestBody SearchConditionRequest condition) {
+    @PostMapping(path = "/search", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> searchOrders(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Search condition", content = @Content(schema = @Schema(implementation = SearchConditionRequest.class)))
+            @RequestBody SearchConditionRequest condition) {
         try {
+            if (condition == null) throw new IllegalArgumentException("Search condition is required");
             CompletableFuture<ArrayNode> filteredItemsFuture = entityService.getItemsByCondition(
                     Order.ENTITY_NAME,
                     String.valueOf(Order.ENTITY_VERSION),
                     condition,
                     true
             );
-            ArrayNode items = filteredItemsFuture.get();
-            return ResponseEntity.ok(items);
+            ArrayNode arr = filteredItemsFuture.get();
+            return ResponseEntity.ok(arr);
         } catch (IllegalArgumentException iae) {
-            logger.error("Invalid search condition for searchOrders", iae);
+            logger.warn("Invalid searchOrders request: {}", iae.getMessage());
             return ResponseEntity.badRequest().body(iae.getMessage());
         } catch (ExecutionException ee) {
             Throwable cause = ee.getCause();
-            if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.badRequest().body(cause.getMessage());
-            } else {
-                logger.error("Execution error during searchOrders", ee);
-                return ResponseEntity.status(500).body(cause != null ? cause.getMessage() : ee.getMessage());
-            }
+            return handleExecutionExceptionCause(cause);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while searching orders", ie);
+            return ResponseEntity.status(500).body("Interrupted");
         } catch (Exception ex) {
-            logger.error("Unexpected error during searchOrders", ex);
-            return ResponseEntity.status(500).body(ex.getMessage());
+            logger.error("Unexpected error while searching orders", ex);
+            return ResponseEntity.status(500).body("Internal error");
         }
     }
 
-    @Operation(summary = "Update Order", description = "Update an existing Order entity by technicalId.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Bad Request"),
-            @ApiResponse(responseCode = "404", description = "Not Found"),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    @Operation(summary = "Update Order", description = "Update an existing Order by technicalId")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Bad Request"),
+        @ApiResponse(responseCode = "404", description = "Not Found"),
+        @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
-    @PutMapping("/{technicalId}")
+    @PutMapping(path = "/{technicalId}", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> updateOrder(
-            @Parameter(name = "technicalId", description = "Technical ID of the entity") @PathVariable("technicalId") String technicalId,
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Order payload") @RequestBody OrderRequest request
-    ) {
+            @Parameter(name = "technicalId", description = "Technical ID of the entity")
+            @PathVariable("technicalId") String technicalId,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Order payload", content = @Content(schema = @Schema(implementation = OrderRequest.class)))
+            @RequestBody OrderRequest request) {
         try {
-            ObjectNode data = objectMapper.valueToTree(request);
+            if (technicalId == null || technicalId.isBlank()) throw new IllegalArgumentException("technicalId is required");
+            if (request == null || request.getOrder() == null) throw new IllegalArgumentException("Order payload is required");
+
+            ObjectNode data = objectMapper.valueToTree(request.getOrder());
             CompletableFuture<UUID> updatedId = entityService.updateItem(
                     Order.ENTITY_NAME,
                     String.valueOf(Order.ENTITY_VERSION),
                     UUID.fromString(technicalId),
                     data
             );
+
             UUID id = updatedId.get();
-            return ResponseEntity.ok(new TechnicalIdResponse(id.toString()));
+            TechnicalIdResponse resp = new TechnicalIdResponse();
+            resp.setTechnicalId(id.toString());
+            return ResponseEntity.ok(resp);
         } catch (IllegalArgumentException iae) {
-            logger.error("Invalid request for updateOrder", iae);
+            logger.warn("Invalid updateOrder request: {}", iae.getMessage());
             return ResponseEntity.badRequest().body(iae.getMessage());
         } catch (ExecutionException ee) {
             Throwable cause = ee.getCause();
-            if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(404).body(cause.getMessage());
-            } else if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.badRequest().body(cause.getMessage());
-            } else {
-                logger.error("Execution error during updateOrder", ee);
-                return ResponseEntity.status(500).body(cause != null ? cause.getMessage() : ee.getMessage());
-            }
+            return handleExecutionExceptionCause(cause);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while updating order", ie);
+            return ResponseEntity.status(500).body("Interrupted");
         } catch (Exception ex) {
-            logger.error("Unexpected error during updateOrder", ex);
-            return ResponseEntity.status(500).body(ex.getMessage());
+            logger.error("Unexpected error while updating order", ex);
+            return ResponseEntity.status(500).body("Internal error");
         }
     }
 
-    @Operation(summary = "Delete Order", description = "Delete an Order entity by technicalId.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Bad Request"),
-            @ApiResponse(responseCode = "404", description = "Not Found"),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    @Operation(summary = "Delete Order", description = "Delete an Order by technicalId")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Bad Request"),
+        @ApiResponse(responseCode = "404", description = "Not Found"),
+        @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
-    @DeleteMapping("/{technicalId}")
+    @DeleteMapping(path = "/{technicalId}")
     public ResponseEntity<?> deleteOrder(
-            @Parameter(name = "technicalId", description = "Technical ID of the entity") @PathVariable("technicalId") String technicalId
-    ) {
+            @Parameter(name = "technicalId", description = "Technical ID of the entity")
+            @PathVariable("technicalId") String technicalId) {
         try {
+            if (technicalId == null || technicalId.isBlank()) throw new IllegalArgumentException("technicalId is required");
+
             CompletableFuture<UUID> deletedId = entityService.deleteItem(
                     Order.ENTITY_NAME,
                     String.valueOf(Order.ENTITY_VERSION),
                     UUID.fromString(technicalId)
             );
+
             UUID id = deletedId.get();
-            return ResponseEntity.ok(new TechnicalIdResponse(id.toString()));
+            TechnicalIdResponse resp = new TechnicalIdResponse();
+            resp.setTechnicalId(id.toString());
+            return ResponseEntity.ok(resp);
         } catch (IllegalArgumentException iae) {
-            logger.error("Invalid technicalId for deleteOrder", iae);
+            logger.warn("Invalid deleteOrder request: {}", iae.getMessage());
             return ResponseEntity.badRequest().body(iae.getMessage());
         } catch (ExecutionException ee) {
             Throwable cause = ee.getCause();
-            if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(404).body(cause.getMessage());
-            } else if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.badRequest().body(cause.getMessage());
-            } else {
-                logger.error("Execution error during deleteOrder", ee);
-                return ResponseEntity.status(500).body(cause != null ? cause.getMessage() : ee.getMessage());
-            }
+            return handleExecutionExceptionCause(cause);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while deleting order", ie);
+            return ResponseEntity.status(500).body("Interrupted");
         } catch (Exception ex) {
-            logger.error("Unexpected error during deleteOrder", ex);
-            return ResponseEntity.status(500).body(ex.getMessage());
+            logger.error("Unexpected error while deleting order", ex);
+            return ResponseEntity.status(500).body("Internal error");
         }
     }
 
-    // DTOs
+    private ResponseEntity<?> handleExecutionExceptionCause(Throwable cause) {
+        if (cause == null) {
+            logger.error("ExecutionException with null cause");
+            return ResponseEntity.status(500).body("Internal error");
+        }
+        if (cause instanceof NoSuchElementException) {
+            logger.warn("Resource not found: {}", cause.getMessage());
+            return ResponseEntity.status(404).body(cause.getMessage());
+        }
+        if (cause instanceof IllegalArgumentException) {
+            logger.warn("Bad request cause: {}", cause.getMessage());
+            return ResponseEntity.badRequest().body(cause.getMessage());
+        }
+        logger.error("ExecutionException cause", cause);
+        return ResponseEntity.status(500).body("Internal error: " + cause.getMessage());
+    }
+
+    /*
+     * Static DTO classes for requests and responses
+     */
 
     @Data
-    @Schema(name = "OrderRequest", description = "Order request payload (matches Order entity fields).")
     public static class OrderRequest {
-        @Schema(description = "Business id of the order")
-        private String id;
-
-        @Schema(description = "Originating cart id")
-        private String cartId;
-
-        @Schema(description = "User id")
-        private String userId;
-
-        @Schema(description = "Order status")
-        private String status;
-
-        @Schema(description = "Snapshot of items", implementation = ArrayNode.class)
-        private ArrayNode itemsSnapshot;
-
-        @Schema(description = "Total amount")
-        private BigDecimal totalAmount;
-
-        @Schema(description = "Shipping address id")
-        private String shippingAddressId;
-
-        @Schema(description = "Billing address id")
-        private String billingAddressId;
-
-        @Schema(description = "Created at timestamp", type = "string", format = "date-time")
-        private OffsetDateTime createdAt;
-
-        @Schema(description = "Updated at timestamp", type = "string", format = "date-time")
-        private OffsetDateTime updatedAt;
+        @Schema(description = "Order entity payload", required = true, implementation = Order.class)
+        private Order order;
     }
 
     @Data
-    @Schema(name = "BulkOrderRequest", description = "Bulk orders request")
     public static class BulkOrderRequest {
-        @Schema(description = "List of orders", implementation = ArrayNode.class)
-        private List<OrderRequest> orders;
+        @Schema(description = "List of order entities", required = true, implementation = Order.class)
+        private List<Order> orders;
     }
 
     @Data
-    @Schema(name = "TechnicalIdResponse", description = "Response containing a technical id.")
     public static class TechnicalIdResponse {
-        @Schema(description = "Technical id of the persisted entity")
+        @Schema(description = "Technical id of the processed entity", example = "3fa85f64-5717-4562-b3fc-2c963f66afa6")
         private String technicalId;
-
-        public TechnicalIdResponse() {}
-
-        public TechnicalIdResponse(String technicalId) {
-            this.technicalId = technicalId;
-        }
     }
 
     @Data
-    @Schema(name = "TechnicalIdsResponse", description = "Response containing multiple technical ids.")
     public static class TechnicalIdsResponse {
-        @Schema(description = "Technical ids of persisted entities")
+        @Schema(description = "Technical ids of the processed entities")
         private List<String> technicalIds = new java.util.ArrayList<>();
     }
 
     @Data
-    @Schema(name = "OrderGetResponse", description = "GET response for an Order entity.")
-    public static class OrderGetResponse {
-        @Schema(description = "Technical id of the entity")
-        private String technicalId;
-
-        @Schema(description = "Returned entity", implementation = ObjectNode.class)
-        private ObjectNode entity;
-
-        public OrderGetResponse() {}
-
-        public OrderGetResponse(String technicalId, ObjectNode entity) {
-            this.technicalId = technicalId;
-            this.entity = entity;
-        }
+    public static class OrderResponse {
+        @Schema(description = "Order JSON payload", implementation = ObjectNode.class)
+        private ObjectNode order;
     }
 }

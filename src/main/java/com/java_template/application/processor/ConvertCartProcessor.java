@@ -1,12 +1,7 @@
 package com.java_template.application.processor;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.cart.version_1.Cart;
-import com.java_template.application.entity.cart.version_1.Cart.CartItem;
 import com.java_template.application.entity.order.version_1.Order;
-import com.java_template.application.entity.order.version_1.Order.Item;
 import com.java_template.application.entity.product.version_1.Product;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
@@ -14,6 +9,8 @@ import com.java_template.common.service.EntityService;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
@@ -24,8 +21,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CompletionException;
 
 @Component
 public class ConvertCartProcessor implements CyodaProcessor {
@@ -36,9 +32,7 @@ public class ConvertCartProcessor implements CyodaProcessor {
     private final EntityService entityService;
     private final ObjectMapper objectMapper;
 
-    public ConvertCartProcessor(SerializerFactory serializerFactory,
-                                EntityService entityService,
-                                ObjectMapper objectMapper) {
+    public ConvertCartProcessor(SerializerFactory serializerFactory, EntityService entityService, ObjectMapper objectMapper) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
         this.entityService = entityService;
         this.objectMapper = objectMapper;
@@ -67,54 +61,54 @@ public class ConvertCartProcessor implements CyodaProcessor {
 
     private Cart processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Cart> context) {
         Cart cart = context.entity();
-        // Business rules:
-        // 1) Cart must have items (Cart.isValid already ensures this)
-        // 2) Stock availability: for each cart item, ensure Product.availableQuantity >= quantity
-        // 3) Create Order entity as snapshot of cart and persist it
-        // 4) Mark cart as CONVERTED (do not call entityService.updateItem for this cart)
 
-        // Validate items presence again defensively
+        // Business validations
         if (cart.getItems() == null || cart.getItems().isEmpty()) {
             logger.error("Cart {} has no items to convert", cart.getId());
             throw new RuntimeException("Cart empty");
         }
 
-        // Check stock for each item
-        for (CartItem cartItem : cart.getItems()) {
+        // Stock validation: ensure for each cart item the product has enough availableQuantity
+        for (Cart.CartItem cartItem : cart.getItems()) {
             if (cartItem == null || cartItem.getProductId() == null || cartItem.getProductId().isBlank()) {
                 logger.error("Invalid cart item in cart {}", cart.getId());
                 throw new RuntimeException("Invalid cart item");
             }
+
+            UUID productTechnicalId;
             try {
-                // The EntityService expects a technicalId UUID for getItem
-                UUID productTechnicalId = UUID.fromString(cartItem.getProductId());
-                CompletableFuture<ObjectNode> productFuture = entityService.getItem(
+                productTechnicalId = UUID.fromString(cartItem.getProductId());
+            } catch (IllegalArgumentException iae) {
+                logger.error("Product id {} is not a valid technical UUID for cart {}", cartItem.getProductId(), cart.getId());
+                throw new RuntimeException("Invalid product technical id");
+            }
+
+            try {
+                ObjectNode prodNode = entityService.getItem(
                     Product.ENTITY_NAME,
                     String.valueOf(Product.ENTITY_VERSION),
                     productTechnicalId
-                );
-                ObjectNode productNode = productFuture.get();
-                if (productNode == null) {
+                ).join();
+
+                if (prodNode == null) {
                     logger.error("Product {} not found for cart {}", cartItem.getProductId(), cart.getId());
                     throw new RuntimeException("Stock not available for product " + cartItem.getProductId());
                 }
-                // Convert to Product
-                Product product = objectMapper.treeToValue((JsonNode) productNode.get("entity") != null ? productNode.get("entity") : productNode, Product.class);
+
+                Product product = objectMapper.treeToValue(prodNode, Product.class);
                 if (product == null) {
                     logger.error("Failed to deserialize product {} for cart {}", cartItem.getProductId(), cart.getId());
                     throw new RuntimeException("Stock not available for product " + cartItem.getProductId());
                 }
+
                 Integer available = product.getAvailableQuantity();
-                if (available == null || available < cartItem.getQuantity()) {
-                    logger.error("Insufficient stock for product {}: requested {}, available {}", cartItem.getProductId(), cartItem.getQuantity(), available);
+                Integer required = cartItem.getQuantity() == null ? 0 : cartItem.getQuantity();
+                if (available == null || available < required) {
+                    logger.error("Insufficient stock for product {}: requested {}, available {}", cartItem.getProductId(), required, available);
                     throw new RuntimeException("Stock not available for product " + cartItem.getProductId());
                 }
-            } catch (IllegalArgumentException e) {
-                // UUID.fromString failed
-                logger.error("Product id {} is not a valid technical UUID for cart {}", cartItem.getProductId(), cart.getId());
-                throw new RuntimeException("Stock not available for product " + cartItem.getProductId());
-            } catch (InterruptedException | ExecutionException e) {
-                logger.error("Error while fetching product {} for cart {}: {}", cartItem.getProductId(), cart.getId(), e.getMessage());
+            } catch (CompletionException ce) {
+                logger.error("Error while fetching product {} for cart {}: {}", cartItem.getProductId(), cart.getId(), ce.getMessage());
                 throw new RuntimeException("Error checking stock for product " + cartItem.getProductId());
             } catch (Exception e) {
                 logger.error("Unexpected error while checking product {} for cart {}: {}", cartItem.getProductId(), cart.getId(), e.getMessage());
@@ -122,41 +116,44 @@ public class ConvertCartProcessor implements CyodaProcessor {
             }
         }
 
-        // All items have stock -> create Order snapshot
+        // All validations passed, create Order snapshot
         Order order = new Order();
+        String now = Instant.now().toString();
         order.setId(UUID.randomUUID().toString());
         order.setCartId(cart.getId());
         order.setUserId(cart.getUserId());
         order.setStatus("WAITING_TO_FULFILL");
         order.setTotalAmount(cart.getTotalAmount());
-        List<Item> itemsSnapshot = new ArrayList<>();
-        for (CartItem ci : cart.getItems()) {
-            Item it = new Item();
+        order.setCreatedAt(now);
+        order.setUpdatedAt(now);
+
+        List<Order.Item> itemsSnapshot = new ArrayList<>();
+        for (Cart.CartItem ci : cart.getItems()) {
+            Order.Item it = new Order.Item();
             it.setProductId(ci.getProductId());
             it.setQuantity(ci.getQuantity());
             it.setUnitPrice(ci.getUnitPrice());
             itemsSnapshot.add(it);
         }
         order.setItemsSnapshot(itemsSnapshot);
-        String now = Instant.now().toString();
-        order.setCreatedAt(now);
-        order.setUpdatedAt(now);
 
+        // Persist the new Order entity (do not update the triggering cart via entityService)
         try {
-            CompletableFuture<UUID> idFuture = entityService.addItem(
+            UUID persistedOrderId = entityService.addItem(
                 Order.ENTITY_NAME,
                 String.valueOf(Order.ENTITY_VERSION),
                 order
-            );
-            // wait for persistence
-            UUID persistedOrderId = idFuture.get();
+            ).join();
             logger.info("Created Order {} (technicalId={}) for Cart {}", order.getId(), persistedOrderId, cart.getId());
-        } catch (InterruptedException | ExecutionException e) {
+        } catch (CompletionException ce) {
+            logger.error("Failed to persist order for cart {}: {}", cart.getId(), ce.getMessage());
+            throw new RuntimeException("Failed to create order for cart " + cart.getId());
+        } catch (Exception e) {
             logger.error("Failed to persist order for cart {}: {}", cart.getId(), e.getMessage());
             throw new RuntimeException("Failed to create order for cart " + cart.getId());
         }
 
-        // Mark cart as CONVERTED - do not call entityService.updateItem on this cart
+        // Transition cart to CONVERTED
         cart.setStatus("CONVERTED");
         cart.setUpdatedAt(Instant.now().toString());
 

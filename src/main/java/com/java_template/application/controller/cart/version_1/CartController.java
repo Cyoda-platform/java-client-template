@@ -2,412 +2,399 @@ package com.java_template.application.controller.cart.version_1;
 
 import static com.java_template.common.config.Config.*;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.java_template.common.service.EntityService;
-import com.java_template.common.util.SearchConditionRequest;
-import com.java_template.application.entity.cart.version_1.Cart;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.media.ArraySchema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.java_template.application.entity.cart.version_1.Cart;
+import com.java_template.common.service.EntityService;
+import com.java_template.common.util.SearchConditionRequest;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+
 import lombok.Data;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
+
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * Dull proxy controller for Cart entity. All business logic is implemented in workflows/processors.
+ * Controller acting as a thin proxy to EntityService for Cart entity (version 1).
+ *
+ * Rules:
+ * - No business logic here.
+ * - Use EntityService for persistence/retrieval.
+ * - DTOs are defined as static classes below.
  */
 @RestController
-@RequestMapping(path = "/api/v1/carts", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.APPLICATION_JSON_VALUE)
-@Tag(name = "Cart API", description = "Proxy endpoints for Cart entity (version 1)")
+@RequestMapping("/api/cart/v1")
+@Tag(name = "Cart Controller", description = "CRUD operations for Cart (v1)")
 public class CartController {
 
     private static final Logger logger = LoggerFactory.getLogger(CartController.class);
 
     private final EntityService entityService;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
-    public CartController(EntityService entityService) {
+    public CartController(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
-    @Operation(summary = "Create Cart", description = "Persist a new Cart entity. Returns only technicalId.")
-    @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
-        @ApiResponse(responseCode = "400", description = "Bad Request"),
-        @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    @Operation(summary = "Create Cart", description = "Create a single cart entity")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdsResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
-    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<TechnicalIdResponse> createCart(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Cart creation payload", required = true,
-        content = @Content(schema = @Schema(implementation = CreateCartRequest.class)))
-                                                      @RequestBody CreateCartRequest request) {
+    @PostMapping(path = "", consumes = MediaType.ALL_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> addCart(@org.springframework.web.bind.annotation.RequestBody CartRequest request) {
         try {
-            ObjectNode data = objectMapper.valueToTree(request);
-            CompletableFuture<UUID> idFuture = entityService.addItem(
-                Cart.ENTITY_NAME,
-                String.valueOf(Cart.ENTITY_VERSION),
-                data
-            );
-            UUID technicalId = idFuture.get();
-            return ResponseEntity.ok(new TechnicalIdResponse(technicalId.toString()));
-        } catch (IllegalArgumentException e) {
-            logger.warn("Invalid request for createCart: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().build();
-        } catch (ExecutionException e) {
-            Throwable cause = e.getCause();
-            if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-            } else if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.badRequest().build();
-            } else {
-                logger.error("ExecutionException in createCart", e);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            if (request == null || request.getCart() == null) {
+                throw new IllegalArgumentException("Request body must contain cart");
             }
-        } catch (InterruptedException e) {
+            ObjectNode data = objectMapper.valueToTree(request.getCart());
+            CompletableFuture<UUID> idFuture = entityService.addItem(
+                    Cart.ENTITY_NAME,
+                    String.valueOf(Cart.ENTITY_VERSION),
+                    data
+            );
+            UUID id = idFuture.get();
+            TechnicalIdsResponse resp = new TechnicalIdsResponse();
+            resp.getTechnicalIds().add(id.toString());
+            return ResponseEntity.ok(resp);
+        } catch (IllegalArgumentException iae) {
+            logger.warn("Invalid request to add cart: {}", iae.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(iae.getMessage());
+        } catch (ExecutionException ee) {
+            Throwable cause = ee.getCause();
+            if (cause instanceof NoSuchElementException) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
+            } else if (cause instanceof IllegalArgumentException) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
+            } else {
+                logger.error("ExecutionException while adding cart", ee);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause == null ? ee.getMessage() : cause.getMessage());
+            }
+        } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
-            logger.error("Interrupted while creating cart", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        } catch (Exception e) {
-            logger.error("Unexpected error in createCart", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            logger.error("Interrupted while adding cart", ie);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Interrupted");
+        } catch (Exception ex) {
+            logger.error("Unexpected error while adding cart", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
         }
     }
 
-    @Operation(summary = "Bulk create Carts", description = "Persist multiple Cart entities. Returns list of technicalIds.")
-    @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdsResponse.class))),
-        @ApiResponse(responseCode = "400", description = "Bad Request"),
-        @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    @Operation(summary = "Create multiple Carts", description = "Create multiple cart entities in bulk")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdsResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
-    @PostMapping(path = "/bulk", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<TechnicalIdsResponse> createCartsBulk(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Bulk carts payload", required = true,
-        content = @Content(array = @ArraySchema(schema = @Schema(implementation = CreateCartRequest.class))))
-                                                           @RequestBody List<CreateCartRequest> requests) {
+    @PostMapping(path = "/bulk", consumes = MediaType.ALL_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> addCarts(@org.springframework.web.bind.annotation.RequestBody BulkCartRequest request) {
         try {
-            ArrayNode data = objectMapper.valueToTree(requests);
+            if (request == null || request.getCarts() == null || request.getCarts().isEmpty()) {
+                throw new IllegalArgumentException("Request must contain a non-empty list of carts");
+            }
+            ArrayNode data = objectMapper.valueToTree(request.getCarts());
             CompletableFuture<List<UUID>> idsFuture = entityService.addItems(
-                Cart.ENTITY_NAME,
-                String.valueOf(Cart.ENTITY_VERSION),
-                data
+                    Cart.ENTITY_NAME,
+                    String.valueOf(Cart.ENTITY_VERSION),
+                    data
             );
             List<UUID> ids = idsFuture.get();
-            TechnicalIdsResponse resp = new TechnicalIdsResponse(ids.stream().map(UUID::toString).toList());
+            TechnicalIdsResponse resp = new TechnicalIdsResponse();
+            for (UUID id : ids) resp.getTechnicalIds().add(id.toString());
             return ResponseEntity.ok(resp);
-        } catch (IllegalArgumentException e) {
-            logger.warn("Invalid request for createCartsBulk: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().build();
-        } catch (ExecutionException e) {
-            Throwable cause = e.getCause();
+        } catch (IllegalArgumentException iae) {
+            logger.warn("Invalid bulk add request: {}", iae.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(iae.getMessage());
+        } catch (ExecutionException ee) {
+            Throwable cause = ee.getCause();
             if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
             } else if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.badRequest().build();
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
             } else {
-                logger.error("ExecutionException in createCartsBulk", e);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+                logger.error("ExecutionException while adding carts", ee);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause == null ? ee.getMessage() : cause.getMessage());
             }
-        } catch (InterruptedException e) {
+        } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
-            logger.error("Interrupted while creating carts bulk", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        } catch (Exception e) {
-            logger.error("Unexpected error in createCartsBulk", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            logger.error("Interrupted while adding carts", ie);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Interrupted");
+        } catch (Exception ex) {
+            logger.error("Unexpected error while adding carts", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
         }
     }
 
-    @Operation(summary = "Get Cart by technicalId", description = "Retrieve a Cart by its technicalId.")
-    @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = GetCartResponse.class))),
-        @ApiResponse(responseCode = "400", description = "Bad Request"),
-        @ApiResponse(responseCode = "404", description = "Not Found"),
-        @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    @Operation(summary = "Get Cart by technicalId", description = "Retrieve a cart by its technical ID")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = CartObjectResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "404", description = "Not Found"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
-    @GetMapping(path = "/{technicalId}", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.ALL)
-    public ResponseEntity<GetCartResponse> getCartByTechnicalId(
-        @Parameter(name = "technicalId", description = "Technical ID of the entity", required = true)
-        @PathVariable("technicalId") String technicalId) {
+    @GetMapping(path = "/{technicalId}", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.ALL_VALUE)
+    public ResponseEntity<?> getCart(
+            @Parameter(name = "technicalId", description = "Technical ID of the entity")
+            @PathVariable("technicalId") String technicalId) {
         try {
+            UUID tid = UUID.fromString(technicalId);
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
-                Cart.ENTITY_NAME,
-                String.valueOf(Cart.ENTITY_VERSION),
-                UUID.fromString(technicalId)
+                    Cart.ENTITY_NAME,
+                    String.valueOf(Cart.ENTITY_VERSION),
+                    tid
             );
-            ObjectNode entity = itemFuture.get();
-            return ResponseEntity.ok(new GetCartResponse(technicalId, entity));
-        } catch (IllegalArgumentException e) {
-            logger.warn("Invalid technicalId for getCartByTechnicalId: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().build();
-        } catch (ExecutionException e) {
-            Throwable cause = e.getCause();
+            ObjectNode item = itemFuture.get();
+            CartObjectResponse resp = new CartObjectResponse();
+            resp.setData(item);
+            return ResponseEntity.ok(resp);
+        } catch (IllegalArgumentException iae) {
+            logger.warn("Invalid UUID or request for getCart: {}", iae.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(iae.getMessage());
+        } catch (ExecutionException ee) {
+            Throwable cause = ee.getCause();
             if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
             } else if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.badRequest().build();
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
             } else {
-                logger.error("ExecutionException in getCartByTechnicalId", e);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+                logger.error("ExecutionException while fetching cart", ee);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause == null ? ee.getMessage() : cause.getMessage());
             }
-        } catch (InterruptedException e) {
+        } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
-            logger.error("Interrupted while fetching cart", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        } catch (Exception e) {
-            logger.error("Unexpected error in getCartByTechnicalId", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            logger.error("Interrupted while getting cart", ie);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Interrupted");
+        } catch (Exception ex) {
+            logger.error("Unexpected error while getting cart", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
         }
     }
 
-    @Operation(summary = "Get all Carts", description = "Retrieve all Cart entities.")
-    @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = Object.class)))),
-        @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    @Operation(summary = "Get all Carts", description = "Retrieve all carts")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = CartArrayResponse.class))),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
-    @GetMapping(path = "", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.ALL)
-    public ResponseEntity<ArrayNode> getAllCarts() {
+    @GetMapping(path = "", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.ALL_VALUE)
+    public ResponseEntity<?> getCarts() {
         try {
             CompletableFuture<ArrayNode> itemsFuture = entityService.getItems(
-                Cart.ENTITY_NAME,
-                String.valueOf(Cart.ENTITY_VERSION)
+                    Cart.ENTITY_NAME,
+                    String.valueOf(Cart.ENTITY_VERSION)
             );
             ArrayNode items = itemsFuture.get();
-            return ResponseEntity.ok(items);
-        } catch (ExecutionException e) {
-            Throwable cause = e.getCause();
-            if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-            } else if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.badRequest().build();
+            CartArrayResponse resp = new CartArrayResponse();
+            resp.setData(items);
+            return ResponseEntity.ok(resp);
+        } catch (ExecutionException ee) {
+            Throwable cause = ee.getCause();
+            if (cause instanceof IllegalArgumentException) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
             } else {
-                logger.error("ExecutionException in getAllCarts", e);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+                logger.error("ExecutionException while fetching carts", ee);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause == null ? ee.getMessage() : cause.getMessage());
             }
-        } catch (InterruptedException e) {
+        } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
-            logger.error("Interrupted while fetching all carts", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        } catch (Exception e) {
-            logger.error("Unexpected error in getAllCarts", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            logger.error("Interrupted while getting carts", ie);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Interrupted");
+        } catch (Exception ex) {
+            logger.error("Unexpected error while getting carts", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
         }
     }
 
-    @Operation(summary = "Search Carts by condition", description = "Retrieve Cart entities matching the provided search condition.")
-    @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = Object.class)))),
-        @ApiResponse(responseCode = "400", description = "Bad Request"),
-        @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    @Operation(summary = "Search Carts", description = "Search carts by a simple SearchConditionRequest group")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = CartArrayResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
-    @PostMapping(path = "/search", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<ArrayNode> searchCartsByCondition(
-        @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Search condition request", required = true,
-            content = @Content(schema = @Schema(implementation = SearchConditionRequest.class)))
-        @RequestBody SearchConditionRequest condition) {
+    @PostMapping(path = "/search", consumes = MediaType.ALL_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> searchCarts(@org.springframework.web.bind.annotation.RequestBody SearchConditionRequest conditionRequest) {
         try {
+            if (conditionRequest == null) {
+                throw new IllegalArgumentException("Search condition request cannot be null");
+            }
+            ObjectNode conditionNode = objectMapper.valueToTree(conditionRequest);
             CompletableFuture<ArrayNode> filteredItemsFuture = entityService.getItemsByCondition(
-                Cart.ENTITY_NAME,
-                String.valueOf(Cart.ENTITY_VERSION),
-                condition,
-                true
+                    Cart.ENTITY_NAME,
+                    String.valueOf(Cart.ENTITY_VERSION),
+                    conditionNode,
+                    true
             );
             ArrayNode items = filteredItemsFuture.get();
-            return ResponseEntity.ok(items);
-        } catch (IllegalArgumentException e) {
-            logger.warn("Invalid search condition for searchCartsByCondition: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().build();
-        } catch (ExecutionException e) {
-            Throwable cause = e.getCause();
-            if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-            } else if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.badRequest().build();
+            CartArrayResponse resp = new CartArrayResponse();
+            resp.setData(items);
+            return ResponseEntity.ok(resp);
+        } catch (IllegalArgumentException iae) {
+            logger.warn("Invalid search request: {}", iae.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(iae.getMessage());
+        } catch (ExecutionException ee) {
+            Throwable cause = ee.getCause();
+            if (cause instanceof IllegalArgumentException) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
             } else {
-                logger.error("ExecutionException in searchCartsByCondition", e);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+                logger.error("ExecutionException while searching carts", ee);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause == null ? ee.getMessage() : cause.getMessage());
             }
-        } catch (InterruptedException e) {
+        } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
-            logger.error("Interrupted while searching carts", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        } catch (Exception e) {
-            logger.error("Unexpected error in searchCartsByCondition", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            logger.error("Interrupted while searching carts", ie);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Interrupted");
+        } catch (Exception ex) {
+            logger.error("Unexpected error while searching carts", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
         }
     }
 
-    @Operation(summary = "Update Cart", description = "Update an existing Cart entity by technicalId.")
-    @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
-        @ApiResponse(responseCode = "400", description = "Bad Request"),
-        @ApiResponse(responseCode = "404", description = "Not Found"),
-        @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    @Operation(summary = "Update Cart", description = "Update an existing cart by technicalId")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdsResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "404", description = "Not Found"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
-    @PutMapping(path = "/{technicalId}", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<TechnicalIdResponse> updateCart(
-        @Parameter(name = "technicalId", description = "Technical ID of the entity", required = true)
-        @PathVariable("technicalId") String technicalId,
-        @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Cart update payload", required = true,
-            content = @Content(schema = @Schema(implementation = CreateCartRequest.class)))
-        @RequestBody CreateCartRequest request) {
+    @PutMapping(path = "/{technicalId}", consumes = MediaType.ALL_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> updateCart(
+            @Parameter(name = "technicalId", description = "Technical ID of the entity")
+            @PathVariable("technicalId") String technicalId,
+            @org.springframework.web.bind.annotation.RequestBody CartRequest request) {
         try {
-            ObjectNode data = objectMapper.valueToTree(request);
+            if (request == null || request.getCart() == null) {
+                throw new IllegalArgumentException("Request body must contain cart");
+            }
+            UUID tid = UUID.fromString(technicalId);
+            ObjectNode data = objectMapper.valueToTree(request.getCart());
             CompletableFuture<UUID> updatedIdFuture = entityService.updateItem(
-                Cart.ENTITY_NAME,
-                String.valueOf(Cart.ENTITY_VERSION),
-                UUID.fromString(technicalId),
-                data
+                    Cart.ENTITY_NAME,
+                    String.valueOf(Cart.ENTITY_VERSION),
+                    tid,
+                    data
             );
             UUID updatedId = updatedIdFuture.get();
-            return ResponseEntity.ok(new TechnicalIdResponse(updatedId.toString()));
-        } catch (IllegalArgumentException e) {
-            logger.warn("Invalid request for updateCart: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().build();
-        } catch (ExecutionException e) {
-            Throwable cause = e.getCause();
+            TechnicalIdsResponse resp = new TechnicalIdsResponse();
+            resp.getTechnicalIds().add(updatedId.toString());
+            return ResponseEntity.ok(resp);
+        } catch (IllegalArgumentException iae) {
+            logger.warn("Invalid update request: {}", iae.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(iae.getMessage());
+        } catch (ExecutionException ee) {
+            Throwable cause = ee.getCause();
             if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
             } else if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.badRequest().build();
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
             } else {
-                logger.error("ExecutionException in updateCart", e);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+                logger.error("ExecutionException while updating cart", ee);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause == null ? ee.getMessage() : cause.getMessage());
             }
-        } catch (InterruptedException e) {
+        } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
-            logger.error("Interrupted while updating cart", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        } catch (Exception e) {
-            logger.error("Unexpected error in updateCart", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            logger.error("Interrupted while updating cart", ie);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Interrupted");
+        } catch (Exception ex) {
+            logger.error("Unexpected error while updating cart", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
         }
     }
 
-    @Operation(summary = "Delete Cart", description = "Delete a Cart entity by technicalId.")
-    @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
-        @ApiResponse(responseCode = "400", description = "Bad Request"),
-        @ApiResponse(responseCode = "404", description = "Not Found"),
-        @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    @Operation(summary = "Delete Cart", description = "Delete a cart by its technical ID")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdsResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "404", description = "Not Found"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
-    @DeleteMapping(path = "/{technicalId}", consumes = MediaType.ALL)
-    public ResponseEntity<TechnicalIdResponse> deleteCart(
-        @Parameter(name = "technicalId", description = "Technical ID of the entity", required = true)
-        @PathVariable("technicalId") String technicalId) {
+    @DeleteMapping(path = "/{technicalId}", consumes = MediaType.ALL_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> deleteCart(
+            @Parameter(name = "technicalId", description = "Technical ID of the entity")
+            @PathVariable("technicalId") String technicalId) {
         try {
+            UUID tid = UUID.fromString(technicalId);
             CompletableFuture<UUID> deletedIdFuture = entityService.deleteItem(
-                Cart.ENTITY_NAME,
-                String.valueOf(Cart.ENTITY_VERSION),
-                UUID.fromString(technicalId)
+                    Cart.ENTITY_NAME,
+                    String.valueOf(Cart.ENTITY_VERSION),
+                    tid
             );
             UUID deletedId = deletedIdFuture.get();
-            return ResponseEntity.ok(new TechnicalIdResponse(deletedId.toString()));
-        } catch (IllegalArgumentException e) {
-            logger.warn("Invalid technicalId for deleteCart: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().build();
-        } catch (ExecutionException e) {
-            Throwable cause = e.getCause();
+            TechnicalIdsResponse resp = new TechnicalIdsResponse();
+            resp.getTechnicalIds().add(deletedId.toString());
+            return ResponseEntity.ok(resp);
+        } catch (IllegalArgumentException iae) {
+            logger.warn("Invalid UUID for deleteCart: {}", iae.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(iae.getMessage());
+        } catch (ExecutionException ee) {
+            Throwable cause = ee.getCause();
             if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
             } else if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.badRequest().build();
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
             } else {
-                logger.error("ExecutionException in deleteCart", e);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+                logger.error("ExecutionException while deleting cart", ee);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause == null ? ee.getMessage() : cause.getMessage());
             }
-        } catch (InterruptedException e) {
+        } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
-            logger.error("Interrupted while deleting cart", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        } catch (Exception e) {
-            logger.error("Unexpected error in deleteCart", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            logger.error("Interrupted while deleting cart", ie);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Interrupted");
+        } catch (Exception ex) {
+            logger.error("Unexpected error while deleting cart", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
         }
     }
 
-    // Static DTO classes for requests/responses
+    // --- Static DTO classes ---
 
     @Data
-    public static class CreateCartRequest {
-        @Schema(description = "Business identifier of the cart", example = "cart-1")
-        private String id;
-
-        @Schema(description = "User id (nullable for ANON)", example = "user-1")
-        private String userId;
-
-        @Schema(description = "Cart status", example = "NEW")
-        private String status;
-
-        @Schema(description = "Items in the cart")
-        private List<CartItemDto> items;
-
-        @Schema(description = "Total amount of the cart", example = "0.0")
-        private Double totalAmount;
-
-        @Schema(description = "Creation timestamp (ISO8601)", example = "2025-01-01T00:00:00Z")
-        private String createdAt;
-
-        @Schema(description = "Update timestamp (ISO8601)", example = "2025-01-01T00:00:00Z")
-        private String updatedAt;
+    public static class CartRequest {
+        @Schema(description = "Cart entity payload", implementation = Cart.class, required = true)
+        private Cart cart;
     }
 
     @Data
-    public static class CartItemDto {
-        @Schema(description = "Product business id", example = "sku-123")
-        private String productId;
-
-        @Schema(description = "Quantity of the product", example = "1")
-        private Integer quantity;
-
-        @Schema(description = "Unit price for the item", example = "19.99")
-        private Double unitPrice;
-    }
-
-    @Data
-    public static class TechnicalIdResponse {
-        @Schema(description = "Technical id of the persisted entity", example = "tx-cart-001")
-        private String technicalId;
-
-        public TechnicalIdResponse(String technicalId) {
-            this.technicalId = technicalId;
-        }
+    public static class BulkCartRequest {
+        @Schema(description = "List of carts to create", implementation = Cart.class)
+        private List<Cart> carts = new ArrayList<>();
     }
 
     @Data
     public static class TechnicalIdsResponse {
-        @Schema(description = "List of technical ids")
-        private List<String> technicalIds;
-
-        public TechnicalIdsResponse(List<String> technicalIds) {
-            this.technicalIds = technicalIds;
-        }
+        @Schema(description = "Created/updated/deleted technical ids")
+        private List<String> technicalIds = new ArrayList<>();
     }
 
     @Data
-    public static class GetCartResponse {
-        @Schema(description = "Technical id of the cart", example = "tx-cart-001")
-        private String technicalId;
+    public static class CartObjectResponse {
+        @Schema(description = "Cart data as JSON object", implementation = ObjectNode.class)
+        private ObjectNode data;
+    }
 
-        @Schema(description = "Cart entity as stored")
-        private ObjectNode entity;
-
-        public GetCartResponse(String technicalId, ObjectNode entity) {
-            this.technicalId = technicalId;
-            this.entity = entity;
-        }
+    @Data
+    public static class CartArrayResponse {
+        @Schema(description = "Array of cart data", implementation = ArrayNode.class)
+        private ArrayNode data;
     }
 }

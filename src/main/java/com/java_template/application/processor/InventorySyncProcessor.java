@@ -1,4 +1,5 @@
 package com.java_template.application.processor;
+
 import com.java_template.application.entity.product.version_1.Product;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
@@ -30,10 +31,10 @@ public class InventorySyncProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing Product for request: {}", request.getId());
 
-        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
+        return serializer.withRequest(request)
             .toEntity(Product.class)
             .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+            .map(this::processEntityLogic)
             .complete();
     }
 
@@ -48,46 +49,39 @@ public class InventorySyncProcessor implements CyodaProcessor {
 
     private Product processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Product> context) {
         Product entity = context.entity();
-
-        // InventorySyncProcessor business logic:
-        // - Normalize textual fields (trim)
-        // - Ensure description is non-null
-        // - Normalize currency to upper-case ISO code
-        // - Ensure availableQuantity is non-null and non-negative
-        // - Round price to 2 decimal places
+        if (entity == null) return null;
 
         try {
+            // Normalize textual fields
             if (entity.getName() != null) {
                 entity.setName(entity.getName().trim());
             }
-
             if (entity.getDescription() == null) {
                 entity.setDescription("");
             } else {
                 entity.setDescription(entity.getDescription().trim());
             }
-
             if (entity.getCurrency() != null) {
                 entity.setCurrency(entity.getCurrency().trim().toUpperCase());
             }
 
+            // Normalize inventory quantity
             if (entity.getAvailableQuantity() == null) {
                 entity.setAvailableQuantity(0);
             } else if (entity.getAvailableQuantity() < 0) {
-                // Defensive: avoid negative inventory by setting to 0
                 entity.setAvailableQuantity(0);
             }
 
+            // Normalize price to 2 decimal places (HALF_UP)
             if (entity.getPrice() != null) {
-                BigDecimal bd = BigDecimal.valueOf(entity.getPrice());
-                bd = bd.setScale(2, RoundingMode.HALF_UP);
+                BigDecimal bd = BigDecimal.valueOf(entity.getPrice()).setScale(2, RoundingMode.HALF_UP);
                 entity.setPrice(bd.doubleValue());
             }
 
             logger.info("InventorySyncProcessor completed normalization for product id={}", entity.getId());
         } catch (Exception ex) {
-            logger.error("Error during InventorySyncProcessor for product id=" + entity.getId(), ex);
-            // Do not throw; keep processor idempotent. Entity will be persisted as modified.
+            logger.error("Error during InventorySyncProcessor for product id=" + (entity != null ? entity.getId() : "null"), ex);
+            throw ex;
         }
 
         return entity;

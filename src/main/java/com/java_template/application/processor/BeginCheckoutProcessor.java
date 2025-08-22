@@ -1,4 +1,5 @@
 package com.java_template.application.processor;
+
 import com.java_template.application.entity.cart.version_1.Cart;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
@@ -29,11 +30,10 @@ public class BeginCheckoutProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing Cart for request: {}", request.getId());
 
-        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
+        return serializer.withRequest(request)
             .toEntity(Cart.class)
-            .validate(this::hasItems, "Cart has no items")
-            .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+            .validate(this::isValidEntity, "Cart has no items")
+            .map(this::processEntityLogic)
             .complete();
     }
 
@@ -42,34 +42,45 @@ public class BeginCheckoutProcessor implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private boolean isValidEntity(Cart entity) {
-        return entity != null && entity.isValid();
-    }
-
-    private boolean hasItems(Cart cart) {
+    private boolean isValidEntity(Cart cart) {
         return cart != null && cart.getItems() != null && !cart.getItems().isEmpty();
     }
 
     private Cart processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Cart> context) {
         Cart entity = context.entity();
 
-        // Idempotent transition to CHECKING_OUT
-        if (entity == null) return entity;
+        if (entity == null) {
+            logger.warn("BeginCheckoutProcessor received null entity in context");
+            return null;
+        }
+
+        // Ensure cart has items (redundant due to validate, but safe for idempotency)
+        if (entity.getItems() == null || entity.getItems().isEmpty()) {
+            logger.error("Cart {} has no items - cannot begin checkout", entity.getId());
+            throw new RuntimeException("Cart has no items");
+        }
 
         String currentStatus = entity.getStatus();
-        if (!"CHECKING_OUT".equals(currentStatus)) {
-            // Only move to CHECKING_OUT if not already in terminal CONVERTED
-            if ("CONVERTED".equals(currentStatus)) {
-                logger.warn("Cart {} is already CONVERTED, cannot begin checkout", entity.getId());
-                return entity;
-            }
-            entity.setStatus("CHECKING_OUT");
-            entity.setUpdatedAt(Instant.now().toString());
-            logger.info("Cart {} transitioned to CHECKING_OUT", entity.getId());
-        } else {
-            // already in CHECKING_OUT - keep idempotent
-            logger.debug("Cart {} already in CHECKING_OUT state", entity.getId());
+        if (currentStatus == null || currentStatus.isBlank()) {
+            currentStatus = "NEW";
         }
+
+        // If cart already converted, do not allow checkout
+        if ("CONVERTED".equalsIgnoreCase(currentStatus)) {
+            logger.warn("Cart {} is already CONVERTED, cannot begin checkout", entity.getId());
+            return entity;
+        }
+
+        // If already checking out, nothing to do (idempotent)
+        if ("CHECKING_OUT".equalsIgnoreCase(currentStatus)) {
+            logger.debug("Cart {} already in CHECKING_OUT state", entity.getId());
+            return entity;
+        }
+
+        // Transition to CHECKING_OUT
+        entity.setStatus("CHECKING_OUT");
+        entity.setUpdatedAt(Instant.now().toString());
+        logger.info("Cart {} transitioned to CHECKING_OUT", entity.getId());
 
         return entity;
     }

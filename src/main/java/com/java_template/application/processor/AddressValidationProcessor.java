@@ -28,10 +28,10 @@ public class AddressValidationProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing Address for request: {}", request.getId());
 
-        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
+        return serializer.withRequest(request)
             .toEntity(Address.class)
             .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+            .map(this::processEntityLogic)
             .complete();
     }
 
@@ -46,68 +46,89 @@ public class AddressValidationProcessor implements CyodaProcessor {
 
     private Address processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Address> context) {
         Address entity = context.entity();
+        if (entity == null) return null;
 
-        // Basic normalization: trim strings and normalize country code
-        if (entity.getLine1() != null) entity.setLine1(entity.getLine1().trim());
-        if (entity.getLine2() != null) entity.setLine2(entity.getLine2().trim());
-        if (entity.getCity() != null) entity.setCity(entity.getCity().trim());
-        if (entity.getRegion() != null) entity.setRegion(entity.getRegion().trim());
-        if (entity.getCountry() != null) entity.setCountry(entity.getCountry().trim().toUpperCase());
-        if (entity.getPostalCode() != null) entity.setPostalCode(entity.getPostalCode().trim());
-        if (entity.getPhone() != null) entity.setPhone(entity.getPhone().trim());
+        try {
+            // Normalize/trims
+            if (entity.getLine1() != null) entity.setLine1(entity.getLine1().trim());
+            if (entity.getLine2() != null) entity.setLine2(entity.getLine2().trim());
+            if (entity.getCity() != null) entity.setCity(entity.getCity().trim());
+            if (entity.getRegion() != null) entity.setRegion(entity.getRegion().trim());
+            if (entity.getCountry() != null) entity.setCountry(entity.getCountry().trim().toUpperCase());
+            if (entity.getPostalCode() != null) entity.setPostalCode(entity.getPostalCode().trim());
+            if (entity.getPhone() != null) entity.setPhone(entity.getPhone().trim());
 
-        boolean postalValid = true;
-        String country = entity.getCountry();
-        String postal = entity.getPostalCode();
-
-        // Country-aware postal code validation (basic)
-        if (postal == null || postal.isBlank()) {
-            postalValid = false;
-        } else if ("US".equalsIgnoreCase(country)) {
-            // 5 or 5-4 format
-            postalValid = postal.matches("^\\d{5}(-\\d{4})?$");
-        } else if ("CA".equalsIgnoreCase(country)) {
-            // Canadian postal code ANA NAN
-            postalValid = postal.matches("^[A-Za-z]\\d[A-Za-z] ?\\d[A-Za-z]\\d$");
-        } else {
-            // Generic: alphanumeric, dashes, spaces, length 3-10
-            postalValid = postal.matches("^[A-Za-z0-9 \\-]{3,10}$");
-        }
-
-        if (!postalValid) {
-            logger.warn("Address postal code validation failed for address id={}. Marking address as invalid.", entity.getId());
-            // Mark as invalid by clearing postalCode so entity.isValid() will fail and system can treat it as invalid.
-            entity.setPostalCode(null);
-        }
-
-        // Basic phone validation: allow digits, spaces, +, -, parentheses; require at least 7 digits
-        String phone = entity.getPhone();
-        if (phone != null && !phone.isBlank()) {
-            String digitsOnly = phone.replaceAll("[^0-9]", "");
-            if (digitsOnly.length() < 7) {
-                logger.warn("Address phone validation failed for address id={}. Clearing phone.", entity.getId());
-                entity.setPhone(null);
+            // Postal code validation/basic normalization
+            String country = entity.getCountry();
+            String postal = entity.getPostalCode();
+            boolean postalValid = true;
+            if (postal == null || postal.isBlank()) {
+                postalValid = false;
             } else {
-                // normalize spacing: collapse multiple spaces
-                entity.setPhone(phone.replaceAll("\\s+", " "));
+                postal = postal.trim();
+                if (country != null) {
+                    switch (country.toUpperCase()) {
+                        case "US":
+                        case "USA":
+                            postalValid = postal.matches("^\\d{5}(-\\d{4})?$");
+                            break;
+                        case "CA":
+                        case "CAN":
+                            postalValid = postal.matches("^[A-Za-z]\\d[A-Za-z]\\s?\\d[A-Za-z]\\d$");
+                            break;
+                        default:
+                            // Generic check: at least 3 chars (to catch obvious invalid)
+                            postalValid = postal.length() >= 3;
+                            break;
+                    }
+                } else {
+                    postalValid = postal.length() >= 3;
+                }
             }
-        }
+            if (!postalValid) {
+                logger.warn("Address postal code validation failed for address id={}. Clearing postalCode.", entity.getId());
+                entity.setPostalCode(null);
+            }
 
-        // Final normalization for region and city capitalization (light touch)
-        if (entity.getCity() != null && !entity.getCity().isBlank()) {
-            entity.setCity(capitalizeWords(entity.getCity()));
-        }
-        if (entity.getRegion() != null && !entity.getRegion().isBlank()) {
-            entity.setRegion(capitalizeWords(entity.getRegion()));
-        }
+            // Phone normalization/validation: keep digits and leading +
+            String phone = entity.getPhone();
+            if (phone != null && !phone.isBlank()) {
+                String normalized = phone.replaceAll("\\s+", " ").trim();
+                // Replace international "00" prefix with +
+                normalized = normalized.replaceFirst("^00", "+");
+                // Remove all characters except digits and leading +
+                normalized = normalized.replaceAll("(?!^)\\D", "");
+                // If only non-digits remain or too short, clear
+                String digitsOnly = normalized.replaceAll("\\D", "");
+                if (digitsOnly.length() < 7) {
+                    logger.warn("Address phone validation failed for address id={}. Clearing phone.", entity.getId());
+                    entity.setPhone(null);
+                } else {
+                    entity.setPhone(normalized);
+                }
+            }
 
-        logger.info("Address validation completed for address id={}. PostalValid={}, PhonePresent={}", entity.getId(), postalValid, entity.getPhone() != null);
+            // Capitalize city and region words
+            if (entity.getCity() != null && !entity.getCity().isBlank()) {
+                entity.setCity(capitalizeWords(entity.getCity()));
+            }
+            if (entity.getRegion() != null && !entity.getRegion().isBlank()) {
+                entity.setRegion(capitalizeWords(entity.getRegion()));
+            }
+
+            logger.info("Address validation completed for address id={}. PostalValid={}, PhonePresent={}",
+                    entity.getId(), postalValid, entity.getPhone() != null);
+        } catch (Exception ex) {
+            logger.error("Unexpected error in AddressValidationProcessor for address id=" + (entity != null ? entity.getId() : "null"), ex);
+            // Don't throw; best-effort normalization. Return entity as-is so workflow can continue.
+        }
 
         return entity;
     }
 
     private String capitalizeWords(String input) {
-        String[] parts = input.trim().toLowerCase().split("\\s+");
+        if (input == null || input.isBlank()) return input;
+        String[] parts = input.toLowerCase().split("\\s+");
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < parts.length; i++) {
             String p = parts[i];
