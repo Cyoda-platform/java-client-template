@@ -219,5 +219,4 @@ public class Controller {
             logger.error("Error notifying subscribers: {}", e.getMessage());
         }
     }
-
 }
