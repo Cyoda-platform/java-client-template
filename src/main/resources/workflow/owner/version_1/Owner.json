@@ -1,0 +1,114 @@
+{
+  "version": "1.0",
+  "name": "Owner Workflow",
+  "desc": "Workflow for Owner entity based on functional requirements: creation, validation, activation and manual suspension/removal.",
+  "initialState": "none",
+  "active": true,
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "start_to_created",
+          "next": "CREATED",
+          "manual": false
+        }
+      ]
+    },
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "validate_success",
+          "next": "VERIFIED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "OwnerValidationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "criterion": {
+                "type": "simple",
+                "jsonPath": "$.validation.passed",
+                "operation": "EQUALS",
+                "value": true
+              }
+            }
+          }
+        },
+        {
+          "name": "validate_action_required",
+          "next": "ACTION_REQUIRED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "OwnerValidationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "criterion": {
+                "type": "simple",
+                "jsonPath": "$.validation.passed",
+                "operation": "EQUALS",
+                "value": false
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ACTION_REQUIRED": {
+      "transitions": [
+        {
+          "name": "manual_verify",
+          "next": "VERIFIED",
+          "manual": true
+        },
+        {
+          "name": "manual_suspend_from_action_required",
+          "next": "SUSPENDED",
+          "manual": true
+        }
+      ]
+    },
+    "VERIFIED": {
+      "transitions": [
+        {
+          "name": "activate_owner",
+          "next": "ACTIVE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "OwnerActivationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "manual_suspend",
+          "next": "SUSPENDED",
+          "manual": true
+        }
+      ]
+    },
+    "SUSPENDED": {
+      "transitions": [
+        {
+          "name": "manual_remove",
+          "next": "REMOVED",
+          "manual": true
+        }
+      ]
+    },
+    "REMOVED": {
+      "transitions": []
+    }
+  }
+}

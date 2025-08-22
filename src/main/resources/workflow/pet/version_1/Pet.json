@@ -1,0 +1,152 @@
+{
+  "version": "1.0",
+  "name": "Pet Workflow",
+  "desc": "Workflow for Pet entity based on functional requirements (validation, enrichment, publishing, notification, terminal states).",
+  "initialState": "none",
+  "active": true,
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "start_create",
+          "next": "CREATED",
+          "manual": false
+        }
+      ]
+    },
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "to_validated",
+          "next": "VALIDATED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PetValidationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "to_failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PetValidationFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "VALIDATED": {
+      "transitions": [
+        {
+          "name": "enrich_pet",
+          "next": "ENRICHED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PetEnrichmentProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ENRICHED": {
+      "transitions": [
+        {
+          "name": "index_pet",
+          "next": "PUBLISH",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PetIndexProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PUBLISH": {
+      "transitions": [
+        {
+          "name": "publish_to_pending",
+          "next": "PENDING",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.status",
+            "operation": "EQUALS",
+            "value": "pending"
+          }
+        },
+        {
+          "name": "publish_to_available",
+          "next": "AVAILABLE",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.status",
+            "operation": "EQUALS",
+            "value": "available"
+          }
+        }
+      ]
+    },
+    "AVAILABLE": {
+      "transitions": [
+        {
+          "name": "notify_subscribers",
+          "next": "NOTIFIED",
+          "manual": false
+        }
+      ]
+    },
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "notify_subscribers_pending",
+          "next": "NOTIFIED",
+          "manual": false
+        }
+      ]
+    },
+    "NOTIFIED": {
+      "transitions": [
+        {
+          "name": "complete_pet",
+          "next": "COMPLETED",
+          "manual": false
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": [
+        {
+          "name": "manual_remove_after_failed",
+          "next": "REMOVED",
+          "manual": true
+        }
+      ]
+    },
+    "REMOVED": {
+      "transitions": []
+    }
+  }
+}

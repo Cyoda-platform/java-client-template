@@ -1,0 +1,135 @@
+{
+  "version": "1.0",
+  "name": "AdoptionRequest Workflow",
+  "desc": "Workflow for AdoptionRequest based on functional requirements (request -> reserve -> review -> decision -> completion/cancellation).",
+  "initialState": "none",
+  "active": true,
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "create_request",
+          "next": "REQUESTED",
+          "manual": false
+        }
+      ]
+    },
+    "REQUESTED": {
+      "transitions": [
+        {
+          "name": "attempt_reservation",
+          "next": "RESERVE_ATTEMPT",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ReservePetProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "owner_cancel_from_requested",
+          "next": "CANCELLED",
+          "manual": true
+        }
+      ]
+    },
+    "RESERVE_ATTEMPT": {
+      "transitions": [
+        {
+          "name": "reserve_success",
+          "next": "RESERVED",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "reserve_success",
+            "operation": "EQUALS",
+            "value": true
+          }
+        },
+        {
+          "name": "reserve_failure",
+          "next": "RESERVE_FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "reserve_success",
+            "operation": "EQUALS",
+            "value": false
+          }
+        }
+      ]
+    },
+    "RESERVED": {
+      "transitions": [
+        {
+          "name": "owner_cancel_from_reserved",
+          "next": "CANCELLED",
+          "manual": true
+        },
+        {
+          "name": "move_to_review",
+          "next": "UNDER_REVIEW",
+          "manual": true
+        }
+      ]
+    },
+    "RESERVE_FAILED": {
+      "transitions": [
+        {
+          "name": "end_on_reserve_failed",
+          "next": "CANCELLED",
+          "manual": false
+        }
+      ]
+    },
+    "UNDER_REVIEW": {
+      "transitions": [
+        {
+          "name": "admin_approve",
+          "next": "APPROVED",
+          "manual": true
+        },
+        {
+          "name": "admin_decline",
+          "next": "DECLINED",
+          "manual": true
+        }
+      ]
+    },
+    "APPROVED": {
+      "transitions": [
+        {
+          "name": "complete_adoption",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CompleteAdoptionProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "DECLINED": {
+      "transitions": [
+        {
+          "name": "finalize_declined",
+          "next": "CANCELLED",
+          "manual": false
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": []
+    },
+    "CANCELLED": {
+      "transitions": []
+    }
+  }
+}
