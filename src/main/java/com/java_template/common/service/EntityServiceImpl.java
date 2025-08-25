@@ -68,7 +68,8 @@ public class EntityServiceImpl implements EntityService {
     public CompletableFuture<Optional<DataPayload>> getFirstItemByCondition(
             @NotNull final String modelName,
             @NotNull final Integer modelVersion,
-            @NotNull final Object condition
+            @NotNull final Object condition,
+            final boolean inMemory
     ) {
         return repository.findAllByCriteria(
                 modelName,
@@ -76,7 +77,7 @@ public class EntityServiceImpl implements EntityService {
                 objectMapper.convertValue(condition, GroupCondition.class),
                 1,
                 1,
-                false
+                inMemory
         ).thenApply(it -> it.stream().findFirst());
     }
 

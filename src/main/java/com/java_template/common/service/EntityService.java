@@ -23,7 +23,8 @@ public interface EntityService {
     CompletableFuture<Optional<DataPayload>> getFirstItemByCondition(
             @NotNull String modelName,
             @NotNull Integer modelVersion,
-            @NotNull Object condition
+            @NotNull Object condition,
+            boolean inMemory
     );
 
     // Retrieve multiple items based on the entity model and version.
