@@ -1,4 +1,5 @@
 package com.java_template.application.processor;
+
 import com.java_template.application.entity.pet.version_1.Pet;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
@@ -27,10 +28,10 @@ public class PetEnrichmentProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing Pet for request: {}", request.getId());
 
-        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
+        return serializer.withRequest(request)
             .toEntity(Pet.class)
             .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+            .map(this::processEntityLogic)
             .complete();
     }
 
@@ -45,53 +46,64 @@ public class PetEnrichmentProcessor implements CyodaProcessor {
 
     private Pet processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Pet> context) {
         Pet entity = context.entity();
+        if (entity == null) {
+            logger.warn("Received null Pet entity in PetEnrichmentProcessor");
+            return null;
+        }
 
-        // Business logic:
-        // If a sourceId is present, attempt a minimal enrichment:
-        // - If no photos are present and sourceUrl is available, add the sourceUrl as a photo
-        // - If description is empty, populate with a minimal enriched description
-        // - Ensure status is set to "available" if it's not already set (enrichment step completes availability)
-        try {
-            String sourceId = entity.getSourceId();
-            boolean hasSource = sourceId != null && !sourceId.isBlank();
+        boolean enriched = false;
 
-            if (hasSource) {
-                // Enrich photos using sourceUrl when photos missing
-                if ((entity.getPhotos() == null || entity.getPhotos().isEmpty())) {
-                    String sourceUrl = entity.getSourceUrl();
-                    if (sourceUrl != null && !sourceUrl.isBlank()) {
-                        entity.getPhotos().add(sourceUrl);
-                        logger.info("PetEnrichmentProcessor: added sourceUrl as photo for pet id={}", entity.getId());
+        // If sourceId present try to enrich minimal metadata (photos, description)
+        String sourceId = entity.getSourceId();
+        if (sourceId != null && !sourceId.isBlank()) {
+            // If no photos, add a best-effort placeholder derived from source
+            try {
+                if (entity.getPhotos() == null || entity.getPhotos().isEmpty()) {
+                    String photoUrl = buildPhotoUrlFromSource(entity.getSourceUrl(), sourceId);
+                    if (photoUrl != null) {
+                        entity.getPhotos().add(photoUrl);
+                        enriched = true;
+                        logger.info("Enriched pet {} with photo from sourceId {}", entity.getId(), sourceId);
                     }
                 }
 
-                // Enrich description if missing
-                if (entity.getDescription() == null || entity.getDescription().isBlank()) {
-                    String enrichedDesc = "Enriched from source: " + sourceId;
-                    if (entity.getSourceUrl() != null && !entity.getSourceUrl().isBlank()) {
-                        enrichedDesc += " (" + entity.getSourceUrl() + ")";
-                    }
-                    entity.setDescription(enrichedDesc);
-                    logger.info("PetEnrichmentProcessor: set description for pet id={}", entity.getId());
+                // If description is empty, populate a short note referencing the source
+                if ((entity.getDescription() == null || entity.getDescription().isBlank()) && entity.getSourceUrl() != null && !entity.getSourceUrl().isBlank()) {
+                    entity.setDescription("Imported from source: " + entity.getSourceUrl());
+                    enriched = true;
+                    logger.info("Enriched pet {} with description from sourceUrl {}", entity.getId(), entity.getSourceUrl());
                 }
-
-                // Ensure status set to available if not provided
-                if (entity.getStatus() == null || entity.getStatus().isBlank()) {
-                    entity.setStatus("available");
-                    logger.info("PetEnrichmentProcessor: set status=available for pet id={}", entity.getId());
-                }
-            } else {
-                // No sourceId -> ensure at least a default status if missing to keep entity valid
-                if (entity.getStatus() == null || entity.getStatus().isBlank()) {
-                    entity.setStatus("available");
-                    logger.info("PetEnrichmentProcessor: no sourceId, set default status=available for pet id={}", entity.getId());
-                }
+            } catch (Exception e) {
+                logger.warn("Failed to enrich pet {} from sourceId {}: {}", entity.getId(), sourceId, e.getMessage());
             }
-        } catch (Exception ex) {
-            logger.error("PetEnrichmentProcessor: error during enrichment for pet id=" + entity.getId(), ex);
-            // Do not throw; return entity as-is to let workflow decide further actions
+        }
+
+        // Ensure pet has a usable status after enrichment step; default to "available" if not provided
+        if (entity.getStatus() == null || entity.getStatus().isBlank()) {
+            entity.setStatus("available");
+            logger.info("Set default status 'available' for pet {}", entity.getId());
+            enriched = true;
+        }
+
+        if (!enriched) {
+            logger.debug("No enrichment applied for pet {}", entity.getId());
         }
 
         return entity;
+    }
+
+    private String buildPhotoUrlFromSource(String sourceUrl, String sourceId) {
+        // Best-effort generation of a representative photo URL.
+        // Do not call external services here — just infer a plausible URL if sourceUrl is present.
+        if (sourceUrl != null && !sourceUrl.isBlank()) {
+            // Attempt to append a standard path if the sourceUrl looks like a base URL
+            String base = sourceUrl.endsWith("/") ? sourceUrl.substring(0, sourceUrl.length() - 1) : sourceUrl;
+            return base + "/photos/" + sourceId;
+        }
+        // If no sourceUrl, produce a generic placeholder URL that references the sourceId
+        if (sourceId != null && !sourceId.isBlank()) {
+            return "https://petstore.example/assets/pets/" + sourceId + "/photo";
+        }
+        return null;
     }
 }

@@ -1,18 +1,15 @@
 package com.java_template.application.processor;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.adoptionrequest.version_1.AdoptionRequest;
 import com.java_template.application.entity.pet.version_1.Pet;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
@@ -21,6 +18,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 @Component
 public class CompleteAdoptionProcessor implements CyodaProcessor {
@@ -31,7 +29,9 @@ public class CompleteAdoptionProcessor implements CyodaProcessor {
     private final EntityService entityService;
     private final ObjectMapper objectMapper;
 
-    public CompleteAdoptionProcessor(SerializerFactory serializerFactory, EntityService entityService, ObjectMapper objectMapper) {
+    public CompleteAdoptionProcessor(SerializerFactory serializerFactory,
+                                     EntityService entityService,
+                                     ObjectMapper objectMapper) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
         this.entityService = entityService;
         this.objectMapper = objectMapper;
@@ -61,128 +61,75 @@ public class CompleteAdoptionProcessor implements CyodaProcessor {
     private AdoptionRequest processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<AdoptionRequest> context) {
         AdoptionRequest entity = context.entity();
 
-        // Business logic:
-        // - Find Pet referenced by adoption request (entity.getPetId())
-        // - Update Pet.status = "adopted" (if not already)
-        // - Update the AdoptionRequest.status = "completed"
-        // Notes: Do not perform update on AdoptionRequest via entityService. Changes to this entity are persisted by Cyoda automatically.
-        if (entity == null) {
-            logger.warn("AdoptionRequest entity is null in execution context");
+        // Only complete adoption for requests that are in approved state
+        if (entity.getStatus() == null || !entity.getStatus().equalsIgnoreCase("approved")) {
+            logger.info("AdoptionRequest {} is not in 'approved' state (current: {}). Skipping completion.", entity.getId(), entity.getStatus());
             return entity;
         }
 
-        String petRef = entity.getPetId();
-        if (petRef == null || petRef.isBlank()) {
-            logger.warn("AdoptionRequest {} has no petId, skipping pet update", entity.getId());
-            // Still mark the request as completed per workflow semantics? We'll only mark completed if we can update the pet.
+        // Fetch the Pet referenced by this adoption request
+        if (entity.getPetId() == null || entity.getPetId().isBlank()) {
+            logger.warn("AdoptionRequest {} has no petId. Cannot complete adoption.", entity.getId());
             return entity;
         }
 
-        ObjectNode petItemNode = null;
-        String petTechnicalIdStr = null;
-
-        // Try direct fetch by UUID technical id
         try {
-            UUID petUuid = UUID.fromString(petRef);
             CompletableFuture<ObjectNode> petFuture = entityService.getItem(
                 Pet.ENTITY_NAME,
                 String.valueOf(Pet.ENTITY_VERSION),
-                petUuid
+                UUID.fromString(entity.getPetId())
             );
-            petItemNode = petFuture.join();
-            // If getItem returns a wrapper with 'entity' and 'technicalId', we keep the wrapper.
-            if (petItemNode != null && petItemNode.has("technicalId")) {
-                petTechnicalIdStr = petItemNode.has("technicalId") ? petItemNode.get("technicalId").asText() : null;
-            } else if (petItemNode != null && petItemNode.has("entity")) {
-                // try to extract possible technicalId
-                petTechnicalIdStr = petItemNode.has("technicalId") ? petItemNode.get("technicalId").asText() : null;
+
+            ObjectNode petItem = petFuture.get();
+            if (petItem == null) {
+                logger.warn("Pet with id {} not found for AdoptionRequest {}.", entity.getPetId(), entity.getId());
+                return entity;
             }
-        } catch (IllegalArgumentException iae) {
-            // petRef is not a UUID - fallback to search by business id
-            logger.info("petId '{}' is not a UUID; falling back to search by business id", petRef);
-            SearchConditionRequest condition = SearchConditionRequest.group(
-                "AND",
-                Condition.of("$.id", "EQUALS", petRef)
-            );
-            try {
-                CompletableFuture<ArrayNode> listFuture = entityService.getItemsByCondition(
+
+            // The entityService.getItem typically returns an envelope { technicalId, entity: { ... } }
+            ObjectNode petEntityNode = petItem.has("entity") && petItem.get("entity").isObject()
+                ? (ObjectNode) petItem.get("entity")
+                : petItem;
+
+            Pet pet = objectMapper.treeToValue(petEntityNode, Pet.class);
+            if (pet == null) {
+                logger.warn("Failed to deserialize Pet entity for id {}.", entity.getPetId());
+                return entity;
+            }
+
+            // Only change pet status if not already adopted
+            if (pet.getStatus() == null || !pet.getStatus().equalsIgnoreCase("adopted")) {
+                pet.setStatus("adopted");
+
+                // Update pet using entity service (allowed: updating other entities)
+                CompletableFuture<java.util.UUID> updateFuture = entityService.updateItem(
                     Pet.ENTITY_NAME,
                     String.valueOf(Pet.ENTITY_VERSION),
-                    condition,
-                    true
+                    UUID.fromString(entity.getPetId()),
+                    pet
                 );
-                ArrayNode results = listFuture.join();
-                if (results != null && results.size() > 0) {
-                    petItemNode = (ObjectNode) results.get(0);
-                    petTechnicalIdStr = petItemNode.has("technicalId") ? petItemNode.get("technicalId").asText() : null;
-                }
-            } catch (Exception ex) {
-                logger.error("Error searching for Pet by business id {}: {}", petRef, ex.getMessage());
+
+                // Wait for update to complete to ensure consistency before marking the request completed
+                updateFuture.get();
+                logger.info("Pet {} status updated to 'adopted' for AdoptionRequest {}.", entity.getPetId(), entity.getId());
+            } else {
+                logger.info("Pet {} was already in 'adopted' status.", entity.getPetId());
             }
+
+            // Mark adoption request as completed
+            entity.setStatus("completed");
+            logger.info("AdoptionRequest {} marked as 'completed'.", entity.getId());
+
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while completing adoption for request {}: {}", entity.getId(), ie.getMessage(), ie);
+        } catch (ExecutionException ee) {
+            logger.error("Error while completing adoption for request {}: {}", entity.getId(), ee.getMessage(), ee);
+        } catch (IllegalArgumentException iae) {
+            logger.error("Invalid UUID for petId {} in AdoptionRequest {}: {}", entity.getPetId(), entity.getId(), iae.getMessage(), iae);
         } catch (Exception ex) {
-            logger.error("Error fetching Pet {}: {}", petRef, ex.getMessage());
+            logger.error("Unexpected error while completing adoption for request {}: {}", entity.getId(), ex.getMessage(), ex);
         }
-
-        if (petItemNode == null) {
-            logger.warn("Pet referenced by AdoptionRequest {} not found (petId={}), skipping pet update", entity.getId(), petRef);
-            return entity;
-        }
-
-        // Extract the actual entity payload if wrapped
-        ObjectNode petEntityNode = petItemNode.has("entity") ? (ObjectNode) petItemNode.get("entity") : petItemNode;
-        Pet pet = null;
-        try {
-            pet = objectMapper.treeToValue(petEntityNode, Pet.class);
-        } catch (Exception ex) {
-            logger.error("Failed to deserialize Pet entity for petId {}: {}", petRef, ex.getMessage());
-            return entity;
-        }
-
-        if (pet == null) {
-            logger.warn("Deserialized Pet is null for petId {}", petRef);
-            return entity;
-        }
-
-        // If pet already adopted, nothing to update; still mark request as completed
-        boolean petAlreadyAdopted = pet.getStatus() != null && "adopted".equalsIgnoreCase(pet.getStatus());
-        if (!petAlreadyAdopted) {
-            pet.setStatus("adopted");
-            try {
-                // Determine technical id for update. If we already have a technicalId from wrapper, use it; otherwise try petRef as UUID.
-                UUID technicalIdForUpdate = null;
-                if (petTechnicalIdStr != null && !petTechnicalIdStr.isBlank()) {
-                    technicalIdForUpdate = UUID.fromString(petTechnicalIdStr);
-                } else {
-                    // try petRef as UUID
-                    try {
-                        technicalIdForUpdate = UUID.fromString(petRef);
-                    } catch (IllegalArgumentException iae) {
-                        logger.warn("Cannot determine technicalId to update Pet (petRef not a UUID and wrapper missing technicalId). Pet will not be updated.");
-                    }
-                }
-
-                if (technicalIdForUpdate != null) {
-                    CompletableFuture<UUID> updateFuture = entityService.updateItem(
-                        Pet.ENTITY_NAME,
-                        String.valueOf(Pet.ENTITY_VERSION),
-                        technicalIdForUpdate,
-                        pet
-                    );
-                    updateFuture.join();
-                    logger.info("Updated Pet {} status to 'adopted' (technicalId={})", petRef, technicalIdForUpdate);
-                } else {
-                    logger.warn("Skipping Pet update because technicalId could not be determined for petRef={}", petRef);
-                }
-            } catch (Exception ex) {
-                logger.error("Failed to update Pet {}: {}", petRef, ex.getMessage());
-            }
-        } else {
-            logger.info("Pet {} already in 'adopted' status", petRef);
-        }
-
-        // Update the adoption request status to completed. This entity is persisted automatically by Cyoda.
-        entity.setStatus("completed");
-        logger.info("AdoptionRequest {} marked as 'completed'", entity.getId());
 
         return entity;
     }

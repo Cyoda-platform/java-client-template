@@ -15,8 +15,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
-
 @Component
 public class PetValidDataCriterion implements CyodaCriterion {
 
@@ -31,7 +29,7 @@ public class PetValidDataCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Pet.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -40,69 +38,58 @@ public class PetValidDataCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equals(modelSpec.operationName());
+        // must match exact criterion name
+        return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Pet> context) {
          Pet entity = context.entity();
-
          if (entity == null) {
+             logger.debug("Pet entity is null in context");
              return EvaluationOutcome.fail("Pet entity is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Required fields: name, species, status
+         // Required string fields: name, species, status
          if (entity.getName() == null || entity.getName().isBlank()) {
-             return EvaluationOutcome.fail("name is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             return EvaluationOutcome.fail("Missing required field: name", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-
          if (entity.getSpecies() == null || entity.getSpecies().isBlank()) {
-             return EvaluationOutcome.fail("species is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             return EvaluationOutcome.fail("Missing required field: species", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-
          if (entity.getStatus() == null || entity.getStatus().isBlank()) {
-             return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             return EvaluationOutcome.fail("Missing required field: status", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Age must be non-negative if provided
-         Integer age = entity.getAge();
-         if (age != null && age < 0) {
-             return EvaluationOutcome.fail("age cannot be negative", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         // Age business rule: if present must be non-negative
+         if (entity.getAge() != null && entity.getAge() < 0) {
+             return EvaluationOutcome.fail("Age must be non-negative", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
-         // Photos: entries must not be blank; warn/get flagged if none provided (data quality)
-         List<String> photos = entity.getPhotos();
-         if (photos == null) {
-             return EvaluationOutcome.fail("photos list missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-         } else {
-             if (photos.isEmpty()) {
-                 return EvaluationOutcome.fail("no photos provided for pet (recommended)", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-             }
-             for (String p : photos) {
+         // Photos data quality: entries must not be null/blank
+         if (entity.getPhotos() != null) {
+             for (String p : entity.getPhotos()) {
                  if (p == null || p.isBlank()) {
-                     return EvaluationOutcome.fail("photos must not contain blank entries", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+                     return EvaluationOutcome.fail("Photos contain blank or null entries", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
                  }
              }
          }
 
-         // Optional string fields: if present they must not be blank (data quality)
+         // If sourceId is provided, sourceUrl should be provided as well for enrichment traceability
+         if (entity.getSourceId() != null && !entity.getSourceId().isBlank()) {
+             if (entity.getSourceUrl() == null || entity.getSourceUrl().isBlank()) {
+                 return EvaluationOutcome.fail("sourceId provided but sourceUrl is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+         }
+
+         // Optional fields (breed, description) if provided must not be blank
          if (entity.getBreed() != null && entity.getBreed().isBlank()) {
-             return EvaluationOutcome.fail("breed, if provided, must not be blank", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             return EvaluationOutcome.fail("breed is blank", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
          if (entity.getDescription() != null && entity.getDescription().isBlank()) {
-             return EvaluationOutcome.fail("description, if provided, must not be blank", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-         }
-         if (entity.getSourceId() != null && entity.getSourceId().isBlank()) {
-             return EvaluationOutcome.fail("sourceId, if provided, must not be blank", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-         }
-         if (entity.getSourceUrl() != null && entity.getSourceUrl().isBlank()) {
-             return EvaluationOutcome.fail("sourceUrl, if provided, must not be blank", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             return EvaluationOutcome.fail("description is blank", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // Business rule example: if sourceId provided then sourceUrl should ideally be present (data completeness)
-         if (entity.getSourceId() != null && (entity.getSourceUrl() == null || entity.getSourceUrl().isBlank())) {
-             return EvaluationOutcome.fail("sourceId is present but sourceUrl is missing", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-         }
-
-        return EvaluationOutcome.success();
+         // All checks passed
+         return EvaluationOutcome.success();
     }
 }

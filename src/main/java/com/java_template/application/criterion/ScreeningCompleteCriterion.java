@@ -15,7 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.time.format.DateTimeParseException;
 
 @Component
@@ -32,7 +32,7 @@ public class ScreeningCompleteCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(AdoptionRequest.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -41,13 +41,18 @@ public class ScreeningCompleteCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // MUST use exact criterion name
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<AdoptionRequest> context) {
          AdoptionRequest entity = context.entity();
+         if (entity == null) {
+             logger.warn("AdoptionRequest entity is null in ScreeningCompleteCriterion");
+             return EvaluationOutcome.fail("AdoptionRequest entity missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
 
-         // Basic required fields validation (use only existing properties)
+         // Required identifiers
          if (entity.getId() == null || entity.getId().isBlank()) {
              return EvaluationOutcome.fail("AdoptionRequest.id is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
@@ -57,25 +62,27 @@ public class ScreeningCompleteCriterion implements CyodaCriterion {
          if (entity.getPetId() == null || entity.getPetId().isBlank()) {
              return EvaluationOutcome.fail("AdoptionRequest.petId is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
+
+         // requestedDate must be present and a valid ISO-8601 date-time
          if (entity.getRequestedDate() == null || entity.getRequestedDate().isBlank()) {
              return EvaluationOutcome.fail("AdoptionRequest.requestedDate is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-
-         // Validate requestedDate is a valid ISO-8601 date-time
          try {
-             OffsetDateTime.parse(entity.getRequestedDate());
+             Instant.parse(entity.getRequestedDate());
          } catch (DateTimeParseException ex) {
-             logger.debug("Invalid requestedDate for AdoptionRequest {}: {}", entity.getId(), entity.getRequestedDate());
-             return EvaluationOutcome.fail("requestedDate is not a valid ISO-8601 date-time", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             return EvaluationOutcome.fail("AdoptionRequest.requestedDate must be ISO-8601 date-time", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Business rule: the request must be in 'screening' status to be considered screening-complete
+         // Business rule: Only requests in 'screening' state are eligible to complete screening
          String status = entity.getStatus();
-         if (status == null || !status.equalsIgnoreCase("screening")) {
-             return EvaluationOutcome.fail("AdoptionRequest must be in 'screening' status to complete screening", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         if (status == null || status.isBlank()) {
+             return EvaluationOutcome.fail("AdoptionRequest.status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+         if (!"screening".equalsIgnoreCase(status)) {
+             return EvaluationOutcome.fail("AdoptionRequest must be in 'screening' state to complete screening", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
-         // All checks passed -> screening can be considered complete
+         // All checks passed: screening considered complete for this criterion
          return EvaluationOutcome.success();
     }
 }

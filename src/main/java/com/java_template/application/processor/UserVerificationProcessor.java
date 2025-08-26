@@ -8,9 +8,9 @@ import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
-import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 @Component
 public class UserVerificationProcessor implements CyodaProcessor {
@@ -45,54 +45,48 @@ public class UserVerificationProcessor implements CyodaProcessor {
     }
 
     private User processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<User> context) {
-        User user = context.entity();
-
-        // Ensure a default status exists
-        if (user.getStatus() == null || user.getStatus().isBlank()) {
-            user.setStatus("new");
+        User entity = context.entity();
+        if (entity == null) {
+            logger.warn("User entity is null in execution context");
+            return null;
         }
 
-        // If already verified, nothing to do
-        if ("verified".equalsIgnoreCase(user.getStatus()) || "active".equalsIgnoreCase(user.getStatus())) {
-            logger.debug("User {} already verified/active", user.getId());
-            return user;
+        String currentStatus = entity.getStatus();
+        String email = entity.getEmail();
+
+        // Do not modify suspended users
+        if (currentStatus != null && currentStatus.equalsIgnoreCase("suspended")) {
+            logger.info("User {} is suspended; skipping verification", entity.getId());
+            return entity;
         }
 
-        // Automatic verification rules:
-        // 1. Valid email format (simple heuristic) -> verified
-        // 2. Or valid phone number (digits length >= 7) -> verified
-        boolean emailValid = isEmailValid(user);
-        boolean phoneValid = isPhoneValid(user);
+        boolean emailValid = isEmailValid(email);
+
+        // If already verified, keep as is
+        if (currentStatus != null && currentStatus.equalsIgnoreCase("verified")) {
+            logger.info("User {} already verified", entity.getId());
+            return entity;
+        }
 
         if (emailValid) {
-            user.setStatus("verified");
-            logger.info("User {} verified automatically by email check", user.getId());
-        } else if (phoneValid) {
-            user.setStatus("verified");
-            logger.info("User {} verified automatically by phone check", user.getId());
+            entity.setStatus("verified");
+            logger.info("User {} marked as verified", entity.getId());
         } else {
-            // Keep as 'new' awaiting manual or email verification
-            user.setStatus("new");
-            logger.info("User {} remains in 'new' status, verification criteria not met", user.getId());
+            // Keep users without valid email in 'new' status to allow manual verification later
+            entity.setStatus("new");
+            logger.info("User {} left as new due to invalid or missing email", entity.getId());
         }
 
-        return user;
+        return entity;
     }
 
-    private boolean isEmailValid(User user) {
-        String email = user.getEmail();
+    private boolean isEmailValid(String email) {
         if (email == null) return false;
         email = email.trim();
-        int at = email.indexOf('@');
-        int lastDot = email.lastIndexOf('.');
-        // basic checks: contains '@' and a dot after '@'
-        return at > 0 && lastDot > at + 1 && lastDot < email.length() - 1;
-    }
-
-    private boolean isPhoneValid(User user) {
-        String phone = user.getPhone();
-        if (phone == null) return false;
-        String digits = phone.replaceAll("\\D", "");
-        return digits.length() >= 7;
+        if (email.isEmpty()) return false;
+        int atIndex = email.indexOf('@');
+        if (atIndex <= 0 || atIndex == email.length() - 1) return false;
+        String domain = email.substring(atIndex + 1);
+        return domain.contains(".") && !domain.startsWith(".") && !domain.endsWith(".");
     }
 }

@@ -1,6 +1,5 @@
 package com.java_template.application.processor;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.adoptionrequest.version_1.AdoptionRequest;
@@ -30,7 +29,9 @@ public class ScreeningProcessor implements CyodaProcessor {
     private final EntityService entityService;
     private final ObjectMapper objectMapper;
 
-    public ScreeningProcessor(SerializerFactory serializerFactory, EntityService entityService, ObjectMapper objectMapper) {
+    public ScreeningProcessor(SerializerFactory serializerFactory,
+                              EntityService entityService,
+                              ObjectMapper objectMapper) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
         this.entityService = entityService;
         this.objectMapper = objectMapper;
@@ -41,10 +42,10 @@ public class ScreeningProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing AdoptionRequest for request: {}", request.getId());
 
-        return serializer.withRequest(request)
+        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
             .toEntity(AdoptionRequest.class)
             .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic)
+            .map(this::processEntityLogic) // Implement business logic here
             .complete();
     }
 
@@ -58,101 +59,141 @@ public class ScreeningProcessor implements CyodaProcessor {
     }
 
     private AdoptionRequest processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<AdoptionRequest> context) {
-        AdoptionRequest entity = context.entity();
+        AdoptionRequest request = context.entity();
 
-        // Mark screening started/completed state on the adoption request.
-        // According to requirements we set the status to 'screening' and store screening notes/results in notes.
-        StringBuilder screeningNotes = new StringBuilder();
-        screeningNotes.append("Screening results:");
-
-        // Default statuses
-        boolean userExists = false;
-        boolean userVerified = false;
-        boolean contactPresent = false;
-        boolean petExists = false;
-        boolean petAvailable = false;
-
-        // Fetch and verify User
+        // Default to screening in progress
         try {
-            if (entity.getUserId() != null && !entity.getUserId().isBlank()) {
-                CompletableFuture<ObjectNode> userFuture = entityService.getItem(
-                    User.ENTITY_NAME,
-                    String.valueOf(User.ENTITY_VERSION),
-                    UUID.fromString(entity.getUserId())
-                );
-                ObjectNode userNode = userFuture.get();
-                if (userNode != null) {
-                    JsonNode userEntityNode = userNode.has("entity") ? userNode.get("entity") : userNode;
-                    User user = objectMapper.convertValue(userEntityNode, User.class);
-                    if (user != null) {
-                        userExists = true;
-                        String status = user.getStatus();
-                        if (status != null) {
-                            if (status.equalsIgnoreCase("verified") || status.equalsIgnoreCase("active")) {
-                                userVerified = true;
+            // Basic contact info & existence checks
+            boolean userOk = false;
+            boolean petOk = false;
+            StringBuilder notesBuilder = new StringBuilder(request.getNotes() == null ? "" : request.getNotes());
+
+            // 1) Validate user: must exist and be verified
+            String userId = request.getUserId();
+            if (userId != null && !userId.isBlank()) {
+                UUID userUuid = null;
+                try {
+                    userUuid = UUID.fromString(userId);
+                } catch (IllegalArgumentException ex) {
+                    // cannot parse - log and treat as missing
+                    logger.warn("User id '{}' is not a UUID, skipping entityService fetch", userId);
+                }
+                if (userUuid != null) {
+                    try {
+                        CompletableFuture<ObjectNode> userFuture = entityService.getItem(
+                            User.ENTITY_NAME,
+                            String.valueOf(User.ENTITY_VERSION),
+                            userUuid
+                        );
+                        ObjectNode userNode = userFuture.get();
+                        if (userNode != null && !userNode.isEmpty()) {
+                            // entityService returns wrapper { technicalId, entity }
+                            ObjectNode actualUserNode = userNode.has("entity") && userNode.get("entity").isObject()
+                                ? (ObjectNode) userNode.get("entity")
+                                : userNode;
+                            User user = objectMapper.treeToValue(actualUserNode, User.class);
+                            if (user != null) {
+                                // contact check: email or phone required
+                                boolean hasContact = (user.getEmail() != null && !user.getEmail().isBlank())
+                                    || (user.getPhone() != null && !user.getPhone().isBlank());
+                                if (!hasContact) {
+                                    notesBuilder.append((notesBuilder.length() > 0 ? " | " : "")).append("User contact missing");
+                                    logger.info("Screening failed: user contact missing for userId={}", userId);
+                                } else if (user.getStatus() == null || !user.getStatus().equalsIgnoreCase("verified")) {
+                                    notesBuilder.append((notesBuilder.length() > 0 ? " | " : "")).append("User not verified");
+                                    logger.info("Screening failed: user not verified for userId={}", userId);
+                                } else {
+                                    userOk = true;
+                                }
+                            } else {
+                                notesBuilder.append((notesBuilder.length() > 0 ? " | " : "")).append("User record not found");
+                                logger.info("Screening failed: user record null for userId={}", userId);
                             }
+                        } else {
+                            notesBuilder.append((notesBuilder.length() > 0 ? " | " : "")).append("User not found");
+                            logger.info("Screening failed: user not found for userId={}", userId);
                         }
-                        String email = user.getEmail();
-                        String phone = user.getPhone();
-                        if ((email != null && !email.isBlank()) || (phone != null && !phone.isBlank())) {
-                            contactPresent = true;
-                        }
+                    } catch (Exception ex) {
+                        notesBuilder.append((notesBuilder.length() > 0 ? " | " : "")).append("User lookup error");
+                        logger.error("Error fetching user {}: {}", userId, ex.getMessage());
                     }
+                } else {
+                    notesBuilder.append((notesBuilder.length() > 0 ? " | " : "")).append("User id not a valid UUID");
                 }
+            } else {
+                notesBuilder.append((notesBuilder.length() > 0 ? " | " : "")).append("User id missing");
             }
+
+            // 2) Validate pet: must exist and be available
+            String petId = request.getPetId();
+            if (petId != null && !petId.isBlank()) {
+                UUID petUuid = null;
+                try {
+                    petUuid = UUID.fromString(petId);
+                } catch (IllegalArgumentException ex) {
+                    logger.warn("Pet id '{}' is not a UUID, skipping entityService fetch", petId);
+                }
+                if (petUuid != null) {
+                    try {
+                        CompletableFuture<ObjectNode> petFuture = entityService.getItem(
+                            Pet.ENTITY_NAME,
+                            String.valueOf(Pet.ENTITY_VERSION),
+                            petUuid
+                        );
+                        ObjectNode petNode = petFuture.get();
+                        if (petNode != null && !petNode.isEmpty()) {
+                            ObjectNode actualPetNode = petNode.has("entity") && petNode.get("entity").isObject()
+                                ? (ObjectNode) petNode.get("entity")
+                                : petNode;
+                            Pet pet = objectMapper.treeToValue(actualPetNode, Pet.class);
+                            if (pet != null) {
+                                if (pet.getStatus() == null || !pet.getStatus().equalsIgnoreCase("available")) {
+                                    notesBuilder.append((notesBuilder.length() > 0 ? " | " : "")).append("Pet not available");
+                                    logger.info("Screening failed: pet not available for petId={}", petId);
+                                } else {
+                                    petOk = true;
+                                }
+                            } else {
+                                notesBuilder.append((notesBuilder.length() > 0 ? " | " : "")).append("Pet record not found");
+                                logger.info("Screening failed: pet record null for petId={}", petId);
+                            }
+                        } else {
+                            notesBuilder.append((notesBuilder.length() > 0 ? " | " : "")).append("Pet not found");
+                            logger.info("Screening failed: pet not found for petId={}", petId);
+                        }
+                    } catch (Exception ex) {
+                        notesBuilder.append((notesBuilder.length() > 0 ? " | " : "")).append("Pet lookup error");
+                        logger.error("Error fetching pet {}: {}", petId, ex.getMessage());
+                    }
+                } else {
+                    notesBuilder.append((notesBuilder.length() > 0 ? " | " : "")).append("Pet id not a valid UUID");
+                }
+            } else {
+                notesBuilder.append((notesBuilder.length() > 0 ? " | " : "")).append("Pet id missing");
+            }
+
+            // 3) Final decision: if both userOk and petOk then screening passed, else declined
+            if (userOk && petOk) {
+                // Screening passed: mark request as screening (workflow will use criteria to move to awaiting decision)
+                request.setStatus("screening");
+                notesBuilder.append((notesBuilder.length() > 0 ? " | " : "")).append("Screening passed");
+                logger.info("Screening passed for adoptionRequest id={}", request.getId());
+            } else {
+                // Screening failed -> declined
+                request.setStatus("declined");
+                notesBuilder.append((notesBuilder.length() > 0 ? " | " : "")).append("Screening failed");
+                logger.info("Screening failed for adoptionRequest id={}", request.getId());
+            }
+
+            request.setNotes(notesBuilder.toString());
         } catch (Exception ex) {
-            logger.warn("Failed to fetch/parse User for adoption request {}: {}", entity.getId(), ex.getMessage());
-            screeningNotes.append(" userLookupError=");
-            screeningNotes.append(ex.getMessage());
+            logger.error("Unexpected error during screening for request {}: {}", request.getId(), ex.getMessage());
+            // On unexpected error keep request in pending and note the error
+            request.setStatus("pending");
+            String existing = request.getNotes() == null ? "" : request.getNotes() + " | ";
+            request.setNotes(existing + "Screening error: " + ex.getMessage());
         }
 
-        // Fetch and verify Pet
-        try {
-            if (entity.getPetId() != null && !entity.getPetId().isBlank()) {
-                CompletableFuture<ObjectNode> petFuture = entityService.getItem(
-                    Pet.ENTITY_NAME,
-                    String.valueOf(Pet.ENTITY_VERSION),
-                    UUID.fromString(entity.getPetId())
-                );
-                ObjectNode petNode = petFuture.get();
-                if (petNode != null) {
-                    JsonNode petEntityNode = petNode.has("entity") ? petNode.get("entity") : petNode;
-                    Pet pet = objectMapper.convertValue(petEntityNode, Pet.class);
-                    if (pet != null) {
-                        petExists = true;
-                        String pStatus = pet.getStatus();
-                        if (pStatus != null && pStatus.equalsIgnoreCase("available")) {
-                            petAvailable = true;
-                        }
-                    }
-                }
-            }
-        } catch (Exception ex) {
-            logger.warn("Failed to fetch/parse Pet for adoption request {}: {}", entity.getId(), ex.getMessage());
-            screeningNotes.append(" petLookupError=");
-            screeningNotes.append(ex.getMessage());
-        }
-
-        // Compile screening notes
-        screeningNotes.append(" userExists=").append(userExists);
-        screeningNotes.append(" userVerified=").append(userVerified);
-        screeningNotes.append(" contactPresent=").append(contactPresent);
-        screeningNotes.append(" petExists=").append(petExists);
-        screeningNotes.append(" petAvailable=").append(petAvailable);
-
-        // Set screening status and notes on the adoption request entity.
-        // We mark the request as 'screening' (screening completed) so later criteria/processors
-        // can move it to awaiting decision or further actions.
-        entity.setStatus("screening");
-
-        String existingNotes = entity.getNotes();
-        String combinedNotes = (existingNotes != null && !existingNotes.isBlank())
-            ? existingNotes + " | " + screeningNotes.toString()
-            : screeningNotes.toString();
-        entity.setNotes(combinedNotes);
-
-        logger.info("Screening completed for AdoptionRequest {}: {}", entity.getId(), screeningNotes.toString());
-
-        return entity;
+        return request;
     }
 }

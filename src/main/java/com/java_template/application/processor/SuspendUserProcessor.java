@@ -8,9 +8,9 @@ import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
-import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 @Component
 public class SuspendUserProcessor implements CyodaProcessor {
@@ -46,20 +46,20 @@ public class SuspendUserProcessor implements CyodaProcessor {
 
     private User processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<User> context) {
         User entity = context.entity();
-
-        // Business logic:
-        // - Suspend the user by setting status = "suspended"
-        // - Do not perform any entity service operations on this entity (it will be persisted by Cyoda)
-        // - If already suspended, do nothing (but log)
-        String currentStatus = entity.getStatus();
-
-        if (currentStatus == null || !currentStatus.equalsIgnoreCase("suspended")) {
-            String previous = currentStatus;
-            entity.setStatus("suspended");
-            logger.info("User {} suspended (previous status: {})", entity.getId(), previous);
-        } else {
-            logger.info("User {} is already suspended", entity.getId());
+        if (entity == null) {
+            logger.warn("SuspendUserProcessor received null entity in execution context");
+            return null;
         }
+
+        String currentStatus = entity.getStatus();
+        if (currentStatus != null && currentStatus.equalsIgnoreCase("suspended")) {
+            logger.info("User {} is already suspended. No state change applied.", entity.getId());
+            return entity;
+        }
+
+        // Set the user status to suspended per workflow requirement
+        entity.setStatus("suspended");
+        logger.info("User {} status changed from '{}' to 'suspended'", entity.getId(), currentStatus);
 
         return entity;
     }

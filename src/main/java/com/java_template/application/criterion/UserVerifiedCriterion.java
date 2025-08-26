@@ -29,8 +29,7 @@ public class UserVerifiedCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
-        return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
+        return serializer.withRequest(request)
             .evaluateEntity(User.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
@@ -38,38 +37,36 @@ public class UserVerifiedCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must match exact criterion name
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<User> context) {
-         User entity = context.entity();
+        User user = context.entity();
+        if (user == null) {
+            logger.warn("UserVerifiedCriterion: entity is null");
+            return EvaluationOutcome.fail("User entity is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+        }
 
-         if (entity == null) {
-             logger.debug("User entity is null in context");
-             return EvaluationOutcome.fail("Entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
+        String status = user.getStatus();
+        if (status == null || status.isBlank()) {
+            logger.debug("UserVerifiedCriterion: missing status for user id={}", user.getId());
+            return EvaluationOutcome.fail("User status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
 
-         // Status must be present
-         String status = entity.getStatus();
-         if (status == null || status.isBlank()) {
-             return EvaluationOutcome.fail("User status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
+        // Business rule: user must be verified to pass this criterion
+        if (!"verified".equalsIgnoreCase(status.trim())) {
+            logger.debug("UserVerifiedCriterion: user id={} not verified (status={})", user.getId(), status);
+            return EvaluationOutcome.fail("User is not verified", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        }
 
-         // Business rule: user must be in 'verified' status to pass this criterion
-         if (!"verified".equalsIgnoreCase(status.trim())) {
-             return EvaluationOutcome.fail("User is not verified", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-         }
+        // Data quality check: verified users must have an email
+        String email = user.getEmail();
+        if (email == null || email.isBlank()) {
+            logger.debug("UserVerifiedCriterion: verified user id={} missing email", user.getId());
+            return EvaluationOutcome.fail("Verified user missing email", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+        }
 
-         // Data quality: verified users must have a valid-looking email
-         String email = entity.getEmail();
-         if (email == null || email.isBlank()) {
-             return EvaluationOutcome.fail("Verified user must have an email address", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-         }
-         // basic sanity check for email format
-         if (!email.contains("@") || email.startsWith("@") || email.endsWith("@")) {
-             return EvaluationOutcome.fail("User email appears invalid", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-         }
-
-         return EvaluationOutcome.success();
+        return EvaluationOutcome.success();
     }
 }

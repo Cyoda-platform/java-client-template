@@ -29,7 +29,7 @@ public class PetSourcePresentCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Pet.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,22 +38,33 @@ public class PetSourcePresentCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Pet> context) {
-         Pet entity = context.entity();
-         if (entity == null) {
-             logger.warn("Pet entity is null in PetSourcePresentCriterion");
-             return EvaluationOutcome.fail("Pet entity is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         Pet pet = context.entity(); // subject entity for this criterion
+
+         if (pet == null) {
+             logger.debug("Pet entity is null in PetSourcePresentCriterion");
+             return EvaluationOutcome.fail("Pet entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         String sourceId = entity.getSourceId();
-         // Enrichment should run only when a sourceId is present and not blank
-         if (sourceId == null || sourceId.isBlank()) {
-             return EvaluationOutcome.fail("Pet.sourceId is not present or blank - enrichment not applicable", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-         }
+         String sourceId = pet.getSourceId();
+         String sourceUrl = pet.getSourceUrl();
 
-         return EvaluationOutcome.success();
+         boolean hasSourceId = sourceId != null && !sourceId.isBlank();
+         boolean hasSourceUrl = sourceUrl != null && !sourceUrl.isBlank();
+
+         // Business rule:
+         // PetSourcePresentCriterion should pass when at least one source identifier is present
+         // (either sourceId or sourceUrl). If neither is present, enrichment from external
+         // source cannot proceed.
+         if (hasSourceId || hasSourceUrl) {
+             return EvaluationOutcome.success();
+         } else {
+             return EvaluationOutcome.fail("No source information present (sourceId/sourceUrl required for enrichment)",
+                 StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
     }
 }

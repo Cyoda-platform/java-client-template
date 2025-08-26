@@ -13,7 +13,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 @Component
@@ -32,10 +31,10 @@ public class PetValidationProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing Pet for request: {}", request.getId());
 
-        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
+        return serializer.withRequest(request)
             .toEntity(Pet.class)
             .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+            .map(this::processEntityLogic)
             .complete();
     }
 
@@ -51,7 +50,11 @@ public class PetValidationProcessor implements CyodaProcessor {
     private Pet processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Pet> context) {
         Pet entity = context.entity();
 
-        // Normalize string fields (trim)
+        if (entity == null) {
+            return null;
+        }
+
+        // Normalize string fields: trim values to avoid accidental blanks
         if (entity.getName() != null) {
             entity.setName(entity.getName().trim());
         }
@@ -74,46 +77,38 @@ public class PetValidationProcessor implements CyodaProcessor {
             entity.setStatus(entity.getStatus().trim());
         }
 
-        // Ensure photos list is not null and remove blank entries
+        // Clean up photos list: remove null/blank entries and trim urls
         List<String> photos = entity.getPhotos();
-        if (photos == null) {
-            photos = new ArrayList<>();
-            entity.setPhotos(photos);
-        } else {
-            Iterator<String> it = photos.iterator();
+        if (photos != null) {
             List<String> cleaned = new ArrayList<>();
-            while (it.hasNext()) {
-                String p = it.next();
+            for (String p : photos) {
                 if (p != null) {
-                    p = p.trim();
-                }
-                if (p != null && !p.isBlank()) {
-                    cleaned.add(p);
+                    String t = p.trim();
+                    if (!t.isBlank()) {
+                        cleaned.add(t);
+                    }
                 }
             }
             entity.setPhotos(cleaned);
         }
 
-        // Business logic:
-        // If pet has no external source (no sourceId) then it does not require enrichment
-        // and can be made available for adoption if not already set to a meaningful status.
-        // If sourceId is present, leave status unchanged so enrichment processor can run.
-        String sourceId = entity.getSourceId();
-        if (sourceId == null || sourceId.isBlank()) {
-            // Only set to "available" if current status is blank or looks like an initial state.
-            // We avoid overwriting explicit statuses like reserved/adopted/archived.
-            String status = entity.getStatus();
-            if (status == null || status.isBlank()) {
-                entity.setStatus("available");
-                logger.info("Pet [{}] has no sourceId; marking as available", entity.getId());
-            }
-        } else {
-            logger.info("Pet [{}] has sourceId [{}]; enrichment required", entity.getId(), sourceId);
+        // Business rule: age must be non-negative - if negative, nullify to let validation catch or adjust to 0
+        if (entity.getAge() != null && entity.getAge() < 0) {
+            // Prefer to nullify invalid age so overall validation can react upstream; here we set to null
+            entity.setAge(null);
         }
 
-        // Age sanity check: if null leave as-is; negative ages were already filtered by isValid()
-        // No persistence calls here; Cyoda will persist the entity state automatically.
+        // Business rule: if pet appears fully valid and status is a transient 'created' or 'validating', promote to 'available'
+        // (Only adjust status when it's a known transient state)
+        String st = entity.getStatus();
+        if (st != null) {
+            String lower = st.toLowerCase();
+            if (lower.equals("created") || lower.equals("validating")) {
+                entity.setStatus("available");
+            }
+        }
 
+        // Return the possibly-modified entity; Cyoda will persist it automatically
         return entity;
     }
 }
