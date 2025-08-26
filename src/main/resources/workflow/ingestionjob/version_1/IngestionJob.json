@@ -1,0 +1,155 @@
+{
+  "version": "1.0",
+  "name": "IngestionJob Workflow",
+  "desc": "Finite state workflow for IngestionJob based on functional requirements: validation, fetching, transforming, persisting and completion/failure with notification.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "init_to_pending",
+          "next": "PENDING",
+          "manual": false
+        }
+      ]
+    },
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "start_validation",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateJobProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "validation_passes",
+          "next": "FETCHING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "FetchStartCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_fails",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidationFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "FETCHING": {
+      "transitions": [
+        {
+          "name": "fetch_complete",
+          "next": "TRANSFORMING",
+          "manual": false
+        }
+      ]
+    },
+    "TRANSFORMING": {
+      "transitions": [
+        {
+          "name": "transform_complete",
+          "next": "PERSISTING",
+          "manual": false
+        }
+      ]
+    },
+    "PERSISTING": {
+      "transitions": [
+        {
+          "name": "persist_records",
+          "next": "EVALUATE_COMPLETION",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PersistProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "EVALUATE_COMPLETION": {
+      "transitions": [
+        {
+          "name": "complete_on_success",
+          "next": "COMPLETED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ErrorThresholdSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "fail_on_errors",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ErrorThresholdFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": [
+        {
+          "name": "complete_to_notified",
+          "next": "NOTIFIED",
+          "manual": false
+        }
+      ]
+    },
+    "FAILED": {
+      "transitions": [
+        {
+          "name": "failed_to_notified",
+          "next": "NOTIFIED",
+          "manual": false
+        }
+      ]
+    },
+    "NOTIFIED": {
+      "transitions": []
+    }
+  }
+}

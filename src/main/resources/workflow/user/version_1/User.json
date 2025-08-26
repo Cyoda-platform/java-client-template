@@ -1,0 +1,83 @@
+{
+  "version": "1.0",
+  "name": "User Workflow",
+  "desc": "Workflow for User entity based on functional requirements: registration, validation, activation, subscription and suspension.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "to_registered",
+          "next": "REGISTERED",
+          "manual": false
+        }
+      ]
+    },
+    "REGISTERED": {
+      "transitions": [
+        {
+          "name": "validate_user",
+          "next": "VALIDATED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateUserProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATED": {
+      "transitions": [
+        {
+          "name": "auto_activate_if_verified",
+          "next": "ACTIVE",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.verified",
+            "operation": "EQUALS",
+            "value": true
+          }
+        },
+        {
+          "name": "manual_activate",
+          "next": "ACTIVE",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ActivateUserProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "subscribe_user",
+          "next": "SUBSCRIBED",
+          "manual": true
+        },
+        {
+          "name": "suspend_user",
+          "next": "SUSPENDED",
+          "manual": true
+        }
+      ]
+    },
+    "SUBSCRIBED": {
+      "transitions": []
+    },
+    "SUSPENDED": {
+      "transitions": []
+    }
+  }
+}

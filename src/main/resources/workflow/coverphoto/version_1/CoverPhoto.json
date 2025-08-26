@@ -1,0 +1,135 @@
+{
+  "version": "1.0",
+  "name": "CoverPhoto Workflow",
+  "desc": "Workflow for CoverPhoto entity based on functional requirements: ingestion -> deduplication -> publication -> notify -> visible -> moderation (manual) -> final states",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "to_ingested",
+          "next": "INGESTED",
+          "manual": false
+        }
+      ]
+    },
+    "INGESTED": {
+      "transitions": [
+        {
+          "name": "start_dedup_check",
+          "next": "DEDUP_CHECK",
+          "manual": false
+        }
+      ]
+    },
+    "DEDUP_CHECK": {
+      "transitions": [
+        {
+          "name": "dedup_pass_to_publish",
+          "next": "PUBLISHED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DeduplicationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "criterion": {
+                "type": "simple",
+                "jsonPath": "$.isDuplicate",
+                "operation": "EQUALS",
+                "value": false
+              }
+            }
+          }
+        },
+        {
+          "name": "dedup_detected_duplicate",
+          "next": "DUPLICATE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DeduplicationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "criterion": {
+                "type": "simple",
+                "jsonPath": "$.isDuplicate",
+                "operation": "EQUALS",
+                "value": true
+              }
+            }
+          }
+        }
+      ]
+    },
+    "DUPLICATE": {
+      "transitions": []
+    },
+    "PUBLISHED": {
+      "transitions": [
+        {
+          "name": "publish_and_notify",
+          "next": "NOTIFY_SUBSCRIBERS",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PublishProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            },
+            {
+              "name": "NotifySubscribersProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "NOTIFY_SUBSCRIBERS": {
+      "transitions": [
+        {
+          "name": "to_visible",
+          "next": "VISIBLE",
+          "manual": false
+        }
+      ]
+    },
+    "VISIBLE": {
+      "transitions": [
+        {
+          "name": "request_moderation",
+          "next": "MODERATION_PENDING",
+          "manual": true
+        }
+      ]
+    },
+    "MODERATION_PENDING": {
+      "transitions": [
+        {
+          "name": "approve_photo",
+          "next": "VISIBLE_FINAL",
+          "manual": true
+        },
+        {
+          "name": "hide_photo",
+          "next": "HIDDEN_FINAL",
+          "manual": true
+        }
+      ]
+    },
+    "VISIBLE_FINAL": {
+      "transitions": []
+    },
+    "HIDDEN_FINAL": {
+      "transitions": []
+    }
+  }
+}
