@@ -1,0 +1,81 @@
+{
+    "entities": [
+        {
+            "Product": {
+                "entity_data_example": {
+                    "active": true,
+                    "availableQuantity": 42,
+                    "createdAt": "2025-08-01T12:00:00Z",
+                    "description": "Small widget for testing",
+                    "name": "Acme Widget",
+                    "price": 19.99,
+                    "sku": "SKU-12345"
+                }
+            }
+        },
+        {
+            "User": {
+                "entity_data_example": {
+                    "createdAt": "2025-07-15T09:30:00Z",
+                    "email": "jane.doe@example.com",
+                    "name": "Jane Doe",
+                    "role": "Customer",
+                    "status": "active",
+                    "userId": "u123"
+                }
+            }
+        },
+        {
+            "ShoppingCart": {
+                "entity_data_example": {
+                    "cartId": "c123",
+                    "createdAt": "2025-08-20T10:00:00Z",
+                    "customerUserId": "u123",
+                    "items": [
+                        {
+                            "priceAtAdd": 19.99,
+                            "productSku": "SKU-12345",
+                            "quantity": 2
+                        }
+                    ],
+                    "modifiedAt": "2025-08-21T14:15:00Z"
+                }
+            }
+        },
+        {
+            "Order": {
+                "entity_data_example": {
+                    "createdAt": "2025-08-21T14:20:00Z",
+                    "customerUserId": "u123",
+                    "items": [
+                        {
+                            "productSku": "SKU-12345",
+                            "quantity": 2,
+                            "unitPrice": 19.99
+                        }
+                    ],
+                    "orderId": "o123",
+                    "status": "Created",
+                    "subtotal": 39.98,
+                    "total": 43.38
+                }
+            }
+        },
+        {
+            "ImportJob": {
+                "entity_data_example": {
+                    "createdAt": "2025-08-01T08:00:00Z",
+                    "jobId": "job-001",
+                    "jobType": "products",
+                    "resultSummary": {
+                        "created": 10,
+                        "failed": 1,
+                        "updated": 2
+                    },
+                    "sourceReference": "s3://bucket/products-2025-08-01.csv",
+                    "status": "Completed"
+                }
+            }
+        }
+    ]
+}
