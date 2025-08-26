@@ -29,7 +29,7 @@ public class FetchCompleteCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(DataFeed.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,6 +38,7 @@ public class FetchCompleteCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
+        // Must match the exact criterion class name
         return className.equals(modelSpec.operationName());
     }
 
@@ -45,7 +46,17 @@ public class FetchCompleteCriterion implements CyodaCriterion {
          DataFeed entity = context.entity();
 
          if (entity == null) {
+             logger.warn("FetchCompleteCriterion - missing entity in context");
              return EvaluationOutcome.fail("DataFeed entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         // Basic required identity fields (use only existing getters)
+         if (entity.getId() == null || entity.getId().isBlank()) {
+             return EvaluationOutcome.fail("DataFeed.id is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         if (entity.getUrl() == null || entity.getUrl().isBlank()) {
+             return EvaluationOutcome.fail("DataFeed.url is required to perform fetch", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
          // At fetch-complete stage we expect the feed to be in FETCHING state (fetch started)
@@ -56,6 +67,7 @@ public class FetchCompleteCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("DataFeed status must be 'FETCHING' for fetch completion check", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
+         // Timestamps and checksum produced by the fetch process
          if (entity.getLastFetchedAt() == null || entity.getLastFetchedAt().isBlank()) {
              return EvaluationOutcome.fail("lastFetchedAt is required to mark fetch complete", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
@@ -64,15 +76,21 @@ public class FetchCompleteCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("lastChecksum is required to mark fetch complete", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
+         // Row count must be present and non-negative
          if (entity.getRecordCount() == null) {
              return EvaluationOutcome.fail("recordCount is required to mark fetch complete", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-
          if (entity.getRecordCount() < 0) {
              return EvaluationOutcome.fail("recordCount must be non-negative", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // If all required fetch attributes are present, consider fetch complete.
+         // Minimal schema preview should be available after fetch to proceed to validation stage
+         if (entity.getSchemaPreview() == null || entity.getSchemaPreview().isEmpty()) {
+             return EvaluationOutcome.fail("schemaPreview must contain at least one detected column type", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+
+         // All checks passed -> fetch can be considered complete
+         logger.debug("FetchCompleteCriterion succeeded for DataFeed id={}", entity.getId());
          return EvaluationOutcome.success();
     }
 }

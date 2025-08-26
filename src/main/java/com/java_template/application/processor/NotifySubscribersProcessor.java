@@ -63,9 +63,14 @@ public class NotifySubscribersProcessor implements CyodaProcessor {
     private AnalysisJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<AnalysisJob> context) {
         AnalysisJob job = context.entity();
 
-        // Business rule: Only notify when a reportRef is present (report generated) and job appears completed.
+        // Business rule: Only notify when a reportRef is present (report generated)
+        // and job status is COMPLETED (to ensure report is ready).
         if (job.getReportRef() == null || job.getReportRef().isBlank()) {
             logger.info("AnalysisJob {} has no reportRef; skipping notifications.", job.getId());
+            return job;
+        }
+        if (job.getStatus() == null || !job.getStatus().equalsIgnoreCase("COMPLETED")) {
+            logger.info("AnalysisJob {} is not COMPLETED (status={}); skipping notifications.", job.getId(), job.getStatus());
             return job;
         }
 
@@ -97,6 +102,13 @@ public class NotifySubscribersProcessor implements CyodaProcessor {
             return job;
         }
 
+        if (matchingSubscribers.isEmpty()) {
+            logger.info("No active subscribers found for AnalysisJob {}. Nothing to enqueue.", job.getId());
+            // still mark as NOTIFIED to avoid repeated attempts if business wants it; keep current behavior
+            job.setStatus("NOTIFIED");
+            return job;
+        }
+
         // For each matching subscriber, create a delivery task entity (separate entity) via EntityService.
         for (Subscriber subscriber : matchingSubscribers) {
             try {
@@ -114,9 +126,11 @@ public class NotifySubscribersProcessor implements CyodaProcessor {
                     delivery
                 );
                 UUID createdTechnicalId = idFuture.join();
-                logger.info("Created DeliveryTask {} for subscriber {} (job {})", createdTechnicalId, subscriber.getId(), job.getId());
+                String subId = subscriber.getId() != null ? subscriber.getId() : "unknown";
+                logger.info("Created DeliveryTask {} for subscriber {} (job {})", createdTechnicalId, subId, job.getId());
             } catch (Exception ex) {
-                logger.error("Failed to create delivery task for subscriber {}: {}", subscriber.getId(), ex.getMessage(), ex);
+                String subId = subscriber.getId() != null ? subscriber.getId() : "unknown";
+                logger.error("Failed to create delivery task for subscriber {}: {}", subId, ex.getMessage(), ex);
             }
         }
 

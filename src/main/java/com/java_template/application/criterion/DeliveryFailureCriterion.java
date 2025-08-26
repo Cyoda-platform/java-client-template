@@ -38,7 +38,7 @@ public class DeliveryFailureCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Subscriber> context) {
@@ -65,10 +65,10 @@ public class DeliveryFailureCriterion implements CyodaCriterion {
          String status = lastDeliveryStatus.trim();
 
          if ("FAILED".equalsIgnoreCase(status)) {
-             // If subscriber actively opted out, treat as non-actionable
+             // If subscriber actively opted out, treat as non-actionable (no remediation)
              String optOutAt = entity.getOptOutAt();
              if (optOutAt != null && !optOutAt.isBlank()) {
-                 return EvaluationOutcome.fail("Delivery failed but subscriber has opted out", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+                 return EvaluationOutcome.success();
              }
              // Active subscriber with failed delivery requires remediation (retry/disable)
              return EvaluationOutcome.fail("Delivery failure detected for active subscriber", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);

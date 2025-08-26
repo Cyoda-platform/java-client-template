@@ -60,13 +60,34 @@ public class StartAnalysisProcessor implements CyodaProcessor {
 
     private AnalysisJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<AnalysisJob> context) {
         AnalysisJob job = context.entity();
-        // Mark as RUNNING and set startedAt if not already set
+
+        // If job already finished, do not re-run
+        String status = job.getStatus();
+        if (status != null) {
+            String s = status.toUpperCase();
+            if ("COMPLETED".equals(s) || "FAILED".equals(s)) {
+                logger.info("AnalysisJob {} already finished with status {} - skipping processing", job.getId(), status);
+                return job;
+            }
+        }
+
+        // set startedAt only if not already set
         String now = Instant.now().toString();
-        try {
-            job.setStartedAt(now);
-            job.setStatus("RUNNING");
-        } catch (Exception e) {
-            logger.warn("Failed to set job start state for job id {}: {}", job.getId(), e.getMessage());
+        if (job.getStartedAt() == null || job.getStartedAt().isBlank()) {
+            try {
+                job.setStartedAt(now);
+            } catch (Exception e) {
+                logger.warn("Unable to set startedAt for job {}: {}", job.getId(), e.getMessage());
+            }
+        }
+
+        // mark RUNNING if not already
+        if (job.getStatus() == null || !job.getStatus().equalsIgnoreCase("RUNNING")) {
+            try {
+                job.setStatus("RUNNING");
+            } catch (Exception e) {
+                logger.warn("Unable to set status RUNNING for job {}: {}", job.getId(), e.getMessage());
+            }
         }
 
         // Validate that dataFeedId is present
@@ -94,6 +115,7 @@ public class StartAnalysisProcessor implements CyodaProcessor {
             }
 
             DataFeed feed = objectMapper.convertValue(feedNode, DataFeed.class);
+
             // Check that a valid snapshot exists (basic checks: status VALIDATED or lastChecksum present and recordCount > 0)
             boolean snapshotAvailable = false;
             if (feed != null) {
@@ -113,7 +135,7 @@ public class StartAnalysisProcessor implements CyodaProcessor {
             }
 
             // Simulate analysis run: in a real implementation this would run analyses and persist results elsewhere.
-            // Here we populate reportRef, mark completion and set completedAt.
+            // Generate a stable reportRef and mark completion.
             String reportRef = "report_" + (job.getId() != null ? job.getId() : UUID.randomUUID().toString())
                 + "_" + Instant.now().toEpochMilli();
             job.setReportRef(reportRef);
