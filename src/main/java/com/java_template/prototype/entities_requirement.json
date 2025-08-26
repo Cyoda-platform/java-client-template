@@ -1,0 +1,82 @@
+{
+    "entities": [
+        {
+            "Job": {
+                "entity_data_example": {
+                    "errorInfo": null,
+                    "finishedAt": "2025-08-01T10:00:20Z",
+                    "jobId": "job-2025-08-01-01",
+                    "scheduledAt": "2025-08-01T10:00:00Z",
+                    "sourceSnapshot": {
+                        "cursor": "cursor-abc123",
+                        "recordCount": 10,
+                        "responseHash": "hashvalue"
+                    },
+                    "sourceUrl": "https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/nobel-prize-laureates/records",
+                    "startedAt": "2025-08-01T10:00:05Z",
+                    "status": "NOTIFIED_SUBSCRIBERS",
+                    "summary": {
+                        "invalid": 1,
+                        "new": 2,
+                        "processed": 10,
+                        "updated": 0
+                    }
+                }
+            }
+        },
+        {
+            "Laureate": {
+                "entity_data_example": {
+                    "affiliation_city": "Sapporo",
+                    "affiliation_country": "Japan",
+                    "affiliation_name": "Hokkaido University",
+                    "ageAtAward": 80,
+                    "born": "1940-09-12",
+                    "borncity": "Hamamatsu",
+                    "borncountry": "Japan",
+                    "borncountrycode": "JP",
+                    "category": "Chemistry",
+                    "died": null,
+                    "firstname": "Akira",
+                    "gender": "male",
+                    "id": 853,
+                    "motivation": "for development of cross-coupling reactions",
+                    "normalizedCountryCode": "JP",
+                    "sourceJobId": "job-2025-08-01-01",
+                    "surname": "Suzuki",
+                    "year": "2010"
+                }
+            }
+        },
+        {
+            "Subscriber": {
+                "entity_data_example": {
+                    "active": true,
+                    "contactDetails": {
+                        "url": "https://example.com/webhook"
+                    },
+                    "contactType": "webhook",
+                    "deliveryMode": "summary",
+                    "filters": {
+                        "borncountry": [
+                            "Japan"
+                        ],
+                        "categories": [
+                            "Chemistry"
+                        ],
+                        "years": [
+                            "2010",
+                            "2011"
+                        ]
+                    },
+                    "name": "Nobel Alerts",
+                    "retryPolicy": {
+                        "backoffSeconds": 30,
+                        "maxAttempts": 3
+                    },
+                    "subscriberId": "sub-123"
+                }
+            }
+        }
+    ]
+}
