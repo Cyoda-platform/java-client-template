@@ -1,0 +1,152 @@
+{
+    "compilation_status": "FAILURE",
+    "files_with_errors": [
+        {
+            "errors": [
+                "RequestBody is not a repeatable annotation interface (at line ~148): \"@io.swagger.v3.oas.annotations.parameters.RequestBody(description = \\\"Laureate payload\\\") @RequestBody LaureateRequest request\"",
+                "RequestBody is not a repeatable annotation interface (at line ~182): \"@io.swagger.v3.oas.annotations.parameters.RequestBody(description = \\\"List of Laureate payloads\\\") @RequestBody List<LaureateRequest> requests\"",
+                "RequestBody is not a repeatable annotation interface (at line ~219): \"@io.swagger.v3.oas.annotations.parameters.RequestBody(description = \\\"Laureate payload for update\\\") @RequestBody LaureateRequest request\""
+            ],
+            "file_path": "src/main/java/com/java_template/application/controller/laureate/version_1/LaureateController.java"
+        },
+        {
+            "errors": [
+                "cannot find symbol: method getCategory() (used at lines where filters.getCategory() is called)",
+                "cannot find symbol: method getCountry() (used at lines where filters.getCountry() is called)",
+                "cannot find symbol: method getPrizeYear() (used at lines where filters.getPrizeYear() is called)"
+            ],
+            "file_path": "src/main/java/com/java_template/application/entity/subscriber/version_1/Subscriber.java"
+        },
+        {
+            "errors": [
+                "cannot find symbol: method getContactEndpoint() (entity.getContactEndpoint())",
+                "cannot find symbol: method setContactEndpoint(String) (entity.setContactEndpoint(...))",
+                "cannot find symbol: method setStatus(String) (entity.setStatus(...))",
+                "cannot find symbol: method getFormat() / setFormat(String) (entity.getFormat(), entity.setFormat(...))",
+                "cannot find symbol: method getFilters() (entity.getFilters())",
+                "cannot find symbol: methods on Filters: getCategory()/setCategory(...), getCountry()/setCountry(...), getPrizeYear()"
+            ],
+            "file_path": "src/main/java/com/java_template/application/processor/SubscriberValidationProcessor.java"
+        },
+        {
+            "errors": [
+                "cannot find symbol: method getType() on SerializerEnum.JACKSON (SerializerEnum.JACKSON.getType())",
+                "cannot find symbol: method getType() on SerializerEnum.JACKSON (used twice in file)"
+            ],
+            "file_path": "src/main/java/com/java_template/common/serializer/SerializerFactory.java"
+        },
+        {
+            "errors": [
+                "cannot find symbol: method getLaureateId() (entity.getLaureateId())",
+                "cannot find symbol: method getRawPayload() (entity.getRawPayload())",
+                "cannot find symbol: method getChangeType() / setChangeType(...) (entity.getChangeType(), entity.setChangeType(...))",
+                "cannot find symbol: method setPublished(Boolean) (entity.setPublished(...))"
+            ],
+            "file_path": "src/main/java/com/java_template/application/processor/PersistLaureateProcessor.java"
+        },
+        {
+            "errors": [
+                "cannot find symbol: method getAffiliations() / setAffiliations(...) (entity.getAffiliations(), entity.setAffiliations(...))",
+                "cannot find symbol: method getCountry() / setCountry(...) (entity.getCountry(), entity.setCountry(...))",
+                "cannot find symbol: method getChangeType() / getPublished() (entity.getChangeType(), entity.getPublished())",
+                "cannot find symbol: method getLaureateId() used in logging"
+            ],
+            "file_path": "src/main/java/com/java_template/application/processor/LaureateValidationProcessor.java"
+        },
+        {
+            "errors": [
+                "cannot find symbol: method getStatus() / setStatus(...) (entity.getStatus(), entity.setStatus(...))",
+                "cannot find symbol: method getSubscriberId() (used in logging)",
+                "cannot find symbol: method getFormat() / setFormat(...) (entity.getFormat(), entity.setFormat(...))"
+            ],
+            "file_path": "src/main/java/com/java_template/application/processor/ActivateSubscriberProcessor.java"
+        },
+        {
+            "errors": [
+                "cannot find symbol: method getResultSummary() (job.getResultSummary())",
+                "cannot find symbol: methods setLastRunAt(String), setStatus(String), setRetryCount(int), getJobId(), getRetryCount() on Job"
+            ],
+            "file_path": "src/main/java/com/java_template/application/processor/PersistResultsProcessor.java"
+        },
+        {
+            "errors": [
+                "cannot find symbol: method getSourceEndpoint() / getParameters() on Job (job.getSourceEndpoint(), job.getParameters())",
+                "cannot find symbol: methods setStatus(String), setRetryCount(int), setLastRunAt(String), setResultSummary(String) on Job",
+                "cannot find symbol: methods on Laureate entity used here: setLaureateId(...), setFullName(...), getFullName(), setPrizeYear(...), setCategory(...), setCountry(...), setAffiliations(...), setChangeType(...), setRawPayload(...), setDetectedAt(...), setPublished(...)"
+            ],
+            "file_path": "src/main/java/com/java_template/application/processor/JobExecutionProcessor.java"
+        },
+        {
+            "errors": [
+                "cannot find symbol: methods on SubscriberRequest: getSubscriberId(), getName(), getContactEndpoint(), getFormat(), getCreatedAt(), getStatus(), getFilters()",
+                "cannot find symbol: methods on Filters and Subscriber: setCategory(...), setCountry(...), setPrizeYear(...), setFilters(...), setSubscriberId(...), setName(...), setContactEndpoint(...), setFormat(...), setCreatedAt(...), setStatus(...)",
+                "cannot find symbol: method setTechnicalId(String) on TechnicalIdResponse (resp.setTechnicalId(...))",
+                "cannot find symbol: methods getFieldName(), getOperator(), getValue() on SearchRequest used in search logic"
+            ],
+            "file_path": "src/main/java/com/java_template/application/controller/subscriber/version_1/SubscriberController.java"
+        },
+        {
+            "errors": [
+                "cannot find symbol: methods on JobRequestDto: getJobId(), getName(), getSourceEndpoint(), getSchedule(), getParameters() (used throughout controller)",
+                "cannot find symbol: when mapping lists: r.getJobId(), r.getName(), r.getSourceEndpoint(), r.getSchedule(), r.getParameters()"
+            ],
+            "file_path": "src/main/java/com/java_template/application/controller/job/version_1/JobController.java"
+        },
+        {
+            "errors": [
+                "cannot find symbol: methods setType(String), setOperator(String), setConditions(List<Condition>) on SearchConditionRequest (req.setType(...), req.setOperator(...), req.setConditions(...))"
+            ],
+            "file_path": "src/main/java/com/java_template/common/util/SearchConditionRequest.java"
+        },
+        {
+            "errors": [
+                "cannot find symbol: many Laureate getters used: getLaureateId(), getFullName(), getPrizeYear(), getDetectedAt(), getChangeType(), getPublished(), getRawPayload()",
+                "logging uses entity.getLaureateId() which cannot be resolved"
+            ],
+            "file_path": "src/main/java/com/java_template/application/criterion/DeduplicationCriterion.java"
+        },
+        {
+            "errors": [
+                "cannot find symbol: methods on Job referenced: getStatus(), getResultSummary(), getRetryCount() (job.getStatus(), job.getResultSummary(), job.getRetryCount())"
+            ],
+            "file_path": "src/main/java/com/java_template/application/criterion/PersistFailureCriterion.java"
+        },
+        {
+            "errors": [
+                "cannot find symbol: numerous Job getters: getJobId(), getName(), getStatus(), getSourceEndpoint(), getParameters(), getRetryCount(), getCreatedAt(), getLastRunAt(), getResultSummary(), getSchedule()"
+            ],
+            "file_path": "src/main/java/com/java_template/application/criterion/JobValidationCriterion.java"
+        },
+        {
+            "errors": [
+                "cannot find symbol: Job getters used here: getJobId(), getName(), getSourceEndpoint(), getParameters(), getRetryCount(), getSchedule()"
+            ],
+            "file_path": "src/main/java/com/java_template/application/criterion/JobValidationFailureCriterion.java"
+        },
+        {
+            "errors": [
+                "cannot find symbol: Job getters: getJobId(), getSourceEndpoint(), getStatus(), getResultSummary(), getLastRunAt(), getRetryCount()"
+            ],
+            "file_path": "src/main/java/com/java_template/application/criterion/PersistSuccessCriterion.java"
+        },
+        {
+            "errors": [
+                "cannot find symbol: methods on Meta used: getEntityModel(), getEntityVersion(), getToken(), getUpdateTransition() (meta.getEntityModel(), meta.getEntityVersion(), meta.getToken(), meta.getUpdateTransition())",
+                "httpUtils calls use meta.getToken() which could not be resolved"
+            ],
+            "file_path": "src/main/java/com/java_template/common/repository/CyodaRepository.java"
+        },
+        {
+            "errors": [
+                "cannot find symbol: method getType() on SerializerEnum.JACKSON (SerializerEnum.JACKSON.getType())"
+            ],
+            "file_path": "src/main/java/com/java_template/common/serializer/jackson/JacksonProcessorSerializer.java"
+        },
+        {
+            "errors": [
+                "cannot find symbol: method getType() on SerializerEnum.JACKSON (SerializerEnum.JACKSON.getType())"
+            ],
+            "file_path": "src/main/java/com/java_template/common/serializer/jackson/JacksonCriterionSerializer.java"
+        }
+    ]
+}
