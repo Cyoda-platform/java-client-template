@@ -1,0 +1,220 @@
+{
+  "version": "1.0",
+  "name": "Order Workflow",
+  "desc": "Finite state workflow for Order entity covering payment, allocation, fulfillment, shipping, delivery, closing, cancellations and returns.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "to_created",
+          "next": "CREATED",
+          "manual": false
+        }
+      ]
+    },
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "to_payment_auth",
+          "next": "PAYMENT_AUTH",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ChargePaymentProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PAYMENT_AUTH": {
+      "transitions": [
+        {
+          "name": "payment_success",
+          "next": "PAYMENT_CONFIRMED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PaymentCompletedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "payment_failure",
+          "next": "PAYMENT_FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PaymentFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "PAYMENT_CONFIRMED": {
+      "transitions": [
+        {
+          "name": "to_allocating",
+          "next": "ALLOCATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AllocateInventoryProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ALLOCATING": {
+      "transitions": [
+        {
+          "name": "allocation_success",
+          "next": "FULFILLMENT_IN_PROGRESS",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "InventoryAllocatedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "allocation_failed",
+          "next": "ALLOCATION_FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "InventoryAllocationFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "FULFILLMENT_IN_PROGRESS": {
+      "transitions": [
+        {
+          "name": "shipment_created_auto",
+          "next": "SHIPPED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ShipmentCreatedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "admin_mark_shipped",
+          "next": "SHIPPED",
+          "manual": true
+        }
+      ]
+    },
+    "SHIPPED": {
+      "transitions": [
+        {
+          "name": "delivery_confirmed",
+          "next": "DELIVERED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DeliveryConfirmedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "DELIVERED": {
+      "transitions": [
+        {
+          "name": "close_order",
+          "next": "CLOSED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "OrderFulfilledCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "initiate_return",
+          "next": "RETURNED",
+          "manual": true
+        }
+      ]
+    },
+    "PAYMENT_FAILED": {
+      "transitions": [
+        {
+          "name": "retry_payment",
+          "next": "PAYMENT_AUTH",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ChargePaymentProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "cancel_order",
+          "next": "CANCELLED",
+          "manual": true
+        }
+      ]
+    },
+    "ALLOCATION_FAILED": {
+      "transitions": [
+        {
+          "name": "cancel_order",
+          "next": "CANCELLED",
+          "manual": true
+        }
+      ]
+    },
+    "CLOSED": {
+      "transitions": []
+    },
+    "CANCELLED": {
+      "transitions": []
+    },
+    "RETURNED": {
+      "transitions": []
+    }
+  }
+}
