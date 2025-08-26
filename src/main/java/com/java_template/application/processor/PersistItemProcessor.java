@@ -28,10 +28,10 @@ public class PersistItemProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing HNItem for request: {}", request.getId());
 
-        return serializer.withRequest(request)
+        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
             .toEntity(HNItem.class)
             .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic)
+            .map(this::processEntityLogic) // Implement business logic here
             .complete();
     }
 
@@ -40,10 +40,13 @@ public class PersistItemProcessor implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
+    /**
+     * Validate entity using accessors instead of reflection.
+     */
     private boolean isValidEntity(HNItem entity) {
         if (entity == null) return false;
-        Long id = entity.getId();
-        if (id == null || id <= 0) return false;
+
+        if (entity.getId() == null || entity.getId() <= 0) return false;
 
         String type = entity.getType();
         if (type == null || type.isBlank()) return false;
@@ -54,10 +57,21 @@ public class PersistItemProcessor implements CyodaProcessor {
         String importTimestamp = entity.getImportTimestamp();
         if (importTimestamp == null || importTimestamp.isBlank()) return false;
 
-        // status may be set by processors later; allow it to be missing here
+        // status is allowed to be set by processors; ensure it's present but allow processor to set it if needed
+        String status = entity.getStatus();
+        if (status == null || status.isBlank()) {
+            // not strictly invalid here; PersistItemProcessor will mark it appropriately.
+            // But for safety, allow entities without status to pass validation stage for this processor.
+            // Return true as other required fields are present.
+        }
+
         return true;
     }
 
+    /**
+     * Main business logic for persisting a HNItem.
+     * Uses direct accessors instead of reflection.
+     */
     private HNItem processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<HNItem> context) {
         HNItem entity = context.entity();
 
