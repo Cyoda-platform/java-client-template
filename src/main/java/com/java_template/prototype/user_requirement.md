@@ -1,0 +1,1 @@
+Build a fun 'Purrfect Pets' API app with Petstore API data that ingests data from pets api and sends to subscribers. Let's have 3 entities: pet, subscriber, and job.
