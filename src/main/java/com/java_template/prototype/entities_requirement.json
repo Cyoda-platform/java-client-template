@@ -1,0 +1,48 @@
+{
+    "entities": [
+        {
+            "BatchJob": {
+                "entity_data_example": {
+                    "createdAt": "2025-09-01T00:00:00Z",
+                    "finishedAt": "2025-09-01T00:10:00Z",
+                    "jobName": "MonthlyUserBatch",
+                    "runMonth": "2025-09",
+                    "scheduleCron": "0 0 1 * *",
+                    "startedAt": "2025-09-01T00:01:00Z",
+                    "status": "COMPLETED",
+                    "summary": "ingested 100 users, 5 invalid"
+                }
+            }
+        },
+        {
+            "User": {
+                "entity_data_example": {
+                    "address": "123 Main St",
+                    "email": "jdoe@example.com",
+                    "fullName": "John Doe",
+                    "id": 42,
+                    "phone": "+1-555-0100",
+                    "sourceFetchedAt": "2025-09-01T00:01:00Z",
+                    "storedAt": "2025-09-01T00:03:00Z",
+                    "transformedAt": "2025-09-01T00:02:00Z",
+                    "username": "jdoe",
+                    "validationStatus": "VALID"
+                }
+            }
+        },
+        {
+            "MonthlyReport": {
+                "entity_data_example": {
+                    "deliveryAt": "2025-09-01T00:06:00Z",
+                    "fileRef": "reports/2025-09-user-report.pdf",
+                    "generatedAt": "2025-09-01T00:05:00Z",
+                    "invalidUsers": 5,
+                    "month": "2025-09",
+                    "newUsers": 95,
+                    "status": "PUBLISHED",
+                    "totalUsers": 100
+                }
+            }
+        }
+    ]
+}
