@@ -1,0 +1,170 @@
+{
+  "version": "1.0",
+  "name": "HNItem Workflow",
+  "desc": "Finite state workflow for HNItem based on functional requirements: validation, enrichment, persistence, and audit creation.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "to_created",
+          "next": "CREATED",
+          "manual": false
+        }
+      ]
+    },
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "start_validation",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateRequiredFieldsProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "validation_passed",
+          "next": "VALIDATED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidationPassedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidationFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "VALIDATED": {
+      "transitions": [
+        {
+          "name": "enrich_timestamp",
+          "next": "ENRICHING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EnrichImportTimestampProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ENRICHING": {
+      "transitions": [
+        {
+          "name": "persist_item",
+          "next": "STORING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PersistItemProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "STORING": {
+      "transitions": [
+        {
+          "name": "persist_success",
+          "next": "STORED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PersistSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "persist_failure",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PersistFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "STORED": {
+      "transitions": [
+        {
+          "name": "create_audit_on_success",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CreateAuditProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "FAILED": {
+      "transitions": [
+        {
+          "name": "create_audit_on_failure",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CreateAuditProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": []
+    }
+  }
+}

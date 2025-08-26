@@ -1,0 +1,38 @@
+{
+  "version": "1.0",
+  "name": "ImportAudit Workflow",
+  "desc": "Workflow for ImportAudit entity: record audit entries (append-only).",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "to_record_created",
+          "next": "RECORD_CREATED",
+          "manual": false
+        }
+      ]
+    },
+    "RECORD_CREATED": {
+      "transitions": [
+        {
+          "name": "write_audit",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "WriteAuditProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": []
+    }
+  }
+}
