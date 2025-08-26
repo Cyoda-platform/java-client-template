@@ -38,7 +38,8 @@ public class DeduplicationCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name (case-sensitive)
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Laureate> context) {
@@ -85,6 +86,12 @@ public class DeduplicationCriterion implements CyodaCriterion {
          if (normalized.equals("updated") && !Boolean.TRUE.equals(entity.getPublished())) {
              logger.info("Deduplication/business rule: update received for unpublished laureateId={}", entity.getLaureateId());
              return EvaluationOutcome.fail("Update received for an unpublished laureate - inconsistent state", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         }
+
+         // - If event is "deleted" but entity not published and no rawPayload -> suspicious (data quality)
+         if (normalized.equals("deleted") && !Boolean.TRUE.equals(entity.getPublished()) && (entity.getRawPayload() == null || entity.getRawPayload().isBlank())) {
+             logger.info("Deduplication/data quality: delete received for non-published laureateId={} without raw payload", entity.getLaureateId());
+             return EvaluationOutcome.fail("Delete received for a non-published laureate with no raw payload - suspicious", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
          // If none of the deduplication heuristics triggered, accept entity for downstream processing

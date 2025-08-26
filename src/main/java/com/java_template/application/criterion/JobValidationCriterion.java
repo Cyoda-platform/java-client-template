@@ -15,6 +15,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.net.URI;
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
+
 @Component
 public class JobValidationCriterion implements CyodaCriterion {
 
@@ -29,7 +33,7 @@ public class JobValidationCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Job.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,13 +42,15 @@ public class JobValidationCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // MUST use exact criterion name (case-sensitive)
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Job> context) {
          Job job = context.entity();
 
          if (job == null) {
+             logger.warn("JobValidationCriterion: entity is null");
              return EvaluationOutcome.fail("Job entity is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
@@ -62,6 +68,18 @@ public class JobValidationCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("sourceEndpoint is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
+         // Validate sourceEndpoint is a well-formed HTTP/HTTPS URI
+         String source = job.getSourceEndpoint();
+         try {
+             URI uri = URI.create(source);
+             String scheme = uri.getScheme();
+             if (scheme == null || !(scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https"))) {
+                 return EvaluationOutcome.fail("sourceEndpoint must be a valid http/https URL", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             }
+         } catch (IllegalArgumentException ex) {
+             return EvaluationOutcome.fail("sourceEndpoint must be a valid URL", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
          // Parameters map must be present (can be empty)
          if (job.getParameters() == null) {
              return EvaluationOutcome.fail("parameters map must be present (can be empty)", StandardEvalReasonCategories.VALIDATION_FAILURE);
@@ -75,6 +93,22 @@ public class JobValidationCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("retryCount must be non-negative", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
+         // Validate timestamps if provided (createdAt and lastRunAt) are ISO-8601 parseable
+         if (job.getCreatedAt() != null && !job.getCreatedAt().isBlank()) {
+             try {
+                 Instant.parse(job.getCreatedAt());
+             } catch (DateTimeParseException e) {
+                 return EvaluationOutcome.fail("createdAt must be ISO-8601 timestamp", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+         }
+         if (job.getLastRunAt() != null && !job.getLastRunAt().isBlank()) {
+             try {
+                 Instant.parse(job.getLastRunAt());
+             } catch (DateTimeParseException e) {
+                 return EvaluationOutcome.fail("lastRunAt must be ISO-8601 timestamp", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+         }
+
          // Business rule: If status is RUNNING or VALIDATING then lastRunAt should be present
          String status = job.getStatus();
          if (status != null && (status.equalsIgnoreCase("RUNNING") || status.equalsIgnoreCase("VALIDATING"))) {
@@ -83,9 +117,21 @@ public class JobValidationCriterion implements CyodaCriterion {
              }
          }
 
+         // Business rule: If status is COMPLETED then resultSummary should be present and non-blank
+         if (status != null && status.equalsIgnoreCase("COMPLETED")) {
+             if (job.getResultSummary() == null || job.getResultSummary().isBlank()) {
+                 return EvaluationOutcome.fail("resultSummary must be present when status is COMPLETED", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+             }
+         }
+
          // Optional checks: resultSummary if present must not be blank
          if (job.getResultSummary() != null && job.getResultSummary().isBlank()) {
              return EvaluationOutcome.fail("resultSummary, if provided, must not be blank", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+
+         // schedule (optional) - if provided must not be blank
+         if (job.getSchedule() != null && job.getSchedule().isBlank()) {
+             return EvaluationOutcome.fail("schedule, if provided, must not be blank", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
          return EvaluationOutcome.success();

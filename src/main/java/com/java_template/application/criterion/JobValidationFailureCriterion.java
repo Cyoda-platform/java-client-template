@@ -15,6 +15,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.Set;
 
 @Component
@@ -40,7 +42,8 @@ public class JobValidationFailureCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // MUST use exact criterion name (case-sensitive)
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Job> context) {
@@ -70,10 +73,19 @@ public class JobValidationFailureCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("retryCount must be non-negative", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Basic data quality checks
+         // Validate sourceEndpoint syntactically (ensure valid URL and http(s) protocol)
          String endpoint = job.getSourceEndpoint();
-         if (!(endpoint.startsWith("http://") || endpoint.startsWith("https://"))) {
-             return EvaluationOutcome.fail("sourceEndpoint must be a valid http(s) URL", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         try {
+             URL u = new URL(endpoint);
+             String protocol = u.getProtocol();
+             if (!"http".equalsIgnoreCase(protocol) && !"https".equalsIgnoreCase(protocol)) {
+                 return EvaluationOutcome.fail("sourceEndpoint must use http or https", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+             if (u.getHost() == null || u.getHost().isBlank()) {
+                 return EvaluationOutcome.fail("sourceEndpoint must contain a valid host", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+         } catch (MalformedURLException e) {
+             return EvaluationOutcome.fail("sourceEndpoint is not a valid URL", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
          // Business rules: enforce sensible retry limits and known status values
@@ -92,9 +104,15 @@ public class JobValidationFailureCriterion implements CyodaCriterion {
              }
          }
 
-         // schedule is optional but if provided it must not be blank
-         if (job.getSchedule() != null && job.getSchedule().isBlank()) {
-             return EvaluationOutcome.fail("schedule, if provided, must not be blank", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         // schedule is optional but if provided it must not be blank and should resemble a cron expression (5-7 fields)
+         if (job.getSchedule() != null) {
+             if (job.getSchedule().isBlank()) {
+                 return EvaluationOutcome.fail("schedule, if provided, must not be blank", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             }
+             String[] parts = job.getSchedule().trim().split("\\s+");
+             if (parts.length < 5 || parts.length > 7) {
+                 return EvaluationOutcome.fail("schedule must be a cron-like expression with 5 to 7 fields", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
          }
 
          return EvaluationOutcome.success();

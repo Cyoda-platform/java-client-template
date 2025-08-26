@@ -4,9 +4,12 @@ import static com.java_template.common.config.Config.*;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.subscriber.version_1.Subscriber;
 import com.java_template.common.service.EntityService;
+import com.java_template.common.util.Condition;
+import com.java_template.common.util.SearchConditionRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -16,7 +19,6 @@ import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,10 +26,12 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 @RestController
 @RequestMapping("/api/v1/subscribers")
@@ -77,13 +81,13 @@ public class SubscriberController {
                 entity.setFilters(filters);
             }
 
-            CompletableFuture<java.util.UUID> idFuture = entityService.addItem(
+            CompletableFuture<UUID> idFuture = entityService.addItem(
                     Subscriber.ENTITY_NAME,
                     String.valueOf(Subscriber.ENTITY_VERSION),
                     entity
             );
 
-            java.util.UUID technicalId = idFuture.get();
+            UUID technicalId = idFuture.get();
 
             TechnicalIdResponse resp = new TechnicalIdResponse();
             resp.setTechnicalId(technicalId.toString());
@@ -142,24 +146,9 @@ public class SubscriberController {
                 return ResponseEntity.status(404).body("Subscriber not found");
             }
 
-            // Convert to domain entity/object and then to response DTO
             Subscriber entity = mapper.treeToValue((JsonNode) node, Subscriber.class);
 
-            SubscriberResponse resp = new SubscriberResponse();
-            resp.setSubscriberId(entity.getSubscriberId());
-            resp.setName(entity.getName());
-            resp.setContactEndpoint(entity.getContactEndpoint());
-            resp.setFormat(entity.getFormat());
-            resp.setStatus(entity.getStatus());
-            resp.setCreatedAt(entity.getCreatedAt());
-
-            if (entity.getFilters() != null) {
-                SubscriberResponse.FiltersResponse fr = new SubscriberResponse.FiltersResponse();
-                fr.setCategory(entity.getFilters().getCategory());
-                fr.setCountry(entity.getFilters().getCountry());
-                fr.setPrizeYear(entity.getFilters().getPrizeYear());
-                resp.setFilters(fr);
-            }
+            SubscriberResponse resp = mapToResponse(entity);
 
             return ResponseEntity.ok(resp);
 
@@ -186,6 +175,340 @@ public class SubscriberController {
             logger.error("Unexpected error when retrieving subscriber", e);
             return ResponseEntity.status(500).body(e.getMessage());
         }
+    }
+
+    @Operation(summary = "Get all Subscribers", description = "Retrieve all Subscriber entities (version 1).")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = SubscriberResponse.class)))),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error", content = @Content)
+    })
+    @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> getAllSubscribers() {
+        try {
+            CompletableFuture<ArrayNode> itemsFuture = entityService.getItems(
+                    Subscriber.ENTITY_NAME,
+                    String.valueOf(Subscriber.ENTITY_VERSION)
+            );
+
+            ArrayNode arr = itemsFuture.get();
+            List<SubscriberResponse> respList = new ArrayList<>();
+            if (arr != null) {
+                for (JsonNode node : arr) {
+                    Subscriber entity = mapper.treeToValue(node, Subscriber.class);
+                    respList.add(mapToResponse(entity));
+                }
+            }
+            return ResponseEntity.ok(respList);
+
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof IllegalArgumentException) {
+                logger.warn("Bad request during getAll: {}", cause.getMessage());
+                return ResponseEntity.badRequest().body(cause.getMessage());
+            } else {
+                logger.error("ExecutionException when getting all subscribers", e);
+                return ResponseEntity.status(500).body(e.getMessage());
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted when getting all subscribers", e);
+            return ResponseEntity.status(500).body(e.getMessage());
+        } catch (Exception e) {
+            logger.error("Unexpected error when getting all subscribers", e);
+            return ResponseEntity.status(500).body(e.getMessage());
+        }
+    }
+
+    @Operation(summary = "Search Subscribers by simple condition", description = "Search Subscribers by a single field condition. Supported operators: EQUALS, NOT_EQUAL, IEQUALS, GREATER_THAN, LESS_THAN, etc.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = SubscriberResponse.class)))),
+            @ApiResponse(responseCode = "400", description = "Bad Request", content = @Content),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error", content = @Content)
+    })
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            description = "Simple search request",
+            required = true,
+            content = @Content(schema = @Schema(implementation = SearchRequest.class),
+                    examples = @ExampleObject(value = "{ \"fieldName\": \"subscriberId\", \"operator\": \"EQUALS\", \"value\": \"sub_42\" }"))
+    )
+    @PostMapping(value = "/search", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> searchSubscribers(@RequestBody SearchRequest request) {
+        try {
+            if (request == null || request.getFieldName() == null || request.getFieldName().isBlank()) {
+                throw new IllegalArgumentException("fieldName is required");
+            }
+            if (request.getOperator() == null || request.getOperator().isBlank()) {
+                throw new IllegalArgumentException("operator is required");
+            }
+
+            SearchConditionRequest condition = SearchConditionRequest.group("AND",
+                    Condition.of("$." + request.getFieldName(), request.getOperator(), request.getValue())
+            );
+
+            CompletableFuture<ArrayNode> filteredFuture = entityService.getItemsByCondition(
+                    Subscriber.ENTITY_NAME,
+                    String.valueOf(Subscriber.ENTITY_VERSION),
+                    condition,
+                    true
+            );
+
+            ArrayNode arr = filteredFuture.get();
+            List<SubscriberResponse> respList = new ArrayList<>();
+            if (arr != null) {
+                for (JsonNode node : arr) {
+                    Subscriber entity = mapper.treeToValue(node, Subscriber.class);
+                    respList.add(mapToResponse(entity));
+                }
+            }
+            return ResponseEntity.ok(respList);
+
+        } catch (IllegalArgumentException e) {
+            logger.warn("Bad request when searching subscribers: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof IllegalArgumentException) {
+                logger.warn("Bad request during search: {}", cause.getMessage());
+                return ResponseEntity.badRequest().body(cause.getMessage());
+            } else {
+                logger.error("ExecutionException when searching subscribers", e);
+                return ResponseEntity.status(500).body(e.getMessage());
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted when searching subscribers", e);
+            return ResponseEntity.status(500).body(e.getMessage());
+        } catch (Exception e) {
+            logger.error("Unexpected error when searching subscribers", e);
+            return ResponseEntity.status(500).body(e.getMessage());
+        }
+    }
+
+    @Operation(summary = "Update Subscriber", description = "Update an existing Subscriber by technicalId. Returns technicalId of updated entity.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad Request", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Not Found", content = @Content),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error", content = @Content)
+    })
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            description = "Subscriber update request",
+            required = true,
+            content = @Content(schema = @Schema(implementation = SubscriberRequest.class))
+    )
+    @PutMapping(value = "/{technicalId}", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> updateSubscriber(
+            @Parameter(name = "technicalId", description = "Technical ID of the entity", required = true)
+            @PathVariable("technicalId") String technicalIdStr,
+            @RequestBody SubscriberRequest request) {
+        try {
+            if (technicalIdStr == null || technicalIdStr.isBlank()) {
+                throw new IllegalArgumentException("technicalId is required");
+            }
+            if (request == null) {
+                throw new IllegalArgumentException("Request body is missing");
+            }
+            UUID technicalId = UUID.fromString(technicalIdStr);
+
+            Subscriber entity = new Subscriber();
+            entity.setSubscriberId(request.getSubscriberId());
+            entity.setName(request.getName());
+            entity.setContactEndpoint(request.getContactEndpoint());
+            entity.setFormat(request.getFormat());
+            entity.setCreatedAt(request.getCreatedAt());
+            entity.setStatus(request.getStatus());
+
+            if (request.getFilters() != null) {
+                Subscriber.Filters filters = new Subscriber.Filters();
+                filters.setCategory(request.getFilters().getCategory());
+                filters.setCountry(request.getFilters().getCountry());
+                filters.setPrizeYear(request.getFilters().getPrizeYear());
+                entity.setFilters(filters);
+            }
+
+            CompletableFuture<UUID> updatedFuture = entityService.updateItem(
+                    Subscriber.ENTITY_NAME,
+                    String.valueOf(Subscriber.ENTITY_VERSION),
+                    technicalId,
+                    entity
+            );
+
+            UUID updatedId = updatedFuture.get();
+            TechnicalIdResponse resp = new TechnicalIdResponse();
+            resp.setTechnicalId(updatedId.toString());
+            return ResponseEntity.ok(resp);
+
+        } catch (IllegalArgumentException e) {
+            logger.warn("Bad request when updating subscriber: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof NoSuchElementException) {
+                logger.warn("Subscriber not found during update: {}", cause.getMessage());
+                return ResponseEntity.status(404).body(cause.getMessage());
+            } else if (cause instanceof IllegalArgumentException) {
+                logger.warn("Bad request during update: {}", cause.getMessage());
+                return ResponseEntity.badRequest().body(cause.getMessage());
+            } else {
+                logger.error("ExecutionException when updating subscriber", e);
+                return ResponseEntity.status(500).body(e.getMessage());
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted when updating subscriber", e);
+            return ResponseEntity.status(500).body(e.getMessage());
+        } catch (Exception e) {
+            logger.error("Unexpected error when updating subscriber", e);
+            return ResponseEntity.status(500).body(e.getMessage());
+        }
+    }
+
+    @Operation(summary = "Delete Subscriber", description = "Delete a Subscriber by its technicalId. Returns technicalId of deleted entity.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad Request", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Not Found", content = @Content),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error", content = @Content)
+    })
+    @DeleteMapping(value = "/{technicalId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> deleteSubscriber(
+            @Parameter(name = "technicalId", description = "Technical ID of the entity", required = true)
+            @PathVariable("technicalId") String technicalIdStr) {
+        try {
+            if (technicalIdStr == null || technicalIdStr.isBlank()) {
+                throw new IllegalArgumentException("technicalId is required");
+            }
+            UUID technicalId = UUID.fromString(technicalIdStr);
+
+            CompletableFuture<UUID> deletedFuture = entityService.deleteItem(
+                    Subscriber.ENTITY_NAME,
+                    String.valueOf(Subscriber.ENTITY_VERSION),
+                    technicalId
+            );
+
+            UUID deletedId = deletedFuture.get();
+            TechnicalIdResponse resp = new TechnicalIdResponse();
+            resp.setTechnicalId(deletedId.toString());
+            return ResponseEntity.ok(resp);
+
+        } catch (IllegalArgumentException e) {
+            logger.warn("Bad request when deleting subscriber: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof NoSuchElementException) {
+                logger.warn("Subscriber not found during delete: {}", cause.getMessage());
+                return ResponseEntity.status(404).body(cause.getMessage());
+            } else if (cause instanceof IllegalArgumentException) {
+                logger.warn("Bad request during delete: {}", cause.getMessage());
+                return ResponseEntity.badRequest().body(cause.getMessage());
+            } else {
+                logger.error("ExecutionException when deleting subscriber", e);
+                return ResponseEntity.status(500).body(e.getMessage());
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted when deleting subscriber", e);
+            return ResponseEntity.status(500).body(e.getMessage());
+        } catch (Exception e) {
+            logger.error("Unexpected error when deleting subscriber", e);
+            return ResponseEntity.status(500).body(e.getMessage());
+        }
+    }
+
+    @Operation(summary = "Create multiple Subscribers", description = "Register multiple Subscribers in a batch. Returns technicalIds of created entities.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdsResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad Request", content = @Content),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error", content = @Content)
+    })
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            description = "Batch subscriber creation request",
+            required = true,
+            content = @Content(array = @ArraySchema(schema = @Schema(implementation = SubscriberRequest.class)))
+    )
+    @PostMapping(value = "/batch", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> createSubscribersBatch(@RequestBody List<SubscriberRequest> requests) {
+        try {
+            if (requests == null || requests.isEmpty()) {
+                throw new IllegalArgumentException("Request body is missing or empty");
+            }
+
+            List<Subscriber> entities = new ArrayList<>();
+            for (SubscriberRequest request : requests) {
+                Subscriber entity = new Subscriber();
+                entity.setSubscriberId(request.getSubscriberId());
+                entity.setName(request.getName());
+                entity.setContactEndpoint(request.getContactEndpoint());
+                entity.setFormat(request.getFormat());
+                entity.setCreatedAt(request.getCreatedAt());
+                entity.setStatus(request.getStatus());
+                if (request.getFilters() != null) {
+                    Subscriber.Filters filters = new Subscriber.Filters();
+                    filters.setCategory(request.getFilters().getCategory());
+                    filters.setCountry(request.getFilters().getCountry());
+                    filters.setPrizeYear(request.getFilters().getPrizeYear());
+                    entity.setFilters(filters);
+                }
+                entities.add(entity);
+            }
+
+            CompletableFuture<List<UUID>> idsFuture = entityService.addItems(
+                    Subscriber.ENTITY_NAME,
+                    String.valueOf(Subscriber.ENTITY_VERSION),
+                    entities
+            );
+
+            List<UUID> ids = idsFuture.get();
+            List<String> idStrings = new ArrayList<>();
+            if (ids != null) {
+                for (UUID id : ids) {
+                    idStrings.add(id.toString());
+                }
+            }
+            TechnicalIdsResponse resp = new TechnicalIdsResponse();
+            resp.setTechnicalIds(idStrings);
+            return ResponseEntity.ok(resp);
+
+        } catch (IllegalArgumentException e) {
+            logger.warn("Bad request when creating subscribers batch: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof IllegalArgumentException) {
+                logger.warn("Bad request during batch create: {}", cause.getMessage());
+                return ResponseEntity.badRequest().body(cause.getMessage());
+            } else {
+                logger.error("ExecutionException when creating subscribers batch", e);
+                return ResponseEntity.status(500).body(e.getMessage());
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted when creating subscribers batch", e);
+            return ResponseEntity.status(500).body(e.getMessage());
+        } catch (Exception e) {
+            logger.error("Unexpected error when creating subscribers batch", e);
+            return ResponseEntity.status(500).body(e.getMessage());
+        }
+    }
+
+    // Helper mapper
+    private SubscriberResponse mapToResponse(Subscriber entity) {
+        SubscriberResponse resp = new SubscriberResponse();
+        resp.setSubscriberId(entity.getSubscriberId());
+        resp.setName(entity.getName());
+        resp.setContactEndpoint(entity.getContactEndpoint());
+        resp.setFormat(entity.getFormat());
+        resp.setStatus(entity.getStatus());
+        resp.setCreatedAt(entity.getCreatedAt());
+        if (entity.getFilters() != null) {
+            SubscriberResponse.FiltersResponse fr = new SubscriberResponse.FiltersResponse();
+            fr.setCategory(entity.getFilters().getCategory());
+            fr.setCountry(entity.getFilters().getCountry());
+            fr.setPrizeYear(entity.getFilters().getPrizeYear());
+            resp.setFilters(fr);
+        }
+        return resp;
     }
 
     // Static DTOs for request/response
@@ -229,10 +552,30 @@ public class SubscriberController {
     }
 
     @Data
+    @Schema(name = "SearchRequest", description = "Simple search request for Subscribers")
+    public static class SearchRequest {
+        @Schema(description = "Field name to search on (without $. prefix)", example = "subscriberId")
+        private String fieldName;
+
+        @Schema(description = "Operator to use (EQUALS, NOT_EQUAL, IEQUALS, GREATER_THAN, LESS_THAN, ...)", example = "EQUALS")
+        private String operator;
+
+        @Schema(description = "Value to compare to", example = "sub_42")
+        private String value;
+    }
+
+    @Data
     @Schema(name = "TechnicalIdResponse", description = "Response containing technical id")
     public static class TechnicalIdResponse {
         @Schema(description = "Technical identifier of created entity", example = "tch_sub_987")
         private String technicalId;
+    }
+
+    @Data
+    @Schema(name = "TechnicalIdsResponse", description = "Response containing technical ids for batch operations")
+    public static class TechnicalIdsResponse {
+        @Schema(description = "Technical identifiers of created entities")
+        private List<String> technicalIds;
     }
 
     @Data
