@@ -39,7 +39,9 @@ public class RetryCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        if (modelSpec == null || modelSpec.operationName() == null) return false;
+        // Must match exact criterion name (case-sensitive)
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Job> context) {
@@ -78,6 +80,7 @@ public class RetryCriterion implements CyodaCriterion {
          }
 
          // Eligible for retry
+         logger.debug("RetryCriterion: job id={} eligible for retry (attempts={})", job.getId(), attempts);
          return EvaluationOutcome.success();
     }
 }

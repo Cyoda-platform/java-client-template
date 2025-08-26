@@ -87,6 +87,7 @@ public class PetUpsertProcessor implements CyodaProcessor {
 
             boolean isNew = (existing == null);
             boolean changed = false;
+            List<String> changedFields = new ArrayList<>();
 
             if (isNew) {
                 // New pet: ensure timestamps are set
@@ -97,6 +98,7 @@ public class PetUpsertProcessor implements CyodaProcessor {
                     entity.setUpdatedAt(now);
                 }
                 changed = true; // treat as change to kick off notifications
+                changedFields.add("all");
             } else {
                 // Merge existing -> preserve technical id and createdAt
                 entity.setId(existing.getId());
@@ -117,20 +119,48 @@ public class PetUpsertProcessor implements CyodaProcessor {
                     entity.setUpdatedAt(now);
                 }
 
-                // Detect changes on primary fields
-                if (!safeEquals(existing.getName(), entity.getName())) changed = true;
-                if (!safeEquals(existing.getDescription(), entity.getDescription())) changed = true;
-                if (!Objects.equals(existing.getAge(), entity.getAge())) changed = true;
-                if (!safeEquals(existing.getBreed(), entity.getBreed())) changed = true;
-                if (!safeEquals(existing.getSpecies(), entity.getSpecies())) changed = true;
-                if (!safeEquals(existing.getStatus(), entity.getStatus())) changed = true;
-                if (!safeEquals(existing.getSourceUpdatedAt(), entity.getSourceUpdatedAt())) changed = true;
-                if (!listEquals(existing.getImages(), entity.getImages())) changed = true;
-                if (!listEquals(existing.getTags(), entity.getTags())) changed = true;
+                // Detect changes on primary fields and collect which fields changed
+                if (!safeEquals(existing.getName(), entity.getName())) {
+                    changed = true;
+                    changedFields.add("name");
+                }
+                if (!safeEquals(existing.getDescription(), entity.getDescription())) {
+                    changed = true;
+                    changedFields.add("description");
+                }
+                if (!Objects.equals(existing.getAge(), entity.getAge())) {
+                    changed = true;
+                    changedFields.add("age");
+                }
+                if (!safeEquals(existing.getBreed(), entity.getBreed())) {
+                    changed = true;
+                    changedFields.add("breed");
+                }
+                if (!safeEquals(existing.getSpecies(), entity.getSpecies())) {
+                    changed = true;
+                    changedFields.add("species");
+                }
+                if (!safeEquals(existing.getStatus(), entity.getStatus())) {
+                    changed = true;
+                    changedFields.add("status");
+                }
+                if (!safeEquals(existing.getSourceUpdatedAt(), entity.getSourceUpdatedAt())) {
+                    changed = true;
+                    changedFields.add("sourceUpdatedAt");
+                }
+                if (!listEquals(existing.getImages(), entity.getImages())) {
+                    changed = true;
+                    changedFields.add("images");
+                }
+                if (!listEquals(existing.getTags(), entity.getTags())) {
+                    changed = true;
+                    changedFields.add("tags");
+                }
             }
 
             // If change detected -> create notify Jobs for matching subscribers
             if (changed) {
+                String deltaType = isNew ? "new" : "updated";
                 try {
                     CompletableFuture<ArrayNode> subsFuture = entityService.getItems(
                         Subscriber.ENTITY_NAME,
@@ -157,7 +187,8 @@ public class PetUpsertProcessor implements CyodaProcessor {
                                 Map<String, Object> payload = new HashMap<>();
                                 payload.put("petId", entity.getId());
                                 payload.put("subscriberId", sub.getId());
-                                payload.put("delta", "updated"); // simple delta indicator
+                                payload.put("delta", deltaType);
+                                payload.put("changedFields", changedFields);
 
                                 job.setPayload(payload);
                                 job.setPetIds(Collections.singletonList(entity.getId()));

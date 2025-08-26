@@ -13,7 +13,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 
@@ -35,8 +34,8 @@ public class PetValidationProcessor implements CyodaProcessor {
 
         return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
             .toEntity(Pet.class)
-            .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+            // run processing regardless of initial validity so we can normalize and mark invalid if needed
+            .map(this::processEntityLogic)
             .complete();
     }
 
@@ -74,47 +73,33 @@ public class PetValidationProcessor implements CyodaProcessor {
             entity.setDescription(entity.getDescription().trim());
         }
 
-        // Ensure collections are non-null and contain no blank entries
+        // Normalize tags into a new list to avoid concurrent modification
+        List<String> normalizedTags = new ArrayList<>();
         List<String> tags = entity.getTags();
-        if (tags == null) {
-            tags = new ArrayList<>();
-        } else {
-            Iterator<String> it = tags.iterator();
-            while (it.hasNext()) {
-                String t = it.next();
-                if (t == null || t.isBlank()) {
-                    it.remove();
-                } else {
-                    // normalize tag whitespace
-                    String nt = t.trim();
-                    if (!Objects.equals(nt, t)) {
-                        it.remove();
-                        if (!nt.isBlank()) tags.add(nt);
-                    }
+        if (tags != null) {
+            for (String t : tags) {
+                if (t == null) continue;
+                String nt = t.trim();
+                if (!nt.isBlank()) {
+                    normalizedTags.add(nt);
                 }
             }
         }
-        entity.setTags(tags);
+        entity.setTags(normalizedTags);
 
+        // Normalize images into a new list
+        List<String> normalizedImages = new ArrayList<>();
         List<String> images = entity.getImages();
-        if (images == null) {
-            images = new ArrayList<>();
-        } else {
-            Iterator<String> it = images.iterator();
-            while (it.hasNext()) {
-                String img = it.next();
-                if (img == null || img.isBlank()) {
-                    it.remove();
-                } else {
-                    String ni = img.trim();
-                    if (!Objects.equals(ni, img)) {
-                        it.remove();
-                        if (!ni.isBlank()) images.add(ni);
-                    }
+        if (images != null) {
+            for (String img : images) {
+                if (img == null) continue;
+                String ni = img.trim();
+                if (!ni.isBlank()) {
+                    normalizedImages.add(ni);
                 }
             }
         }
-        entity.setImages(images);
+        entity.setImages(normalizedImages);
 
         // Sanity check for age
         if (entity.getAge() != null && entity.getAge() < 0) {

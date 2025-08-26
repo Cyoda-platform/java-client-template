@@ -61,8 +61,36 @@ public class JobExecutionProcessor implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
+    /**
+     * Custom validation to allow ingest jobs that may not have petIds/subscriberIds populated yet.
+     * Use a relaxed validation for 'ingest' type jobs (they only need basic fields + payload).
+     * For other job types, fall back to the entity's isValid() check.
+     */
     private boolean isValidEntity(Job entity) {
-        return entity != null && entity.isValid();
+        if (entity == null) return false;
+        String type = entity.getType() == null ? "" : entity.getType().toLowerCase();
+
+        if ("ingest".equals(type)) {
+            return isBasicJobValid(entity);
+        }
+
+        // For notify and other types require full entity validity as defined on Job
+        return entity.isValid();
+    }
+
+    /**
+     * Basic job validation: ensures required metadata fields and payload/attempts are present.
+     * This is intentionally less strict than Job.isValid() to allow ingest jobs to proceed.
+     */
+    private boolean isBasicJobValid(Job job) {
+        if (job.getId() == null || job.getId().isBlank()) return false;
+        if (job.getType() == null || job.getType().isBlank()) return false;
+        if (job.getStatus() == null || job.getStatus().isBlank()) return false;
+        if (job.getCreatedAt() == null || job.getCreatedAt().isBlank()) return false;
+        if (job.getUpdatedAt() == null || job.getUpdatedAt().isBlank()) return false;
+        if (job.getAttempts() == null || job.getAttempts() < 0) return false;
+        if (job.getPayload() == null) return false;
+        return true;
     }
 
     private Job processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Job> context) {
@@ -124,7 +152,6 @@ public class JobExecutionProcessor implements CyodaProcessor {
                     if (pet.getCreatedAt() == null || pet.getCreatedAt().isBlank()) pet.setCreatedAt(ts != null ? ts : "");
                     if (pet.getUpdatedAt() == null || pet.getUpdatedAt().isBlank()) pet.setUpdatedAt(ts != null ? ts : "");
                     if (pet.getStatus() == null || pet.getStatus().isBlank()) pet.setStatus("available");
-                    if (pet.getSpecies() == null) pet.setSpecies(pet.getSpecies()); // no-op to satisfy usage only
 
                     // add via entityService (persist other entity types only)
                     CompletableFuture<java.util.UUID> idFuture = entityService.addItem(
