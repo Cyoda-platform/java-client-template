@@ -30,10 +30,10 @@ public class ValidateJobProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing IngestionJob for request: {}", request.getId());
 
-        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
+        return serializer.withRequest(request)
             .toEntity(IngestionJob.class)
-            .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+            .validate(this::isValidEntity, "Invalid ingestion job: missing or invalid required fields")
+            .map(this::processEntityLogic)
             .complete();
     }
 
@@ -43,64 +43,67 @@ public class ValidateJobProcessor implements CyodaProcessor {
     }
 
     private boolean isValidEntity(IngestionJob entity) {
-        if (entity == null) {
-            logger.warn("IngestionJob is null");
+        if (entity == null) return false;
+        // sourceEndpoint must be present
+        String source = entity.getSourceEndpoint();
+        if (source == null || source.isBlank()) {
+            logger.warn("IngestionJob validation failed: sourceEndpoint is missing");
             return false;
         }
-        // Required fields: sourceEndpoint, schedule, initiatedBy, status should be PENDING for validation to start
-        if (entity.getSourceEndpoint() == null || entity.getSourceEndpoint().isBlank()) {
-            logger.warn("IngestionJob.sourceEndpoint is missing or blank");
+        // schedule must be present and look like a cron or weekly descriptor (basic check)
+        String schedule = entity.getSchedule();
+        if (schedule == null || schedule.isBlank()) {
+            logger.warn("IngestionJob validation failed: schedule is missing");
             return false;
         }
-        if (entity.getSchedule() == null || entity.getSchedule().isBlank()) {
-            logger.warn("IngestionJob.schedule is missing or blank");
+        if (!looksLikeSchedule(schedule)) {
+            logger.warn("IngestionJob validation failed: schedule looks invalid: {}", schedule);
             return false;
         }
-        if (entity.getInitiatedBy() == null || entity.getInitiatedBy().isBlank()) {
-            logger.warn("IngestionJob.initiatedBy is missing or blank");
+        // initiatedBy should be present
+        String initiatedBy = entity.getInitiatedBy();
+        if (initiatedBy == null || initiatedBy.isBlank()) {
+            logger.warn("IngestionJob validation failed: initiatedBy is missing");
             return false;
         }
-        if (entity.getStatus() == null || entity.getStatus().isBlank()) {
-            logger.warn("IngestionJob.status is missing or blank");
-            return false;
-        }
-        // Only validate jobs that are in PENDING state
-        if (!"PENDING".equalsIgnoreCase(entity.getStatus())) {
-            logger.warn("IngestionJob.status is not PENDING: {}", entity.getStatus());
-            return false;
-        }
-        // Basic schedule sanity check: cron-like schedules usually have at least 5 space-separated fields
-        String schedule = entity.getSchedule().trim();
-        String[] parts = schedule.split("\\s+");
-        if (parts.length < 5) {
-            logger.warn("IngestionJob.schedule appears invalid: {}", schedule);
+        // status should be present and typically PENDING when starting validation
+        String status = entity.getStatus();
+        if (status == null || status.isBlank()) {
+            logger.warn("IngestionJob validation failed: status is missing");
             return false;
         }
         return true;
     }
 
+    private boolean looksLikeSchedule(String schedule) {
+        // basic heuristic: cron expressions typically have 5 or 6 space-separated parts,
+        // weekly descriptors often contain letters and numbers; accept if >=5 segments or contains non-space chars.
+        String[] parts = schedule.trim().split("\\s+");
+        if (parts.length >= 5) return true;
+        // also allow simple weekly words like "weekly" or cron-like with '?' or '/'
+        if (schedule.contains("/") || schedule.contains("?") || schedule.equalsIgnoreCase("weekly") || schedule.equalsIgnoreCase("daily")) {
+            return true;
+        }
+        return false;
+    }
+
     private IngestionJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<IngestionJob> context) {
-        IngestionJob entity = context.entity();
+        IngestionJob job = context.entity();
+        logger.info("ValidateJobProcessor executing business logic for jobId={}", job.getJobId());
 
         // Set status to RUNNING and initialize runtime fields.
-        logger.info("Valid IngestionJob found (jobId={}). Setting status to RUNNING and initializing runtime fields.", entity.getJobId());
-        entity.setStatus("RUNNING");
+        job.setStatus("RUNNING");
+        job.setStartedAt(Instant.now().toString());
 
-        // Ensure startedAt is set (required by entity.isValid()). Use ISO-8601 representation.
-        if (entity.getStartedAt() == null || entity.getStartedAt().isBlank()) {
-            entity.setStartedAt(Instant.now().toString());
-        }
-
-        // Initialize processedCount if missing
-        if (entity.getProcessedCount() == null) {
-            entity.setProcessedCount(0);
+        // Ensure processedCount initialized to zero if not present
+        if (job.getProcessedCount() == null) {
+            job.setProcessedCount(0);
         }
 
         // Clear previous error summary when starting a fresh run
-        entity.setErrorSummary(null);
-        // finishedAt should be cleared when run starts
-        entity.setFinishedAt(null);
+        job.setErrorSummary(null);
 
-        return entity;
+        logger.info("IngestionJob {} set to RUNNING (startedAt={})", job.getJobId(), job.getStartedAt());
+        return job;
     }
 }

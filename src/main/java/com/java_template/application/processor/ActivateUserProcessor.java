@@ -30,10 +30,10 @@ public class ActivateUserProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing User for request: {}", request.getId());
 
-        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
+        return serializer.withRequest(request)
             .toEntity(User.class)
             .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+            .map(this::processEntityLogic)
             .complete();
     }
 
@@ -47,50 +47,29 @@ public class ActivateUserProcessor implements CyodaProcessor {
     }
 
     private User processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<User> context) {
-        User entity = context.entity();
+        User user = context.entity();
 
-        // Business logic for activation step:
-        // - Normalize email to lowercase
-        // - Ensure subscribed is not null (default to false)
-        // - If role indicates a pre-activation state (e.g., "registered" or "pending"), set to "regular"
-        // - Update updatedAt timestamp to current time
-        // Note: Do not call entityService.updateItem on this entity. Cyoda will persist changes automatically.
-
-        try {
-            // Normalize email
-            if (entity.getEmail() != null) {
-                entity.setEmail(entity.getEmail().trim().toLowerCase());
-            }
-
-            // Ensure subscribed is not null
-            if (entity.getSubscribed() == null) {
-                entity.setSubscribed(Boolean.FALSE);
-            }
-
-            // Normalize and adjust role to active state if needed
-            String role = entity.getRole();
-            if (role != null) {
-                String normalizedRole = role.trim();
-                if ("registered".equalsIgnoreCase(normalizedRole) || "pending".equalsIgnoreCase(normalizedRole)) {
-                    entity.setRole("regular");
-                } else {
-                    // keep existing role (e.g., "admin" or "regular")
-                    entity.setRole(normalizedRole);
-                }
-            } else {
-                // Defensive: if somehow role is null (shouldn't happen after validation), set to "regular"
-                entity.setRole("regular");
-            }
-
-            // Set updatedAt to current ISO timestamp
-            entity.setUpdatedAt(Instant.now().toString());
-
-            logger.info("Activated user {} with role={} subscribed={}", entity.getUserId(), entity.getRole(), entity.getSubscribed());
-        } catch (Exception ex) {
-            logger.error("Error while activating user {}: {}", entity != null ? entity.getUserId() : "unknown", ex.getMessage(), ex);
-            // Do not throw; let validation/processing pipeline handle any further action.
+        // Ensure role present for activated users. Default to "regular" if missing.
+        if (user.getRole() == null || user.getRole().isBlank()) {
+            user.setRole("regular");
+            logger.debug("Set default role='regular' for user {}", user.getUserId());
         }
 
-        return entity;
+        // Ensure subscribed flag is not null (entity.isValid requires subscribed != null)
+        if (user.getSubscribed() == null) {
+            user.setSubscribed(Boolean.FALSE);
+            logger.debug("Set default subscribed=false for user {}", user.getUserId());
+        }
+
+        // Normalize email to lowercase if present
+        if (user.getEmail() != null) {
+            user.setEmail(user.getEmail().trim().toLowerCase());
+        }
+
+        // Update the updatedAt timestamp to now (ISO-8601)
+        user.setUpdatedAt(Instant.now().toString());
+
+        // All activation-related modifications are done on the entity.
+        return user;
     }
 }

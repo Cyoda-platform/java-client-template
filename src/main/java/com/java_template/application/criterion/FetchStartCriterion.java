@@ -16,7 +16,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.net.URI;
-import java.net.URISyntaxException;
 
 @Component
 public class FetchStartCriterion implements CyodaCriterion {
@@ -32,7 +31,7 @@ public class FetchStartCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(IngestionJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -41,60 +40,55 @@ public class FetchStartCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        // Must match criterion name exactly
-        return "FetchStartCriterion".equals(modelSpec.operationName());
+        // must match exact criterion name
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<IngestionJob> context) {
-         IngestionJob entity = context.entity();
-
-         if (entity == null) {
-             logger.warn("IngestionJob entity is null in FetchStartCriterion");
-             return EvaluationOutcome.fail("Entity missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         IngestionJob job = context.entity();
+         if (job == null) {
+             logger.warn("FetchStartCriterion: ingestion job entity is null");
+             return EvaluationOutcome.fail("Ingestion job is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // Required: sourceEndpoint
-         String source = entity.getSourceEndpoint();
-         if (source == null || source.isBlank()) {
+         // Required: sourceEndpoint must be present and a valid URI
+         String sourceEndpoint = job.getSourceEndpoint();
+         if (sourceEndpoint == null || sourceEndpoint.isBlank()) {
              return EvaluationOutcome.fail("sourceEndpoint is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-
-         // Validate sourceEndpoint is a valid http/https URL
          try {
-             URI uri = new URI(source);
-             String scheme = uri.getScheme();
-             if (scheme == null || !(scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https"))) {
-                 return EvaluationOutcome.fail("sourceEndpoint must use http or https", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             URI uri = new URI(sourceEndpoint.trim());
+             if (uri.getScheme() == null || uri.getHost() == null) {
+                 return EvaluationOutcome.fail("sourceEndpoint must be a valid URL", StandardEvalReasonCategories.VALIDATION_FAILURE);
              }
-         } catch (URISyntaxException e) {
-             return EvaluationOutcome.fail("sourceEndpoint is not a valid URL", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         } catch (Exception e) {
+             return EvaluationOutcome.fail("sourceEndpoint must be a valid URL", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Required: schedule
-         String schedule = entity.getSchedule();
+         // Required: schedule must be present and appear like a cron expression (basic heuristic)
+         String schedule = job.getSchedule();
          if (schedule == null || schedule.isBlank()) {
              return EvaluationOutcome.fail("schedule is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-
-         // Basic cron expression sanity check: at least 5 space-separated fields
          String[] parts = schedule.trim().split("\\s+");
          if (parts.length < 5) {
-             return EvaluationOutcome.fail("schedule must be a cron expression with at least 5 fields", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             // Many cron formats use 5 or more fields; this is a best-effort check without adding dependencies
+             return EvaluationOutcome.fail("schedule does not appear to be a valid CRON expression", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // initiatedBy should be present
-         String initiatedBy = entity.getInitiatedBy();
-         if (initiatedBy == null || initiatedBy.isBlank()) {
-             return EvaluationOutcome.fail("initiatedBy is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         // Business rule: prevent triggering fetch if it has already been started
+         String startedAt = job.getStartedAt();
+         if (startedAt != null && !startedAt.isBlank()) {
+             return EvaluationOutcome.fail("fetch already started for this job", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
-         // processedCount if present must be non-negative (entity.isValid also enforces this but include defensive check)
-         Integer processed = entity.getProcessedCount();
-         if (processed != null && processed < 0) {
+         // processedCount should not be negative (entity validation already enforces this, but double-check)
+         Integer processedCount = job.getProcessedCount();
+         if (processedCount != null && processedCount < 0) {
              return EvaluationOutcome.fail("processedCount must be non-negative", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // If all checks pass, allow fetch start
+         // All checks passed
          return EvaluationOutcome.success();
     }
 }

@@ -20,7 +20,8 @@ public class ErrorThresholdSuccessCriterion implements CyodaCriterion {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final CriterionSerializer serializer;
-    private final String className = this.getClass().getSimpleName();
+    private static final String CRITERION_NAME = "ErrorThresholdSuccessCriterion";
+    private static final int MIN_PROCESSED_THRESHOLD = 5;
 
     public ErrorThresholdSuccessCriterion(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultCriteriaSerializer();
@@ -29,7 +30,7 @@ public class ErrorThresholdSuccessCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(IngestionJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,47 +39,72 @@ public class ErrorThresholdSuccessCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Use exact criterion name as required by critical requirements
+        return CRITERION_NAME.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<IngestionJob> context) {
-         IngestionJob job = context.entity();
-         if (job == null) {
-             return EvaluationOutcome.fail("IngestionJob entity is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         IngestionJob entity = context.entity();
+
+         if (entity == null) {
+             logger.warn("IngestionJob entity is null");
+             return EvaluationOutcome.fail("Entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         String status = job.getStatus();
-         if (status == null || status.isBlank()) {
-             return EvaluationOutcome.fail("Job status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         // Basic required fields validation
+         if (entity.getJobId() == null || entity.getJobId().isBlank()) {
+             return EvaluationOutcome.fail("jobId is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+         if (entity.getStatus() == null || entity.getStatus().isBlank()) {
+             return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+         // processedCount must be present (as per entity contract) and non-negative
+         if (entity.getProcessedCount() == null) {
+             return EvaluationOutcome.fail("processedCount is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+         if (entity.getProcessedCount() < 0) {
+             return EvaluationOutcome.fail("processedCount must not be negative", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // If job explicitly failed -> criterion fails (business rule)
+         String status = entity.getStatus().trim().toUpperCase();
+         Integer processed = entity.getProcessedCount();
+         String errorSummary = entity.getErrorSummary();
+
+         // If job is explicitly failed -> criterion should fail
          if ("FAILED".equalsIgnoreCase(status)) {
-             String summary = job.getErrorSummary();
-             String msg = "Ingestion job marked FAILED" + (summary != null && !summary.isBlank() ? ": " + summary : "");
-             return EvaluationOutcome.fail(msg, StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+             return EvaluationOutcome.fail("Ingestion job marked as FAILED", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
-         // Expect job to be completed for success evaluation
-         if (!"COMPLETED".equalsIgnoreCase(status)) {
-             return EvaluationOutcome.fail("Ingestion job is not completed", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         // If completed but processedCount is zero -> data quality problem
+         if ("COMPLETED".equalsIgnoreCase(status) && processed == 0) {
+             // Check for specific 'no data' marker in errorSummary, prefer a targeted message
+             if (errorSummary != null && !errorSummary.isBlank() && errorSummary.toLowerCase().contains("no data")) {
+                 return EvaluationOutcome.fail("No data was returned from source", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+             return EvaluationOutcome.fail("Job completed with zero processed records", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // For completed jobs enforce basic data quality: processedCount must exist and be > 0
-         Integer processed = job.getProcessedCount();
-         if (processed == null) {
-             return EvaluationOutcome.fail("processedCount is missing for completed job", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-         }
-         if (processed <= 0) {
-             return EvaluationOutcome.fail("No records were processed", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-         }
-
-         // If an error summary is present treat it as a business-rule level failure (errors exceeded threshold)
-         String errorSummary = job.getErrorSummary();
+         // If there is an error summary present, evaluate severity:
          if (errorSummary != null && !errorSummary.isBlank()) {
-             return EvaluationOutcome.fail("Errors reported: " + errorSummary, StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+             String lowerSummary = errorSummary.toLowerCase();
+             if (lowerSummary.contains("no data")) {
+                 return EvaluationOutcome.fail("No data returned from source", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+             // If errors reported but processed count is very low -> consider it a data quality/business issue
+             if (processed < MIN_PROCESSED_THRESHOLD) {
+                 return EvaluationOutcome.fail(
+                     "Errors reported and processed count below acceptable threshold",
+                     StandardEvalReasonCategories.DATA_QUALITY_FAILURE
+                 );
+             }
+             // If errors exist but processed count is reasonable, treat as business rule failure (requires attention)
+             return EvaluationOutcome.fail(
+                 "Errors were reported during ingestion; manual review recommended",
+                 StandardEvalReasonCategories.BUSINESS_RULE_FAILURE
+             );
          }
 
+         // If none of the failure conditions met, success.
          return EvaluationOutcome.success();
     }
 }

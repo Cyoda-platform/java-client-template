@@ -8,9 +8,9 @@ import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
-import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 
@@ -30,10 +30,10 @@ public class PersistProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing IngestionJob for request: {}", request.getId());
 
-        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
+        return serializer.withRequest(request)
             .toEntity(IngestionJob.class)
             .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+            .map(this::processEntityLogic)
             .complete();
     }
 
@@ -48,48 +48,49 @@ public class PersistProcessor implements CyodaProcessor {
 
     private IngestionJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<IngestionJob> context) {
         IngestionJob job = context.entity();
+        if (job == null) {
+            logger.warn("Received null IngestionJob in PersistProcessor");
+            return null;
+        }
 
-        // Ensure processedCount is not null
+        logger.info("PersistProcessor executing business logic for jobId={}, currentStatus={}, processedCount={}",
+                job.getJobId(), job.getStatus(), job.getProcessedCount());
+
+        // Ensure finishedAt is set when we complete/fail the job
+        String now = Instant.now().toString();
+
+        // Determine final status:
+        // - If processedCount > 0 and no error summary -> COMPLETED
+        // - Otherwise -> FAILED (and set an error summary if none provided)
+        Integer processed = job.getProcessedCount();
+        String errorSummary = job.getErrorSummary();
+
+        boolean hasProcessedRecords = processed != null && processed > 0;
+        boolean hasErrors = errorSummary != null && !errorSummary.isBlank();
+
+        if (hasProcessedRecords && !hasErrors) {
+            job.setStatus("COMPLETED");
+            if (job.getFinishedAt() == null || job.getFinishedAt().isBlank()) {
+                job.setFinishedAt(now);
+            }
+            logger.info("IngestionJob {} marked COMPLETED, processedCount={}", job.getJobId(), processed);
+        } else {
+            job.setStatus("FAILED");
+            if (errorSummary == null || errorSummary.isBlank()) {
+                job.setErrorSummary(hasProcessedRecords ? "Processing finished with unknown errors" : "No records were processed");
+            }
+            if (job.getFinishedAt() == null || job.getFinishedAt().isBlank()) {
+                job.setFinishedAt(now);
+            }
+            logger.warn("IngestionJob {} marked FAILED, processedCount={}, errorSummary={}", job.getJobId(), processed, job.getErrorSummary());
+        }
+
+        // Update processedCount to 0 if missing to avoid nulls downstream
         if (job.getProcessedCount() == null) {
             job.setProcessedCount(0);
         }
 
-        // Business logic:
-        // - If some records were processed (processedCount > 0) mark job COMPLETED
-        // - Otherwise mark job FAILED and set an error summary if missing
-        // - Always set finishedAt when transitioning to a terminal state
-        String currentStatus = job.getStatus();
-        Integer processed = job.getProcessedCount();
-
-        if (processed != null && processed > 0) {
-            if (!"COMPLETED".equalsIgnoreCase(currentStatus)) {
-                job.setStatus("COMPLETED");
-                logger.info("IngestionJob {} marked as COMPLETED with {} processed items.", job.getJobId(), processed);
-            }
-            if (job.getFinishedAt() == null || job.getFinishedAt().isBlank()) {
-                job.setFinishedAt(Instant.now().toString());
-            }
-            // Clear error summary on success
-            job.setErrorSummary(job.getErrorSummary() == null ? "" : job.getErrorSummary());
-        } else {
-            if (!"COMPLETED".equalsIgnoreCase(currentStatus)) { // avoid overwriting a successful state
-                job.setStatus("FAILED");
-                logger.warn("IngestionJob {} marked as FAILED. No items processed.", job.getJobId());
-            }
-            if (job.getErrorSummary() == null || job.getErrorSummary().isBlank()) {
-                job.setErrorSummary("No records persisted during ingestion.");
-            }
-            if (job.getFinishedAt() == null || job.getFinishedAt().isBlank()) {
-                job.setFinishedAt(Instant.now().toString());
-            }
-        }
-
-        // Note: Persisting of CoverPhoto entities (creation/updating) should be performed here
-        // by interacting with entityService when records are available. This processor only
-        // updates the job's state and metadata; actual CoverPhoto persistence will be handled
-        // by other processors or earlier transformation steps which should call entityService.addItem(...)
-        // as allowed by the workflow.
-
+        // Cyoda will persist the updated entity state automatically.
         return job;
     }
 }

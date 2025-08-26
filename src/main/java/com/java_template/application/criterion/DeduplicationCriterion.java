@@ -15,10 +15,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-
 @Component
 public class DeduplicationCriterion implements CyodaCriterion {
 
@@ -33,7 +29,7 @@ public class DeduplicationCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(CoverPhoto.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -42,106 +38,79 @@ public class DeduplicationCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        // MUST use exact criterion name
-        return className.equals(modelSpec.operationName());
+        return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<CoverPhoto> context) {
          CoverPhoto entity = context.entity();
-
-         // Basic required field validations (dedupe process requires these)
-         if (entity.getSourceUrl() == null || entity.getSourceUrl().isBlank()) {
-             logger.debug("DeduplicationCriterion: missing sourceUrl for entity id={}", entity.getId());
-             return EvaluationOutcome.fail("sourceUrl is required for deduplication", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-         if (entity.getTitle() == null || entity.getTitle().isBlank()) {
-             logger.debug("DeduplicationCriterion: missing title for entity id={}", entity.getId());
-             return EvaluationOutcome.fail("title is required for deduplication", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-         if (entity.getThumbnailUrl() == null || entity.getThumbnailUrl().isBlank()) {
-             logger.debug("DeduplicationCriterion: missing thumbnailUrl for entity id={}", entity.getId());
-             return EvaluationOutcome.fail("thumbnailUrl is required for deduplication", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-         if (entity.getIngestionStatus() == null || entity.getIngestionStatus().isBlank()) {
-             logger.debug("DeduplicationCriterion: missing ingestionStatus for entity id={}", entity.getId());
-             return EvaluationOutcome.fail("ingestionStatus is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         if (entity == null) {
+             logger.warn("DeduplicationCriterion: entity is null in context");
+             return EvaluationOutcome.fail("Entity is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Business/data-quality rules relevant to deduplication:
-         // 1) Published photos must have a publishedDate
-         if ("PUBLISHED".equalsIgnoreCase(entity.getIngestionStatus())) {
-             if (entity.getPublishedDate() == null || entity.getPublishedDate().isBlank()) {
-                 logger.debug("DeduplicationCriterion: published photo missing publishedDate id={}", entity.getId());
-                 return EvaluationOutcome.fail("published photos must have publishedDate", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         // Basic entity validity check using existing entity validation
+         try {
+             if (!entity.isValid()) {
+                 logger.info("DeduplicationCriterion: entity failed isValid() checks (id/title/source/thumbnail/ingestion timestamps/tags/comments)");
+                 return EvaluationOutcome.fail("Entity failed basic validation", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
              }
+         } catch (Exception ex) {
+             logger.error("DeduplicationCriterion: exception while validating entity.isValid()", ex);
+             return EvaluationOutcome.fail("Entity validation error", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // 2) Ingested photos should not already have a publishedDate set
-         if ("INGESTED".equalsIgnoreCase(entity.getIngestionStatus()) && entity.getPublishedDate() != null) {
-             logger.debug("DeduplicationCriterion: INGESTED photo has publishedDate set id={}", entity.getId());
-             return EvaluationOutcome.fail("ingested photos must not have publishedDate set", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         // Business rule: Deduplication only runs for newly ingested items
+         String status = entity.getIngestionStatus();
+         if (status == null || !"INGESTED".equalsIgnoreCase(status.trim())) {
+             logger.info("DeduplicationCriterion: entity ingestionStatus is not INGESTED (was: {})", status);
+             return EvaluationOutcome.fail("Entity not in INGESTED state", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
-         // 3) viewCount must be non-negative
-         Integer vc = entity.getViewCount();
-         if (vc != null && vc < 0) {
-             logger.debug("DeduplicationCriterion: negative viewCount id={} value={}", entity.getId(), vc);
-             return EvaluationOutcome.fail("viewCount must be non-negative", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         // Heuristic duplicate checks (use only entity properties available)
+         // 1) Exact URL match between source and thumbnail is suspicious (likely duplicate record)
+         String src = entity.getSourceUrl();
+         String thumb = entity.getThumbnailUrl();
+         if (src != null && thumb != null && src.equalsIgnoreCase(thumb)) {
+             logger.info("DeduplicationCriterion: sourceUrl equals thumbnailUrl -> possible duplicate (id={})", entity.getId());
+             return EvaluationOutcome.fail("Source and thumbnail URLs are identical — possible duplicate", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // 4) thumbnailUrl should not be identical to sourceUrl (likely duplicate/quality issue)
-         if (entity.getSourceUrl().equals(entity.getThumbnailUrl())) {
-             logger.debug("DeduplicationCriterion: thumbnailUrl equals sourceUrl id={}", entity.getId());
-             return EvaluationOutcome.fail("thumbnailUrl should differ from sourceUrl", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         // 2) Title empty or extremely short is likely bad/duplicate metadata
+         String title = entity.getTitle();
+         if (title == null || title.trim().length() < 3) {
+             logger.info("DeduplicationCriterion: title missing or too short (id={})", entity.getId());
+             return EvaluationOutcome.fail("Title missing or too short", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // 5) title and description should not be exact duplicates (poor data quality)
-         if (entity.getDescription() != null && !entity.getDescription().isBlank() && entity.getTitle().equals(entity.getDescription())) {
-             logger.debug("DeduplicationCriterion: title equals description id={}", entity.getId());
-             return EvaluationOutcome.fail("title and description are identical", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         // 3) If publishedDate is present but equals createdAt, it may indicate an import duplication - flag as warning-level data quality failure
+         String createdAt = entity.getCreatedAt();
+         String publishedDate = entity.getPublishedDate();
+         if (publishedDate != null && createdAt != null && publishedDate.equals(createdAt)) {
+             logger.info("DeduplicationCriterion: publishedDate equals createdAt (id={}) - potential duplicate/incorrect metadata", entity.getId());
+             return EvaluationOutcome.fail("publishedDate equals createdAt — potential duplicate or incorrect metadata", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // 6) tags should not contain duplicates (data quality)
-         List<String> tags = entity.getTags();
-         if (tags != null && !tags.isEmpty()) {
-             Set<String> seen = new HashSet<>();
-             for (String t : tags) {
-                 if (t == null || t.isBlank()) {
-                     logger.debug("DeduplicationCriterion: blank tag in id={}", entity.getId());
-                     return EvaluationOutcome.fail("tags must not contain blank values", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         // 4) If comments list contains duplicates (same userId and createdAt), treat as data quality issue
+         if (entity.getComments() != null) {
+             for (int i = 0; i < entity.getComments().size(); i++) {
+                 CoverPhoto.Comment ci = entity.getComments().get(i);
+                 if (ci == null) {
+                     logger.info("DeduplicationCriterion: null comment found (id={})", entity.getId());
+                     return EvaluationOutcome.fail("Null comment entry found", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
                  }
-                 if (!seen.add(t)) {
-                     logger.debug("DeduplicationCriterion: duplicate tag '{}' in id={}", t, entity.getId());
-                     return EvaluationOutcome.fail("tags contain duplicate values", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-                 }
-             }
-         }
-
-         // 7) comments: detect duplicate comments from same user in payload (business rule)
-         List<CoverPhoto.Comment> comments = entity.getComments();
-         if (comments != null && !comments.isEmpty()) {
-             Set<String> commentSignatures = new HashSet<>();
-             for (CoverPhoto.Comment c : comments) {
-                 if (c == null) {
-                     logger.debug("DeduplicationCriterion: null comment entry in id={}", entity.getId());
-                     return EvaluationOutcome.fail("comments must not contain null entries", StandardEvalReasonCategories.VALIDATION_FAILURE);
-                 }
-                 String uid = c.getUserId();
-                 String text = c.getText();
-                 if (uid == null || uid.isBlank() || text == null || text.isBlank() || c.getCreatedAt() == null || c.getCreatedAt().isBlank()) {
-                     logger.debug("DeduplicationCriterion: invalid comment structure id={}", entity.getId());
-                     return EvaluationOutcome.fail("each comment must have userId, text and createdAt", StandardEvalReasonCategories.VALIDATION_FAILURE);
-                 }
-                 String sig = uid + "::" + text;
-                 if (!commentSignatures.add(sig)) {
-                     logger.debug("DeduplicationCriterion: duplicate comment by user '{}' in id={}", uid, entity.getId());
-                     return EvaluationOutcome.fail("duplicate comments from same user detected", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+                 for (int j = i + 1; j < entity.getComments().size(); j++) {
+                     CoverPhoto.Comment cj = entity.getComments().get(j);
+                     if (cj != null && ci.getUserId() != null && ci.getUserId().equals(cj.getUserId())
+                         && ci.getCreatedAt() != null && ci.getCreatedAt().equals(cj.getCreatedAt())) {
+                         logger.info("DeduplicationCriterion: duplicate comment detected for userId {} at {} (id={})", ci.getUserId(), ci.getCreatedAt(), entity.getId());
+                         return EvaluationOutcome.fail("Duplicate comments detected", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+                     }
                  }
              }
          }
 
-        // If all checks pass, evaluation successful. Note: true cross-entity duplicate detection (existing records) is performed elsewhere by persistors;
-        // this criterion enforces data quality and tells the pipeline whether this entity is fit for deduplication/publishing.
-        return EvaluationOutcome.success();
+         // If no heuristic flags found, consider the entity passed deduplication checks
+         logger.debug("DeduplicationCriterion: entity passed deduplication checks (id={})", entity.getId());
+         return EvaluationOutcome.success();
     }
 }

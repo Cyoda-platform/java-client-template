@@ -15,6 +15,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.net.URI;
+
 @Component
 public class ValidationFailureCriterion implements CyodaCriterion {
 
@@ -29,7 +31,7 @@ public class ValidationFailureCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(IngestionJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,59 +40,61 @@ public class ValidationFailureCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        // Must match exact criterion name
+        // MUST use exact criterion name (case-sensitive)
         return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<IngestionJob> context) {
          IngestionJob entity = context.entity();
-
          if (entity == null) {
-             logger.debug("IngestionJob entity is null");
-             return EvaluationOutcome.fail("Entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             logger.warn("ValidationFailureCriterion: entity is null in context");
+             return EvaluationOutcome.fail("Entity missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // sourceEndpoint is required
+         // Check required fields per functional requirements: sourceEndpoint and schedule must be present and valid.
          String sourceEndpoint = entity.getSourceEndpoint();
          if (sourceEndpoint == null || sourceEndpoint.isBlank()) {
              return EvaluationOutcome.fail("sourceEndpoint is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-         // basic URL format check
-         String seLower = sourceEndpoint.toLowerCase();
-         if (!(seLower.startsWith("http://") || seLower.startsWith("https://"))) {
-             return EvaluationOutcome.fail("sourceEndpoint must be a valid http(s) URL", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         // Basic URL validation: must be a valid URI and use http or https
+         try {
+             URI uri = new URI(sourceEndpoint.trim());
+             String scheme = uri.getScheme();
+             if (scheme == null || !(scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https"))) {
+                 return EvaluationOutcome.fail("sourceEndpoint must be a valid http(s) URL", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             }
+         } catch (Exception ex) {
+             return EvaluationOutcome.fail("sourceEndpoint is not a valid URL", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // schedule is required and should resemble a cron-like expression (at least 5 tokens)
          String schedule = entity.getSchedule();
          if (schedule == null || schedule.isBlank()) {
              return EvaluationOutcome.fail("schedule is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-         String[] schedTokens = schedule.trim().split("\\s+");
-         if (schedTokens.length < 5) {
-             return EvaluationOutcome.fail("schedule does not appear to be a valid cron expression", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         // Basic cron-like validation: require at least 5 space-separated fields (covers common cron and simple quartz expressions)
+         int scheduleParts = schedule.trim().split("\\s+").length;
+         if (scheduleParts < 5) {
+             return EvaluationOutcome.fail("schedule appears invalid (expected cron-like expression with >=5 fields)", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // initiatedBy is required
+         // Check initiatedBy (should be present)
          String initiatedBy = entity.getInitiatedBy();
          if (initiatedBy == null || initiatedBy.isBlank()) {
              return EvaluationOutcome.fail("initiatedBy is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // processedCount if present must be non-negative (data quality)
-         Integer processedCount = entity.getProcessedCount();
-         if (processedCount != null && processedCount < 0) {
-             return EvaluationOutcome.fail("processedCount must be non-negative", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         // Leverage entity-level validity for other checks (processedCount, startedAt/finishedAt rules etc.)
+         // If entity.isValid() fails, provide a generic validation failure reason.
+         try {
+             if (!entity.isValid()) {
+                 return EvaluationOutcome.fail("entity failed domain validation checks", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             }
+         } catch (Exception e) {
+             logger.warn("Exception while invoking entity.isValid(): {}", e.getMessage());
+             return EvaluationOutcome.fail("entity validation encountered an error", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // If status is COMPLETED, finishedAt must be present
-         String status = entity.getStatus();
-         String finishedAt = entity.getFinishedAt();
-         if ("COMPLETED".equalsIgnoreCase(status) && (finishedAt == null || finishedAt.isBlank())) {
-             return EvaluationOutcome.fail("finishedAt must be present when status is COMPLETED", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-
-         // All checks passed
+         // All validations passed
          return EvaluationOutcome.success();
     }
 }
