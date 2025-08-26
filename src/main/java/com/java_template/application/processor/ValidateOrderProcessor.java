@@ -20,6 +20,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Component
@@ -64,7 +66,9 @@ public class ValidateOrderProcessor implements CyodaProcessor {
         Order order = context.entity();
         // Default to cancelled if anything goes wrong during validation/reservation
         try {
-            // Iterate items and validate stock
+            List<PreparedUpdate> updates = new ArrayList<>();
+
+            // 1) Validation pass: collect products, check availability and determine updates (but do not persist yet)
             for (Item it : order.getItems()) {
                 String sku = it.getProductSku();
                 Integer qty = it.getQuantity();
@@ -104,11 +108,7 @@ public class ValidateOrderProcessor implements CyodaProcessor {
                     return order;
                 }
 
-                // Reserve stock by decrementing availableQuantity and updating product entity
-                int newQty = product.getAvailableQuantity() - qty;
-                product.setAvailableQuantity(newQty);
-
-                // Attempt to obtain technical id for update. Try common fields "technicalId" then "id"
+                // Determine technical id for the product to be updated later
                 String technicalIdStr = null;
                 if (productNode.has("technicalId") && !productNode.get("technicalId").isNull()) {
                     technicalIdStr = productNode.get("technicalId").asText(null);
@@ -116,28 +116,56 @@ public class ValidateOrderProcessor implements CyodaProcessor {
                     technicalIdStr = productNode.get("id").asText(null);
                 }
 
-                if (technicalIdStr != null && !technicalIdStr.isBlank()) {
-                    try {
-                        entityService.updateItem(
-                            Product.ENTITY_NAME,
-                            String.valueOf(Product.ENTITY_VERSION),
-                            UUID.fromString(technicalIdStr),
-                            product
-                        ).join();
-                    } catch (Exception ex) {
-                        logger.error("Failed to update product {} after reserving stock for order {}: {}", sku, order.getOrderId(), ex.getMessage(), ex);
-                        order.setStatus("Cancelled");
-                        return order;
+                if (technicalIdStr == null || technicalIdStr.isBlank()) {
+                    logger.error("Cannot determine technicalId for product {} while validating order {} -> cancelling", sku, order.getOrderId());
+                    order.setStatus("Cancelled");
+                    return order;
+                }
+
+                // Prepare update (do not persist yet)
+                int newQty = product.getAvailableQuantity() - qty;
+                PreparedUpdate pu = new PreparedUpdate(UUID.fromString(technicalIdStr), product, product.getAvailableQuantity(), newQty);
+                // update the product object locally to the new quantity so the persisted object will reflect reservation
+                pu.product.setAvailableQuantity(newQty);
+                updates.add(pu);
+            }
+
+            // 2) All validations passed - apply updates (reserve stock)
+            List<PreparedUpdate> applied = new ArrayList<>();
+            for (PreparedUpdate pu : updates) {
+                try {
+                    entityService.updateItem(
+                        Product.ENTITY_NAME,
+                        String.valueOf(Product.ENTITY_VERSION),
+                        pu.technicalId,
+                        pu.product
+                    ).join();
+                    applied.add(pu);
+                } catch (Exception ex) {
+                    logger.error("Failed to update product {} while reserving stock for order {}: {}",
+                        pu.product != null ? pu.product.getSku() : "unknown", order.getOrderId(), ex.getMessage(), ex);
+                    // Attempt rollback for already applied updates
+                    for (PreparedUpdate done : applied) {
+                        try {
+                            // restore original quantity
+                            done.product.setAvailableQuantity(done.originalQuantity);
+                            entityService.updateItem(
+                                Product.ENTITY_NAME,
+                                String.valueOf(Product.ENTITY_VERSION),
+                                done.technicalId,
+                                done.product
+                            ).join();
+                        } catch (Exception rbEx) {
+                            logger.error("Failed to rollback product {} after partial reservation failure for order {}: {}",
+                                done.product != null ? done.product.getSku() : "unknown", order.getOrderId(), rbEx.getMessage(), rbEx);
+                        }
                     }
-                } else {
-                    // If no technical id available, log and cancel to avoid inconsistent state
-                    logger.error("Cannot determine technicalId for product {} while processing order {} -> cancelling", sku, order.getOrderId());
                     order.setStatus("Cancelled");
                     return order;
                 }
             }
 
-            // All items validated and stock reserved
+            // 3) All items validated and stock reserved
             order.setStatus("Confirmed");
             logger.info("Order {} validated and confirmed", order.getOrderId());
             return order;
@@ -146,6 +174,20 @@ public class ValidateOrderProcessor implements CyodaProcessor {
             logger.error("Exception while validating order {}: {}", order.getOrderId(), e.getMessage(), e);
             order.setStatus("Cancelled");
             return order;
+        }
+    }
+
+    private static class PreparedUpdate {
+        public final UUID technicalId;
+        public final Product product;
+        public final Integer originalQuantity;
+        public final Integer newQuantity;
+
+        public PreparedUpdate(UUID technicalId, Product product, Integer originalQuantity, Integer newQuantity) {
+            this.technicalId = technicalId;
+            this.product = product;
+            this.originalQuantity = originalQuantity;
+            this.newQuantity = newQuantity;
         }
     }
 }

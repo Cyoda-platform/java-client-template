@@ -101,6 +101,71 @@ public class ShoppingCartController {
         }
     }
 
+    @Operation(summary = "Bulk create ShoppingCarts", description = "Create multiple ShoppingCart entities. Returns list of technicalIds.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdsResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    })
+    @PostMapping("/bulk")
+    public ResponseEntity<?> bulkCreateShoppingCarts(
+            @RequestBody(description = "Bulk create request", required = true,
+                    content = @Content(schema = @Schema(implementation = BulkCreateShoppingCartsRequest.class)))
+            @org.springframework.web.bind.annotation.RequestBody BulkCreateShoppingCartsRequest request) {
+        try {
+            if (request == null || request.getCarts() == null || request.getCarts().isEmpty()) {
+                throw new IllegalArgumentException("carts list is required and must not be empty");
+            }
+
+            List<ShoppingCart> entities = new ArrayList<>();
+            for (CreateShoppingCartRequest r : request.getCarts()) {
+                if (r == null || r.getCustomerUserId() == null || r.getCustomerUserId().isBlank()) {
+                    throw new IllegalArgumentException("Each cart must contain a non-blank customerUserId");
+                }
+                ShoppingCart cart = new ShoppingCart();
+                cart.setCartId(UUID.randomUUID().toString());
+                cart.setCustomerUserId(r.getCustomerUserId());
+                cart.setCreatedAt(Instant.now().toString());
+                cart.setModifiedAt(null);
+                cart.setItems(new ArrayList<>());
+                entities.add(cart);
+            }
+
+            CompletableFuture<List<UUID>> idsFuture = entityService.addItems(
+                    ShoppingCart.ENTITY_NAME,
+                    String.valueOf(ShoppingCart.ENTITY_VERSION),
+                    entities
+            );
+
+            List<UUID> ids = idsFuture.get();
+            List<String> idStrs = new ArrayList<>();
+            for (UUID id : ids) idStrs.add(id.toString());
+
+            TechnicalIdsResponse resp = new TechnicalIdsResponse(idStrs);
+            return ResponseEntity.ok(resp);
+        } catch (IllegalArgumentException iae) {
+            logger.error("Invalid request for bulkCreateShoppingCarts", iae);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(iae.getMessage());
+        } catch (ExecutionException ee) {
+            Throwable cause = ee.getCause();
+            logger.error("ExecutionException in bulkCreateShoppingCarts", ee);
+            if (cause instanceof NoSuchElementException) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
+            } else if (cause instanceof IllegalArgumentException) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
+            } else {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : ee.getMessage());
+            }
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while bulk creating ShoppingCarts", ie);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ie.getMessage());
+        } catch (Exception e) {
+            logger.error("Unexpected error in bulkCreateShoppingCarts", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
     @Operation(summary = "Get ShoppingCart by technicalId", description = "Retrieve a ShoppingCart by technicalId")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "OK",
@@ -241,6 +306,82 @@ public class ShoppingCartController {
         }
     }
 
+    @Operation(summary = "Update ShoppingCart by technicalId", description = "Update a ShoppingCart entity by technicalId. Returns technicalId of updated entity.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "404", description = "Not Found"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    })
+    @PutMapping("/{technicalId}")
+    public ResponseEntity<?> updateShoppingCart(
+            @Parameter(name = "technicalId", description = "Technical ID of the entity", required = true)
+            @PathVariable("technicalId") String technicalId,
+            @RequestBody(description = "ShoppingCart update request", required = true,
+                    content = @Content(schema = @Schema(implementation = UpdateShoppingCartRequest.class)))
+            @org.springframework.web.bind.annotation.RequestBody UpdateShoppingCartRequest request) {
+        try {
+            if (technicalId == null || technicalId.isBlank()) {
+                throw new IllegalArgumentException("technicalId is required");
+            }
+            if (request == null) {
+                throw new IllegalArgumentException("update request body is required");
+            }
+
+            UUID tid = UUID.fromString(technicalId);
+
+            ShoppingCart cart = new ShoppingCart();
+            // Prefer provided cartId if present, otherwise keep a generated fallback (controller should not enforce business rules)
+            cart.setCartId(request.getCartId() != null && !request.getCartId().isBlank() ? request.getCartId() : UUID.randomUUID().toString());
+            cart.setCustomerUserId(request.getCustomerUserId());
+            cart.setCreatedAt(request.getCreatedAt() != null ? request.getCreatedAt() : Instant.now().toString());
+            cart.setModifiedAt(Instant.now().toString());
+
+            List<ShoppingCart.Item> items = new ArrayList<>();
+            if (request.getItems() != null) {
+                for (UpdateShoppingCartRequest.ItemDto itDto : request.getItems()) {
+                    if (itDto == null) continue;
+                    ShoppingCart.Item it = new ShoppingCart.Item();
+                    it.setPriceAtAdd(itDto.getPriceAtAdd());
+                    it.setProductSku(itDto.getProductSku());
+                    it.setQuantity(itDto.getQuantity());
+                    items.add(it);
+                }
+            }
+            cart.setItems(items);
+
+            CompletableFuture<java.util.UUID> updatedIdFuture = entityService.updateItem(
+                    ShoppingCart.ENTITY_NAME,
+                    String.valueOf(ShoppingCart.ENTITY_VERSION),
+                    tid,
+                    cart
+            );
+
+            UUID updated = updatedIdFuture.get();
+            return ResponseEntity.ok(new TechnicalIdResponse(updated.toString()));
+        } catch (IllegalArgumentException iae) {
+            logger.error("Invalid request for updateShoppingCart", iae);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(iae.getMessage());
+        } catch (ExecutionException ee) {
+            Throwable cause = ee.getCause();
+            logger.error("ExecutionException in updateShoppingCart", ee);
+            if (cause instanceof NoSuchElementException) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
+            } else if (cause instanceof IllegalArgumentException) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
+            } else {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : ee.getMessage());
+            }
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while updating ShoppingCart", ie);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ie.getMessage());
+        } catch (Exception e) {
+            logger.error("Unexpected error in updateShoppingCart", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
     @Operation(summary = "Delete ShoppingCart by technicalId", description = "Delete a ShoppingCart by technicalId")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
@@ -299,6 +440,13 @@ public class ShoppingCartController {
     }
 
     @Data
+    @Schema(name = "BulkCreateShoppingCartsRequest", description = "Request to create multiple shopping carts")
+    public static class BulkCreateShoppingCartsRequest {
+        @Schema(description = "List of shopping carts to create")
+        private List<CreateShoppingCartRequest> carts;
+    }
+
+    @Data
     @Schema(name = "TechnicalIdResponse", description = "Response containing technical id")
     public static class TechnicalIdResponse {
         @Schema(description = "Technical id (UUID as string)", example = "a1b2c3d4-...")
@@ -308,6 +456,19 @@ public class ShoppingCartController {
 
         public TechnicalIdResponse(String technicalId) {
             this.technicalId = technicalId;
+        }
+    }
+
+    @Data
+    @Schema(name = "TechnicalIdsResponse", description = "Response containing list of technical ids")
+    public static class TechnicalIdsResponse {
+        @Schema(description = "List of technical ids")
+        private List<String> technicalIds;
+
+        public TechnicalIdsResponse() {}
+
+        public TechnicalIdsResponse(List<String> technicalIds) {
+            this.technicalIds = technicalIds;
         }
     }
 
@@ -322,5 +483,34 @@ public class ShoppingCartController {
 
         @Schema(description = "Value to compare", example = "u123")
         private String value;
+    }
+
+    @Data
+    @Schema(name = "UpdateShoppingCartRequest", description = "Request to update a shopping cart")
+    public static class UpdateShoppingCartRequest {
+        @Schema(description = "Cart id (business/technical id inside entity)", example = "cart-uuid-or-ref")
+        private String cartId;
+
+        @Schema(description = "Customer business id / reference", example = "u123")
+        private String customerUserId;
+
+        @Schema(description = "Created at timestamp (ISO-8601)", example = "2025-08-26T15:00:00Z")
+        private String createdAt;
+
+        @Schema(description = "List of items in the cart")
+        private List<ItemDto> items;
+
+        @Data
+        @Schema(name = "ItemDto", description = "Item in shopping cart")
+        public static class ItemDto {
+            @Schema(description = "Price at add", example = "9.99")
+            private Double priceAtAdd;
+
+            @Schema(description = "Product SKU", example = "SKU-123")
+            private String productSku;
+
+            @Schema(description = "Quantity", example = "1")
+            private Integer quantity;
+        }
     }
 }
