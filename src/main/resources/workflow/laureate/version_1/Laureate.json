@@ -1,0 +1,168 @@
+{
+  "version": "1.0",
+  "name": "Laureate Workflow",
+  "desc": "Finite-state workflow for Laureate entity processing: validation, enrichment, deduplication and persistence based on functional requirements.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "to_persist_pending",
+          "next": "PERSIST_PENDING",
+          "manual": false
+        }
+      ]
+    },
+    "PERSIST_PENDING": {
+      "transitions": [
+        {
+          "name": "start_validation_enrichment",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidationEnrichmentProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "validation_failed",
+          "next": "REJECTED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidationFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_passed",
+          "next": "DEDUPLICATING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidationPassedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "DEDUPLICATING": {
+      "transitions": [
+        {
+          "name": "dedup_is_new",
+          "next": "PERSISTING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DeduplicationIsNewCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "dedup_is_updated",
+          "next": "PERSISTING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DeduplicationIsUpdatedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "dedup_is_duplicate",
+          "next": "COMPLETE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DeduplicationIsDuplicateCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "PERSISTING": {
+      "transitions": [
+        {
+          "name": "persist_laureate",
+          "next": "PERSIST_RESULT",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PersistLaureateProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PERSIST_RESULT": {
+      "transitions": [
+        {
+          "name": "persist_success",
+          "next": "COMPLETE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PersistSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "persist_failure",
+          "next": "REJECTED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PersistFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "COMPLETE": {
+      "transitions": []
+    },
+    "REJECTED": {
+      "transitions": []
+    }
+  }
+}
