@@ -17,7 +17,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.lang.reflect.Field;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -42,10 +41,10 @@ public class CreateAuditProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing HNItem for request: {}", request.getId());
 
-        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
+        return serializer.withRequest(request)
             .toEntity(HNItem.class)
             .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+            .map(this::processEntityLogic)
             .complete();
     }
 
@@ -70,11 +69,11 @@ public class CreateAuditProcessor implements CyodaProcessor {
                 jobRef = UUID.randomUUID().toString();
             }
 
-            // Read properties from HNItem using reflection to avoid relying on generated accessors
-            Long hnId = safeGetLongField(entity, "id");
-            String status = safeGetStringField(entity, "status");
-            String importTimestamp = safeGetStringField(entity, "importTimestamp");
-            String originalJsonStr = safeGetStringField(entity, "originalJson");
+            // Read properties from HNItem using direct accessors
+            Long hnId = entity.getId();
+            String status = entity.getStatus();
+            String importTimestamp = entity.getImportTimestamp();
+            String originalJsonStr = entity.getOriginalJson();
 
             // Map HNItem status to audit outcome: STORED -> SUCCESS, otherwise FAILURE
             String outcome = "FAILURE";
@@ -82,7 +81,7 @@ public class CreateAuditProcessor implements CyodaProcessor {
                 outcome = "SUCCESS";
             }
 
-            // Build audit as a JSON node to avoid depending on generated setters (Lombok)
+            // Build audit as a JSON node
             ObjectNode auditNode = objectMapper.createObjectNode();
             auditNode.put("auditId", UUID.randomUUID().toString());
             if (hnId != null) {
@@ -119,55 +118,10 @@ public class CreateAuditProcessor implements CyodaProcessor {
             idFuture.join();
             logger.info("Created ImportAudit for HNItem id={} (audit recorded)", hnId);
         } catch (Exception ex) {
-            logger.error("Failed to create ImportAudit for HNItem id={}: {}", entity != null ? trySafeId(entity) : null, ex.getMessage(), ex);
+            logger.error("Failed to create ImportAudit for HNItem id={}: {}", entity != null ? entity.getId() : null, ex.getMessage(), ex);
             // Do not modify the triggering entity via entityService update; keep entity unchanged here.
         }
 
         return entity;
-    }
-
-    // Reflection helpers
-    private String safeGetStringField(Object obj, String fieldName) {
-        Object val = safeGetField(obj, fieldName);
-        return val != null ? String.valueOf(val) : null;
-    }
-
-    private Long safeGetLongField(Object obj, String fieldName) {
-        Object val = safeGetField(obj, fieldName);
-        if (val instanceof Number) return ((Number) val).longValue();
-        try {
-            if (val != null) return Long.parseLong(String.valueOf(val));
-        } catch (Exception ignored) {}
-        return null;
-    }
-
-    private Object safeGetField(Object obj, String fieldName) {
-        if (obj == null) return null;
-        try {
-            Field f = getFieldRecursive(obj.getClass(), fieldName);
-            if (f == null) return null;
-            f.setAccessible(true);
-            return f.get(obj);
-        } catch (Throwable t) {
-            logger.debug("Reflection access failed for field '{}' on {}: {}", fieldName, obj.getClass().getSimpleName(), t.getMessage());
-            return null;
-        }
-    }
-
-    private Field getFieldRecursive(Class<?> clazz, String fieldName) {
-        Class<?> cur = clazz;
-        while (cur != null) {
-            try {
-                return cur.getDeclaredField(fieldName);
-            } catch (NoSuchFieldException e) {
-                cur = cur.getSuperclass();
-            }
-        }
-        return null;
-    }
-
-    private Object trySafeId(HNItem entity) {
-        Long id = safeGetLongField(entity, "id");
-        return id != null ? id : null;
     }
 }
