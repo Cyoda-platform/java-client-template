@@ -77,11 +77,11 @@ public class UserValidCriterion implements CyodaCriterion {
 
          // Data quality warning: missing fullName or phone is a warning (not failure)
          if (entity.getFullName() == null || entity.getFullName().isBlank()) {
-             // attach as warning via the serializer's reason attachment strategy; return success so pipeline continues
-             context.warning("fullName is missing - will attempt transformation but data may be incomplete");
+             // attach as a logger warning; serializer's warning attachment can't be invoked here because context doesn't expose it
+             logger.warn("fullName is missing - will attempt transformation but data may be incomplete");
          }
          if (entity.getPhone() == null || entity.getPhone().isBlank()) {
-             context.warning("phone is missing - contact number absent");
+             logger.warn("phone is missing - contact number absent");
          }
 
          // All checks passed
