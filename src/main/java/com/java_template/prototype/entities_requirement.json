@@ -1,0 +1,31 @@
+{
+    "entities": [
+        {
+            "BackgroundCheckJob": {
+                "entity_data_example": {}
+            }
+        },
+        {
+            "VisitAppointment": {
+                "entity_data_example": {}
+            }
+        },
+        {
+            "Pets": {
+                "entity_data_example": {
+                    "breed": "labrador",
+                    "species": "dog",
+                    "status": "available"
+                }
+            }
+        },
+        {
+            "AdoptionRequests": {
+                "entity_data_example": {
+                    "status": "pending",
+                    "user_id": "user-123"
+                }
+            }
+        }
+    ]
+}
