@@ -38,7 +38,8 @@ public class DeduplicationIsDuplicateCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Use exact criterion name matching as required by the critical requirements
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Laureate> context) {
@@ -73,7 +74,9 @@ public class DeduplicationIsDuplicateCriterion implements CyodaCriterion {
          }
 
          // 3) If minimal distinguishing information is missing (no born country/code and no affiliation), it is ambiguous and treated as duplicate-like record
-         boolean hasBornInfo = (entity.getBornCountry() != null && !entity.getBornCountry().isBlank()) || (entity.getBornCountryCode() != null && !entity.getBornCountryCode().isBlank()) || (entity.getNormalizedCountryCode() != null && !entity.getNormalizedCountryCode().isBlank());
+         boolean hasBornInfo = (entity.getBornCountry() != null && !entity.getBornCountry().isBlank()) 
+             || (entity.getBornCountryCode() != null && !entity.getBornCountryCode().isBlank()) 
+             || (entity.getNormalizedCountryCode() != null && !entity.getNormalizedCountryCode().isBlank());
          boolean hasAffiliation = entity.getAffiliationName() != null && !entity.getAffiliationName().isBlank();
          if (!hasBornInfo && !hasAffiliation) {
              logger.debug("Laureate id={} lacks born country and affiliation, marking as potential duplicate/ambiguous record", entity.getId());

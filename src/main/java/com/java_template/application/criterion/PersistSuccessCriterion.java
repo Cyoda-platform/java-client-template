@@ -38,13 +38,17 @@ public class PersistSuccessCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name match (case-sensitive)
+        return modelSpec != null && modelSpec.operationName() != null && className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Job> context) {
          Job entity = context.entity();
 
          // Basic presence check for state
+         if (entity == null) {
+             return EvaluationOutcome.fail("Job entity is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
          if (entity.getState() == null || entity.getState().isBlank()) {
              return EvaluationOutcome.fail("Job state is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
@@ -52,25 +56,39 @@ public class PersistSuccessCriterion implements CyodaCriterion {
          String state = entity.getState().trim();
 
          // Success expected only when state is SUCCEEDED
-         if ("SUCCEEDED".equalsIgnoreCase(state)) {
+         if ("SUCCEEDED".equals(state)) {
              // finishedAt should be present for a successful job
              if (entity.getFinishedAt() == null || entity.getFinishedAt().isBlank()) {
                  return EvaluationOutcome.fail("finishedAt must be present for a succeeded job", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+             // startedAt should be present as well for a completed run
+             if (entity.getStartedAt() == null || entity.getStartedAt().isBlank()) {
+                 return EvaluationOutcome.fail("startedAt must be present for a succeeded job", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
              }
              // No fatal lastError must be present on success
              if (entity.getLastError() != null && !entity.getLastError().isBlank()) {
                  return EvaluationOutcome.fail("lastError present despite succeeded state", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
              }
+             // attempts must be non-negative (defensive, though entity.isValid enforces this)
+             if (entity.getAttempts() != null && entity.getAttempts() < 0) {
+                 return EvaluationOutcome.fail("attempts must be non-negative", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
              return EvaluationOutcome.success();
          }
 
          // If explicitly failed
-         if ("FAILED".equalsIgnoreCase(state)) {
+         if ("FAILED".equals(state)) {
              String err = (entity.getLastError() == null || entity.getLastError().isBlank()) ? "Job marked as FAILED" : ("Job failed: " + entity.getLastError());
              return EvaluationOutcome.fail(err, StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
-         // Other states are not considered successful for this persistence criterion
+         // Other terminal state: NOTIFIED_SUBSCRIBERS is terminal but not "succeeded" for persistence criterion
+         if ("NOTIFIED_SUBSCRIBERS".equals(state)) {
+             // If job reached notifications without being marked SUCCEEDED, treat as data quality issue for persistence success
+             return EvaluationOutcome.fail("Job reached NOTIFIED_SUBSCRIBERS but not marked SUCCEEDED", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+
+         // Non-terminal or unexpected states are not considered successful for this persistence criterion
          return EvaluationOutcome.fail("Job is not in a terminal succeeded state", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
     }
 }

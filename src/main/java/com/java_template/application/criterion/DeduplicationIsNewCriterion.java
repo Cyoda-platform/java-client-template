@@ -29,7 +29,7 @@ public class DeduplicationIsNewCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Laureate.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,46 +38,61 @@ public class DeduplicationIsNewCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name match
+        return "DeduplicationIsNewCriterion".equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Laureate> context) {
          Laureate entity = context.entity();
+
          // Validate presence of natural key fields required to determine uniqueness
          if (entity.getId() == null) {
+            logger.debug("Deduplication check failed: missing id");
             return EvaluationOutcome.fail("Laureate source id is required for deduplication", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
          if (entity.getFirstname() == null || entity.getFirstname().isBlank()) {
+            logger.debug("Deduplication check failed: missing firstname for id={}", entity.getId());
             return EvaluationOutcome.fail("Laureate firstname is required for deduplication", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
          if (entity.getSurname() == null || entity.getSurname().isBlank()) {
+            logger.debug("Deduplication check failed: missing surname for id={}", entity.getId());
             return EvaluationOutcome.fail("Laureate surname is required for deduplication", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
          if (entity.getYear() == null || entity.getYear().isBlank()) {
+            logger.debug("Deduplication check failed: missing year for id={}", entity.getId());
             return EvaluationOutcome.fail("Laureate award year is required for deduplication", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
          if (entity.getCategory() == null || entity.getCategory().isBlank()) {
+            logger.debug("Deduplication check failed: missing category for id={}", entity.getId());
             return EvaluationOutcome.fail("Laureate category is required for deduplication", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         /*
-          * Heuristic to decide whether this laureate should be considered NEW.
-          * - If this record already carries a sourceJobId and createdAt it indicates it was produced
-          *   by the current ingestion and should be treated as NEW for persistence.
-          * - If those fields are absent we cannot confidently mark it as NEW here (it may be a duplicate),
-          *   therefore fail the criterion so downstream deduplication/persist logic can handle it explicitly.
-          *
-          * Note: This criterion intentionally avoids querying external storage and relies only on the
-          * entity payload supplied to the criterion (per constraints).
-          */
-         if (entity.getSourceJobId() != null && !entity.getSourceJobId().isBlank()
-             && entity.getCreatedAt() != null && !entity.getCreatedAt().isBlank()) {
+         String sourceJobId = entity.getSourceJobId();
+         String createdAt = entity.getCreatedAt();
+
+         // Heuristic to decide whether this laureate should be considered NEW.
+         // - If both sourceJobId and createdAt are present -> treat as NEW (produced by current ingestion)
+         // - If one is present and the other missing -> treat as data/business issue and fail with appropriate category
+         // - If both absent -> cannot determine NEW here (defer to downstream deduplication that may consult storage)
+         if (sourceJobId != null && !sourceJobId.isBlank() && createdAt != null && !createdAt.isBlank()) {
+             logger.debug("Laureate id={} marked as NEW (sourceJobId and createdAt present)", entity.getId());
              return EvaluationOutcome.success();
          }
 
-         // Unable to mark as NEW based on provided data
+         if (sourceJobId != null && !sourceJobId.isBlank() && (createdAt == null || createdAt.isBlank())) {
+             logger.warn("Laureate id={} has sourceJobId but missing createdAt - data quality issue", entity.getId());
+             return EvaluationOutcome.fail("Laureate has sourceJobId but createdAt is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+
+         if ((sourceJobId == null || sourceJobId.isBlank()) && createdAt != null && !createdAt.isBlank()) {
+             logger.warn("Laureate id={} has createdAt but missing sourceJobId - business rule violated", entity.getId());
+             return EvaluationOutcome.fail("Laureate has createdAt but missing sourceJobId; cannot mark as NEW", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         }
+
+         // Both absent -> unable to determine NEW based solely on payload
+         logger.debug("Laureate id={} missing both sourceJobId and createdAt; cannot determine NEW status", entity.getId());
          return EvaluationOutcome.fail(
-             "Unable to determine NEW status for laureate; missing sourceJobId or createdAt",
+             "Unable to determine NEW status for laureate; missing sourceJobId and createdAt",
              StandardEvalReasonCategories.BUSINESS_RULE_FAILURE
          );
     }

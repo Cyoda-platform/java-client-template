@@ -46,19 +46,81 @@ public class ValidationEnrichmentProcessor implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
+    /**
+     * Validation rules (per functional requirements):
+     * - id must be present
+     * - firstname and surname must be present (non-blank)
+     * - year must be present and in 4-digit format
+     * - if born/died are present they must be valid ISO dates (yyyy-MM-dd)
+     * - if both born and died present, died must not be before born
+     *
+     * Note: createdAt and sourceJobId are part of Laureate.isValid() but this processor is intended to run
+     * as a validation+enrichment step for incoming candidates; therefore we validate core fields required
+     * for further enrichment/persistence rather than the stricter persisted-entity contract.
+     */
     private boolean isValidEntity(Laureate entity) {
-        return entity != null && entity.isValid();
+        if (entity == null) {
+            logger.warn("Laureate entity is null");
+            return false;
+        }
+
+        if (entity.getId() == null) {
+            logger.warn("Laureate validation failed: id is null");
+            return false;
+        }
+        if (entity.getFirstname() == null || entity.getFirstname().isBlank()) {
+            logger.warn("Laureate validation failed: firstname is missing for id {}", entity.getId());
+            return false;
+        }
+        if (entity.getSurname() == null || entity.getSurname().isBlank()) {
+            logger.warn("Laureate validation failed: surname is missing for id {}", entity.getId());
+            return false;
+        }
+        if (entity.getYear() == null || entity.getYear().isBlank()) {
+            logger.warn("Laureate validation failed: year is missing for id {}", entity.getId());
+            return false;
+        }
+        String yearTrim = entity.getYear().trim();
+        if (!yearTrim.matches("^\\d{4}$")) {
+            logger.warn("Laureate validation failed: year has invalid format for id {}: {}", entity.getId(), entity.getYear());
+            return false;
+        }
+
+        // Validate born/died date formats if present
+        LocalDate bornDate = null;
+        String bornStr = entity.getBorn();
+        if (bornStr != null && !bornStr.isBlank()) {
+            try {
+                bornDate = LocalDate.parse(bornStr);
+            } catch (DateTimeParseException e) {
+                logger.warn("Laureate validation failed: born has invalid date format for id {}: {}", entity.getId(), bornStr);
+                return false;
+            }
+        }
+
+        String diedStr = entity.getDied();
+        LocalDate diedDate = null;
+        if (diedStr != null && !diedStr.isBlank()) {
+            try {
+                diedDate = LocalDate.parse(diedStr);
+            } catch (DateTimeParseException e) {
+                logger.warn("Laureate validation failed: died has invalid date format for id {}: {}", entity.getId(), diedStr);
+                return false;
+            }
+        }
+
+        if (bornDate != null && diedDate != null && diedDate.isBefore(bornDate)) {
+            logger.warn("Laureate validation failed: died is before born for id {}: born={}, died={}", entity.getId(), bornStr, diedStr);
+            return false;
+        }
+
+        return true;
     }
 
     private Laureate processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Laureate> context) {
         Laureate entity = context.entity();
 
         if (entity == null) return null;
-
-        // Validation: check date formats for born and died (ISO date yyyy-MM-dd)
-        // and normalize/compute enrichment fields (age, normalizedCountryCode, gender normalization)
-        // Year format check (simple 4-digit)
-        // These operations modify the entity state; persistence is handled by Cyoda.
 
         // Normalize gender to lowercase if present
         try {
@@ -106,7 +168,7 @@ public class ValidationEnrichmentProcessor implements CyodaProcessor {
         String countryCode = entity.getBornCountryCode();
         if (countryCode != null && !countryCode.isBlank()) {
             normalized = countryCode.trim().toUpperCase();
-            // If longer than 3 chars, attempt to take first 2 (best-effort) - but keep full code otherwise
+            // If longer than 3 chars, attempt to take first 2-3 (best-effort) - but keep full code otherwise
             if (normalized.length() > 3) {
                 normalized = normalized.substring(0, Math.min(3, normalized.length()));
             }
@@ -138,7 +200,7 @@ public class ValidationEnrichmentProcessor implements CyodaProcessor {
             entity.setNormalizedCountryCode(null);
         }
 
-        // Year format validation (expecting 4-digit year)
+        // Year format validation (expecting 4-digit)
         try {
             if (entity.getYear() != null && !entity.getYear().isBlank()) {
                 String y = entity.getYear().trim();

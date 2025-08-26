@@ -24,6 +24,7 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Iterator;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 @Component
@@ -141,12 +142,16 @@ public class StartIngestionProcessor implements CyodaProcessor {
                 while (recordsIter.hasNext()) {
                     JsonNode recordNode = recordsIter.next();
                     // Some APIs wrap fields under "fields"
-                    JsonNode fields = recordNode.has("fields") ? recordNode.get("fields") : recordNode;
-                    // Some wrappers: record -> record.fields
-                    if (fields == null && recordNode.has("record") && recordNode.get("record").has("fields")) {
+                    JsonNode fields = null;
+                    if (recordNode.has("fields") && recordNode.get("fields").isObject()) {
+                        fields = recordNode.get("fields");
+                    } else if (recordNode.has("record") && recordNode.get("record").has("fields")) {
                         fields = recordNode.get("record").get("fields");
+                    } else {
+                        fields = recordNode;
                     }
-                    if (fields == null) {
+
+                    if (fields == null || fields.isNull()) {
                         fields = recordNode;
                     }
 
@@ -154,49 +159,76 @@ public class StartIngestionProcessor implements CyodaProcessor {
                         Laureate laureate = new Laureate();
 
                         // Map common fields defensively
+                        // id
                         if (fields.has("id")) {
                             JsonNode n = fields.get("id");
                             if (n.canConvertToInt()) laureate.setId(n.asInt());
                             else {
                                 try {
-                                    laureate.setId(Integer.valueOf(n.asText()));
+                                    String txt = n.asText();
+                                    if (txt != null && !txt.isBlank()) {
+                                        laureate.setId(Integer.valueOf(txt.trim()));
+                                    }
                                 } catch (NumberFormatException ignored) {}
                             }
                         } else if (fields.has("laureate_id")) {
                             JsonNode n = fields.get("laureate_id");
                             if (n.canConvertToInt()) laureate.setId(n.asInt());
+                            else {
+                                try {
+                                    String txt = n.asText();
+                                    if (txt != null && !txt.isBlank()) {
+                                        laureate.setId(Integer.valueOf(txt.trim()));
+                                    }
+                                } catch (NumberFormatException ignored) {}
+                            }
                         }
 
-                        if (fields.has("firstname")) laureate.setFirstname(asTextOrNull(fields.get("firstname")));
-                        if (fields.has("firstname")) laureate.setFirstname(asTextOrNull(fields.get("firstname")));
-                        if (fields.has("firstname")) laureate.setFirstname(asTextOrNull(fields.get("firstname")));
-                        if (fields.has("firstname")) laureate.setFirstname(asTextOrNull(fields.get("firstname")));
-                        if (fields.has("firstname")) laureate.setFirstname(asTextOrNull(fields.get("firstname")));
-                        // surname / familyname
-                        if (fields.has("surname")) laureate.setSurname(asTextOrNull(fields.get("surname")));
-                        else if (fields.has("familyname")) laureate.setSurname(asTextOrNull(fields.get("familyname")));
-                        else if (fields.has("family_name")) laureate.setSurname(asTextOrNull(fields.get("family_name")));
+                        // firstname alternatives
+                        String firstname = extractFirstAvailableText(fields, "firstname", "givenname", "first_name", "given_name");
+                        if (firstname != null) laureate.setFirstname(firstname);
+
+                        // surname alternatives
+                        String surname = extractFirstAvailableText(fields, "surname", "familyname", "family_name", "lastname");
+                        if (surname != null) laureate.setSurname(surname);
+
                         // personal info
-                        if (fields.has("born")) laureate.setBorn(asTextOrNull(fields.get("born")));
-                        if (fields.has("died")) laureate.setDied(asTextOrNull(fields.get("died")));
-                        if (fields.has("borncountry")) laureate.setBornCountry(asTextOrNull(fields.get("borncountry")));
-                        else if (fields.has("born_country")) laureate.setBornCountry(asTextOrNull(fields.get("born_country")));
-                        if (fields.has("borncountrycode")) laureate.setBornCountryCode(asTextOrNull(fields.get("borncountrycode")));
-                        else if (fields.has("born_country_code")) laureate.setBornCountryCode(asTextOrNull(fields.get("born_country_code")));
-                        if (fields.has("borncity")) laureate.setBornCity(asTextOrNull(fields.get("borncity")));
-                        else if (fields.has("born_city")) laureate.setBornCity(asTextOrNull(fields.get("born_city")));
-                        if (fields.has("gender")) laureate.setGender(asTextOrNull(fields.get("gender")));
+                        String born = asTextOrNull(fields.get("born"));
+                        if (born == null) born = asTextOrNull(fields.get("born_date"));
+                        if (born == null) born = asTextOrNull(fields.get("birth_date"));
+                        laureate.setBorn(born);
+
+                        laureate.setDied(asTextOrNull(fields.get("died")));
+
+                        String bornCountry = extractFirstAvailableText(fields, "borncountry", "born_country", "country", "bornCountry");
+                        if (bornCountry != null) laureate.setBornCountry(bornCountry);
+
+                        String bornCountryCode = extractFirstAvailableText(fields, "borncountrycode", "born_country_code", "bornCountryCode");
+                        if (bornCountryCode != null) laureate.setBornCountryCode(bornCountryCode);
+
+                        String bornCity = extractFirstAvailableText(fields, "borncity", "born_city", "birthplace", "bornCity");
+                        if (bornCity != null) laureate.setBornCity(bornCity);
+
+                        laureate.setGender(asTextOrNull(fields.get("gender")));
+
                         // award info
-                        if (fields.has("year")) laureate.setYear(asTextOrNull(fields.get("year")));
-                        if (fields.has("category")) laureate.setCategory(asTextOrNull(fields.get("category")));
-                        if (fields.has("motivation")) laureate.setMotivation(asTextOrNull(fields.get("motivation")));
+                        String year = extractFirstAvailableText(fields, "year", "award_year");
+                        if (year != null) laureate.setYear(year);
+
+                        String category = extractFirstAvailableText(fields, "category", "prize_category");
+                        if (category != null) laureate.setCategory(category);
+
+                        laureate.setMotivation(asTextOrNull(fields.get("motivation")));
+
                         // affiliation - try multiple possible names
-                        if (fields.has("affiliation_name")) laureate.setAffiliationName(asTextOrNull(fields.get("affiliation_name")));
-                        else if (fields.has("name")) laureate.setAffiliationName(asTextOrNull(fields.get("name")));
-                        if (fields.has("affiliation_city")) laureate.setAffiliationCity(asTextOrNull(fields.get("affiliation_city")));
-                        else if (fields.has("city")) laureate.setAffiliationCity(asTextOrNull(fields.get("city")));
-                        if (fields.has("affiliation_country")) laureate.setAffiliationCountry(asTextOrNull(fields.get("affiliation_country")));
-                        else if (fields.has("country")) laureate.setAffiliationCountry(asTextOrNull(fields.get("country")));
+                        String affiliationName = extractFirstAvailableText(fields, "affiliation_name", "name", "affiliation");
+                        if (affiliationName != null) laureate.setAffiliationName(affiliationName);
+
+                        String affiliationCity = extractFirstAvailableText(fields, "affiliation_city", "city");
+                        if (affiliationCity != null) laureate.setAffiliationCity(affiliationCity);
+
+                        String affiliationCountry = extractFirstAvailableText(fields, "affiliation_country", "country");
+                        if (affiliationCountry != null) laureate.setAffiliationCountry(affiliationCountry);
 
                         // Set createdAt and source job id
                         laureate.setCreatedAt(Instant.now().toString());
@@ -209,11 +241,12 @@ public class StartIngestionProcessor implements CyodaProcessor {
                                 String.valueOf(Laureate.ENTITY_VERSION),
                                 laureate
                             );
+                            // wait for persistence result; join will propagate exceptions
                             idFuture.join();
                             persistedCount++;
                         } catch (Exception e) {
                             logger.error("Failed to persist laureate {}", laureate, e);
-                            errors.append("Persist error for laureate id=").append(laureate.getId()).append(": ").append(e.getMessage()).append("; ");
+                            errors.append("Persist error for laureate id=").append(Objects.toString(laureate.getId(), "null")).append(": ").append(e.getMessage()).append("; ");
                         }
                     } catch (Exception ex) {
                         logger.error("Failed to process record node", ex);
@@ -256,5 +289,16 @@ public class StartIngestionProcessor implements CyodaProcessor {
         if (node == null || node.isNull()) return null;
         String text = node.asText();
         return text == null || text.isBlank() ? null : text;
+    }
+
+    private String extractFirstAvailableText(JsonNode node, String... keys) {
+        if (node == null || node.isNull()) return null;
+        for (String k : keys) {
+            if (node.has(k)) {
+                String v = asTextOrNull(node.get(k));
+                if (v != null) return v;
+            }
+        }
+        return null;
     }
 }
