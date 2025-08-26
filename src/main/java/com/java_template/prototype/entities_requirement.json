@@ -1,0 +1,81 @@
+{
+    "entities": [
+        {
+            "Job": {
+                "entity_data_example": {
+                    "errorDetails": "",
+                    "finishedAt": "2025-08-25T12:05:00Z",
+                    "id": "job-2025-08-01",
+                    "ingestionSummary": {
+                        "recordsFailed": 1,
+                        "recordsFetched": 10,
+                        "recordsProcessed": 9
+                    },
+                    "notificationPolicy": {
+                        "type": "allSubscribers"
+                    },
+                    "retryPolicy": {
+                        "backoffSeconds": 60,
+                        "maxAttempts": 3
+                    },
+                    "scheduleDefinition": "manual",
+                    "startedAt": "2025-08-25T12:00:00Z",
+                    "status": "NOTIFIED_SUBSCRIBERS",
+                    "technicalId": "tech-job-0001",
+                    "triggeredBy": "user"
+                }
+            }
+        },
+        {
+            "Laureate": {
+                "entity_data_example": {
+                    "affiliation": {
+                        "city": "Sapporo",
+                        "country": "Japan",
+                        "name": "Hokkaido University"
+                    },
+                    "ageAtAward": 70,
+                    "born": "1940-09-12",
+                    "bornCity": "Sapporo",
+                    "bornCountry": "Japan",
+                    "bornCountryCode": "JP",
+                    "category": "Chemistry",
+                    "died": null,
+                    "firstname": "Akira",
+                    "gender": "male",
+                    "id": 853,
+                    "motivation": "For development of the Suzuki reaction",
+                    "name": "Akira Suzuki",
+                    "sourceJobTechnicalId": "tech-job-0001",
+                    "surname": "Suzuki",
+                    "technicalId": "tech-laureate-0853",
+                    "validationStatus": "VALID",
+                    "year": "2010"
+                }
+            }
+        },
+        {
+            "Subscriber": {
+                "entity_data_example": {
+                    "active": true,
+                    "contactAddress": "https://example.com/webhook",
+                    "contactType": "webhook",
+                    "filters": {
+                        "categories": [
+                            "Chemistry",
+                            "Physics"
+                        ]
+                    },
+                    "id": "sub-42",
+                    "name": "Nobel Alerts",
+                    "preferredPayload": "summary",
+                    "retryPolicy": {
+                        "backoffSeconds": 120,
+                        "maxAttempts": 5
+                    },
+                    "technicalId": "tech-sub-0001"
+                }
+            }
+        }
+    ]
+}
