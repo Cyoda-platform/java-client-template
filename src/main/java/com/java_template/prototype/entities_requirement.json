@@ -1,0 +1,72 @@
+{
+    "entities": [
+        {
+            "BatchJob": {
+                "entity_data_example": {
+                    "admin_emails": [
+                        "admin@example.com"
+                    ],
+                    "api_endpoint": "https://fakerestapi.azurewebsites.net",
+                    "created_at": "2025-07-01T12:00:00Z",
+                    "job_name": "MonthlyUserBatch",
+                    "last_run_timestamp": "2025-08-01T00:00:00Z",
+                    "metadata": {
+                        "fetched_count": 100
+                    },
+                    "schedule_cron": "0 0 1 * *",
+                    "status": "IN_PROGRESS"
+                }
+            }
+        },
+        {
+            "User": {
+                "entity_data_example": {
+                    "address": {
+                        "city": "Anytown",
+                        "street": "123 Main St",
+                        "zipcode": "12345"
+                    },
+                    "email": "john.doe@example.com",
+                    "fetched_at": "2025-08-01T00:05:00Z",
+                    "id": 1,
+                    "name": "John Doe",
+                    "phone": "+1-555-0100",
+                    "processing_status": "STORED",
+                    "raw_payload": {
+                        "email": "john.doe@example.com",
+                        "id": 1,
+                        "name": "John Doe",
+                        "username": "jdoe"
+                    },
+                    "stored_reference": "stored_user_789",
+                    "username": "jdoe"
+                }
+            }
+        },
+        {
+            "MonthlyReport": {
+                "entity_data_example": {
+                    "admin_recipients": [
+                        "admin@example.com"
+                    ],
+                    "delivery_attempts": 1,
+                    "generated_at": "2025-08-01T01:00:00Z",
+                    "invalid_records_count": 2,
+                    "month": "2025-08",
+                    "new_users": 10,
+                    "published_status": "PUBLISHED",
+                    "report_file_ref": "s3://reports/monthly_2025-08.csv",
+                    "sample_records": [
+                        {
+                            "id": 1,
+                            "name": "John Doe",
+                            "processing_status": "STORED"
+                        }
+                    ],
+                    "total_users": 100,
+                    "updated_users": 5
+                }
+            }
+        }
+    ]
+}
