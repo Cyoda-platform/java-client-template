@@ -1,0 +1,61 @@
+{
+    "entities": [
+        {
+            "CoverPhoto": {
+                "entity_data_example": {
+                    "comments": [
+                        {
+                            "createdAt": "2025-08-01T01:23:45Z",
+                            "status": "visible",
+                            "text": "Nice!",
+                            "userId": "u-1001"
+                        }
+                    ],
+                    "createdAt": "2025-07-31T23:59:00Z",
+                    "description": "A beautiful sunset captured over the lake.",
+                    "id": "cover-123",
+                    "ingestionStatus": "INGESTED",
+                    "publishedDate": "2025-08-01T00:00:00Z",
+                    "sourceUrl": "https://images.example.com/covers/cover-123.jpg",
+                    "tags": [
+                        "sunset",
+                        "lake",
+                        "landscape"
+                    ],
+                    "thumbnailUrl": "https://images.example.com/covers/thumbs/cover-123.jpg",
+                    "title": "Sunset Over Lake",
+                    "updatedAt": "2025-08-01T00:01:00Z",
+                    "viewCount": 123
+                }
+            }
+        },
+        {
+            "User": {
+                "entity_data_example": {
+                    "createdAt": "2025-07-01T12:00:00Z",
+                    "email": "alice@example.com",
+                    "name": "Alice",
+                    "role": "regular",
+                    "subscribed": true,
+                    "updatedAt": "2025-07-15T12:00:00Z",
+                    "userId": "u-1001"
+                }
+            }
+        },
+        {
+            "IngestionJob": {
+                "entity_data_example": {
+                    "errorSummary": "",
+                    "finishedAt": "2025-08-01T00:05:00Z",
+                    "initiatedBy": "system",
+                    "jobId": "job-001",
+                    "processedCount": 42,
+                    "schedule": "0 0 0 ? * MON",
+                    "sourceEndpoint": "https://fakerestapi.azurewebsites.net/api/covers",
+                    "startedAt": "2025-08-01T00:00:00Z",
+                    "status": "COMPLETED"
+                }
+            }
+        }
+    ]
+}
