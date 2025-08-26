@@ -23,7 +23,7 @@ public class Pet implements CyodaEntity {
     private String sourceId; // foreign key reference (serialized UUID as String)
     private String sourceUrl;
     private String species;
-    private String status;
+    private String status
 
     public Pet() {}
 
