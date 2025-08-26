@@ -1,0 +1,15 @@
+{
+    "compilation_status": "FAILURE",
+    "files_with_errors": [
+        {
+            "errors": [
+                "Line 41: error: cannot find symbol: variable APPLICATION_JSON (@RequestMapping produces = APPLICATION_JSON)",
+                "Line 57: error: cannot find symbol: variable APPLICATION_JSON (@PostMapping consumes = APPLICATION_JSON)",
+                "Line 98: error: cannot find symbol: variable APPLICATION_JSON (@PostMapping(path = \"/bulk\", consumes = APPLICATION_JSON))",
+                "Line 219: error: cannot find symbol: variable APPLICATION_JSON (@PostMapping(path = \"/search\", consumes = APPLICATION_JSON))",
+                "Line 265: error: cannot find symbol: variable APPLICATION_JSON (@PutMapping(path = \"/{technicalId}\", consumes = APPLICATION_JSON))"
+            ],
+            "file_path": "src/main/java/com/java_template/application/controller/job/version_1/JobController.java"
+        }
+    ]
+}
