@@ -1,0 +1,112 @@
+{
+  "version": "1.0",
+  "name": "WeatherObservation Workflow",
+  "desc": "Workflow for WeatherObservation entity derived from functional requirements: raw ingestion, validation, enrichment/storage and notification.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "create_raw_observation",
+          "next": "RAW",
+          "manual": false
+        }
+      ]
+    },
+    "RAW": {
+      "transitions": [
+        {
+          "name": "start_validation",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateObservationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "validation_failed",
+          "next": "REJECTED",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.status",
+            "operation": "EQUALS",
+            "value": "REJECTED"
+          }
+        },
+        {
+          "name": "validation_passed",
+          "next": "VALIDATED",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.status",
+            "operation": "EQUALS",
+            "value": "VALIDATED"
+          }
+        }
+      ]
+    },
+    "VALIDATED": {
+      "transitions": [
+        {
+          "name": "enrich_and_store",
+          "next": "ENRICHED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EnrichAndStoreObservationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ENRICHED": {
+      "transitions": [
+        {
+          "name": "mark_stored",
+          "next": "STORED",
+          "manual": false
+        }
+      ]
+    },
+    "STORED": {
+      "transitions": [
+        {
+          "name": "notify_if_subscribed_or_threshold",
+          "next": "NOTIFIED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "NotifyCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "NOTIFIED": {
+      "transitions": []
+    },
+    "REJECTED": {
+      "transitions": []
+    }
+  }
+}
