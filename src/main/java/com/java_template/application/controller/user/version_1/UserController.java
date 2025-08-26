@@ -3,8 +3,8 @@ package com.java_template.application.controller.user.version_1;
 import static com.java_template.common.config.Config.*;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.ArrayNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.user.version_1.User;
 import com.java_template.common.service.EntityService;

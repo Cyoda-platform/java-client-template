@@ -40,7 +40,9 @@ public class TransformCompleteCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        if (modelSpec == null || modelSpec.operationName() == null) return false;
+        // Use exact criterion name match (case-sensitive) as required
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<BatchJob> context) {

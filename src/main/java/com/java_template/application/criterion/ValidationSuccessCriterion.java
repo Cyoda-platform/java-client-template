@@ -29,7 +29,7 @@ public class ValidationSuccessCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(User.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,7 +38,8 @@ public class ValidationSuccessCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<User> context) {
@@ -91,13 +92,12 @@ public class ValidationSuccessCriterion implements CyodaCriterion {
              }
          }
 
-         // Optionally ensure the entity is in VALIDATING state before marking success
-         if (entity.getProcessingStatus() != null && !entity.getProcessingStatus().isBlank()) {
-             // Only warn/fail if processingStatus explicitly indicates a terminal invalid state
-             // but we require it to be in VALIDATING to be considered for this criterion
-             if (!"VALIDATING".equalsIgnoreCase(entity.getProcessingStatus())) {
-                 problems.append("processingStatus is not VALIDATING; ");
-             }
+         // Ensure the entity is in VALIDATING state before marking success
+         String status = entity.getProcessingStatus();
+         if (status == null || status.isBlank()) {
+             problems.append("processingStatus is required and must be VALIDATING; ");
+         } else if (!"VALIDATING".equalsIgnoreCase(status)) {
+             problems.append("processingStatus must be VALIDATING; ");
          }
 
          if (problems.length() > 0) {

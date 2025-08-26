@@ -61,7 +61,7 @@ public class ValidateUserProcessor implements CyodaProcessor {
 
         List<String> validationErrors = new ArrayList<>();
 
-        // Basic checks already covered by User.isValid(), add stricter format validations here.
+        // Additional stricter validations beyond basic isValid()
 
         // Email format
         String email = entity.getEmail();
@@ -89,8 +89,7 @@ public class ValidateUserProcessor implements CyodaProcessor {
             }
         }
 
-        // Address fields: if address provided, ensure city and street already checked by isValid(),
-        // but ensure zipcode if present is not blank
+        // Address fields: if address provided, ensure zipcode if present is not blank
         User.Address addr = entity.getAddress();
         if (addr != null) {
             String zipcode = addr.getZipcode();
@@ -101,15 +100,14 @@ public class ValidateUserProcessor implements CyodaProcessor {
 
         // Decide processing status based on validation result
         if (validationErrors.isEmpty()) {
-            // Validation passed -> move to TRANSFORMED stage per workflow
-            entity.setProcessingStatus("TRANSFORMED");
-            logger.info("User id={} validated successfully. Marking as TRANSFORMED.", entity.getId());
+            // Validation passed -> mark as VALIDATED so subsequent TransformProcessor can run
+            entity.setProcessingStatus("VALIDATED");
+            logger.info("User id={} validated successfully. Marking as VALIDATED.", entity.getId());
         } else {
             // Validation failed -> mark as FAILED and log reasons
             entity.setProcessingStatus("FAILED");
-            logger.warn("User id={} validation failed: {}", entity.getId(), validationErrors);
-            // Optionally, we could attach a serialized representation of errors to storedReference or rawPayload,
-            // but per rules we should only modify this entity's state; leave rawPayload as-is.
+            logger.warn("User id={} validation failed: {}", entity.getId(), String.join("; ", validationErrors));
+            // Per rules, do not modify raw_payload. We only change processingStatus on this entity.
         }
 
         return entity;

@@ -40,7 +40,8 @@ public class ReportReadyCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Use exact criterion name (case-sensitive) as required by critical rules
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<MonthlyReport> context) {
@@ -56,8 +57,8 @@ public class ReportReadyCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("publishedStatus is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
          boolean acceptableState = status.equalsIgnoreCase("GENERATED")
-                 || status.equalsIgnoreCase("PENDING")
-                 || status.equalsIgnoreCase("PENDING_PUBLISH");
+                 || status.equalsIgnoreCase("PENDING_PUBLISH")
+                 || status.equalsIgnoreCase("PENDING");
          if (!acceptableState) {
              return EvaluationOutcome.fail("Report is not in a generated/pending state for publishing", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }

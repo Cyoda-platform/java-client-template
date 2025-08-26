@@ -31,7 +31,7 @@ public class FetchCompleteCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(BatchJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -40,28 +40,36 @@ public class FetchCompleteCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        if (modelSpec == null || modelSpec.operationName() == null) return false;
+        // Must match the criterion name exactly
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<BatchJob> context) {
          BatchJob entity = context.entity();
+         if (entity == null) {
+             logger.debug("FetchCompleteCriterion: received null entity");
+             return EvaluationOutcome.fail("entity is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         String jobName = String.valueOf(entity.getJobName());
 
          // lastRunTimestamp must be present - fetch run should set this
          if (entity.getLastRunTimestamp() == null || entity.getLastRunTimestamp().isBlank()) {
-             logger.debug("FetchCompleteCriterion: missing lastRunTimestamp for job {}", entity.getJobName());
+             logger.debug("FetchCompleteCriterion: missing lastRunTimestamp for job {}", jobName);
              return EvaluationOutcome.fail("last_run_timestamp is required to mark fetch complete", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
          // metadata map must contain fetched_count
          Map<String, Object> metadata = entity.getMetadata();
          if (metadata == null) {
-             logger.debug("FetchCompleteCriterion: metadata is null for job {}", entity.getJobName());
+             logger.debug("FetchCompleteCriterion: metadata is null for job {}", jobName);
              return EvaluationOutcome.fail("metadata is required and must contain fetched_count", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
          Object fetchedCountObj = metadata.get("fetched_count");
          if (fetchedCountObj == null) {
-             logger.debug("FetchCompleteCriterion: fetched_count missing in metadata for job {}", entity.getJobName());
+             logger.debug("FetchCompleteCriterion: fetched_count missing in metadata for job {}", jobName);
              return EvaluationOutcome.fail("metadata.fetched_count is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
@@ -72,22 +80,22 @@ public class FetchCompleteCriterion implements CyodaCriterion {
              try {
                  fetchedCount = Integer.parseInt(((String) fetchedCountObj).trim());
              } catch (NumberFormatException e) {
-                 logger.debug("FetchCompleteCriterion: fetched_count not numeric for job {}: {}", entity.getJobName(), fetchedCountObj);
+                 logger.debug("FetchCompleteCriterion: fetched_count not numeric for job {}: {}", jobName, fetchedCountObj);
                  return EvaluationOutcome.fail("metadata.fetched_count is not a valid number", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
              }
          } else {
-             logger.debug("FetchCompleteCriterion: fetched_count has unsupported type for job {}: {}", entity.getJobName(), fetchedCountObj.getClass());
+             logger.debug("FetchCompleteCriterion: fetched_count has unsupported type for job {}: {}", jobName, fetchedCountObj.getClass());
              return EvaluationOutcome.fail("metadata.fetched_count has unsupported type", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
          // Business rule: at least one user should have been fetched to consider fetch complete
          if (fetchedCount <= 0) {
-             logger.debug("FetchCompleteCriterion: fetched_count is zero or negative for job {}: {}", entity.getJobName(), fetchedCount);
+             logger.debug("FetchCompleteCriterion: fetched_count is zero or negative for job {}: {}", jobName, fetchedCount);
              return EvaluationOutcome.fail("no records were fetched (fetched_count <= 0)", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
          // All checks passed -> fetch is considered complete
-         logger.debug("FetchCompleteCriterion: fetch complete for job {} with fetched_count={}", entity.getJobName(), fetchedCount);
+         logger.debug("FetchCompleteCriterion: fetch complete for job {} with fetched_count={}", jobName, fetchedCount);
          return EvaluationOutcome.success();
     }
 }
