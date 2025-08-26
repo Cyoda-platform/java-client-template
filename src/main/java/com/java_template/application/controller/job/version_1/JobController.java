@@ -31,6 +31,7 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -38,7 +39,7 @@ import org.springframework.web.bind.annotation.*;
  * Dull proxy controller for Job entity. All business logic handled in workflows.
  */
 @RestController
-@RequestMapping(path = "/api/v1/jobs", produces = APPLICATION_JSON)
+@RequestMapping(path = "/api/v1/jobs", produces = MediaType.APPLICATION_JSON_VALUE)
 @Tag(name = "Job", description = "Job entity proxy API (version 1)")
 @RequiredArgsConstructor
 public class JobController {
@@ -54,7 +55,7 @@ public class JobController {
             @ApiResponse(responseCode = "400", description = "Bad Request"),
             @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
-    @PostMapping(consumes = APPLICATION_JSON)
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<CreateJobResponse> createJob(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Job create request", required = true,
                     content = @Content(schema = @Schema(implementation = CreateJobRequest.class)))
@@ -95,7 +96,7 @@ public class JobController {
             @ApiResponse(responseCode = "400", description = "Bad Request"),
             @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
-    @PostMapping(path = "/bulk", consumes = APPLICATION_JSON)
+    @PostMapping(path = "/bulk", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<CreateJobsResponse> createJobsBulk(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "List of Job create requests", required = true,
                     content = @Content(array = @ArraySchema(schema = @Schema(implementation = CreateJobRequest.class))))
@@ -216,7 +217,7 @@ public class JobController {
             @ApiResponse(responseCode = "400", description = "Bad Request"),
             @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
-    @PostMapping(path = "/search", consumes = APPLICATION_JSON)
+    @PostMapping(path = "/search", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<List<JobResponse>> searchJobs(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Search condition", required = true,
                     content = @Content(schema = @Schema(implementation = SearchConditionRequest.class)))
@@ -262,7 +263,7 @@ public class JobController {
             @ApiResponse(responseCode = "404", description = "Not Found"),
             @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
-    @PutMapping(path = "/{technicalId}", consumes = APPLICATION_JSON)
+    @PutMapping(path = "/{technicalId}", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<UpdateJobResponse> updateJob(
             @Parameter(name = "technicalId", description = "Technical ID of the entity", required = true)
             @PathVariable("technicalId") String technicalId,
