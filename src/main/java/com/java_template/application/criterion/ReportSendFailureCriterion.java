@@ -29,7 +29,7 @@ public class ReportSendFailureCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(MonthlyReport.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,41 +38,80 @@ public class ReportSendFailureCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<MonthlyReport> context) {
          MonthlyReport report = context.entity();
          if (report == null) {
-             return EvaluationOutcome.fail("MonthlyReport entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             logger.debug("MonthlyReport entity is null in {}", className);
+             return EvaluationOutcome.fail("MonthlyReport entity is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
+         String month = report.getMonth();
+         String generatedAt = report.getGeneratedAt();
+         String fileRef = report.getFileRef();
          String status = report.getStatus();
+         String deliveryAt = report.getDeliveryAt();
+         Integer totalUsers = report.getTotalUsers();
+         Integer newUsers = report.getNewUsers();
+         Integer invalidUsers = report.getInvalidUsers();
+
+         // Basic required fields validation (relevant for send step)
+         if (month == null || month.isBlank()) {
+             return EvaluationOutcome.fail("Report month is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+         if (generatedAt == null || generatedAt.isBlank()) {
+             return EvaluationOutcome.fail("generatedAt timestamp is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
          if (status == null || status.isBlank()) {
-             return EvaluationOutcome.fail("Report status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Successful send -> PUBLISHED
-         if ("PUBLISHED".equalsIgnoreCase(status)) {
-             // When published, deliveryAt must be present
-             String deliveryAt = report.getDeliveryAt();
-             if (deliveryAt == null || deliveryAt.isBlank()) {
-                 return EvaluationOutcome.fail("Published report missing deliveryAt", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         // Data quality check for metrics consistency if metrics present
+         if (totalUsers != null || newUsers != null || invalidUsers != null) {
+             if (totalUsers == null || newUsers == null || invalidUsers == null) {
+                 return EvaluationOutcome.fail("Incomplete user metrics: totalUsers, newUsers and invalidUsers must all be present", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
              }
+             if (totalUsers < 0 || newUsers < 0 || invalidUsers < 0) {
+                 return EvaluationOutcome.fail("User metrics must be non-negative", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+             if (!totalUsers.equals(newUsers + invalidUsers)) {
+                 return EvaluationOutcome.fail("Inconsistent metrics: totalUsers != newUsers + invalidUsers", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+         }
+
+         // Business rules around sending/publishing
+         // If sending failed, it must be surfaced as a business rule failure.
+         if ("FAILED".equalsIgnoreCase(status)) {
+             String reason = "Report sending failed for month " + month;
+             if (fileRef != null && !fileRef.isBlank()) {
+                 reason += " (fileRef present: " + fileRef + ")";
+             }
+             logger.info("{} - {}", className, reason);
+             return EvaluationOutcome.fail("Report sending failed", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         }
+
+         // If published, deliveryAt should be present
+         if ("PUBLISHED".equalsIgnoreCase(status)) {
+             if (deliveryAt == null || deliveryAt.isBlank()) {
+                 return EvaluationOutcome.fail("Published report missing deliveryAt timestamp", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+             // published and deliveryAt present -> success
              return EvaluationOutcome.success();
          }
 
-         // Explicit failure recorded by send processor
-         if ("FAILED".equalsIgnoreCase(status)) {
-             String month = report.getMonth();
-             String fileRef = report.getFileRef();
-             StringBuilder msg = new StringBuilder("Report sending failed");
-             if (month != null && !month.isBlank()) msg.append(" for month ").append(month);
-             if (fileRef != null && !fileRef.isBlank()) msg.append(" (fileRef=").append(fileRef).append(")");
-             return EvaluationOutcome.fail(msg.toString(), StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         // If status indicates ready/publishing but fileRef missing -> data quality issue
+         if ("READY".equalsIgnoreCase(status) || "PUBLISHING".equalsIgnoreCase(status)) {
+             if (fileRef == null || fileRef.isBlank()) {
+                 return EvaluationOutcome.fail("Report has no fileRef while in status " + status, StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+             // not yet published nor failed -> treat as success for this criterion (no failure)
+             return EvaluationOutcome.success();
          }
 
-         // Not yet attempted to send or in intermediate states
-         return EvaluationOutcome.fail("Report not published or failed yet (current status: " + status + ")", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         // Default: not a failure for send step
+         return EvaluationOutcome.success();
     }
 }

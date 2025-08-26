@@ -29,7 +29,7 @@ public class JobReadyCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(BatchJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,14 +38,15 @@ public class JobReadyCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<BatchJob> context) {
          BatchJob entity = context.entity();
          if (entity == null) {
-             logger.warn("BatchJob entity is null in JobReadyCriterion");
-             return EvaluationOutcome.fail("BatchJob entity is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             logger.warn("JobReadyCriterion: received null entity in evaluation context");
+             return EvaluationOutcome.fail("Entity missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
          // Required: jobName
@@ -60,33 +61,31 @@ public class JobReadyCriterion implements CyodaCriterion {
          }
          String runMonthPattern = "^\\d{4}-\\d{2}$";
          if (!runMonth.matches(runMonthPattern)) {
-             return EvaluationOutcome.fail("runMonth must have format YYYY-MM", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             return EvaluationOutcome.fail("runMonth must be in format YYYY-MM", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Required: scheduleCron must be present (ValidateJobParamsProcessor enforces this)
+         // Required: createdAt
+         if (entity.getCreatedAt() == null || entity.getCreatedAt().isBlank()) {
+             return EvaluationOutcome.fail("createdAt is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         // Required: scheduleCron (basic non-empty check)
          if (entity.getScheduleCron() == null || entity.getScheduleCron().isBlank()) {
              return EvaluationOutcome.fail("scheduleCron is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Required: createdAt must be present
-         if (entity.getCreatedAt() == null || entity.getCreatedAt().isBlank()) {
-             return EvaluationOutcome.fail("createdAt timestamp is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-
-         // Business rule: job must currently be in VALIDATING state to be eligible to move to RUNNING
+         // Status must be VALIDATING to transition to RUNNING (business rule)
          String status = entity.getStatus();
          if (status == null || status.isBlank()) {
              return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-         if (!"VALIDATING".equalsIgnoreCase(status)) {
-             return EvaluationOutcome.fail("job must be in VALIDATING state to start running", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+
+         if (!"VALIDATING".equals(status)) {
+             // Not ready to start ingestion unless job is in VALIDATING state
+             return EvaluationOutcome.fail("Job is not in VALIDATING state", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
-         // Additional safety: ensure job has not already started
-         if (entity.getStartedAt() != null && !entity.getStartedAt().isBlank()) {
-             return EvaluationOutcome.fail("job has already been started", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-         }
-
+         // All checks passed -> job is ready
          return EvaluationOutcome.success();
     }
 }

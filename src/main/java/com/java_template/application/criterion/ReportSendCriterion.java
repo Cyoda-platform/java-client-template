@@ -29,7 +29,7 @@ public class ReportSendCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(MonthlyReport.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -44,50 +44,60 @@ public class ReportSendCriterion implements CyodaCriterion {
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<MonthlyReport> context) {
          MonthlyReport entity = context.entity();
 
-         if (entity == null) {
-             logger.warn("MonthlyReport entity is null in ReportSendCriterion");
-             return EvaluationOutcome.fail("Report entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-
          // Basic presence checks
          if (entity.getMonth() == null || entity.getMonth().isBlank()) {
              return EvaluationOutcome.fail("Report month is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
+         // month format YYYY-MM
+         String runMonthPattern = "^\\d{4}-\\d{2}$";
+         if (!entity.getMonth().matches(runMonthPattern)) {
+             return EvaluationOutcome.fail("Report month must be in YYYY-MM format", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
          if (entity.getGeneratedAt() == null || entity.getGeneratedAt().isBlank()) {
-             return EvaluationOutcome.fail("generatedAt is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             return EvaluationOutcome.fail("generatedAt timestamp is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-         if (entity.getFileRef() == null || entity.getFileRef().isBlank()) {
-             return EvaluationOutcome.fail("fileRef is required for publishing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+
+         // Numeric metrics presence and non-negative checks
+         if (entity.getTotalUsers() == null || entity.getTotalUsers() < 0) {
+             return EvaluationOutcome.fail("totalUsers must be present and non-negative", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
-         if (entity.getStatus() == null || entity.getStatus().isBlank()) {
+         if (entity.getNewUsers() == null || entity.getNewUsers() < 0) {
+             return EvaluationOutcome.fail("newUsers must be present and non-negative", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+         if (entity.getInvalidUsers() == null || entity.getInvalidUsers() < 0) {
+             return EvaluationOutcome.fail("invalidUsers must be present and non-negative", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+         // Consistency: totalUsers == newUsers + invalidUsers
+         if (entity.getTotalUsers().intValue() != (entity.getNewUsers().intValue() + entity.getInvalidUsers().intValue())) {
+             return EvaluationOutcome.fail("totalUsers must equal newUsers + invalidUsers", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+
+         String status = entity.getStatus();
+         if (status == null || status.isBlank()) {
              return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Numeric consistency check
-         Integer total = entity.getTotalUsers();
-         Integer newUsers = entity.getNewUsers();
-         Integer invalidUsers = entity.getInvalidUsers();
-         if (total == null || newUsers == null || invalidUsers == null) {
-             return EvaluationOutcome.fail("Report metrics (total/new/invalid) must be present", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-         }
-         if (total.intValue() != (newUsers.intValue() + invalidUsers.intValue())) {
-             return EvaluationOutcome.fail("Inconsistent metrics: totalUsers != newUsers + invalidUsers", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         // Business rules for send criterion:
+         // The criterion passes only if report has been published successfully.
+         // If publishing failed, return business rule failure.
+         // If still publishing or not yet published, return business rule failure.
+         if ("PUBLISHED".equalsIgnoreCase(status)) {
+             // Ensure delivery metadata and file reference present for published reports
+             if (entity.getFileRef() == null || entity.getFileRef().isBlank()) {
+                 return EvaluationOutcome.fail("fileRef is required for published reports", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+             if (entity.getDeliveryAt() == null || entity.getDeliveryAt().isBlank()) {
+                 return EvaluationOutcome.fail("deliveryAt timestamp is required for published reports", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+             return EvaluationOutcome.success();
          }
 
-         // Determine final outcome based on status after SendReportProcessor
-         String status = entity.getStatus().trim().toUpperCase();
-         switch (status) {
-             case "PUBLISHED":
-                 // Published must have deliveryAt timestamp
-                 if (entity.getDeliveryAt() == null || entity.getDeliveryAt().isBlank()) {
-                     return EvaluationOutcome.fail("Published report must have deliveryAt timestamp", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-                 }
-                 return EvaluationOutcome.success();
-             case "FAILED":
-                 return EvaluationOutcome.fail("Report sending failed", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-             default:
-                 // Not in a final publishing state - criterion not satisfied
-                 return EvaluationOutcome.fail("Report not in PUBLISHED or FAILED state", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         if ("FAILED".equalsIgnoreCase(status)) {
+             return EvaluationOutcome.fail("Report publishing failed", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
+
+         // For READY, GENERATING, RENDERING, PUBLISHING and other intermediate states, do not allow transition
+         return EvaluationOutcome.fail("Report is not published yet (current status: " + status + ")", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
     }
 }

@@ -8,9 +8,14 @@ import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
-import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+
+import java.time.YearMonth;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.List;
 
 @Component
 public class ValidateJobParamsProcessor implements CyodaProcessor {
@@ -28,10 +33,10 @@ public class ValidateJobParamsProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing BatchJob for request: {}", request.getId());
 
-        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
+        return serializer.withRequest(request)
             .toEntity(BatchJob.class)
             .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+            .map(this::processEntityLogic)
             .complete();
     }
 
@@ -46,52 +51,41 @@ public class ValidateJobParamsProcessor implements CyodaProcessor {
 
     private BatchJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<BatchJob> context) {
         BatchJob entity = context.entity();
-
-        StringBuilder errors = new StringBuilder();
-
-        // Validate scheduleCron: must be present and not blank
-        try {
-            String scheduleCron = entity.getScheduleCron();
-            if (scheduleCron == null || scheduleCron.isBlank()) {
-                if (errors.length() > 0) errors.append("; ");
-                errors.append("scheduleCron is required");
-            }
-        } catch (Exception e) {
-            if (errors.length() > 0) errors.append("; ");
-            errors.append("scheduleCron validation error");
-            logger.debug("Error while validating scheduleCron", e);
+        if (entity == null) {
+            logger.warn("BatchJob entity is null in execution context");
+            return null;
         }
 
-        // Validate runMonth: must match YYYY-MM
-        try {
-            String runMonth = entity.getRunMonth();
-            if (runMonth == null || runMonth.isBlank()) {
-                if (errors.length() > 0) errors.append("; ");
-                errors.append("runMonth is required");
-            } else {
-                String runMonthPattern = "^\\d{4}-\\d{2}$";
-                if (!runMonth.matches(runMonthPattern)) {
-                    if (errors.length() > 0) errors.append("; ");
-                    errors.append("runMonth must match YYYY-MM");
-                }
-            }
-        } catch (Exception e) {
-            if (errors.length() > 0) errors.append("; ");
-            errors.append("runMonth validation error");
-            logger.debug("Error while validating runMonth", e);
+        List<String> errors = new ArrayList<>();
+
+        // Validate scheduleCron non-empty
+        if (entity.getScheduleCron() == null || entity.getScheduleCron().isBlank()) {
+            errors.add("scheduleCron must be provided");
         }
 
-        // If there are validation errors, mark FAILED and set summary
-        if (errors.length() > 0) {
-            entity.setStatus("FAILED");
-            entity.setSummary(errors.toString());
-            logger.info("BatchJob validation failed: {}", errors.toString());
+        // Validate runMonth format YYYY-MM
+        String runMonth = entity.getRunMonth();
+        if (runMonth == null || runMonth.isBlank()) {
+            errors.add("runMonth must be provided");
         } else {
-            // Passed validation checks -> move to VALIDATING state
+            try {
+                YearMonth.parse(runMonth); // expects YYYY-MM
+            } catch (DateTimeParseException ex) {
+                errors.add("runMonth must be in format YYYY-MM");
+            }
+        }
+
+        if (!errors.isEmpty()) {
+            // Set job to FAILED with validation summary
+            entity.setStatus("FAILED");
+            String summary = String.join("; ", errors);
+            entity.setSummary("Validation failed: " + summary);
+            logger.info("BatchJob validation failed for id {}: {}", entity.getId(), summary);
+        } else {
+            // Passed validation -> move to VALIDATING
             entity.setStatus("VALIDATING");
-            // Clear any previous summary
-            entity.setSummary(null);
-            logger.info("BatchJob validation passed. Status set to VALIDATING for jobName={}", entity.getJobName());
+            entity.setSummary("Validation passed");
+            logger.info("BatchJob validation passed for id {}", entity.getId());
         }
 
         return entity;

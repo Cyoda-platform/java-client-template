@@ -24,7 +24,7 @@ public class UserValidCriterion implements CyodaCriterion {
     private final CriterionSerializer serializer;
     private final String className = this.getClass().getSimpleName();
 
-    // Simple email pattern: not exhaustive but adequate for validation purpose
+    // Simple email validator - reasonable for basic validation without external dependencies
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
 
     public UserValidCriterion(SerializerFactory serializerFactory) {
@@ -34,7 +34,7 @@ public class UserValidCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(User.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -43,42 +43,45 @@ public class UserValidCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // MUST use exact criterion name
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<User> context) {
          User entity = context.entity();
-
          if (entity == null) {
-             logger.debug("User entity is null in validation context");
-             return EvaluationOutcome.fail("User entity is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             logger.warn("User entity is null in {}", className);
+             return EvaluationOutcome.fail("Entity is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // Required fields: username and email (per entity isValid and business rules)
-         String username = entity.getUsername();
-         String email = entity.getEmail();
-
-         if (username == null || username.isBlank()) {
+         // Required: username
+         if (entity.getUsername() == null || entity.getUsername().isBlank()) {
              return EvaluationOutcome.fail("username is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         if (email == null || email.isBlank()) {
+         // Required: email
+         if (entity.getEmail() == null || entity.getEmail().isBlank()) {
              return EvaluationOutcome.fail("email is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Basic email format validation
-         if (!EMAIL_PATTERN.matcher(email).matches()) {
+         // Email format validation
+         if (!EMAIL_PATTERN.matcher(entity.getEmail().trim()).matches()) {
              return EvaluationOutcome.fail("email format is invalid", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Business rule: usernames must not contain whitespace characters
-         if (username.chars().anyMatch(Character::isWhitespace)) {
-             return EvaluationOutcome.fail("username must not contain spaces", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         // Business rule: if entity already marked INVALID we should not pass it
+         String status = entity.getValidationStatus();
+         if (status != null && status.equalsIgnoreCase("INVALID")) {
+             return EvaluationOutcome.fail("user marked as INVALID", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
-         // Data quality check: ensure the source fetched timestamp is present
-         if (entity.getSourceFetchedAt() == null) {
-             return EvaluationOutcome.fail("sourceFetchedAt timestamp is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         // Data quality warning: missing fullName or phone is a warning (not failure)
+         if (entity.getFullName() == null || entity.getFullName().isBlank()) {
+             // attach as warning via the serializer's reason attachment strategy; return success so pipeline continues
+             context.warning("fullName is missing - will attempt transformation but data may be incomplete");
+         }
+         if (entity.getPhone() == null || entity.getPhone().isBlank()) {
+             context.warning("phone is missing - contact number absent");
          }
 
          // All checks passed

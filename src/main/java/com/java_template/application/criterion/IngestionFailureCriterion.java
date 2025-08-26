@@ -29,7 +29,7 @@ public class IngestionFailureCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(BatchJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,32 +38,38 @@ public class IngestionFailureCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
+        // MUST use exact criterion name
         return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<BatchJob> context) {
          BatchJob entity = context.entity();
-         if (entity == null) {
-             return EvaluationOutcome.fail("BatchJob entity is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
+
+         // Basic validation: required fields must be present
+         if (entity.getJobName() == null || entity.getJobName().isBlank()) {
+             logger.debug("BatchJob missing jobName");
+             return EvaluationOutcome.fail("Job name is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+         if (entity.getRunMonth() == null || entity.getRunMonth().isBlank()) {
+             logger.debug("BatchJob missing runMonth");
+             return EvaluationOutcome.fail("Run month is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+         if (entity.getStatus() == null || entity.getStatus().isBlank()) {
+             logger.debug("BatchJob missing status");
+             return EvaluationOutcome.fail("Status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         String status = entity.getStatus();
-         if (status == null || status.isBlank()) {
-             return EvaluationOutcome.fail("BatchJob.status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         // Business rule: if the job is marked as FAILED then ingestion failed
+         if ("FAILED".equalsIgnoreCase(entity.getStatus())) {
+             String summary = entity.getSummary() != null && !entity.getSummary().isBlank()
+                 ? entity.getSummary()
+                 : "no summary provided";
+             String message = "Ingestion failed for job '" + entity.getJobName() + "': " + summary;
+             logger.info("IngestionFailureCriterion - failing job {}: {}", entity.getJobName(), summary);
+             return EvaluationOutcome.fail(message, StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // This criterion flags actual ingestion/reporting failures. If status is not FAILED, it's not a failure condition.
-         if (!"FAILED".equals(status)) {
-             return EvaluationOutcome.success();
-         }
-
-         // When status is FAILED, we expect a meaningful summary explaining the failure.
-         String summary = entity.getSummary();
-         if (summary == null || summary.isBlank()) {
-             return EvaluationOutcome.fail("BatchJob failed but no summary provided", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-         }
-
-         // Provide the failure reason from summary as a business-rule-level failure indicator.
-         return EvaluationOutcome.fail("Ingestion failure: " + summary, StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         // If not explicitly failed, consider success for this criterion
+         return EvaluationOutcome.success();
     }
 }

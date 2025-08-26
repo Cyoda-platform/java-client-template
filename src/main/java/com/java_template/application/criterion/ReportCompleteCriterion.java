@@ -29,7 +29,7 @@ public class ReportCompleteCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(MonthlyReport.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -42,41 +42,54 @@ public class ReportCompleteCriterion implements CyodaCriterion {
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<MonthlyReport> context) {
-         MonthlyReport entity = context.entity();
+         MonthlyReport report = context.entity();
+         if (report == null) {
+             logger.warn("MonthlyReport entity is null");
+             return EvaluationOutcome.fail("MonthlyReport entity is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
 
-         // Validate required identifying fields
-         if (entity.getMonth() == null || entity.getMonth().isBlank()) {
+         // Validate required string fields
+         if (report.getMonth() == null || report.getMonth().isBlank()) {
              return EvaluationOutcome.fail("month is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-         if (entity.getGeneratedAt() == null || entity.getGeneratedAt().isBlank()) {
+         String monthPattern = "^\\d{4}-\\d{2}$";
+         if (!report.getMonth().matches(monthPattern)) {
+             return EvaluationOutcome.fail("month must be in YYYY-MM format", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         if (report.getGeneratedAt() == null || report.getGeneratedAt().isBlank()) {
              return EvaluationOutcome.fail("generatedAt is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Business rule: report should be in GENERATING state before rendering
-         if (entity.getStatus() == null || !entity.getStatus().equals("GENERATING")) {
-             return EvaluationOutcome.fail("report must be in GENERATING status to proceed to rendering", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         if (report.getFileRef() == null || report.getFileRef().isBlank()) {
+             return EvaluationOutcome.fail("fileRef is required for a completed report", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Data quality checks for metrics
-         Integer total = entity.getTotalUsers();
-         Integer nw = entity.getNewUsers();
-         Integer invalid = entity.getInvalidUsers();
-
-         if (total == null || total < 0) {
-             return EvaluationOutcome.fail("totalUsers is missing or negative", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-         }
-         if (nw == null || nw < 0) {
-             return EvaluationOutcome.fail("newUsers is missing or negative", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-         }
-         if (invalid == null || invalid < 0) {
-             return EvaluationOutcome.fail("invalidUsers is missing or negative", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         if (report.getStatus() == null || report.getStatus().isBlank()) {
+             return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Consistency: totalUsers == newUsers + invalidUsers
-         if (total.intValue() != (nw.intValue() + invalid.intValue())) {
-             return EvaluationOutcome.fail("totalUsers does not equal newUsers + invalidUsers", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         // Business rule: report must be in READY state to be considered complete
+         if (!"READY".equalsIgnoreCase(report.getStatus())) {
+             return EvaluationOutcome.fail("report status must be READY to proceed", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
-        return EvaluationOutcome.success();
+         // Validate numeric fields
+         if (report.getTotalUsers() == null || report.getTotalUsers() < 0) {
+             return EvaluationOutcome.fail("totalUsers must be present and non-negative", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+         if (report.getNewUsers() == null || report.getNewUsers() < 0) {
+             return EvaluationOutcome.fail("newUsers must be present and non-negative", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+         if (report.getInvalidUsers() == null || report.getInvalidUsers() < 0) {
+             return EvaluationOutcome.fail("invalidUsers must be present and non-negative", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+
+         // Consistency check: totals must add up
+         if (report.getTotalUsers().intValue() != (report.getNewUsers().intValue() + report.getInvalidUsers().intValue())) {
+             return EvaluationOutcome.fail("totalUsers must equal newUsers + invalidUsers", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+
+         return EvaluationOutcome.success();
     }
 }

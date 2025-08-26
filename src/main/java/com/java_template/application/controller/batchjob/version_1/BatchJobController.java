@@ -2,157 +2,164 @@ package com.java_template.application.controller.batchjob.version_1;
 
 import static com.java_template.common.config.Config.*;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import com.java_template.application.entity.batchjob.version_1.BatchJob;
+import com.java_template.common.service.EntityService;
+import com.java_template.common.util.SearchConditionRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
-import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.*;
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 @RestController
-@RequestMapping("/jobs")
-@Tag(name = "BatchJob Controller", description = "Proxy controller for BatchJob entity operations")
+@RequestMapping(path = "/api/batch-job/v1", produces = MediaType.APPLICATION_JSON_VALUE)
+@Tag(name = "BatchJob", description = "Operations for BatchJob entity")
 public class BatchJobController {
 
     private static final Logger logger = LoggerFactory.getLogger(BatchJobController.class);
 
     private final EntityService entityService;
-    private final ObjectMapper mapper = new ObjectMapper();
 
     public BatchJobController(EntityService entityService) {
         this.entityService = entityService;
     }
 
-    @Operation(summary = "Create BatchJob", description = "Create a BatchJob entity. Creating a BatchJob triggers the workflow processing.")
+    @Operation(summary = "Create BatchJob", description = "Add a single BatchJob entity")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = CreateBatchJobResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Bad Request", content = @Content),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error", content = @Content)
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = AddResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
-    @PostMapping
-    public ResponseEntity<?> createBatchJob(@io.swagger.v3.oas.annotations.parameters.RequestBody(
-            description = "BatchJob creation payload",
-            required = true,
-            content = @Content(schema = @Schema(implementation = CreateBatchJobRequest.class))
-    ) @RequestBody CreateBatchJobRequest request) {
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> addBatchJob(
+            @Valid @RequestBody AddRequest request) {
         try {
-            if (request == null) {
-                throw new IllegalArgumentException("Request body is required");
-            }
-
-            BatchJob data = new BatchJob();
-            data.setJobName(request.getJobName());
-            data.setScheduleCron(request.getScheduleCron());
-            data.setRunMonth(request.getRunMonth());
-
             CompletableFuture<UUID> idFuture = entityService.addItem(
                     BatchJob.ENTITY_NAME,
                     String.valueOf(BatchJob.ENTITY_VERSION),
-                    data
+                    request.getData()
             );
-
-            UUID technicalId = idFuture.get();
-
-            CreateBatchJobResponse response = new CreateBatchJobResponse();
-            response.setTechnicalId(technicalId.toString());
+            UUID id = idFuture.get();
+            AddResponse response = new AddResponse(id);
             return ResponseEntity.ok(response);
-
-        } catch (IllegalArgumentException iae) {
-            logger.warn("Bad request when creating BatchJob: {}", iae.getMessage());
-            return ResponseEntity.badRequest().body(iae.getMessage());
-        } catch (ExecutionException ee) {
-            Throwable cause = ee.getCause();
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid request for addBatchJob", e);
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
             if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(404).body(cause.getMessage());
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
             } else if (cause instanceof IllegalArgumentException) {
                 return ResponseEntity.badRequest().body(cause.getMessage());
             } else {
-                logger.error("ExecutionException during createBatchJob", ee);
-                return ResponseEntity.status(500).body(cause != null ? cause.getMessage() : ee.getMessage());
+                logger.error("ExecutionException in addBatchJob", e);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : e.getMessage());
             }
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-            logger.error("Interrupted during createBatchJob", ie);
-            return ResponseEntity.status(500).body("Interrupted");
         } catch (Exception e) {
-            logger.error("Unexpected error during createBatchJob", e);
-            return ResponseEntity.status(500).body(e.getMessage());
+            logger.error("Unexpected error in addBatchJob", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
 
-    @Operation(summary = "Get BatchJob by technicalId", description = "Retrieve a BatchJob entity by its technicalId.")
+    @Operation(summary = "Create multiple BatchJobs", description = "Add multiple BatchJob entities")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = BatchJobResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Bad Request", content = @Content),
-            @ApiResponse(responseCode = "404", description = "Not Found", content = @Content),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error", content = @Content)
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = BulkAddResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
-    @GetMapping("/{technicalId}")
-    public ResponseEntity<?> getBatchJobById(
-            @Parameter(name = "technicalId", description = "Technical ID of the entity") @PathVariable String technicalId) {
+    @PostMapping(path = "/batch", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> addBatchJobs(
+            @Valid @RequestBody BulkAddRequest request) {
         try {
-            UUID id = UUID.fromString(technicalId);
+            CompletableFuture<List<UUID>> idsFuture = entityService.addItems(
+                    BatchJob.ENTITY_NAME,
+                    String.valueOf(BatchJob.ENTITY_VERSION),
+                    request.getData()
+            );
+            List<UUID> ids = idsFuture.get();
+            BulkAddResponse response = new BulkAddResponse(ids);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid request for addBatchJobs", e);
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof NoSuchElementException) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
+            } else if (cause instanceof IllegalArgumentException) {
+                return ResponseEntity.badRequest().body(cause.getMessage());
+            } else {
+                logger.error("ExecutionException in addBatchJobs", e);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : e.getMessage());
+            }
+        } catch (Exception e) {
+            logger.error("Unexpected error in addBatchJobs", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
+    @Operation(summary = "Get BatchJob by technicalId", description = "Retrieve a single BatchJob entity by technicalId")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = ObjectNode.class))),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "404", description = "Not Found"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    })
+    @GetMapping(path = "/{technicalId}")
+    public ResponseEntity<?> getBatchJob(
+            @Parameter(name = "technicalId", description = "Technical ID of the entity")
+            @PathVariable("technicalId") @NotNull String technicalId) {
+        try {
             CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
                     BatchJob.ENTITY_NAME,
                     String.valueOf(BatchJob.ENTITY_VERSION),
-                    id
+                    UUID.fromString(technicalId)
             );
-
-            ObjectNode node = itemFuture.get();
-            if (node == null || node.isNull()) {
-                return ResponseEntity.status(404).body("BatchJob not found");
-            }
-
-            BatchJobResponse resp = mapper.convertValue(node, BatchJobResponse.class);
-            return ResponseEntity.ok(resp);
-
-        } catch (IllegalArgumentException iae) {
-            logger.warn("Bad request when fetching BatchJob: {}", iae.getMessage());
-            return ResponseEntity.badRequest().body(iae.getMessage());
-        } catch (ExecutionException ee) {
-            Throwable cause = ee.getCause();
+            ObjectNode item = itemFuture.get();
+            return ResponseEntity.ok(item);
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid UUID or request in getBatchJob", e);
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
             if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(404).body(cause.getMessage());
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
             } else if (cause instanceof IllegalArgumentException) {
                 return ResponseEntity.badRequest().body(cause.getMessage());
             } else {
-                logger.error("ExecutionException during getBatchJobById", ee);
-                return ResponseEntity.status(500).body(cause != null ? cause.getMessage() : ee.getMessage());
+                logger.error("ExecutionException in getBatchJob", e);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : e.getMessage());
             }
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-            logger.error("Interrupted during getBatchJobById", ie);
-            return ResponseEntity.status(500).body("Interrupted");
         } catch (Exception e) {
-            logger.error("Unexpected error during getBatchJobById", e);
-            return ResponseEntity.status(500).body(e.getMessage());
+            logger.error("Unexpected error in getBatchJob", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
 
-    @Operation(summary = "Get all BatchJobs", description = "Retrieve all BatchJob entities.")
+    @Operation(summary = "Get all BatchJobs", description = "Retrieve all BatchJob entities")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = BatchJobResponse.class)))),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error", content = @Content)
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = ObjectNode.class)))),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
     @GetMapping
     public ResponseEntity<?> getAllBatchJobs() {
@@ -161,227 +168,204 @@ public class BatchJobController {
                     BatchJob.ENTITY_NAME,
                     String.valueOf(BatchJob.ENTITY_VERSION)
             );
-
-            ArrayNode array = itemsFuture.get();
-            List<BatchJobResponse> list = mapper.convertValue(array, new TypeReference<List<BatchJobResponse>>() {});
-            return ResponseEntity.ok(list);
-
-        } catch (ExecutionException ee) {
-            Throwable cause = ee.getCause();
+            ArrayNode items = itemsFuture.get();
+            return ResponseEntity.ok(items);
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
             if (cause instanceof IllegalArgumentException) {
                 return ResponseEntity.badRequest().body(cause.getMessage());
             } else {
-                logger.error("ExecutionException during getAllBatchJobs", ee);
-                return ResponseEntity.status(500).body(cause != null ? cause.getMessage() : ee.getMessage());
+                logger.error("ExecutionException in getAllBatchJobs", e);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : e.getMessage());
             }
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-            logger.error("Interrupted during getAllBatchJobs", ie);
-            return ResponseEntity.status(500).body("Interrupted");
         } catch (Exception e) {
-            logger.error("Unexpected error during getAllBatchJobs", e);
-            return ResponseEntity.status(500).body(e.getMessage());
+            logger.error("Unexpected error in getAllBatchJobs", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
 
-    @Operation(summary = "Update BatchJob", description = "Update a BatchJob entity by technicalId.")
+    @Operation(summary = "Search BatchJobs by condition", description = "Retrieve BatchJob entities filtered by a search condition")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = UpdateBatchJobResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Bad Request", content = @Content),
-            @ApiResponse(responseCode = "404", description = "Not Found", content = @Content),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error", content = @Content)
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = ObjectNode.class)))),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
-    @PutMapping("/{technicalId}")
-    public ResponseEntity<?> updateBatchJob(
-            @Parameter(name = "technicalId", description = "Technical ID of the entity") @PathVariable String technicalId,
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    description = "BatchJob update payload",
-                    required = true,
-                    content = @Content(schema = @Schema(implementation = UpdateBatchJobRequest.class))
-            ) @RequestBody UpdateBatchJobRequest request) {
+    @PostMapping(path = "/search", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> searchBatchJobs(
+            @Valid @RequestBody SearchConditionRequest conditionRequest) {
         try {
-            UUID id = UUID.fromString(technicalId);
+            CompletableFuture<ArrayNode> filteredItemsFuture = entityService.getItemsByCondition(
+                    BatchJob.ENTITY_NAME,
+                    String.valueOf(BatchJob.ENTITY_VERSION),
+                    conditionRequest,
+                    true
+            );
+            ArrayNode items = filteredItemsFuture.get();
+            return ResponseEntity.ok(items);
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid search condition in searchBatchJobs", e);
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof IllegalArgumentException) {
+                return ResponseEntity.badRequest().body(cause.getMessage());
+            } else {
+                logger.error("ExecutionException in searchBatchJobs", e);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : e.getMessage());
+            }
+        } catch (Exception e) {
+            logger.error("Unexpected error in searchBatchJobs", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
 
-            BatchJob data = new BatchJob();
-            data.setJobName(request.getJobName());
-            data.setScheduleCron(request.getScheduleCron());
-            data.setRunMonth(request.getRunMonth());
-            data.setCreatedAt(request.getCreatedAt());
-            data.setStartedAt(request.getStartedAt());
-            data.setFinishedAt(request.getFinishedAt());
-            data.setStatus(request.getStatus());
-            data.setSummary(request.getSummary());
-
+    @Operation(summary = "Update BatchJob", description = "Update a BatchJob entity by technicalId")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = UpdateResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "404", description = "Not Found"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    })
+    @PutMapping(path = "/{technicalId}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> updateBatchJob(
+            @Parameter(name = "technicalId", description = "Technical ID of the entity")
+            @PathVariable("technicalId") @NotNull String technicalId,
+            @Valid @RequestBody UpdateRequest request) {
+        try {
             CompletableFuture<UUID> updatedIdFuture = entityService.updateItem(
                     BatchJob.ENTITY_NAME,
                     String.valueOf(BatchJob.ENTITY_VERSION),
-                    id,
-                    data
+                    UUID.fromString(technicalId),
+                    request.getData()
             );
-
-            UUID updatedId = updatedIdFuture.get();
-            UpdateBatchJobResponse resp = new UpdateBatchJobResponse();
-            resp.setTechnicalId(updatedId.toString());
-            return ResponseEntity.ok(resp);
-
-        } catch (IllegalArgumentException iae) {
-            logger.warn("Bad request when updating BatchJob: {}", iae.getMessage());
-            return ResponseEntity.badRequest().body(iae.getMessage());
-        } catch (ExecutionException ee) {
-            Throwable cause = ee.getCause();
+            UUID id = updatedIdFuture.get();
+            UpdateResponse response = new UpdateResponse(id);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid request for updateBatchJob", e);
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
             if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(404).body(cause.getMessage());
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
             } else if (cause instanceof IllegalArgumentException) {
                 return ResponseEntity.badRequest().body(cause.getMessage());
             } else {
-                logger.error("ExecutionException during updateBatchJob", ee);
-                return ResponseEntity.status(500).body(cause != null ? cause.getMessage() : ee.getMessage());
+                logger.error("ExecutionException in updateBatchJob", e);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : e.getMessage());
             }
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-            logger.error("Interrupted during updateBatchJob", ie);
-            return ResponseEntity.status(500).body("Interrupted");
         } catch (Exception e) {
-            logger.error("Unexpected error during updateBatchJob", e);
-            return ResponseEntity.status(500).body(e.getMessage());
+            logger.error("Unexpected error in updateBatchJob", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
 
-    @Operation(summary = "Delete BatchJob", description = "Delete a BatchJob entity by technicalId.")
+    @Operation(summary = "Delete BatchJob", description = "Delete a BatchJob entity by technicalId")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = DeleteBatchJobResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Bad Request", content = @Content),
-            @ApiResponse(responseCode = "404", description = "Not Found", content = @Content),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error", content = @Content)
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = DeleteResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "404", description = "Not Found"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
-    @DeleteMapping("/{technicalId}")
+    @DeleteMapping(path = "/{technicalId}")
     public ResponseEntity<?> deleteBatchJob(
-            @Parameter(name = "technicalId", description = "Technical ID of the entity") @PathVariable String technicalId) {
+            @Parameter(name = "technicalId", description = "Technical ID of the entity")
+            @PathVariable("technicalId") @NotNull String technicalId) {
         try {
-            UUID id = UUID.fromString(technicalId);
             CompletableFuture<UUID> deletedIdFuture = entityService.deleteItem(
                     BatchJob.ENTITY_NAME,
                     String.valueOf(BatchJob.ENTITY_VERSION),
-                    id
+                    UUID.fromString(technicalId)
             );
-
-            UUID deletedId = deletedIdFuture.get();
-            DeleteBatchJobResponse resp = new DeleteBatchJobResponse();
-            resp.setTechnicalId(deletedId.toString());
-            return ResponseEntity.ok(resp);
-
-        } catch (IllegalArgumentException iae) {
-            logger.warn("Bad request when deleting BatchJob: {}", iae.getMessage());
-            return ResponseEntity.badRequest().body(iae.getMessage());
-        } catch (ExecutionException ee) {
-            Throwable cause = ee.getCause();
+            UUID id = deletedIdFuture.get();
+            DeleteResponse response = new DeleteResponse(id);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid request for deleteBatchJob", e);
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
             if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(404).body(cause.getMessage());
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
             } else if (cause instanceof IllegalArgumentException) {
                 return ResponseEntity.badRequest().body(cause.getMessage());
             } else {
-                logger.error("ExecutionException during deleteBatchJob", ee);
-                return ResponseEntity.status(500).body(cause != null ? cause.getMessage() : ee.getMessage());
+                logger.error("ExecutionException in deleteBatchJob", e);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : e.getMessage());
             }
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-            logger.error("Interrupted during deleteBatchJob", ie);
-            return ResponseEntity.status(500).body("Interrupted");
         } catch (Exception e) {
-            logger.error("Unexpected error during deleteBatchJob", e);
-            return ResponseEntity.status(500).body(e.getMessage());
+            logger.error("Unexpected error in deleteBatchJob", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
 
-    /* Static DTO classes for request/response payloads */
+    // DTOs
 
     @Data
-    @Schema(name = "CreateBatchJobRequest", description = "Request payload to create a BatchJob")
-    public static class CreateBatchJobRequest {
-        @Schema(description = "Human name for the scheduled batch run", example = "MonthlyUserBatch")
-        private String jobName;
-
-        @Schema(description = "Cron expression for scheduling", example = "0 0 1 * *")
-        private String scheduleCron;
-
-        @Schema(description = "Run month in YYYY-MM format", example = "2025-09")
-        private String runMonth;
+    @Schema(description = "Request to add a BatchJob")
+    public static class AddRequest {
+        @Schema(description = "BatchJob payload as a JSON object", required = true)
+        @NotNull
+        private ObjectNode data;
     }
 
     @Data
-    @Schema(name = "CreateBatchJobResponse", description = "Response containing technicalId for created BatchJob")
-    public static class CreateBatchJobResponse {
-        @Schema(description = "Technical ID of the created entity", example = "job-0001-uuid")
-        private String technicalId;
+    @Schema(description = "Response after adding an entity")
+    public static class AddResponse {
+        @Schema(description = "Technical id of created entity", required = true)
+        private UUID id;
+
+        public AddResponse(UUID id) {
+            this.id = id;
+        }
     }
 
     @Data
-    @Schema(name = "BatchJobResponse", description = "BatchJob entity representation")
-    public static class BatchJobResponse {
-        @Schema(description = "Human name for the scheduled batch run")
-        private String jobName;
-
-        @Schema(description = "Cron expression for scheduling")
-        private String scheduleCron;
-
-        @Schema(description = "Run month in YYYY-MM format")
-        private String runMonth;
-
-        @Schema(description = "Timestamp when job entity persisted")
-        private String createdAt;
-
-        @Schema(description = "Timestamp when processing started")
-        private String startedAt;
-
-        @Schema(description = "Timestamp when processing finished")
-        private String finishedAt;
-
-        @Schema(description = "Status of the job (PENDING/VALIDATING/RUNNING/COMPLETED/FAILED)")
-        private String status;
-
-        @Schema(description = "Short run summary / error summary")
-        private String summary;
+    @Schema(description = "Request to add multiple BatchJobs")
+    public static class BulkAddRequest {
+        @Schema(description = "List of BatchJob JSON objects", required = true)
+        @NotNull
+        private List<ObjectNode> data;
     }
 
     @Data
-    @Schema(name = "UpdateBatchJobRequest", description = "Payload to update a BatchJob")
-    public static class UpdateBatchJobRequest {
-        @Schema(description = "Human name for the scheduled batch run")
-        private String jobName;
+    @Schema(description = "Response after adding multiple entities")
+    public static class BulkAddResponse {
+        @Schema(description = "List of created technical ids", required = true)
+        private List<UUID> ids;
 
-        @Schema(description = "Cron expression for scheduling")
-        private String scheduleCron;
-
-        @Schema(description = "Run month in YYYY-MM format")
-        private String runMonth;
-
-        @Schema(description = "Timestamp when job entity persisted")
-        private String createdAt;
-
-        @Schema(description = "Timestamp when processing started")
-        private String startedAt;
-
-        @Schema(description = "Timestamp when processing finished")
-        private String finishedAt;
-
-        @Schema(description = "Status of the job (PENDING/VALIDATING/RUNNING/COMPLETED/FAILED)")
-        private String status;
-
-        @Schema(description = "Short run summary / error summary")
-        private String summary;
+        public BulkAddResponse(List<UUID> ids) {
+            this.ids = ids;
+        }
     }
 
     @Data
-    @Schema(name = "UpdateBatchJobResponse", description = "Response containing technicalId for updated BatchJob")
-    public static class UpdateBatchJobResponse {
-        @Schema(description = "Technical ID of the updated entity", example = "job-0001-uuid")
-        private String technicalId;
+    @Schema(description = "Request to update a BatchJob")
+    public static class UpdateRequest {
+        @Schema(description = "BatchJob payload as a JSON object", required = true)
+        @NotNull
+        private ObjectNode data;
     }
 
     @Data
-    @Schema(name = "DeleteBatchJobResponse", description = "Response containing technicalId for deleted BatchJob")
-    public static class DeleteBatchJobResponse {
-        @Schema(description = "Technical ID of the deleted entity", example = "job-0001-uuid")
-        private String technicalId;
+    @Schema(description = "Response after updating an entity")
+    public static class UpdateResponse {
+        @Schema(description = "Technical id of updated entity", required = true)
+        private UUID id;
+
+        public UpdateResponse(UUID id) {
+            this.id = id;
+        }
+    }
+
+    @Data
+    @Schema(description = "Response after deleting an entity")
+    public static class DeleteResponse {
+        @Schema(description = "Technical id of deleted entity", required = true)
+        private UUID id;
+
+        public DeleteResponse(UUID id) {
+            this.id = id;
+        }
     }
 }

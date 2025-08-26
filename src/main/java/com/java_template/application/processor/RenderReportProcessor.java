@@ -1,4 +1,5 @@
 package com.java_template.application.processor;
+
 import com.java_template.application.entity.monthlyreport.version_1.MonthlyReport;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
@@ -7,13 +8,9 @@ import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
-import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.time.Instant;
-import java.time.format.DateTimeFormatter;
-import java.util.Objects;
+import org.springframework.stereotype.Component;
 
 @Component
 public class RenderReportProcessor implements CyodaProcessor {
@@ -31,10 +28,10 @@ public class RenderReportProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing MonthlyReport for request: {}", request.getId());
 
-        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
+        return serializer.withRequest(request)
             .toEntity(MonthlyReport.class)
-            .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+            .validate(this::isValidEntity, "Invalid monthly report state for rendering")
+            .map(this::processEntityLogic)
             .complete();
     }
 
@@ -43,51 +40,47 @@ public class RenderReportProcessor implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private boolean isValidEntity(MonthlyReport entity) {
-        if (entity == null) return false;
-        // Required pre-render fields: month, generatedAt, and metrics must be present and consistent.
-        if (entity.getMonth() == null || entity.getMonth().isBlank()) return false;
-        if (entity.getGeneratedAt() == null || entity.getGeneratedAt().isBlank()) return false;
-        if (entity.getTotalUsers() == null || entity.getTotalUsers() < 0) return false;
-        if (entity.getNewUsers() == null || entity.getNewUsers() < 0) return false;
-        if (entity.getInvalidUsers() == null || entity.getInvalidUsers() < 0) return false;
-        // Consistency: totalUsers == newUsers + invalidUsers
-        if (!Objects.equals(entity.getTotalUsers().intValue(), entity.getNewUsers().intValue() + entity.getInvalidUsers().intValue())) {
-            return false;
-        }
-        // At this stage fileRef may not be set yet and status will be set by this processor.
-        return true;
+    private boolean isValidEntity(MonthlyReport report) {
+        if (report == null) return false;
+        // Required basic fields for rendering: month, generatedAt, numeric metrics and status
+        if (report.getMonth() == null || report.getMonth().isBlank()) return false;
+        if (report.getGeneratedAt() == null || report.getGeneratedAt().isBlank()) return false;
+        if (report.getTotalUsers() == null || report.getNewUsers() == null || report.getInvalidUsers() == null) return false;
+        if (report.getTotalUsers() < 0 || report.getNewUsers() < 0 || report.getInvalidUsers() < 0) return false;
+        // Consistency check
+        if (report.getTotalUsers().intValue() != (report.getNewUsers().intValue() + report.getInvalidUsers().intValue())) return false;
+        // Expect the report to be in a generation phase before rendering
+        String status = report.getStatus();
+        if (status == null || status.isBlank()) return false;
+        String normalized = status.trim().toUpperCase();
+        // Accept either GENERATING or RENDERING as valid pre-render states
+        return "GENERATING".equals(normalized) || "RENDERING".equals(normalized);
     }
 
     private MonthlyReport processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<MonthlyReport> context) {
-        MonthlyReport entity = context.entity();
-        logger.info("Rendering report for month {}", entity.getMonth());
-
-        // Ensure generatedAt is set (if upstream didn't set it).
-        if (entity.getGeneratedAt() == null || entity.getGeneratedAt().isBlank()) {
-            String now = DateTimeFormatter.ISO_INSTANT.format(Instant.now());
-            entity.setGeneratedAt(now);
-        }
+        MonthlyReport report = context.entity();
 
         try {
-            // Simple deterministic fileRef generation based on month.
-            // In a real implementation this would render a file (PDF/CSV) and upload to storage.
-            String sanitizedMonth = entity.getMonth().replaceAll("[^0-9-]", "");
-            String fileRef = String.format("reports/%s-user-report.pdf", sanitizedMonth);
-            entity.setFileRef(fileRef);
+            // Render the report artifact (simulated).
+            // Create a deterministic file reference based on month and a simple suffix.
+            // Do not modify generatedAt; assume it was set by earlier processor.
+            String month = report.getMonth().replaceAll("[^0-9\\-]", "");
+            String fileRef = String.format("reports/%s-user-report.pdf", month);
+            report.setFileRef(fileRef);
 
-            // Mark report as READY after rendering
-            entity.setStatus("READY");
+            // Mark report as READY
+            report.setStatus("READY");
 
-            logger.info("Report rendered for month {} -> fileRef={}", entity.getMonth(), fileRef);
+            logger.info("Rendered report for month {} into fileRef={}", report.getMonth(), fileRef);
         } catch (Exception ex) {
-            logger.error("Failed to render report for month {}: {}", entity.getMonth(), ex.getMessage(), ex);
-            // On failure mark report as FAILED. Do not throw; return modified entity so Cyoda can persist state.
-            entity.setStatus("FAILED");
-            // Ensure fileRef is null/empty on failure
-            entity.setFileRef(null);
+            logger.error("Failed to render report for month {}: {}", report != null ? report.getMonth() : "unknown", ex.getMessage(), ex);
+            // On failure set status to FAILED and populate summary-like field if available as fileRef (no summary field on MonthlyReport).
+            if (report != null) {
+                report.setStatus("FAILED");
+                report.setFileRef(null);
+            }
         }
 
-        return entity;
+        return report;
     }
 }

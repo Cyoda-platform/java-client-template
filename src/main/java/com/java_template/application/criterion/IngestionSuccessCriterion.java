@@ -15,9 +15,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.time.DateTimeException;
-import java.time.Instant;
-
 @Component
 public class IngestionSuccessCriterion implements CyodaCriterion {
 
@@ -32,7 +29,7 @@ public class IngestionSuccessCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(BatchJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -48,46 +45,53 @@ public class IngestionSuccessCriterion implements CyodaCriterion {
          BatchJob entity = context.entity();
 
          if (entity == null) {
-             return EvaluationOutcome.fail("BatchJob entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             return EvaluationOutcome.fail("Entity is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // status must be COMPLETED for a successful ingestion
          String status = entity.getStatus();
-         if (status == null || status.isBlank()) {
-             return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-         if (!"COMPLETED".equalsIgnoreCase(status)) {
-             return EvaluationOutcome.fail("BatchJob status is not COMPLETED", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-         }
-
-         // startedAt and finishedAt must be present
-         String startedAt = entity.getStartedAt();
-         if (startedAt == null || startedAt.isBlank()) {
-             return EvaluationOutcome.fail("startedAt is required for completed jobs", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-         String finishedAt = entity.getFinishedAt();
-         if (finishedAt == null || finishedAt.isBlank()) {
-             return EvaluationOutcome.fail("finishedAt is required for completed jobs", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-
-         // Validate timestamp semantics: finishedAt must be same or after startedAt
-         try {
-             Instant startInstant = Instant.parse(startedAt);
-             Instant finishInstant = Instant.parse(finishedAt);
-             if (finishInstant.isBefore(startInstant)) {
-                 return EvaluationOutcome.fail("finishedAt is before startedAt", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-             }
-         } catch (DateTimeException dte) {
-             logger.debug("Timestamp parse error for BatchJob id {}: {}", entity.getId(), dte.getMessage());
-             return EvaluationOutcome.fail("Invalid timestamp format for startedAt/finishedAt", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-         }
-
-         // Summary should contain ingestion information (processor records ingestion summary)
          String summary = entity.getSummary();
-         if (summary == null || summary.isBlank()) {
-             return EvaluationOutcome.fail("summary is missing; ingestion details expected", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         String startedAt = entity.getStartedAt();
+         String finishedAt = entity.getFinishedAt();
+
+         // Basic presence validation
+         if (status == null || status.isBlank()) {
+             return EvaluationOutcome.fail("BatchJob.status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         return EvaluationOutcome.success();
+         // If job explicitly failed -> fail the criterion (ingestion did not succeed)
+         if ("FAILED".equalsIgnoreCase(status)) {
+             String reason = "Batch job marked as FAILED";
+             if (summary != null && !summary.isBlank()) reason += ": " + summary;
+             return EvaluationOutcome.fail(reason, StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+
+         // If job completed, require finishedAt timestamp
+         if ("COMPLETED".equalsIgnoreCase(status)) {
+             if (finishedAt == null || finishedAt.isBlank()) {
+                 return EvaluationOutcome.fail("Completed job missing finishedAt timestamp", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+             // completed -> success
+             return EvaluationOutcome.success();
+         }
+
+         // If job is in generating/reporting or running states, consider ingestion success when
+         // ingestion summary and startedAt are present (non-terminal but indicates ingestion occurred)
+         if ("GENERATING_REPORT".equalsIgnoreCase(status)
+             || "RUNNING".equalsIgnoreCase(status)
+             || "VALIDATING".equalsIgnoreCase(status)) {
+
+             if (startedAt == null || startedAt.isBlank()) {
+                 return EvaluationOutcome.fail("Job missing startedAt timestamp", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+
+             if (summary != null && summary.toLowerCase().contains("ingested")) {
+                 return EvaluationOutcome.success();
+             } else {
+                 return EvaluationOutcome.fail("Ingestion summary not present or does not indicate ingested users", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+         }
+
+         // For any other status values, return a business rule failure to indicate unexpected state
+         return EvaluationOutcome.fail("Unexpected job status: " + status, StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
     }
 }
