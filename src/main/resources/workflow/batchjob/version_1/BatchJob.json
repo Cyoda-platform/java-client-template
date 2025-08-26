@@ -1,0 +1,117 @@
+{
+  "version": "1.0",
+  "name": "BatchJob Workflow",
+  "desc": "Finite state workflow for BatchJob based on functional requirements: validation, execution (ingestion + report generation + notification), completion/failure.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "initial_to_pending",
+          "next": "PENDING",
+          "manual": false
+        }
+      ]
+    },
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "validate_params",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateJobParamsProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "to_running_if_ready",
+          "next": "RUNNING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "JobReadyCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "RUNNING": {
+      "transitions": [
+        {
+          "name": "start_execution",
+          "next": "EXECUTING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ExecuteBatchProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "EXECUTING": {
+      "transitions": [
+        {
+          "name": "execution_success",
+          "next": "COMPLETED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IngestionSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "execution_failure",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IngestionFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": [
+        {
+          "name": "mark_notified",
+          "next": "NOTIFIED",
+          "manual": false
+        }
+      ]
+    },
+    "NOTIFIED": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    }
+  }
+}

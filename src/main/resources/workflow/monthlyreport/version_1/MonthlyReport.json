@@ -1,0 +1,117 @@
+{
+  "version": "1.0",
+  "name": "MonthlyReport Workflow",
+  "desc": "Workflow for MonthlyReport entity: generation, rendering and publishing of monthly reports based on functional requirements",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "start_create_report",
+          "next": "CREATED",
+          "manual": false
+        }
+      ]
+    },
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "compile_metrics",
+          "next": "GENERATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CompileMetricsProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "GENERATING": {
+      "transitions": [
+        {
+          "name": "metrics_compiled_check",
+          "next": "RENDERING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ReportCompleteCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "RENDERING": {
+      "transitions": [
+        {
+          "name": "render_report",
+          "next": "READY",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RenderReportProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "READY": {
+      "transitions": [
+        {
+          "name": "queue_for_publishing",
+          "next": "PUBLISHING",
+          "manual": false
+        }
+      ]
+    },
+    "PUBLISHING": {
+      "transitions": [
+        {
+          "name": "report_send_success",
+          "next": "PUBLISHED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ReportSendCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "report_send_failure",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ReportSendFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "PUBLISHED": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    }
+  }
+}

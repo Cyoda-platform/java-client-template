@@ -1,0 +1,99 @@
+{
+  "version": "1.0",
+  "name": "User Workflow",
+  "desc": "Workflow for User entity: ingest RAW users, validate/deduplicate, transform/enrich, persist, and mark VALID/INVALID.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "to_raw",
+          "next": "RAW",
+          "manual": false
+        }
+      ]
+    },
+    "RAW": {
+      "transitions": [
+        {
+          "name": "start_validation",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateUserProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "validation_passes",
+          "next": "TRANSFORMING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "UserValidCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_fails",
+          "next": "INVALID",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "UserInvalidCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "TRANSFORMING": {
+      "transitions": [
+        {
+          "name": "transform_and_store",
+          "next": "STORING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "TransformAndStoreUserProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "STORING": {
+      "transitions": [
+        {
+          "name": "mark_stored",
+          "next": "STORED",
+          "manual": false
+        }
+      ]
+    },
+    "STORED": {
+      "transitions": []
+    },
+    "INVALID": {
+      "transitions": []
+    }
+  }
+}
