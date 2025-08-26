@@ -88,10 +88,14 @@ public class StartImportJobProcessor implements CyodaProcessor {
             // Build HNItem entity to trigger HNItem workflow when persisted
             HNItem hnItem = new HNItem();
 
+            // Use accessors to set fields
             if (hnId != null) hnItem.setId(hnId);
             hnItem.setType(type);
+            // Persist the original JSON exactly as received
             hnItem.setOriginalJson(itemNode.toString());
+            // Initial status per workflow diagram
             hnItem.setStatus("CREATED");
+            // importTimestamp will be enriched by HNItem workflow processor
 
             // Persist HNItem using EntityService (asynchronously)
             CompletableFuture<UUID> addFuture = entityService.addItem(
@@ -117,11 +121,7 @@ public class StartImportJobProcessor implements CyodaProcessor {
             logger.error("Error while starting import for job {}: {}", jobRef == null ? "unknown" : jobRef, e.getMessage(), e);
             // mark job as failed; Cyoda will persist changes to this entity automatically
             if (job != null) {
-                try {
-                    job.setStatus("FAILED");
-                } catch (Exception ex) {
-                    logger.error("Unable to mark job FAILED: {}", ex.getMessage(), ex);
-                }
+                job.setStatus("FAILED");
             }
         }
 
