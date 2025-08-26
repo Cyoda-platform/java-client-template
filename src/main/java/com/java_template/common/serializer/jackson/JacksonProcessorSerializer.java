@@ -44,7 +44,7 @@ public class JacksonProcessorSerializer extends BaseJacksonSerializer<EntityProc
 
     @Override
     public String getType() {
-        return SerializerEnum.JACKSON.getType();
+        return SerializerEnum.JACKSON.name();
     }
 
     @Override

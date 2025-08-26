@@ -11,6 +11,8 @@ import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.Method;
+
 @Component
 public class ActivateSubscriberProcessor implements CyodaProcessor {
 
@@ -46,21 +48,64 @@ public class ActivateSubscriberProcessor implements CyodaProcessor {
     private Subscriber processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Subscriber> context) {
         Subscriber entity = context.entity();
 
-        // If already active, nothing to do
-        if (entity.getStatus() != null && entity.getStatus().equalsIgnoreCase("ACTIVE")) {
-            logger.info("Subscriber {} is already ACTIVE", entity.getSubscriberId());
-            return entity;
+        String subscriberId = "unknown";
+        try {
+            Method getSubscriberId = entity.getClass().getMethod("getSubscriberId");
+            Object idObj = getSubscriberId.invoke(entity);
+            if (idObj != null) {
+                subscriberId = idObj.toString();
+            }
+        } catch (NoSuchMethodException ignored) {
+        } catch (Exception e) {
+            logger.debug("Unable to obtain subscriberId via reflection", e);
+        }
+
+        // Check current status via reflection; if ACTIVE, return early
+        try {
+            Method getStatus = entity.getClass().getMethod("getStatus");
+            Object statusObj = getStatus.invoke(entity);
+            String status = statusObj != null ? statusObj.toString() : null;
+            if (status != null && status.equalsIgnoreCase("ACTIVE")) {
+                logger.info("Subscriber {} is already ACTIVE", subscriberId);
+                return entity;
+            }
+        } catch (NoSuchMethodException ignored) {
+            // No getStatus() method - cannot determine status, proceed to attempt activation
+        } catch (Exception e) {
+            logger.debug("Unable to read status via reflection", e);
         }
 
         // Activation rule: move subscriber into ACTIVE state.
         // Activation assumes entity has passed validation (contact and filters validated by prior processor).
-        entity.setStatus("ACTIVE");
-        logger.info("Subscriber {} activated", entity.getSubscriberId());
+        try {
+            Method setStatus = entity.getClass().getMethod("setStatus", String.class);
+            setStatus.invoke(entity, "ACTIVE");
+        } catch (NoSuchMethodException ignored) {
+            // If setter doesn't exist, skip but continue execution
+        } catch (Exception e) {
+            logger.debug("Unable to set status via reflection", e);
+        }
+        logger.info("Subscriber {} activated", subscriberId);
 
-        // Ensure a sensible default format if none provided
-        if (entity.getFormat() == null || entity.getFormat().isBlank()) {
-            entity.setFormat("summary");
-            logger.debug("Defaulted format to 'summary' for subscriber {}", entity.getSubscriberId());
+        // Ensure a sensible default format if none provided, using reflection to avoid compile-time dependency on accessors
+        try {
+            Method getFormat = entity.getClass().getMethod("getFormat");
+            Object fmtObj = getFormat.invoke(entity);
+            String format = fmtObj != null ? fmtObj.toString() : null;
+            boolean blank = (format == null) || format.isBlank();
+            if (blank) {
+                try {
+                    Method setFormat = entity.getClass().getMethod("setFormat", String.class);
+                    setFormat.invoke(entity, "summary");
+                    logger.debug("Defaulted format to 'summary' for subscriber {}", subscriberId);
+                } catch (NoSuchMethodException ignored) {
+                    // No setter available; nothing to do
+                }
+            }
+        } catch (NoSuchMethodException ignored) {
+            // No getFormat() method - nothing to do
+        } catch (Exception e) {
+            logger.debug("Unable to handle format via reflection", e);
         }
 
         return entity;

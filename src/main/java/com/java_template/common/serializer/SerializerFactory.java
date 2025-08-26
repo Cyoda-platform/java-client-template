@@ -51,7 +51,7 @@ public class SerializerFactory {
      * @throws IllegalStateException if no jackson ProcessorSerializer is available
      */
     public ProcessorSerializer getDefaultProcessorSerializer() {
-        return getDefaultProcessorSerializer(SerializerEnum.JACKSON.getType());
+        return getDefaultProcessorSerializer(SerializerEnum.JACKSON.name());
     }
 
     /**
@@ -76,7 +76,7 @@ public class SerializerFactory {
      * @throws IllegalStateException if no jackson CriterionSerializer is available
      */
     public CriterionSerializer getDefaultCriteriaSerializer() {
-        return getDefaultCriteriaSerializer(SerializerEnum.JACKSON.getType());
+        return getDefaultCriteriaSerializer(SerializerEnum.JACKSON.name());
     }
 
 }

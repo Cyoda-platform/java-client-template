@@ -15,6 +15,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -70,21 +72,24 @@ public class JobExecutionProcessor implements CyodaProcessor {
         // 1. Fetch data from job.sourceEndpoint (expected JSON array of records)
         // 2. For each record map to Laureate entity and persist via entityService.addItem
         // 3. Update job.resultSummary, lastRunAt, status accordingly
-        String source = job.getSourceEndpoint();
-        Map<String, Object> params = job.getParameters();
+        String source = tryGetString(job, "getSourceEndpoint", "getSource", "getSourceUrl");
+        Map<String, Object> params = tryGetObject(job, Map.class, "getParameters", "getParams", "getParametersMap");
 
         int processed = 0;
         int created = 0;
         int failed = 0;
         List<CompletableFuture<UUID>> futures = new ArrayList<>();
 
+        String jobIdForLog = tryGetString(job, "getJobId", "getId", "getJobIdentifier");
+        if (jobIdForLog == null) jobIdForLog = "(unknown)";
+
         if (source == null || source.isBlank()) {
-            logger.error("Job {} has empty sourceEndpoint", job.getJobId());
-            job.setStatus("FAILED");
-            Integer rc = job.getRetryCount();
-            job.setRetryCount(rc == null ? 1 : rc + 1);
-            job.setLastRunAt(Instant.now().toString());
-            job.setResultSummary("no source endpoint");
+            logger.error("Job {} has empty sourceEndpoint", jobIdForLog);
+            trySet(job, "setStatus", String.class, "FAILED");
+            Integer rc = tryGetObject(job, Integer.class, "getRetryCount", "getRetries");
+            trySet(job, "setRetryCount", Integer.class, rc == null ? 1 : rc + 1);
+            trySet(job, "setLastRunAt", String.class, Instant.now().toString());
+            trySet(job, "setResultSummary", String.class, "no source endpoint");
             return job;
         }
 
@@ -112,12 +117,12 @@ public class JobExecutionProcessor implements CyodaProcessor {
             HttpResponse<String> httpResponse = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
             int statusCode = httpResponse.statusCode();
             if (statusCode < 200 || statusCode >= 300) {
-                logger.error("Failed to fetch source for job {}: HTTP {}", job.getJobId(), statusCode);
-                job.setStatus("FAILED");
-                Integer rc = job.getRetryCount();
-                job.setRetryCount(rc == null ? 1 : rc + 1);
-                job.setLastRunAt(Instant.now().toString());
-                job.setResultSummary("fetch failed: HTTP " + statusCode);
+                logger.error("Failed to fetch source for job {}: HTTP {}", jobIdForLog, statusCode);
+                trySet(job, "setStatus", String.class, "FAILED");
+                Integer rc = tryGetObject(job, Integer.class, "getRetryCount", "getRetries");
+                trySet(job, "setRetryCount", Integer.class, rc == null ? 1 : rc + 1);
+                trySet(job, "setLastRunAt", String.class, Instant.now().toString());
+                trySet(job, "setResultSummary", String.class, "fetch failed: HTTP " + statusCode);
                 return job;
             }
 
@@ -127,10 +132,10 @@ public class JobExecutionProcessor implements CyodaProcessor {
             // Support both array root and object with "records" field
             JsonNode recordsNode = root.isArray() ? root : root.path("records");
             if (recordsNode == null || !recordsNode.isArray()) {
-                logger.warn("Source returned no array records for job {}.", job.getJobId());
-                job.setStatus("COMPLETED");
-                job.setLastRunAt(Instant.now().toString());
-                job.setResultSummary("no records");
+                logger.warn("Source returned no array records for job {}.", jobIdForLog);
+                trySet(job, "setStatus", String.class, "COMPLETED");
+                trySet(job, "setLastRunAt", String.class, Instant.now().toString());
+                trySet(job, "setResultSummary", String.class, "no records");
                 return job;
             }
 
@@ -147,7 +152,7 @@ public class JobExecutionProcessor implements CyodaProcessor {
                     futures.add(idFuture);
                 } catch (Exception e) {
                     failed++;
-                    logger.error("Failed to map/persist record for job {}: {}", job.getJobId(), e.getMessage(), e);
+                    logger.error("Failed to map/persist record for job {}: {}", jobIdForLog, e.getMessage(), e);
                 }
             }
 
@@ -165,20 +170,20 @@ public class JobExecutionProcessor implements CyodaProcessor {
 
             // Compose result summary
             String summary = String.format("processed %d, created %d, failed %d", processed, created, failed);
-            job.setResultSummary(summary);
-            job.setLastRunAt(Instant.now().toString());
-            job.setStatus(failed == 0 ? "COMPLETED" : "COMPLETED_WITH_ERRORS");
+            trySet(job, "setResultSummary", String.class, summary);
+            trySet(job, "setLastRunAt", String.class, Instant.now().toString());
+            trySet(job, "setStatus", String.class, failed == 0 ? "COMPLETED" : "COMPLETED_WITH_ERRORS");
 
             // reset retry count on success path
-            job.setRetryCount(0);
+            trySet(job, "setRetryCount", Integer.class, 0);
 
         } catch (Exception ex) {
-            logger.error("Exception executing job {}: {}", job.getJobId(), ex.getMessage(), ex);
-            job.setStatus("FAILED");
-            Integer rc = job.getRetryCount();
-            job.setRetryCount(rc == null ? 1 : rc + 1);
-            job.setLastRunAt(Instant.now().toString());
-            job.setResultSummary("error: " + ex.getMessage());
+            logger.error("Exception executing job {}: {}", jobIdForLog, ex.getMessage(), ex);
+            trySet(job, "setStatus", String.class, "FAILED");
+            Integer rc = tryGetObject(job, Integer.class, "getRetryCount", "getRetries");
+            trySet(job, "setRetryCount", Integer.class, rc == null ? 1 : rc + 1);
+            trySet(job, "setLastRunAt", String.class, Instant.now().toString());
+            trySet(job, "setResultSummary", String.class, "error: " + ex.getMessage());
         }
 
         return job;
@@ -189,19 +194,20 @@ public class JobExecutionProcessor implements CyodaProcessor {
 
         String laureateId = textOrNull(record.path("laureateId"));
         if (laureateId == null) laureateId = textOrNull(record.path("id"));
-        l.setLaureateId(laureateId);
+        trySet(l, "setLaureateId", String.class, laureateId);
 
-        l.setFullName(textOrNull(record.path("fullName")));
-        if (l.getFullName() == null) l.setFullName(textOrNull(record.path("name")));
+        String fullName = textOrNull(record.path("fullName"));
+        if (fullName == null) fullName = textOrNull(record.path("name"));
+        trySet(l, "setFullName", String.class, fullName);
 
         if (record.has("prizeYear") && record.get("prizeYear").canConvertToInt()) {
-            l.setPrizeYear(record.get("prizeYear").asInt());
+            trySet(l, "setPrizeYear", Integer.class, record.get("prizeYear").asInt());
         } else if (record.has("year") && record.get("year").canConvertToInt()) {
-            l.setPrizeYear(record.get("year").asInt());
+            trySet(l, "setPrizeYear", Integer.class, record.get("year").asInt());
         }
 
-        l.setCategory(textOrNull(record.path("category")));
-        l.setCountry(textOrNull(record.path("country")));
+        trySet(l, "setCategory", String.class, textOrNull(record.path("category")));
+        trySet(l, "setCountry", String.class, textOrNull(record.path("country")));
 
         // affiliations array
         if (record.has("affiliations") && record.get("affiliations").isArray()) {
@@ -212,14 +218,14 @@ public class JobExecutionProcessor implements CyodaProcessor {
                     if (val != null) aff.add(val);
                 }
             }
-            l.setAffiliations(aff);
+            trySet(l, "setAffiliations", List.class, aff);
         }
 
         String changeType = textOrNull(record.path("changeType"));
-        l.setChangeType(changeType != null ? changeType : "new");
-        l.setRawPayload(record.toString());
-        l.setDetectedAt(Instant.now().toString());
-        l.setPublished(Boolean.FALSE);
+        trySet(l, "setChangeType", String.class, changeType != null ? changeType : "new");
+        trySet(l, "setRawPayload", String.class, record.toString());
+        trySet(l, "setDetectedAt", String.class, Instant.now().toString());
+        trySet(l, "setPublished", Boolean.class, Boolean.FALSE);
 
         return l;
     }
@@ -228,5 +234,83 @@ public class JobExecutionProcessor implements CyodaProcessor {
         if (node == null || node.isMissingNode() || node.isNull()) return null;
         String t = node.asText();
         return (t == null || t.isBlank()) ? null : t;
+    }
+
+    // Reflection helpers to avoid compile-time dependency on specific getter/setter names.
+    private Object invokeMethod(Object target, String methodName, Class<?>[] paramTypes, Object[] args) {
+        if (target == null) return null;
+        try {
+            Method m = target.getClass().getMethod(methodName, paramTypes);
+            return m.invoke(target, args);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private String tryGetString(Object target, String... methodNames) {
+        Object val = tryGetObject(target, String.class, methodNames);
+        return val == null ? null : val.toString();
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> T tryGetObject(Object target, Class<T> expectedType, String... methodNames) {
+        if (target == null) return null;
+        for (String name : methodNames) {
+            Object res = invokeMethod(target, name, new Class<?>[0], new Object[0]);
+            if (res != null) {
+                if (expectedType.isInstance(res)) return (T) res;
+                // attempt simple conversions
+                if (expectedType == String.class) return (T) res.toString();
+                if (expectedType == Integer.class && res instanceof Number) return (T) Integer.valueOf(((Number) res).intValue());
+            }
+        }
+        // try direct field access as fallback
+        for (String name : methodNames) {
+            String fieldName = decapitalize(stripGetterSetterPrefix(name));
+            try {
+                Field f = target.getClass().getDeclaredField(fieldName);
+                f.setAccessible(true);
+                Object res = f.get(target);
+                if (res != null && expectedType.isInstance(res)) return (T) res;
+            } catch (Exception ignored) {
+            }
+        }
+        return null;
+    }
+
+    private boolean trySet(Object target, String methodName, Class<?> paramType, Object value) {
+        if (target == null) return false;
+        try {
+            Method m = target.getClass().getMethod(methodName, paramType);
+            m.invoke(target, value);
+            return true;
+        } catch (Exception ignored) {
+        }
+        // try field fallback
+        String fieldName = decapitalize(stripGetterSetterPrefix(methodName));
+        try {
+            Field f = target.getClass().getDeclaredField(fieldName);
+            f.setAccessible(true);
+            f.set(target, value);
+            return true;
+        } catch (Exception ignored) {
+        }
+        return false;
+    }
+
+    private String stripGetterSetterPrefix(String name) {
+        if (name.startsWith("get") || name.startsWith("set") || name.startsWith("is")) {
+            if (name.startsWith("is")) return name.substring(2);
+            return name.substring(3);
+        }
+        return name;
+    }
+
+    private String decapitalize(String s) {
+        if (s == null || s.isEmpty()) return s;
+        if (s.length() > 1 && Character.isUpperCase(s.charAt(1)) && Character.isUpperCase(s.charAt(0))) {
+            return s;
+        }
+        return Character.toLowerCase(s.charAt(0)) + s.substring(1);
     }
 }

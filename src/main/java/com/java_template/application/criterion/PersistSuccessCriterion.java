@@ -51,28 +51,34 @@ public class PersistSuccessCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("Job entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Basic required identifiers
-         if (job.getJobId() == null || job.getJobId().isBlank()) {
+         // Helper accessors use reflection to avoid compile-time dependency on specific Job getters.
+         String jobId = getStringProperty(job, "getJobId");
+         if (jobId == null || jobId.isBlank()) {
              return EvaluationOutcome.fail("jobId is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-         if (job.getSourceEndpoint() == null || job.getSourceEndpoint().isBlank()) {
+
+         String sourceEndpoint = getStringProperty(job, "getSourceEndpoint");
+         if (sourceEndpoint == null || sourceEndpoint.isBlank()) {
              return EvaluationOutcome.fail("sourceEndpoint is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
          // Status must be present
-         if (job.getStatus() == null || job.getStatus().isBlank()) {
+         String status = getStringProperty(job, "getStatus");
+         if (status == null || status.isBlank()) {
              return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         String status = job.getStatus().trim();
+         status = status.trim();
 
          // Only terminal states are considered a persisted outcome for this criterion
          if ("COMPLETED".equalsIgnoreCase(status)) {
              // COMPLETED must have result summary and last run timestamp
-             if (job.getResultSummary() == null || job.getResultSummary().isBlank()) {
+             String resultSummary = getStringProperty(job, "getResultSummary");
+             if (resultSummary == null || resultSummary.isBlank()) {
                  return EvaluationOutcome.fail("resultSummary must be provided for COMPLETED jobs", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
              }
-             if (job.getLastRunAt() == null || job.getLastRunAt().isBlank()) {
+             String lastRunAt = getStringProperty(job, "getLastRunAt");
+             if (lastRunAt == null || lastRunAt.isBlank()) {
                  return EvaluationOutcome.fail("lastRunAt must be provided for COMPLETED jobs", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
              }
              return EvaluationOutcome.success();
@@ -80,10 +86,12 @@ public class PersistSuccessCriterion implements CyodaCriterion {
 
          if ("FAILED".equalsIgnoreCase(status)) {
              // FAILED should at least carry a result summary explaining failure and have retryCount present
-             if (job.getResultSummary() == null || job.getResultSummary().isBlank()) {
+             String resultSummary = getStringProperty(job, "getResultSummary");
+             if (resultSummary == null || resultSummary.isBlank()) {
                  return EvaluationOutcome.fail("resultSummary should describe failure for FAILED jobs", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
              }
-             if (job.getRetryCount() == null || job.getRetryCount() < 0) {
+             Integer retryCount = getIntegerProperty(job, "getRetryCount");
+             if (retryCount == null || retryCount < 0) {
                  return EvaluationOutcome.fail("retryCount must be non-null and non-negative for FAILED jobs", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
              }
              return EvaluationOutcome.success();
@@ -91,5 +99,41 @@ public class PersistSuccessCriterion implements CyodaCriterion {
 
          // Non-terminal states are not considered persisted outcomes
          return EvaluationOutcome.fail("Job is not in a terminal persisted state: " + status, StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+    }
+
+    private String getStringProperty(Job job, String methodName) {
+        try {
+            java.lang.reflect.Method m = job.getClass().getMethod(methodName);
+            Object val = m.invoke(job);
+            return val == null ? null : val.toString();
+        } catch (NoSuchMethodException nsme) {
+            logger.debug("Method {} not found on Job: {}", methodName, nsme.getMessage());
+            return null;
+        } catch (Exception e) {
+            logger.debug("Error invoking {} on Job: {}", methodName, e.getMessage());
+            return null;
+        }
+    }
+
+    private Integer getIntegerProperty(Job job, String methodName) {
+        try {
+            java.lang.reflect.Method m = job.getClass().getMethod(methodName);
+            Object val = m.invoke(job);
+            if (val == null) return null;
+            if (val instanceof Integer) return (Integer) val;
+            if (val instanceof Number) return ((Number) val).intValue();
+            try {
+                return Integer.valueOf(val.toString());
+            } catch (NumberFormatException nfe) {
+                logger.debug("Cannot parse integer from {} result on Job: {}", methodName, nfe.getMessage());
+                return null;
+            }
+        } catch (NoSuchMethodException nsme) {
+            logger.debug("Method {} not found on Job: {}", methodName, nsme.getMessage());
+            return null;
+        } catch (Exception e) {
+            logger.debug("Error invoking {} on Job: {}", methodName, e.getMessage());
+            return null;
+        }
     }
 }

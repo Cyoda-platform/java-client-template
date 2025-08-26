@@ -44,7 +44,7 @@ public class JacksonCriterionSerializer extends BaseJacksonSerializer<EntityCrit
 
     @Override
     public String getType() {
-        return SerializerEnum.JACKSON.getType();
+        return SerializerEnum.JACKSON.name();
     }
 
     @Override

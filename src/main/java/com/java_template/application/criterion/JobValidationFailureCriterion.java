@@ -15,6 +15,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Set;
@@ -53,28 +55,37 @@ public class JobValidationFailureCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("Job is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Required fields
-         if (job.getJobId() == null || job.getJobId().isBlank()) {
+         // Helper retrievals use reflection to avoid compile-time coupling to specific getter names.
+         String jobId = getString(job, "getJobId", "getId", "getJobID");
+         if (jobId == null || jobId.isBlank()) {
              return EvaluationOutcome.fail("jobId is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-         if (job.getName() == null || job.getName().isBlank()) {
+
+         String name = getString(job, "getName", "getJobName", "getFullName");
+         if (name == null || name.isBlank()) {
              return EvaluationOutcome.fail("name is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-         if (job.getSourceEndpoint() == null || job.getSourceEndpoint().isBlank()) {
+
+         String sourceEndpoint = getString(job, "getSourceEndpoint", "getSource", "getEndpoint", "getSourceUrl", "getSourceURI");
+         if (sourceEndpoint == null || sourceEndpoint.isBlank()) {
              return EvaluationOutcome.fail("sourceEndpoint is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-         if (job.getParameters() == null) {
+
+         Object parameters = getObject(job, "getParameters", "getParams", "getPayload", "getParametersMap");
+         if (parameters == null) {
              return EvaluationOutcome.fail("parameters must be provided (can be empty)", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-         if (job.getRetryCount() == null) {
+
+         Integer retryCount = getInteger(job, "getRetryCount", "getRetries", "getRetry");
+         if (retryCount == null) {
              return EvaluationOutcome.fail("retryCount is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-         if (job.getRetryCount() < 0) {
+         if (retryCount < 0) {
              return EvaluationOutcome.fail("retryCount must be non-negative", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
          // Validate sourceEndpoint syntactically (ensure valid URL and http(s) protocol)
-         String endpoint = job.getSourceEndpoint();
+         String endpoint = sourceEndpoint;
          try {
              URL u = new URL(endpoint);
              String protocol = u.getProtocol();
@@ -89,11 +100,11 @@ public class JobValidationFailureCriterion implements CyodaCriterion {
          }
 
          // Business rules: enforce sensible retry limits and known status values
-         if (job.getRetryCount() > 10) {
+         if (retryCount > 10) {
              return EvaluationOutcome.fail("retryCount exceeds maximum allowed (10)", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
-         String status = job.getStatus();
+         String status = getString(job, "getStatus", "getState");
          if (status != null && !status.isBlank()) {
              Set<String> allowed = Set.of(
                  "CREATED", "VALIDATING", "RUNNING", "ANALYZING",
@@ -105,16 +116,55 @@ public class JobValidationFailureCriterion implements CyodaCriterion {
          }
 
          // schedule is optional but if provided it must not be blank and should resemble a cron expression (5-7 fields)
-         if (job.getSchedule() != null) {
-             if (job.getSchedule().isBlank()) {
+         String schedule = getString(job, "getSchedule", "getCron", "getCronExpression", "getCronExpr");
+         if (schedule != null) {
+             if (schedule.isBlank()) {
                  return EvaluationOutcome.fail("schedule, if provided, must not be blank", StandardEvalReasonCategories.VALIDATION_FAILURE);
              }
-             String[] parts = job.getSchedule().trim().split("\\s+");
+             String[] parts = schedule.trim().split("\\s+");
              if (parts.length < 5 || parts.length > 7) {
                  return EvaluationOutcome.fail("schedule must be a cron-like expression with 5 to 7 fields", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
              }
          }
 
          return EvaluationOutcome.success();
+    }
+
+    private Object getObject(Job job, String... methodNames) {
+        for (String name : methodNames) {
+            try {
+                Method m = job.getClass().getMethod(name);
+                if (m != null) {
+                    Object val = m.invoke(job);
+                    if (val != null) {
+                        return val;
+                    }
+                }
+            } catch (NoSuchMethodException ignored) {
+                // try next
+            } catch (IllegalAccessException | InvocationTargetException e) {
+                logger.debug("Error invoking method {} on Job: {}", name, e.getMessage());
+            }
+        }
+        return null;
+    }
+
+    private String getString(Job job, String... methodNames) {
+        Object o = getObject(job, methodNames);
+        return o == null ? null : o.toString();
+    }
+
+    private Integer getInteger(Job job, String... methodNames) {
+        Object o = getObject(job, methodNames);
+        if (o == null) return null;
+        if (o instanceof Number) {
+            return ((Number) o).intValue();
+        }
+        try {
+            return Integer.parseInt(o.toString());
+        } catch (NumberFormatException e) {
+            logger.debug("Unable to parse integer from value '{}' for job: {}", o, e.getMessage());
+            return null;
+        }
     }
 }

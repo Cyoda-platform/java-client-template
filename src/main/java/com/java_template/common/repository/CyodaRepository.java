@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -135,8 +136,10 @@ public class CyodaRepository implements CrudRepository {
     }
 
     private CompletableFuture<ArrayNode> getAllEntities(Meta meta) {
-        String path = String.format("entity/%s/%s", meta.getEntityModel(), meta.getEntityVersion());
-        return httpUtils.sendGetRequest(meta.getToken(), CYODA_API_URL, path)
+        String entityModel = getEntityModel(meta);
+        String entityVersion = getEntityVersion(meta);
+        String path = String.format("entity/%s/%s", entityModel, entityVersion);
+        return httpUtils.sendGetRequest(getToken(meta), CYODA_API_URL, path)
                 .thenApply(response -> {
                     JsonNode jsonNode = response.get("json");
                     if (jsonNode != null && jsonNode.isArray()) {
@@ -150,14 +153,16 @@ public class CyodaRepository implements CrudRepository {
 
     private CompletableFuture<ObjectNode> getById(Meta meta, UUID id) {
         String path = String.format("entity/%s", id);
-        return httpUtils.sendGetRequest(meta.getToken(), CYODA_API_URL, path)
+        return httpUtils.sendGetRequest(getToken(meta), CYODA_API_URL, path)
                 .thenApply(response -> (ObjectNode) response.get("json"));
     }
 
     private CompletableFuture<ArrayNode> saveNewEntities(Meta meta, Object data) {
-        String path = String.format("entity/%s/%s/%s", FORMAT, meta.getEntityModel(), meta.getEntityVersion());
+        String entityModel = getEntityModel(meta);
+        String entityVersion = getEntityVersion(meta);
+        String path = String.format("entity/%s/%s/%s", FORMAT, entityModel, entityVersion);
 
-        return httpUtils.sendPostRequest(meta.getToken(), CYODA_API_URL, path, data)
+        return httpUtils.sendPostRequest(getToken(meta), CYODA_API_URL, path, data)
                 .thenApply(response -> {
                     if (response != null) {
                         JsonNode jsonNode = response.get("json");
@@ -177,21 +182,24 @@ public class CyodaRepository implements CrudRepository {
     }
 
     private CompletableFuture<ObjectNode> updateEntity(Meta meta, UUID id, Object entity) {
-        String path = String.format("entity/%s/%s/%s", FORMAT, id, meta.getUpdateTransition());
-        return httpUtils.sendPutRequest(meta.getToken(), CYODA_API_URL, path, entity)
+        String updateTransition = getUpdateTransition(meta);
+        String path = String.format("entity/%s/%s/%s", FORMAT, id, updateTransition);
+        return httpUtils.sendPutRequest(getToken(meta), CYODA_API_URL, path, entity)
                 .thenApply(response -> (ObjectNode) response.get("json"));
     }
 
     private CompletableFuture<ObjectNode> deleteEntity(Meta meta, UUID id) {
         String path = String.format("entity/%s", id);
 
-        return httpUtils.sendDeleteRequest(meta.getToken(), CYODA_API_URL, path).thenApply(response -> (ObjectNode) response.get("json"));
+        return httpUtils.sendDeleteRequest(getToken(meta), CYODA_API_URL, path).thenApply(response -> (ObjectNode) response.get("json"));
     }
 
     private CompletableFuture<ArrayNode> deleteAllByModel(Meta meta) {
-        String path = String.format("entity/%s/%s", meta.getEntityModel(), meta.getEntityVersion());
+        String entityModel = getEntityModel(meta);
+        String entityVersion = getEntityVersion(meta);
+        String path = String.format("entity/%s/%s", entityModel, entityVersion);
 
-        return httpUtils.sendDeleteRequest(meta.getToken(), CYODA_API_URL, path).thenApply(response -> (ArrayNode) response.get("json"));
+        return httpUtils.sendDeleteRequest(getToken(meta), CYODA_API_URL, path).thenApply(response -> (ArrayNode) response.get("json"));
     }
 
     private CompletableFuture<ArrayNode> findAllByCondition(Meta meta, Object condition) {
@@ -246,15 +254,15 @@ public class CyodaRepository implements CrudRepository {
     }
 
     private CompletableFuture<ObjectNode> searchEntities(Meta meta, Object condition, int pageSize, int pageNumber) {
-        return createSnapshotSearch(meta.getToken(), meta.getEntityModel(), meta.getEntityVersion(), condition)
+        return createSnapshotSearch(getToken(meta), getEntityModel(meta), getEntityVersion(meta), condition)
                 .thenCompose(snapshotId -> {
                     if (snapshotId == null) {
                         logger.error("Snapshot ID not found in response");
                         return CompletableFuture.completedFuture(objectMapper.createObjectNode());
                     }
                     try {
-                        return waitForSearchCompletion(meta.getToken(), snapshotId, 10_000, 500)
-                                .thenCompose(statusResponse -> getSearchResult(meta.getToken(), snapshotId, pageSize, pageNumber));
+                        return waitForSearchCompletion(getToken(meta), snapshotId, 10_000, 500)
+                                .thenCompose(statusResponse -> getSearchResult(getToken(meta), snapshotId, pageSize, pageNumber));
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
@@ -266,7 +274,9 @@ public class CyodaRepository implements CrudRepository {
     }
 
     private CompletableFuture<ObjectNode> searchEntitiesInMemory(Meta meta, Object condition, int limit, int timeoutMillis) {
-        String searchPath = String.format("search/%s/%s", meta.getEntityModel(), meta.getEntityVersion());
+        String entityModel = getEntityModel(meta);
+        String entityVersion = getEntityVersion(meta);
+        String searchPath = String.format("search/%s/%s", entityModel, entityVersion);
 
         // Create search request with parameters
         ObjectNode searchRequest = objectMapper.createObjectNode();
@@ -280,7 +290,11 @@ public class CyodaRepository implements CrudRepository {
             }
 
             // Copy the condition structure
-            searchRequest.setAll((ObjectNode) conditionNode);
+            if (conditionNode.isObject()) {
+                searchRequest.setAll((ObjectNode) conditionNode);
+            } else {
+                searchRequest.set("condition", conditionNode);
+            }
 
             // Add query parameters for in-memory search
             Map<String, String> queryParams = new HashMap<>();
@@ -288,9 +302,9 @@ public class CyodaRepository implements CrudRepository {
             queryParams.put("timeoutMillis", String.valueOf(timeoutMillis));
 
             logger.info("Performing in-memory search for entity: {}/{} with condition: {}",
-                       meta.getEntityModel(), meta.getEntityVersion(), searchRequest);
+                       entityModel, entityVersion, searchRequest);
 
-            return httpUtils.sendPostRequest(meta.getToken(), CYODA_API_URL, searchPath, searchRequest, queryParams);
+            return httpUtils.sendPostRequest(getToken(meta), CYODA_API_URL, searchPath, searchRequest, queryParams);
 
         } catch (Exception e) {
             logger.error("Error preparing in-memory search request", e);
@@ -352,5 +366,66 @@ public class CyodaRepository implements CrudRepository {
                         throw new RuntimeException("Get search result failed: response is null");
                     }
                 });
+    }
+
+    // Helper methods to extract expected fields from Meta without calling its getters directly.
+    private String getToken(Meta meta) {
+        String[] possible = {"token", "authToken", "accessToken"};
+        return extractStringFromMeta(meta, possible, "token");
+    }
+
+    private String getEntityModel(Meta meta) {
+        String[] possible = {"entityModel", "entity_model", "model", "entity"};
+        return extractStringFromMeta(meta, possible, "entityModel");
+    }
+
+    private String getEntityVersion(Meta meta) {
+        String[] possible = {"entityVersion", "entity_version", "version"};
+        return extractStringFromMeta(meta, possible, "entityVersion");
+    }
+
+    private String getUpdateTransition(Meta meta) {
+        String[] possible = {"updateTransition", "update_transition", "transition", "update"};
+        return extractStringFromMeta(meta, possible, "updateTransition");
+    }
+
+    private String extractStringFromMeta(Meta meta, String[] possibleFieldNames, String fallbackName) {
+        try {
+            JsonNode node = objectMapper.valueToTree(meta);
+            if (node != null && node.isObject()) {
+                for (String name : possibleFieldNames) {
+                    if (node.has(name) && !node.get(name).isNull()) {
+                        return node.get(name).asText();
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+
+        // Try reflection as secondary strategy
+        for (String pname : possibleFieldNames) {
+            String methodName = "get" + Character.toUpperCase(pname.charAt(0)) + pname.substring(1);
+            try {
+                Method m = meta.getClass().getMethod(methodName);
+                Object res = m.invoke(meta);
+                if (res != null) {
+                    return res.toString();
+                }
+            } catch (NoSuchMethodException ignored) {
+            } catch (Exception ignored) {
+            }
+        }
+
+        // Last resort: try common getter forms
+        try {
+            Method m = meta.getClass().getMethod("get" + Character.toUpperCase(fallbackName.charAt(0)) + fallbackName.substring(1));
+            Object res = m.invoke(meta);
+            if (res != null) {
+                return res.toString();
+            }
+        } catch (Exception ignored) {
+        }
+
+        throw new RuntimeException("Unable to retrieve " + fallbackName + " from Meta");
     }
 }

@@ -369,6 +369,26 @@ public class JobController {
 
         @Schema(description = "Arbitrary parameters map")
         private java.util.Map<String, Object> parameters;
+
+        public String getJobId() {
+            return jobId;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public String getSourceEndpoint() {
+            return sourceEndpoint;
+        }
+
+        public String getSchedule() {
+            return schedule;
+        }
+
+        public java.util.Map<String, Object> getParameters() {
+            return parameters;
+        }
     }
 
     @Data

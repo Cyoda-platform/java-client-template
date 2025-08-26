@@ -19,7 +19,6 @@ import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -513,7 +512,6 @@ public class SubscriberController {
 
     // Static DTOs for request/response
 
-    @Data
     @Schema(name = "SubscriberRequest", description = "Payload to create a Subscriber")
     public static class SubscriberRequest {
         @Schema(description = "Business identifier for the subscriber", example = "sub_42")
@@ -537,7 +535,62 @@ public class SubscriberController {
         @Schema(description = "Subscriber status", example = "ACTIVE")
         private String status;
 
-        @Data
+        public String getSubscriberId() {
+            return subscriberId;
+        }
+
+        public void setSubscriberId(String subscriberId) {
+            this.subscriberId = subscriberId;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getContactEndpoint() {
+            return contactEndpoint;
+        }
+
+        public void setContactEndpoint(String contactEndpoint) {
+            this.contactEndpoint = contactEndpoint;
+        }
+
+        public FiltersRequest getFilters() {
+            return filters;
+        }
+
+        public void setFilters(FiltersRequest filters) {
+            this.filters = filters;
+        }
+
+        public String getFormat() {
+            return format;
+        }
+
+        public void setFormat(String format) {
+            this.format = format;
+        }
+
+        public String getCreatedAt() {
+            return createdAt;
+        }
+
+        public void setCreatedAt(String createdAt) {
+            this.createdAt = createdAt;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
+
         @Schema(name = "FiltersRequest", description = "Filter object for subscriber")
         public static class FiltersRequest {
             @Schema(description = "Category filter", example = "physics")
@@ -548,10 +601,33 @@ public class SubscriberController {
 
             @Schema(description = "Prize year filter", example = "2024")
             private Integer prizeYear;
+
+            public String getCategory() {
+                return category;
+            }
+
+            public void setCategory(String category) {
+                this.category = category;
+            }
+
+            public String getCountry() {
+                return country;
+            }
+
+            public void setCountry(String country) {
+                this.country = country;
+            }
+
+            public Integer getPrizeYear() {
+                return prizeYear;
+            }
+
+            public void setPrizeYear(Integer prizeYear) {
+                this.prizeYear = prizeYear;
+            }
         }
     }
 
-    @Data
     @Schema(name = "SearchRequest", description = "Simple search request for Subscribers")
     public static class SearchRequest {
         @Schema(description = "Field name to search on (without $. prefix)", example = "subscriberId")
@@ -562,23 +638,60 @@ public class SubscriberController {
 
         @Schema(description = "Value to compare to", example = "sub_42")
         private String value;
+
+        public String getFieldName() {
+            return fieldName;
+        }
+
+        public void setFieldName(String fieldName) {
+            this.fieldName = fieldName;
+        }
+
+        public String getOperator() {
+            return operator;
+        }
+
+        public void setOperator(String operator) {
+            this.operator = operator;
+        }
+
+        public String getValue() {
+            return value;
+        }
+
+        public void setValue(String value) {
+            this.value = value;
+        }
     }
 
-    @Data
     @Schema(name = "TechnicalIdResponse", description = "Response containing technical id")
     public static class TechnicalIdResponse {
         @Schema(description = "Technical identifier of created entity", example = "tch_sub_987")
         private String technicalId;
+
+        public String getTechnicalId() {
+            return technicalId;
+        }
+
+        public void setTechnicalId(String technicalId) {
+            this.technicalId = technicalId;
+        }
     }
 
-    @Data
     @Schema(name = "TechnicalIdsResponse", description = "Response containing technical ids for batch operations")
     public static class TechnicalIdsResponse {
         @Schema(description = "Technical identifiers of created entities")
         private List<String> technicalIds;
+
+        public List<String> getTechnicalIds() {
+            return technicalIds;
+        }
+
+        public void setTechnicalIds(List<String> technicalIds) {
+            this.technicalIds = technicalIds;
+        }
     }
 
-    @Data
     @Schema(name = "SubscriberResponse", description = "Subscriber entity response")
     public static class SubscriberResponse {
         @Schema(description = "Business identifier for the subscriber", example = "sub_42")
@@ -602,7 +715,62 @@ public class SubscriberController {
         @Schema(description = "Creation timestamp (ISO-8601)", example = "2025-01-01T00:00:00Z")
         private String createdAt;
 
-        @Data
+        public String getSubscriberId() {
+            return subscriberId;
+        }
+
+        public void setSubscriberId(String subscriberId) {
+            this.subscriberId = subscriberId;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getContactEndpoint() {
+            return contactEndpoint;
+        }
+
+        public void setContactEndpoint(String contactEndpoint) {
+            this.contactEndpoint = contactEndpoint;
+        }
+
+        public FiltersResponse getFilters() {
+            return filters;
+        }
+
+        public void setFilters(FiltersResponse filters) {
+            this.filters = filters;
+        }
+
+        public String getFormat() {
+            return format;
+        }
+
+        public void setFormat(String format) {
+            this.format = format;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
+
+        public String getCreatedAt() {
+            return createdAt;
+        }
+
+        public void setCreatedAt(String createdAt) {
+            this.createdAt = createdAt;
+        }
+
         @Schema(name = "FiltersResponse", description = "Filters for the subscriber")
         public static class FiltersResponse {
             @Schema(description = "Category filter", example = "physics")
@@ -613,6 +781,30 @@ public class SubscriberController {
 
             @Schema(description = "Prize year filter", example = "2024")
             private Integer prizeYear;
+
+            public String getCategory() {
+                return category;
+            }
+
+            public void setCategory(String category) {
+                this.category = category;
+            }
+
+            public String getCountry() {
+                return country;
+            }
+
+            public void setCountry(String country) {
+                this.country = country;
+            }
+
+            public Integer getPrizeYear() {
+                return prizeYear;
+            }
+
+            public void setPrizeYear(Integer prizeYear) {
+                this.prizeYear = prizeYear;
+            }
         }
     }
 }

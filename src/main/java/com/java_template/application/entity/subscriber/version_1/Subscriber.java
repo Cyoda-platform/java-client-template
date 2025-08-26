@@ -26,6 +26,18 @@ public class Subscriber implements CyodaEntity {
         private String country;
         private Integer prizeYear;
         public Filters() {}
+
+        public String getCategory() {
+            return category;
+        }
+
+        public String getCountry() {
+            return country;
+        }
+
+        public Integer getPrizeYear() {
+            return prizeYear;
+        }
     }
 
     @Override
