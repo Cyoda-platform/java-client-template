@@ -1,0 +1,87 @@
+{
+  "version": "1.0",
+  "name": "Product Workflow",
+  "desc": "Workflow for Product entity: persist -> validate -> activate -> ready (with failure branch to INVALID)",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "persist_event",
+          "next": "PERSISTED",
+          "manual": false
+        }
+      ]
+    },
+    "PERSISTED": {
+      "transitions": [
+        {
+          "name": "start_validation",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateProductProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "validation_succeeds",
+          "next": "ACTIVATING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_fails",
+          "next": "INVALID",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.validation.passed",
+            "operation": "EQUALS",
+            "value": false
+          }
+        }
+      ]
+    },
+    "ACTIVATING": {
+      "transitions": [
+        {
+          "name": "activate_product",
+          "next": "READY",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ActivateProductProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "READY": {
+      "transitions": []
+    },
+    "INVALID": {
+      "transitions": []
+    }
+  }
+}

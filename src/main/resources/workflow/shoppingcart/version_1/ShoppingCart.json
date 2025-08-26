@@ -1,0 +1,73 @@
+{
+  "version": "1.0",
+  "name": "ShoppingCart Workflow",
+  "desc": "Workflow for ShoppingCart: creation, manual item operations, prepare checkout and checkout validation",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "initial_to_created",
+          "next": "CREATED",
+          "manual": false
+        }
+      ]
+    },
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "created_to_updated",
+          "next": "UPDATED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "CartItemProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "UPDATED": {
+      "transitions": [
+        {
+          "name": "updated_to_validating_checkout",
+          "next": "VALIDATING_CHECKOUT",
+          "manual": true,
+          "processors": [
+            {
+              "name": "PrepareCheckoutProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING_CHECKOUT": {
+      "transitions": [
+        {
+          "name": "validating_checkout_to_checkout_requested",
+          "next": "CHECKOUT_REQUESTED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "CheckoutCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "CHECKOUT_REQUESTED": {
+      "transitions": []
+    }
+  }
+}
