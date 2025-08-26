@@ -1,0 +1,86 @@
+{
+    "entities": [
+        {
+            "Product": {
+                "entity_data_example": {
+                    "active": true,
+                    "attributes": {
+                        "color": "red",
+                        "size": "M"
+                    },
+                    "businessId": "SKU-001",
+                    "category": "General",
+                    "createdAt": "2025-08-26T11:50:00Z",
+                    "currency": "USD",
+                    "description": "Detailed product description",
+                    "images": [
+                        "https://cdn.example.com/img1.jpg"
+                    ],
+                    "name": "Example Product",
+                    "price": 19.99,
+                    "stockQuantity": 120,
+                    "updatedAt": "2025-08-26T12:00:00Z"
+                }
+            }
+        },
+        {
+            "Order": {
+                "entity_data_example": {
+                    "billingAddress": {
+                        "city": "Sample City",
+                        "country": "US",
+                        "postalCode": "90001",
+                        "state": "CA",
+                        "street": "123 Example St"
+                    },
+                    "currency": "USD",
+                    "customerId": "CUST-123",
+                    "fulfillmentStatus": "SHIPPED",
+                    "items": [
+                        {
+                            "productBusinessId": "SKU-001",
+                            "quantity": 2,
+                            "sku": "SKU-001",
+                            "unitPrice": 19.99
+                        }
+                    ],
+                    "notes": "Leave at front door",
+                    "orderNumber": "ORD-1001",
+                    "paymentStatus": "CAPTURED",
+                    "placedAt": "2025-08-26T12:10:00Z",
+                    "shippingAddress": {
+                        "city": "Sample City",
+                        "country": "US",
+                        "postalCode": "90001",
+                        "state": "CA",
+                        "street": "123 Example St"
+                    },
+                    "totalAmount": 39.98,
+                    "updatedAt": "2025-08-26T12:45:00Z"
+                }
+            }
+        },
+        {
+            "ImportJob": {
+                "entity_data_example": {
+                    "completedAt": "2025-08-26T12:05:00Z",
+                    "createdAt": "2025-08-26T11:59:55Z",
+                    "errorDetails": "errors.csv",
+                    "fileFormat": "CSV",
+                    "initiatedBy": "admin@example.com",
+                    "mappingRules": {
+                        "map": "rules"
+                    },
+                    "recordsFailed": 3,
+                    "recordsProcessed": 100,
+                    "recordsSucceeded": 97,
+                    "sourceLocation": "s3://bucket/path/file.csv",
+                    "sourceType": "FILE",
+                    "startedAt": "2025-08-26T12:00:00Z",
+                    "status": "COMPLETED",
+                    "updatedAt": "2025-08-26T12:05:00Z"
+                }
+            }
+        }
+    ]
+}
