@@ -103,8 +103,8 @@ public class ValidateUserProcessor implements CyodaProcessor {
             );
 
             // Use the EntityService search operation. This returns a CompletableFuture of results.
-            // The exact method name may vary in implementations; here we call searchItems which is the expected pattern.
-            CompletableFuture<ArrayNode> resultFuture = entityService.searchItems(
+            // The interface exposes getItemsByCondition which accepts the search request as an Object.
+            CompletableFuture<ArrayNode> resultFuture = entityService.getItemsByCondition(
                 User.ENTITY_NAME,
                 String.valueOf(User.ENTITY_VERSION),
                 searchRequest
