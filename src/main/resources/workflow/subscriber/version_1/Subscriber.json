@@ -1,0 +1,134 @@
+{
+  "version": "1.0",
+  "name": "Subscriber Workflow",
+  "desc": "Workflow for Subscriber entity: registration, activation, evaluation of published laureates, sending notifications and handling failures (manual escalation supported).",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "to_registered",
+          "next": "REGISTERED",
+          "manual": false
+        }
+      ]
+    },
+    "REGISTERED": {
+      "transitions": [
+        {
+          "name": "register_activate",
+          "next": "ACTIVE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RegisterSubscriberProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "on_laureate_match",
+          "next": "PENDING_NOTIFICATION",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "HasMatchesCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "no_match_idle",
+          "next": "IDLE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "NoMatchCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "PENDING_NOTIFICATION": {
+      "transitions": [
+        {
+          "name": "prepare_and_send",
+          "next": "SENDING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendNotificationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SENDING": {
+      "transitions": [
+        {
+          "name": "send_success",
+          "next": "NOTIFIED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "SendSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "send_failed",
+          "next": "FAILED_NOTIFICATION",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "SendFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "NOTIFIED": {
+      "transitions": []
+    },
+    "FAILED_NOTIFICATION": {
+      "transitions": [
+        {
+          "name": "escalate_to_manual_review",
+          "next": "MANUAL_REVIEW",
+          "manual": true
+        }
+      ]
+    },
+    "IDLE": {
+      "transitions": []
+    },
+    "MANUAL_REVIEW": {
+      "transitions": []
+    }
+  }
+}
