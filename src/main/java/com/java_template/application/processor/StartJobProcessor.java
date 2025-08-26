@@ -48,20 +48,55 @@ public class StartJobProcessor implements CyodaProcessor {
         Job entity = context.entity();
 
         // Business logic: mark the Job as IN_PROGRESS when started by this processor.
+        // Only transition when job is currently in a startable state (e.g., PENDING).
         // Do not perform any add/update/delete operations on this Job entity via EntityService.
         // Cyoda will persist the modified entity state automatically.
+
+        if (entity == null) {
+            logger.warn("Received null Job entity in StartJobProcessor");
+            return null;
+        }
+
         try {
-            logger.info("Starting job: {}", entity.getJobName());
-            entity.setStatus("IN_PROGRESS");
-        } catch (Exception e) {
-            logger.error("Failed to start job {}: {}", entity != null ? entity.getJobName() : "unknown", e.getMessage(), e);
-            // In case of unexpected error, set status to FAILED to reflect failure to start
-            if (entity != null) {
-                try {
-                    entity.setStatus("FAILED");
-                } catch (Exception ex) {
-                    logger.warn("Unable to set FAILED status on job", ex);
+            String currentStatus = entity.getStatus();
+            logger.info("Current status for job '{}': {}", entity.getJobName(), currentStatus);
+
+            if (currentStatus == null || currentStatus.isBlank()) {
+                // If status missing, consider it as PENDING and start
+                logger.info("Status missing for job '{}', setting to IN_PROGRESS", entity.getJobName());
+                entity.setStatus("IN_PROGRESS");
+            } else {
+                String normalized = currentStatus.trim().toUpperCase();
+                switch (normalized) {
+                    case "PENDING":
+                    case "PENDING_APPROVAL":
+                        // Acceptable to start
+                        entity.setStatus("IN_PROGRESS");
+                        logger.info("Job '{}' transitioned from '{}' to IN_PROGRESS", entity.getJobName(), currentStatus);
+                        break;
+                    case "IN_PROGRESS":
+                        // Already started, no-op
+                        logger.info("Job '{}' already IN_PROGRESS - no transition performed", entity.getJobName());
+                        break;
+                    case "COMPLETED":
+                    case "FAILED":
+                        // Terminal states: do not restart
+                        logger.warn("Job '{}' is in terminal state '{}' - StartJobProcessor will not change state", entity.getJobName(), currentStatus);
+                        break;
+                    default:
+                        // For any other state, be conservative and set to IN_PROGRESS only if it's a recognized start state
+                        logger.info("Job '{}' in unrecognized state '{}' - setting to IN_PROGRESS to attempt start", entity.getJobName(), currentStatus);
+                        entity.setStatus("IN_PROGRESS");
+                        break;
                 }
+            }
+        } catch (Exception e) {
+            logger.error("Failed to start job {}: {}", entity.getJobName(), e.getMessage(), e);
+            // In case of unexpected error, set status to FAILED to reflect failure to start
+            try {
+                entity.setStatus("FAILED");
+            } catch (Exception ex) {
+                logger.warn("Unable to set FAILED status on job '{}'", entity.getJobName(), ex);
             }
         }
 

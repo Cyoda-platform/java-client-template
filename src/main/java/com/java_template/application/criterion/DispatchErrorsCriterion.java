@@ -29,7 +29,7 @@ public class DispatchErrorsCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Job.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,15 +38,22 @@ public class DispatchErrorsCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must match the exact criterion class name
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Job> context) {
          Job entity = context.entity();
 
+         if (entity == null) {
+             logger.debug("DispatchErrorsCriterion: received null Job entity");
+             return EvaluationOutcome.fail("Job entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
          // Ensure status is present
          if (entity.getStatus() == null || entity.getStatus().isBlank()) {
-             logger.debug("DispatchErrorsCriterion: job {} missing status", entity.getJobName());
+             String jobIdOrName = entity.getJobName() != null ? entity.getJobName() : entity.getId();
+             logger.debug("DispatchErrorsCriterion: job {} missing status", jobIdOrName);
              return EvaluationOutcome.fail("Job status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
@@ -54,13 +61,13 @@ public class DispatchErrorsCriterion implements CyodaCriterion {
 
          // If job ended in FAILED state -> dispatch errors detected (business rule failure)
          if ("FAILED".equalsIgnoreCase(status)) {
-             String msg = String.format("Dispatch produced errors for job '%s' (status=FAILED)", entity.getJobName());
+             String jobIdOrName = entity.getJobName() != null ? entity.getJobName() : entity.getId();
+             String msg = String.format("Dispatch produced errors for job '%s' (status=FAILED)", jobIdOrName);
              logger.info("DispatchErrorsCriterion: {}", msg);
              return EvaluationOutcome.fail(msg, StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
-         // Status values indicating ongoing dispatch are acceptable (treat as success for this criterion)
-         // Any other status (e.g., COMPLETED, IN_PROGRESS, PENDING) is considered success for dispatch errors check
+         // For other statuses (PENDING, IN_PROGRESS, COMPLETED, etc.) this criterion does not detect dispatch errors
          return EvaluationOutcome.success();
     }
 }

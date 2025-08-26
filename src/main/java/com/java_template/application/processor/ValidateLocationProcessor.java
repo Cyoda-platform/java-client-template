@@ -12,6 +12,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.time.DateTimeException;
+import java.time.ZoneId;
+
 @Component
 public class ValidateLocationProcessor implements CyodaProcessor {
 
@@ -50,32 +53,57 @@ public class ValidateLocationProcessor implements CyodaProcessor {
         // Business rule:
         // If coordinates and timezone are valid, mark location as active (monitoring enabled).
         // Otherwise mark location as inactive (requires manual fix / invalid).
+        if (entity == null) {
+            logger.warn("Received null Location entity in processing context");
+            return null;
+        }
+
         try {
             Double lat = entity.getLatitude();
             Double lon = entity.getLongitude();
             String tz = entity.getTimezone();
+            String locId = entity.getLocationId();
+            String name = entity.getName();
 
-            boolean coordsValid = lat != null && lon != null && lat >= -90.0 && lat <= 90.0 && lon >= -180.0 && lon <= 180.0;
-            boolean timezoneValid = tz != null && !tz.isBlank();
+            // Basic presence checks - if essential identifiers are missing, fail validation
+            boolean hasIdAndName = locId != null && !locId.isBlank() && name != null && !name.isBlank();
 
-            if (coordsValid && timezoneValid) {
+            boolean coordsValid = false;
+            if (lat != null && lon != null) {
+                coordsValid = Double.isFinite(lat) && Double.isFinite(lon)
+                    && lat >= -90.0 && lat <= 90.0 && lon >= -180.0 && lon <= 180.0;
+            }
+
+            boolean timezoneValid = false;
+            if (tz != null && !tz.isBlank()) {
+                String tzTrimmed = tz.trim();
+                try {
+                    // Verify timezone is a valid IANA timezone id
+                    ZoneId.of(tzTrimmed);
+                    timezoneValid = true;
+                    // normalize stored timezone string
+                    entity.setTimezone(tzTrimmed);
+                } catch (DateTimeException dtex) {
+                    timezoneValid = false;
+                }
+            }
+
+            boolean overallValid = hasIdAndName && coordsValid && timezoneValid;
+
+            if (overallValid) {
                 if (entity.getActive() == null || !entity.getActive()) {
                     logger.info("Location {} validated successfully - activating", entity.getLocationId());
                 }
                 entity.setActive(true);
             } else {
-                if (entity.getActive() == null || entity.getActive()) {
-                    logger.warn("Location {} failed validation - deactivating (coordsValid={}, timezoneValid={})",
-                        entity.getLocationId(), coordsValid, timezoneValid);
-                }
+                logger.warn("Location {} failed validation - activating=false (hasIdAndName={}, coordsValid={}, timezoneValid={})",
+                    entity.getLocationId(), hasIdAndName, coordsValid, timezoneValid);
                 entity.setActive(false);
             }
         } catch (Exception ex) {
-            logger.error("Error while validating Location {}: {}", entity != null ? entity.getLocationId() : "unknown", ex.getMessage(), ex);
+            logger.error("Error while validating Location {}: {}", entity.getLocationId(), ex.getMessage(), ex);
             // On unexpected error, mark as inactive to prevent accidental activation
-            if (entity != null) {
-                entity.setActive(false);
-            }
+            entity.setActive(false);
         }
 
         return entity;

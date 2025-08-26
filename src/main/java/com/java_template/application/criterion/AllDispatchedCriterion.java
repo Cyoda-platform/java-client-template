@@ -31,7 +31,6 @@ public class AllDispatchedCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request)
             .evaluateEntity(Job.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -40,7 +39,9 @@ public class AllDispatchedCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        if (modelSpec == null || modelSpec.operationName() == null) return false;
+        // Must use exact criterion name (case-sensitive)
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Job> context) {
@@ -58,11 +59,11 @@ public class AllDispatchedCriterion implements CyodaCriterion {
         }
 
         // If job already completed, criterion satisfied
-        if ("COMPLETED".equalsIgnoreCase(status)) {
+        if ("COMPLETED".equals(status)) {
             return EvaluationOutcome.success();
         }
 
-        // This criterion is intended to verify that all expected dispatches have been emitted.
+        // This criterion verifies that all expected dispatches have been emitted.
         // It expects the job.parameters map to contain numeric counters:
         //  - "expectedDispatchCount" : Number
         //  - "dispatchedCount" : Number
@@ -89,14 +90,19 @@ public class AllDispatchedCriterion implements CyodaCriterion {
             expected = toLong(expectedObj);
             dispatched = toLong(dispatchedObj);
         } catch (NumberFormatException ex) {
-            logger.debug("Invalid dispatch counter types for job id={}: expectedObj={}, dispatchedObj={}", job.getId(), expectedObj, dispatchedObj);
+            logger.debug("Invalid dispatch counter types for job id={}: expectedObj={}, dispatchedObj={}, error={}", job.getId(), expectedObj, dispatchedObj, ex.getMessage());
             return EvaluationOutcome.fail("Dispatch counters must be numeric", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
         }
 
-        if (expected <= 0) {
+        if (expected == null || expected <= 0) {
             logger.debug("Non-positive expected dispatch count for job id={}: {}", job.getId(), expected);
             return EvaluationOutcome.fail("Expected dispatch count must be greater than zero",
                 StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+
+        if (dispatched == null) {
+            logger.debug("Dispatched count could not be determined for job id={}", job.getId());
+            return EvaluationOutcome.fail("Dispatched count is invalid", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
         }
 
         if (dispatched >= expected) {
@@ -113,20 +119,25 @@ public class AllDispatchedCriterion implements CyodaCriterion {
 
     /**
      * Convert common numeric types to Long.
-     * Accepts Integer, Long, Short, Byte, Double (will be rounded down), Float (rounded down), String numeric.
+     * Accepts any Number, or numeric String (integer or decimal).
+     * For floating values the longValue() (floor toward zero) is used.
      */
     private Long toLong(Object obj) {
-        if (obj instanceof Long) return (Long) obj;
-        if (obj instanceof Integer) return ((Integer) obj).longValue();
-        if (obj instanceof Short) return ((Short) obj).longValue();
-        if (obj instanceof Byte) return ((Byte) obj).longValue();
-        if (obj instanceof Double) return ((Double) obj).longValue();
-        if (obj instanceof Float) return ((Float) obj).longValue();
+        if (obj == null) throw new NumberFormatException("null");
+        if (obj instanceof Number) {
+            return ((Number) obj).longValue();
+        }
         if (obj instanceof String) {
             String s = ((String) obj).trim();
             if (s.isEmpty()) throw new NumberFormatException("Empty string");
-            return Long.parseLong(s);
+            try {
+                return Long.parseLong(s);
+            } catch (NumberFormatException e) {
+                // Try parsing as double and convert
+                double d = Double.parseDouble(s);
+                return (long) d;
+            }
         }
-        throw new NumberFormatException("Unsupported numeric type: " + (obj == null ? "null" : obj.getClass().getName()));
+        throw new NumberFormatException("Unsupported numeric type: " + obj.getClass().getName());
     }
 }
