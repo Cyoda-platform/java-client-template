@@ -1,0 +1,91 @@
+{
+  "version": "1.0",
+  "name": "MonthlyReport Workflow",
+  "desc": "Workflow for MonthlyReport entity derived from functional requirements: generation, pending publish, publishing, final states (published or failed). No loops included; publishing outcomes decided by criteria.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "transition_to_generated",
+          "next": "GENERATED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "GenerateReportProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "GENERATED": {
+      "transitions": [
+        {
+          "name": "transition_to_pending_publish",
+          "next": "PENDING_PUBLISH",
+          "manual": false
+        }
+      ]
+    },
+    "PENDING_PUBLISH": {
+      "transitions": [
+        {
+          "name": "transition_to_publishing",
+          "next": "PUBLISHING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "StartPublishProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PUBLISHING": {
+      "transitions": [
+        {
+          "name": "publish_success_transition",
+          "next": "PUBLISHED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PublishSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "publish_failure_transition",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PublishFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "PUBLISHED": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    }
+  }
+}
