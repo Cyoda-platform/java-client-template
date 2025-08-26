@@ -1,0 +1,60 @@
+{
+    "entities": [
+        {
+            "Job": {
+                "entity_data_example": {
+                    "attemptCount": 0,
+                    "completedAt": null,
+                    "createdAt": "2025-08-26T12:00:00Z",
+                    "payload": {
+                        "apiUrl": "https://example.org/dataset?id=123",
+                        "rows": 50
+                    },
+                    "resultRef": null,
+                    "startedAt": null,
+                    "status": "PENDING",
+                    "type": "INGEST"
+                }
+            }
+        },
+        {
+            "Laureate": {
+                "entity_data_example": {
+                    "birthCity": "Warsaw",
+                    "birthCountry": "Poland",
+                    "birthDate": "1867-11-07",
+                    "category": "chemistry",
+                    "createdAt": "2025-08-26T12:05:00Z",
+                    "diedDate": "1934-07-04",
+                    "fullName": "Marie Curie",
+                    "id": "rec-abc123",
+                    "motivation": "in recognition of her services to the advancement of chemistry",
+                    "sourceRecordId": "src-789",
+                    "status": "RAW",
+                    "year": "1911"
+                }
+            }
+        },
+        {
+            "Subscriber": {
+                "entity_data_example": {
+                    "active": true,
+                    "contact": {
+                        "email": "alice@example.com"
+                    },
+                    "createdAt": "2025-08-26T11:00:00Z",
+                    "id": "sub-42",
+                    "name": "Alice",
+                    "subscribedCategories": [
+                        "physics",
+                        "chemistry"
+                    ],
+                    "subscribedYearRange": {
+                        "from": "1900",
+                        "to": "1950"
+                    }
+                }
+            }
+        }
+    ]
+}
