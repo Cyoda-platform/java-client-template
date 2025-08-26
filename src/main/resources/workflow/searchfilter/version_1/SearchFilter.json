@@ -1,0 +1,102 @@
+{
+  "version": "1.0",
+  "name": "SearchFilter Workflow",
+  "desc": "Workflow for SearchFilter based on functional requirements (create -> validate -> activate -> trigger -> complete -> inactive).",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "to_created",
+          "next": "CREATED",
+          "manual": false
+        }
+      ]
+    },
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "validate_search_filter",
+          "next": "VALIDATED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidateSearchFilterCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "VALIDATED": {
+      "transitions": [
+        {
+          "name": "activate_filter",
+          "next": "ACTIVE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ActivateProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "trigger_filter",
+          "next": "TRIGGERED",
+          "manual": true,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.action",
+            "operation": "EQUALS",
+            "value": "trigger"
+          }
+        },
+        {
+          "name": "disable_filter",
+          "next": "INACTIVE",
+          "manual": true,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.action",
+            "operation": "EQUALS",
+            "value": "disable"
+          }
+        }
+      ]
+    },
+    "TRIGGERED": {
+      "transitions": [
+        {
+          "name": "enqueue_search_job",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EnqueueSearchJobProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": []
+    },
+    "INACTIVE": {
+      "transitions": []
+    }
+  }
+}

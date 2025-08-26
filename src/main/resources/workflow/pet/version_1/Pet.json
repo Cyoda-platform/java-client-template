@@ -1,0 +1,96 @@
+{
+  "version": "1.0",
+  "name": "Pet Workflow",
+  "desc": "Workflow for Pet entity based on functional requirements: validation, enrichment, approval and publication/archival.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "to_pending_verification",
+          "next": "PENDING_VERIFICATION",
+          "manual": false
+        }
+      ]
+    },
+    "PENDING_VERIFICATION": {
+      "transitions": [
+        {
+          "name": "validate_to_enrichment",
+          "next": "ENRICHMENT",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidatePetCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ENRICHMENT": {
+      "transitions": [
+        {
+          "name": "enrich_and_await_approval",
+          "next": "AWAITING_APPROVAL",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EnrichmentProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "AWAITING_APPROVAL": {
+      "transitions": [
+        {
+          "name": "auto_approve_to_published",
+          "next": "PUBLISHED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AutoApproveCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "manual_approval_to_published",
+          "next": "PUBLISHED",
+          "manual": true
+        }
+      ]
+    },
+    "PUBLISHED": {
+      "transitions": [
+        {
+          "name": "archive_pet",
+          "next": "ARCHIVED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ArchiveProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ARCHIVED": {
+      "transitions": []
+    }
+  }
+}
