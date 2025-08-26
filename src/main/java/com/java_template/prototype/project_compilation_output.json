@@ -1,0 +1,11 @@
+{
+    "compilation_status": "FAILURE",
+    "files_with_errors": [
+        {
+            "errors": [
+                "Error running GitHub action: 'Config' object has no attribute 'GITHUB_ACTION_COMPILED'"
+            ],
+            "file_path": "src/main/java/com/java_template/prototype/project_compilation.log"
+        }
+    ]
+}
