@@ -18,11 +18,14 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.UUID;
 
 @Component
@@ -80,10 +83,16 @@ public class FetchAndStoreCommentsProcessor implements CyodaProcessor {
             return job;
         }
 
-        String url = DEFAULT_SOURCE + "?postId=" + postId;
+        // Encode postId to be safe in URL
+        String encodedPostId = URLEncoder.encode(postId, StandardCharsets.UTF_8);
+        String url = DEFAULT_SOURCE + "?postId=" + encodedPostId;
+        int persistedCount = 0;
+
         try {
             HttpRequest httpRequest = HttpRequest.newBuilder()
                 .uri(URI.create(url))
+                .header("Accept", "application/json")
+                .header("User-Agent", "FetchAndStoreCommentsProcessor/1.0")
                 .GET()
                 .build();
 
@@ -109,8 +118,21 @@ public class FetchAndStoreCommentsProcessor implements CyodaProcessor {
                     Comment comment = new Comment();
                     // Map fields from external JSON to our Comment entity
                     if (n.has("id") && !n.get("id").isNull()) {
-                        comment.setId(n.get("id").isInt() ? n.get("id").asInt() : null);
+                        JsonNode idNode = n.get("id");
+                        if (idNode.canConvertToInt()) {
+                            comment.setId(idNode.intValue());
+                        } else {
+                            // If id isn't an int, attempt coercion; otherwise leave null
+                            try {
+                                comment.setId(Integer.valueOf(idNode.asText()));
+                            } catch (Exception ex) {
+                                comment.setId(null);
+                            }
+                        }
+                    } else {
+                        comment.setId(null);
                     }
+
                     if (n.has("name") && !n.get("name").isNull()) {
                         comment.setName(n.get("name").asText());
                     }
@@ -135,9 +157,15 @@ public class FetchAndStoreCommentsProcessor implements CyodaProcessor {
                         String.valueOf(Comment.ENTITY_VERSION),
                         comment
                     );
-                    // Wait for completion to ensure the comment is persisted before proceeding
+                    // Use a bounded wait to avoid hanging the processor indefinitely
                     try {
-                        addFuture.join();
+                        addFuture.get(30, TimeUnit.SECONDS);
+                        persistedCount++;
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        logger.error("Thread interrupted while persisting comment for postId {}: {}", postId, ie.getMessage(), ie);
+                        job.setStatus("FAILED");
+                        return job;
                     } catch (Exception ex) {
                         logger.error("Failed to persist comment for postId {}: {}", postId, ex.getMessage(), ex);
                         // On error persisting comments, mark job as FAILED and stop processing
@@ -150,6 +178,8 @@ public class FetchAndStoreCommentsProcessor implements CyodaProcessor {
                     // continue with next comment
                 }
             }
+
+            logger.info("Fetched {} comments for postId {}, persisted {}", commentsArray.size(), postId, persistedCount);
 
             // After storing comments, move job to ANALYZING stage
             job.setStatus("ANALYZING");

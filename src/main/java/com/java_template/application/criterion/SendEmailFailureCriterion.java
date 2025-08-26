@@ -20,7 +20,6 @@ public class SendEmailFailureCriterion implements CyodaCriterion {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final CriterionSerializer serializer;
-    private final String className = this.getClass().getSimpleName();
 
     public SendEmailFailureCriterion(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultCriteriaSerializer();
@@ -29,8 +28,7 @@ public class SendEmailFailureCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
-        return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
+        return serializer.withRequest(request)
             .evaluateEntity(AnalysisReport.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
@@ -38,28 +36,39 @@ public class SendEmailFailureCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name
+        return "SendEmailFailureCriterion".equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<AnalysisReport> context) {
-         AnalysisReport entity = context.entity();
+        AnalysisReport entity = context.entity();
 
-         // Ensure status is present
-         if (entity.getStatus() == null || entity.getStatus().isBlank()) {
-             return EvaluationOutcome.fail("Missing report status", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-         }
+        if (entity == null) {
+            return EvaluationOutcome.fail("Entity is null", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+        }
 
-         // Ensure recipient email is present for meaningful send attempt
-         if (entity.getRecipientEmail() == null || entity.getRecipientEmail().isBlank()) {
-             return EvaluationOutcome.fail("Missing recipient email", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-         }
+        // reportId is required to identify the report being transitioned
+        if (entity.getReportId() == null || entity.getReportId().isBlank()) {
+            return EvaluationOutcome.fail("Missing report id", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+        }
 
-         // Criterion succeeds when the report is marked as FAILED (allowing transition to FAILED)
-         if ("FAILED".equalsIgnoreCase(entity.getStatus())) {
-             return EvaluationOutcome.success();
-         }
+        // recipientEmail must be present for any send-related transitions
+        if (entity.getRecipientEmail() == null || entity.getRecipientEmail().isBlank()) {
+            return EvaluationOutcome.fail("Missing recipient email", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+        }
 
-         // If status exists but is not FAILED, do not allow the failure transition
-         return EvaluationOutcome.fail("Report not in FAILED state (current: " + entity.getStatus() + ")", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        // status must be present to evaluate a failure transition
+        if (entity.getStatus() == null || entity.getStatus().isBlank()) {
+            return EvaluationOutcome.fail("Missing report status", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+        }
+
+        // Only allow the transition to FAILED when the report is actually in FAILED state
+        if ("FAILED".equalsIgnoreCase(entity.getStatus())) {
+            logger.info("SendEmailFailureCriterion: AnalysisReport {} is in FAILED state, allowing failure transition", entity.getReportId());
+            return EvaluationOutcome.success();
+        }
+
+        // Otherwise, disallow the failure transition
+        return EvaluationOutcome.fail("Report not in FAILED state (current: " + entity.getStatus() + ")", StandardEvalReasonCategories.VALIDATION_FAILURE);
     }
 }

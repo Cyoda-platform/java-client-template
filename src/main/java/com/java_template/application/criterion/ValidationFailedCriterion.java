@@ -31,7 +31,7 @@ public class ValidationFailedCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(CommentAnalysisJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -40,38 +40,36 @@ public class ValidationFailedCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // CRITICAL: use exact criterion name (case-sensitive)
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<CommentAnalysisJob> context) {
          CommentAnalysisJob entity = context.entity();
 
-         // Required fields checks (use existing getters only)
+         // Null entity check
          if (entity == null) {
+             logger.warn("ValidationFailedCriterion: entity is null in evaluation context");
              return EvaluationOutcome.fail("Entity is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
+         // postId must be present and represent a positive integer (post identifier for external API)
          if (entity.getPostId() == null || entity.getPostId().isBlank()) {
              return EvaluationOutcome.fail("postId is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
+         try {
+             int pid = Integer.parseInt(entity.getPostId());
+             if (pid <= 0) {
+                 return EvaluationOutcome.fail("postId must be a positive integer", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             }
+         } catch (NumberFormatException nfe) {
+             return EvaluationOutcome.fail("postId must be a numeric value", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
 
+         // recipientEmail required and basic format validation
          if (entity.getRecipientEmail() == null || entity.getRecipientEmail().isBlank()) {
              return EvaluationOutcome.fail("recipientEmail is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-
-         if (entity.getRequestedAt() == null || entity.getRequestedAt().isBlank()) {
-             return EvaluationOutcome.fail("requestedAt is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-
-         if (entity.getSchedule() == null || entity.getSchedule().isBlank()) {
-             return EvaluationOutcome.fail("schedule is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-
-         if (entity.getStatus() == null || entity.getStatus().isBlank()) {
-             return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-
-         // Basic recipientEmail format validation (simple check, using only available String operations)
          String email = entity.getRecipientEmail();
          int atIdx = email.indexOf('@');
          if (atIdx <= 0 || atIdx != email.lastIndexOf('@') || atIdx == email.length() - 1) {
@@ -82,7 +80,22 @@ public class ValidationFailedCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("recipientEmail format invalid", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Validate metricsConfig
+         // requestedAt required
+         if (entity.getRequestedAt() == null || entity.getRequestedAt().isBlank()) {
+             return EvaluationOutcome.fail("requestedAt is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         // schedule required (basic non-empty check)
+         if (entity.getSchedule() == null || entity.getSchedule().isBlank()) {
+             return EvaluationOutcome.fail("schedule is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         // status required (basic non-empty check)
+         if (entity.getStatus() == null || entity.getStatus().isBlank()) {
+             return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         // Validate metricsConfig presence and its metrics list
          CommentAnalysisJob.MetricsConfig cfg = entity.getMetricsConfig();
          if (cfg == null) {
              return EvaluationOutcome.fail("metricsConfig is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
@@ -97,6 +110,7 @@ public class ValidationFailedCriterion implements CyodaCriterion {
              }
          }
 
+         // All checks passed
          return EvaluationOutcome.success();
     }
 }

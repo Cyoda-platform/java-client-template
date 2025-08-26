@@ -20,6 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.lang.reflect.Field;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -62,16 +63,16 @@ public class SendEmailProcessor implements CyodaProcessor {
 
     private CommentAnalysisJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<CommentAnalysisJob> context) {
         CommentAnalysisJob job = context.entity();
-        logger.info("SendEmailProcessor started for job id={}", job.getId());
+        String jobId = safeGetField(job, "id");
+        logger.info("SendEmailProcessor started for job id={}", jobId);
 
         // Only proceed if we have a recipient email; otherwise fail fast
-        String recipient = job.getRecipientEmail();
+        String recipient = safeGetField(job, "recipientEmail");
         boolean recipientValid = recipient != null && recipient.contains("@");
 
-        // Attempt to find the associated AnalysisReport (by jobId)
         try {
             SearchConditionRequest condition = SearchConditionRequest.group("AND",
-                Condition.of("$.jobId", "EQUALS", job.getId())
+                Condition.of("$.jobId", "EQUALS", jobId)
             );
 
             CompletableFuture<ArrayNode> itemsFuture = entityService.getItemsByCondition(
@@ -84,40 +85,45 @@ public class SendEmailProcessor implements CyodaProcessor {
             ArrayNode results = itemsFuture.join();
 
             if (results == null || results.isEmpty()) {
-                logger.warn("No AnalysisReport found for jobId={}", job.getId());
+                logger.warn("No AnalysisReport found for jobId={}", jobId);
                 // No report to send - mark job as FAILED
-                job.setStatus(recipientValid ? "FAILED" : "FAILED");
-                job.setCompletedAt(Instant.now().toString());
+                safeSetField(job, "status", "FAILED");
+                safeSetField(job, "completedAt", Instant.now().toString());
                 return job;
             }
 
-            // Pick the first report (there should be one)
+            // Pick the first report (there should be one) and operate on its JSON node to avoid relying on POJO accessors
             JsonNode reportNode = results.get(0);
-            AnalysisReport report = objectMapper.treeToValue(reportNode, AnalysisReport.class);
+            ObjectNode reportObjectNode = (ObjectNode) reportNode;
 
             boolean sendOk = false;
             if (!recipientValid) {
-                logger.warn("Invalid recipient email for jobId={}: {}", job.getId(), recipient);
+                logger.warn("Invalid recipient email for jobId={}: {}", jobId, recipient);
                 sendOk = false;
             } else {
                 // Simulate sending email - in a real implementation this would call an email service
-                // Here we consider sending successful when recipient contains '@' and report is present
-                logger.info("Simulating email send to {} for reportId={}", report.getRecipientEmail(), report.getReportId());
+                String reportRecipient = reportObjectNode.has("recipientEmail") && !reportObjectNode.get("recipientEmail").isNull()
+                        ? reportObjectNode.get("recipientEmail").asText()
+                        : recipient;
+                String reportReportId = reportObjectNode.has("reportId") && !reportObjectNode.get("reportId").isNull()
+                        ? reportObjectNode.get("reportId").asText()
+                        : "unknown";
+                logger.info("Simulating email send to {} for reportId={}", reportRecipient, reportReportId);
                 sendOk = true;
             }
 
-            // Update report status and sentAt accordingly
+            // Update report status and sentAt accordingly in the JSON node
             if (sendOk) {
-                report.setStatus("SENT");
-                report.setSentAt(Instant.now().toString());
+                reportObjectNode.put("status", "SENT");
+                reportObjectNode.put("sentAt", Instant.now().toString());
             } else {
-                report.setStatus("FAILED");
+                reportObjectNode.put("status", "FAILED");
             }
 
             // Attempt to obtain technical id to perform update. The returned node is expected to contain a technical id field "id".
             String technicalId = null;
-            if (reportNode.has("id") && !reportNode.get("id").isNull()) {
-                technicalId = reportNode.get("id").asText();
+            if (reportObjectNode.has("id") && !reportObjectNode.get("id").isNull()) {
+                technicalId = reportObjectNode.get("id").asText();
             }
 
             if (technicalId != null && !technicalId.isBlank()) {
@@ -126,31 +132,83 @@ public class SendEmailProcessor implements CyodaProcessor {
                         AnalysisReport.ENTITY_NAME,
                         String.valueOf(AnalysisReport.ENTITY_VERSION),
                         UUID.fromString(technicalId),
-                        report
+                        reportObjectNode
                     );
                     updated.join();
-                    logger.info("Updated AnalysisReport (technicalId={}) status to {}", technicalId, report.getStatus());
+                    String updatedStatus = reportObjectNode.has("status") ? reportObjectNode.get("status").asText() : "UNKNOWN";
+                    logger.info("Updated AnalysisReport (technicalId={}) status to {}", technicalId, updatedStatus);
                 } catch (Exception e) {
                     logger.error("Failed to update AnalysisReport for technicalId={}", technicalId, e);
                 }
             } else {
-                logger.warn("Cannot determine technicalId for AnalysisReport (jobId={}), skipping update", job.getId());
+                logger.warn("Cannot determine technicalId for AnalysisReport (jobId={}), skipping update", jobId);
             }
 
             // Update job state (this entity will be persisted automatically by Cyoda)
             if (sendOk) {
-                job.setStatus("COMPLETED");
+                safeSetField(job, "status", "COMPLETED");
             } else {
-                job.setStatus("FAILED");
+                safeSetField(job, "status", "FAILED");
             }
-            job.setCompletedAt(Instant.now().toString());
+            safeSetField(job, "completedAt", Instant.now().toString());
 
         } catch (Exception ex) {
-            logger.error("Exception while sending email for jobId={}", job.getId(), ex);
-            job.setStatus("FAILED");
-            job.setCompletedAt(Instant.now().toString());
+            logger.error("Exception while sending email for jobId={}", jobId, ex);
+            safeSetField(job, "status", "FAILED");
+            safeSetField(job, "completedAt", Instant.now().toString());
         }
 
         return job;
+    }
+
+    /**
+     * Safely read a String field value via reflection. Returns null on any error.
+     */
+    private String safeGetField(Object target, String fieldName) {
+        if (target == null) return null;
+        try {
+            Field f = findFieldRecursively(target.getClass(), fieldName);
+            if (f == null) return null;
+            f.setAccessible(true);
+            Object val = f.get(target);
+            return val != null ? String.valueOf(val) : null;
+        } catch (Exception e) {
+            logger.debug("Failed to read field '{}' via reflection from {}", fieldName, target.getClass().getSimpleName(), e);
+            return null;
+        }
+    }
+
+    /**
+     * Safely set a String field value via reflection. Logs on error but does not throw.
+     */
+    private void safeSetField(Object target, String fieldName, String value) {
+        if (target == null) return;
+        try {
+            Field f = findFieldRecursively(target.getClass(), fieldName);
+            if (f == null) {
+                logger.debug("Field '{}' not found on {}", fieldName, target.getClass().getSimpleName());
+                return;
+            }
+            f.setAccessible(true);
+            // handle primitive types if necessary, but our fields are Strings in entities
+            f.set(target, value);
+        } catch (Exception e) {
+            logger.error("Failed to set field '{}' via reflection on {} to value '{}'", fieldName, target.getClass().getSimpleName(), value, e);
+        }
+    }
+
+    /**
+     * Find declared field in class or superclasses.
+     */
+    private Field findFieldRecursively(Class<?> cls, String fieldName) {
+        Class<?> current = cls;
+        while (current != null && current != Object.class) {
+            try {
+                return current.getDeclaredField(fieldName);
+            } catch (NoSuchFieldException nsfe) {
+                current = current.getSuperclass();
+            }
+        }
+        return null;
     }
 }

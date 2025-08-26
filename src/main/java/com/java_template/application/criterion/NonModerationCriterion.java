@@ -17,6 +17,8 @@ import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Component
 public class NonModerationCriterion implements CyodaCriterion {
@@ -34,6 +36,12 @@ public class NonModerationCriterion implements CyodaCriterion {
     private static final int MIN_WORD_COUNT = 3;
     private static final int MAX_WORD_COUNT = 500;
 
+    // Maximum allowed number of links in a comment before it's considered suspicious
+    private static final int MAX_LINK_COUNT = 3;
+
+    // Pattern to detect URLs in the text
+    private static final Pattern URL_PATTERN = Pattern.compile("(https?://\\S+)|(www\\.\\S+)", Pattern.CASE_INSENSITIVE);
+
     public NonModerationCriterion(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultCriteriaSerializer();
     }
@@ -41,7 +49,7 @@ public class NonModerationCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Comment.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -50,7 +58,8 @@ public class NonModerationCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Comment> context) {
@@ -64,12 +73,13 @@ public class NonModerationCriterion implements CyodaCriterion {
          String body = comment.getBody();
          if (body == null || body.isBlank()) {
              // Empty body is a validation/data quality issue and also a moderation trigger
+             logger.info("NonModerationCriterion: missing or blank body for comment id={}", comment.getId());
              return EvaluationOutcome.fail("Comment body is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         String normalizedBody = body.toLowerCase();
+         String normalizedBody = body.trim().toLowerCase();
 
-         // Check for banned terms
+         // Check for banned terms (simple substring match)
          for (String term : BANNED_TERMS) {
              if (normalizedBody.contains(term)) {
                  logger.info("NonModerationCriterion: banned term detected in comment id={}, term={}", comment.getId(), term);
@@ -78,8 +88,12 @@ public class NonModerationCriterion implements CyodaCriterion {
          }
 
          // Word count checks
-         String[] words = normalizedBody.trim().split("\\s+");
-         int wordCount = words.length;
+         String[] words = normalizedBody.replaceAll("\\s+", " ").trim().split(" ");
+         int wordCount = 0;
+         for (String w : words) {
+             if (!w.isBlank()) wordCount++;
+         }
+
          if (wordCount < MIN_WORD_COUNT) {
              logger.info("NonModerationCriterion: comment too short id={}, words={}", comment.getId(), wordCount);
              return EvaluationOutcome.fail("Comment too short", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
@@ -89,8 +103,27 @@ public class NonModerationCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("Comment too long", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
-         // If needed, additional simple heuristics could be added here (e.g., repeated URLs, excessive punctuation)
+         // Link count heuristic: too many links -> potential moderation needed
+         Matcher urlMatcher = URL_PATTERN.matcher(body);
+         int linkCount = 0;
+         while (urlMatcher.find()) {
+             linkCount++;
+             if (linkCount > MAX_LINK_COUNT) break;
+         }
+         if (linkCount > MAX_LINK_COUNT) {
+             logger.info("NonModerationCriterion: excessive links detected id={}, links={}", comment.getId(), linkCount);
+             return EvaluationOutcome.fail("Excessive links detected", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
 
+         // Additional heuristic: repeated punctuation or non-alphanumeric spammy content
+         long nonAlphaNumRatio = normalizedBody.chars().filter(ch -> !Character.isLetterOrDigit(ch) && !Character.isWhitespace(ch)).count();
+         double ratio = (double) nonAlphaNumRatio / Math.max(1, normalizedBody.length());
+         if (ratio > 0.5) {
+             logger.info("NonModerationCriterion: suspicious punctuation ratio id={}, ratio={}", comment.getId(), ratio);
+             return EvaluationOutcome.fail("Suspicious content format", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         }
+
+         // If none of the moderation triggers matched, the comment passes non-moderation check
          return EvaluationOutcome.success();
     }
 }

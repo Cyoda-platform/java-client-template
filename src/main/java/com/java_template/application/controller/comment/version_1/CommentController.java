@@ -16,7 +16,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import lombok.Data;
@@ -31,8 +30,6 @@ import java.util.UUID;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 @RestController
 @RequestMapping("/api/v1/comments")
@@ -54,7 +51,7 @@ public class CommentController {
     })
     @PostMapping
     public ResponseEntity<?> createComment(
-            @RequestBody(description = "Comment creation payload") @org.springframework.web.bind.annotation.RequestBody CommentRequest request) {
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Comment creation payload") @org.springframework.web.bind.annotation.RequestBody CommentRequest request) {
         try {
             if (request == null) throw new IllegalArgumentException("Request body is required");
             Comment c = toEntity(request);
@@ -86,7 +83,7 @@ public class CommentController {
     })
     @PostMapping("/bulk")
     public ResponseEntity<?> createCommentsBulk(
-            @RequestBody(description = "List of comments to create") @org.springframework.web.bind.annotation.RequestBody List<CommentRequest> requests) {
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "List of comments to create") @org.springframework.web.bind.annotation.RequestBody List<CommentRequest> requests) {
         try {
             if (requests == null || requests.isEmpty()) throw new IllegalArgumentException("Request body must contain at least one item");
             List<Comment> entities = requests.stream().map(this::toEntity).toList();
@@ -145,7 +142,7 @@ public class CommentController {
 
     @Operation(summary = "Get Comments", description = "Retrieve all Comments or filter by postId query parameter")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "OK", content = @ArraySchema(schema = @Schema(implementation = CommentResponse.class))),
+        @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = CommentResponse.class)))),
         @ApiResponse(responseCode = "400", description = "Bad Request"),
         @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
@@ -191,7 +188,7 @@ public class CommentController {
     @PutMapping("/{technicalId}")
     public ResponseEntity<?> updateComment(
             @Parameter(name = "technicalId", description = "Technical ID of the entity") @PathVariable String technicalId,
-            @RequestBody(description = "Comment update payload") @org.springframework.web.bind.annotation.RequestBody CommentRequest request) {
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Comment update payload") @org.springframework.web.bind.annotation.RequestBody CommentRequest request) {
         try {
             if (technicalId == null || technicalId.isBlank()) throw new IllegalArgumentException("technicalId is required");
             if (request == null) throw new IllegalArgumentException("Request body is required");

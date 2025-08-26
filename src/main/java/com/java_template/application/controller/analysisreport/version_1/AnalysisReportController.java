@@ -18,7 +18,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -206,9 +205,10 @@ public class AnalysisReportController {
         try {
             // Build single-group AND conditions from request.conditions
             List<Condition> conds = new ArrayList<>();
-            if (request.getConditions() != null) {
+            if (request != null && request.getConditions() != null) {
                 for (SearchRequest.ConditionDto c : request.getConditions()) {
-                    String jsonPath = c.getFieldName().startsWith("$") ? c.getFieldName() : "$." + c.getFieldName();
+                    String fieldName = c.getFieldName() != null ? c.getFieldName() : "";
+                    String jsonPath = fieldName.startsWith("$") ? fieldName : "$." + fieldName;
                     conds.add(Condition.of(jsonPath, c.getOperator(), c.getValue()));
                 }
             }
@@ -328,20 +328,21 @@ public class AnalysisReportController {
     // Utility mapping (no business logic)
     private AnalysisReport mapToEntity(AnalysisReportRequest req) {
         AnalysisReport e = new AnalysisReport();
-        e.setReportId(req.getReportId());
-        e.setJobId(req.getJobId());
-        e.setPostId(req.getPostId());
-        e.setRecipientEmail(req.getRecipientEmail());
-        e.setGeneratedAt(req.getGeneratedAt());
-        e.setSentAt(req.getSentAt());
-        e.setStatus(req.getStatus());
-        e.setSummary(req.getSummary());
-        if (req.getMetrics() != null) {
+        e.setReportId(req == null ? null : req.getReportId());
+        e.setJobId(req == null ? null : req.getJobId());
+        e.setPostId(req == null ? null : req.getPostId());
+        e.setRecipientEmail(req == null ? null : req.getRecipientEmail());
+        e.setGeneratedAt(req == null ? null : req.getGeneratedAt());
+        e.setSentAt(req == null ? null : req.getSentAt());
+        e.setStatus(req == null ? null : req.getStatus());
+        e.setSummary(req == null ? null : req.getSummary());
+        if (req != null && req.getMetrics() != null) {
             AnalysisReport.Metrics m = new AnalysisReport.Metrics();
-            m.setCount(req.getMetrics().getCount());
-            m.setAvgLengthWords(req.getMetrics().getAvgLengthWords());
-            m.setSentimentSummary(req.getMetrics().getSentimentSummary());
-            m.setTopWords(req.getMetrics().getTopWords());
+            MetricsDto md = req.getMetrics();
+            m.setCount(md.getCount());
+            m.setAvgLengthWords(md.getAvgLengthWords());
+            m.setSentimentSummary(md.getSentimentSummary());
+            m.setTopWords(md.getTopWords());
             e.setMetrics(m);
         } else {
             e.setMetrics(null);
@@ -351,7 +352,6 @@ public class AnalysisReportController {
 
     // DTOs
 
-    @Data
     @Schema(name = "AnalysisReportRequest", description = "Request payload to create or update AnalysisReport")
     public static class AnalysisReportRequest {
         @JsonProperty("report_id")
@@ -389,9 +389,36 @@ public class AnalysisReportController {
         @JsonProperty("sent_at")
         @Schema(description = "ISO timestamp when sent", example = "2025-08-26T12:01:00Z")
         private String sentAt;
+
+        // Getters and setters
+        public String getReportId() { return reportId; }
+        public void setReportId(String reportId) { this.reportId = reportId; }
+
+        public String getJobId() { return jobId; }
+        public void setJobId(String jobId) { this.jobId = jobId; }
+
+        public Integer getPostId() { return postId; }
+        public void setPostId(Integer postId) { this.postId = postId; }
+
+        public String getGeneratedAt() { return generatedAt; }
+        public void setGeneratedAt(String generatedAt) { this.generatedAt = generatedAt; }
+
+        public String getSummary() { return summary; }
+        public void setSummary(String summary) { this.summary = summary; }
+
+        public MetricsDto getMetrics() { return metrics; }
+        public void setMetrics(MetricsDto metrics) { this.metrics = metrics; }
+
+        public String getRecipientEmail() { return recipientEmail; }
+        public void setRecipientEmail(String recipientEmail) { this.recipientEmail = recipientEmail; }
+
+        public String getStatus() { return status; }
+        public void setStatus(String status) { this.status = status; }
+
+        public String getSentAt() { return sentAt; }
+        public void setSentAt(String sentAt) { this.sentAt = sentAt; }
     }
 
-    @Data
     @Schema(name = "AnalysisReportResponse", description = "Response payload for AnalysisReport")
     public static class AnalysisReportResponse {
         @JsonProperty("report_id")
@@ -429,9 +456,36 @@ public class AnalysisReportController {
         @JsonProperty("sent_at")
         @Schema(description = "ISO timestamp when sent", example = "2025-08-26T12:01:00Z")
         private String sentAt;
+
+        // Getters and setters
+        public String getReportId() { return reportId; }
+        public void setReportId(String reportId) { this.reportId = reportId; }
+
+        public String getJobId() { return jobId; }
+        public void setJobId(String jobId) { this.jobId = jobId; }
+
+        public Integer getPostId() { return postId; }
+        public void setPostId(Integer postId) { this.postId = postId; }
+
+        public String getGeneratedAt() { return generatedAt; }
+        public void setGeneratedAt(String generatedAt) { this.generatedAt = generatedAt; }
+
+        public String getSummary() { return summary; }
+        public void setSummary(String summary) { this.summary = summary; }
+
+        public MetricsDto getMetrics() { return metrics; }
+        public void setMetrics(MetricsDto metrics) { this.metrics = metrics; }
+
+        public String getRecipientEmail() { return recipientEmail; }
+        public void setRecipientEmail(String recipientEmail) { this.recipientEmail = recipientEmail; }
+
+        public String getStatus() { return status; }
+        public void setStatus(String status) { this.status = status; }
+
+        public String getSentAt() { return sentAt; }
+        public void setSentAt(String sentAt) { this.sentAt = sentAt; }
     }
 
-    @Data
     @Schema(name = "MetricsDto", description = "Metrics object inside AnalysisReport")
     public static class MetricsDto {
         @JsonProperty("count")
@@ -449,27 +503,45 @@ public class AnalysisReportController {
         @JsonProperty("top_words")
         @Schema(description = "Top words", example = "[\"voluptate\",\"quia\"]")
         private List<String> topWords;
+
+        // Getters and setters
+        public Integer getCount() { return count; }
+        public void setCount(Integer count) { this.count = count; }
+
+        public Integer getAvgLengthWords() { return avgLengthWords; }
+        public void setAvgLengthWords(Integer avgLengthWords) { this.avgLengthWords = avgLengthWords; }
+
+        public String getSentimentSummary() { return sentimentSummary; }
+        public void setSentimentSummary(String sentimentSummary) { this.sentimentSummary = sentimentSummary; }
+
+        public List<String> getTopWords() { return topWords; }
+        public void setTopWords(List<String> topWords) { this.topWords = topWords; }
     }
 
-    @Data
     @Schema(name = "TechnicalIdResponse", description = "Response containing technicalId")
     public static class TechnicalIdResponse {
         @JsonProperty("technicalId")
         @Schema(description = "Technical UUID of the entity", example = "3fa85f64-5717-4562-b3fc-2c963f66afa6")
         private String technicalId;
 
+        public TechnicalIdResponse() {}
+
         public TechnicalIdResponse(String technicalId) {
             this.technicalId = technicalId;
         }
+
+        public String getTechnicalId() { return technicalId; }
+        public void setTechnicalId(String technicalId) { this.technicalId = technicalId; }
     }
 
-    @Data
     @Schema(name = "SearchRequest", description = "Request to search entities by simple conditions")
     public static class SearchRequest {
         @Schema(description = "List of conditions to AND together")
         private List<ConditionDto> conditions;
 
-        @Data
+        public List<ConditionDto> getConditions() { return conditions; }
+        public void setConditions(List<ConditionDto> conditions) { this.conditions = conditions; }
+
         public static class ConditionDto {
             @Schema(description = "Field name (use JSONPath or plain field name)", example = "report_id")
             private String fieldName;
@@ -479,6 +551,15 @@ public class AnalysisReportController {
 
             @Schema(description = "Value to compare", example = "report_abc")
             private String value;
+
+            public String getFieldName() { return fieldName; }
+            public void setFieldName(String fieldName) { this.fieldName = fieldName; }
+
+            public String getOperator() { return operator; }
+            public void setOperator(String operator) { this.operator = operator; }
+
+            public String getValue() { return value; }
+            public void setValue(String value) { this.value = value; }
         }
     }
 }

@@ -130,33 +130,43 @@ public class AnalyzeCommentsProcessor implements CyodaProcessor {
             else if (negativeMatches > positiveMatches && negativeMatches > 0) sentimentSummary = "negative";
             else sentimentSummary = "neutral";
 
+            // Determine which metrics to include based on metricsConfig (if provided)
+            Set<String> requestedMetrics = new HashSet<>();
+            try {
+                if (entity.getMetricsConfig() != null && entity.getMetricsConfig().getMetrics() != null) {
+                    for (String m : entity.getMetricsConfig().getMetrics()) {
+                        if (m != null && !m.isBlank()) requestedMetrics.add(m.trim().toLowerCase());
+                    }
+                }
+            } catch (Exception ex) {
+                // in case metricsConfig implementation changes; default to computing all
+                requestedMetrics.clear();
+            }
+
+            boolean includeCount = requestedMetrics.isEmpty() || requestedMetrics.contains("count");
+            boolean includeAvg = requestedMetrics.isEmpty() || requestedMetrics.contains("avg_length_words");
+            boolean includeTopWords = requestedMetrics.isEmpty() || requestedMetrics.contains("top_words");
+            boolean includeSentiment = requestedMetrics.isEmpty() || requestedMetrics.contains("sentiment_summary");
+            boolean includeUniqueEmailsSummary = requestedMetrics.isEmpty() || requestedMetrics.contains("unique_emails");
+
             // Build AnalysisReport
             AnalysisReport report = new AnalysisReport();
             report.setReportId(UUID.randomUUID().toString());
-            // jobId - use the technical id of the job entity
             report.setJobId(entity.getId() != null ? entity.getId() : "");
-            // try to derive integer postId from job.postId; fallback to 0 if not parseable
-            Integer postIdInt = null;
+
+            Integer postIdInt = 0;
             try {
                 if (entity.getPostId() != null && !entity.getPostId().isBlank()) {
                     postIdInt = Integer.valueOf(entity.getPostId());
-                }
-            } catch (NumberFormatException nfe) {
-                // fallback: try to parse from first comment if present
-                if (commentsArray != null && commentsArray.size() > 0) {
+                } else if (commentsArray != null && commentsArray.size() > 0) {
                     JsonNode first = commentsArray.get(0);
-                    try {
-                        if (first.hasNonNull("postId")) {
-                            postIdInt = Integer.valueOf(first.get("postId").asText());
-                        }
-                    } catch (Exception ex) {
-                        postIdInt = 0;
+                    if (first.hasNonNull("postId")) {
+                        postIdInt = Integer.valueOf(first.get("postId").asText("0"));
                     }
-                } else {
-                    postIdInt = 0;
                 }
+            } catch (Exception ex) {
+                postIdInt = 0;
             }
-            if (postIdInt == null) postIdInt = 0;
             report.setPostId(postIdInt);
 
             report.setRecipientEmail(entity.getRecipientEmail());
@@ -169,10 +179,18 @@ public class AnalyzeCommentsProcessor implements CyodaProcessor {
             report.setSummary(summary);
 
             AnalysisReport.Metrics metrics = new AnalysisReport.Metrics();
-            metrics.setCount(count);
-            metrics.setAvgLengthWords(avgLengthWords);
-            metrics.setSentimentSummary(sentimentSummary);
-            metrics.setTopWords(topWords);
+            if (includeCount) metrics.setCount(count);
+            else metrics.setCount(null);
+
+            if (includeAvg) metrics.setAvgLengthWords(avgLengthWords);
+            else metrics.setAvgLengthWords(null);
+
+            if (includeSentiment) metrics.setSentimentSummary(sentimentSummary);
+            else metrics.setSentimentSummary(null);
+
+            if (includeTopWords) metrics.setTopWords(topWords);
+            else metrics.setTopWords(Collections.emptyList());
+
             report.setMetrics(metrics);
 
             // Persist the report (add new entity)

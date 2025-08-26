@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.Field;
 import java.time.Instant;
 import java.util.regex.Pattern;
 
@@ -50,27 +51,76 @@ public class ValidateJobProcessor implements CyodaProcessor {
 
     private CommentAnalysisJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<CommentAnalysisJob> context) {
         CommentAnalysisJob entity = context.entity();
-        
-        // Mark as validating while checks occur
-        entity.setStatus("VALIDATING");
 
-        String postId = entity.getPostId();
-        String recipientEmail = entity.getRecipientEmail();
+        // Use reflection to read/write fields to avoid depending on generated Lombok methods at compile time.
+        // Set status to VALIDATING while checks occur
+        setFieldValue(entity, "status", "VALIDATING");
+
+        String postId = asString(getFieldValue(entity, "postId"));
+        String recipientEmail = asString(getFieldValue(entity, "recipientEmail"));
+        String technicalId = asString(getFieldValue(entity, "id"));
 
         // Basic checks: postId must be present and recipientEmail must be a valid-looking email
         boolean postIdValid = postId != null && !postId.isBlank();
         boolean emailValid = recipientEmail != null && !recipientEmail.isBlank() && EMAIL_PATTERN.matcher(recipientEmail).matches();
 
         if (!postIdValid || !emailValid) {
-            logger.warn("Validation failed for CommentAnalysisJob id={} postIdValid={} emailValid={}", entity.getId(), postIdValid, emailValid);
-            entity.setStatus("FAILED");
+            logger.warn("Validation failed for CommentAnalysisJob technicalId={} postIdValid={} emailValid={}", technicalId, postIdValid, emailValid);
+            setFieldValue(entity, "status", "FAILED");
             // mark completion time for failed jobs
-            entity.setCompletedAt(Instant.now().toString());
+            setFieldValue(entity, "completedAt", Instant.now().toString());
             return entity;
         }
 
         // Validation passed -> move to ingestion phase
-        entity.setStatus("INGESTING");
+        setFieldValue(entity, "status", "INGESTING");
         return entity;
+    }
+
+    // Helper: get field value via reflection (searching superclasses)
+    private Object getFieldValue(Object target, String fieldName) {
+        if (target == null) return null;
+        try {
+            Field f = findField(target.getClass(), fieldName);
+            if (f == null) return null;
+            f.setAccessible(true);
+            return f.get(target);
+        } catch (IllegalAccessException ex) {
+            logger.warn("Unable to access field '{}' on {}: {}", fieldName, target.getClass().getSimpleName(), ex.getMessage());
+            return null;
+        }
+    }
+
+    // Helper: set field value via reflection (searching superclasses)
+    private void setFieldValue(Object target, String fieldName, Object value) {
+        if (target == null) return;
+        try {
+            Field f = findField(target.getClass(), fieldName);
+            if (f == null) {
+                logger.debug("Field '{}' not found on {}", fieldName, target.getClass().getSimpleName());
+                return;
+            }
+            f.setAccessible(true);
+            f.set(target, value);
+        } catch (IllegalAccessException ex) {
+            logger.warn("Unable to set field '{}' on {}: {}", fieldName, target.getClass().getSimpleName(), ex.getMessage());
+        }
+    }
+
+    // Recursively search for a field in class hierarchy
+    private Field findField(Class<?> clazz, String fieldName) {
+        Class<?> current = clazz;
+        while (current != null && !current.equals(Object.class)) {
+            try {
+                return current.getDeclaredField(fieldName);
+            } catch (NoSuchFieldException e) {
+                current = current.getSuperclass();
+            }
+        }
+        return null;
+    }
+
+    private String asString(Object o) {
+        return o == null ? null : String.valueOf(o);
     }
 }

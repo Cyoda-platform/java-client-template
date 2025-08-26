@@ -75,6 +75,7 @@ public class SendReportProcessor implements CyodaProcessor {
         String jobTechnicalId = report.getJobId();
         if (jobTechnicalId != null && !jobTechnicalId.isBlank()) {
             try {
+                // Retrieve the job using the jobTechnicalId
                 CompletableFuture<ObjectNode> jobFuture = entityService.getItem(
                     CommentAnalysisJob.ENTITY_NAME,
                     String.valueOf(CommentAnalysisJob.ENTITY_VERSION),
@@ -84,22 +85,24 @@ public class SendReportProcessor implements CyodaProcessor {
                 if (jobNode != null) {
                     CommentAnalysisJob job = objectMapper.treeToValue(jobNode, CommentAnalysisJob.class);
                     if (job != null) {
+                        // Update job state based on email sending result
                         job.setStatus(sent ? "COMPLETED" : "FAILED");
                         if (sent) {
                             job.setCompletedAt(Instant.now().toString());
                         }
-                        // Update other entity (allowed). Use updateItem to persist the job change.
+
+                        // Use the original jobTechnicalId when updating the job entry (the technical id used to fetch it)
                         try {
                             CompletableFuture<UUID> updateFuture = entityService.updateItem(
                                 CommentAnalysisJob.ENTITY_NAME,
                                 String.valueOf(CommentAnalysisJob.ENTITY_VERSION),
-                                UUID.fromString(job.getId()),
+                                UUID.fromString(jobTechnicalId),
                                 job
                             );
                             updateFuture.join();
-                            logger.info("Updated CommentAnalysisJob {} status to {}", job.getId(), job.getStatus());
+                            logger.info("Updated CommentAnalysisJob {} status to {}", jobTechnicalId, job.getStatus());
                         } catch (Exception e) {
-                            logger.warn("Failed to update CommentAnalysisJob {}: {}", job.getId(), e.getMessage());
+                            logger.warn("Failed to update CommentAnalysisJob {}: {}", jobTechnicalId, e.getMessage());
                         }
                     }
                 } else {
