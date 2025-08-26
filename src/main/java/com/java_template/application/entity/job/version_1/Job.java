@@ -47,7 +47,7 @@ public class Job implements CyodaEntity {
         // locations must be present and contain non-blank entries
         if (locations == null || locations.isEmpty()) return false;
         for (String loc : locations) {
-            if (loc == null || lo c.isBlank()) return false;
+            if (loc == null || loc.isBlank()) return false;
         }
 
         // parameters may be null or empty; no strict check here

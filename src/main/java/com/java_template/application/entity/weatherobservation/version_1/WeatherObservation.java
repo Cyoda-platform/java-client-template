@@ -46,7 +46,7 @@ public class WeatherObservation implements CyodaEntity {
         if (this.processed == null) return false;
 
         // Validate humidity if provided
-        if (this.humidity != nul l) {
+        if (this.humidity != null) {
             if (this.humidity < 0 || this.humidity > 100) return false;
         }
 
