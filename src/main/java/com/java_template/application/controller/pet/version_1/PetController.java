@@ -15,7 +15,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.parameters.RequestBody as SwaggerRequestBody;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -60,7 +59,7 @@ public class PetController {
     })
     @PostMapping
     public ResponseEntity<?> addPet(
-        @SwaggerRequestBody(description = "Pet payload", required = true, content = @Content(schema = @Schema(implementation = AddPetRequest.class)))
+        @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Pet payload", required = true, content = @Content(schema = @Schema(implementation = AddPetRequest.class)))
         @Valid @RequestBody AddPetRequest request
     ) {
         try {
@@ -107,7 +106,7 @@ public class PetController {
     })
     @PostMapping("/batch")
     public ResponseEntity<?> addPets(
-        @SwaggerRequestBody(description = "List of Pet payloads", required = true, content = @Content(array = @ArraySchema(schema = @Schema(implementation = AddPetsRequest.class))))
+        @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "List of Pet payloads", required = true, content = @Content(array = @ArraySchema(schema = @Schema(implementation = AddPetsRequest.class))))
         @Valid @RequestBody AddPetsRequest request
     ) {
         try {
@@ -190,7 +189,7 @@ public class PetController {
     })
     @PostMapping("/search")
     public ResponseEntity<?> searchPets(
-        @SwaggerRequestBody(description = "Search condition", required = true, content = @Content(schema = @Schema(implementation = SearchConditionRequest.class)))
+        @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Search condition", required = true, content = @Content(schema = @Schema(implementation = SearchConditionRequest.class)))
         @Valid @RequestBody SearchConditionRequest condition
     ) {
         try {
@@ -289,7 +288,7 @@ public class PetController {
     public ResponseEntity<?> updatePet(
         @Parameter(name = "technicalId", description = "Technical ID of the entity", required = true)
         @PathVariable("technicalId") String technicalId,
-        @SwaggerRequestBody(description = "Pet payload for update", required = true, content = @Content(schema = @Schema(implementation = UpdatePetRequest.class)))
+        @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Pet payload for update", required = true, content = @Content(schema = @Schema(implementation = UpdatePetRequest.class)))
         @Valid @RequestBody UpdatePetRequest request
     ) {
         try {
