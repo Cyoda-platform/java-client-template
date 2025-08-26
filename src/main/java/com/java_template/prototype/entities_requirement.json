@@ -1,0 +1,37 @@
+{
+    "entities": [
+        {
+            "Subscriber": {
+                "entity_data_example": {
+                    "email": "user@example.com",
+                    "name": "Optional Name",
+                    "signup_date": "2025-08-26T12:00:00Z",
+                    "status": "ACTIVE",
+                    "timezone": "UTC"
+                }
+            }
+        },
+        {
+            "CatFact": {
+                "entity_data_example": {
+                    "archived_date": null,
+                    "fact_id": "fact-12345",
+                    "fetched_date": "2025-08-25T09:30:00Z",
+                    "text": "Cats curl up in boxes because it helps them conserve body heat and feel secure.",
+                    "validation_status": "VALID"
+                }
+            }
+        },
+        {
+            "WeeklySendJob": {
+                "entity_data_example": {
+                    "catfact_ref": "fact-12345",
+                    "job_name": "weekly-send-2025-09-01",
+                    "scheduled_date": "2025-09-01T09:00:00Z",
+                    "status": "COMPLETED",
+                    "target_count": 123
+                }
+            }
+        }
+    ]
+}
