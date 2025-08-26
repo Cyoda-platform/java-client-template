@@ -37,7 +37,7 @@ public class StartJobProcessor implements CyodaProcessor {
         logger.info("Processing StartJob for request: {}", request.getId());
 
         return serializer.withRequest(request)
-            .toEntity((Class) ObjectNode.class)
+            .toEntity(Job.class)
             .validate(this::isValidPayload, "Invalid start job payload")
             .map(ctx -> processEntityLogic(ctx))
             .complete();
@@ -48,25 +48,21 @@ public class StartJobProcessor implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private boolean isValidPayload(ObjectNode payload) {
-        return payload != null && payload.hasNonNull("jobId");
+    private boolean isValidPayload(Job payload) {
+        return payload != null && payload.isValid();
     }
 
-    private ObjectNode processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<?> context) {
-        ObjectNode payload = (ObjectNode) context.entity();
+    private Job processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Job> context) {
+        Job job = context.entity();
         try {
-            UUID jobId = UUID.fromString(payload.get("jobId").asText());
-            CompletableFuture<com.fasterxml.jackson.databind.node.ObjectNode> jobFuture = entityService.getItem(Job.ENTITY_NAME, String.valueOf(Job.ENTITY_VERSION), jobId);
-            com.fasterxml.jackson.databind.node.ObjectNode jobNode = jobFuture.get();
-            Job job = serializer.convert(jobNode, Job.class);
             job.setStatus("RUNNING");
             job.setUpdatedAt(Instant.now());
+            UUID jobId = UUID.fromString(job.getJobId());
             entityService.updateItem(Job.ENTITY_NAME, String.valueOf(Job.ENTITY_VERSION), jobId, job);
-            payload.put("status", "RUNNING");
             logger.info("Job {} set to RUNNING", jobId);
         } catch (Exception e) {
             logger.error("Error in StartJobProcessor", e);
         }
-        return payload;
+        return job;
     }
 }

@@ -1,9 +1,11 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.order.version_1.Order;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -36,9 +38,9 @@ public class StartPickingProcessor implements CyodaProcessor {
         logger.info("Processing StartPicking for request: {}", request.getId());
 
         return serializer.withRequest(request)
-            .toEntity((Class) ObjectNode.class)
-            .validate(this::isValidPayload, "Invalid start picking payload")
-            .map(ctx -> processEntityLogic(ctx))
+            .toEntity(CyodaEntity.class)
+            .toJsonFlow(serializer::entityToJsonNode)
+            .map(this::processEntityLogic)
             .complete();
     }
 
@@ -51,20 +53,19 @@ public class StartPickingProcessor implements CyodaProcessor {
         return payload != null && payload.hasNonNull("orderId");
     }
 
-    private ObjectNode processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<?> context) {
-        ObjectNode payload = (ObjectNode) context.entity();
+    private ObjectNode processEntityLogic(ProcessorSerializer.ProcessorExecutionContext context) {
+        ObjectNode payload = (ObjectNode) context.payload();
         try {
             UUID orderId = UUID.fromString(payload.get("orderId").asText());
-            CompletableFuture<com.fasterxml.jackson.databind.node.ObjectNode> orderFuture = entityService.getItem(Order.ENTITY_NAME, String.valueOf(Order.ENTITY_VERSION), orderId);
-            com.fasterxml.jackson.databind.node.ObjectNode orderNode = orderFuture.get();
-            Order order = serializer.convert(orderNode, Order.class);
-            if (!"WAITING_TO_FULFILL".equalsIgnoreCase(order.getStatus())) {
-                logger.warn("StartPicking called for order {} in status {}", order.getOrderId(), order.getStatus());
+            CompletableFuture<ObjectNode> orderFuture = entityService.getItem(Order.ENTITY_NAME, String.valueOf(Order.ENTITY_VERSION), orderId);
+            ObjectNode orderNode = orderFuture.get();
+            if (!"WAITING_TO_FULFILL".equalsIgnoreCase(orderNode.get("status").asText())) {
+                logger.warn("StartPicking called for order {} in status {}", orderNode.get("orderId"), orderNode.get("status"));
                 return payload;
             }
-            order.setStatus("PICKING");
-            entityService.updateItem(Order.ENTITY_NAME, String.valueOf(Order.ENTITY_VERSION), orderId, order);
-            logger.info("Order {} moved to PICKING", order.getOrderId());
+            orderNode.put("status", "PICKING");
+            entityService.updateItem(Order.ENTITY_NAME, String.valueOf(Order.ENTITY_VERSION), orderId, orderNode);
+            logger.info("Order {} moved to PICKING", orderNode.get("orderId"));
             payload.put("orderStatus", "PICKING");
         } catch (Exception e) {
             logger.error("Error in StartPickingProcessor", e);

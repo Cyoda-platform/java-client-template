@@ -52,7 +52,7 @@ public class PlaceOrderProcessor implements CyodaProcessor {
 
         // We cast Class to raw to satisfy serializer generic API for non-CyodaEntity payloads.
         return serializer.withRequest(request)
-            .toEntity((Class) ObjectNode.class)
+            .toEntity(Order.class)
             .validate(this::isValidPayload, "Invalid place order payload")
             .map(ctx -> processEntityLogic(ctx))
             .complete();
@@ -63,120 +63,122 @@ public class PlaceOrderProcessor implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private boolean isValidPayload(ObjectNode payload) {
-        if (payload == null) return false;
-        if (!payload.hasNonNull("cartId")) return false;
-        if (!payload.hasNonNull("userId")) return false;
-        if (!payload.hasNonNull("addressId")) return false;
-        return true;
+//    private boolean isValidPayload(ObjectNode payload) {
+    private boolean isValidPayload(Order payload) {
+        return payload != null && payload.isValid();
+//        if (payload == null) return false;
+//        if (!payload.hasNonNull("cartId")) return false;
+//        if (!payload.hasNonNull("userId")) return false;
+//        if (!payload.hasNonNull("addressId")) return false;
+//        return true;
     }
 
-    private ObjectNode processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<?> context) {
-        ObjectNode payload = (ObjectNode) context.entity();
-        try {
-            String cartId = payload.get("cartId").asText();
-            // fetch cart
-            CompletableFuture<ObjectNode> cartFuture = entityService.getItem(Cart.ENTITY_NAME, String.valueOf(Cart.ENTITY_VERSION), UUID.fromString(cartId));
-            ObjectNode cartNode = cartFuture.get();
-            Cart cart = serializer.convert(cartNode, Cart.class);
-
-            // validate stock
-            List<String> failures = new ArrayList<>();
-            if (cart.getLines() != null) {
-                for (Cart.CartLine line : cart.getLines()) {
-                    String sku = line.getSku();
-                    SearchConditionRequest cond = SearchConditionRequest.group("AND", Condition.of("$.sku", "IEQUALS", sku));
-                    CompletableFuture<com.fasterxml.jackson.databind.node.ArrayNode> prodFuture = entityService.getItemsByCondition(Product.ENTITY_NAME, String.valueOf(Product.ENTITY_VERSION), cond, true);
-                    com.fasterxml.jackson.databind.node.ArrayNode prods = prodFuture.get();
-                    if (prods == null || prods.size() == 0) {
-                        failures.add(sku + ":SKU_NOT_FOUND");
-                        continue;
-                    }
-                    ObjectNode p = (ObjectNode) prods.get(0);
-                    Product product = serializer.convert(p, Product.class);
-                    if (product.getQuantityAvailable() == null || product.getQuantityAvailable() < line.getQty()) {
-                        failures.add(sku + ":INSUFFICIENT_STOCK");
-                    }
-                }
-            }
-
-            if (!failures.isEmpty()) {
-                logger.warn("PlaceOrder aborted due to stock failures: {}", failures);
-                // Attach failures to payload for visibility
-                payload.putPOJO("stockFailures", failures);
-                return payload;
-            }
-
-            // Build order snapshot
-            Order order = new Order();
-            order.setOrderId(null);
-            // allocate orderNumber
-            String today = OffsetDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-            if (!today.equals(lastSequenceDate)) {
-                dailySequence.set(1);
-                lastSequenceDate = today;
-            }
-            int seq = dailySequence.getAndIncrement();
-            String orderNumber = String.format("ORD-%s-%04d", today, seq);
-            order.setOrderNumber(orderNumber);
-            order.setUserId(payload.get("userId").asText());
-            order.setShippingAddressId(payload.get("addressId").asText());
-
-            List<Order.OrderLine> olines = new ArrayList<>();
-            int items = 0;
-            double grand = 0.0;
-            if (cart.getLines() != null) {
-                for (Cart.CartLine line : cart.getLines()) {
-                    Order.OrderLine ol = new Order.OrderLine();
-                    ol.setSku(line.getSku());
-                    ol.setName(line.getName());
-                    // Cart has price field
-                    ol.setUnitPrice(line.getPrice());
-                    ol.setQty(line.getQty());
-                    ol.setLineTotal((line.getPrice() != null ? line.getPrice() : 0.0) * (line.getQty() != null ? line.getQty() : 0));
-                    items += ol.getQty() == null ? 0 : ol.getQty();
-                    grand += ol.getLineTotal() == null ? 0.0 : ol.getLineTotal();
-                    olines.add(ol);
-                }
-            }
-            Order.Totals totals = new Order.Totals();
-            totals.setItems(items);
-            totals.setGrand(grand);
-            order.setLines(olines);
-            order.setTotals(totals);
-            order.setStatus("WAITING_TO_FULFILL");
-            order.setCreatedAt(OffsetDateTime.now());
-
-            // persist order
-            CompletableFuture<UUID> orderIdFuture = entityService.addItem(Order.ENTITY_NAME, String.valueOf(Order.ENTITY_VERSION), order);
-            UUID orderTechnicalId = orderIdFuture.get();
-            logger.info("Order created with technicalId {} and orderNumber {}", orderTechnicalId, orderNumber);
-
-            // Decrement stock (simple approach)
-            for (Order.OrderLine ol : olines) {
-                SearchConditionRequest cond = SearchConditionRequest.group("AND", Condition.of("$.sku", "IEQUALS", ol.getSku()));
-                CompletableFuture<com.fasterxml.jackson.databind.node.ArrayNode> prodFuture = entityService.getItemsByCondition(Product.ENTITY_NAME, String.valueOf(Product.ENTITY_VERSION), cond, true);
-                com.fasterxml.jackson.databind.node.ArrayNode prods = prodFuture.get();
-                if (prods == null || prods.size() == 0) continue;
-                ObjectNode p = (ObjectNode) prods.get(0);
-                Product product = serializer.convert(p, Product.class);
-                int remaining = (product.getQuantityAvailable() == null ? 0 : product.getQuantityAvailable()) - (ol.getQty() == null ? 0 : ol.getQty());
-                product.setQuantityAvailable(remaining);
-                // update product
-                String technicalId = p.get("technicalId").asText();
-                entityService.updateItem(Product.ENTITY_NAME, String.valueOf(Product.ENTITY_VERSION), UUID.fromString(technicalId), product);
-            }
-
-            // attach order technical id to payload
-            payload.put("orderTechnicalId", orderTechnicalId.toString());
-            payload.put("orderNumber", orderNumber);
-            payload.put("orderStatus", order.getStatus());
-
-            return payload;
-
-        } catch (Exception e) {
-            logger.error("Error in PlaceOrderProcessor", e);
-        }
-        return payload;
+    private Order processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Order> context) {
+//        ObjectNode payload = (ObjectNode) context.entity();
+//        try {
+//            String cartId = payload.get("cartId").asText();
+//            // fetch cart
+//            CompletableFuture<ObjectNode> cartFuture = entityService.getItem(Cart.ENTITY_NAME, String.valueOf(Cart.ENTITY_VERSION), UUID.fromString(cartId));
+//            ObjectNode cartNode = cartFuture.get();
+//            Cart cart = serializer.convert(cartNode, Cart.class);
+//
+//            // validate stock
+//            List<String> failures = new ArrayList<>();
+//            if (cart.getLines() != null) {
+//                for (Cart.CartLine line : cart.getLines()) {
+//                    String sku = line.getSku();
+//                    SearchConditionRequest cond = SearchConditionRequest.group("AND", Condition.of("$.sku", "IEQUALS", sku));
+//                    CompletableFuture<com.fasterxml.jackson.databind.node.ArrayNode> prodFuture = entityService.getItemsByCondition(Product.ENTITY_NAME, String.valueOf(Product.ENTITY_VERSION), cond, true);
+//                    com.fasterxml.jackson.databind.node.ArrayNode prods = prodFuture.get();
+//                    if (prods == null || prods.size() == 0) {
+//                        failures.add(sku + ":SKU_NOT_FOUND");
+//                        continue;
+//                    }
+//                    ObjectNode p = (ObjectNode) prods.get(0);
+//                    Product product = serializer.convert(p, Product.class);
+//                    if (product.getQuantityAvailable() == null || product.getQuantityAvailable() < line.getQty()) {
+//                        failures.add(sku + ":INSUFFICIENT_STOCK");
+//                    }
+//                }
+//            }
+//
+//            if (!failures.isEmpty()) {
+//                logger.warn("PlaceOrder aborted due to stock failures: {}", failures);
+//                // Attach failures to payload for visibility
+//                payload.putPOJO("stockFailures", failures);
+//                return payload;
+//            }
+//
+//            // Build order snapshot
+//            Order order = new Order();
+//            order.setOrderId(null);
+//            // allocate orderNumber
+//            String today = OffsetDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+//            if (!today.equals(lastSequenceDate)) {
+//                dailySequence.set(1);
+//                lastSequenceDate = today;
+//            }
+//            int seq = dailySequence.getAndIncrement();
+//            String orderNumber = String.format("ORD-%s-%04d", today, seq);
+//            order.setOrderNumber(orderNumber);
+//            order.setUserId(payload.get("userId").asText());
+//            order.setShippingAddressId(payload.get("addressId").asText());
+//
+//            List<Order.OrderLine> olines = new ArrayList<>();
+//            int items = 0;
+//            double grand = 0.0;
+//            if (cart.getLines() != null) {
+//                for (Cart.CartLine line : cart.getLines()) {
+//                    Order.OrderLine ol = new Order.OrderLine();
+//                    ol.setSku(line.getSku());
+//                    ol.setName(line.getName());
+//                    // Cart has price field
+//                    ol.setUnitPrice(line.getPrice());
+//                    ol.setQty(line.getQty());
+//                    ol.setLineTotal((line.getPrice() != null ? line.getPrice() : 0.0) * (line.getQty() != null ? line.getQty() : 0));
+//                    items += ol.getQty() == null ? 0 : ol.getQty();
+//                    grand += ol.getLineTotal() == null ? 0.0 : ol.getLineTotal();
+//                    olines.add(ol);
+//                }
+//            }
+//            Order.Totals totals = new Order.Totals();
+//            totals.setItems(items);
+//            totals.setGrand(grand);
+//            order.setLines(olines);
+//            order.setTotals(totals);
+//            order.setStatus("WAITING_TO_FULFILL");
+//            order.setCreatedAt(OffsetDateTime.now());
+//
+//            // persist order
+//            CompletableFuture<UUID> orderIdFuture = entityService.addItem(Order.ENTITY_NAME, String.valueOf(Order.ENTITY_VERSION), order);
+//            UUID orderTechnicalId = orderIdFuture.get();
+//            logger.info("Order created with technicalId {} and orderNumber {}", orderTechnicalId, orderNumber);
+//
+//            // Decrement stock (simple approach)
+//            for (Order.OrderLine ol : olines) {
+//                SearchConditionRequest cond = SearchConditionRequest.group("AND", Condition.of("$.sku", "IEQUALS", ol.getSku()));
+//                CompletableFuture<com.fasterxml.jackson.databind.node.ArrayNode> prodFuture = entityService.getItemsByCondition(Product.ENTITY_NAME, String.valueOf(Product.ENTITY_VERSION), cond, true);
+//                com.fasterxml.jackson.databind.node.ArrayNode prods = prodFuture.get();
+//                if (prods == null || prods.size() == 0) continue;
+//                ObjectNode p = (ObjectNode) prods.get(0);
+//                Product product = serializer.convert(p, Product.class);
+//                int remaining = (product.getQuantityAvailable() == null ? 0 : product.getQuantityAvailable()) - (ol.getQty() == null ? 0 : ol.getQty());
+//                product.setQuantityAvailable(remaining);
+//                // update product
+//                String technicalId = p.get("technicalId").asText();
+//                entityService.updateItem(Product.ENTITY_NAME, String.valueOf(Product.ENTITY_VERSION), UUID.fromString(technicalId), product);
+//            }
+//
+//            // attach order technical id to payload
+//            payload.put("orderTechnicalId", orderTechnicalId.toString());
+//            payload.put("orderNumber", orderNumber);
+//            payload.put("orderStatus", order.getStatus());
+//
+//            return payload;
+//
+//        } catch (Exception e) {
+//            logger.error("Error in PlaceOrderProcessor", e);
+//        }
+        return context.entity();
     }
 }

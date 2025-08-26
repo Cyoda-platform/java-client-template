@@ -36,9 +36,9 @@ public class MarkSentProcessor implements CyodaProcessor {
         logger.info("Processing MarkSent for request: {}", request.getId());
 
         return serializer.withRequest(request)
-            .toEntity((Class) ObjectNode.class)
+            .toEntity(Order.class)
             .validate(this::isValidPayload, "Invalid mark sent payload")
-            .map(ctx -> processEntityLogic(ctx))
+            .map(this::processEntityLogic)
             .complete();
     }
 
@@ -47,28 +47,23 @@ public class MarkSentProcessor implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private boolean isValidPayload(ObjectNode payload) {
-        return payload != null && payload.hasNonNull("orderId");
+    private boolean isValidPayload(Order payload) {
+        return payload != null && payload.isValid();
     }
 
-    private ObjectNode processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<?> context) {
-        ObjectNode payload = (ObjectNode) context.entity();
+    private Order processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Order> context) {
+        final Order entity = context.entity();
         try {
-            UUID orderId = UUID.fromString(payload.get("orderId").asText());
-            CompletableFuture<com.fasterxml.jackson.databind.node.ObjectNode> orderFuture = entityService.getItem(Order.ENTITY_NAME, String.valueOf(Order.ENTITY_VERSION), orderId);
-            com.fasterxml.jackson.databind.node.ObjectNode orderNode = orderFuture.get();
-            Order order = serializer.convert(orderNode, Order.class);
-            if (!"PICKING".equalsIgnoreCase(order.getStatus())) {
-                logger.warn("MarkSent called for order {} in status {}", order.getOrderId(), order.getStatus());
-                return payload;
+            if (!"PICKING".equalsIgnoreCase(entity.getStatus())) {
+                logger.warn("MarkSent called for order {} in status {}", entity.getOrderId(), entity.getStatus());
+                return entity;
             }
-            order.setStatus("SENT");
-            entityService.updateItem(Order.ENTITY_NAME, String.valueOf(Order.ENTITY_VERSION), orderId, order);
-            logger.info("Order {} moved to SENT", order.getOrderId());
-            payload.put("orderStatus", "SENT");
+            entity.setStatus("SENT");
+            entityService.updateItem(Order.ENTITY_NAME, String.valueOf(Order.ENTITY_VERSION), UUID.fromString(entity.getOrderId()), entity);
+            logger.info("Order {} moved to SENT", entity.getOrderId());
         } catch (Exception e) {
             logger.error("Error in MarkSentProcessor", e);
         }
-        return payload;
+        return entity;
     }
 }

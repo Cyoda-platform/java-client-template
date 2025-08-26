@@ -68,13 +68,12 @@ public class StockCheckProcessor implements CyodaProcessor {
                     SearchConditionRequest cond = SearchConditionRequest.group("AND", Condition.of("$.sku", "IEQUALS", sku));
                     CompletableFuture<ArrayNode> prodFuture = entityService.getItemsByCondition(Product.ENTITY_NAME, String.valueOf(Product.ENTITY_VERSION), cond, true);
                     ArrayNode prods = prodFuture.get();
-                    if (prods == null || prods.size() == 0) {
+                    if (prods == null || prods.isEmpty()) {
                         failures.add(sku + ":SKU_NOT_FOUND");
                         continue;
                     }
                     ObjectNode p = (ObjectNode) prods.get(0);
-                    Product product = serializer.convert(p, Product.class);
-                    if (product.getQuantityAvailable() == null || product.getQuantityAvailable() < line.getQty()) {
+                    if (p.get("quantityAvailable").isNull() || p.get("quantityAvailable").asInt() < line.getQty()) {
                         failures.add(sku + ":INSUFFICIENT_STOCK");
                     }
                 }
