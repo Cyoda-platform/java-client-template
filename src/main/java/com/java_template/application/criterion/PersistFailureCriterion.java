@@ -15,9 +15,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-
 @Component
 public class PersistFailureCriterion implements CyodaCriterion {
 
@@ -52,45 +49,20 @@ public class PersistFailureCriterion implements CyodaCriterion {
              return EvaluationOutcome.success();
          }
 
-         // Use reflection to safely obtain properties so compilation does not depend on generated accessor presence.
+         // Use direct accessors to obtain properties
          String status = null;
          Long id = null;
 
-         // Try getter methods first (if present)
          try {
-             Method getStatus = entity.getClass().getMethod("getStatus");
-             Object s = getStatus.invoke(entity);
-             status = s != null ? s.toString() : null;
-         } catch (NoSuchMethodException ignored) {
-             // fallback to field access
-             try {
-                 Field statusField = entity.getClass().getDeclaredField("status");
-                 statusField.setAccessible(true);
-                 Object s = statusField.get(entity);
-                 status = s != null ? s.toString() : null;
-             } catch (Exception ex) {
-                 logger.debug("Unable to read status from HNItem via reflection: {}", ex.getMessage());
-             }
+             status = entity.getStatus();
          } catch (Exception ex) {
-             logger.debug("Error invoking getStatus on HNItem: {}", ex.getMessage());
+             logger.debug("Unable to read status from HNItem: {}", ex.getMessage());
          }
 
          try {
-             Method getId = entity.getClass().getMethod("getId");
-             Object i = getId.invoke(entity);
-             if (i instanceof Number) id = ((Number) i).longValue();
-         } catch (NoSuchMethodException ignored) {
-             // fallback to field access
-             try {
-                 Field idField = entity.getClass().getDeclaredField("id");
-                 idField.setAccessible(true);
-                 Object i = idField.get(entity);
-                 if (i instanceof Number) id = ((Number) i).longValue();
-             } catch (Exception ex) {
-                 logger.debug("Unable to read id from HNItem via reflection: {}", ex.getMessage());
-             }
+             id = entity.getId();
          } catch (Exception ex) {
-             logger.debug("Error invoking getId on HNItem: {}", ex.getMessage());
+             logger.debug("Unable to read id from HNItem: {}", ex.getMessage());
          }
 
          if (status != null && status.equalsIgnoreCase("FAILED")) {
