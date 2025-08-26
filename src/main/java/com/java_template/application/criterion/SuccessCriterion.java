@@ -15,8 +15,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.time.DateTimeException;
-import java.time.Instant;
+import java.util.List;
+import java.util.Set;
 
 @Component
 public class SuccessCriterion implements CyodaCriterion {
@@ -32,7 +32,7 @@ public class SuccessCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(TransformJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -45,91 +45,86 @@ public class SuccessCriterion implements CyodaCriterion {
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<TransformJob> context) {
-         TransformJob entity = context.entity();
+         TransformJob job = context.entity();
 
-         if (entity == null) {
-             return EvaluationOutcome.fail("TransformJob entity is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         if (job == null) {
+             return EvaluationOutcome.fail("TransformJob entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         String status = entity.getStatus();
-         if (status == null || status.isBlank()) {
+         // Basic required fields
+         if (job.getId() == null || job.getId().isBlank()) {
+             return EvaluationOutcome.fail("Job id is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+         if (job.getCreatedBy() == null || job.getCreatedBy().isBlank()) {
+             return EvaluationOutcome.fail("createdBy is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+         if (job.getJobType() == null || job.getJobType().isBlank()) {
+             return EvaluationOutcome.fail("jobType is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+         if (job.getStatus() == null || job.getStatus().isBlank()) {
              return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-
-         String jobType = entity.getJobType();
-         if (jobType == null || jobType.isBlank()) {
-             return EvaluationOutcome.fail("jobType is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         } else {
-             // Business allowed job types based on functional requirements
-             if (!"search_transform".equalsIgnoreCase(jobType) && !"bulk_transform".equalsIgnoreCase(jobType)) {
-                 return EvaluationOutcome.fail("unsupported jobType: " + jobType, StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-             }
+         if (job.getSearchFilterId() == null || job.getSearchFilterId().isBlank()) {
+             return EvaluationOutcome.fail("searchFilterId is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-
-         // For search_transform jobs, searchFilterId must be present
-         if ("search_transform".equalsIgnoreCase(jobType)) {
-             if (entity.getSearchFilterId() == null || entity.getSearchFilterId().isBlank()) {
-                 return EvaluationOutcome.fail("search_transform requires searchFilterId", StandardEvalReasonCategories.VALIDATION_FAILURE);
-             }
-         }
-
-         // Common checks by status
-         if ("COMPLETED".equalsIgnoreCase(status)) {
-             if (entity.getOutputLocation() == null || entity.getOutputLocation().isBlank()) {
-                 return EvaluationOutcome.fail("Completed job missing outputLocation", StandardEvalReasonCategories.VALIDATION_FAILURE);
-             }
-             if (entity.getCompletedAt() == null || entity.getCompletedAt().isBlank()) {
-                 return EvaluationOutcome.fail("Completed job missing completedAt", StandardEvalReasonCategories.VALIDATION_FAILURE);
-             }
-             if (entity.getResultCount() == null) {
-                 return EvaluationOutcome.fail("Completed job missing resultCount", StandardEvalReasonCategories.VALIDATION_FAILURE);
-             }
-             if (entity.getResultCount() < 0) {
-                 return EvaluationOutcome.fail("resultCount must not be negative", StandardEvalReasonCategories.VALIDATION_FAILURE);
-             }
-             if (entity.getResultCount() == 0) {
-                 return EvaluationOutcome.fail("Completed job has zero results", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-             }
-
-             // If both timestamps present, ensure chronological order
-             if (entity.getStartedAt() != null && !entity.getStartedAt().isBlank()) {
-                 try {
-                     Instant started = Instant.parse(entity.getStartedAt());
-                     Instant completed = Instant.parse(entity.getCompletedAt());
-                     if (started.isAfter(completed)) {
-                         return EvaluationOutcome.fail("startedAt is after completedAt", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-                     }
-                 } catch (DateTimeException dte) {
-                     logger.debug("Timestamp parse error for TransformJob {}: {}", entity.getId(), dte.getMessage());
-                     return EvaluationOutcome.fail("Invalid timestamp format for startedAt or completedAt", StandardEvalReasonCategories.VALIDATION_FAILURE);
-                 }
-             }
-         } else if ("FAILED".equalsIgnoreCase(status)) {
-             if (entity.getErrorMessage() == null || entity.getErrorMessage().isBlank()) {
-                 return EvaluationOutcome.fail("Failed job missing errorMessage", StandardEvalReasonCategories.VALIDATION_FAILURE);
-             }
-             if (entity.getCompletedAt() == null || entity.getCompletedAt().isBlank()) {
-                 return EvaluationOutcome.fail("Failed job missing completedAt", StandardEvalReasonCategories.VALIDATION_FAILURE);
-             }
-         } else if ("RUNNING".equalsIgnoreCase(status)) {
-             if (entity.getStartedAt() == null || entity.getStartedAt().isBlank()) {
-                 return EvaluationOutcome.fail("Running job missing startedAt", StandardEvalReasonCategories.VALIDATION_FAILURE);
-             }
-         } else if ("QUEUED".equalsIgnoreCase(status) || "PENDING".equalsIgnoreCase(status)) {
-             // No strict additional checks, but ensure priority if present is non-negative
-             if (entity.getPriority() != null && entity.getPriority() < 0) {
-                 return EvaluationOutcome.fail("priority must be non-negative", StandardEvalReasonCategories.VALIDATION_FAILURE);
-             }
-         } else {
-             // Unknown status may indicate business rule issue
-             return EvaluationOutcome.fail("Unknown job status: " + status, StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-         }
-
-         // ruleNames must be present (can be empty list) — TransformJob.isValid ensures non-null, but double-check
-         if (entity.getRuleNames() == null) {
+         if (job.getRuleNames() == null) {
              return EvaluationOutcome.fail("ruleNames must be present (can be empty)", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
+         // Business rules
+         Set<String> allowedJobTypes = Set.of("search_transform", "bulk_transform");
+         if (!allowedJobTypes.contains(job.getJobType())) {
+             return EvaluationOutcome.fail("Unsupported jobType: " + job.getJobType(), StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         }
+
+         Set<String> allowedStatuses = Set.of("PENDING", "QUEUED", "RUNNING", "TRANSFORMING", "COMPLETED", "FAILED");
+         String status = job.getStatus() == null ? "" : job.getStatus().toUpperCase();
+         if (!allowedStatuses.contains(status)) {
+             return EvaluationOutcome.fail("Unsupported status: " + job.getStatus(), StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         }
+
+         // Priority business rule
+         if (job.getPriority() != null && job.getPriority() < 0) {
+             return EvaluationOutcome.fail("priority must be non-negative", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         }
+
+         // Status-specific quality checks
+         if ("COMPLETED".equalsIgnoreCase(job.getStatus())) {
+             if (job.getOutputLocation() == null || job.getOutputLocation().isBlank()) {
+                 return EvaluationOutcome.fail("Completed job must have outputLocation", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+             if (job.getCompletedAt() == null || job.getCompletedAt().isBlank()) {
+                 return EvaluationOutcome.fail("Completed job must have completedAt timestamp", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+             if (job.getResultCount() == null || job.getResultCount() < 0) {
+                 return EvaluationOutcome.fail("Completed job must have non-negative resultCount", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+         }
+
+         if ("FAILED".equalsIgnoreCase(job.getStatus())) {
+             if (job.getErrorMessage() == null || job.getErrorMessage().isBlank()) {
+                 return EvaluationOutcome.fail("Failed job must include an errorMessage", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+             if (job.getCompletedAt() == null || job.getCompletedAt().isBlank()) {
+                 return EvaluationOutcome.fail("Failed job must have completedAt timestamp", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+         }
+
+         if ("RUNNING".equalsIgnoreCase(job.getStatus()) || "TRANSFORMING".equalsIgnoreCase(job.getStatus())) {
+             if (job.getStartedAt() == null || job.getStartedAt().isBlank()) {
+                 return EvaluationOutcome.fail("Running job should have startedAt timestamp", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+         }
+
+         // ruleNames elements should not be blank
+         List<String> rules = job.getRuleNames();
+         for (String r : rules) {
+             if (r == null || r.isBlank()) {
+                 return EvaluationOutcome.fail("ruleNames must not contain blank entries", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+         }
+
+         // If all checks pass
          return EvaluationOutcome.success();
     }
 }

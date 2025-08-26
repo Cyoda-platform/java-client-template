@@ -1,4 +1,5 @@
 package com.java_template.application.processor;
+
 import com.java_template.application.entity.pet.version_1.Pet;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
@@ -7,9 +8,9 @@ import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
-import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 @Component
 public class ArchiveProcessor implements CyodaProcessor {
@@ -27,10 +28,10 @@ public class ArchiveProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing Pet for request: {}", request.getId());
 
-        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
+        return serializer.withRequest(request)
             .toEntity(Pet.class)
             .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+            .map(this::processEntityLogic)
             .complete();
     }
 
@@ -44,29 +45,21 @@ public class ArchiveProcessor implements CyodaProcessor {
     }
 
     private Pet processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Pet> context) {
-        Pet entity = context.entity();
+        Pet pet = context.entity();
 
-        if (entity == null) {
-            logger.warn("ArchiveProcessor invoked with null entity");
-            return null;
+        try {
+            String currentStatus = pet.getAvailability_status();
+            if (currentStatus != null && currentStatus.equalsIgnoreCase("PUBLISHED")) {
+                logger.info("Archiving Pet id={} currentStatus={}", pet.getId(), currentStatus);
+                pet.setAvailability_status("ARCHIVED");
+            } else {
+                logger.debug("Pet id={} not in PUBLISHED state (current={}), no archive action taken", pet.getId(), currentStatus);
+            }
+        } catch (Exception e) {
+            logger.error("Error while processing ArchiveProcessor for pet id={}: {}", pet != null ? pet.getId() : "null", e.getMessage(), e);
+            // Do not throw; let serializer/processor handle propagation. Keep entity unchanged on error.
         }
 
-        String currentState = entity.getAvailability_status();
-        if (currentState == null) {
-            logger.warn("Pet {} has null availability_status, skipping archive", entity.getId());
-            return entity;
-        }
-
-        // Only archive when currently published. Protect against accidental state changes.
-        if ("PUBLISHED".equalsIgnoreCase(currentState)) {
-            logger.info("Archiving pet with id {}", entity.getId());
-            entity.setAvailability_status("ARCHIVED");
-        } else if ("ARCHIVED".equalsIgnoreCase(currentState)) {
-            logger.info("Pet {} is already archived, no changes made", entity.getId());
-        } else {
-            logger.info("Pet {} is in state '{}' which is not eligible for archiving; no changes made", entity.getId(), currentState);
-        }
-
-        return entity;
+        return pet;
     }
 }

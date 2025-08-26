@@ -1,4 +1,5 @@
 package com.java_template.application.processor;
+
 import com.java_template.application.entity.pet.version_1.Pet;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
@@ -51,125 +52,131 @@ public class EnrichmentProcessor implements CyodaProcessor {
     private Pet processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Pet> context) {
         Pet entity = context.entity();
 
-        if (entity == null) return null;
+        if (entity == null) {
+            return null;
+        }
 
         try {
-            // 1) Normalize age: convert months -> years when >= 12 months
-            Integer ageValue = entity.getAge_value();
-            String ageUnit = entity.getAge_unit();
-            if (ageValue != null && ageUnit != null) {
-                if ("months".equalsIgnoreCase(ageUnit) && ageValue >= 12) {
-                    int years = ageValue / 12;
-                    if (years <= 0) {
-                        // keep as months if conversion would be zero (defensive)
-                        entity.setAge_value(ageValue);
-                        entity.setAge_unit("months");
-                    } else {
-                        entity.setAge_value(years);
-                        entity.setAge_unit("years");
-                    }
-                } else {
-                    // normalize unit casing only
-                    entity.setAge_unit(ageUnit.trim().toLowerCase());
+            // 1) Normalize age:
+            normalizeAge(entity);
+
+            // 2) Enrich temperament tags:
+            enrichTemperamentTags(entity);
+
+            // 3) Map region/state transitions:
+            mapAvailabilityState(entity);
+
+            // 4) Ensure location postal is trimmed or set to empty string (no invented fields)
+            if (entity.getLocation() != null) {
+                String postal = entity.getLocation().getPostal();
+                if (postal != null) {
+                    postal = postal.trim();
+                    entity.getLocation().setPostal(postal.isEmpty() ? null : postal);
                 }
             }
-
-            // 2) Infer temperament tags (augment existing tags, avoid duplicates)
-            List<String> currentTags = entity.getTemperament_tags();
-            Set<String> tagSet = new LinkedHashSet<>();
-            if (currentTags != null) {
-                for (String t : currentTags) {
-                    if (t != null && !t.isBlank()) tagSet.add(t.trim().toLowerCase());
-                }
-            } else {
-                // ensure non-null list as entity.isValid() requires non-null; defensive fallback
-                currentTags = new ArrayList<>();
-                entity.setTemperament_tags(currentTags);
-            }
-
-            // Add tags based on species
-            String species = entity.getSpecies();
-            if (species != null) {
-                if ("dog".equalsIgnoreCase(species)) {
-                    tagSet.add("friendly");
-                } else if ("cat".equalsIgnoreCase(species)) {
-                    tagSet.add("independent");
-                } else {
-                    tagSet.add("other-species");
-                }
-            }
-
-            // Add tag for young pets (age < 1 year)
-            String normalizedAgeUnit = entity.getAge_unit();
-            Integer normalizedAgeValue = entity.getAge_value();
-            boolean consideredYoung = false;
-            if (normalizedAgeUnit != null && normalizedAgeValue != null) {
-                if ("months".equalsIgnoreCase(normalizedAgeUnit) && normalizedAgeValue < 12) {
-                    consideredYoung = true;
-                } else if ("years".equalsIgnoreCase(normalizedAgeUnit) && normalizedAgeValue != null && normalizedAgeValue < 1) {
-                    consideredYoung = true;
-                }
-            }
-            if (consideredYoung) {
-                tagSet.add("young");
-            }
-
-            // If size suggests energetic/small/large, map to tags
-            String size = entity.getSize();
-            if (size != null) {
-                String s = size.trim().toLowerCase();
-                if ("small".equalsIgnoreCase(s)) tagSet.add("small");
-                else if ("medium".equalsIgnoreCase(s)) tagSet.add("medium");
-                else if ("large".equalsIgnoreCase(s)) tagSet.add("large");
-            }
-
-            // Persist back unique ordered tag list
-            List<String> finalTags = new ArrayList<>(tagSet);
-            entity.setTemperament_tags(finalTags);
-
-            // 3) Normalize size casing/trimming
-            if (entity.getSize() != null) {
-                entity.setSize(entity.getSize().trim().toLowerCase());
-            }
-
-            // 4) Clean and normalize location fields (trim city/postal)
-            Pet.Location loc = entity.getLocation();
-            if (loc != null) {
-                if (loc.getCity() != null) {
-                    loc.setCity(loc.getCity().trim());
-                }
-                if (loc.getPostal() != null) {
-                    loc.setPostal(loc.getPostal().trim());
-                }
-                // leave lat/lon as-is; no geocoding here
-                entity.setLocation(loc);
-            }
-
-            // 5) Deduplicate photos while preserving order
-            List<String> photos = entity.getPhotos();
-            if (photos != null) {
-                Set<String> photoSet = new LinkedHashSet<>();
-                for (String p : photos) {
-                    if (p != null && !p.isBlank()) photoSet.add(p.trim());
-                }
-                entity.setPhotos(new ArrayList<>(photoSet));
-            }
-
-            // 6) Basic enrichment for health_status: normalize casing if present
-            if (entity.getHealth_status() != null) {
-                entity.setHealth_status(entity.getHealth_status().trim().toLowerCase());
-            }
-
-            // 7) Ensure availability_status normalized
-            if (entity.getAvailability_status() != null) {
-                entity.setAvailability_status(entity.getAvailability_status().trim().toLowerCase());
-            }
-
         } catch (Exception ex) {
-            logger.warn("Error during enrichment for pet id {}: {}", entity.getId(), ex.getMessage());
-            // Do not change entity state in case of unexpected errors beyond logging
+            logger.warn("EnrichmentProcessor encountered an exception while processing pet id={} : {}", entity.getId(), ex.getMessage());
+            // Do not rethrow - leave entity unchanged apart from partial enrichment
         }
 
         return entity;
+    }
+
+    private void normalizeAge(Pet pet) {
+        if (pet.getAge_unit() == null || pet.getAge_value() == null) return;
+
+        String unit = pet.getAge_unit().trim().toLowerCase();
+        Integer value = pet.getAge_value();
+
+        if ("months".equals(unit)) {
+            if (value >= 12) {
+                int years = value / 12;
+                pet.setAge_value(years);
+                pet.setAge_unit("years");
+            } else {
+                // keep as months (explicit normalized form)
+                pet.setAge_unit("months");
+            }
+        } else if ("years".equals(unit)) {
+            // sanitize unit to canonical lowercase "years"
+            pet.setAge_unit("years");
+            if (value < 0) {
+                pet.setAge_value(0);
+            }
+        } else {
+            // Unknown unit: try to fallback to years
+            pet.setAge_unit("years");
+            if (value < 0) pet.setAge_value(0);
+        }
+    }
+
+    private void enrichTemperamentTags(Pet pet) {
+        List<String> tags = pet.getTemperament_tags();
+        if (tags == null) {
+            tags = new ArrayList<>();
+            pet.setTemperament_tags(tags);
+        }
+
+        Set<String> dedup = new LinkedHashSet<>();
+        // preserve existing tags (trimmed)
+        for (String t : tags) {
+            if (t != null) {
+                String tt = t.trim().toLowerCase();
+                if (!tt.isEmpty()) dedup.add(tt);
+            }
+        }
+
+        // Infer from species
+        String species = pet.getSpecies();
+        if (species != null) {
+            String s = species.trim().toLowerCase();
+            if ("dog".equals(s)) dedup.add("friendly");
+            else if ("cat".equals(s)) dedup.add("independent");
+            else dedup.add("other-species");
+        }
+
+        // Infer from size
+        String size = pet.getSize();
+        if (size != null) {
+            String sz = size.trim().toLowerCase();
+            if (!sz.isEmpty()) dedup.add(sz);
+        }
+
+        // Infer from health_status
+        String health = pet.getHealth_status();
+        if (health != null && "vaccinated".equalsIgnoreCase(health.trim())) {
+            dedup.add("vaccinated");
+        }
+
+        // Age-related tags
+        if (pet.getAge_value() != null && pet.getAge_unit() != null) {
+            double years;
+            if ("months".equalsIgnoreCase(pet.getAge_unit())) {
+                years = pet.getAge_value() / 12.0;
+            } else {
+                years = pet.getAge_value();
+            }
+            if (years < 1.0) dedup.add("young");
+            else if (years >= 8.0) dedup.add("senior");
+            else dedup.add("adult");
+        }
+
+        // Convert dedup set back to list with reasonable casing
+        List<String> finalTags = new ArrayList<>();
+        for (String t : dedup) {
+            finalTags.add(t);
+        }
+
+        pet.setTemperament_tags(finalTags);
+    }
+
+    private void mapAvailabilityState(Pet pet) {
+        String status = pet.getAvailability_status();
+        if (status == null) return;
+        String s = status.trim();
+        if (s.equalsIgnoreCase("PENDING_VERIFICATION")) {
+            pet.setAvailability_status("AWAITING_APPROVAL");
+        }
+        // Do not update other entities or call external services here.
     }
 }

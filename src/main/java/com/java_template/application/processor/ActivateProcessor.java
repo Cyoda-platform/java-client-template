@@ -1,4 +1,5 @@
 package com.java_template.application.processor;
+
 import com.java_template.application.entity.searchfilter.version_1.SearchFilter;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
@@ -7,9 +8,9 @@ import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
-import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 @Component
 public class ActivateProcessor implements CyodaProcessor {
@@ -29,7 +30,7 @@ public class ActivateProcessor implements CyodaProcessor {
 
         return serializer.withRequest(request)
             .toEntity(SearchFilter.class)
-            .validate(this::isValidEntity, "Invalid entity state")
+            .validate(this::isValidEntity, "Invalid SearchFilter state")
             .map(this::processEntityLogic)
             .complete();
     }
@@ -46,35 +47,19 @@ public class ActivateProcessor implements CyodaProcessor {
     private SearchFilter processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<SearchFilter> context) {
         SearchFilter entity = context.entity();
 
-        // If already active, nothing to do
+        // If already active, nothing to change; otherwise set active.
         if (Boolean.TRUE.equals(entity.getIsActive())) {
-            logger.info("SearchFilter {} is already active", entity.getId());
+            logger.info("SearchFilter {} is already active.", entity.getId());
             return entity;
         }
 
-        // Apply sensible defaults where appropriate before activation
-        if (entity.getPageSize() == null || entity.getPageSize() <= 0) {
-            entity.setPageSize(20); // default page size
-            logger.debug("Applied default pageSize=20 for SearchFilter {}", entity.getId());
-        }
-
-        if (entity.getRadiusKm() == null || entity.getRadiusKm() < 0) {
-            entity.setRadiusKm(30); // default radius
-            logger.debug("Applied default radiusKm=30 for SearchFilter {}", entity.getId());
-        }
-
-        // Ensure location center is present and has coordinates (entity.isValid() already checked this,
-        // but double-checking to avoid accidental activation on malformed data)
-        if (entity.getLocationCenter() == null
-            || entity.getLocationCenter().getLat() == null
-            || entity.getLocationCenter().getLon() == null) {
-            logger.warn("SearchFilter {} missing location center coordinates; cannot activate", entity.getId());
-            return entity;
-        }
-
-        // Mark filter as active
+        // Activate the search filter so it can be used for scheduling triggers/alerts.
         entity.setIsActive(Boolean.TRUE);
-        logger.info("Activated SearchFilter {}", entity.getId());
+        logger.info("Activated SearchFilter {} (set isActive=true).", entity.getId());
+
+        // No external updates to this entity should be performed here.
+        // If scheduling or creating other entities is required, that should be done via injected services
+        // and not by updating this triggering entity directly.
 
         return entity;
     }

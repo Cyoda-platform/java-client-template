@@ -14,10 +14,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Collections;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+
+import static com.java_template.common.config.Config.*;
 
 @Component
 public class EnqueueSearchJobProcessor implements CyodaProcessor {
@@ -39,7 +40,7 @@ public class EnqueueSearchJobProcessor implements CyodaProcessor {
 
         return serializer.withRequest(request)
             .toEntity(SearchFilter.class)
-            .validate(this::isValidEntity, "Invalid entity state")
+            .validate(this::isValidEntity, "Invalid SearchFilter state")
             .map(this::processEntityLogic)
             .complete();
     }
@@ -56,40 +57,43 @@ public class EnqueueSearchJobProcessor implements CyodaProcessor {
     private SearchFilter processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<SearchFilter> context) {
         SearchFilter filter = context.entity();
 
-        // Create a TransformJob for this SearchFilter and enqueue it via EntityService.
+        // Create a TransformJob for this SearchFilter trigger.
         TransformJob job = new TransformJob();
         job.setId(UUID.randomUUID().toString());
+        // Use the SearchFilter's user reference as creator when available
         job.setCreatedBy(filter.getUserId());
         job.setJobType("search_transform");
-        // Mark as QUEUED by this processor; downstream processors can transition to RUNNING.
         job.setStatus("QUEUED");
         job.setSearchFilterId(filter.getId());
-        // No output yet
-        job.setOutputLocation(null);
-        job.setErrorMessage(null);
-        job.setStartedAt(null);
-        job.setCompletedAt(null);
-        job.setResultCount(null);
-        // Ensure ruleNames is non-null (TransformJob.isValid requires non-null)
-        List<String> rules = new ArrayList<>();
-        job.setRuleNames(rules);
-        // Priority can be left null or set to a default; leave null to allow system defaults
-        job.setPriority(null);
+        job.setPriority(filter.getPageSize() != null ? Math.max(1, filter.getPageSize() / 10) : 5);
+        job.setRuleNames(Collections.emptyList());
+        job.setResultCount(0);
+        // Optionally set an output location placeholder where results will be stored
+        job.setOutputLocation("/transform-results/" + job.getId() + ".json");
 
+        // Add TransformJob as a new entity via EntityService (do not update the triggering entity)
         try {
             CompletableFuture<java.util.UUID> idFuture = entityService.addItem(
                 TransformJob.ENTITY_NAME,
                 String.valueOf(TransformJob.ENTITY_VERSION),
                 job
             );
-            // Wait for persistence to complete; if it fails an exception will be thrown and caught below
-            idFuture.join();
-            logger.info("Enqueued TransformJob {} for SearchFilter {}", job.getId(), filter.getId());
+
+            idFuture.whenComplete((uuid, ex) -> {
+                if (ex != null) {
+                    logger.error("Failed to enqueue TransformJob for SearchFilter {}: {}", filter.getId(), ex.getMessage(), ex);
+                } else {
+                    logger.info("Enqueued TransformJob {} (technicalId={}) for SearchFilter {}", job.getId(), uuid, filter.getId());
+                }
+            });
         } catch (Exception ex) {
-            logger.error("Failed to enqueue TransformJob for SearchFilter {}: {}", filter.getId(), ex.getMessage(), ex);
-            // Do not modify the triggering entity beyond this point. Optionally, could set diagnostic info on filter,
-            // but SearchFilter has no fields for that; simply return the filter unchanged so the workflow can handle retries.
+            logger.error("Exception while enqueueing TransformJob for SearchFilter {}: {}", filter.getId(), ex.getMessage(), ex);
         }
+
+        // We do not modify the triggering entity via EntityService. If desired,
+        // we could update in-memory fields on the SearchFilter that will be persisted by Cyoda automatically.
+        // For now, leave filter unchanged except logging.
+        logger.debug("SearchFilter {} processed by EnqueueSearchJobProcessor", filter.getId());
 
         return filter;
     }

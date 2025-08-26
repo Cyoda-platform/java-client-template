@@ -15,9 +15,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.time.DateTimeParseException;
 import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.Locale;
 
 @Component
 public class ValidatePetCriterion implements CyodaCriterion {
@@ -33,7 +34,7 @@ public class ValidatePetCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Pet.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -42,123 +43,139 @@ public class ValidatePetCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
+        // Must use exact criterion name
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Pet> context) {
-         Pet entity = context.entity();
+        Pet entity = context.entity();
+        if (entity == null) {
+            logger.warn("Pet entity is null in context");
+            return EvaluationOutcome.fail("Pet entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
 
-         if (entity == null) {
-             return EvaluationOutcome.fail("Pet entity is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
+        // Required string fields
+        if (entity.getId() == null || entity.getId().isBlank()) {
+            return EvaluationOutcome.fail("id is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (entity.getName() == null || entity.getName().isBlank()) {
+            return EvaluationOutcome.fail("name is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (entity.getSpecies() == null || entity.getSpecies().isBlank()) {
+            return EvaluationOutcome.fail("species is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (entity.getAvailability_status() == null || entity.getAvailability_status().isBlank()) {
+            return EvaluationOutcome.fail("availability_status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (entity.getCreated_at() == null || entity.getCreated_at().isBlank()) {
+            return EvaluationOutcome.fail("created_at is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
 
-         // Required presence checks (basic completeness)
-         if (entity.getId() == null || entity.getId().isBlank()) {
-             return EvaluationOutcome.fail("id is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-         if (entity.getName() == null || entity.getName().isBlank()) {
-             return EvaluationOutcome.fail("name is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-         if (entity.getSpecies() == null || entity.getSpecies().isBlank()) {
-             return EvaluationOutcome.fail("species is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-         if (entity.getAvailability_status() == null || entity.getAvailability_status().isBlank()) {
-             return EvaluationOutcome.fail("availability_status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-         if (entity.getCreated_at() == null || entity.getCreated_at().isBlank()) {
-             return EvaluationOutcome.fail("created_at is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-         if (entity.getAge_value() == null || entity.getAge_value() < 0) {
-             return EvaluationOutcome.fail("age_value is required and must be non-negative", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-         if (entity.getAge_unit() == null || entity.getAge_unit().isBlank()) {
-             return EvaluationOutcome.fail("age_unit is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-         if (entity.getLocation() == null) {
-             return EvaluationOutcome.fail("location is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-         if (entity.getLocation().getCity() == null || entity.getLocation().getCity().isBlank()) {
-             return EvaluationOutcome.fail("location.city is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-         if (entity.getLocation().getLat() == null || entity.getLocation().getLon() == null) {
-             return EvaluationOutcome.fail("location.lat and location.lon are required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-         if (entity.getPhotos() == null) {
-             return EvaluationOutcome.fail("photos collection is required (may be empty)", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-         for (String p : entity.getPhotos()) {
-             if (p == null || p.isBlank()) {
-                 return EvaluationOutcome.fail("photos must not contain blank entries", StandardEvalReasonCategories.VALIDATION_FAILURE);
-             }
-         }
-         if (entity.getTemperament_tags() == null) {
-             return EvaluationOutcome.fail("temperament_tags collection is required (may be empty)", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-         for (String t : entity.getTemperament_tags()) {
-             if (t == null || t.isBlank()) {
-                 return EvaluationOutcome.fail("temperament_tags must not contain blank entries", StandardEvalReasonCategories.VALIDATION_FAILURE);
-             }
-         }
+        // Validate created_at is ISO-8601 timestamp
+        try {
+            Instant.parse(entity.getCreated_at());
+        } catch (DateTimeParseException ex) {
+            logger.debug("Invalid created_at format: {}", entity.getCreated_at(), ex);
+            return EvaluationOutcome.fail("created_at must be a valid ISO-8601 timestamp", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
 
-         // Data quality checks
-         Double lat = entity.getLocation().getLat();
-         Double lon = entity.getLocation().getLon();
-         if (lat < -90.0 || lat > 90.0 || lon < -180.0 || lon > 180.0) {
-             return EvaluationOutcome.fail("location coordinates out of bounds", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-         }
+        // Validate age
+        if (entity.getAge_value() == null) {
+            return EvaluationOutcome.fail("age_value is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (entity.getAge_value() < 0) {
+            return EvaluationOutcome.fail("age_value must be non-negative", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (entity.getAge_unit() == null || entity.getAge_unit().isBlank()) {
+            return EvaluationOutcome.fail("age_unit is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        } else {
+            String au = entity.getAge_unit().toLowerCase(Locale.ROOT);
+            if (!("years".equals(au) || "months".equals(au))) {
+                return EvaluationOutcome.fail("age_unit must be 'years' or 'months'", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            }
+        }
 
-         // created_at should be ISO timestamp
-         try {
-             Instant.parse(entity.getCreated_at());
-         } catch (DateTimeParseException ex) {
-             return EvaluationOutcome.fail("created_at is not a valid ISO-8601 timestamp", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-         }
+        // Species-specific business rule: if species is dog or cat, breed must be present
+        String species = entity.getSpecies().toLowerCase(Locale.ROOT);
+        if ("dog".equals(species) || "cat".equals(species)) {
+            if (entity.getBreed() == null || entity.getBreed().isBlank()) {
+                return EvaluationOutcome.fail("breed is required for species 'dog' or 'cat'", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+            }
+        }
 
-         // Basic URL quality check for photos
-         for (String p : entity.getPhotos()) {
-             String lower = p.toLowerCase();
-             if (!(lower.startsWith("http://") || lower.startsWith("https://"))) {
-                 return EvaluationOutcome.fail("photo URLs must start with http:// or https://", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-             }
-         }
+        // Validate availability_status allowed values
+        String avail = entity.getAvailability_status().toLowerCase(Locale.ROOT);
+        if (!("available".equals(avail) || "adopted".equals(avail) || "pending".equals(avail))) {
+            return EvaluationOutcome.fail("availability_status must be one of available|adopted|pending", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
 
-         // Business rule validations
-         String species = entity.getSpecies().trim().toLowerCase();
-         if (!(species.equals("dog") || species.equals("cat") || species.equals("other"))) {
-             return EvaluationOutcome.fail("species must be one of: dog, cat, other", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-         }
+        // Validate health_status if present
+        if (entity.getHealth_status() != null && !entity.getHealth_status().isBlank()) {
+            String hs = entity.getHealth_status().toLowerCase(Locale.ROOT);
+            if (!("vaccinated".equals(hs) || "needs_care".equals(hs))) {
+                return EvaluationOutcome.fail("health_status must be 'vaccinated' or 'needs_care' if present", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            }
+        }
 
-         String ageUnit = entity.getAge_unit().trim().toLowerCase();
-         if (!(ageUnit.equals("years") || ageUnit.equals("months"))) {
-             return EvaluationOutcome.fail("age_unit must be 'years' or 'months'", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-         }
+        // Validate sex if present
+        if (entity.getSex() != null && !entity.getSex().isBlank()) {
+            String sex = entity.getSex();
+            if (!("M".equals(sex) || "F".equals(sex))) {
+                return EvaluationOutcome.fail("sex must be 'M' or 'F' if present", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            }
+        }
 
-         if (entity.getSex() != null && !entity.getSex().isBlank()) {
-             String sex = entity.getSex().trim().toUpperCase();
-             if (!(sex.equals("M") || sex.equals("F"))) {
-                 return EvaluationOutcome.fail("sex must be 'M' or 'F' when present", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-             }
-         }
+        // Validate size if present
+        if (entity.getSize() != null && !entity.getSize().isBlank()) {
+            String size = entity.getSize().toLowerCase(Locale.ROOT);
+            if (!("small".equals(size) || "medium".equals(size) || "large".equals(size))) {
+                return EvaluationOutcome.fail("size must be one of small|medium|large if present", StandardEvalReasonCategories.VALIDATION_FAILURE);
+            }
+        }
 
-         if (entity.getSize() != null && !entity.getSize().isBlank()) {
-             String size = entity.getSize().trim().toLowerCase();
-             if (!(size.equals("small") || size.equals("medium") || size.equals("large"))) {
-                 return EvaluationOutcome.fail("size must be one of: small, medium, large when present", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-             }
-         }
+        // Validate location (geo validity)
+        Pet.Location loc = entity.getLocation();
+        if (loc == null) {
+            return EvaluationOutcome.fail("location is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (loc.getCity() == null || loc.getCity().isBlank()) {
+            return EvaluationOutcome.fail("location.city is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (loc.getLat() == null || loc.getLon() == null) {
+            return EvaluationOutcome.fail("location.lat and location.lon are required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        double lat = loc.getLat();
+        double lon = loc.getLon();
+        if (lat < -90.0 || lat > 90.0) {
+            return EvaluationOutcome.fail("location.lat must be between -90 and 90", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+        if (lon < -180.0 || lon > 180.0) {
+            return EvaluationOutcome.fail("location.lon must be between -180 and 180", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
 
-         String availability = entity.getAvailability_status().trim().toLowerCase();
-         if (!(availability.equals("available") || availability.equals("adopted") || availability.equals("pending"))) {
-             return EvaluationOutcome.fail("availability_status must be one of: available, adopted, pending", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-         }
+        // Photos validation (data quality)
+        List<String> photos = entity.getPhotos();
+        if (photos == null) {
+            return EvaluationOutcome.fail("photos must be present (can be empty list) but not null", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+        }
+        for (String p : photos) {
+            if (p == null || p.isBlank()) {
+                return EvaluationOutcome.fail("photos must not contain blank entries", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+            }
+        }
 
-         if (entity.getHealth_status() != null && !entity.getHealth_status().isBlank()) {
-             String hs = entity.getHealth_status().trim().toLowerCase();
-             if (!(hs.equals("vaccinated") || hs.equals("needs_care"))) {
-                 return EvaluationOutcome.fail("health_status must be 'vaccinated' or 'needs_care' when present", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-             }
-         }
+        // Temperament tags validation (data quality)
+        List<String> tags = entity.getTemperament_tags();
+        if (tags == null) {
+            return EvaluationOutcome.fail("temperament_tags must be present (can be empty) but not null", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+        }
+        for (String t : tags) {
+            if (t == null || t.isBlank()) {
+                return EvaluationOutcome.fail("temperament_tags must not contain blank entries", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+            }
+        }
 
+        // All validations passed
         return EvaluationOutcome.success();
     }
 }

@@ -15,8 +15,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
-
 @Component
 public class AutoApproveCriterion implements CyodaCriterion {
 
@@ -31,7 +29,7 @@ public class AutoApproveCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Pet.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -44,58 +42,86 @@ public class AutoApproveCriterion implements CyodaCriterion {
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Pet> context) {
-         Pet pet = context.entity();
-         if (pet == null) {
-             return EvaluationOutcome.fail("Pet entity is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         Pet entity = context.entity();
+         if (entity == null) {
+             return EvaluationOutcome.fail("Entity missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Basic entity validity
-         if (!pet.isValid()) {
-             return EvaluationOutcome.fail("Basic entity validation failed", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         // Basic structural validation using entity's own isValid method (use only existing API)
+         try {
+             if (!entity.isValid()) {
+                 return EvaluationOutcome.fail("Entity failed basic validation", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             }
+         } catch (Exception e) {
+             logger.warn("isValid() check threw exception for pet id {}: {}", entity.getId(), e.getMessage(), e);
+             return EvaluationOutcome.fail("Entity validation threw exception", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
          // Business rule: only auto-approve pets that are currently available
-         String availability = pet.getAvailability_status();
+         String availability = entity.getAvailability_status();
          if (availability == null || !"available".equalsIgnoreCase(availability)) {
-             return EvaluationOutcome.fail("Pet not available for auto-approval", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+             return EvaluationOutcome.fail("Pet not marked as available", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
-         // Data quality: require vaccination for auto-approval
-         String health = pet.getHealth_status();
+         // Data quality: require vaccinated health status for auto-approval
+         String health = entity.getHealth_status();
          if (health == null || !"vaccinated".equalsIgnoreCase(health)) {
-             return EvaluationOutcome.fail("Pet must be vaccinated for auto-approval", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             return EvaluationOutcome.fail("Pet not vaccinated", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // Data quality: require at least one photo
-         List<String> photos = pet.getPhotos();
-         if (photos == null || photos.isEmpty()) {
-             return EvaluationOutcome.fail("At least one photo is required for auto-approval", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         // Data quality: require at least one photo for auto-approval
+         if (entity.getPhotos() == null || entity.getPhotos().isEmpty()) {
+             return EvaluationOutcome.fail("No photos provided", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // Business rule: temperament must not contain high-risk tags
-         List<String> temperament = pet.getTemperament_tags();
-         if (temperament != null) {
-             for (String t : temperament) {
-                 if (t == null) continue;
-                 String normalized = t.trim().toLowerCase();
-                 if ("aggressive".equals(normalized) || "dangerous".equals(normalized) || "attack".equals(normalized)) {
-                     return EvaluationOutcome.fail("Pet temperament flagged as high-risk", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-                 }
+         // Location sanity checks (lat/lon ranges)
+         if (entity.getLocation() == null) {
+             return EvaluationOutcome.fail("Location missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+         Double lat = entity.getLocation().getLat();
+         Double lon = entity.getLocation().getLon();
+         if (lat == null || lon == null) {
+             return EvaluationOutcome.fail("Location coordinates missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+         if (lat < -90.0 || lat > 90.0 || lon < -180.0 || lon > 180.0) {
+             return EvaluationOutcome.fail("Invalid location coordinates", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+
+         // Age plausibility checks:
+         Integer ageValue = entity.getAge_value();
+         String ageUnit = entity.getAge_unit();
+         if (ageValue == null) {
+             return EvaluationOutcome.fail("Age value missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+         if (ageUnit == null || ageUnit.isBlank()) {
+             return EvaluationOutcome.fail("Age unit missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+         // Reject obviously implausible ages:
+         // - if age unit is months, require <= 240 months (~20 years)
+         // - if age unit is years, require <= 30 years
+         String au = ageUnit.trim().toLowerCase();
+         if ("months".equals(au) || "month".equals(au)) {
+             if (ageValue > 240) {
+                 return EvaluationOutcome.fail("Age implausible for months (>240)", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
              }
+         } else if ("years".equals(au) || "year".equals(au)) {
+             if (ageValue > 30) {
+                 return EvaluationOutcome.fail("Age implausible for years (>30)", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+         } else {
+             // Unknown age unit -> treat as data quality failure
+             return EvaluationOutcome.fail("Unknown age unit", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // Data quality: age sanity checks to avoid obviously incorrect values
-         Integer ageVal = pet.getAge_value();
-         String ageUnit = pet.getAge_unit();
-         if (ageVal != null && ageUnit != null) {
-             if ("years".equalsIgnoreCase(ageUnit) && ageVal > 30) {
-                 return EvaluationOutcome.fail("Unrealistic age value", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-             }
-             if ("months".equalsIgnoreCase(ageUnit) && ageVal > 360) {
-                 return EvaluationOutcome.fail("Unrealistic age value", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-             }
+         // Additional simple checks: name and species presence (isValid already checked, but double-check defensively)
+         if (entity.getName() == null || entity.getName().isBlank()) {
+             return EvaluationOutcome.fail("Name missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+         if (entity.getSpecies() == null || entity.getSpecies().isBlank()) {
+             return EvaluationOutcome.fail("Species missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-        return EvaluationOutcome.success();
+         // If all checks pass, auto-approve
+         return EvaluationOutcome.success();
     }
 }

@@ -2,303 +2,326 @@ package com.java_template.application.controller.searchfilter.version_1;
 
 import static com.java_template.common.config.Config.*;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
+import com.java_template.application.entity.searchfilter.version_1.SearchFilter;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
-import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import lombok.Data;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
 
+/**
+ * Controller for SearchFilter entity (version 1)
+ *
+ * Responsibilities:
+ * - Proxy requests to EntityService
+ * - Validate basic request format
+ * - Proper exception handling and response mapping
+ *
+ * Note: No business logic implemented in controller.
+ */
 @RestController
-@RequestMapping("/api/searchfilters")
-@Tag(name = "SearchFilter", description = "SearchFilter entity operations (version 1)")
+@RequestMapping("/api/v1/search-filter")
+@Tag(name = "SearchFilter", description = "CRUD API for SearchFilter entity (v1)")
+@Validated
 public class SearchFilterController {
 
     private static final Logger logger = LoggerFactory.getLogger(SearchFilterController.class);
 
     private final EntityService entityService;
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public SearchFilterController(EntityService entityService) {
         this.entityService = entityService;
     }
 
-    @Operation(summary = "Create SearchFilter", description = "Create a new SearchFilter. This controller only proxies to the entity service. Business logic is implemented in workflows.")
+    @Operation(summary = "Create SearchFilter", description = "Adds a single SearchFilter entity.")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = CreateSearchFilterResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Bad Request", content = @Content),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error", content = @Content)
+        @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = IdResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Bad Request"),
+        @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
-    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> createSearchFilter(
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "SearchFilter create request", required = true,
-                    content = @Content(schema = @Schema(implementation = CreateSearchFilterRequest.class)))
-            @RequestBody CreateSearchFilterRequest request) {
+    @PostMapping(consumes = "application/json", produces = "application/json")
+    public ResponseEntity<?> addItem(
+        @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "SearchFilter to add", required = true,
+            content = @Content(schema = @Schema(implementation = SearchFilter.class)))
+        @RequestBody SearchFilter data) {
         try {
-            if (request == null) {
-                throw new IllegalArgumentException("Request body is required");
-            }
-
-            // convert request DTO to ObjectNode for the EntityService (controller must be a proxy only)
-            ObjectNode entityNode = objectMapper.convertValue(request, ObjectNode.class);
-
             CompletableFuture<UUID> idFuture = entityService.addItem(
-                    SearchFilter.ENTITY_NAME,
-                    String.valueOf(SearchFilter.ENTITY_VERSION),
-                    entityNode
+                SearchFilter.ENTITY_NAME,
+                String.valueOf(SearchFilter.ENTITY_VERSION),
+                data
             );
-
-            UUID technicalId = idFuture.get();
-
-            CreateSearchFilterResponse resp = new CreateSearchFilterResponse();
-            resp.setTechnicalId(technicalId.toString());
-
-            return ResponseEntity.ok(resp);
-        } catch (IllegalArgumentException iae) {
-            logger.warn("Invalid request for createSearchFilter: {}", iae.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(iae.getMessage());
-        } catch (ExecutionException ee) {
-            Throwable cause = ee.getCause();
-            if (cause instanceof NoSuchElementException) {
-                logger.warn("Entity not found during createSearchFilter: {}", cause.getMessage());
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
-            } else if (cause instanceof IllegalArgumentException) {
-                logger.warn("Invalid argument during createSearchFilter: {}", cause.getMessage());
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
-            } else {
-                logger.error("ExecutionException during createSearchFilter", ee);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ee.getMessage());
-            }
-        } catch (InterruptedException ie) {
+            UUID id = idFuture.get();
+            return ResponseEntity.ok(new IdResponse(id));
+        } catch (ExecutionException ex) {
+            return handleExecutionException(ex);
+        } catch (IllegalArgumentException ex) {
+            logger.warn("Invalid request for addItem", ex);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(ex.getMessage()));
+        } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
-            logger.error("Interrupted during createSearchFilter", ie);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ie.getMessage());
+            logger.error("Thread interrupted while adding SearchFilter", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorResponse("Interrupted"));
         } catch (Exception ex) {
-            logger.error("Unexpected error during createSearchFilter", ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
+            logger.error("Unexpected error while adding SearchFilter", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorResponse("Internal error"));
         }
     }
 
-    @Operation(summary = "Get SearchFilter by technicalId", description = "Retrieve a SearchFilter by technicalId. This controller only proxies to the entity service.")
+    @Operation(summary = "Create multiple SearchFilters", description = "Adds multiple SearchFilter entities.")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = SearchFilterResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Bad Request", content = @Content),
-            @ApiResponse(responseCode = "404", description = "Not Found", content = @Content),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error", content = @Content)
+        @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = IdsResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Bad Request"),
+        @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
-    @GetMapping(value = "/{technicalId}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> getSearchFilterById(
-            @Parameter(name = "technicalId", description = "Technical ID of the entity", required = true)
-            @PathVariable("technicalId") String technicalIdStr) {
+    @PostMapping(path = "/batch", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<?> addItems(
+        @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "List of SearchFilter to add", required = true,
+            content = @Content(array = @ArraySchema(schema = @Schema(implementation = SearchFilter.class))))
+        @RequestBody List<SearchFilter> data) {
         try {
-            if (technicalIdStr == null || technicalIdStr.isBlank()) {
-                throw new IllegalArgumentException("technicalId path parameter is required");
-            }
-
-            UUID technicalId = UUID.fromString(technicalIdStr);
-
-            CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
-                    SearchFilter.ENTITY_NAME,
-                    String.valueOf(SearchFilter.ENTITY_VERSION),
-                    technicalId
+            CompletableFuture<List<UUID>> idsFuture = entityService.addItems(
+                SearchFilter.ENTITY_NAME,
+                String.valueOf(SearchFilter.ENTITY_VERSION),
+                data
             );
-
-            ObjectNode item = itemFuture.get();
-            if (item == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("SearchFilter not found");
-            }
-
-            // Ensure technicalId is present in the response payload
-            item.put("technicalId", technicalId.toString());
-
-            return ResponseEntity.ok(item);
-        } catch (IllegalArgumentException iae) {
-            logger.warn("Invalid request for getSearchFilterById: {}", iae.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(iae.getMessage());
-        } catch (ExecutionException ee) {
-            Throwable cause = ee.getCause();
-            if (cause instanceof NoSuchElementException) {
-                logger.warn("SearchFilter not found: {}", cause.getMessage());
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
-            } else if (cause instanceof IllegalArgumentException) {
-                logger.warn("Invalid argument during getSearchFilterById: {}", cause.getMessage());
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
-            } else {
-                logger.error("ExecutionException during getSearchFilterById", ee);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ee.getMessage());
-            }
-        } catch (InterruptedException ie) {
+            List<UUID> ids = idsFuture.get();
+            return ResponseEntity.ok(new IdsResponse(ids));
+        } catch (ExecutionException ex) {
+            return handleExecutionException(ex);
+        } catch (IllegalArgumentException ex) {
+            logger.warn("Invalid request for addItems", ex);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(ex.getMessage()));
+        } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
-            logger.error("Interrupted during getSearchFilterById", ie);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ie.getMessage());
+            logger.error("Thread interrupted while adding SearchFilters", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorResponse("Interrupted"));
         } catch (Exception ex) {
-            logger.error("Unexpected error during getSearchFilterById", ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
+            logger.error("Unexpected error while adding SearchFilters", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorResponse("Internal error"));
         }
     }
 
-    // --- DTOs ---
+    @Operation(summary = "Get SearchFilter by ID", description = "Retrieves a SearchFilter by its technicalId.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = ObjectNode.class))),
+        @ApiResponse(responseCode = "400", description = "Bad Request"),
+        @ApiResponse(responseCode = "404", description = "Not Found"),
+        @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    })
+    @GetMapping(path = "/{technicalId}", produces = "application/json")
+    public ResponseEntity<?> getItem(
+        @Parameter(name = "technicalId", description = "Technical ID of the entity", required = true)
+        @PathVariable String technicalId) {
+        try {
+            UUID id = UUID.fromString(technicalId);
+            CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
+                SearchFilter.ENTITY_NAME,
+                String.valueOf(SearchFilter.ENTITY_VERSION),
+                id
+            );
+            ObjectNode node = itemFuture.get();
+            return ResponseEntity.ok(node);
+        } catch (ExecutionException ex) {
+            return handleExecutionException(ex);
+        } catch (IllegalArgumentException ex) {
+            logger.warn("Invalid technicalId for getItem: {}", technicalId, ex);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(ex.getMessage()));
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            logger.error("Thread interrupted while getting SearchFilter", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorResponse("Interrupted"));
+        } catch (Exception ex) {
+            logger.error("Unexpected error while getting SearchFilter", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorResponse("Internal error"));
+        }
+    }
 
+    @Operation(summary = "Get all SearchFilters", description = "Retrieves all SearchFilter entities.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = ObjectNode.class)))),
+        @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    })
+    @GetMapping(produces = "application/json", params = {"!query"})
+    public ResponseEntity<?> getItems() {
+        try {
+            CompletableFuture<ArrayNode> itemsFuture = entityService.getItems(
+                SearchFilter.ENTITY_NAME,
+                String.valueOf(SearchFilter.ENTITY_VERSION)
+            );
+            ArrayNode array = itemsFuture.get();
+            return ResponseEntity.ok(array);
+        } catch (ExecutionException ex) {
+            return handleExecutionException(ex);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            logger.error("Thread interrupted while getting SearchFilters", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorResponse("Interrupted"));
+        } catch (Exception ex) {
+            logger.error("Unexpected error while getting SearchFilters", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorResponse("Internal error"));
+        }
+    }
+
+    @Operation(summary = "Query SearchFilters", description = "Retrieves SearchFilter entities matching a SearchConditionRequest.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = ObjectNode.class)))),
+        @ApiResponse(responseCode = "400", description = "Bad Request"),
+        @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    })
+    @PostMapping(path = "/query", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<?> getItemsByCondition(
+        @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Search condition", required = true,
+            content = @Content(schema = @Schema(implementation = SearchConditionRequest.class)))
+        @RequestBody SearchConditionRequest condition) {
+        try {
+            CompletableFuture<ArrayNode> filteredItemsFuture = entityService.getItemsByCondition(
+                SearchFilter.ENTITY_NAME,
+                String.valueOf(SearchFilter.ENTITY_VERSION),
+                condition,
+                true
+            );
+            ArrayNode array = filteredItemsFuture.get();
+            return ResponseEntity.ok(array);
+        } catch (ExecutionException ex) {
+            return handleExecutionException(ex);
+        } catch (IllegalArgumentException ex) {
+            logger.warn("Invalid search condition", ex);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(ex.getMessage()));
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            logger.error("Thread interrupted while querying SearchFilters", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorResponse("Interrupted"));
+        } catch (Exception ex) {
+            logger.error("Unexpected error while querying SearchFilters", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorResponse("Internal error"));
+        }
+    }
+
+    @Operation(summary = "Update SearchFilter", description = "Updates a SearchFilter entity by technicalId.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = IdResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Bad Request"),
+        @ApiResponse(responseCode = "404", description = "Not Found"),
+        @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    })
+    @PutMapping(path = "/{technicalId}", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<?> updateItem(
+        @Parameter(name = "technicalId", description = "Technical ID of the entity", required = true)
+        @PathVariable String technicalId,
+        @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "SearchFilter with updated fields", required = true,
+            content = @Content(schema = @Schema(implementation = SearchFilter.class)))
+        @RequestBody SearchFilter data) {
+        try {
+            UUID id = UUID.fromString(technicalId);
+            CompletableFuture<UUID> updatedIdFuture = entityService.updateItem(
+                SearchFilter.ENTITY_NAME,
+                String.valueOf(SearchFilter.ENTITY_VERSION),
+                id,
+                data
+            );
+            UUID updatedId = updatedIdFuture.get();
+            return ResponseEntity.ok(new IdResponse(updatedId));
+        } catch (ExecutionException ex) {
+            return handleExecutionException(ex);
+        } catch (IllegalArgumentException ex) {
+            logger.warn("Invalid request for updateItem: {}", technicalId, ex);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(ex.getMessage()));
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            logger.error("Thread interrupted while updating SearchFilter", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorResponse("Interrupted"));
+        } catch (Exception ex) {
+            logger.error("Unexpected error while updating SearchFilter", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorResponse("Internal error"));
+        }
+    }
+
+    @Operation(summary = "Delete SearchFilter", description = "Deletes a SearchFilter by technicalId.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = IdResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Bad Request"),
+        @ApiResponse(responseCode = "404", description = "Not Found"),
+        @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    })
+    @DeleteMapping(path = "/{technicalId}", produces = "application/json")
+    public ResponseEntity<?> deleteItem(
+        @Parameter(name = "technicalId", description = "Technical ID of the entity", required = true)
+        @PathVariable String technicalId) {
+        try {
+            UUID id = UUID.fromString(technicalId);
+            CompletableFuture<UUID> deletedIdFuture = entityService.deleteItem(
+                SearchFilter.ENTITY_NAME,
+                String.valueOf(SearchFilter.ENTITY_VERSION),
+                id
+            );
+            UUID deletedId = deletedIdFuture.get();
+            return ResponseEntity.ok(new IdResponse(deletedId));
+        } catch (ExecutionException ex) {
+            return handleExecutionException(ex);
+        } catch (IllegalArgumentException ex) {
+            logger.warn("Invalid technicalId for deleteItem: {}", technicalId, ex);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(ex.getMessage()));
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            logger.error("Thread interrupted while deleting SearchFilter", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorResponse("Interrupted"));
+        } catch (Exception ex) {
+            logger.error("Unexpected error while deleting SearchFilter", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorResponse("Internal error"));
+        }
+    }
+
+    private ResponseEntity<?> handleExecutionException(ExecutionException ex) {
+        Throwable cause = ex.getCause();
+        if (cause instanceof NoSuchElementException) {
+            logger.warn("Entity not found", ex);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(cause.getMessage()));
+        } else if (cause instanceof IllegalArgumentException) {
+            logger.warn("Illegal argument in async operation", ex);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(cause.getMessage()));
+        } else {
+            logger.error("ExecutionException (unwrap)", ex);
+            String message = (cause != null) ? cause.getMessage() : ex.getMessage();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorResponse(message));
+        }
+    }
+
+    // Response / Error DTOs used by the controller
     @Data
-    @Schema(name = "CreateSearchFilterRequest", description = "Payload to create a SearchFilter")
-    public static class CreateSearchFilterRequest {
-        @Schema(description = "Business id of the filter (optional)", example = "sf-1")
-        private String id;
-
-        @Schema(description = "Owner user id", example = "user-123", required = true)
-        private String user_id;
-
-        @Schema(description = "Filter name", example = "Nearby Puppies")
-        private String name;
-
-        @Schema(description = "Species", example = "dog")
-        private String species;
-
-        @Schema(description = "Breeds", example = "[\"beagle\"]")
-        private java.util.List<String> breeds;
-
-        @Schema(description = "Minimum age", example = "0")
-        private Integer age_min;
-
-        @Schema(description = "Maximum age", example = "24")
-        private Integer age_max;
-
-        @Schema(description = "Age unit preference", example = "months")
-        private String age_unit_preference;
-
-        @Schema(description = "Sizes", example = "[\"small\"]")
-        private java.util.List<String> size;
-
-        @Schema(description = "Sex", example = "M")
-        private String sex;
-
-        @Schema(description = "Location center for radius searches")
-        private LocationCenter location_center;
-
-        @Schema(description = "Search radius in kilometers", example = "30")
-        private Double radius_km;
-
-        @Schema(description = "Vaccination required", example = "true")
-        private Boolean vaccination_required;
-
-        @Schema(description = "Temperament tags", example = "[\"playful\"]")
-        private java.util.List<String> temperament_tags;
-
-        @Schema(description = "Sort by field", example = "distance")
-        private String sort_by;
-
-        @Schema(description = "Page size", example = "20")
-        private Integer page_size;
+    public static class IdResponse {
+        @Schema(description = "Technical id of the entity")
+        private final UUID id;
     }
 
     @Data
-    @Schema(name = "CreateSearchFilterResponse", description = "Response after creating a SearchFilter")
-    public static class CreateSearchFilterResponse {
-        @Schema(description = "Technical id of the persisted entity", example = "3fa85f64-5717-4562-b3fc-2c963f66afa6")
-        private String technicalId;
+    public static class IdsResponse {
+        @Schema(description = "List of technical ids created")
+        private final List<UUID> ids;
     }
 
     @Data
-    @Schema(name = "SearchFilterResponse", description = "SearchFilter response payload")
-    public static class SearchFilterResponse {
-        @Schema(description = "Technical id of the entity", example = "3fa85f64-5717-4562-b3fc-2c963f66afa6")
-        private String technicalId;
-
-        @Schema(description = "Business id", example = "sf-1")
-        private String id;
-
-        @Schema(description = "Owner user id", example = "user-123")
-        private String user_id;
-
-        @Schema(description = "Filter name", example = "Nearby Puppies")
-        private String name;
-
-        @Schema(description = "Species", example = "dog")
-        private String species;
-
-        @Schema(description = "Breeds")
-        private java.util.List<String> breeds;
-
-        @Schema(description = "Minimum age")
-        private Integer age_min;
-
-        @Schema(description = "Maximum age")
-        private Integer age_max;
-
-        @Schema(description = "Age unit preference")
-        private String age_unit_preference;
-
-        @Schema(description = "Sizes")
-        private java.util.List<String> size;
-
-        @Schema(description = "Sex")
-        private String sex;
-
-        @Schema(description = "Location center")
-        private LocationCenter location_center;
-
-        @Schema(description = "Search radius in km")
-        private Double radius_km;
-
-        @Schema(description = "Vaccination required")
-        private Boolean vaccination_required;
-
-        @Schema(description = "Temperament tags")
-        private java.util.List<String> temperament_tags;
-
-        @Schema(description = "Sort by")
-        private String sort_by;
-
-        @Schema(description = "Page size")
-        private Integer page_size;
-
-        @Schema(description = "Creation timestamp (ISO)", example = "2023-01-01T12:00:00Z")
-        private String created_at;
-
-        @Schema(description = "Is active")
-        private Boolean is_active;
-    }
-
-    @Data
-    @Schema(name = "LocationCenter", description = "Location center payload")
-    public static class LocationCenter {
-        @Schema(description = "Latitude", example = "52.1")
-        private Double lat;
-
-        @Schema(description = "Longitude", example = "5.1")
-        private Double lon;
-
-        @Schema(description = "City", example = "City")
-        private String city;
-    }
-
-    // Placeholder import reference to the SearchFilter entity to ensure compile-time linkage.
-    // The entity must exist under the specified package with ENTITY_NAME and ENTITY_VERSION fields.
-    //noinspection unused
-    private static class SearchFilter {
-        public static final String ENTITY_NAME = "SearchFilter";
-        public static final int ENTITY_VERSION = 1;
+    public static class ErrorResponse {
+        @Schema(description = "Error message")
+        private final String message;
     }
 }
