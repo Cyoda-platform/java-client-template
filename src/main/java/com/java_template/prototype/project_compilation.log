@@ -1,0 +1,1304 @@
+=== 0_build.txt ===
+﻿2025-08-26T21:48:58.6190531Z Current runner version: '2.328.0'
+2025-08-26T21:48:58.6222931Z ##[group]Runner Image Provisioner
+2025-08-26T21:48:58.6224078Z Hosted Compute Agent
+2025-08-26T21:48:58.6225113Z Version: 20250818.377
+2025-08-26T21:48:58.6226012Z Commit: 3c593e9f75fe0b87e893bca80d6e12ba089c61fc
+2025-08-26T21:48:58.6227230Z Build Date: 2025-08-18T14:52:18Z
+2025-08-26T21:48:58.6228227Z ##[endgroup]
+2025-08-26T21:48:58.6229229Z ##[group]Operating System
+2025-08-26T21:48:58.6230094Z Ubuntu
+2025-08-26T21:48:58.6231014Z 24.04.2
+2025-08-26T21:48:58.6231834Z LTS
+2025-08-26T21:48:58.6232584Z ##[endgroup]
+2025-08-26T21:48:58.6233621Z ##[group]Runner Image
+2025-08-26T21:48:58.6234527Z Image: ubuntu-24.04
+2025-08-26T21:48:58.6235530Z Version: 20250818.1.0
+2025-08-26T21:48:58.6237264Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20250818.1/images/ubuntu/Ubuntu2404-Readme.md
+2025-08-26T21:48:58.6239973Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20250818.1
+2025-08-26T21:48:58.6241804Z ##[endgroup]
+2025-08-26T21:48:58.6246226Z ##[group]GITHUB_TOKEN Permissions
+2025-08-26T21:48:58.6249287Z Actions: write
+2025-08-26T21:48:58.6250162Z Attestations: write
+2025-08-26T21:48:58.6250982Z Checks: write
+2025-08-26T21:48:58.6251855Z Contents: write
+2025-08-26T21:48:58.6252591Z Deployments: write
+2025-08-26T21:48:58.6253515Z Discussions: write
+2025-08-26T21:48:58.6254497Z Issues: write
+2025-08-26T21:48:58.6255727Z Metadata: read
+2025-08-26T21:48:58.6256634Z Models: read
+2025-08-26T21:48:58.6257757Z Packages: write
+2025-08-26T21:48:58.6258781Z Pages: write
+2025-08-26T21:48:58.6259600Z PullRequests: write
+2025-08-26T21:48:58.6260714Z RepositoryProjects: write
+2025-08-26T21:48:58.6261684Z SecurityEvents: write
+2025-08-26T21:48:58.6262752Z Statuses: write
+2025-08-26T21:48:58.6264233Z ##[endgroup]
+2025-08-26T21:48:58.6267644Z Secret source: Actions
+2025-08-26T21:48:58.6268768Z Prepare workflow directory
+2025-08-26T21:48:58.6646776Z Prepare all required actions
+2025-08-26T21:48:58.6701825Z Getting action download info
+2025-08-26T21:48:59.0285843Z Download action repository 'actions/checkout@v4' (SHA:08eba0b27e820071cde6df949e0beb9ba4906955)
+2025-08-26T21:48:59.2269266Z Download action repository 'actions/setup-java@v4' (SHA:c5195efecf7bdfc987ee8bae7a71cb8b11521c00)
+2025-08-26T21:49:01.3548831Z Download action repository 'actions/cache@v4' (SHA:0400d5f644dc74513175e3cd8d07132dd4860809)
+2025-08-26T21:49:01.4514025Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2025-08-26T21:49:01.6951744Z Complete job name: build
+2025-08-26T21:49:01.7791028Z ##[group]Run actions/checkout@v4
+2025-08-26T21:49:01.7792249Z with:
+2025-08-26T21:49:01.7792944Z   ref: 7191e956-8128-11b2-bb25-0a7418829cad
+2025-08-26T21:49:01.7794038Z   repository: Cyoda-platform/java-client-template
+2025-08-26T21:49:01.7795809Z   token: ***
+2025-08-26T21:49:01.7796999Z   ssh-strict: true
+2025-08-26T21:49:01.7797741Z   ssh-user: git
+2025-08-26T21:49:01.7798462Z   persist-credentials: true
+2025-08-26T21:49:01.7799304Z   clean: true
+2025-08-26T21:49:01.7800032Z   sparse-checkout-cone-mode: true
+2025-08-26T21:49:01.7800932Z   fetch-depth: 1
+2025-08-26T21:49:01.7801638Z   fetch-tags: false
+2025-08-26T21:49:01.7802366Z   show-progress: true
+2025-08-26T21:49:01.7803098Z   lfs: false
+2025-08-26T21:49:01.7803760Z   submodules: false
+2025-08-26T21:49:01.7804515Z   set-safe-directory: true
+2025-08-26T21:49:01.7805775Z ##[endgroup]
+2025-08-26T21:49:01.8867998Z Syncing repository: Cyoda-platform/java-client-template
+2025-08-26T21:49:01.8870635Z ##[group]Getting Git version info
+2025-08-26T21:49:01.8872105Z Working directory is '/home/runner/work/java-client-template/java-client-template'
+2025-08-26T21:49:01.8874121Z [command]/usr/bin/git version
+2025-08-26T21:49:01.8951028Z git version 2.51.0
+2025-08-26T21:49:01.8977052Z ##[endgroup]
+2025-08-26T21:49:01.8991059Z Temporarily overriding HOME='/home/runner/work/_temp/d84bc513-90a1-4de9-991d-ceef3596f58f' before making global git config changes
+2025-08-26T21:49:01.8994081Z Adding repository directory to the temporary git global config as a safe directory
+2025-08-26T21:49:01.8997883Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/java-client-template/java-client-template
+2025-08-26T21:49:01.9039677Z Deleting the contents of '/home/runner/work/java-client-template/java-client-template'
+2025-08-26T21:49:01.9042477Z ##[group]Initializing the repository
+2025-08-26T21:49:01.9046876Z [command]/usr/bin/git init /home/runner/work/java-client-template/java-client-template
+2025-08-26T21:49:01.9162364Z hint: Using 'master' as the name for the initial branch. This default branch name
+2025-08-26T21:49:01.9164259Z hint: is subject to change. To configure the initial branch name to use in all
+2025-08-26T21:49:01.9166194Z hint: of your new repositories, which will suppress this warning, call:
+2025-08-26T21:49:01.9167789Z hint:
+2025-08-26T21:49:01.9169171Z hint: 	git config --global init.defaultBranch <name>
+2025-08-26T21:49:01.9171116Z hint:
+2025-08-26T21:49:01.9172895Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2025-08-26T21:49:01.9176028Z hint: 'development'. The just-created branch can be renamed via this command:
+2025-08-26T21:49:01.9178316Z hint:
+2025-08-26T21:49:01.9179491Z hint: 	git branch -m <name>
+2025-08-26T21:49:01.9180905Z hint:
+2025-08-26T21:49:01.9182331Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2025-08-26T21:49:01.9184557Z Initialized empty Git repository in /home/runner/work/java-client-template/java-client-template/.git/
+2025-08-26T21:49:01.9188149Z [command]/usr/bin/git remote add origin https://github.com/Cyoda-platform/java-client-template
+2025-08-26T21:49:01.9221105Z ##[endgroup]
+2025-08-26T21:49:01.9222417Z ##[group]Disabling automatic garbage collection
+2025-08-26T21:49:01.9224442Z [command]/usr/bin/git config --local gc.auto 0
+2025-08-26T21:49:01.9252664Z ##[endgroup]
+2025-08-26T21:49:01.9253830Z ##[group]Setting up auth
+2025-08-26T21:49:01.9259392Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2025-08-26T21:49:01.9291018Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2025-08-26T21:49:01.9642615Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2025-08-26T21:49:01.9676115Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2025-08-26T21:49:01.9891614Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2025-08-26T21:49:01.9926055Z ##[endgroup]
+2025-08-26T21:49:01.9928196Z ##[group]Fetching the repository
+2025-08-26T21:49:01.9940231Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +refs/heads/7191e956-8128-11b2-bb25-0a7418829cad*:refs/remotes/origin/7191e956-8128-11b2-bb25-0a7418829cad* +refs/tags/7191e956-8128-11b2-bb25-0a7418829cad*:refs/tags/7191e956-8128-11b2-bb25-0a7418829cad*
+2025-08-26T21:49:02.4992796Z From https://github.com/Cyoda-platform/java-client-template
+2025-08-26T21:49:02.4993596Z  * [new branch]      7191e956-8128-11b2-bb25-0a7418829cad -> origin/7191e956-8128-11b2-bb25-0a7418829cad
+2025-08-26T21:49:02.5024267Z ##[endgroup]
+2025-08-26T21:49:02.5024936Z ##[group]Determining the checkout info
+2025-08-26T21:49:02.5031067Z [command]/usr/bin/git branch --list --remote origin/7191e956-8128-11b2-bb25-0a7418829cad
+2025-08-26T21:49:02.5053718Z   origin/7191e956-8128-11b2-bb25-0a7418829cad
+2025-08-26T21:49:02.5059446Z ##[endgroup]
+2025-08-26T21:49:02.5063653Z [command]/usr/bin/git sparse-checkout disable
+2025-08-26T21:49:02.5108786Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2025-08-26T21:49:02.5133908Z ##[group]Checking out the ref
+2025-08-26T21:49:02.5138836Z [command]/usr/bin/git checkout --progress --force -B 7191e956-8128-11b2-bb25-0a7418829cad refs/remotes/origin/7191e956-8128-11b2-bb25-0a7418829cad
+2025-08-26T21:49:02.5283829Z Switched to a new branch '7191e956-8128-11b2-bb25-0a7418829cad'
+2025-08-26T21:49:02.5286704Z branch '7191e956-8128-11b2-bb25-0a7418829cad' set up to track 'origin/7191e956-8128-11b2-bb25-0a7418829cad'.
+2025-08-26T21:49:02.5292543Z ##[endgroup]
+2025-08-26T21:49:02.5327692Z [command]/usr/bin/git log -1 --format=%H
+2025-08-26T21:49:02.5348686Z 8e6cb4ae3f35a5f6d79f4a282fc9665c6ad2df29
+2025-08-26T21:49:02.5638223Z ##[group]Run actions/setup-java@v4
+2025-08-26T21:49:02.5638659Z with:
+2025-08-26T21:49:02.5638884Z   java-version: 21
+2025-08-26T21:49:02.5639129Z   distribution: temurin
+2025-08-26T21:49:02.5639389Z   java-package: jdk
+2025-08-26T21:49:02.5639634Z   check-latest: false
+2025-08-26T21:49:02.5639870Z   server-id: github
+2025-08-26T21:49:02.5640112Z   server-username: GITHUB_ACTOR
+2025-08-26T21:49:02.5640392Z   server-password: GITHUB_TOKEN
+2025-08-26T21:49:02.5640681Z   overwrite-settings: true
+2025-08-26T21:49:02.5640936Z   job-status: success
+2025-08-26T21:49:02.5641316Z   token: ***
+2025-08-26T21:49:02.5641547Z ##[endgroup]
+2025-08-26T21:49:02.7580372Z ##[group]Installed distributions
+2025-08-26T21:49:02.7641408Z Resolved Java 21.0.8+9 from tool-cache
+2025-08-26T21:49:02.7642021Z Setting Java 21.0.8+9 as the default
+2025-08-26T21:49:02.7654566Z Creating toolchains.xml for JDK version 21 from temurin
+2025-08-26T21:49:02.7729114Z Writing to /home/runner/.m2/toolchains.xml
+2025-08-26T21:49:02.7729722Z 
+2025-08-26T21:49:02.7729937Z Java configuration:
+2025-08-26T21:49:02.7730441Z   Distribution: temurin
+2025-08-26T21:49:02.7730964Z   Version: 21.0.8+9
+2025-08-26T21:49:02.7731795Z   Path: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.8-9/x64
+2025-08-26T21:49:02.7732437Z 
+2025-08-26T21:49:02.7734432Z ##[endgroup]
+2025-08-26T21:49:02.7752582Z Creating settings.xml with server-id: github
+2025-08-26T21:49:02.7760764Z Writing to /home/runner/.m2/settings.xml
+2025-08-26T21:49:02.8804571Z ##[group]Run actions/cache@v4
+2025-08-26T21:49:02.8805215Z with:
+2025-08-26T21:49:02.8805484Z   path: ~/.gradle/caches
+~/.gradle/wrapper
+
+2025-08-26T21:49:02.8805982Z   key: Linux-gradle-fd3b7f3c29a3f6ddac48bf37453a55eb7e19e6521abe87d197f8047726f62332
+2025-08-26T21:49:02.8806451Z   restore-keys: Linux-gradle-
+
+2025-08-26T21:49:02.8806748Z   enableCrossOsArchive: false
+2025-08-26T21:49:02.8807036Z   fail-on-cache-miss: false
+2025-08-26T21:49:02.8807296Z   lookup-only: false
+2025-08-26T21:49:02.8807544Z   save-always: false
+2025-08-26T21:49:02.8807763Z env:
+2025-08-26T21:49:02.8808085Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.8-9/x64
+2025-08-26T21:49:02.8808579Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.8-9/x64
+2025-08-26T21:49:02.8808965Z ##[endgroup]
+2025-08-26T21:49:03.2127532Z Cache hit for: Linux-gradle-fd3b7f3c29a3f6ddac48bf37453a55eb7e19e6521abe87d197f8047726f62332
+2025-08-26T21:49:04.4291884Z Received 71303168 of 255477258 (27.9%), 68.0 MBs/sec
+2025-08-26T21:49:05.4286877Z Received 188743680 of 255477258 (73.9%), 90.0 MBs/sec
+2025-08-26T21:49:05.8179445Z Received 255477258 of 255477258 (100.0%), 102.0 MBs/sec
+2025-08-26T21:49:05.8182389Z Cache Size: ~244 MB (255477258 B)
+2025-08-26T21:49:05.8290850Z [command]/usr/bin/tar -xf /home/runner/work/_temp/ff1f2859-c4e6-42c0-a593-53fc113935e3/cache.tzst -P -C /home/runner/work/java-client-template/java-client-template --use-compress-program unzstd
+2025-08-26T21:49:06.4813152Z Cache restored successfully
+2025-08-26T21:49:06.5361616Z Cache restored from key: Linux-gradle-fd3b7f3c29a3f6ddac48bf37453a55eb7e19e6521abe87d197f8047726f62332
+2025-08-26T21:49:06.5483495Z ##[group]Run chmod +x ./gradlew
+2025-08-26T21:49:06.5483831Z [36;1mchmod +x ./gradlew[0m
+2025-08-26T21:49:06.5565840Z shell: /usr/bin/bash -e {0}
+2025-08-26T21:49:06.5566109Z env:
+2025-08-26T21:49:06.5566421Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.8-9/x64
+2025-08-26T21:49:06.5567181Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.8-9/x64
+2025-08-26T21:49:06.5567571Z ##[endgroup]
+2025-08-26T21:49:06.5688200Z ##[group]Run echo "::notice::Starting compilation check for branch 7191e956-8128-11b2-bb25-0a7418829cad"
+2025-08-26T21:49:06.5688929Z [36;1mecho "::notice::Starting compilation check for branch 7191e956-8128-11b2-bb25-0a7418829cad"[0m
+2025-08-26T21:49:06.5689496Z [36;1m# Clean first to ensure a full recompile so all diagnostics are surfaced[0m
+2025-08-26T21:49:06.5689958Z [36;1m# Use --continue so Gradle doesn't stop at the first failing task[0m
+2025-08-26T21:49:06.5690481Z [36;1m# Use --console=plain and -i to make sure all javac diagnostics are printed in GH Actions logs[0m
+2025-08-26T21:49:06.5690980Z [36;1m./gradlew clean compileJava --continue --console=plain -i[0m
+2025-08-26T21:49:06.5691303Z [36;1mstatus=$?[0m
+2025-08-26T21:49:06.5691515Z [36;1mif [ $status -eq 0 ]; then[0m
+2025-08-26T21:49:06.5691855Z [36;1m  echo "::notice::✅ Compilation successful - no errors found"[0m
+2025-08-26T21:49:06.5692239Z [36;1m  echo "COMPILE_STATUS=success" >> $GITHUB_ENV[0m
+2025-08-26T21:49:06.5692536Z [36;1melse[0m
+2025-08-26T21:49:06.5692829Z [36;1m  echo "::error::❌ Compilation failed - see above for all reported errors"[0m
+2025-08-26T21:49:06.5693217Z [36;1m  echo "COMPILE_STATUS=failure" >> $GITHUB_ENV[0m
+2025-08-26T21:49:06.5693482Z [36;1m  exit 1[0m
+2025-08-26T21:49:06.5693663Z [36;1mfi[0m
+2025-08-26T21:49:06.5730292Z shell: /usr/bin/bash -e {0}
+2025-08-26T21:49:06.5730563Z env:
+2025-08-26T21:49:06.5730863Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.8-9/x64
+2025-08-26T21:49:06.5731338Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.8-9/x64
+2025-08-26T21:49:06.5731687Z ##[endgroup]
+2025-08-26T21:49:06.5802251Z ##[notice]Starting compilation check for branch 7191e956-8128-11b2-bb25-0a7418829cad
+2025-08-26T21:49:07.0933638Z Initialized native services in: /home/runner/.gradle/native
+2025-08-26T21:49:07.1003757Z Initialized jansi services in: /home/runner/.gradle/native
+2025-08-26T21:49:07.2179164Z 
+2025-08-26T21:49:07.2185488Z Welcome to Gradle 8.7!
+2025-08-26T21:49:07.2186129Z 
+2025-08-26T21:49:07.2186538Z Here are the highlights of this release:
+2025-08-26T21:49:07.2187024Z  - Compiling and testing with Java 22
+2025-08-26T21:49:07.2187509Z  - Cacheable Groovy script compilation
+2025-08-26T21:49:07.2188030Z  - New methods in lazy collection properties
+2025-08-26T21:49:07.2189317Z 
+2025-08-26T21:49:07.2189682Z For more details see https://docs.gradle.org/8.7/release-notes.html
+2025-08-26T21:49:07.2189993Z 
+2025-08-26T21:49:07.2201281Z Received JVM installation metadata from '/usr/lib/jvm/temurin-21-jdk-amd64': {JAVA_HOME=/usr/lib/jvm/temurin-21-jdk-amd64, JAVA_VERSION=21.0.8, JAVA_VENDOR=Eclipse Adoptium, RUNTIME_NAME=OpenJDK Runtime Environment, RUNTIME_VERSION=21.0.8+9-LTS, VM_NAME=OpenJDK 64-Bit Server VM, VM_VERSION=21.0.8+9-LTS, VM_VENDOR=Eclipse Adoptium, OS_ARCH=amd64}
+2025-08-26T21:49:07.3175876Z Removing 0 daemon stop events from registry
+2025-08-26T21:49:07.4176310Z Starting a Gradle Daemon (subsequent builds will be faster)
+2025-08-26T21:49:07.4197827Z Starting process 'Gradle build daemon'. Working directory: /home/runner/.gradle/daemon/8.7 Command: /usr/lib/jvm/temurin-21-jdk-amd64/bin/java --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.prefs/java.util.prefs=ALL-UNNAMED --add-opens=java.base/java.nio.charset=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED -XX:MaxMetaspaceSize=384m -XX:+HeapDumpOnOutOfMemoryError -Xms256m -Xmx512m -Dfile.encoding=UTF-8 -Duser.country -Duser.language=en -Duser.variant -cp /home/runner/.gradle/wrapper/dists/gradle-8.7-bin/bhs2wmbdwecv87pi65oeuq5iu/gradle-8.7/lib/gradle-launcher-8.7.jar -javaagent:/home/runner/.gradle/wrapper/dists/gradle-8.7-bin/bhs2wmbdwecv87pi65oeuq5iu/gradle-8.7/lib/agents/gradle-instrumentation-agent-8.7.jar org.gradle.launcher.daemon.bootstrap.GradleDaemon 8.7
+2025-08-26T21:49:07.4204922Z Successfully started process 'Gradle build daemon'
+2025-08-26T21:49:08.3181126Z An attempt to start the daemon took 0.894 secs.
+2025-08-26T21:49:08.3181818Z The client will now receive all logging from the daemon (pid: 2135). The daemon log file: /home/runner/.gradle/daemon/8.7/daemon-2135.out.log
+2025-08-26T21:49:08.4175612Z Starting build in new daemon [memory: 512 MiB]
+2025-08-26T21:49:08.4177793Z Closing daemon's stdin at end of input.
+2025-08-26T21:49:08.4179677Z The daemon will no longer process any standard input.
+2025-08-26T21:49:08.7188221Z Using 4 worker leases.
+2025-08-26T21:49:08.9178707Z Received JVM installation metadata from '/usr/lib/jvm/temurin-21-jdk-amd64': {JAVA_HOME=/usr/lib/jvm/temurin-21-jdk-amd64, JAVA_VERSION=21.0.8, JAVA_VENDOR=Eclipse Adoptium, RUNTIME_NAME=OpenJDK Runtime Environment, RUNTIME_VERSION=21.0.8+9-LTS, VM_NAME=OpenJDK 64-Bit Server VM, VM_VERSION=21.0.8+9-LTS, VM_VENDOR=Eclipse Adoptium, OS_ARCH=amd64}
+2025-08-26T21:49:09.2179460Z Watching the file system is configured to be enabled if available
+2025-08-26T21:49:09.2206074Z Now considering [/home/runner/work/java-client-template/java-client-template] as hierarchies to watch
+2025-08-26T21:49:09.2212984Z File system watching is active
+2025-08-26T21:49:10.1175178Z Starting Build
+2025-08-26T21:49:10.2186662Z Settings evaluated using settings file '/home/runner/work/java-client-template/java-client-template/settings.gradle'.
+2025-08-26T21:49:10.3176146Z Projects loaded. Root project using build file '/home/runner/work/java-client-template/java-client-template/build.gradle'.
+2025-08-26T21:49:10.3177598Z Included projects: [root project 'java-client-template']
+2025-08-26T21:49:12.3175673Z 
+2025-08-26T21:49:12.3207838Z > Configure project :
+2025-08-26T21:49:12.3211005Z Evaluating root project 'java-client-template' using build file '/home/runner/work/java-client-template/java-client-template/build.gradle'.
+2025-08-26T21:49:12.3213130Z Resource missing. [HTTP HEAD: https://plugins.gradle.org/m2/org/springframework/boot/org.springframework.boot.gradle.plugin/3.5.3/org.springframework.boot.gradle.plugin-3.5.3.jar]
+2025-08-26T21:49:12.3215783Z Resource missing. [HTTP HEAD: https://plugins.gradle.org/m2/io/spring/dependency-management/io.spring.dependency-management.gradle.plugin/1.1.7/io.spring.dependency-management.gradle.plugin-1.1.7.jar]
+2025-08-26T21:49:12.3218037Z Resource missing. [HTTP HEAD: https://plugins.gradle.org/m2/io/freefair/lombok/io.freefair.lombok.gradle.plugin/8.4/io.freefair.lombok.gradle.plugin-8.4.jar]
+2025-08-26T21:49:12.3220033Z Resource missing. [HTTP HEAD: https://plugins.gradle.org/m2/org/jsonschema2pojo/org.jsonschema2pojo.gradle.plugin/1.2.1/org.jsonschema2pojo.gradle.plugin-1.2.1.jar]
+2025-08-26T21:49:12.3222171Z Resource missing. [HTTP HEAD: https://plugins.gradle.org/m2/com/google/protobuf/com.google.protobuf.gradle.plugin/0.9.4/com.google.protobuf.gradle.plugin-0.9.4.jar]
+2025-08-26T21:49:12.5195994Z Transforming spring-boot-gradle-plugin-3.5.3.jar (org.springframework.boot:spring-boot-gradle-plugin:3.5.3) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5198111Z Transforming dependency-management-plugin-1.1.7.jar (io.spring.gradle:dependency-management-plugin:1.1.7) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5199931Z Transforming lombok-plugin-8.4.jar (io.freefair.gradle:lombok-plugin:8.4) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5201846Z Transforming jsonschema2pojo-gradle-plugin-1.2.1.jar (org.jsonschema2pojo:jsonschema2pojo-gradle-plugin:1.2.1) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5203911Z Transforming protobuf-gradle-plugin-0.9.4.jar (com.google.protobuf:protobuf-gradle-plugin:0.9.4) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5206197Z Transforming spring-boot-buildpack-platform-3.5.3.jar (org.springframework.boot:spring-boot-buildpack-platform:3.5.3) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5208898Z Transforming spring-boot-loader-tools-3.5.3.jar (org.springframework.boot:spring-boot-loader-tools:3.5.3) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5210792Z Transforming commons-compress-1.27.1.jar (org.apache.commons:commons-compress:1.27.1) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5212668Z Transforming spring-core-6.2.8.jar (org.springframework:spring-core:6.2.8) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5223771Z Transforming jsonschema2pojo-core-1.2.1.jar (org.jsonschema2pojo:jsonschema2pojo-core:1.2.1) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5226276Z Transforming osdetector-gradle-plugin-1.7.3.jar (com.google.gradle:osdetector-gradle-plugin:1.7.3) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5228517Z Transforming jackson-annotations-2.19.1.jar (com.fasterxml.jackson.core:jackson-annotations:2.19.1) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5240096Z Transforming jackson-dataformat-yaml-2.19.1.jar (com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.19.1) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5241939Z Transforming jackson-core-2.19.1.jar (com.fasterxml.jackson.core:jackson-core:2.19.1) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5243853Z Transforming jackson-module-parameter-names-2.19.1.jar (com.fasterxml.jackson.module:jackson-module-parameter-names:2.19.1) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5246063Z Transforming jackson-databind-2.19.1.jar (com.fasterxml.jackson.core:jackson-databind:2.19.1) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5247765Z Transforming jna-platform-5.17.0.jar (net.java.dev.jna:jna-platform:5.17.0) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5253087Z Transforming httpclient5-5.5.jar (org.apache.httpcomponents.client5:httpclient5:5.5) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5256877Z Transforming tomlj-1.0.0.jar (org.tomlj:tomlj:1.0.0) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5258344Z Transforming commons-codec-1.17.1.jar (commons-codec:commons-codec:1.17.1) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5259819Z Transforming commons-io-2.16.1.jar (commons-io:commons-io:2.16.1) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5261349Z Transforming commons-lang3-3.16.0.jar (org.apache.commons:commons-lang3:3.16.0) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5262956Z Transforming spring-jcl-6.2.8.jar (org.springframework:spring-jcl:6.2.8) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5264582Z Transforming javax.json.bind-api-1.0.jar (javax.json.bind:javax.json.bind-api:1.0) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5266487Z Transforming jakarta.json.bind-api-2.0.0.jar (jakarta.json.bind:jakarta.json.bind-api:2.0.0) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5268226Z Transforming javaparser-1.0.11.jar (com.google.code.javaparser:javaparser:1.0.11) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5269796Z Transforming codemodel-2.6.jar (com.sun.codemodel:codemodel:2.6) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5271181Z Transforming gson-2.10.1.jar (com.google.code.gson:gson:2.10.1) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5272498Z Transforming os-maven-plugin-1.7.1.jar (kr.motd.maven:os-maven-plugin:1.7.1) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5273921Z Transforming jsr305-3.0.2.jar (com.google.code.findbugs:jsr305:3.0.2) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5276100Z Transforming commons-lang-2.6.jar (commons-lang:commons-lang:2.6) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5277523Z Transforming validation-api-2.0.1.Final.jar (javax.validation:validation-api:2.0.1.Final) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5279112Z Transforming jakarta.validation-api-3.0.2.jar (jakarta.validation:jakarta.validation-api:3.0.2) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5280597Z Transforming joda-time-2.12.2.jar (joda-time:joda-time:2.12.2) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5282027Z Transforming annotations-1.3.9.jar (com.google.code.findbugs:annotations:1.3.9) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5283443Z Transforming jna-5.17.0.jar (net.java.dev.jna:jna:5.17.0) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5295711Z Transforming httpcore5-h2-5.3.4.jar (org.apache.httpcomponents.core5:httpcore5-h2:5.3.4) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5298290Z Transforming httpcore5-5.3.4.jar (org.apache.httpcomponents.core5:httpcore5:5.3.4) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5299736Z Transforming slf4j-api-1.7.36.jar (org.slf4j:slf4j-api:1.7.36) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5301073Z Transforming antlr4-runtime-4.7.2.jar (org.antlr:antlr4-runtime:4.7.2) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5302451Z Transforming snakeyaml-2.4.jar (org.yaml:snakeyaml:2.4) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:13.0178223Z Applying dependency management to configuration 'annotationProcessor' in project 'java-client-template'
+2025-08-26T21:49:13.0191443Z Applying dependency management to configuration 'apiElements' in project 'java-client-template'
+2025-08-26T21:49:13.0192534Z Applying dependency management to configuration 'archives' in project 'java-client-template'
+2025-08-26T21:49:13.0193645Z Applying dependency management to configuration 'bootArchives' in project 'java-client-template'
+2025-08-26T21:49:13.0194952Z Applying dependency management to configuration 'compileClasspath' in project 'java-client-template'
+2025-08-26T21:49:13.0196137Z Applying dependency management to configuration 'compileOnly' in project 'java-client-template'
+2025-08-26T21:49:13.0197264Z Applying dependency management to configuration 'default' in project 'java-client-template'
+2025-08-26T21:49:13.0198429Z Applying dependency management to configuration 'developmentOnly' in project 'java-client-template'
+2025-08-26T21:49:13.0199632Z Applying dependency management to configuration 'implementation' in project 'java-client-template'
+2025-08-26T21:49:13.0200854Z Applying dependency management to configuration 'mainSourceElements' in project 'java-client-template'
+2025-08-26T21:49:13.0202141Z Applying dependency management to configuration 'productionRuntimeClasspath' in project 'java-client-template'
+2025-08-26T21:49:13.0203424Z Applying dependency management to configuration 'runtimeClasspath' in project 'java-client-template'
+2025-08-26T21:49:13.0204603Z Applying dependency management to configuration 'runtimeElements' in project 'java-client-template'
+2025-08-26T21:49:13.0205959Z Applying dependency management to configuration 'runtimeOnly' in project 'java-client-template'
+2025-08-26T21:49:13.0207214Z Applying dependency management to configuration 'testAndDevelopmentOnly' in project 'java-client-template'
+2025-08-26T21:49:13.0208561Z Applying dependency management to configuration 'testAnnotationProcessor' in project 'java-client-template'
+2025-08-26T21:49:13.0209894Z Applying dependency management to configuration 'testCompileClasspath' in project 'java-client-template'
+2025-08-26T21:49:13.0211178Z Applying dependency management to configuration 'testCompileOnly' in project 'java-client-template'
+2025-08-26T21:49:13.0212948Z Applying dependency management to configuration 'testImplementation' in project 'java-client-template'
+2025-08-26T21:49:13.0214583Z Applying dependency management to configuration 'testResultsElementsForTest' in project 'java-client-template'
+2025-08-26T21:49:13.0216196Z Applying dependency management to configuration 'testRuntimeClasspath' in project 'java-client-template'
+2025-08-26T21:49:13.0217632Z Applying dependency management to configuration 'testRuntimeOnly' in project 'java-client-template'
+2025-08-26T21:49:13.0218790Z Applying dependency management to configuration 'lombok' in project 'java-client-template'
+2025-08-26T21:49:13.3181881Z Applying dependency management to configuration 'protobuf' in project 'java-client-template'
+2025-08-26T21:49:13.3186921Z Applying dependency management to configuration 'compileProtoPath' in project 'java-client-template'
+2025-08-26T21:49:13.4180659Z Applying dependency management to configuration 'testProtobuf' in project 'java-client-template'
+2025-08-26T21:49:13.4185472Z Applying dependency management to configuration 'testCompileProtoPath' in project 'java-client-template'
+2025-08-26T21:49:14.4175916Z Starting process 'command '/usr/lib/jvm/temurin-8-jdk-amd64/bin/java''. Working directory: /home/runner/.gradle/.tmp/tmp-jvm5102939345759712216probe Command: /usr/lib/jvm/temurin-8-jdk-amd64/bin/java -Xmx32m -Xms32m -cp . JavaProbe
+2025-08-26T21:49:14.4177912Z Successfully started process 'command '/usr/lib/jvm/temurin-8-jdk-amd64/bin/java''
+2025-08-26T21:49:17.4176986Z Received JVM installation metadata from '/usr/lib/jvm/temurin-8-jdk-amd64': {JAVA_HOME=/usr/lib/jvm/temurin-8-jdk-amd64/jre, JAVA_VERSION=1.8.0_462, JAVA_VENDOR=Temurin, RUNTIME_NAME=OpenJDK Runtime Environment, RUNTIME_VERSION=1.8.0_462-b08, VM_NAME=OpenJDK 64-Bit Server VM, VM_VERSION=25.462-b08, VM_VENDOR=Temurin, OS_ARCH=amd64}
+2025-08-26T21:49:17.4179710Z 
+2025-08-26T21:49:17.4181712Z Starting process 'command '/usr/lib/jvm/temurin-11-jdk-amd64/bin/java''. Working directory: /home/runner/.gradle/.tmp/tmp-jvm16782618800129016284probe Command: /usr/lib/jvm/temurin-11-jdk-amd64/bin/java -Xmx32m -Xms32m -cp . JavaProbe
+2025-08-26T21:49:17.4183289Z Successfully started process 'command '/usr/lib/jvm/temurin-11-jdk-amd64/bin/java''
+2025-08-26T21:49:18.8177438Z Received JVM installation metadata from '/usr/lib/jvm/temurin-11-jdk-amd64': {JAVA_HOME=/usr/lib/jvm/temurin-11-jdk-amd64, JAVA_VERSION=11.0.28, JAVA_VENDOR=Eclipse Adoptium, RUNTIME_NAME=OpenJDK Runtime Environment, RUNTIME_VERSION=11.0.28+6, VM_NAME=OpenJDK 64-Bit Server VM, VM_VERSION=11.0.28+6, VM_VENDOR=Eclipse Adoptium, OS_ARCH=amd64}
+2025-08-26T21:49:18.8182739Z Starting process 'command '/usr/lib/jvm/temurin-17-jdk-amd64/bin/java''. Working directory: /home/runner/.gradle/.tmp/tmp-jvm6467723085938773511probe Command: /usr/lib/jvm/temurin-17-jdk-amd64/bin/java -Xmx32m -Xms32m -cp . JavaProbe
+2025-08-26T21:49:18.9174455Z Successfully started process 'command '/usr/lib/jvm/temurin-17-jdk-amd64/bin/java''
+2025-08-26T21:49:20.6177920Z Received JVM installation metadata from '/usr/lib/jvm/temurin-17-jdk-amd64': {JAVA_HOME=/usr/lib/jvm/temurin-17-jdk-amd64, JAVA_VERSION=17.0.16, JAVA_VENDOR=Eclipse Adoptium, RUNTIME_NAME=OpenJDK Runtime Environment, RUNTIME_VERSION=17.0.16+8, VM_NAME=OpenJDK 64-Bit Server VM, VM_VERSION=17.0.16+8, VM_VENDOR=Eclipse Adoptium, OS_ARCH=amd64}
+2025-08-26T21:49:20.7213821Z 
+2025-08-26T21:49:20.7214263Z > Configure project :
+2025-08-26T21:49:20.7215108Z Using Gradle sourceCompatibility as targetVersion for jsonschema2pojo: 21
+2025-08-26T21:49:20.7216210Z Applying dependency management to configuration 'protobufToolsLocator_protoc' in project 'java-client-template'
+2025-08-26T21:49:20.7217199Z ------------------------------------------------------------------------
+2025-08-26T21:49:20.7217832Z Detecting the operating system and CPU architecture
+2025-08-26T21:49:20.7218447Z ------------------------------------------------------------------------
+2025-08-26T21:49:20.7219005Z os.detected.name=linux
+2025-08-26T21:49:20.7219799Z os.detected.arch=x86_64
+2025-08-26T21:49:20.7220154Z os.detected.bitness=64
+2025-08-26T21:49:20.7220526Z os.detected.version=6.11
+2025-08-26T21:49:20.7221112Z os.detected.version.major=6
+2025-08-26T21:49:20.7248949Z os.detected.version.minor=11
+2025-08-26T21:49:20.7250204Z os.detected.release=ubuntu
+2025-08-26T21:49:20.7250632Z os.detected.release.version=24.04
+2025-08-26T21:49:20.7251100Z os.detected.release.like.ubuntu=true
+2025-08-26T21:49:20.7251576Z os.detected.release.like.debian=true
+2025-08-26T21:49:20.7252047Z os.detected.classifier=linux-x86_64
+2025-08-26T21:49:20.7252937Z Applying dependency management to configuration 'protobufToolsLocator_grpc' in project 'java-client-template'
+2025-08-26T21:49:20.7253833Z All projects evaluated.
+2025-08-26T21:49:20.8175761Z Task name matched 'clean'
+2025-08-26T21:49:20.8177113Z Task name matched 'compileJava'
+2025-08-26T21:49:20.8179240Z Selected primary task 'clean' from project :
+2025-08-26T21:49:20.8184445Z Selected primary task 'compileJava' from project :
+2025-08-26T21:49:20.8188932Z Excluding []
+2025-08-26T21:49:20.8204103Z Resolving global dependency management for project 'java-client-template'
+2025-08-26T21:49:21.2200428Z Excluding []
+2025-08-26T21:49:22.2204922Z Excluding []
+2025-08-26T21:49:22.2205736Z Excluding []
+2025-08-26T21:49:22.3176253Z Excluding []
+2025-08-26T21:49:22.3178954Z Tasks to be executed: [task ':clean', task ':generateEffectiveLombokConfig', task ':extractProto', task ':processResources', task ':generateJsonSchema2Pojo', task ':extractIncludeProto', task ':generateProto', task ':compileJava']
+2025-08-26T21:49:22.3180385Z Tasks that were excluded: []
+2025-08-26T21:49:22.3180938Z Resolve mutations for :clean (Thread[#101,Execution worker,5,main]) started.
+2025-08-26T21:49:22.3181663Z :clean (Thread[#101,Execution worker,5,main]) started.
+2025-08-26T21:49:22.3182389Z destroyer locations for task group 0 (Thread[#100,included builds,5,main]) started.
+2025-08-26T21:49:22.4225209Z 
+2025-08-26T21:49:22.4225987Z > Task :clean
+2025-08-26T21:49:22.4226800Z Caching disabled for task ':clean' because:
+2025-08-26T21:49:22.4227583Z   Build cache is disabled
+2025-08-26T21:49:22.4228252Z Task ':clean' is not up-to-date because:
+2025-08-26T21:49:22.4229318Z   Task has not declared any outputs despite executing actions.
+2025-08-26T21:49:22.4230564Z Resolve mutations for :generateEffectiveLombokConfig (Thread[#101,Execution worker,5,main]) started.
+2025-08-26T21:49:22.4231946Z :generateEffectiveLombokConfig (Thread[#101,Execution worker,5,main]) started.
+2025-08-26T21:49:22.4233234Z Resolve mutations for :extractProto (Thread[#100,included builds,5,main]) started.
+2025-08-26T21:49:22.4234357Z :extractProto (Thread[#100,included builds,5,main]) started.
+2025-08-26T21:49:22.4235248Z 
+2025-08-26T21:49:22.4235586Z > Task :extractProto
+2025-08-26T21:49:22.4236265Z Caching disabled for task ':extractProto' because:
+2025-08-26T21:49:22.4237055Z   Build cache is disabled
+2025-08-26T21:49:22.4237743Z   Caching has not been enabled for the task
+2025-08-26T21:49:22.4238514Z Task ':extractProto' is not up-to-date because:
+2025-08-26T21:49:22.4239337Z   No history is available.
+2025-08-26T21:49:22.4240562Z Resolve mutations for :processResources (Thread[#102,Execution worker Thread 2,5,main]) started.
+2025-08-26T21:49:22.4241814Z :processResources (Thread[#102,Execution worker Thread 2,5,main]) started.
+2025-08-26T21:49:22.6174492Z 
+2025-08-26T21:49:22.6179149Z > Task :processResources
+2025-08-26T21:49:22.6181814Z Caching disabled for task ':processResources' because:
+2025-08-26T21:49:22.6185756Z   Build cache is disabled
+2025-08-26T21:49:22.6186158Z   Not worth caching
+2025-08-26T21:49:22.6186593Z Task ':processResources' is not up-to-date because:
+2025-08-26T21:49:22.6187103Z   No history is available.
+2025-08-26T21:49:22.6187850Z Resolve mutations for :generateJsonSchema2Pojo (Thread[#102,Execution worker Thread 2,5,main]) started.
+2025-08-26T21:49:22.6188909Z :generateJsonSchema2Pojo (Thread[#102,Execution worker Thread 2,5,main]) started.
+2025-08-26T21:49:23.0205706Z 
+2025-08-26T21:49:23.0206608Z > Task :generateJsonSchema2Pojo
+2025-08-26T21:49:23.0207669Z Caching disabled for task ':generateJsonSchema2Pojo' because:
+2025-08-26T21:49:23.0208321Z   Build cache is disabled
+2025-08-26T21:49:23.0208747Z   Caching has not been enabled for the task
+2025-08-26T21:49:23.0209365Z Task ':generateJsonSchema2Pojo' is not up-to-date because:
+2025-08-26T21:49:23.0209949Z   No history is available.
+2025-08-26T21:49:23.0210346Z Using this configuration:
+2025-08-26T21:49:23.0210746Z generateBuilders = true
+2025-08-26T21:49:23.0211164Z includeJsonTypeInfoAnnotation = false
+2025-08-26T21:49:23.0211632Z usePrimitives = false
+2025-08-26T21:49:23.0212365Z source = [/home/runner/work/java-client-template/java-client-template/src/main/resources/schema]
+2025-08-26T21:49:23.0213629Z targetDirectory = /home/runner/work/java-client-template/java-client-template/build/generated-sources/js2p
+2025-08-26T21:49:23.0214608Z targetPackage = org.cyoda.cloud.api.event
+2025-08-26T21:49:23.0215362Z propertyWordDelimiters = [-,  , _]
+2025-08-26T21:49:23.0215842Z useLongIntegers = false
+2025-08-26T21:49:23.0216222Z useBigIntegers = false
+2025-08-26T21:49:23.0216606Z useDoubleNumbers = true
+2025-08-26T21:49:23.0217003Z useBigDecimals = false
+2025-08-26T21:49:23.0217397Z includeHashcodeAndEquals = true
+2025-08-26T21:49:23.0217851Z includeConstructors = false
+2025-08-26T21:49:23.0218330Z constructorsRequiredPropertiesOnly = false
+2025-08-26T21:49:23.0218919Z includeRequiredPropertiesConstructor = false
+2025-08-26T21:49:23.0219484Z includeAllPropertiesConstructor = true
+2025-08-26T21:49:23.0220017Z includeCopyConstructor = false
+2025-08-26T21:49:23.0220445Z includeToString = true
+2025-08-26T21:49:23.0220819Z toStringExcludes = []
+2025-08-26T21:49:23.0221203Z annotationStyle = jackson2
+2025-08-26T21:49:23.0221595Z useTitleAsClassname = false
+2025-08-26T21:49:23.0222158Z inclusionLevel = class org.jsonschema2pojo.InclusionLevel
+2025-08-26T21:49:23.0222876Z customAnnotator = org.jsonschema2pojo.NoopAnnotator
+2025-08-26T21:49:23.0223584Z customRuleFactory = org.jsonschema2pojo.rules.RuleFactory
+2025-08-26T21:49:23.0224209Z includeJsr303Annotations = false
+2025-08-26T21:49:23.0224681Z includeJsr305Annotations = false
+2025-08-26T21:49:23.0225340Z useOptionalForGetters = false
+2025-08-26T21:49:23.0225776Z sourceType = jsonschema
+2025-08-26T21:49:23.0226167Z removeOldOutput = true
+2025-08-26T21:49:23.0226550Z outputEncoding = UTF-8
+2025-08-26T21:49:23.0226909Z useJodaDates = false
+2025-08-26T21:49:23.0227281Z useJodaLocalDates = false
+2025-08-26T21:49:23.0227698Z useJodaLocalTimes = false
+2025-08-26T21:49:23.0228082Z dateTimeType = null
+2025-08-26T21:49:23.0228421Z dateType = null
+2025-08-26T21:49:23.0228801Z timeType = null
+2025-08-26T21:49:23.0229170Z parcelable = false
+2025-08-26T21:49:23.0229511Z serializable = false
+2025-08-26T21:49:23.0229902Z initializeCollections = true
+2025-08-26T21:49:23.0230316Z classNamePrefix = 
+2025-08-26T21:49:23.0230655Z classNameSuffix = 
+2025-08-26T21:49:23.0231000Z fileExtensions = []
+2025-08-26T21:49:23.0231364Z includeGetters = true
+2025-08-26T21:49:23.0231720Z includeSetters = true
+2025-08-26T21:49:23.0232076Z targetVersion = 21
+2025-08-26T21:49:23.0232466Z includeDynamicAccessors = false
+2025-08-26T21:49:23.0276364Z includeDynamicGetters = false
+2025-08-26T21:49:23.0276890Z includeDynamicSetters = false
+2025-08-26T21:49:23.0277328Z includeDynamicBuilders = false
+2025-08-26T21:49:23.0277725Z formatDates = false
+2025-08-26T21:49:23.0278048Z formatTimes = false
+2025-08-26T21:49:23.0278396Z formatDateTimes = false
+2025-08-26T21:49:23.0278770Z customDatePattern = null
+2025-08-26T21:49:23.0279152Z customTimePattern = null
+2025-08-26T21:49:23.0279544Z customDateTimePattern = null
+2025-08-26T21:49:23.0279964Z refFragmentPathDelimiters = #/.
+2025-08-26T21:49:23.0280432Z sourceSortOrder = OS
+2025-08-26T21:49:23.0280802Z formatTypeMapping = [:]
+2025-08-26T21:49:23.0281279Z useInnerClassBuilders = false
+2025-08-26T21:49:23.0281806Z includeConstructorPropertiesAnnotation = false
+2025-08-26T21:49:23.0282343Z includeGeneratedAnnotation = true
+2025-08-26T21:49:23.0283061Z useJakartaValidation = false
+2025-08-26T21:49:23.0283433Z      
+2025-08-26T21:49:23.0284115Z Initializing class org.jsonschema2pojo.gradle.GradleRuleLogger
+2025-08-26T21:49:23.0285285Z Resolve mutations for :extractIncludeProto (Thread[#102,Execution worker Thread 2,5,main]) started.
+2025-08-26T21:49:23.0286293Z :extractIncludeProto (Thread[#102,Execution worker Thread 2,5,main]) started.
+2025-08-26T21:49:24.0189792Z 
+2025-08-26T21:49:24.0190264Z > Task :extractIncludeProto
+2025-08-26T21:49:24.0190848Z Caching disabled for task ':extractIncludeProto' because:
+2025-08-26T21:49:24.0191422Z   Build cache is disabled
+2025-08-26T21:49:24.0191840Z   Caching has not been enabled for the task
+2025-08-26T21:49:24.0194652Z Task ':extractIncludeProto' is not up-to-date because:
+2025-08-26T21:49:24.0209184Z   No history is available.
+2025-08-26T21:49:24.0210365Z Resolve mutations for :generateProto (Thread[#102,Execution worker Thread 2,5,main]) started.
+2025-08-26T21:49:24.1177395Z 
+2025-08-26T21:49:24.1182289Z > Task :generateEffectiveLombokConfig
+2025-08-26T21:49:24.1192853Z Custom actions are attached to task ':generateEffectiveLombokConfig'.
+2025-08-26T21:49:24.1193874Z Caching disabled for task ':generateEffectiveLombokConfig' because:
+2025-08-26T21:49:24.1194627Z   Build cache is disabled
+2025-08-26T21:49:24.1195382Z   Caching has not been enabled for the task
+2025-08-26T21:49:24.1196165Z Task ':generateEffectiveLombokConfig' is not up-to-date because:
+2025-08-26T21:49:24.1196914Z   No history is available.
+2025-08-26T21:49:24.1197821Z lombok config [/home/runner/work/java-client-template/java-client-template/src/main/java] took 70ms
+2025-08-26T21:49:24.1198921Z :generateProto (Thread[#101,Execution worker,5,main]) started.
+2025-08-26T21:49:24.1199497Z 
+2025-08-26T21:49:24.1199764Z > Task :generateProto
+2025-08-26T21:49:24.1200339Z Custom actions are attached to task ':generateProto'.
+2025-08-26T21:49:24.1201066Z Caching disabled for task ':generateProto' because:
+2025-08-26T21:49:24.1201711Z   Build cache is disabled
+2025-08-26T21:49:24.1202267Z Task ':generateProto' is not up-to-date because:
+2025-08-26T21:49:24.1202886Z   No history is available.
+2025-08-26T21:49:24.1204241Z Resolved artifact: /home/runner/.gradle/caches/modules-2/files-2.1/com.google.protobuf/protoc/3.25.1/fd986885f98a1c329a34c4cb14ec86e3e18e4c72/protoc-3.25.1-linux-x86_64.exe
+2025-08-26T21:49:24.1206779Z Resolved artifact: /home/runner/.gradle/caches/modules-2/files-2.1/io.grpc/protoc-gen-grpc-java/1.62.2/884328484c44f735c832d219edb14733be146b2d/protoc-gen-grpc-java-1.62.2-linux-x86_64.exe
+2025-08-26T21:49:24.1214969Z [/home/runner/.gradle/caches/modules-2/files-2.1/com.google.protobuf/protoc/3.25.1/fd986885f98a1c329a34c4cb14ec86e3e18e4c72/protoc-3.25.1-linux-x86_64.exe, -I/home/runner/work/java-client-template/java-client-template/src/main/proto, -I/home/runner/work/java-client-template/java-client-template/build/extracted-protos/main, -I/home/runner/work/java-client-template/java-client-template/build/extracted-include-protos/main, --java_out=/home/runner/work/java-client-template/java-client-template/build/generated/source/proto/main/java, --plugin=protoc-gen-grpc=/home/runner/.gradle/caches/modules-2/files-2.1/io.grpc/protoc-gen-grpc-java/1.62.2/884328484c44f735c832d219edb14733be146b2d/protoc-gen-grpc-java-1.62.2-linux-x86_64.exe, --grpc_out=/home/runner/work/java-client-template/java-client-template/build/generated/source/proto/main/grpc, /home/runner/work/java-client-template/java-client-template/src/main/proto/cloudevents.proto, /home/runner/work/java-client-template/java-client-template/src/main/proto/cyoda-cloud-api.proto]
+2025-08-26T21:49:24.1225602Z protoc: stdout: . stderr: 
+2025-08-26T21:49:24.1226373Z Resolve mutations for :compileJava (Thread[#101,Execution worker,5,main]) started.
+2025-08-26T21:49:24.1227280Z :compileJava (Thread[#101,Execution worker,5,main]) started.
+2025-08-26T21:49:26.1177583Z 
+2025-08-26T21:49:26.1182044Z > Task :compileJava
+2025-08-26T21:49:26.1184482Z Custom actions are attached to task ':compileJava'.
+2025-08-26T21:49:26.1190002Z Caching disabled for task ':compileJava' because:
+2025-08-26T21:49:26.1193594Z   Build cache is disabled
+2025-08-26T21:49:26.1198716Z Task ':compileJava' is not up-to-date because:
+2025-08-26T21:49:26.1200562Z   No history is available.
+2025-08-26T21:49:26.1202851Z The input changes require a full rebuild for incremental task ':compileJava'.
+2025-08-26T21:49:26.1213443Z Full recompilation is required because no incremental change information is available. This is usually caused by clean builds or changing compiler arguments.
+2025-08-26T21:49:26.1214601Z Compiling with toolchain '/usr/lib/jvm/temurin-21-jdk-amd64'.
+2025-08-26T21:49:26.1215300Z Compiling with JDK Java compiler API.
+2025-08-26T21:49:29.3177465Z Note: Some input files use or override a deprecated API.
+2025-08-26T21:49:29.3180455Z Note: Recompile with -Xlint:deprecation for details.
+2025-08-26T21:49:29.3183217Z Note: Some input files use unchecked or unsafe operations.
+2025-08-26T21:49:29.3185368Z Note: Recompile with -Xlint:unchecked for details.
+2025-08-26T21:49:29.4179239Z Class dependency analysis for incremental compilation took 0.117 secs.
+2025-08-26T21:49:29.6197417Z Created classpath snapshot for incremental compilation in 0.247 secs.
+2025-08-26T21:49:29.7188715Z 
+2025-08-26T21:49:29.7189504Z Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+2025-08-26T21:49:29.7190144Z 
+2025-08-26T21:49:29.7190846Z You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+2025-08-26T21:49:29.7191674Z 
+2025-08-26T21:49:29.7192506Z For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+2025-08-26T21:49:29.7193473Z 
+2025-08-26T21:49:29.7193629Z BUILD SUCCESSFUL in 23s
+2025-08-26T21:49:29.7194025Z 8 actionable tasks: 8 executed
+2025-08-26T21:49:30.1319328Z ##[notice]✅ Compilation successful - no errors found
+2025-08-26T21:49:30.1413663Z ##[group]Run actions/upload-artifact@v4
+2025-08-26T21:49:30.1413955Z with:
+2025-08-26T21:49:30.1414202Z   name: test-results-7191e956-8128-11b2-bb25-0a7418829cad
+2025-08-26T21:49:30.1414523Z   path: build/test-results/test/
+2025-08-26T21:49:30.1414993Z   retention-days: 7
+2025-08-26T21:49:30.1415204Z   if-no-files-found: warn
+2025-08-26T21:49:30.1415417Z   compression-level: 6
+2025-08-26T21:49:30.1415624Z   overwrite: false
+2025-08-26T21:49:30.1415827Z   include-hidden-files: false
+2025-08-26T21:49:30.1416047Z env:
+2025-08-26T21:49:30.1416330Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.8-9/x64
+2025-08-26T21:49:30.1416793Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.8-9/x64
+2025-08-26T21:49:30.1417149Z   COMPILE_STATUS: success
+2025-08-26T21:49:30.1417353Z ##[endgroup]
+2025-08-26T21:49:30.3558918Z ##[warning]No files were found with the provided path: build/test-results/test/. No artifacts will be uploaded.
+2025-08-26T21:49:30.3706512Z ##[group]Run actions/upload-artifact@v4
+2025-08-26T21:49:30.3706800Z with:
+2025-08-26T21:49:30.3707047Z   name: test-reports-7191e956-8128-11b2-bb25-0a7418829cad
+2025-08-26T21:49:30.3707366Z   path: build/reports/tests/test/
+2025-08-26T21:49:30.3707599Z   retention-days: 7
+2025-08-26T21:49:30.3707798Z   if-no-files-found: warn
+2025-08-26T21:49:30.3708015Z   compression-level: 6
+2025-08-26T21:49:30.3708210Z   overwrite: false
+2025-08-26T21:49:30.3708413Z   include-hidden-files: false
+2025-08-26T21:49:30.3708666Z env:
+2025-08-26T21:49:30.3708951Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.8-9/x64
+2025-08-26T21:49:30.3709414Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.8-9/x64
+2025-08-26T21:49:30.3709766Z   COMPILE_STATUS: success
+2025-08-26T21:49:30.3709984Z ##[endgroup]
+2025-08-26T21:49:30.5784086Z ##[warning]No files were found with the provided path: build/reports/tests/test/. No artifacts will be uploaded.
+2025-08-26T21:49:30.7727097Z Post job cleanup.
+2025-08-26T21:49:30.9183081Z Cache hit occurred on the primary key Linux-gradle-fd3b7f3c29a3f6ddac48bf37453a55eb7e19e6521abe87d197f8047726f62332, not saving cache.
+2025-08-26T21:49:30.9277300Z Post job cleanup.
+2025-08-26T21:49:31.0970702Z Post job cleanup.
+2025-08-26T21:49:31.1915321Z [command]/usr/bin/git version
+2025-08-26T21:49:31.1960844Z git version 2.51.0
+2025-08-26T21:49:31.2021290Z Temporarily overriding HOME='/home/runner/work/_temp/f1c3f214-22ae-4f51-a013-ba03555a5e9a' before making global git config changes
+2025-08-26T21:49:31.2022280Z Adding repository directory to the temporary git global config as a safe directory
+2025-08-26T21:49:31.2029202Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/java-client-template/java-client-template
+2025-08-26T21:49:31.2073025Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2025-08-26T21:49:31.2111167Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2025-08-26T21:49:31.2359567Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2025-08-26T21:49:31.2381785Z http.https://github.com/.extraheader
+2025-08-26T21:49:31.2398539Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2025-08-26T21:49:31.2432344Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2025-08-26T21:49:31.2796071Z Cleaning up orphan processes
+2025-08-26T21:49:31.3081181Z Terminate orphan process: pid (2135) (java)
+
+
+=== 1_summary.txt ===
+﻿2025-08-26T21:49:38.1506723Z Current runner version: '2.328.0'
+2025-08-26T21:49:38.1531154Z ##[group]Runner Image Provisioner
+2025-08-26T21:49:38.1531981Z Hosted Compute Agent
+2025-08-26T21:49:38.1532582Z Version: 20250825.382
+2025-08-26T21:49:38.1533154Z Commit: 7109f2abf901479dac39397456e363ac0cca0730
+2025-08-26T21:49:38.1534023Z Build Date: 2025-08-25T22:55:50Z
+2025-08-26T21:49:38.1534575Z ##[endgroup]
+2025-08-26T21:49:38.1535210Z ##[group]Operating System
+2025-08-26T21:49:38.1535762Z Ubuntu
+2025-08-26T21:49:38.1536176Z 24.04.2
+2025-08-26T21:49:38.1536715Z LTS
+2025-08-26T21:49:38.1537123Z ##[endgroup]
+2025-08-26T21:49:38.1537609Z ##[group]Runner Image
+2025-08-26T21:49:38.1538213Z Image: ubuntu-24.04
+2025-08-26T21:49:38.1538716Z Version: 20250818.1.0
+2025-08-26T21:49:38.1539684Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20250818.1/images/ubuntu/Ubuntu2404-Readme.md
+2025-08-26T21:49:38.1541276Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20250818.1
+2025-08-26T21:49:38.1542251Z ##[endgroup]
+2025-08-26T21:49:38.1544868Z ##[group]GITHUB_TOKEN Permissions
+2025-08-26T21:49:38.1547133Z Actions: write
+2025-08-26T21:49:38.1547765Z Attestations: write
+2025-08-26T21:49:38.1548246Z Checks: write
+2025-08-26T21:49:38.1548723Z Contents: write
+2025-08-26T21:49:38.1549230Z Deployments: write
+2025-08-26T21:49:38.1549752Z Discussions: write
+2025-08-26T21:49:38.1550256Z Issues: write
+2025-08-26T21:49:38.1550774Z Metadata: read
+2025-08-26T21:49:38.1551267Z Models: read
+2025-08-26T21:49:38.1551708Z Packages: write
+2025-08-26T21:49:38.1552232Z Pages: write
+2025-08-26T21:49:38.1552696Z PullRequests: write
+2025-08-26T21:49:38.1553274Z RepositoryProjects: write
+2025-08-26T21:49:38.1554114Z SecurityEvents: write
+2025-08-26T21:49:38.1554898Z Statuses: write
+2025-08-26T21:49:38.1555415Z ##[endgroup]
+2025-08-26T21:49:38.1557780Z Secret source: Actions
+2025-08-26T21:49:38.1558941Z Prepare workflow directory
+2025-08-26T21:49:38.1895533Z Prepare all required actions
+2025-08-26T21:49:38.1994644Z Complete job name: summary
+2025-08-26T21:49:38.2771348Z ##[group]Run echo "## 🚀 Build Summary" >> $GITHUB_STEP_SUMMARY
+2025-08-26T21:49:38.2773041Z [36;1mecho "## 🚀 Build Summary" >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2774134Z [36;1mecho "| Field | Value |" >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2775043Z [36;1mecho "|-------|-------|" >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2775926Z [36;1mecho "| **Branch** | \`7191e956-8128-11b2-bb25-0a7418829cad\` |" >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2776950Z [36;1mecho "| **Build Type** | \`compile-only\` |" >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2777906Z [36;1mecho "| **Tracker ID** | \`tracker_1756244933\` |" >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2778726Z [36;1mecho "| **Status** | ✅ Success |" >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2779539Z [36;1mecho "| **Triggered by** | @Ksenniya |" >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2780986Z [36;1mecho "| **Run ID** | [\`17251300701\`](https://github.com/Cyoda-platform/java-client-template/actions/runs/17251300701) |" >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2782927Z [36;1mecho "| **Commit** | [\`${GITHUB_SHA:0:7}\`](https://github.com/Cyoda-platform/java-client-template/commit/507219d22ca42fa86a5fc40d8cd2fe522338bb21) |" >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2784769Z [36;1mecho "" >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2785397Z [36;1m[0m
+2025-08-26T21:49:38.2785953Z [36;1mif [[ "compile-only" == "compile-only" ]]; then[0m
+2025-08-26T21:49:38.2786690Z [36;1m  echo "### 🔍 Compilation Check Results" >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2787515Z [36;1m  if [[ "success" == "success" ]]; then[0m
+2025-08-26T21:49:38.2788541Z [36;1m    echo "✅ **All Java files compiled successfully** - No compilation errors found!" >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2789408Z [36;1m  else[0m
+2025-08-26T21:49:38.2790309Z [36;1m    echo "❌ **Compilation failed** - Please check the build logs for error details." >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2791477Z [36;1m  fi[0m
+2025-08-26T21:49:38.2792058Z [36;1melif [[ "compile-only" == "workflow-validation" ]]; then[0m
+2025-08-26T21:49:38.2792995Z [36;1m  echo "### 🔍 Workflow Validation Results" >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2793887Z [36;1m  if [[ "success" == "success" ]]; then[0m
+2025-08-26T21:49:38.2795170Z [36;1m    echo "✅ **All workflow components validated successfully** - All processors and criteria have corresponding Java implementations!" >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2796433Z [36;1m  else[0m
+2025-08-26T21:49:38.2797673Z [36;1m    echo "❌ **Workflow validation failed** - Some processors or criteria are missing their Java implementation files. Please check the build logs for details." >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2799035Z [36;1m  fi[0m
+2025-08-26T21:49:38.2799466Z [36;1melse[0m
+2025-08-26T21:49:38.2800052Z [36;1m  echo "### 📦 Build Artifacts" >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2801885Z [36;1m  echo "Build artifacts are available in the [Actions tab](https://github.com/Cyoda-platform/java-client-template/actions/runs/17251300701) for 30 days." >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2803357Z [36;1mfi[0m
+2025-08-26T21:49:38.4337817Z shell: /usr/bin/bash -e {0}
+2025-08-26T21:49:38.4338883Z ##[endgroup]
+2025-08-26T21:49:38.4650913Z Cleaning up orphan processes
+
+
+=== build/13_Upload test results.txt ===
+﻿2025-08-26T21:49:30.1413655Z ##[group]Run actions/upload-artifact@v4
+2025-08-26T21:49:30.1413952Z with:
+2025-08-26T21:49:30.1414199Z   name: test-results-7191e956-8128-11b2-bb25-0a7418829cad
+2025-08-26T21:49:30.1414520Z   path: build/test-results/test/
+2025-08-26T21:49:30.1414990Z   retention-days: 7
+2025-08-26T21:49:30.1415202Z   if-no-files-found: warn
+2025-08-26T21:49:30.1415415Z   compression-level: 6
+2025-08-26T21:49:30.1415622Z   overwrite: false
+2025-08-26T21:49:30.1415825Z   include-hidden-files: false
+2025-08-26T21:49:30.1416039Z env:
+2025-08-26T21:49:30.1416328Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.8-9/x64
+2025-08-26T21:49:30.1416790Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.8-9/x64
+2025-08-26T21:49:30.1417147Z   COMPILE_STATUS: success
+2025-08-26T21:49:30.1417352Z ##[endgroup]
+2025-08-26T21:49:30.3558887Z ##[warning]No files were found with the provided path: build/test-results/test/. No artifacts will be uploaded.
+
+
+=== build/14_Upload test reports.txt ===
+﻿2025-08-26T21:49:30.3706501Z ##[group]Run actions/upload-artifact@v4
+2025-08-26T21:49:30.3706797Z with:
+2025-08-26T21:49:30.3707044Z   name: test-reports-7191e956-8128-11b2-bb25-0a7418829cad
+2025-08-26T21:49:30.3707364Z   path: build/reports/tests/test/
+2025-08-26T21:49:30.3707597Z   retention-days: 7
+2025-08-26T21:49:30.3707796Z   if-no-files-found: warn
+2025-08-26T21:49:30.3708013Z   compression-level: 6
+2025-08-26T21:49:30.3708208Z   overwrite: false
+2025-08-26T21:49:30.3708410Z   include-hidden-files: false
+2025-08-26T21:49:30.3708664Z env:
+2025-08-26T21:49:30.3708942Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.8-9/x64
+2025-08-26T21:49:30.3709411Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.8-9/x64
+2025-08-26T21:49:30.3709764Z   COMPILE_STATUS: success
+2025-08-26T21:49:30.3709982Z ##[endgroup]
+2025-08-26T21:49:30.5784054Z ##[warning]No files were found with the provided path: build/reports/tests/test/. No artifacts will be uploaded.
+
+
+=== build/1_Set up job.txt ===
+﻿2025-08-26T21:48:58.6189189Z Current runner version: '2.328.0'
+2025-08-26T21:48:58.6222904Z ##[group]Runner Image Provisioner
+2025-08-26T21:48:58.6224070Z Hosted Compute Agent
+2025-08-26T21:48:58.6225102Z Version: 20250818.377
+2025-08-26T21:48:58.6226003Z Commit: 3c593e9f75fe0b87e893bca80d6e12ba089c61fc
+2025-08-26T21:48:58.6227212Z Build Date: 2025-08-18T14:52:18Z
+2025-08-26T21:48:58.6228209Z ##[endgroup]
+2025-08-26T21:48:58.6229215Z ##[group]Operating System
+2025-08-26T21:48:58.6230087Z Ubuntu
+2025-08-26T21:48:58.6231006Z 24.04.2
+2025-08-26T21:48:58.6231820Z LTS
+2025-08-26T21:48:58.6232568Z ##[endgroup]
+2025-08-26T21:48:58.6233603Z ##[group]Runner Image
+2025-08-26T21:48:58.6234520Z Image: ubuntu-24.04
+2025-08-26T21:48:58.6235521Z Version: 20250818.1.0
+2025-08-26T21:48:58.6237247Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20250818.1/images/ubuntu/Ubuntu2404-Readme.md
+2025-08-26T21:48:58.6239730Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20250818.1
+2025-08-26T21:48:58.6241790Z ##[endgroup]
+2025-08-26T21:48:58.6246201Z ##[group]GITHUB_TOKEN Permissions
+2025-08-26T21:48:58.6249264Z Actions: write
+2025-08-26T21:48:58.6250148Z Attestations: write
+2025-08-26T21:48:58.6250969Z Checks: write
+2025-08-26T21:48:58.6251846Z Contents: write
+2025-08-26T21:48:58.6252583Z Deployments: write
+2025-08-26T21:48:58.6253500Z Discussions: write
+2025-08-26T21:48:58.6254482Z Issues: write
+2025-08-26T21:48:58.6255709Z Metadata: read
+2025-08-26T21:48:58.6256618Z Models: read
+2025-08-26T21:48:58.6257738Z Packages: write
+2025-08-26T21:48:58.6258766Z Pages: write
+2025-08-26T21:48:58.6259585Z PullRequests: write
+2025-08-26T21:48:58.6260697Z RepositoryProjects: write
+2025-08-26T21:48:58.6261669Z SecurityEvents: write
+2025-08-26T21:48:58.6262734Z Statuses: write
+2025-08-26T21:48:58.6264154Z ##[endgroup]
+2025-08-26T21:48:58.6267618Z Secret source: Actions
+2025-08-26T21:48:58.6268751Z Prepare workflow directory
+2025-08-26T21:48:58.6646747Z Prepare all required actions
+2025-08-26T21:48:58.6701778Z Getting action download info
+2025-08-26T21:48:59.0285803Z Download action repository 'actions/checkout@v4' (SHA:08eba0b27e820071cde6df949e0beb9ba4906955)
+2025-08-26T21:48:59.2269244Z Download action repository 'actions/setup-java@v4' (SHA:c5195efecf7bdfc987ee8bae7a71cb8b11521c00)
+2025-08-26T21:49:01.3548791Z Download action repository 'actions/cache@v4' (SHA:0400d5f644dc74513175e3cd8d07132dd4860809)
+2025-08-26T21:49:01.4513988Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2025-08-26T21:49:01.6951713Z Complete job name: build
+
+
+=== build/26_Post Cache Gradle packages.txt ===
+﻿2025-08-26T21:49:30.7727078Z Post job cleanup.
+2025-08-26T21:49:30.9183057Z Cache hit occurred on the primary key Linux-gradle-fd3b7f3c29a3f6ddac48bf37453a55eb7e19e6521abe87d197f8047726f62332, not saving cache.
+
+
+=== build/27_Post Set up JDK 21.txt ===
+﻿2025-08-26T21:49:30.9277292Z Post job cleanup.
+
+
+=== build/28_Post Checkout code.txt ===
+﻿2025-08-26T21:49:31.0970691Z Post job cleanup.
+2025-08-26T21:49:31.1915289Z [command]/usr/bin/git version
+2025-08-26T21:49:31.1960822Z git version 2.51.0
+2025-08-26T21:49:31.2021264Z Temporarily overriding HOME='/home/runner/work/_temp/f1c3f214-22ae-4f51-a013-ba03555a5e9a' before making global git config changes
+2025-08-26T21:49:31.2022276Z Adding repository directory to the temporary git global config as a safe directory
+2025-08-26T21:49:31.2029189Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/java-client-template/java-client-template
+2025-08-26T21:49:31.2073003Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2025-08-26T21:49:31.2111153Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2025-08-26T21:49:31.2359513Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2025-08-26T21:49:31.2381773Z http.https://github.com/.extraheader
+2025-08-26T21:49:31.2398526Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2025-08-26T21:49:31.2432331Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+
+
+=== build/29_Complete job.txt ===
+﻿2025-08-26T21:49:31.2796058Z Cleaning up orphan processes
+2025-08-26T21:49:31.3081172Z Terminate orphan process: pid (2135) (java)
+
+
+=== build/2_Checkout code.txt ===
+﻿2025-08-26T21:49:01.7790998Z ##[group]Run actions/checkout@v4
+2025-08-26T21:49:01.7792239Z with:
+2025-08-26T21:49:01.7792939Z   ref: 7191e956-8128-11b2-bb25-0a7418829cad
+2025-08-26T21:49:01.7794034Z   repository: Cyoda-platform/java-client-template
+2025-08-26T21:49:01.7795692Z   token: ***
+2025-08-26T21:49:01.7796986Z   ssh-strict: true
+2025-08-26T21:49:01.7797737Z   ssh-user: git
+2025-08-26T21:49:01.7798458Z   persist-credentials: true
+2025-08-26T21:49:01.7799301Z   clean: true
+2025-08-26T21:49:01.7800028Z   sparse-checkout-cone-mode: true
+2025-08-26T21:49:01.7800928Z   fetch-depth: 1
+2025-08-26T21:49:01.7801629Z   fetch-tags: false
+2025-08-26T21:49:01.7802362Z   show-progress: true
+2025-08-26T21:49:01.7803095Z   lfs: false
+2025-08-26T21:49:01.7803757Z   submodules: false
+2025-08-26T21:49:01.7804512Z   set-safe-directory: true
+2025-08-26T21:49:01.7805762Z ##[endgroup]
+2025-08-26T21:49:01.8867950Z Syncing repository: Cyoda-platform/java-client-template
+2025-08-26T21:49:01.8870542Z ##[group]Getting Git version info
+2025-08-26T21:49:01.8872100Z Working directory is '/home/runner/work/java-client-template/java-client-template'
+2025-08-26T21:49:01.8874116Z [command]/usr/bin/git version
+2025-08-26T21:49:01.8951005Z git version 2.51.0
+2025-08-26T21:49:01.8977032Z ##[endgroup]
+2025-08-26T21:49:01.8991034Z Temporarily overriding HOME='/home/runner/work/_temp/d84bc513-90a1-4de9-991d-ceef3596f58f' before making global git config changes
+2025-08-26T21:49:01.8994069Z Adding repository directory to the temporary git global config as a safe directory
+2025-08-26T21:49:01.8997857Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/java-client-template/java-client-template
+2025-08-26T21:49:01.9039650Z Deleting the contents of '/home/runner/work/java-client-template/java-client-template'
+2025-08-26T21:49:01.9042463Z ##[group]Initializing the repository
+2025-08-26T21:49:01.9046850Z [command]/usr/bin/git init /home/runner/work/java-client-template/java-client-template
+2025-08-26T21:49:01.9162305Z hint: Using 'master' as the name for the initial branch. This default branch name
+2025-08-26T21:49:01.9164254Z hint: is subject to change. To configure the initial branch name to use in all
+2025-08-26T21:49:01.9166188Z hint: of your new repositories, which will suppress this warning, call:
+2025-08-26T21:49:01.9167777Z hint:
+2025-08-26T21:49:01.9169151Z hint: 	git config --global init.defaultBranch <name>
+2025-08-26T21:49:01.9171094Z hint:
+2025-08-26T21:49:01.9172870Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2025-08-26T21:49:01.9176000Z hint: 'development'. The just-created branch can be renamed via this command:
+2025-08-26T21:49:01.9178303Z hint:
+2025-08-26T21:49:01.9179469Z hint: 	git branch -m <name>
+2025-08-26T21:49:01.9180882Z hint:
+2025-08-26T21:49:01.9182310Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2025-08-26T21:49:01.9184552Z Initialized empty Git repository in /home/runner/work/java-client-template/java-client-template/.git/
+2025-08-26T21:49:01.9188121Z [command]/usr/bin/git remote add origin https://github.com/Cyoda-platform/java-client-template
+2025-08-26T21:49:01.9221087Z ##[endgroup]
+2025-08-26T21:49:01.9222409Z ##[group]Disabling automatic garbage collection
+2025-08-26T21:49:01.9224424Z [command]/usr/bin/git config --local gc.auto 0
+2025-08-26T21:49:01.9252643Z ##[endgroup]
+2025-08-26T21:49:01.9253826Z ##[group]Setting up auth
+2025-08-26T21:49:01.9259366Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2025-08-26T21:49:01.9290990Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2025-08-26T21:49:01.9642566Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2025-08-26T21:49:01.9675743Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2025-08-26T21:49:01.9891570Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2025-08-26T21:49:01.9926026Z ##[endgroup]
+2025-08-26T21:49:01.9928174Z ##[group]Fetching the repository
+2025-08-26T21:49:01.9940198Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +refs/heads/7191e956-8128-11b2-bb25-0a7418829cad*:refs/remotes/origin/7191e956-8128-11b2-bb25-0a7418829cad* +refs/tags/7191e956-8128-11b2-bb25-0a7418829cad*:refs/tags/7191e956-8128-11b2-bb25-0a7418829cad*
+2025-08-26T21:49:02.4992685Z From https://github.com/Cyoda-platform/java-client-template
+2025-08-26T21:49:02.4993589Z  * [new branch]      7191e956-8128-11b2-bb25-0a7418829cad -> origin/7191e956-8128-11b2-bb25-0a7418829cad
+2025-08-26T21:49:02.5024246Z ##[endgroup]
+2025-08-26T21:49:02.5024926Z ##[group]Determining the checkout info
+2025-08-26T21:49:02.5030983Z [command]/usr/bin/git branch --list --remote origin/7191e956-8128-11b2-bb25-0a7418829cad
+2025-08-26T21:49:02.5053692Z   origin/7191e956-8128-11b2-bb25-0a7418829cad
+2025-08-26T21:49:02.5059428Z ##[endgroup]
+2025-08-26T21:49:02.5063628Z [command]/usr/bin/git sparse-checkout disable
+2025-08-26T21:49:02.5108760Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2025-08-26T21:49:02.5133881Z ##[group]Checking out the ref
+2025-08-26T21:49:02.5138809Z [command]/usr/bin/git checkout --progress --force -B 7191e956-8128-11b2-bb25-0a7418829cad refs/remotes/origin/7191e956-8128-11b2-bb25-0a7418829cad
+2025-08-26T21:49:02.5283790Z Switched to a new branch '7191e956-8128-11b2-bb25-0a7418829cad'
+2025-08-26T21:49:02.5286682Z branch '7191e956-8128-11b2-bb25-0a7418829cad' set up to track 'origin/7191e956-8128-11b2-bb25-0a7418829cad'.
+2025-08-26T21:49:02.5292525Z ##[endgroup]
+2025-08-26T21:49:02.5327668Z [command]/usr/bin/git log -1 --format=%H
+2025-08-26T21:49:02.5348617Z 8e6cb4ae3f35a5f6d79f4a282fc9665c6ad2df29
+
+
+=== build/3_Set up JDK 21.txt ===
+﻿2025-08-26T21:49:02.5638187Z ##[group]Run actions/setup-java@v4
+2025-08-26T21:49:02.5638651Z with:
+2025-08-26T21:49:02.5638880Z   java-version: 21
+2025-08-26T21:49:02.5639126Z   distribution: temurin
+2025-08-26T21:49:02.5639386Z   java-package: jdk
+2025-08-26T21:49:02.5639631Z   check-latest: false
+2025-08-26T21:49:02.5639867Z   server-id: github
+2025-08-26T21:49:02.5640109Z   server-username: GITHUB_ACTOR
+2025-08-26T21:49:02.5640388Z   server-password: GITHUB_TOKEN
+2025-08-26T21:49:02.5640678Z   overwrite-settings: true
+2025-08-26T21:49:02.5640933Z   job-status: success
+2025-08-26T21:49:02.5641312Z   token: ***
+2025-08-26T21:49:02.5641543Z ##[endgroup]
+2025-08-26T21:49:02.7580308Z ##[group]Installed distributions
+2025-08-26T21:49:02.7641385Z Resolved Java 21.0.8+9 from tool-cache
+2025-08-26T21:49:02.7642014Z Setting Java 21.0.8+9 as the default
+2025-08-26T21:49:02.7654549Z Creating toolchains.xml for JDK version 21 from temurin
+2025-08-26T21:49:02.7729089Z Writing to /home/runner/.m2/toolchains.xml
+2025-08-26T21:49:02.7729605Z 
+2025-08-26T21:49:02.7729929Z Java configuration:
+2025-08-26T21:49:02.7730434Z   Distribution: temurin
+2025-08-26T21:49:02.7730956Z   Version: 21.0.8+9
+2025-08-26T21:49:02.7731776Z   Path: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.8-9/x64
+2025-08-26T21:49:02.7732427Z 
+2025-08-26T21:49:02.7734408Z ##[endgroup]
+2025-08-26T21:49:02.7752557Z Creating settings.xml with server-id: github
+2025-08-26T21:49:02.7760736Z Writing to /home/runner/.m2/settings.xml
+
+
+=== build/4_Cache Gradle packages.txt ===
+﻿2025-08-26T21:49:02.8804541Z ##[group]Run actions/cache@v4
+2025-08-26T21:49:02.8805206Z with:
+2025-08-26T21:49:02.8805474Z   path: ~/.gradle/caches
+~/.gradle/wrapper
+
+2025-08-26T21:49:02.8805978Z   key: Linux-gradle-fd3b7f3c29a3f6ddac48bf37453a55eb7e19e6521abe87d197f8047726f62332
+2025-08-26T21:49:02.8806445Z   restore-keys: Linux-gradle-
+
+2025-08-26T21:49:02.8806744Z   enableCrossOsArchive: false
+2025-08-26T21:49:02.8807026Z   fail-on-cache-miss: false
+2025-08-26T21:49:02.8807292Z   lookup-only: false
+2025-08-26T21:49:02.8807540Z   save-always: false
+2025-08-26T21:49:02.8807760Z env:
+2025-08-26T21:49:02.8808081Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.8-9/x64
+2025-08-26T21:49:02.8808575Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.8-9/x64
+2025-08-26T21:49:02.8808961Z ##[endgroup]
+2025-08-26T21:49:03.2127494Z Cache hit for: Linux-gradle-fd3b7f3c29a3f6ddac48bf37453a55eb7e19e6521abe87d197f8047726f62332
+2025-08-26T21:49:04.4291749Z Received 71303168 of 255477258 (27.9%), 68.0 MBs/sec
+2025-08-26T21:49:05.4286826Z Received 188743680 of 255477258 (73.9%), 90.0 MBs/sec
+2025-08-26T21:49:05.8179393Z Received 255477258 of 255477258 (100.0%), 102.0 MBs/sec
+2025-08-26T21:49:05.8182372Z Cache Size: ~244 MB (255477258 B)
+2025-08-26T21:49:05.8290822Z [command]/usr/bin/tar -xf /home/runner/work/_temp/ff1f2859-c4e6-42c0-a593-53fc113935e3/cache.tzst -P -C /home/runner/work/java-client-template/java-client-template --use-compress-program unzstd
+2025-08-26T21:49:06.4813096Z Cache restored successfully
+2025-08-26T21:49:06.5361545Z Cache restored from key: Linux-gradle-fd3b7f3c29a3f6ddac48bf37453a55eb7e19e6521abe87d197f8047726f62332
+
+
+=== build/5_Make gradlew executable.txt ===
+﻿2025-08-26T21:49:06.5483480Z ##[group]Run chmod +x ./gradlew
+2025-08-26T21:49:06.5483827Z [36;1mchmod +x ./gradlew[0m
+2025-08-26T21:49:06.5565826Z shell: /usr/bin/bash -e {0}
+2025-08-26T21:49:06.5566105Z env:
+2025-08-26T21:49:06.5566417Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.8-9/x64
+2025-08-26T21:49:06.5567169Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.8-9/x64
+2025-08-26T21:49:06.5567567Z ##[endgroup]
+
+
+=== build/6_Compile only (report all compilation errors).txt ===
+﻿2025-08-26T21:49:06.5688162Z ##[group]Run echo "::notice::Starting compilation check for branch 7191e956-8128-11b2-bb25-0a7418829cad"
+2025-08-26T21:49:06.5688924Z [36;1mecho "::notice::Starting compilation check for branch 7191e956-8128-11b2-bb25-0a7418829cad"[0m
+2025-08-26T21:49:06.5689492Z [36;1m# Clean first to ensure a full recompile so all diagnostics are surfaced[0m
+2025-08-26T21:49:06.5689954Z [36;1m# Use --continue so Gradle doesn't stop at the first failing task[0m
+2025-08-26T21:49:06.5690477Z [36;1m# Use --console=plain and -i to make sure all javac diagnostics are printed in GH Actions logs[0m
+2025-08-26T21:49:06.5690976Z [36;1m./gradlew clean compileJava --continue --console=plain -i[0m
+2025-08-26T21:49:06.5691300Z [36;1mstatus=$?[0m
+2025-08-26T21:49:06.5691512Z [36;1mif [ $status -eq 0 ]; then[0m
+2025-08-26T21:49:06.5691850Z [36;1m  echo "::notice::✅ Compilation successful - no errors found"[0m
+2025-08-26T21:49:06.5692235Z [36;1m  echo "COMPILE_STATUS=success" >> $GITHUB_ENV[0m
+2025-08-26T21:49:06.5692500Z [36;1melse[0m
+2025-08-26T21:49:06.5692825Z [36;1m  echo "::error::❌ Compilation failed - see above for all reported errors"[0m
+2025-08-26T21:49:06.5693213Z [36;1m  echo "COMPILE_STATUS=failure" >> $GITHUB_ENV[0m
+2025-08-26T21:49:06.5693479Z [36;1m  exit 1[0m
+2025-08-26T21:49:06.5693659Z [36;1mfi[0m
+2025-08-26T21:49:06.5730282Z shell: /usr/bin/bash -e {0}
+2025-08-26T21:49:06.5730558Z env:
+2025-08-26T21:49:06.5730858Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.8-9/x64
+2025-08-26T21:49:06.5731334Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.8-9/x64
+2025-08-26T21:49:06.5731684Z ##[endgroup]
+2025-08-26T21:49:06.5802233Z ##[notice]Starting compilation check for branch 7191e956-8128-11b2-bb25-0a7418829cad
+2025-08-26T21:49:07.0933602Z Initialized native services in: /home/runner/.gradle/native
+2025-08-26T21:49:07.1003740Z Initialized jansi services in: /home/runner/.gradle/native
+2025-08-26T21:49:07.2179112Z 
+2025-08-26T21:49:07.2185443Z Welcome to Gradle 8.7!
+2025-08-26T21:49:07.2186118Z 
+2025-08-26T21:49:07.2186529Z Here are the highlights of this release:
+2025-08-26T21:49:07.2187020Z  - Compiling and testing with Java 22
+2025-08-26T21:49:07.2187505Z  - Cacheable Groovy script compilation
+2025-08-26T21:49:07.2188025Z  - New methods in lazy collection properties
+2025-08-26T21:49:07.2189304Z 
+2025-08-26T21:49:07.2189676Z For more details see https://docs.gradle.org/8.7/release-notes.html
+2025-08-26T21:49:07.2189991Z 
+2025-08-26T21:49:07.2201264Z Received JVM installation metadata from '/usr/lib/jvm/temurin-21-jdk-amd64': {JAVA_HOME=/usr/lib/jvm/temurin-21-jdk-amd64, JAVA_VERSION=21.0.8, JAVA_VENDOR=Eclipse Adoptium, RUNTIME_NAME=OpenJDK Runtime Environment, RUNTIME_VERSION=21.0.8+9-LTS, VM_NAME=OpenJDK 64-Bit Server VM, VM_VERSION=21.0.8+9-LTS, VM_VENDOR=Eclipse Adoptium, OS_ARCH=amd64}
+2025-08-26T21:49:07.3175841Z Removing 0 daemon stop events from registry
+2025-08-26T21:49:07.4176234Z Starting a Gradle Daemon (subsequent builds will be faster)
+2025-08-26T21:49:07.4197808Z Starting process 'Gradle build daemon'. Working directory: /home/runner/.gradle/daemon/8.7 Command: /usr/lib/jvm/temurin-21-jdk-amd64/bin/java --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.prefs/java.util.prefs=ALL-UNNAMED --add-opens=java.base/java.nio.charset=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED -XX:MaxMetaspaceSize=384m -XX:+HeapDumpOnOutOfMemoryError -Xms256m -Xmx512m -Dfile.encoding=UTF-8 -Duser.country -Duser.language=en -Duser.variant -cp /home/runner/.gradle/wrapper/dists/gradle-8.7-bin/bhs2wmbdwecv87pi65oeuq5iu/gradle-8.7/lib/gradle-launcher-8.7.jar -javaagent:/home/runner/.gradle/wrapper/dists/gradle-8.7-bin/bhs2wmbdwecv87pi65oeuq5iu/gradle-8.7/lib/agents/gradle-instrumentation-agent-8.7.jar org.gradle.launcher.daemon.bootstrap.GradleDaemon 8.7
+2025-08-26T21:49:07.4204406Z Successfully started process 'Gradle build daemon'
+2025-08-26T21:49:08.3181094Z An attempt to start the daemon took 0.894 secs.
+2025-08-26T21:49:08.3181814Z The client will now receive all logging from the daemon (pid: 2135). The daemon log file: /home/runner/.gradle/daemon/8.7/daemon-2135.out.log
+2025-08-26T21:49:08.4175568Z Starting build in new daemon [memory: 512 MiB]
+2025-08-26T21:49:08.4177780Z Closing daemon's stdin at end of input.
+2025-08-26T21:49:08.4179667Z The daemon will no longer process any standard input.
+2025-08-26T21:49:08.7188187Z Using 4 worker leases.
+2025-08-26T21:49:08.9178668Z Received JVM installation metadata from '/usr/lib/jvm/temurin-21-jdk-amd64': {JAVA_HOME=/usr/lib/jvm/temurin-21-jdk-amd64, JAVA_VERSION=21.0.8, JAVA_VENDOR=Eclipse Adoptium, RUNTIME_NAME=OpenJDK Runtime Environment, RUNTIME_VERSION=21.0.8+9-LTS, VM_NAME=OpenJDK 64-Bit Server VM, VM_VERSION=21.0.8+9-LTS, VM_VENDOR=Eclipse Adoptium, OS_ARCH=amd64}
+2025-08-26T21:49:09.2179390Z Watching the file system is configured to be enabled if available
+2025-08-26T21:49:09.2206059Z Now considering [/home/runner/work/java-client-template/java-client-template] as hierarchies to watch
+2025-08-26T21:49:09.2212970Z File system watching is active
+2025-08-26T21:49:10.1175135Z Starting Build
+2025-08-26T21:49:10.2186622Z Settings evaluated using settings file '/home/runner/work/java-client-template/java-client-template/settings.gradle'.
+2025-08-26T21:49:10.3176103Z Projects loaded. Root project using build file '/home/runner/work/java-client-template/java-client-template/build.gradle'.
+2025-08-26T21:49:10.3177593Z Included projects: [root project 'java-client-template']
+2025-08-26T21:49:12.3175617Z 
+2025-08-26T21:49:12.3207819Z > Configure project :
+2025-08-26T21:49:12.3210994Z Evaluating root project 'java-client-template' using build file '/home/runner/work/java-client-template/java-client-template/build.gradle'.
+2025-08-26T21:49:12.3213092Z Resource missing. [HTTP HEAD: https://plugins.gradle.org/m2/org/springframework/boot/org.springframework.boot.gradle.plugin/3.5.3/org.springframework.boot.gradle.plugin-3.5.3.jar]
+2025-08-26T21:49:12.3215775Z Resource missing. [HTTP HEAD: https://plugins.gradle.org/m2/io/spring/dependency-management/io.spring.dependency-management.gradle.plugin/1.1.7/io.spring.dependency-management.gradle.plugin-1.1.7.jar]
+2025-08-26T21:49:12.3218030Z Resource missing. [HTTP HEAD: https://plugins.gradle.org/m2/io/freefair/lombok/io.freefair.lombok.gradle.plugin/8.4/io.freefair.lombok.gradle.plugin-8.4.jar]
+2025-08-26T21:49:12.3220027Z Resource missing. [HTTP HEAD: https://plugins.gradle.org/m2/org/jsonschema2pojo/org.jsonschema2pojo.gradle.plugin/1.2.1/org.jsonschema2pojo.gradle.plugin-1.2.1.jar]
+2025-08-26T21:49:12.3222165Z Resource missing. [HTTP HEAD: https://plugins.gradle.org/m2/com/google/protobuf/com.google.protobuf.gradle.plugin/0.9.4/com.google.protobuf.gradle.plugin-0.9.4.jar]
+2025-08-26T21:49:12.5195924Z Transforming spring-boot-gradle-plugin-3.5.3.jar (org.springframework.boot:spring-boot-gradle-plugin:3.5.3) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5198091Z Transforming dependency-management-plugin-1.1.7.jar (io.spring.gradle:dependency-management-plugin:1.1.7) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5199918Z Transforming lombok-plugin-8.4.jar (io.freefair.gradle:lombok-plugin:8.4) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5201834Z Transforming jsonschema2pojo-gradle-plugin-1.2.1.jar (org.jsonschema2pojo:jsonschema2pojo-gradle-plugin:1.2.1) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5203899Z Transforming protobuf-gradle-plugin-0.9.4.jar (com.google.protobuf:protobuf-gradle-plugin:0.9.4) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5206181Z Transforming spring-boot-buildpack-platform-3.5.3.jar (org.springframework.boot:spring-boot-buildpack-platform:3.5.3) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5208619Z Transforming spring-boot-loader-tools-3.5.3.jar (org.springframework.boot:spring-boot-loader-tools:3.5.3) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5210782Z Transforming commons-compress-1.27.1.jar (org.apache.commons:commons-compress:1.27.1) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5212656Z Transforming spring-core-6.2.8.jar (org.springframework:spring-core:6.2.8) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5223718Z Transforming jsonschema2pojo-core-1.2.1.jar (org.jsonschema2pojo:jsonschema2pojo-core:1.2.1) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5226264Z Transforming osdetector-gradle-plugin-1.7.3.jar (com.google.gradle:osdetector-gradle-plugin:1.7.3) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5228504Z Transforming jackson-annotations-2.19.1.jar (com.fasterxml.jackson.core:jackson-annotations:2.19.1) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5240072Z Transforming jackson-dataformat-yaml-2.19.1.jar (com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.19.1) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5241934Z Transforming jackson-core-2.19.1.jar (com.fasterxml.jackson.core:jackson-core:2.19.1) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5243841Z Transforming jackson-module-parameter-names-2.19.1.jar (com.fasterxml.jackson.module:jackson-module-parameter-names:2.19.1) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5246049Z Transforming jackson-databind-2.19.1.jar (com.fasterxml.jackson.core:jackson-databind:2.19.1) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5247754Z Transforming jna-platform-5.17.0.jar (net.java.dev.jna:jna-platform:5.17.0) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5253058Z Transforming httpclient5-5.5.jar (org.apache.httpcomponents.client5:httpclient5:5.5) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5256860Z Transforming tomlj-1.0.0.jar (org.tomlj:tomlj:1.0.0) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5258333Z Transforming commons-codec-1.17.1.jar (commons-codec:commons-codec:1.17.1) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5259810Z Transforming commons-io-2.16.1.jar (commons-io:commons-io:2.16.1) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5261338Z Transforming commons-lang3-3.16.0.jar (org.apache.commons:commons-lang3:3.16.0) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5262943Z Transforming spring-jcl-6.2.8.jar (org.springframework:spring-jcl:6.2.8) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5264570Z Transforming javax.json.bind-api-1.0.jar (javax.json.bind:javax.json.bind-api:1.0) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5266464Z Transforming jakarta.json.bind-api-2.0.0.jar (jakarta.json.bind:jakarta.json.bind-api:2.0.0) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5268217Z Transforming javaparser-1.0.11.jar (com.google.code.javaparser:javaparser:1.0.11) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5269786Z Transforming codemodel-2.6.jar (com.sun.codemodel:codemodel:2.6) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5271172Z Transforming gson-2.10.1.jar (com.google.code.gson:gson:2.10.1) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5272481Z Transforming os-maven-plugin-1.7.1.jar (kr.motd.maven:os-maven-plugin:1.7.1) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5273908Z Transforming jsr305-3.0.2.jar (com.google.code.findbugs:jsr305:3.0.2) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5275870Z Transforming commons-lang-2.6.jar (commons-lang:commons-lang:2.6) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5277511Z Transforming validation-api-2.0.1.Final.jar (javax.validation:validation-api:2.0.1.Final) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5279106Z Transforming jakarta.validation-api-3.0.2.jar (jakarta.validation:jakarta.validation-api:3.0.2) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5280588Z Transforming joda-time-2.12.2.jar (joda-time:joda-time:2.12.2) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5282019Z Transforming annotations-1.3.9.jar (com.google.code.findbugs:annotations:1.3.9) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5283434Z Transforming jna-5.17.0.jar (net.java.dev.jna:jna:5.17.0) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5295698Z Transforming httpcore5-h2-5.3.4.jar (org.apache.httpcomponents.core5:httpcore5-h2:5.3.4) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5298273Z Transforming httpcore5-5.3.4.jar (org.apache.httpcomponents.core5:httpcore5:5.3.4) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5299732Z Transforming slf4j-api-1.7.36.jar (org.slf4j:slf4j-api:1.7.36) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5301069Z Transforming antlr4-runtime-4.7.2.jar (org.antlr:antlr4-runtime:4.7.2) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:12.5302445Z Transforming snakeyaml-2.4.jar (org.yaml:snakeyaml:2.4) with ExternalDependencyInstrumentingArtifactTransform
+2025-08-26T21:49:13.0178179Z Applying dependency management to configuration 'annotationProcessor' in project 'java-client-template'
+2025-08-26T21:49:13.0191431Z Applying dependency management to configuration 'apiElements' in project 'java-client-template'
+2025-08-26T21:49:13.0192528Z Applying dependency management to configuration 'archives' in project 'java-client-template'
+2025-08-26T21:49:13.0193627Z Applying dependency management to configuration 'bootArchives' in project 'java-client-template'
+2025-08-26T21:49:13.0194946Z Applying dependency management to configuration 'compileClasspath' in project 'java-client-template'
+2025-08-26T21:49:13.0196129Z Applying dependency management to configuration 'compileOnly' in project 'java-client-template'
+2025-08-26T21:49:13.0197253Z Applying dependency management to configuration 'default' in project 'java-client-template'
+2025-08-26T21:49:13.0198419Z Applying dependency management to configuration 'developmentOnly' in project 'java-client-template'
+2025-08-26T21:49:13.0199622Z Applying dependency management to configuration 'implementation' in project 'java-client-template'
+2025-08-26T21:49:13.0200844Z Applying dependency management to configuration 'mainSourceElements' in project 'java-client-template'
+2025-08-26T21:49:13.0202135Z Applying dependency management to configuration 'productionRuntimeClasspath' in project 'java-client-template'
+2025-08-26T21:49:13.0203410Z Applying dependency management to configuration 'runtimeClasspath' in project 'java-client-template'
+2025-08-26T21:49:13.0204597Z Applying dependency management to configuration 'runtimeElements' in project 'java-client-template'
+2025-08-26T21:49:13.0205949Z Applying dependency management to configuration 'runtimeOnly' in project 'java-client-template'
+2025-08-26T21:49:13.0207204Z Applying dependency management to configuration 'testAndDevelopmentOnly' in project 'java-client-template'
+2025-08-26T21:49:13.0208542Z Applying dependency management to configuration 'testAnnotationProcessor' in project 'java-client-template'
+2025-08-26T21:49:13.0209884Z Applying dependency management to configuration 'testCompileClasspath' in project 'java-client-template'
+2025-08-26T21:49:13.0211168Z Applying dependency management to configuration 'testCompileOnly' in project 'java-client-template'
+2025-08-26T21:49:13.0212936Z Applying dependency management to configuration 'testImplementation' in project 'java-client-template'
+2025-08-26T21:49:13.0214325Z Applying dependency management to configuration 'testResultsElementsForTest' in project 'java-client-template'
+2025-08-26T21:49:13.0216184Z Applying dependency management to configuration 'testRuntimeClasspath' in project 'java-client-template'
+2025-08-26T21:49:13.0217622Z Applying dependency management to configuration 'testRuntimeOnly' in project 'java-client-template'
+2025-08-26T21:49:13.0218785Z Applying dependency management to configuration 'lombok' in project 'java-client-template'
+2025-08-26T21:49:13.3181839Z Applying dependency management to configuration 'protobuf' in project 'java-client-template'
+2025-08-26T21:49:13.3186914Z Applying dependency management to configuration 'compileProtoPath' in project 'java-client-template'
+2025-08-26T21:49:13.4180620Z Applying dependency management to configuration 'testProtobuf' in project 'java-client-template'
+2025-08-26T21:49:13.4185461Z Applying dependency management to configuration 'testCompileProtoPath' in project 'java-client-template'
+2025-08-26T21:49:14.4175854Z Starting process 'command '/usr/lib/jvm/temurin-8-jdk-amd64/bin/java''. Working directory: /home/runner/.gradle/.tmp/tmp-jvm5102939345759712216probe Command: /usr/lib/jvm/temurin-8-jdk-amd64/bin/java -Xmx32m -Xms32m -cp . JavaProbe
+2025-08-26T21:49:14.4177906Z Successfully started process 'command '/usr/lib/jvm/temurin-8-jdk-amd64/bin/java''
+2025-08-26T21:49:17.4176944Z Received JVM installation metadata from '/usr/lib/jvm/temurin-8-jdk-amd64': {JAVA_HOME=/usr/lib/jvm/temurin-8-jdk-amd64/jre, JAVA_VERSION=1.8.0_462, JAVA_VENDOR=Temurin, RUNTIME_NAME=OpenJDK Runtime Environment, RUNTIME_VERSION=1.8.0_462-b08, VM_NAME=OpenJDK 64-Bit Server VM, VM_VERSION=25.462-b08, VM_VENDOR=Temurin, OS_ARCH=amd64}
+2025-08-26T21:49:17.4179695Z 
+2025-08-26T21:49:17.4181699Z Starting process 'command '/usr/lib/jvm/temurin-11-jdk-amd64/bin/java''. Working directory: /home/runner/.gradle/.tmp/tmp-jvm16782618800129016284probe Command: /usr/lib/jvm/temurin-11-jdk-amd64/bin/java -Xmx32m -Xms32m -cp . JavaProbe
+2025-08-26T21:49:17.4183274Z Successfully started process 'command '/usr/lib/jvm/temurin-11-jdk-amd64/bin/java''
+2025-08-26T21:49:18.8177389Z Received JVM installation metadata from '/usr/lib/jvm/temurin-11-jdk-amd64': {JAVA_HOME=/usr/lib/jvm/temurin-11-jdk-amd64, JAVA_VERSION=11.0.28, JAVA_VENDOR=Eclipse Adoptium, RUNTIME_NAME=OpenJDK Runtime Environment, RUNTIME_VERSION=11.0.28+6, VM_NAME=OpenJDK 64-Bit Server VM, VM_VERSION=11.0.28+6, VM_VENDOR=Eclipse Adoptium, OS_ARCH=amd64}
+2025-08-26T21:49:18.8182724Z Starting process 'command '/usr/lib/jvm/temurin-17-jdk-amd64/bin/java''. Working directory: /home/runner/.gradle/.tmp/tmp-jvm6467723085938773511probe Command: /usr/lib/jvm/temurin-17-jdk-amd64/bin/java -Xmx32m -Xms32m -cp . JavaProbe
+2025-08-26T21:49:18.9174428Z Successfully started process 'command '/usr/lib/jvm/temurin-17-jdk-amd64/bin/java''
+2025-08-26T21:49:20.6177825Z Received JVM installation metadata from '/usr/lib/jvm/temurin-17-jdk-amd64': {JAVA_HOME=/usr/lib/jvm/temurin-17-jdk-amd64, JAVA_VERSION=17.0.16, JAVA_VENDOR=Eclipse Adoptium, RUNTIME_NAME=OpenJDK Runtime Environment, RUNTIME_VERSION=17.0.16+8, VM_NAME=OpenJDK 64-Bit Server VM, VM_VERSION=17.0.16+8, VM_VENDOR=Eclipse Adoptium, OS_ARCH=amd64}
+2025-08-26T21:49:20.7213780Z 
+2025-08-26T21:49:20.7214258Z > Configure project :
+2025-08-26T21:49:20.7215101Z Using Gradle sourceCompatibility as targetVersion for jsonschema2pojo: 21
+2025-08-26T21:49:20.7216201Z Applying dependency management to configuration 'protobufToolsLocator_protoc' in project 'java-client-template'
+2025-08-26T21:49:20.7217191Z ------------------------------------------------------------------------
+2025-08-26T21:49:20.7217826Z Detecting the operating system and CPU architecture
+2025-08-26T21:49:20.7218440Z ------------------------------------------------------------------------
+2025-08-26T21:49:20.7218997Z os.detected.name=linux
+2025-08-26T21:49:20.7219783Z os.detected.arch=x86_64
+2025-08-26T21:49:20.7220148Z os.detected.bitness=64
+2025-08-26T21:49:20.7220521Z os.detected.version=6.11
+2025-08-26T21:49:20.7220884Z os.detected.version.major=6
+2025-08-26T21:49:20.7248937Z os.detected.version.minor=11
+2025-08-26T21:49:20.7250199Z os.detected.release=ubuntu
+2025-08-26T21:49:20.7250627Z os.detected.release.version=24.04
+2025-08-26T21:49:20.7251095Z os.detected.release.like.ubuntu=true
+2025-08-26T21:49:20.7251573Z os.detected.release.like.debian=true
+2025-08-26T21:49:20.7252044Z os.detected.classifier=linux-x86_64
+2025-08-26T21:49:20.7252931Z Applying dependency management to configuration 'protobufToolsLocator_grpc' in project 'java-client-template'
+2025-08-26T21:49:20.7253827Z All projects evaluated.
+2025-08-26T21:49:20.8175714Z Task name matched 'clean'
+2025-08-26T21:49:20.8177104Z Task name matched 'compileJava'
+2025-08-26T21:49:20.8179227Z Selected primary task 'clean' from project :
+2025-08-26T21:49:20.8184434Z Selected primary task 'compileJava' from project :
+2025-08-26T21:49:20.8188921Z Excluding []
+2025-08-26T21:49:20.8204089Z Resolving global dependency management for project 'java-client-template'
+2025-08-26T21:49:21.2200346Z Excluding []
+2025-08-26T21:49:22.2204691Z Excluding []
+2025-08-26T21:49:22.2205727Z Excluding []
+2025-08-26T21:49:22.3176209Z Excluding []
+2025-08-26T21:49:22.3178941Z Tasks to be executed: [task ':clean', task ':generateEffectiveLombokConfig', task ':extractProto', task ':processResources', task ':generateJsonSchema2Pojo', task ':extractIncludeProto', task ':generateProto', task ':compileJava']
+2025-08-26T21:49:22.3180377Z Tasks that were excluded: []
+2025-08-26T21:49:22.3180933Z Resolve mutations for :clean (Thread[#101,Execution worker,5,main]) started.
+2025-08-26T21:49:22.3181656Z :clean (Thread[#101,Execution worker,5,main]) started.
+2025-08-26T21:49:22.3182381Z destroyer locations for task group 0 (Thread[#100,included builds,5,main]) started.
+2025-08-26T21:49:22.4225166Z 
+2025-08-26T21:49:22.4225975Z > Task :clean
+2025-08-26T21:49:22.4226790Z Caching disabled for task ':clean' because:
+2025-08-26T21:49:22.4227563Z   Build cache is disabled
+2025-08-26T21:49:22.4228224Z Task ':clean' is not up-to-date because:
+2025-08-26T21:49:22.4229309Z   Task has not declared any outputs despite executing actions.
+2025-08-26T21:49:22.4230555Z Resolve mutations for :generateEffectiveLombokConfig (Thread[#101,Execution worker,5,main]) started.
+2025-08-26T21:49:22.4231928Z :generateEffectiveLombokConfig (Thread[#101,Execution worker,5,main]) started.
+2025-08-26T21:49:22.4233221Z Resolve mutations for :extractProto (Thread[#100,included builds,5,main]) started.
+2025-08-26T21:49:22.4234347Z :extractProto (Thread[#100,included builds,5,main]) started.
+2025-08-26T21:49:22.4235239Z 
+2025-08-26T21:49:22.4235580Z > Task :extractProto
+2025-08-26T21:49:22.4236257Z Caching disabled for task ':extractProto' because:
+2025-08-26T21:49:22.4237046Z   Build cache is disabled
+2025-08-26T21:49:22.4237733Z   Caching has not been enabled for the task
+2025-08-26T21:49:22.4238507Z Task ':extractProto' is not up-to-date because:
+2025-08-26T21:49:22.4239328Z   No history is available.
+2025-08-26T21:49:22.4240541Z Resolve mutations for :processResources (Thread[#102,Execution worker Thread 2,5,main]) started.
+2025-08-26T21:49:22.4241803Z :processResources (Thread[#102,Execution worker Thread 2,5,main]) started.
+2025-08-26T21:49:22.6174441Z 
+2025-08-26T21:49:22.6179135Z > Task :processResources
+2025-08-26T21:49:22.6181801Z Caching disabled for task ':processResources' because:
+2025-08-26T21:49:22.6185744Z   Build cache is disabled
+2025-08-26T21:49:22.6186153Z   Not worth caching
+2025-08-26T21:49:22.6186587Z Task ':processResources' is not up-to-date because:
+2025-08-26T21:49:22.6187098Z   No history is available.
+2025-08-26T21:49:22.6187843Z Resolve mutations for :generateJsonSchema2Pojo (Thread[#102,Execution worker Thread 2,5,main]) started.
+2025-08-26T21:49:22.6188899Z :generateJsonSchema2Pojo (Thread[#102,Execution worker Thread 2,5,main]) started.
+2025-08-26T21:49:23.0205661Z 
+2025-08-26T21:49:23.0206598Z > Task :generateJsonSchema2Pojo
+2025-08-26T21:49:23.0207360Z Caching disabled for task ':generateJsonSchema2Pojo' because:
+2025-08-26T21:49:23.0208316Z   Build cache is disabled
+2025-08-26T21:49:23.0208743Z   Caching has not been enabled for the task
+2025-08-26T21:49:23.0209358Z Task ':generateJsonSchema2Pojo' is not up-to-date because:
+2025-08-26T21:49:23.0209942Z   No history is available.
+2025-08-26T21:49:23.0210340Z Using this configuration:
+2025-08-26T21:49:23.0210740Z generateBuilders = true
+2025-08-26T21:49:23.0211158Z includeJsonTypeInfoAnnotation = false
+2025-08-26T21:49:23.0211625Z usePrimitives = false
+2025-08-26T21:49:23.0212354Z source = [/home/runner/work/java-client-template/java-client-template/src/main/resources/schema]
+2025-08-26T21:49:23.0213619Z targetDirectory = /home/runner/work/java-client-template/java-client-template/build/generated-sources/js2p
+2025-08-26T21:49:23.0214598Z targetPackage = org.cyoda.cloud.api.event
+2025-08-26T21:49:23.0215354Z propertyWordDelimiters = [-,  , _]
+2025-08-26T21:49:23.0215835Z useLongIntegers = false
+2025-08-26T21:49:23.0216216Z useBigIntegers = false
+2025-08-26T21:49:23.0216592Z useDoubleNumbers = true
+2025-08-26T21:49:23.0216995Z useBigDecimals = false
+2025-08-26T21:49:23.0217391Z includeHashcodeAndEquals = true
+2025-08-26T21:49:23.0217845Z includeConstructors = false
+2025-08-26T21:49:23.0218322Z constructorsRequiredPropertiesOnly = false
+2025-08-26T21:49:23.0218911Z includeRequiredPropertiesConstructor = false
+2025-08-26T21:49:23.0219478Z includeAllPropertiesConstructor = true
+2025-08-26T21:49:23.0220011Z includeCopyConstructor = false
+2025-08-26T21:49:23.0220437Z includeToString = true
+2025-08-26T21:49:23.0220813Z toStringExcludes = []
+2025-08-26T21:49:23.0221196Z annotationStyle = jackson2
+2025-08-26T21:49:23.0221591Z useTitleAsClassname = false
+2025-08-26T21:49:23.0222150Z inclusionLevel = class org.jsonschema2pojo.InclusionLevel
+2025-08-26T21:49:23.0222869Z customAnnotator = org.jsonschema2pojo.NoopAnnotator
+2025-08-26T21:49:23.0223575Z customRuleFactory = org.jsonschema2pojo.rules.RuleFactory
+2025-08-26T21:49:23.0224200Z includeJsr303Annotations = false
+2025-08-26T21:49:23.0224665Z includeJsr305Annotations = false
+2025-08-26T21:49:23.0225333Z useOptionalForGetters = false
+2025-08-26T21:49:23.0225768Z sourceType = jsonschema
+2025-08-26T21:49:23.0226161Z removeOldOutput = true
+2025-08-26T21:49:23.0226544Z outputEncoding = UTF-8
+2025-08-26T21:49:23.0226904Z useJodaDates = false
+2025-08-26T21:49:23.0227274Z useJodaLocalDates = false
+2025-08-26T21:49:23.0227690Z useJodaLocalTimes = false
+2025-08-26T21:49:23.0228077Z dateTimeType = null
+2025-08-26T21:49:23.0228416Z dateType = null
+2025-08-26T21:49:23.0228780Z timeType = null
+2025-08-26T21:49:23.0229164Z parcelable = false
+2025-08-26T21:49:23.0229504Z serializable = false
+2025-08-26T21:49:23.0229895Z initializeCollections = true
+2025-08-26T21:49:23.0230310Z classNamePrefix = 
+2025-08-26T21:49:23.0230650Z classNameSuffix = 
+2025-08-26T21:49:23.0230993Z fileExtensions = []
+2025-08-26T21:49:23.0231359Z includeGetters = true
+2025-08-26T21:49:23.0231715Z includeSetters = true
+2025-08-26T21:49:23.0232070Z targetVersion = 21
+2025-08-26T21:49:23.0232450Z includeDynamicAccessors = false
+2025-08-26T21:49:23.0276347Z includeDynamicGetters = false
+2025-08-26T21:49:23.0276885Z includeDynamicSetters = false
+2025-08-26T21:49:23.0277324Z includeDynamicBuilders = false
+2025-08-26T21:49:23.0277715Z formatDates = false
+2025-08-26T21:49:23.0278044Z formatTimes = false
+2025-08-26T21:49:23.0278392Z formatDateTimes = false
+2025-08-26T21:49:23.0278766Z customDatePattern = null
+2025-08-26T21:49:23.0279148Z customTimePattern = null
+2025-08-26T21:49:23.0279539Z customDateTimePattern = null
+2025-08-26T21:49:23.0279960Z refFragmentPathDelimiters = #/.
+2025-08-26T21:49:23.0280427Z sourceSortOrder = OS
+2025-08-26T21:49:23.0280798Z formatTypeMapping = [:]
+2025-08-26T21:49:23.0281275Z useInnerClassBuilders = false
+2025-08-26T21:49:23.0281803Z includeConstructorPropertiesAnnotation = false
+2025-08-26T21:49:23.0282339Z includeGeneratedAnnotation = true
+2025-08-26T21:49:23.0283055Z useJakartaValidation = false
+2025-08-26T21:49:23.0283429Z      
+2025-08-26T21:49:23.0283899Z Initializing class org.jsonschema2pojo.gradle.GradleRuleLogger
+2025-08-26T21:49:23.0285277Z Resolve mutations for :extractIncludeProto (Thread[#102,Execution worker Thread 2,5,main]) started.
+2025-08-26T21:49:23.0286288Z :extractIncludeProto (Thread[#102,Execution worker Thread 2,5,main]) started.
+2025-08-26T21:49:24.0189746Z 
+2025-08-26T21:49:24.0190259Z > Task :extractIncludeProto
+2025-08-26T21:49:24.0190842Z Caching disabled for task ':extractIncludeProto' because:
+2025-08-26T21:49:24.0191419Z   Build cache is disabled
+2025-08-26T21:49:24.0191836Z   Caching has not been enabled for the task
+2025-08-26T21:49:24.0194641Z Task ':extractIncludeProto' is not up-to-date because:
+2025-08-26T21:49:24.0209171Z   No history is available.
+2025-08-26T21:49:24.0210360Z Resolve mutations for :generateProto (Thread[#102,Execution worker Thread 2,5,main]) started.
+2025-08-26T21:49:24.1177344Z 
+2025-08-26T21:49:24.1182268Z > Task :generateEffectiveLombokConfig
+2025-08-26T21:49:24.1192815Z Custom actions are attached to task ':generateEffectiveLombokConfig'.
+2025-08-26T21:49:24.1193869Z Caching disabled for task ':generateEffectiveLombokConfig' because:
+2025-08-26T21:49:24.1194622Z   Build cache is disabled
+2025-08-26T21:49:24.1195377Z   Caching has not been enabled for the task
+2025-08-26T21:49:24.1196159Z Task ':generateEffectiveLombokConfig' is not up-to-date because:
+2025-08-26T21:49:24.1196910Z   No history is available.
+2025-08-26T21:49:24.1197816Z lombok config [/home/runner/work/java-client-template/java-client-template/src/main/java] took 70ms
+2025-08-26T21:49:24.1198916Z :generateProto (Thread[#101,Execution worker,5,main]) started.
+2025-08-26T21:49:24.1199492Z 
+2025-08-26T21:49:24.1199760Z > Task :generateProto
+2025-08-26T21:49:24.1200335Z Custom actions are attached to task ':generateProto'.
+2025-08-26T21:49:24.1201061Z Caching disabled for task ':generateProto' because:
+2025-08-26T21:49:24.1201707Z   Build cache is disabled
+2025-08-26T21:49:24.1202263Z Task ':generateProto' is not up-to-date because:
+2025-08-26T21:49:24.1202874Z   No history is available.
+2025-08-26T21:49:24.1204236Z Resolved artifact: /home/runner/.gradle/caches/modules-2/files-2.1/com.google.protobuf/protoc/3.25.1/fd986885f98a1c329a34c4cb14ec86e3e18e4c72/protoc-3.25.1-linux-x86_64.exe
+2025-08-26T21:49:24.1206773Z Resolved artifact: /home/runner/.gradle/caches/modules-2/files-2.1/io.grpc/protoc-gen-grpc-java/1.62.2/884328484c44f735c832d219edb14733be146b2d/protoc-gen-grpc-java-1.62.2-linux-x86_64.exe
+2025-08-26T21:49:24.1214949Z [/home/runner/.gradle/caches/modules-2/files-2.1/com.google.protobuf/protoc/3.25.1/fd986885f98a1c329a34c4cb14ec86e3e18e4c72/protoc-3.25.1-linux-x86_64.exe, -I/home/runner/work/java-client-template/java-client-template/src/main/proto, -I/home/runner/work/java-client-template/java-client-template/build/extracted-protos/main, -I/home/runner/work/java-client-template/java-client-template/build/extracted-include-protos/main, --java_out=/home/runner/work/java-client-template/java-client-template/build/generated/source/proto/main/java, --plugin=protoc-gen-grpc=/home/runner/.gradle/caches/modules-2/files-2.1/io.grpc/protoc-gen-grpc-java/1.62.2/884328484c44f735c832d219edb14733be146b2d/protoc-gen-grpc-java-1.62.2-linux-x86_64.exe, --grpc_out=/home/runner/work/java-client-template/java-client-template/build/generated/source/proto/main/grpc, /home/runner/work/java-client-template/java-client-template/src/main/proto/cloudevents.proto, /home/runner/work/java-client-template/java-client-template/src/main/proto/cyoda-cloud-api.proto]
+2025-08-26T21:49:24.1225582Z protoc: stdout: . stderr: 
+2025-08-26T21:49:24.1226368Z Resolve mutations for :compileJava (Thread[#101,Execution worker,5,main]) started.
+2025-08-26T21:49:24.1227275Z :compileJava (Thread[#101,Execution worker,5,main]) started.
+2025-08-26T21:49:26.1177535Z 
+2025-08-26T21:49:26.1182029Z > Task :compileJava
+2025-08-26T21:49:26.1184470Z Custom actions are attached to task ':compileJava'.
+2025-08-26T21:49:26.1189989Z Caching disabled for task ':compileJava' because:
+2025-08-26T21:49:26.1193308Z   Build cache is disabled
+2025-08-26T21:49:26.1198704Z Task ':compileJava' is not up-to-date because:
+2025-08-26T21:49:26.1200556Z   No history is available.
+2025-08-26T21:49:26.1202845Z The input changes require a full rebuild for incremental task ':compileJava'.
+2025-08-26T21:49:26.1213434Z Full recompilation is required because no incremental change information is available. This is usually caused by clean builds or changing compiler arguments.
+2025-08-26T21:49:26.1214596Z Compiling with toolchain '/usr/lib/jvm/temurin-21-jdk-amd64'.
+2025-08-26T21:49:26.1215295Z Compiling with JDK Java compiler API.
+2025-08-26T21:49:29.3177428Z Note: Some input files use or override a deprecated API.
+2025-08-26T21:49:29.3180440Z Note: Recompile with -Xlint:deprecation for details.
+2025-08-26T21:49:29.3183207Z Note: Some input files use unchecked or unsafe operations.
+2025-08-26T21:49:29.3185356Z Note: Recompile with -Xlint:unchecked for details.
+2025-08-26T21:49:29.4179186Z Class dependency analysis for incremental compilation took 0.117 secs.
+2025-08-26T21:49:29.6197376Z Created classpath snapshot for incremental compilation in 0.247 secs.
+2025-08-26T21:49:29.7188665Z 
+2025-08-26T21:49:29.7189496Z Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+2025-08-26T21:49:29.7190137Z 
+2025-08-26T21:49:29.7190838Z You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+2025-08-26T21:49:29.7191668Z 
+2025-08-26T21:49:29.7192496Z For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+2025-08-26T21:49:29.7193466Z 
+2025-08-26T21:49:29.7193624Z BUILD SUCCESSFUL in 23s
+2025-08-26T21:49:29.7194020Z 8 actionable tasks: 8 executed
+2025-08-26T21:49:30.1319296Z ##[notice]✅ Compilation successful - no errors found
+
+
+=== summary/1_Set up job.txt ===
+﻿2025-08-26T21:49:38.1505708Z Current runner version: '2.328.0'
+2025-08-26T21:49:38.1531131Z ##[group]Runner Image Provisioner
+2025-08-26T21:49:38.1531976Z Hosted Compute Agent
+2025-08-26T21:49:38.1532578Z Version: 20250825.382
+2025-08-26T21:49:38.1533150Z Commit: 7109f2abf901479dac39397456e363ac0cca0730
+2025-08-26T21:49:38.1534018Z Build Date: 2025-08-25T22:55:50Z
+2025-08-26T21:49:38.1534572Z ##[endgroup]
+2025-08-26T21:49:38.1535206Z ##[group]Operating System
+2025-08-26T21:49:38.1535759Z Ubuntu
+2025-08-26T21:49:38.1536173Z 24.04.2
+2025-08-26T21:49:38.1536712Z LTS
+2025-08-26T21:49:38.1537120Z ##[endgroup]
+2025-08-26T21:49:38.1537605Z ##[group]Runner Image
+2025-08-26T21:49:38.1538210Z Image: ubuntu-24.04
+2025-08-26T21:49:38.1538713Z Version: 20250818.1.0
+2025-08-26T21:49:38.1539680Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20250818.1/images/ubuntu/Ubuntu2404-Readme.md
+2025-08-26T21:49:38.1541092Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20250818.1
+2025-08-26T21:49:38.1542247Z ##[endgroup]
+2025-08-26T21:49:38.1544859Z ##[group]GITHUB_TOKEN Permissions
+2025-08-26T21:49:38.1547114Z Actions: write
+2025-08-26T21:49:38.1547761Z Attestations: write
+2025-08-26T21:49:38.1548243Z Checks: write
+2025-08-26T21:49:38.1548721Z Contents: write
+2025-08-26T21:49:38.1549227Z Deployments: write
+2025-08-26T21:49:38.1549749Z Discussions: write
+2025-08-26T21:49:38.1550253Z Issues: write
+2025-08-26T21:49:38.1550771Z Metadata: read
+2025-08-26T21:49:38.1551264Z Models: read
+2025-08-26T21:49:38.1551705Z Packages: write
+2025-08-26T21:49:38.1552229Z Pages: write
+2025-08-26T21:49:38.1552693Z PullRequests: write
+2025-08-26T21:49:38.1553270Z RepositoryProjects: write
+2025-08-26T21:49:38.1554102Z SecurityEvents: write
+2025-08-26T21:49:38.1554893Z Statuses: write
+2025-08-26T21:49:38.1555413Z ##[endgroup]
+2025-08-26T21:49:38.1557759Z Secret source: Actions
+2025-08-26T21:49:38.1558934Z Prepare workflow directory
+2025-08-26T21:49:38.1895468Z Prepare all required actions
+2025-08-26T21:49:38.1994573Z Complete job name: summary
+
+
+=== summary/2_Build Summary.txt ===
+﻿2025-08-26T21:49:38.2771308Z ##[group]Run echo "## 🚀 Build Summary" >> $GITHUB_STEP_SUMMARY
+2025-08-26T21:49:38.2773024Z [36;1mecho "## 🚀 Build Summary" >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2774124Z [36;1mecho "| Field | Value |" >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2775039Z [36;1mecho "|-------|-------|" >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2775922Z [36;1mecho "| **Branch** | \`7191e956-8128-11b2-bb25-0a7418829cad\` |" >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2776946Z [36;1mecho "| **Build Type** | \`compile-only\` |" >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2777902Z [36;1mecho "| **Tracker ID** | \`tracker_1756244933\` |" >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2778722Z [36;1mecho "| **Status** | ✅ Success |" >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2779536Z [36;1mecho "| **Triggered by** | @Ksenniya |" >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2780849Z [36;1mecho "| **Run ID** | [\`17251300701\`](https://github.com/Cyoda-platform/java-client-template/actions/runs/17251300701) |" >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2782922Z [36;1mecho "| **Commit** | [\`${GITHUB_SHA:0:7}\`](https://github.com/Cyoda-platform/java-client-template/commit/507219d22ca42fa86a5fc40d8cd2fe522338bb21) |" >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2784760Z [36;1mecho "" >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2785392Z [36;1m[0m
+2025-08-26T21:49:38.2785949Z [36;1mif [[ "compile-only" == "compile-only" ]]; then[0m
+2025-08-26T21:49:38.2786686Z [36;1m  echo "### 🔍 Compilation Check Results" >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2787511Z [36;1m  if [[ "success" == "success" ]]; then[0m
+2025-08-26T21:49:38.2788502Z [36;1m    echo "✅ **All Java files compiled successfully** - No compilation errors found!" >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2789404Z [36;1m  else[0m
+2025-08-26T21:49:38.2790293Z [36;1m    echo "❌ **Compilation failed** - Please check the build logs for error details." >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2791471Z [36;1m  fi[0m
+2025-08-26T21:49:38.2792054Z [36;1melif [[ "compile-only" == "workflow-validation" ]]; then[0m
+2025-08-26T21:49:38.2792955Z [36;1m  echo "### 🔍 Workflow Validation Results" >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2793882Z [36;1m  if [[ "success" == "success" ]]; then[0m
+2025-08-26T21:49:38.2795165Z [36;1m    echo "✅ **All workflow components validated successfully** - All processors and criteria have corresponding Java implementations!" >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2796429Z [36;1m  else[0m
+2025-08-26T21:49:38.2797668Z [36;1m    echo "❌ **Workflow validation failed** - Some processors or criteria are missing their Java implementation files. Please check the build logs for details." >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2799031Z [36;1m  fi[0m
+2025-08-26T21:49:38.2799463Z [36;1melse[0m
+2025-08-26T21:49:38.2800047Z [36;1m  echo "### 📦 Build Artifacts" >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2801867Z [36;1m  echo "Build artifacts are available in the [Actions tab](https://github.com/Cyoda-platform/java-client-template/actions/runs/17251300701) for 30 days." >> $GITHUB_STEP_SUMMARY[0m
+2025-08-26T21:49:38.2803353Z [36;1mfi[0m
+2025-08-26T21:49:38.4337763Z shell: /usr/bin/bash -e {0}
+2025-08-26T21:49:38.4338872Z ##[endgroup]
+
+
+=== summary/3_Complete job.txt ===
+﻿2025-08-26T21:49:38.4650888Z Cleaning up orphan processes
+
