@@ -29,7 +29,7 @@ public class NotDuplicatePetCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Pet.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,12 +38,15 @@ public class NotDuplicatePetCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Use exact criterion name match (case-sensitive) as required.
+        if (modelSpec == null || modelSpec.operationName() == null) return false;
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Pet> context) {
          Pet entity = context.entity();
          if (entity == null) {
+             logger.warn("Validation failed: pet entity is null");
              return EvaluationOutcome.fail("Pet entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
@@ -51,6 +54,7 @@ public class NotDuplicatePetCriterion implements CyodaCriterion {
          if (entity.getSourceMetadata() != null) {
              String sourceId = entity.getSourceMetadata().getPetstoreId();
              if (sourceId != null && !sourceId.isBlank()) {
+                 logger.debug("Pet has external source id '{}', treating as unique", sourceId);
                  // Presence of an external source id is treated as a strong uniqueness signal
                  return EvaluationOutcome.success();
              }
@@ -63,14 +67,16 @@ public class NotDuplicatePetCriterion implements CyodaCriterion {
 
          if (name == null || name.isBlank() || breed == null || breed.isBlank()) {
              // We cannot reliably exclude duplicates if key identity fields are missing.
+             logger.warn("Insufficient identity information for pet (name='{}', breed='{}') and no external id present", name, breed);
              return EvaluationOutcome.fail(
                  "Insufficient identity information (name and breed are required when no source id) to rule out duplicates",
                  StandardEvalReasonCategories.DATA_QUALITY_FAILURE
              );
          }
 
-         // Additional heuristic: if both name and breed are provided, assume non-duplicate at this stage.
-         // Downstream processors (or a dedicated duplicate-check service) should perform exact matching against existing store.
+         // Heuristic: if both name and breed are provided, consider the record non-duplicate at this evaluation stage.
+         // Exact duplicate detection should be performed by a downstream service that can query the datastore.
+         logger.debug("Pet provided with name='{}' and breed='{}' and no external id; passing criterion for now", name, breed);
          return EvaluationOutcome.success();
     }
 }

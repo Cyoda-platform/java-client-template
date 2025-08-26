@@ -25,7 +25,6 @@ public class SourceReachableCriterion implements CyodaCriterion {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final CriterionSerializer serializer;
-    private final String className = this.getClass().getSimpleName();
 
     public SourceReachableCriterion(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultCriteriaSerializer();
@@ -34,7 +33,7 @@ public class SourceReachableCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(ImportJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -43,13 +42,28 @@ public class SourceReachableCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // MUST use exact criterion name
+        return "SourceReachableCriterion".equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<ImportJob> context) {
          ImportJob entity = context.entity();
 
-         // Basic presence validation
+         // Validate required job identifiers and requester
+         if (entity.getJobId() == null || entity.getJobId().isBlank()) {
+             logger.debug("ImportJob missing jobId");
+             return EvaluationOutcome.fail("jobId is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+         if (entity.getRequestedBy() == null || entity.getRequestedBy().isBlank()) {
+             logger.debug("ImportJob [{}] missing requestedBy", entity.getJobId());
+             return EvaluationOutcome.fail("requestedBy is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+         if (entity.getCreatedAt() == null || entity.getCreatedAt().isBlank()) {
+             logger.debug("ImportJob [{}] missing createdAt", entity.getJobId());
+             return EvaluationOutcome.fail("createdAt is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         // Basic presence validation for sourceUrl
          String sourceUrl = entity.getSourceUrl();
          if (sourceUrl == null || sourceUrl.isBlank()) {
              logger.debug("ImportJob [{}] failed source validation: sourceUrl is missing", entity.getJobId());
@@ -79,6 +93,11 @@ public class SourceReachableCriterion implements CyodaCriterion {
          if (protocol == null || !(protocol.equalsIgnoreCase("http") || protocol.equalsIgnoreCase("https"))) {
              logger.debug("ImportJob [{}] has unsupported protocol: {}", entity.getJobId(), protocol);
              return EvaluationOutcome.fail("sourceUrl must use http or https", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         if (url.getHost() == null || url.getHost().isBlank()) {
+             logger.debug("ImportJob [{}] has invalid host in sourceUrl: {}", entity.getJobId(), sourceUrl);
+             return EvaluationOutcome.fail("sourceUrl must include a valid host", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
          // Try to reach the source with a short timeout. Treat non-2xx/3xx responses as data quality issues.
