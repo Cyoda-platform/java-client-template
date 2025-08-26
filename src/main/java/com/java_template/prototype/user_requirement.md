@@ -1,0 +1,3 @@
+# Requirement
+
+- Build an app that pulls weather data from a public API MSC GeoMet
