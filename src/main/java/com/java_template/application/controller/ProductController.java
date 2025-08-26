@@ -1,12 +1,9 @@
 package com.java_template.application.controller;
 
-import static com.java_template.common.config.Config.*;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
 import com.java_template.application.entity.product.version_1.Product;
 import io.swagger.v3.oas.annotations.Operation;
@@ -17,7 +14,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import org.springframework.web.bind.annotation.RequestBody;
 import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,7 +27,6 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/entity/Product")
@@ -45,28 +41,37 @@ public class ProductController {
     }
 
     @Operation(summary = "Create Product", description = "Create a new Product. requestId required for idempotency.")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = CreateResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Bad Request"),
-            @ApiResponse(responseCode = "500", description = "Internal Error")
-    })
+    @ApiResponses(
+            value = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "OK",
+                            content = @Content(schema = @Schema(implementation = CreateResponse.class))
+                    ),
+                    @ApiResponse(responseCode = "400", description = "Bad Request"),
+                    @ApiResponse(responseCode = "500", description = "Internal Error")
+            }
+    )
     @PostMapping
-    public ResponseEntity<?> createProduct(@RequestBody CreateProductRequest request) {
+    public ResponseEntity<?> createProduct(@RequestBody CreateProductsRequest request) {
         try {
-            if (request == null || request.getRequestId() == null || request.getRequestId().isBlank()) {
+            if (request == null || request.products == null || request.products.isEmpty()) {
                 throw new IllegalArgumentException("requestId is required for idempotency");
             }
             // convert request to ObjectNode to pass through to entity service
-            ObjectNode data = objectMapper.convertValue(request, ObjectNode.class);
-            CompletableFuture<java.util.UUID> idFuture = entityService.addItem(
+            ArrayNode data = objectMapper.valueToTree(request.products);
+            CompletableFuture<List<UUID>> idFuture = entityService.addItems(
                     Product.ENTITY_NAME,
                     String.valueOf(Product.ENTITY_VERSION),
                     data
             );
-            UUID id = idFuture.get();
-            CreateResponse resp = new CreateResponse();
-            resp.setTechnicalId(id.toString());
-            return ResponseEntity.ok(resp);
+            List<UUID> ids = idFuture.get();
+            var resps = ids.stream().map(id -> {
+                var resp = new CreateResponse();
+                resp.setTechnicalId(id.toString());
+                return resp;
+            }).toList();
+            return ResponseEntity.ok(resps);
         } catch (IllegalArgumentException iae) {
             logger.warn("Invalid request", iae);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(iae.getMessage());
@@ -87,12 +92,23 @@ public class ProductController {
     }
 
     @Operation(summary = "Get Product", description = "Retrieve Product by technicalId")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = Product.class))),
-            @ApiResponse(responseCode = "404", description = "Not Found")
-    })
+    @ApiResponses(
+            value = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "OK",
+                            content = @Content(schema = @Schema(implementation = Product.class))
+                    ),
+                    @ApiResponse(responseCode = "404", description = "Not Found")
+            }
+    )
     @GetMapping("/{technicalId}")
-    public ResponseEntity<?> getProduct(@Parameter(name = "technicalId", description = "Technical ID of the entity") @PathVariable String technicalId) {
+    public ResponseEntity<?> getProduct(
+            @Parameter(
+                    name = "technicalId",
+                    description = "Technical ID of the entity"
+            ) @PathVariable String technicalId
+    ) {
         try {
             ObjectNode node = entityService.getItem(
                     Product.ENTITY_NAME,
@@ -102,8 +118,12 @@ public class ProductController {
             return ResponseEntity.ok(node);
         } catch (ExecutionException ee) {
             Throwable cause = ee.getCause();
-            if (cause instanceof NoSuchElementException) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
-            if (cause instanceof IllegalArgumentException) return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
+            if (cause instanceof NoSuchElementException) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
+            }
+            if (cause instanceof IllegalArgumentException) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
+            }
             logger.error("Execution error", ee);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause.getMessage());
         } catch (IllegalArgumentException iae) {
@@ -115,9 +135,15 @@ public class ProductController {
     }
 
     @Operation(summary = "List Products", description = "List all Products")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = Product.class))))
-    })
+    @ApiResponses(
+            value = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "OK",
+                            content = @Content(array = @ArraySchema(schema = @Schema(implementation = Product.class)))
+                    )
+            }
+    )
     @GetMapping
     public ResponseEntity<?> listProducts() {
         try {
@@ -133,9 +159,15 @@ public class ProductController {
     }
 
     @Operation(summary = "Query Products", description = "Query Products by condition (in-memory)")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = Product.class))))
-    })
+    @ApiResponses(
+            value = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "OK",
+                            content = @Content(array = @ArraySchema(schema = @Schema(implementation = Product.class)))
+                    )
+            }
+    )
     @PostMapping("/query")
     public ResponseEntity<?> queryProducts(@RequestBody SearchConditionRequest condition) {
         try {
@@ -153,11 +185,20 @@ public class ProductController {
     }
 
     @Operation(summary = "Update Product", description = "Update a Product by technicalId")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = CreateResponse.class)))
-    })
+    @ApiResponses(
+            value = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "OK",
+                            content = @Content(schema = @Schema(implementation = CreateResponse.class))
+                    )
+            }
+    )
     @PutMapping("/{technicalId}")
-    public ResponseEntity<?> updateProduct(@PathVariable String technicalId, @RequestBody CreateProductRequest request) {
+    public ResponseEntity<?> updateProduct(
+            @PathVariable String technicalId,
+            @RequestBody CreateProductRequest request
+    ) {
         try {
             ObjectNode data = objectMapper.convertValue(request, ObjectNode.class);
             UUID updated = entityService.updateItem(
@@ -171,8 +212,12 @@ public class ProductController {
             return ResponseEntity.ok(resp);
         } catch (ExecutionException ee) {
             Throwable cause = ee.getCause();
-            if (cause instanceof NoSuchElementException) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
-            if (cause instanceof IllegalArgumentException) return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
+            if (cause instanceof NoSuchElementException) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
+            }
+            if (cause instanceof IllegalArgumentException) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
+            }
             logger.error("Execution error", ee);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause.getMessage());
         } catch (IllegalArgumentException iae) {
@@ -184,9 +229,11 @@ public class ProductController {
     }
 
     @Operation(summary = "Delete Product", description = "Delete a Product by technicalId")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK")
-    })
+    @ApiResponses(
+            value = {
+                    @ApiResponse(responseCode = "200", description = "OK")
+            }
+    )
     @DeleteMapping("/{technicalId}")
     public ResponseEntity<?> deleteProduct(@PathVariable String technicalId) {
         try {
@@ -200,8 +247,12 @@ public class ProductController {
             return ResponseEntity.ok(resp);
         } catch (ExecutionException ee) {
             Throwable cause = ee.getCause();
-            if (cause instanceof NoSuchElementException) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
-            if (cause instanceof IllegalArgumentException) return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
+            if (cause instanceof NoSuchElementException) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
+            }
+            if (cause instanceof IllegalArgumentException) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
+            }
             logger.error("Execution error", ee);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause.getMessage());
         } catch (IllegalArgumentException iae) {
@@ -229,6 +280,12 @@ public class ProductController {
         private Integer quantityAvailable;
         @Schema(description = "Category")
         private String category;
+    }
+
+    @Data
+    static class CreateProductsRequest {
+        @Schema(description = "List of products")
+        private List<CreateProductRequest> products;
     }
 
     @Data
