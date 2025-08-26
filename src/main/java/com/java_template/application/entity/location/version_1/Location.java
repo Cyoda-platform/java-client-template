@@ -33,7 +33,7 @@ public class Location implements CyodaEntity {
         // Validate required string fields
         if (locationId == null || locationId.isBlank()) return false;
         if (name == null || name.isBlank()) return false;
-        if (timezone == null || timezone.isBlank()) return false;
+        if (timezone == null || time zone.isBlank()) return false;
 
         // Validate numeric and boolean fields
         if (active == null) return false;
