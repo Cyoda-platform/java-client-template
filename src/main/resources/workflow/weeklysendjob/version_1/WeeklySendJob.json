@@ -1,0 +1,108 @@
+{
+  "version": "1.0",
+  "name": "WeeklySendJob Workflow",
+  "desc": "Workflow for WeeklySendJob based on functional requirements: scheduling, fetching CatFact, preparing/sending emails, and finalization.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "initialize_to_scheduled",
+          "next": "SCHEDULED",
+          "manual": false
+        }
+      ]
+    },
+    "SCHEDULED": {
+      "transitions": [
+        {
+          "name": "scheduled_to_fetching",
+          "next": "FETCHING",
+          "manual": false
+        }
+      ]
+    },
+    "FETCHING": {
+      "transitions": [
+        {
+          "name": "fetch_catfact_complete",
+          "next": "FACT_READY",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FetchCatFactProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "FACT_READY": {
+      "transitions": [
+        {
+          "name": "prepare_and_send",
+          "next": "SENDING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendEmailsProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SENDING": {
+      "transitions": [
+        {
+          "name": "sending_to_completed_on_success",
+          "next": "COMPLETED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DeliverySuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "sending_to_failed_on_failure",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DeliveryFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": [
+        {
+          "name": "completed_to_metrics_collected",
+          "next": "METRICS_COLLECTED",
+          "manual": false
+        }
+      ]
+    },
+    "METRICS_COLLECTED": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    }
+  }
+}
