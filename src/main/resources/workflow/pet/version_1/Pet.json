@@ -1,0 +1,121 @@
+{
+  "version": "1.0",
+  "name": "Pet Workflow",
+  "desc": "Finite-state workflow for Pet entity based on functional requirements (import -> duplicate check -> enrichment -> review -> publish -> adoption -> archive).",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "create_pet_from_import",
+          "next": "PENDING_REVIEW",
+          "manual": false
+        }
+      ]
+    },
+    "PENDING_REVIEW": {
+      "transitions": [
+        {
+          "name": "run_duplicate_check",
+          "next": "DUPLICATE_CHECK",
+          "manual": false
+        }
+      ]
+    },
+    "DUPLICATE_CHECK": {
+      "transitions": [
+        {
+          "name": "duplicate_found",
+          "next": "MANUAL_REVIEW",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DuplicatePetCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "no_duplicate",
+          "next": "ENRICHMENT",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "NotDuplicatePetCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "MANUAL_REVIEW": {
+      "transitions": [
+        {
+          "name": "manual_approval_to_available",
+          "next": "AVAILABLE",
+          "manual": true
+        }
+      ]
+    },
+    "ENRICHMENT": {
+      "transitions": [
+        {
+          "name": "enrich_and_publish",
+          "next": "AVAILABLE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "TransformPetDataProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            },
+            {
+              "name": "HealthCheckProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "AVAILABLE": {
+      "transitions": [
+        {
+          "name": "request_adoption",
+          "next": "PENDING_ADOPTION",
+          "manual": true
+        }
+      ]
+    },
+    "PENDING_ADOPTION": {
+      "transitions": [
+        {
+          "name": "approve_adoption",
+          "next": "ADOPTED",
+          "manual": true
+        }
+      ]
+    },
+    "ADOPTED": {
+      "transitions": [
+        {
+          "name": "archive_after_adoption",
+          "next": "ARCHIVED",
+          "manual": false
+        }
+      ]
+    },
+    "ARCHIVED": {
+      "transitions": []
+    }
+  }
+}
