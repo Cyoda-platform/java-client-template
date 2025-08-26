@@ -1,0 +1,67 @@
+{
+    "entities": [
+        {
+            "Job": {
+                "entity_data_example": {
+                    "createdBy": "analyst@example.com",
+                    "errorSummary": "",
+                    "finishedAt": "2025-01-10T10:01:05Z",
+                    "id": "job-nobel-2025-01",
+                    "notifyAllActive": true,
+                    "scheduleExpression": "",
+                    "scheduleType": "one-off",
+                    "sourceUri": "https://public.opendata.example/nobel-laureates.csv",
+                    "startedAt": "2025-01-10T10:00:00Z",
+                    "status": "NOTIFIED_SUBSCRIBERS",
+                    "technicalId": "job-0001-uuid",
+                    "totalsFetched": 1200,
+                    "totalsInvalid": 10,
+                    "totalsValid": 1190
+                }
+            }
+        },
+        {
+            "Laureate": {
+                "entity_data_example": {
+                    "affiliationCity": "Tokyo",
+                    "affiliationCountry": "Japan",
+                    "affiliationName": "University of Example",
+                    "born": "1930-07-01",
+                    "bornCity": "Hokkaido",
+                    "bornCountry": "Japan",
+                    "bornCountryCode": "JP",
+                    "category": "Chemistry",
+                    "computedAge": 80,
+                    "createdAt": "2025-01-10T10:00:30Z",
+                    "died": null,
+                    "enrichmentStatus": "ENRICHED",
+                    "firstname": "Akira",
+                    "gender": "male",
+                    "laureateId": 853,
+                    "mergedFrom": [],
+                    "motivation": "For outstanding contributions to cross-coupling reactions",
+                    "sourceJobId": "job-0001-uuid",
+                    "surname": "Suzuki",
+                    "technicalId": "laur-0001-uuid",
+                    "validationStatus": "VALID",
+                    "year": "2010"
+                }
+            }
+        },
+        {
+            "Subscriber": {
+                "entity_data_example": {
+                    "active": true,
+                    "contactAddress": "alerts@example.com",
+                    "contactType": "email",
+                    "id": "sub-nobel-01",
+                    "lastNotifiedAt": "2025-01-10T10:02:00Z",
+                    "name": "Nobel Alerts",
+                    "notificationStatus": "DELIVERED",
+                    "preferredFormat": "summary",
+                    "technicalId": "sub-0001-uuid"
+                }
+            }
+        }
+    ]
+}
