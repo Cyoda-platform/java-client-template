@@ -1,0 +1,51 @@
+{
+    "entities": [
+        {
+            "HNItem": {
+                "entity_data_example": {
+                    "id": 12345,
+                    "importTimestamp": "2025-08-26T12:00:00Z",
+                    "originalJson": {
+                        "by": "alice",
+                        "id": 12345,
+                        "text": "Example HN item payload",
+                        "time": 1590000000,
+                        "type": "story"
+                    },
+                    "status": "STORED",
+                    "type": "story"
+                }
+            }
+        },
+        {
+            "ImportJob": {
+                "entity_data_example": {
+                    "createdAt": "2025-08-26T11:59:00Z",
+                    "itemJson": {
+                        "by": "alice",
+                        "id": 12345,
+                        "time": 1590000000,
+                        "type": "story"
+                    },
+                    "jobId": "client-job-001",
+                    "processedItemId": 12345,
+                    "status": "COMPLETED"
+                }
+            }
+        },
+        {
+            "ImportAudit": {
+                "entity_data_example": {
+                    "auditId": "audit-abc-001",
+                    "details": {
+                        "note": "Imported successfully"
+                    },
+                    "hnId": 12345,
+                    "jobId": "client-job-001",
+                    "outcome": "SUCCESS",
+                    "timestamp": "2025-08-26T12:00:01Z"
+                }
+            }
+        }
+    ]
+}
