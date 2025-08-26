@@ -1,0 +1,73 @@
+{
+  "version": "1.0",
+  "name": "AnalysisReport Workflow",
+  "desc": "Workflow for AnalysisReport entity based on functional requirements: report is GENERATED, system attempts to send it, then moves to SENT or FAILED.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "init_to_generated",
+          "next": "GENERATED",
+          "manual": false
+        }
+      ]
+    },
+    "GENERATED": {
+      "transitions": [
+        {
+          "name": "generated_to_sending",
+          "next": "SENDING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendReportProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SENDING": {
+      "transitions": [
+        {
+          "name": "sending_to_sent",
+          "next": "SENT",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "EmailSentCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "sending_to_failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "EmailFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "SENT": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    }
+  }
+}

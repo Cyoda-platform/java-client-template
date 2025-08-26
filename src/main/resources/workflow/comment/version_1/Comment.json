@@ -1,0 +1,88 @@
+{
+  "version": "1.0",
+  "name": "Comment Workflow",
+  "desc": "Workflow for Comment entity: fetch -> store -> moderation (optional manual review) -> available for analysis.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "start_comment_fetched",
+          "next": "COMMENT_FETCHED",
+          "manual": false
+        }
+      ]
+    },
+    "COMMENT_FETCHED": {
+      "transitions": [
+        {
+          "name": "store_comment",
+          "next": "STORED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "StoreCommentProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "STORED": {
+      "transitions": [
+        {
+          "name": "flag_if_moderation",
+          "next": "FLAGGED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ModerationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "available_for_analysis_if_not_flagged",
+          "next": "AVAILABLE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "NonModerationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "FLAGGED": {
+      "transitions": [
+        {
+          "name": "manual_review",
+          "next": "REVIEWED",
+          "manual": true
+        }
+      ]
+    },
+    "REVIEWED": {
+      "transitions": [
+        {
+          "name": "post_review_make_available",
+          "next": "AVAILABLE",
+          "manual": false
+        }
+      ]
+    },
+    "AVAILABLE": {
+      "transitions": []
+    }
+  }
+}
