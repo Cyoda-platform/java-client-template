@@ -1,0 +1,166 @@
+{
+  "version": "1.0",
+  "name": "Subscriber Workflow",
+  "desc": "Workflow for Subscriber lifecycle and delivery attempts based on preferences and delivery results.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "to_registered",
+          "next": "REGISTERED",
+          "manual": false
+        }
+      ]
+    },
+    "REGISTERED": {
+      "transitions": [
+        {
+          "name": "register_to_active",
+          "next": "ACTIVE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RegisterSubscriberProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "active_to_pending_delivery",
+          "next": "PENDING_DELIVERY",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ShouldReceiveReportCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "PENDING_DELIVERY": {
+      "transitions": [
+        {
+          "name": "enqueue_send_attempt_1",
+          "next": "SENDING_ATTEMPT_1",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendEmailProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SENDING_ATTEMPT_1": {
+      "transitions": [
+        {
+          "name": "attempt1_success",
+          "next": "DELIVERED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DeliverySuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "attempt1_failed_to_second_attempt",
+          "next": "SENDING_ATTEMPT_2",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DeliveryFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "SENDING_ATTEMPT_2": {
+      "transitions": [
+        {
+          "name": "send_attempt_2_execute",
+          "next": "SENDING_ATTEMPT_2_RESULT",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendEmailProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SENDING_ATTEMPT_2_RESULT": {
+      "transitions": [
+        {
+          "name": "attempt2_success",
+          "next": "DELIVERED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DeliverySuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "attempt2_failed_permanent",
+          "next": "FAILED_PERMANENT",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DeliveryFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "DELIVERED": {
+      "transitions": []
+    },
+    "FAILED_PERMANENT": {
+      "transitions": [
+        {
+          "name": "failed_to_inactive",
+          "next": "INACTIVE",
+          "manual": false
+        }
+      ]
+    },
+    "INACTIVE": {
+      "transitions": []
+    }
+  }
+}
