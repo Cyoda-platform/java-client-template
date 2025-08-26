@@ -1,0 +1,27 @@
+{
+    "compilation_status": "FAILURE",
+    "files_with_errors": [
+        {
+            "errors": [
+                "src/main/java/com/java_template/application/entity/location/version_1/Location.java:36: error: ')' expected \u2014 if (timezone == null || time zone.isBlank()) return false;",
+                "src/main/java/com/java_template/application/entity/location/version_1/Location.java:36: error: ';' expected"
+            ],
+            "file_path": "src/main/java/com/java_template/application/entity/location/version_1/Location.java"
+        },
+        {
+            "errors": [
+                "src/main/java/com/java_template/application/entity/weatherobservation/version_1/WeatherObservation.java:49: error: ')' expected \u2014 if (this.humidity != nul l) {",
+                "src/main/java/com/java_template/application/entity/weatherobservation/version_1/WeatherObservation.java:49: error: not a statement",
+                "src/main/java/com/java_template/application/entity/weatherobservation/version_1/WeatherObservation.java:49: error: ';' expected"
+            ],
+            "file_path": "src/main/java/com/java_template/application/entity/weatherobservation/version_1/WeatherObservation.java"
+        },
+        {
+            "errors": [
+                "src/main/java/com/java_template/application/entity/job/version_1/Job.java:50: error: ')' expected \u2014 if (loc == null || lo c.isBlank()) return false;",
+                "src/main/java/com/java_template/application/entity/job/version_1/Job.java:50: error: ';' expected"
+            ],
+            "file_path": "src/main/java/com/java_template/application/entity/job/version_1/Job.java"
+        }
+    ]
+}
