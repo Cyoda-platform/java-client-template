@@ -1,0 +1,287 @@
+{
+  "version": "1.0",
+  "name": "Mail Workflow",
+  "desc": "Workflow for Mail entity: evaluate isHappy, send appropriate template, handle success/failure and allow one manual retry (retry creates a separate evaluation path to avoid cycles).",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "start_created",
+          "next": "CREATED",
+          "manual": false
+        }
+      ]
+    },
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "process_on_create",
+          "next": "EVALUATED",
+          "manual": false
+        }
+      ]
+    },
+    "EVALUATED": {
+      "transitions": [
+        {
+          "name": "to_sending_happy",
+          "next": "SENDING_HAPPY",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "MailIsHappyCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "to_sending_gloomy",
+          "next": "SENDING_GLOOMY",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "MailIsGloomyCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "SENDING_HAPPY": {
+      "transitions": [
+        {
+          "name": "invoke_send_happy",
+          "next": "SENDING_HAPPY_PROCESS_RESULT",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendHappyMail",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SENDING_HAPPY_PROCESS_RESULT": {
+      "transitions": [
+        {
+          "name": "happy_send_success",
+          "next": "SENT",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.status",
+            "operation": "EQUALS",
+            "value": "SENT"
+          }
+        },
+        {
+          "name": "happy_send_failure",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.status",
+            "operation": "EQUALS",
+            "value": "FAILED"
+          }
+        }
+      ]
+    },
+    "SENDING_GLOOMY": {
+      "transitions": [
+        {
+          "name": "invoke_send_gloomy",
+          "next": "SENDING_GLOOMY_PROCESS_RESULT",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendGloomyMail",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SENDING_GLOOMY_PROCESS_RESULT": {
+      "transitions": [
+        {
+          "name": "gloomy_send_success",
+          "next": "SENT",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.status",
+            "operation": "EQUALS",
+            "value": "SENT"
+          }
+        },
+        {
+          "name": "gloomy_send_failure",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.status",
+            "operation": "EQUALS",
+            "value": "FAILED"
+          }
+        }
+      ]
+    },
+    "SENT": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": [
+        {
+          "name": "request_retry",
+          "next": "RETRY_REQUESTED",
+          "manual": true
+        }
+      ]
+    },
+    "RETRY_REQUESTED": {
+      "transitions": [
+        {
+          "name": "retry_trigger_evaluation",
+          "next": "EVALUATED_RETRY",
+          "manual": false
+        }
+      ]
+    },
+    "EVALUATED_RETRY": {
+      "transitions": [
+        {
+          "name": "retry_to_sending_happy",
+          "next": "SENDING_HAPPY_RETRY",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "MailIsHappyCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "retry_to_sending_gloomy",
+          "next": "SENDING_GLOOMY_RETRY",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "MailIsGloomyCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "SENDING_HAPPY_RETRY": {
+      "transitions": [
+        {
+          "name": "invoke_send_happy_retry",
+          "next": "SENDING_HAPPY_PROCESS_RESULT_RETRY",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendHappyMail",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SENDING_HAPPY_PROCESS_RESULT_RETRY": {
+      "transitions": [
+        {
+          "name": "happy_retry_success",
+          "next": "SENT",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.status",
+            "operation": "EQUALS",
+            "value": "SENT"
+          }
+        },
+        {
+          "name": "happy_retry_failure",
+          "next": "FAILED_FINAL",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.status",
+            "operation": "EQUALS",
+            "value": "FAILED"
+          }
+        }
+      ]
+    },
+    "SENDING_GLOOMY_RETRY": {
+      "transitions": [
+        {
+          "name": "invoke_send_gloomy_retry",
+          "next": "SENDING_GLOOMY_PROCESS_RESULT_RETRY",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendGloomyMail",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SENDING_GLOOMY_PROCESS_RESULT_RETRY": {
+      "transitions": [
+        {
+          "name": "gloomy_retry_success",
+          "next": "SENT",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.status",
+            "operation": "EQUALS",
+            "value": "SENT"
+          }
+        },
+        {
+          "name": "gloomy_retry_failure",
+          "next": "FAILED_FINAL",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.status",
+            "operation": "EQUALS",
+            "value": "FAILED"
+          }
+        }
+      ]
+    },
+    "FAILED_FINAL": {
+      "transitions": []
+    }
+  }
+}
