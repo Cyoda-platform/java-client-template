@@ -29,8 +29,8 @@ public class ValidationFailedCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
-        return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
+        // Use serializer chain to evaluate the HNItem entity according to validation rules.
+        return serializer.withRequest(request)
             .evaluateEntity(HNItem.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
@@ -38,26 +38,45 @@ public class ValidationFailedCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must match the criterion class name exactly (case-sensitive)
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<HNItem> context) {
          HNItem entity = context.entity();
-         // Validate required fields for HNItem: id and type
-         StringBuilder msg = new StringBuilder();
-         boolean missing = false;
 
+         // defensive null-check: if entity is missing treat as validation failure
+         if (entity == null) {
+             String message = "Entity is null";
+             logger.debug("Validation failed: {}", message);
+             return EvaluationOutcome.fail(message, StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         StringBuilder msg = new StringBuilder();
+         boolean failed = false;
+
+         // Validate required fields for HNItem: id and type (per functional requirements)
          if (entity.getId() == null || entity.getId() <= 0) {
              msg.append("Missing or invalid 'id'.");
-             missing = true;
+             failed = true;
          }
          if (entity.getType() == null || entity.getType().isBlank()) {
-             if (missing) msg.append(" ");
+             if (failed) msg.append(" ");
              msg.append("Missing or empty 'type'.");
-             missing = true;
+             failed = true;
          }
 
-         if (missing) {
+         // Additional data-quality check: originalJson should be present (service stores original JSON)
+         if (entity.getOriginalJson() == null || entity.getOriginalJson().isBlank()) {
+             if (failed) msg.append(" ");
+             msg.append("Missing or empty 'originalJson'.");
+             // treat as data quality failure distinct from simple validation of id/type
+             String message = msg.toString();
+             logger.debug("Validation/data-quality failed for HNItem id={} type={}: {}", entity.getId(), entity.getType(), message);
+             return EvaluationOutcome.fail(message, StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+
+         if (failed) {
              String message = msg.toString();
              logger.debug("Validation failed for HNItem id={} type={}: {}", entity.getId(), entity.getType(), message);
              return EvaluationOutcome.fail(message, StandardEvalReasonCategories.VALIDATION_FAILURE);

@@ -17,7 +17,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -30,6 +29,10 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
+/**
+ * Controller acting as a thin proxy to EntityService for HNItem entity.
+ * All business logic must remain in services/processors — controller only forwards requests.
+ */
 @RestController
 @RequestMapping("/api/v1/hn-items")
 @Tag(name = "HNItem", description = "CRUD proxy endpoints for HNItem entity")
@@ -360,9 +363,8 @@ public class HNItemController {
         }
     }
 
-    // Static DTO classes for requests and responses
+    // Static DTO classes for requests and responses (explicit getters/setters to avoid annotation-processor issues)
 
-    @Data
     @Schema(name = "HNItemRequest", description = "Request payload for HNItem")
     public static class HNItemRequest {
         @Schema(description = "Hacker News numeric id", example = "12345")
@@ -379,9 +381,50 @@ public class HNItemController {
 
         @Schema(description = "Processing status", example = "CREATED")
         private String status;
+
+        public HNItemRequest() {}
+
+        public Long getId() {
+            return id;
+        }
+
+        public void setId(Long id) {
+            this.id = id;
+        }
+
+        public String getType() {
+            return type;
+        }
+
+        public void setType(String type) {
+            this.type = type;
+        }
+
+        public ObjectNode getOriginalJson() {
+            return originalJson;
+        }
+
+        public void setOriginalJson(ObjectNode originalJson) {
+            this.originalJson = originalJson;
+        }
+
+        public String getImportTimestamp() {
+            return importTimestamp;
+        }
+
+        public void setImportTimestamp(String importTimestamp) {
+            this.importTimestamp = importTimestamp;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
     }
 
-    @Data
     @Schema(name = "HNItemResponse", description = "Response payload for HNItem")
     public static class HNItemResponse {
         @Schema(description = "Hacker News numeric id", example = "12345")
@@ -398,9 +441,50 @@ public class HNItemController {
 
         @Schema(description = "Processing status", example = "STORED")
         private String status;
+
+        public HNItemResponse() {}
+
+        public Long getId() {
+            return id;
+        }
+
+        public void setId(Long id) {
+            this.id = id;
+        }
+
+        public String getType() {
+            return type;
+        }
+
+        public void setType(String type) {
+            this.type = type;
+        }
+
+        public JsonNode getOriginalJson() {
+            return originalJson;
+        }
+
+        public void setOriginalJson(JsonNode originalJson) {
+            this.originalJson = originalJson;
+        }
+
+        public String getImportTimestamp() {
+            return importTimestamp;
+        }
+
+        public void setImportTimestamp(String importTimestamp) {
+            this.importTimestamp = importTimestamp;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
     }
 
-    @Data
     @Schema(name = "TechnicalIdResponse", description = "Response containing technicalId")
     public static class TechnicalIdResponse {
         @Schema(description = "Platform generated technical id", example = "3fa85f64-5717-4562-b3fc-2c963f66afa6")
@@ -411,12 +495,29 @@ public class HNItemController {
         public TechnicalIdResponse(String technicalId) {
             this.technicalId = technicalId;
         }
+
+        public String getTechnicalId() {
+            return technicalId;
+        }
+
+        public void setTechnicalId(String technicalId) {
+            this.technicalId = technicalId;
+        }
     }
 
-    @Data
     @Schema(name = "TechnicalIdsResponse", description = "Response containing list of technicalIds")
     public static class TechnicalIdsResponse {
         @Schema(description = "List of platform generated technical ids")
         private List<String> technicalIds = new java.util.ArrayList<>();
+
+        public TechnicalIdsResponse() {}
+
+        public List<String> getTechnicalIds() {
+            return technicalIds;
+        }
+
+        public void setTechnicalIds(List<String> technicalIds) {
+            this.technicalIds = technicalIds;
+        }
     }
 }

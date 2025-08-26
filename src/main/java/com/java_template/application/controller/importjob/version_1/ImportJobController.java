@@ -14,7 +14,6 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
-import io.swagger.v3.oas.annotations.examples.ExampleObject;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import lombok.Data;
 import org.slf4j.Logger;
@@ -51,7 +50,7 @@ public class ImportJobController {
     public ResponseEntity<?> createImportJob(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Import job payload", required = true,
                     content = @Content(schema = @Schema(implementation = CreateImportJobRequest.class)))
-            @RequestBody CreateImportJobRequest request
+            @org.springframework.web.bind.annotation.RequestBody CreateImportJobRequest request
     ) {
         try {
             if (request == null) {
@@ -193,14 +192,14 @@ public class ImportJobController {
     @Data
     @Schema(name = "CreateImportJobResponse", description = "Response after creating an ImportJob")
     public static class CreateImportJobResponse {
-        @Schema(description = "Technical id assigned by the platform", example = "importJob-abc123")
+        @Schema(description = "Technical id assigned by the platform", example = "e7b8d5a0-1f2c-4b3a-9c1d-0b1a2c3d4e5f")
         private String technicalId;
     }
 
     @Data
     @Schema(name = "ImportJobResponse", description = "ImportJob representation returned by GET")
     public static class ImportJobResponse {
-        @Schema(description = "Technical id assigned by the platform", example = "importJob-abc123")
+        @Schema(description = "Technical id assigned by the platform", example = "e7b8d5a0-1f2c-4b3a-9c1d-0b1a2c3d4e5f")
         private String technicalId;
 
         @Schema(description = "Client provided job id", example = "optional-client-id")

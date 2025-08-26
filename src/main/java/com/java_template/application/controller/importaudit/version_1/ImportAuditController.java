@@ -15,7 +15,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -28,8 +27,6 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 @RestController
 @RequestMapping("/api/v1/import-audits")
@@ -385,9 +382,8 @@ public class ImportAuditController {
         return entity;
     }
 
-    // Static DTO classes
+    // Static DTO classes (explicit getters/setters to avoid Lombok dependency issues)
 
-    @Data
     public static class ImportAuditRequest {
         @Schema(description = "Unique audit id (technical)", required = true, example = "audit-abc-123")
         private String auditId;
@@ -406,9 +402,58 @@ public class ImportAuditController {
 
         @Schema(description = "ISO-8601 timestamp for the audit", required = true, example = "2025-08-26T12:00:00Z")
         private String timestamp;
+
+        public ImportAuditRequest() {}
+
+        public String getAuditId() {
+            return auditId;
+        }
+
+        public void setAuditId(String auditId) {
+            this.auditId = auditId;
+        }
+
+        public Long getHnId() {
+            return hnId;
+        }
+
+        public void setHnId(Long hnId) {
+            this.hnId = hnId;
+        }
+
+        public String getJobId() {
+            return jobId;
+        }
+
+        public void setJobId(String jobId) {
+            this.jobId = jobId;
+        }
+
+        public String getOutcome() {
+            return outcome;
+        }
+
+        public void setOutcome(String outcome) {
+            this.outcome = outcome;
+        }
+
+        public java.util.Map<String, Object> getDetails() {
+            return details;
+        }
+
+        public void setDetails(java.util.Map<String, Object> details) {
+            this.details = details;
+        }
+
+        public String getTimestamp() {
+            return timestamp;
+        }
+
+        public void setTimestamp(String timestamp) {
+            this.timestamp = timestamp;
+        }
     }
 
-    @Data
     public static class ImportAuditResponse {
         @Schema(description = "Technical audit id", example = "audit-abc-123")
         private String auditId;
@@ -427,29 +472,117 @@ public class ImportAuditController {
 
         @Schema(description = "ISO-8601 timestamp for the audit", example = "2025-08-26T12:00:00Z")
         private String timestamp;
+
+        public ImportAuditResponse() {}
+
+        public String getAuditId() {
+            return auditId;
+        }
+
+        public void setAuditId(String auditId) {
+            this.auditId = auditId;
+        }
+
+        public Long getHnId() {
+            return hnId;
+        }
+
+        public void setHnId(Long hnId) {
+            this.hnId = hnId;
+        }
+
+        public String getJobId() {
+            return jobId;
+        }
+
+        public void setJobId(String jobId) {
+            this.jobId = jobId;
+        }
+
+        public String getOutcome() {
+            return outcome;
+        }
+
+        public void setOutcome(String outcome) {
+            this.outcome = outcome;
+        }
+
+        public java.util.Map<String, Object> getDetails() {
+            return details;
+        }
+
+        public void setDetails(java.util.Map<String, Object> details) {
+            this.details = details;
+        }
+
+        public String getTimestamp() {
+            return timestamp;
+        }
+
+        public void setTimestamp(String timestamp) {
+            this.timestamp = timestamp;
+        }
     }
 
-    @Data
     public static class AddResponse {
         @Schema(description = "Technical id of the created entity", example = "550e8400-e29b-41d4-a716-446655440000")
         private String technicalId;
+
+        public AddResponse() {}
+
+        public String getTechnicalId() {
+            return technicalId;
+        }
+
+        public void setTechnicalId(String technicalId) {
+            this.technicalId = technicalId;
+        }
     }
 
-    @Data
     public static class AddBatchResponse {
         @Schema(description = "List of technical ids for created entities")
         private List<String> technicalIds;
+
+        public AddBatchResponse() {
+            this.technicalIds = new ArrayList<>();
+        }
+
+        public List<String> getTechnicalIds() {
+            return technicalIds;
+        }
+
+        public void setTechnicalIds(List<String> technicalIds) {
+            this.technicalIds = technicalIds;
+        }
     }
 
-    @Data
     public static class UpdateResponse {
         @Schema(description = "Technical id of the updated entity")
         private String technicalId;
+
+        public UpdateResponse() {}
+
+        public String getTechnicalId() {
+            return technicalId;
+        }
+
+        public void setTechnicalId(String technicalId) {
+            this.technicalId = technicalId;
+        }
     }
 
-    @Data
     public static class DeleteResponse {
         @Schema(description = "Technical id of the deleted entity")
         private String technicalId;
+
+        public DeleteResponse() {}
+
+        public String getTechnicalId() {
+            return technicalId;
+        }
+
+        public void setTechnicalId(String technicalId) {
+            this.technicalId = technicalId;
+        }
     }
 }

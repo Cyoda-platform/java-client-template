@@ -19,6 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 @Component
@@ -53,14 +54,24 @@ public class FinalizeJobProcessor implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
+    /**
+     * Lightweight validation that ensures the processor only runs when there is something to inspect.
+     * Do NOT rely on ImportJob.isValid() here because processedItemId is optional during workflow progress.
+     */
     private boolean isValidEntity(ImportJob entity) {
-        return entity != null && entity.isValid();
+        if (entity == null) return false;
+        // valid if we have either the item payload or a reference to a processed item or at least a status
+        if (entity.getItemJson() != null) return true;
+        if (entity.getProcessedItemId() != null) return true;
+        return entity.getStatus() != null && !entity.getStatus().isBlank();
     }
 
     private ImportJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<ImportJob> context) {
         ImportJob job = context.entity();
+        String jobRef = Objects.toString(job != null ? job.getJobId() : null, "unknown");
+        String currentStatus = job != null ? job.getStatus() : null;
         try {
-            logger.info("Finalizing ImportJob jobId={}, technical entity state status={}", job.getJobId(), job.getStatus());
+            logger.info("Finalizing ImportJob jobId={} technical entity state status={}", jobRef, currentStatus);
 
             // Try to determine HN item id to inspect its processing result.
             Long hnId = job.getProcessedItemId();
@@ -69,18 +80,19 @@ public class FinalizeJobProcessor implements CyodaProcessor {
             if (hnId == null && job.getItemJson() != null) {
                 try {
                     ObjectNode itemNode = objectMapper.convertValue(job.getItemJson(), ObjectNode.class);
-                    if (itemNode.has("id") && !itemNode.get("id").isNull()) {
+                    if (itemNode != null && itemNode.has("id") && !itemNode.get("id").isNull()) {
                         hnId = itemNode.get("id").asLong();
                         job.setProcessedItemId(hnId);
+                        logger.debug("Extracted hnId={} from itemJson for jobId={}", hnId, jobRef);
                     }
                 } catch (IllegalArgumentException e) {
-                    logger.debug("Unable to convert itemJson to ObjectNode to extract id for jobId={}: {}", job.getJobId(), e.getMessage());
+                    logger.debug("Unable to convert itemJson to ObjectNode to extract id for jobId={}: {}", jobRef, e.getMessage());
                 }
             }
 
             if (hnId == null) {
                 // Nothing to finalize against; mark as FAILED to indicate we couldn't resolve the item
-                logger.warn("ImportJob {} has no processedItemId and itemJson did not contain an id. Marking job FAILED.", job.getJobId());
+                logger.warn("ImportJob {} has no processedItemId and itemJson did not contain an id. Marking job FAILED.", jobRef);
                 job.setStatus("FAILED");
                 return job;
             }
@@ -97,10 +109,17 @@ public class FinalizeJobProcessor implements CyodaProcessor {
                 true
             );
 
-            ArrayNode items = itemsFuture.join();
+            ArrayNode items = null;
+            try {
+                items = itemsFuture.join();
+            } catch (Exception e) {
+                logger.error("Error while querying HNItem for id={} for ImportJob {}: {}", hnId, jobRef, e.getMessage(), e);
+                // treat as transient failure - leave job status unchanged so monitor can retry
+                return job;
+            }
 
             if (items == null || items.size() == 0) {
-                logger.warn("HNItem with id {} not found for ImportJob {}. Marking job FAILED.", hnId, job.getJobId());
+                logger.warn("HNItem with id {} not found for ImportJob {}. Marking job FAILED.", hnId, jobRef);
                 job.setStatus("FAILED");
                 return job;
             }
@@ -110,22 +129,22 @@ public class FinalizeJobProcessor implements CyodaProcessor {
             String hnStatus = hnItemNode.has("status") && !hnItemNode.get("status").isNull() ? hnItemNode.get("status").asText() : null;
 
             if ("STORED".equalsIgnoreCase(hnStatus)) {
-                logger.info("HNItem {} is STORED. Marking ImportJob {} as COMPLETED.", hnId, job.getJobId());
+                logger.info("HNItem {} is STORED. Marking ImportJob {} as COMPLETED.", hnId, jobRef);
                 job.setStatus("COMPLETED");
                 // ensure processedItemId is set from the HNItem payload if missing
-                if (job.getProcessedItemId() == null && hnItemNode.has("id")) {
+                if (job.getProcessedItemId() == null && hnItemNode.has("id") && !hnItemNode.get("id").isNull()) {
                     job.setProcessedItemId(hnItemNode.get("id").asLong());
                 }
             } else if ("FAILED".equalsIgnoreCase(hnStatus)) {
-                logger.info("HNItem {} is FAILED. Marking ImportJob {} as FAILED.", hnId, job.getJobId());
+                logger.info("HNItem {} is FAILED. Marking ImportJob {} as FAILED.", hnId, jobRef);
                 job.setStatus("FAILED");
             } else {
                 // HNItem is not yet in a terminal state; leave job as-is (monitoring/waiting should continue)
-                logger.info("HNItem {} is in state '{}'. Leaving ImportJob {} status unchanged ({})", hnId, hnStatus, job.getJobId(), job.getStatus());
+                logger.info("HNItem {} is in state '{}'. Leaving ImportJob {} status unchanged (was={})", hnId, hnStatus, jobRef, currentStatus);
             }
 
         } catch (Exception ex) {
-            logger.error("Error finalizing ImportJob {}: {}", job.getJobId(), ex.getMessage(), ex);
+            logger.error("Error finalizing ImportJob {}: {}", jobRef, ex.getMessage(), ex);
             // On unexpected errors, mark job as FAILED
             job.setStatus("FAILED");
         }
