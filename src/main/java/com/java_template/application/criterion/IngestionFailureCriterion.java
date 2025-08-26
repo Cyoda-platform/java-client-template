@@ -29,7 +29,7 @@ public class IngestionFailureCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Job.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,7 +38,8 @@ public class IngestionFailureCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must match the exact criterion name
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Job> context) {
@@ -76,8 +77,18 @@ public class IngestionFailureCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("Invalid recordsFailed value", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
+         // If nothing was fetched at all, consider it a failure (no input)
+         if (fetched == 0) {
+             return EvaluationOutcome.fail("Ingestion fetched zero records", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+
+         // If all fetched records failed, it's a clear failure
+         if (failed > 0 && failed.equals(fetched)) {
+             return EvaluationOutcome.fail("Ingestion failed: all fetched records (" + fetched + ") failed", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+
          // If there are failed records and no successful processing, treat as ingestion failure
-         if (failed > 0 && (processed == 0)) {
+         if (failed > 0 && processed == 0) {
              return EvaluationOutcome.fail("Ingestion failed: " + failed + " records failed and none processed", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
