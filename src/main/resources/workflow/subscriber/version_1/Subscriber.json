@@ -1,0 +1,92 @@
+{
+  "version": "1.0",
+  "name": "Subscriber Workflow",
+  "desc": "Workflow for Subscriber entity based on functional requirements (registration, validation, activation, pause/unsubscribe/delete). Manual transitions represent user actions.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "to_registered",
+          "next": "REGISTERED",
+          "manual": false
+        }
+      ]
+    },
+    "REGISTERED": {
+      "transitions": [
+        {
+          "name": "validate_subscriber",
+          "next": "VALIDATED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SubscriberValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATED": {
+      "transitions": [
+        {
+          "name": "activate_subscriber",
+          "next": "ACTIVE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ActivateSubscriberProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "pause_subscriber",
+          "next": "PAUSED",
+          "manual": true
+        },
+        {
+          "name": "unsubscribe_subscriber",
+          "next": "UNSUBSCRIBED",
+          "manual": true
+        }
+      ]
+    },
+    "PAUSED": {
+      "transitions": [
+        {
+          "name": "unsubscribe_from_paused",
+          "next": "UNSUBSCRIBED",
+          "manual": true
+        },
+        {
+          "name": "delete_from_paused",
+          "next": "DELETED",
+          "manual": true
+        }
+      ]
+    },
+    "UNSUBSCRIBED": {
+      "transitions": [
+        {
+          "name": "delete_subscriber",
+          "next": "DELETED",
+          "manual": true
+        }
+      ]
+    },
+    "DELETED": {
+      "transitions": []
+    }
+  }
+}

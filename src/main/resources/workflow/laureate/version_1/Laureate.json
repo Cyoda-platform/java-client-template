@@ -1,0 +1,109 @@
+{
+  "version": "1.0",
+  "name": "Laureate Workflow",
+  "desc": "Finite state workflow for Laureate entity based on functional requirements (detection, validation, enrichment, deduplication, storage, notification, archive).",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "to_detected",
+          "next": "DETECTED",
+          "manual": false
+        }
+      ]
+    },
+    "DETECTED": {
+      "transitions": [
+        {
+          "name": "validate_laureate",
+          "next": "VALIDATED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "LaureateValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATED": {
+      "transitions": [
+        {
+          "name": "enrich_laureate",
+          "next": "ENRICHED",
+          "manual": false
+        }
+      ]
+    },
+    "ENRICHED": {
+      "transitions": [
+        {
+          "name": "deduplicate_check",
+          "next": "DEDUPED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DeduplicationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "DEDUPED": {
+      "transitions": [
+        {
+          "name": "persist_laureate",
+          "next": "STORED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PersistLaureateProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "STORED": {
+      "transitions": [
+        {
+          "name": "mark_for_notification",
+          "next": "MARKED_FOR_NOTIFICATION",
+          "manual": false
+        }
+      ]
+    },
+    "MARKED_FOR_NOTIFICATION": {
+      "transitions": [
+        {
+          "name": "deliver_notifications",
+          "next": "NOTIFIED",
+          "manual": false
+        }
+      ]
+    },
+    "NOTIFIED": {
+      "transitions": [
+        {
+          "name": "archive_laureate",
+          "next": "ARCHIVED",
+          "manual": true
+        }
+      ]
+    },
+    "ARCHIVED": {
+      "transitions": []
+    }
+  }
+}
