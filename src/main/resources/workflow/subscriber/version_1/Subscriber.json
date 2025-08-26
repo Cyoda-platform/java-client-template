@@ -1,0 +1,101 @@
+{
+  "version": "1.0",
+  "name": "Subscriber Workflow",
+  "desc": "Workflow for Subscriber entity: registration, activation, notification processing and final delivery outcome. SendNotificationProcessor handles delivery attempts per subscriber.retryPolicy and records delivery status.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "to_registered",
+          "next": "REGISTERED",
+          "manual": false
+        }
+      ]
+    },
+    "REGISTERED": {
+      "transitions": [
+        {
+          "name": "register_subscriber",
+          "next": "ACTIVE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RegisterSubscriberProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "on_job_completion",
+          "next": "PENDING_NOTIFICATION",
+          "manual": false
+        }
+      ]
+    },
+    "PENDING_NOTIFICATION": {
+      "transitions": [
+        {
+          "name": "start_send_notification",
+          "next": "PROCESSING_NOTIFICATION",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendNotificationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PROCESSING_NOTIFICATION": {
+      "transitions": [
+        {
+          "name": "delivery_succeeded",
+          "next": "NOTIFIED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DeliverySuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "delivery_failed",
+          "next": "FAILED_NOTIFICATION",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DeliveryFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "NOTIFIED": {
+      "transitions": []
+    },
+    "FAILED_NOTIFICATION": {
+      "transitions": []
+    }
+  }
+}
