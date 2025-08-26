@@ -1,0 +1,59 @@
+{
+    "entities": [
+        {
+            "Job": {
+                "entity_data_example": {
+                    "createdAt": "2025-01-15T08:00:00Z",
+                    "jobId": "job_2025_01",
+                    "lastRunAt": "2025-01-15T08:05:00Z",
+                    "name": "Daily Nobel Poll",
+                    "parameters": {
+                        "batchSize": 100,
+                        "includeAffiliations": true
+                    },
+                    "resultSummary": "10 new, 3 updated",
+                    "retryCount": 0,
+                    "schedule": "0 0 * * *",
+                    "sourceEndpoint": "https://api.opendatasoft.org/nobel/laureates",
+                    "status": "COMPLETED"
+                }
+            }
+        },
+        {
+            "Laureate": {
+                "entity_data_example": {
+                    "affiliations": [
+                        "University of Oslo",
+                        "Example Institute"
+                    ],
+                    "category": "physics",
+                    "changeType": "new",
+                    "country": "Norway",
+                    "detectedAt": "2025-01-15T08:01:00Z",
+                    "fullName": "Ada Example",
+                    "laureateId": "laureate_123",
+                    "prizeYear": 2024,
+                    "published": true,
+                    "rawPayload": "{\"id\":\"laureate_123\",\"name\":\"Ada Example\"}"
+                }
+            }
+        },
+        {
+            "Subscriber": {
+                "entity_data_example": {
+                    "contactEndpoint": "https://hooks.example.com/notify",
+                    "createdAt": "2025-01-10T12:00:00Z",
+                    "filters": {
+                        "category": "physics",
+                        "country": "Norway",
+                        "prizeYear": 2024
+                    },
+                    "format": "summary",
+                    "name": "Research Team",
+                    "status": "ACTIVE",
+                    "subscriberId": "sub_42"
+                }
+            }
+        }
+    ]
+}
