@@ -1,0 +1,50 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "age": 3,
+                    "breed": "Labrador",
+                    "description": "Friendly with kids",
+                    "id": "pet-123",
+                    "name": "Buddy",
+                    "photos": [
+                        "https://example.com/photos/pet-123-1.jpg"
+                    ],
+                    "sourceId": "ps-987",
+                    "sourceUrl": "https://petstore.example.com/pets/ps-987",
+                    "species": "dog",
+                    "status": "available"
+                }
+            }
+        },
+        {
+            "User": {
+                "entity_data_example": {
+                    "address": "123 Main St, Anytown",
+                    "email": "jane.doe@example.com",
+                    "id": "user-456",
+                    "name": "Jane Doe",
+                    "phone": "+15551234567",
+                    "preferences": [
+                        "dogs",
+                        "small"
+                    ],
+                    "status": "verified"
+                }
+            }
+        },
+        {
+            "AdoptionRequest": {
+                "entity_data_example": {
+                    "id": "req-789",
+                    "notes": "Looking to adopt as a family member",
+                    "petId": "pet-123",
+                    "requestedDate": "2025-01-01T12:00:00Z",
+                    "status": "pending",
+                    "userId": "user-456"
+                }
+            }
+        }
+    ]
+}
